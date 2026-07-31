@@ -35,6 +35,7 @@ from rasm.compute.solvers.receipt import SolverReceipt, graduate, verdict
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] -------------------------------------------------------------------------------
@@ -169,18 +170,21 @@ class NonlinearIntent:
     ) -> "NonlinearIntent":
         return NonlinearIntent(least_squares=(residual_fn, x0, solver, policy))
 
-    async def solve(self, lane: LanePolicy) -> "RuntimeRail[SolverReceipt]":
+    async def solve(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
         # one HOSTILE-trait Kernel carries the solve — spec data and operands (`_dispatch` resolves by import in the worker); isolation,
-        # band, and worker-death retry derive at the runtime Kernel crossing. The weave owns span, fence, and the contributor harvest.
+        # band, and worker-death retry derive at the runtime Kernel crossing. The weave owns span, fence, and the contributor harvest
+        # under the caller's composition key, defaulted so the root call shape stays scope-free.
         async def dispatch() -> RuntimeRail[SolverReceipt]:
             return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self)
 
-        return await evidence_run(EvidenceScope.NONLINEAR, f"solve.{self.tag}", dispatch, facts={"route": self.tag})
+        return await evidence_run(EvidenceScope.NONLINEAR, f"solve.{self.tag}", dispatch, facts={"route": self.tag}, composition=composition)
 
-    def graduates(self, receipt: SolverReceipt, key: ContentKey, ceiling: dict[str, float] | None = None) -> "RuntimeRail[GraduationReceipt]":
+    def graduates(
+        self, receipt: SolverReceipt, key: ContentKey, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> "RuntimeRail[GraduationReceipt]":
         # `graduate` projects the receipt's own ledger, so the receipt IS the evidence; the key names the
         # solved operand the caller already identified — a convergence verdict keys to what was solved, never to itself.
-        return graduate(EvidenceScope.NONLINEAR.value, f"solve.{self.tag}", key, receipt, ceiling or dict(_CEILING.items()))
+        return graduate(EvidenceScope.NONLINEAR.value, f"solve.{self.tag}", key, receipt, ceiling or dict(_CEILING.items()), composition=composition)
 
 
 # Seven gated JAX modules folded into one value object; carrier methods read the handles off `self`, never a helper re-import or a

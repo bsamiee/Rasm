@@ -400,7 +400,7 @@ public static class TabularWire {
         Lowered(row).ToDictionary(static kv => kv.Key, kv => plan.Cell(kv.Key, kv.Value));
 
     static Validation<TabularFault, Unit> Contract<T>(Seq<IDictionary<string, object>> rows) =>
-        rows.HeadOrNone().Match(
+        rows.Head.Match(
             None: static () => (Validation<TabularFault, Unit>)unit,
             Some: static head => toSeq(Options.GetTypeInfo(typeof(T)).Properties)
                 .Filter(static p => p.Set is not null)

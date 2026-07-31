@@ -22,6 +22,7 @@ Structure vocabulary is consumed from `document/model#NODE`: `DocumentNode`, the
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field as dc_field
 from enum import StrEnum
+from functools import partial
 from io import BytesIO
 from itertools import pairwise
 from threading import Lock
@@ -317,9 +318,13 @@ class AccessFact:
 
 class Access(Struct, frozen=True):
     # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
+    # `key` is the PRE-RUN mint taken ONCE at `of` and carried: the preimage re-encodes the whole `pdf` payload and
+    # `ContentIdentity.key` opens a `content.derive` span per call, so a property re-read would pay both again at the
+    # receipt and a third time at `contribute` — and the synchronous port reaches no closure to capture it.
     request: AccessRequest
     pdf: bytes
     lane: LanePolicy
+    key: ContentKey
     fact: AccessFact | None = None
 
     @property
@@ -328,18 +333,13 @@ class Access(Struct, frozen=True):
 
     @classmethod
     def of(cls, request: AccessRequest, pdf: bytes, /, *, lane: LanePolicy) -> Result[Self, AccessFault]:
-        return Ok(cls(request=request, pdf=pdf, lane=lane)) if pdf else Error(AccessFault(empty=None))
+        return Ok(cls(request=request, pdf=pdf, lane=lane, key=_minted(request, pdf))) if pdf else Error(AccessFault(empty=None))
 
     def _stepped(self) -> Self:
         return structs.replace(self, fact=_ARM[self.op](self))
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.pdf)))
-
-    @property
-    def _key(self) -> ContentKey:
-        # `ContentIdentity.key` mints the bare `ContentKey`; `.of` is the railed form and never keys a plan.
-        return ContentIdentity.key(f"access-{self.op}", _AUDIT_ENCODER.encode((self.request, self.pdf)))
+        return ArtifactWork(key=self.key, work=partial(self._emit, self.key), parents=(), admission=Admission(keyed=None), cost=float(len(self.pdf)))
 
     @receipted(
         OPEN
@@ -349,9 +349,9 @@ class Access(Struct, frozen=True):
         crossed = await self.lane.offload(Kernel.of(self._stepped, KernelTrait.RELEASING))
         return crossed.default_with(lambda fault: _access_raise(fault))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # terminal receipt threads the PRE-RUN input key so receipt.slot == node.key.
-        return (await async_boundary(f"access.{self.op}", self._authored)).map(lambda done: done._receipt(self._key))
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        # terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
+        return (await async_boundary(f"access.{self.op}", self._authored)).map(lambda done: done._receipt(key))
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
         assert self.fact is not None
@@ -371,7 +371,14 @@ class Access(Struct, frozen=True):
     def contribute(self) -> Iterable[Receipt]:
         if self.fact is None:  # contribute rides the stepped owner the weave returned, never the seed
             return
-        yield from self._receipt(self._key).contribute()
+        yield from self._receipt(self.key).contribute()
+
+
+def _minted(request: AccessRequest, pdf: bytes, /) -> ContentKey:
+    # `ContentIdentity.key` mints the bare `ContentKey`; `.of` is the railed form and never keys a plan.
+    # Called exactly once per owner, at admission.
+    op = AccessOp.TAG if request.tag == "tagged" else AccessOp(request.tag)
+    return ContentIdentity.key(f"access-{op}", _AUDIT_ENCODER.encode((request, pdf)))
 
 
 def _access_raise(fault: object) -> "Access":

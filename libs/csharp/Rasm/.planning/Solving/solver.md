@@ -1,6 +1,6 @@
 # [RASM_CONSTRAINTS_SOLVER]
 
-`Rasm.Solving` owns one damped Gauss-Newton functor and the parametric-sketch algebra it serves. `Lm.Minimize` is the geometry kernel's one nonlinear least-squares iterate: every `ILmModel` minimizes on the same accept/reject λ-ladder under one attempt budget, routing ceiling-exhausted rank deficiency to `GeometryFault.SingularSystem` while `SolveReceipt` evidence gates each step all-finite. Parametric-sketch solving closes over that functor — a closed `Constraint` `[Union]` is one residual-and-Jacobian algebra, `ConstraintSystem` folds entity↔constraint incidence into QuikGraph islands, and `ConstraintSolver.Solve` returns `Solution`.
+`Rasm.Solving` owns one damped Gauss-Newton functor and the parametric-sketch algebra it serves. `Lm.Minimize` is the kernel's one nonlinear least-squares iterate: every `ILmModel` minimizes on one accept/reject λ-ladder under one attempt budget, rank deficiency past the ceiling routing to `GeometryFault.SingularSystem` and `SolveReceipt` evidence gating each step all-finite. Sketch solving closes over that functor — one closed `Constraint` `[Union]` residual-and-Jacobian algebra, `ConstraintSystem` folding incidence into QuikGraph islands, `ConstraintSolver.Solve` returning `Solution`.
 
 Solver geometry composes the settled `Point3d`/`Vector3d` vocabulary and routes every factorization through the `Numerics/matrix` owners. Caller `Op` keys thread through every owner, `ddouble` accumulates `Σr²`, and band-2400 `GeometryFault` cases carry every failure; parameters stay raw `double` and public output is `Solution` with its distinct `ConstraintSolveReceipt`. Sibling `EntityKind` and local `SketchEntityKind` stay separate vocabularies.
 
@@ -13,7 +13,7 @@ Solver geometry composes the settled `Point3d`/`Vector3d` vocabulary and routes 
 
 - Owner: `ILmModel` mints the residual+Jacobian floor — `Dof`, `Seed`, the 106-bit `Norm`, and packed-upper `Linearize` — the open instance-interface seam every residual-row system implements; `SolvePolicy` the λ-ladder policy record carrying the `Canonical` row and clamped `Lower`/`Raise` transitions; `LmState` the internal trial carrier; `LmResult` the typed outcome registering `IValidityEvidence`; `Lm` the static functor surface.
 - Cases: `SolveStatus` closes over `Converged` and `Stalled`; the singular outcome rides the `Fin` failure rail as `GeometryFault.SingularSystem`, kept off the status vocabulary.
-- Entry: `Lm.Minimize(ILmModel, SolvePolicy, Op?)` is the one nonlinear least-squares entrypoint. It routes `GeometryFault.SingularSystem(rank, dof)` when the damped normal matrix stays rank-deficient past `LambdaCeiling` — rank read as the `JᵀJ` eigen-rank through `SymmetricMatrix.DecomposeEigen`, counted spectral-radius-relative against `EpsilonPolicy.SqrtEpsilon`, a functor-computable witness needing no dense `J`; every other outcome is a success-carrier `LmResult` whose `Status` separates the converged fixpoint from the budget stall.
+- Entry: `Lm.Minimize(ILmModel, SolvePolicy, Op?)` is the one nonlinear least-squares entrypoint. It routes `GeometryFault.SingularSystem(rank, dof)` when the damped normal matrix stays rank-deficient past `LambdaCeiling` — rank read as the `JᵀJ` eigen-rank through `SymmetricMatrix.DecomposeEigenDetailed`, counted spectral-radius-relative against `EpsilonPolicy.SqrtEpsilon`, a functor-computable witness needing no dense `J`; every other outcome is a success-carrier `LmResult` whose `Status` separates the converged fixpoint from the budget stall.
 - Auto: every foreign model member executes inside the `Op.Catch` funnel — policy and model admission reject a non-finite, non-monotone, or budget-uncrossable policy and a mis-shaped or non-finite seed, and no member runs outside the boundary. Convergence is `‖r‖₂ < ResidualTolerance` or a `‖δ‖₂ < StepFloor` stationary step; a zero-diagonal column damps on the bare `λ` floor because multiplicative damping never regularizes an exact zero, holding that coordinate at the seed — the under-constrained manifold behavior the entry promises. One MathNet path `SymmetricMatrix.Of → DecomposeCholesky → SolveDetailed` mints `SolveReceipt` gating each step all-finite, so an indefinite non-throwing factor fails the mint and the ladder climbs rather than accept a NaN step. Every trial increments `Attempts`, accepted and rejected trials share `MaxIterations` so retry recursion cannot outlive the budget, and objective comparison stays `ddouble` until the one result mint admits a `double` readout.
 - Receipt: `LmResult` carries the converged outcome; the result mint rejects a 106-bit norm outside the `double` range before construction, and a caller reads `Status` before consuming a stalled vector.
 - Packages: `Rasm.Numerics` (`SymmetricMatrix`/`CholeskyResult`/`Dimension`/`PositiveMagnitude`/`EpsilonPolicy` — the `Numerics/matrix` + `Numerics/atoms` owners), TYoshimura.DoubleDouble (`ddouble`/`ddouble.Sqrt`, the 106-bit objective), System.Numerics.Tensors (`TensorPrimitives.Negate`/`Norm`/`Add`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`), LanguageExt.Core (`Fin`), BCL inbox.
@@ -102,9 +102,9 @@ public interface ILmModel {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Lm {
-    // Mirrors the SymmetricMatrix packed-upper FlatIndex so every model scatters the owner's own layout.
-    internal static int PackedIndex(int n, int i, int j) =>
-        checked((int)(((long)i * n) - ((long)i * (i - 1) / 2L) + (j - i)));
+    // Packed-upper addressing delegates to the ONE SymmetricMatrix.FlatIndex owner — the formula lives there alone,
+    // so a layout change is one all-owner edit by construction rather than by ruling.
+    internal static int PackedIndex(int n, int i, int j) => SymmetricMatrix.FlatIndex(n: n, i: i, j: j);
 
     public static Fin<LmResult> Minimize(ILmModel model, SolvePolicy policy, Op? key = null) {
         Op op = key.OrDefault();
@@ -139,8 +139,8 @@ public static class Lm {
         int n = dof;
         if (state.Lambda > policy.LambdaCeiling)
             return SymmetricMatrix.Of(Dimension.Create(n), new Arr<double>(packedNormal), key)
-                .Bind(normal => normal.DecomposeEigen(key))
-                .Map(static pairs => pairs.Map(static p => Math.Abs(p.Eigenvalue)))
+                .Bind(normal => normal.DecomposeEigenDetailed(key))
+                .Map(static receipt => receipt.Pairs.Map(static p => Math.Abs(p.Eigenvalue)))   // order-independent: radius and count fold the whole spectrum
                 .Map(spectrum => spectrum.Fold(0.0, Math.Max) is var radius && radius <= 0.0
                     ? 0
                     : spectrum.Count(v => v > EpsilonPolicy.SqrtEpsilon * radius))
@@ -219,7 +219,7 @@ public static class Lm {
 - Owner: `SketchEntityKind` `[SmartEnum<int>]` discriminates the parametric primitive, each row carrying its parameter `Arity` and a `Carrier` binding to the `Rasm.Domain` `Kind` so admission faults mint typed discriminants; `Entity` is one parametric-primitive algebra over every kind, carrying its kind and its `[Offset, Offset+Arity)` slice into the flat parameter vector; `Constraint` the closed relation `[Union]` whose generated-`Switch` `Residual`, `Touches`, and `WellFormed` folds return residual rows with analytic partials, name the incident entities, and state the per-case operand-kind law; `ConstraintSystem` the immutable graph with accumulating `Build` admission and the QuikGraph `Islands` decomposition; `DofAnalysis`/`DofReport` the verdict and per-island evidence; `ConstraintModel` the island-scoped `ILmModel`; `ConstraintSolveReceipt`/`Solution` the outcome pair; `ConstraintSolver` the static surface owning `Analyze`/`StructuralAnalyze`/`WitnessAnalyze` and the island-folded `Solve`.
 - Cases: `Constraint` is the closed relation `[Union]` the fence rosters; `Ground` is the gauge anchor whose absence leaves the rigid-body freedoms honestly under-constrained, and `Distance`, `Tangent`, and `OnCircle` carry squared residuals staying C¹ at coincident and zero-length configurations where the `√`-form Jacobian is undefined. `DofAnalysis` adds the witness-numeric `RedundantConsistent` to the three structural verdicts — the redundant-but-consistent system a row count misclassifies as over-constrained. `SketchEntityKind` discriminates the parametric primitives, each row carrying its parameter arity.
 - Entry: `ConstraintSolver.Solve(ConstraintSystem, SolvePolicy, Op?)` decomposes into islands, instantiates `ConstraintModel : ILmModel` per island, runs `Lm.Minimize` on each small normal system, scatters the sub-solutions back into one parameter vector, and gates the assembled result: `GeometryFault.OverConstrained` when the witness verdict is over-determined and the global residual stays past tolerance — a redundant-and-inconsistent system has no configuration, its payload carrying the dependent-row count `rows − rank(J)` at the witness — with `GeometryFault.SingularSystem` bubbling from any island's ladder; a well- or under-constrained system always solves, LM finding the nearest point on the manifold to the seed. `Analyze` is the pure total structural row-count verdict, `StructuralAnalyze` the per-island maximum-matching refinement, `WitnessAnalyze` the numeric-rank adjudicator. `ConstraintSystem.Build` is the accumulating admission: every non-finite seed value, seed/arity mismatch, dangling reference (membership tests the full `Entity` value, so a mis-kinded reference at a valid offset is equally dangling), operand-kind mismatch, duplicate constraint, and the empty-system report exit together through one `Validation<Error, T>` traverse.
-- Auto: `Islands` folds the entity↔constraint incidence into a transient `UndirectedGraph` and reads `ConnectedComponents` — each component solves on its own `dof_island²` normal matrix instead of `ParameterCount²`, the decomposition that makes a many-sketch document solve at the cost of its largest island; an untouched entity is a zero-row island converging at iteration 0. Per island, `ConstraintModel` gathers the columns into a compact local vector over a single-writer global scratch (islands are column-disjoint, so the scratch never races), folds `Σr²` at 106-bit `ddouble`, and accumulates packed-upper `JᵀJ` + `Jᵀr` from the analytic partials with global→local remap, so the dense `J` never materializes on the LM lane. Residual scatter accumulates rather than overwrites because an arm can emit one column twice for a shared or self-aliased entity. `StructuralAnalyze` reads `MaximumBipartiteMatchingAlgorithm` cardinality as the König structural rank — row deficiency localizes over-constraint to its island and column surplus under-constraint, the locality a global row count is blind to. `WitnessAnalyze` builds dense `J(seed)` through `DecomposeSvd`, reads true DOF `ParameterCount − Rank`, and projects the residual onto the left-null space via the `SvdResult.U` tail — a vanishing tail is `RedundantConsistent`, redundant constraints that all hold.
+- Auto: `Islands` folds the entity↔constraint incidence into a transient `UndirectedGraph` and reads `ConnectedComponents` — each component solves on its own `dof_island²` normal matrix instead of `ParameterCount²`, the decomposition that makes a many-sketch document solve at the cost of its largest island; an untouched entity is a zero-row island converging at iteration 0. Per island, `ConstraintModel` gathers the columns into a compact local vector over a single-writer global scratch (islands are column-disjoint, so the scratch never races), folds `Σr²` at 106-bit `ddouble`, and accumulates packed-upper `JᵀJ` + `Jᵀr` from the analytic partials with global→local remap, so the dense `J` never materializes on the LM lane. Residual scatter accumulates rather than overwrites because an arm can emit one column twice for a shared or self-aliased entity. `StructuralAnalyze` reads `MaximumBipartiteMatchingAlgorithm` cardinality as the König structural rank — row deficiency localizes over-constraint to its island and column surplus under-constraint, the locality a global row count is blind to. `WitnessAnalyze` runs PER ISLAND — `J(seed)` is block-diagonal under the island permutation, so each island's compact `rows_island × dof_island` dense block goes through `DecomposeSvd` and the fold is EQUAL to the global witness at `Σ dof_island²` cost, the same economy the solve fold buys; per island it reads true DOF `dof_island − Rank` and projects the residual onto the left-null space via the `SvdResult.U` tail — a vanishing tail is `RedundantConsistent`, redundant constraints that all hold — and verdicts fold `Over > RedundantConsistent > Under > Well` with dependent rows summed.
 - Receipt: `Solve` returns `Solution` carrying the converged parameters and the typed `ConstraintSolveReceipt`; `DofReport` is the diagnosis evidence a sketch UI reads to name which island over-constrains — the island whose deficiency row is positive.
 - Packages: `Rhino.Geometry` (`Point3d`/`Vector3d` for entity geometry), `Rasm.Numerics` (`SymmetricMatrix`/`CholeskyResult`/`Matrix`/`SvdResult`/`Dimension`/`PositiveMagnitude` — the `Numerics/matrix` + `Numerics/atoms` owners), QuikGraph (`UndirectedGraph`/`AdjacencyGraph`, `ConnectedComponents`, `MaximumBipartiteMatchingAlgorithm` — the incidence walks), TYoshimura.DoubleDouble (`ddouble` + `DoubleDoubleEnumerableExpand.Sum`, the 106-bit `Σr²`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`, generated `Switch`), LanguageExt.Core (`Fin`/`Validation`/`Seq`, the accumulating `.Traverse` admission), BCL inbox.
 - Growth: a new geometric relation is one `Constraint` case carrying its `Residual`, `Touches`, and `WellFormed` arms over the same functor; a new parametric primitive is one `SketchEntityKind` row with its arity, `Carrier`, and geometry accessors; a new DOF refinement is a `DofReport` column; a 3D sketch tier is an `Entity` accessor widening over the same constraint algebra.
@@ -544,7 +544,7 @@ public sealed record ConstraintSystem(
         LanguageExt.HashSet<Entity> placedSet = toHashSet(placed);
         Seq<Validation<Error, Unit>> probes =
             (entities.IsEmpty
-                ? Seq((Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.Point, -1, "empty-system").ToError())
+                ? Seq((Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.Point, None, "empty-system").ToError())
                 : Seq<Validation<Error, Unit>>())
             + entities.Map(static (item, index) => (Item: item, Index: index))
                 .Filter(static row => row.Item.Initial.Length != row.Item.Kind.Arity)
@@ -560,7 +560,7 @@ public sealed record ConstraintSystem(
                 .Map(row => (Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.Point, row.Index, "operand-kind-mismatch").ToError())
             + toSeq(constraints.CountBy(static constraint => constraint))
                 .Filter(static group => group.Value > 1)
-                .Map(group => (Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.Point, -1, $"duplicate-constraint:x{group.Value}").ToError());
+                .Map(group => (Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.Point, None, $"duplicate-constraint:x{group.Value}").ToError());
         return probes.Traverse(identity).As()
             .Map(_ => new ConstraintSystem(placed, constraints, seed, offset))
             .ToFin();
@@ -719,15 +719,58 @@ public static class ConstraintSolver {
     public static DofAnalysis WitnessAnalyze(ConstraintSystem system, Op? key = null) =>
         Witness(system, key.OrDefault()).Verdict;
 
-    // Witness core: the verdict plus the DEPENDENT-ROW count (rows − rank(J) at the witness) — the honest payload where a global row excess goes negative on a locally-over document.
+    // Witness core, PER ISLAND: J(seed) is block-diagonal under the island permutation (islands share no entity
+    // column and no constraint row), so its rank is the sum of island ranks and the left-null projection
+    // decomposes island-by-island — the per-island SVD is EQUAL to the global witness at Σ dof_island² cost
+    // instead of ParameterCount², preserving the island decomposition the solve fold exists for. Verdicts fold
+    // Over > RedundantConsistent > Under > Well (the global SVD's own precedence: any inconsistent deficiency
+    // makes the system over-determined regardless of free DOF elsewhere); DependentRows sums island deficiencies.
     static (DofAnalysis Verdict, int DependentRows) Witness(ConstraintSystem system, Op key) {
-        (int rows, double[] r, Fin<Matrix> jacobian) = LinearizeDense(system, system.Seed, key);
-        if (rows == 0) return (DofAnalysis.UnderConstrained, 0);  // constraint-free sketch: every DOF free
-        return jacobian.Bind(j => j.DecomposeSvd(key)).Match(
-            Succ: svd => rows <= svd.Rank
-                ? (system.ParameterCount - svd.Rank > 0 ? DofAnalysis.UnderConstrained : DofAnalysis.WellConstrained, 0)
-                : (ConsistentAtWitness(svd, r, rows) ? DofAnalysis.RedundantConsistent : DofAnalysis.OverConstrained, rows - svd.Rank),
-            Fail: _ => (Analyze(system, rows), Math.Max(rows - system.ParameterCount, 0)));
+        bool over = false, redundant = false, under = false;
+        int dependent = 0, witnessed = 0;
+        foreach (ConstraintIsland island in system.Islands()) {
+            (int rows, double[] r, Fin<Matrix> jacobian, int dofs) = LinearizeIsland(system, island, system.Seed, key);
+            witnessed += rows;
+            if (rows == 0) { under = under || dofs > 0; continue; }  // untouched island: every local DOF free
+            (DofAnalysis verdict, int deficient) = jacobian.Bind(j => j.DecomposeSvd(key)).Match(
+                Succ: svd => rows <= svd.Rank
+                    ? (dofs - svd.Rank > 0 ? DofAnalysis.UnderConstrained : DofAnalysis.WellConstrained, 0)
+                    : (ConsistentAtWitness(svd, r, rows) ? DofAnalysis.RedundantConsistent : DofAnalysis.OverConstrained, rows - svd.Rank),
+                Fail: _ => rows > dofs ? (DofAnalysis.OverConstrained, rows - dofs)
+                    : rows == dofs ? (DofAnalysis.WellConstrained, 0)
+                    : (DofAnalysis.UnderConstrained, 0));  // SVD-refused island: the structural verdict at island grain
+            over = over || verdict == DofAnalysis.OverConstrained;
+            redundant = redundant || verdict == DofAnalysis.RedundantConsistent;
+            under = under || verdict == DofAnalysis.UnderConstrained;
+            dependent += deficient;
+        }
+        return witnessed == 0 && !under ? (DofAnalysis.UnderConstrained, 0)  // constraint-free sketch: every DOF free
+            : over ? (DofAnalysis.OverConstrained, dependent)
+            : redundant ? (DofAnalysis.RedundantConsistent, dependent)
+            : under ? (DofAnalysis.UnderConstrained, 0)
+            : (DofAnalysis.WellConstrained, 0);
+    }
+
+    // Island-grain dense linearization: local column remap over the island's own entity slices, so the SVD pays
+    // rows_island × dof_island, never rows × ParameterCount. Residual scatter ACCUMULATES for the same reason the
+    // LM lane's does — an arm can emit one column twice for a shared or self-aliased entity.
+    static (int Rows, double[] Residual, Fin<Matrix> Jacobian, int LocalDofs) LinearizeIsland(ConstraintSystem system, ConstraintIsland island, double[] parameters, Op key) {
+        Dictionary<int, int> local = [];
+        int dofs = 0;
+        foreach (int ordinal in island.Entities) {
+            Entity entity = system.Entities[ordinal];
+            for (int k = 0; k < entity.Arity; k++) local[entity.Offset + k] = dofs++;
+        }
+        List<ResidualRow> allRows = [];
+        foreach (int ordinal in island.Constraints) allRows.AddRange(system.Constraints[ordinal].Residual(parameters));
+        if (allRows.Count == 0) return (0, [], Fin.Fail<Matrix>(key.InvalidInput()), dofs);
+        double[] r = new double[allRows.Count];
+        double[] j = new double[allRows.Count * dofs];
+        for (int row = 0; row < allRows.Count; row++) {
+            r[row] = allRows[row].Value;
+            foreach ((int column, double partial) in allRows[row].Partials) j[(row * dofs) + local[column]] += partial;
+        }
+        return (allRows.Count, r, Matrix.Of(Dimension.Create(allRows.Count), Dimension.Create(dofs), new Arr<double>(j), key), dofs);
     }
 
     // Left-null-space projection ‖U_tailᵀ·r‖: U columns past Rank span null(Jᵀ), and k ∈ [Rank, rows) is
@@ -783,20 +826,6 @@ public static class ConstraintSolver {
             for (int k = 0; k < entity.Arity; k++) next[entity.Offset + k] = local[cursor++];
         }
         return next;
-    }
-
-    static (int Rows, double[] Residual, Fin<Matrix> Jacobian) LinearizeDense(ConstraintSystem system, double[] parameters, Op key) {
-        int n = system.ParameterCount;
-        List<ResidualRow> allRows = [];
-        foreach (Constraint constraint in system.Constraints) allRows.AddRange(constraint.Residual(parameters));
-        if (allRows.Count == 0) return (0, [], Fin.Fail<Matrix>(key.InvalidInput()));  // Dimension admits >= 1 — never minted at zero rows
-        double[] r = new double[allRows.Count];
-        double[] j = new double[allRows.Count * n];
-        for (int row = 0; row < allRows.Count; row++) {
-            r[row] = allRows[row].Value;
-            foreach ((int column, double partial) in allRows[row].Partials) j[(row * n) + column] += partial;
-        }
-        return (allRows.Count, r, Matrix.Of(Dimension.Create(allRows.Count), Dimension.Create(n), new Arr<double>(j), key));
     }
 
     // 106-bit Σr²: two nearly equal norms near the OverConstrained gate differ in digits a double running sum has already lost.

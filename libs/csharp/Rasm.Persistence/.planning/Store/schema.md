@@ -260,10 +260,10 @@ public static class ContractComposition {
         Seq<TRow> rows,
         Func<TRow, string> key,
         Func<TRow, TMark> mark) =>
-        rows.GroupBy(key, StringComparer.Ordinal)
+        toSeq(rows.GroupBy(key, StringComparer.Ordinal))
             .Filter(group => group.Select(mark).Distinct().Count() > 1)
             .Map(group => (ContractFault)new ContractFault.ContributionCollision(group.Key))
-            .HeadOrNone();
+            .Head;
 
     // Every mint path lands here, so the dependency proof binds Compose and Merge alike instead of only the
     // path that happened to sort. Proof order is load-bearing: a repeated key makes the key set a lie, an
@@ -286,7 +286,7 @@ public static class ContractComposition {
             }
         }
 
-        return wire.Artifacts
+        return toSeq(wire.Artifacts
             .GroupBy(static row => row.Key, StringComparer.Ordinal)
             .Where(static group => group.Count() > 1)
             .Select(static group => (ContractFault)new ContractFault.DuplicateArtifact(group.Key))
@@ -297,16 +297,15 @@ public static class ContractComposition {
             // discarded ordering; the witness names the dependency-bearing keys, the only rows a cycle admits.
             .Concat(graph.IsDirectedAcyclicGraph()
                 ? Enumerable.Empty<ContractFault>()
-                : [new ContractFault.CyclicArtifacts(wire.Artifacts
+                : [new ContractFault.CyclicArtifacts(toSeq(wire.Artifacts
                     .Where(static row => row.DependsOn.Length > 0)
-                    .Select(static row => row.Key)
-                    .ToSeq())])
+                    .Select(static row => row.Key)))])
             .Concat(wire.Capabilities
                 .Where(static row => !FailureRank.TryGet(row.FailureRank, out _)
                     || !RestartClass.TryGet(row.RestartClass, out _))
                 .Select(static row => (ContractFault)new ContractFault.InvalidProjection(
-                    $"<capability-vocabulary:{row.Key}>")))
-            .HeadOrNone();
+                    $"<capability-vocabulary:{row.Key}>"))))
+            .Head;
     }
 
     static Fin<SchemaContract> Mint(SchemaContractWire wire) {

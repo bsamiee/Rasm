@@ -2,20 +2,20 @@
 
 One ISO 10303 STEP and IGES tessellation hop — the CAD source formats the `mesh/daemon#DAEMON` `TessellationDaemon` serves through its `cad` arm. `StepBridge` reads B-rep bytes through the OCCT XCAF readers into a `TDocStd_Document`, meshes the transferred shape in place under the `TessellationPolicy` band, and writes GLB through the native `RWGltf_CafWriter`; one `READERS` row per format makes a new CAD source one row, never a parallel reader method.
 
-`TessellationPolicy` is minted here beside `BridgeFormat` — the mesher knobs are geometry-owned, never runtime `IdentityPolicy` fields, and the `mesh/daemon`/`mesh/brep` consumers import them downward. This bridge mints no `ContentKey`: the daemon keys the SOURCE bytes before the offload hop, so an output-GLB key — existing only after the kernel runs — never serves the cache hit. This hop rides `cadquery-ocp`, the sole PyPI OCCT path; the wire aligns to the C# `StepIso10303` codec, which requests CAD tessellation from this companion rather than re-implementing a managed reader.
+`TessellationPolicy` and `GlbArtifact` are minted here beside `BridgeFormat` — the mesher knobs and the folder's ONE outbound GLB carrier are geometry-owned, never runtime `IdentityPolicy` fields, and the `mesh/daemon`/`mesh/serve`/`mesh/brep`/`scan` consumers import them downward. The two-key discipline holds and sharpens: the daemon keys the SOURCE bytes plus the policy spec before the offload hop, so an output-GLB key never serves a cache hit, while the seed-zero (`Some(0)`) `XxHash128` GLB WIRE key equal to the C# `RepresentationContentHash` mints exactly ONCE — on `GlbArtifact.of`, at the site that produced the bytes — so no downstream servicer re-hashes a payload it did not encode. This hop rides `cadquery-ocp`, the sole PyPI OCCT path; the wire aligns to the C# `StepIso10303` codec, which requests CAD tessellation from this companion rather than re-implementing a managed reader.
 
 ## [01]-[INDEX]
 
-- [02]-[BRIDGE]: STEP/IGES reader-to-GLB hop over the `READERS` table and the `_APPLY` metadata cascade, `boundary`-fenced, output-parameterized over `BridgeView`.
+- [02]-[BRIDGE]: STEP/IGES reader-to-GLB hop over the `READERS` table and the `_APPLY` metadata cascade, `boundary`-fenced, output-parameterized over `BridgeView`, egressing the wire-keyed `GlbArtifact`.
 
 ## [02]-[BRIDGE]
 
-- Owner: `StepBridge` — the static surface over the XCAF reader chain; `READERS` carries one behavior row per format so the kernel never re-discriminates the reader past the table; `BridgeFormat.subject` owns the one `step-bridge.<fmt>` fault/span/receipt tag; `BridgeView` parameterizes the output so the daemon's lane-subinterpreter call matches raw `bytes` while an in-process caller drains the receipt-carrying `CadTessellation`.
-- Cases: `STEP` binds the full `COLOR`/`NAME`/`LAYER`/`GDT`/`MAT` channel set, `IGES` the `COLOR`/`NAME`/`LAYER` subset its reader admits; the daemon never re-discriminates format past this owner.
-- Auto: the `"glb"` view drops the receipt because a live contributor cannot cross the no-pickle lane hop — the daemon's `@receipted` aspect owns the daemon-level fold; the `"full"` view carries the `CadReceipt` for the in-process harvest.
+- Owner: `StepBridge` — the static surface over the XCAF reader chain; `READERS` carries one behavior row per format so the kernel never re-discriminates the reader past the table; `BridgeFormat.subject` owns the one `step-bridge.<fmt>` fault/span/receipt tag; `GlbArtifact` is the folder's ONE outbound GLB carrier, pairing the octets with the wire key that addresses them and the producer that encoded them, so a servicer frames bytes it never re-hashes and a consumer never carries a loose `(bytes, key)` pair; `BridgeView` parameterizes the output so the daemon's lane hop matches the bare artifact while an in-process caller drains the receipt-carrying `CadTessellation`.
+- Cases: `STEP` binds the full `COLOR`/`NAME`/`LAYER`/`GDT`/`MAT` channel set, `IGES` the `COLOR`/`NAME`/`LAYER` subset its reader admits; the daemon never re-discriminates format past this owner. `GlbArtifact.producer` closes over the three sites that encode GLB anywhere in the folder — the `ifc` iterator serializer, this `cad` writer, and the `reconstruction` export — so a downstream frame names which kernel produced the payload it streams.
+- Auto: the `"glb"` view drops the receipt because a live contributor cannot cross the no-pickle lane hop — the daemon's `@receipted` aspect owns the daemon-level fold; the `"full"` view carries the `CadReceipt` for the in-process harvest. `GlbArtifact.of` is the one wire-key mint: `ContentIdentity.key("glb", octets, seed=Some(0))` is total, so the carrier never rails and a producer never branches on a key it always has.
 - Packages: `cadquery-ocp` (the `OCP.*` XCAF reader/writer band, module-scope `lazy from` so the loop-floor consumers of `TessellationPolicy`/`BridgeFormat` never load OCCT — `TCollection_ExtendedString` is the REQUIRED `TDocStd_Document` storage string, an `AsciiString` or bare `str` raises), `expression`, `msgspec`, and the runtime rails; a malformed STEP stream is a deterministic `BridgeFault`, never a transient the resilience owner retries, so this owner stacks no second retry rail.
-- Growth: a new CAD source is one `BridgeFormat` row and one `ReaderRow` and one alias on the daemon `cad` case; a new metadata channel is one `MetadataMode` member and one `_APPLY` row reaching every reader that admits it; a new output projection is one `BridgeView` member and one view arm; `RWGltf_CafWriter.Perform(doc, fileInfo, progress)` is the minimal write arity — there is no 2-arg `Perform(doc, progress)` — so glTF asset metadata populates the already-present `fileInfo` map in place, and the 5-arg selective-root overload threads a partial-assembly export.
-- Boundary: the bridge mints no transport, channel, or content key; evaluating an already-in-memory `TopoDS_Shape` is `mesh/brep#BREP`'s (which reuses neither this reader nor this writer), mesh conditioning is `mesh/repair#MESH`'s, and mesh-file codec is the data `MeshPayload` owner's; the shape-only `STEPControl_Reader` (it drops the assembly/color/name metadata the XCAF reader preserves) and the conda-only `pythonocc-core` `OCC.Core.*` path never enter.
+- Growth: a new CAD source is one `BridgeFormat` row and one `ReaderRow` and one alias on the daemon `cad` case; a new metadata channel is one `MetadataMode` member and one `_APPLY` row reaching every reader that admits it; a new output projection is one `BridgeView` member and one view arm; a new GLB producer is one `GlbArtifact.producer` literal at the site that encodes it, never a second carrier; `RWGltf_CafWriter.Perform(doc, fileInfo, progress)` is the minimal write arity — there is no 2-arg `Perform(doc, progress)` — so glTF asset metadata populates the already-present `fileInfo` map in place, and the 5-arg selective-root overload threads a partial-assembly export.
+- Boundary: the bridge mints no transport or channel, and the one key it mints is the GLB WIRE key on `GlbArtifact.of` — never a cache key, which stays the daemon's SOURCE-plus-policy fold. `GlbArtifact` crosses OUTWARD only: the `artifacts` `SceneGrid.of_glb` chunk-table admission is the single outward seam every geometry-encoded GLB enters the scene plane through, and nothing returns — geometry imports no `artifacts` symbol, so the drawn `[BOUNDARY]: SceneGrid` edge is one-way data with no reverse leg. Evaluating an already-in-memory `TopoDS_Shape` is `mesh/brep#BREP`'s (which reuses neither this reader nor this writer), mesh conditioning is `mesh/repair#MESH`'s, and mesh-file codec is the data `MeshPayload` owner's; the shape-only `STEPControl_Reader` (it drops the assembly/color/name metadata the XCAF reader preserves) and the conda-only `pythonocc-core` `OCC.Core.*` path never enter.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -30,6 +30,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.receipts import Receipt
 
 # loop floor imports this module for the TessellationPolicy/BridgeFormat vocabulary the daemon and serve consume and
@@ -116,6 +117,24 @@ class TessellationPolicy(Struct, frozen=True, gc=False):
 CANONICAL_TESSELLATION: Final[TessellationPolicy] = TessellationPolicy()
 
 
+class GlbArtifact(Struct, frozen=True, gc=False):
+    # the folder's ONE outbound GLB carrier: the octets, the wire key that addresses them, and the kernel that
+    # encoded them travel together, so `mesh/serve` frames bytes it never re-hashes, `scan/deviation` reads a
+    # reference by the key its producer minted, and no consumer carries a loose `(bytes, key)` pair whose halves
+    # can disagree. Picklable whole — bytes, a `ContentKey` Struct, and a literal cross every worker seam.
+    bytes: bytes
+    wire_key: ContentKey
+    producer: Literal["ifc", "cad", "reconstruction"]
+
+    @classmethod
+    def of(cls, octets: bytes, producer: Literal["ifc", "cad", "reconstruction"]) -> "GlbArtifact":
+        # the ONE seed-zero mint: `ContentIdentity.key` excludes the fallible `Struct` source, so the fold runs no
+        # encode and the carrier is total — a producer never rails on a key it always holds. Seed `Some(0)` is the
+        # bare `XxHash128.HashToUInt128(span)` parity path the C# `RepresentationContentHash` reads byte-for-byte;
+        # a policy-folded seed here is the named drift defect, that seed belonging to the daemon's cache key alone.
+        return cls(bytes=octets, wire_key=ContentIdentity.key("glb", octets, seed=Some(0)), producer=producer)
+
+
 class CadReceipt(Struct, frozen=True, gc=False):
     fmt: BridgeFormat
     shape_count: int
@@ -127,7 +146,7 @@ class CadReceipt(Struct, frozen=True, gc=False):
 
 
 class CadTessellation(Struct, frozen=True, gc=False):
-    glb: bytes
+    glb: GlbArtifact
     receipt: CadReceipt
 
 
@@ -214,7 +233,7 @@ def _emit(session: XcafSession, glb_path: str, fmt: BridgeFormat, policy: Tessel
     # so a failed export never masquerades as a zero-length tessellation.
     if not written or not sink.is_file() or sink.stat().st_size == 0:
         raise BridgeFault.of(BridgeStage.WRITE_FAILED, fmt)
-    return CadTessellation(sink.read_bytes(), CadReceipt(fmt, shape_count, props.Mass()))
+    return CadTessellation(GlbArtifact.of(sink.read_bytes(), "cad"), CadReceipt(fmt, shape_count, props.Mass()))
 
 
 # one `TemporaryDirectory` scopes both round-trip paths under one cleanup — the OCCT reader and CAF writer are path-based.
@@ -231,7 +250,9 @@ def _run(source_bytes: bytes, fmt: BridgeFormat, policy: TessellationPolicy) -> 
 class StepBridge:
     @overload
     @staticmethod
-    def tessellate(source_bytes: bytes, fmt: BridgeFormat, policy: TessellationPolicy = ..., *, view: Literal["glb"] = ...) -> "RuntimeRail[bytes]": ...
+    def tessellate(
+        source_bytes: bytes, fmt: BridgeFormat, policy: TessellationPolicy = ..., *, view: Literal["glb"] = ...
+    ) -> "RuntimeRail[GlbArtifact]": ...
     @overload
     @staticmethod
     def tessellate(
@@ -240,7 +261,7 @@ class StepBridge:
     @staticmethod
     def tessellate(
         source_bytes: bytes, fmt: BridgeFormat, policy: TessellationPolicy = CANONICAL_TESSELLATION, *, view: BridgeView = "glb"
-    ) -> "RuntimeRail[bytes] | RuntimeRail[CadTessellation]":
+    ) -> "RuntimeRail[GlbArtifact] | RuntimeRail[CadTessellation]":
         # fence subject is `fmt.subject`, total for every format — bound even when the table miss itself is the failure raised.
         railed = boundary(fmt.subject, lambda: _run(source_bytes, fmt, policy))
         return railed if view == "full" else railed.map(lambda t: t.glb)

@@ -17,10 +17,9 @@ The decoded evidence vocabularies as one bounded family: `Receipt`/`ReceiptEnvel
 - Law: `_RANKS` is the lifecycle lattice — `Accepted` below the three terminal kinds — an interior vocabulary row table contract-checked at the expression seam: `as const satisfies Record<Receipt["_tag"], …>` closes the table against the union both ways, so a union member without a rank row or a rank row without a member fails at the declaration, lifecycle comparison derives from one anchor, and a new kind is one union member plus one rank row.
 - Boundary: the member roster mirrors the C# AppHost runtime-port family one-to-one at the vocabulary level; roster parity pins at the interchange decode seam, and a C#-side kind lands here as a union member the same release.
 - Growth: a new receipt kind is one tagged case, one `_RANKS` row, and zero envelope edits.
-- Packages: `@effect/typeclass` (`Semigroup`); `effect` (`Schema`, `Array`, `Duration`, `Equivalence`, `HashMap`, `HashSet`, `Number`, `Option`, `Order`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../value/contentKey.ts` (`ContentKey`); `../value/fault.ts` (`FaultClass`); `./causal.ts` (`Vector`); `./merge.ts` (`Merge`); `./fold.ts` (`Fold`).
+- Packages: `effect` (`Schema`, `Array`, `Duration`, `Equivalence`, `HashMap`, `HashSet`, `Number`, `Option`, `Order`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../value/contentKey.ts` (`ContentKey`); `../value/fault.ts` (`FaultClass`); `./causal.ts` (`Vector`); `./merge.ts` (`Merge`); `./fold.ts` (`Fold`).
 
 ```typescript signature
-import * as Semigroup from "@effect/typeclass/Semigroup"
 import { Array, type Duration, Equivalence, HashMap, HashSet, Number, Option, Order, pipe, Record, Schema } from "effect"
 import { Hlc } from "../value/clock.ts"
 import { ContentKey } from "../value/contentKey.ts"
@@ -255,7 +254,7 @@ const Progress: Progress.Shape = {
 - Owner: `Availability` — the decoded snapshot class: `level`, the per-command verdict `HashMap`, the `since` stamp, and the tenant; `worst` (the snapshot lattice), `admits` (the total gate read), and `plan` (the per-tenant fold) ride it as statics. The serving gate consumes it as an injected value typed against this module — ordinary dependency over a legal import, never a port.
 - Law: the level column is the lawful bounded lattice — `Merge.lattice` over the rank `Bounded` with `full` as `minBound` and `offline` as `maxBound`, the `join` row carried in the field product — so zero health feeds fold to the `full` bottom through the lawful empty, severity is the only comparison, and no consumer compares level names lexically or through a hand ladder; gate policy is the `admits` column, data a total read projects, and `_ROWS` is contract-checked at the expression seam against the `_LEVELS` and `_POSTURES` anchors — a level without its row, an excess row, or an off-vocabulary posture fails at the declaration.
 - Law: verdicts carry one total restrictiveness key — family rank first (`Available < Gated < Withheld`), then `Gated` by bounded-before-unbounded horizon and later `Hlc`, `Withheld` by level rank, and both evidence-bearing cases by reason — and `_worstVerdict` is `Merge.max` over that order, so distinct evidence never compares equal, source arrival order cannot decide a merge, and combining two sources never loosens a constraint; retry surfacing derives from `Gated.until`, never from prose parsing.
-- Law: `Availability.worst` is the `Merge.struct` field product exactly as `Progress._state` and `presence` compose it — level through the bounded lattice join, commands through `Merge.hashMap(_worstVerdict)` per-command worst-wins, `since` by stamp max, tenant first-wins — the posture derives as the field conjunction instead of a literal claim, the class re-lands through one constructor wrap, and the convergence proof rides `Converge` like every sibling instance; a hand-rolled `Semigroup.make` with an inline `HashMap.reduce` beside the roster is the deleted spelling. The convergence domain is one tenant lane — the plan partitions by tenant BEFORE any merge and first-wins carries `self.tenant` through, so a cross-tenant combine is an upstream fold-key defect, never a merge question.
+- Law: `Availability.worst` is the `Merge.struct` field product exactly as `Progress._state` and `presence` compose it — level through the bounded lattice join, commands through `Merge.hashMap(_worstVerdict)` per-command worst-wins, `since` by stamp max, tenant first-wins — the posture derives as the field conjunction instead of a literal claim, the class re-lands through the roster's own `Merge.imap` iso, and the convergence proof rides `Converge` like every sibling instance; a hand `Semigroup.make` constructor wrap beside a roster instance is the spelling `merge#INSTANCE_ROSTER` already deletes, and `alike` is the one deliberate override — the class-native proof the iso cannot infer from a four-field mapInput. The convergence domain is one tenant lane — the plan partitions by tenant BEFORE any merge and first-wins carries `self.tenant` through, so a cross-tenant combine is an upstream fold-key defect, never a merge question.
 - Law: `Availability.admits` is total — a command absent from the map answers from the level row's posture through the `_FALLBACKS` lookup, so the gate never meets `undefined`, never re-implements the fallback, and posture-to-verdict stays a keyed row, never a branch ladder.
 - Law: the command map crosses the wire as a keyed object — the protobuf map shape — and `_Commands` respells it into the interior `HashMap` at the field, so the decoded gate keys structurally while the encoded twin stays exactly what the C# mint emits; a pairs-array wire spelling is the shape no proto map produces.
 - Law: gating durations and retry posture type against `value/fault` budget rows — the gate composes budget vocabulary with these verdicts; neither is re-declared here.
@@ -352,13 +351,16 @@ class Availability extends Schema.Class<Availability>("Availability")({
   since: Hlc,
   tenant: TenantContext,
 }) {
-  static readonly worst: Merge.Instance<Availability> = Merge.instance({
-    combine: Semigroup.make((self: Availability, that: Availability) =>
-      new Availability(_fieldwise.combine.combine(self, that))),
-    posture: _fieldwise.posture,
+  static readonly worst: Merge.Instance<Availability> = {
+    ...Merge.imap(
+      _fieldwise,
+      (fields) => new Availability(fields),
+      (held) => ({ commands: held.commands, level: held.level, since: held.since, tenant: held.tenant }),
+    ),
+    // the ONE override the iso cannot infer: mapping the field product's equivalence back through `from` would compare
+    // four fields structurally, while the class carries the decode declaration's own proof over the whole owner
     alike: Schema.equivalence(Availability),
-    empty: Option.none(),
-  })
+  }
   static readonly plan: Fold.Plan<Availability, TenantContext, Availability> = Fold.plan({
     name: "state/availability",
     key: (snapshot) => snapshot.tenant,

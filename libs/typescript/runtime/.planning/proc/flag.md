@@ -297,7 +297,8 @@ declare namespace Verdict {
 - Owner: the SDK `Provider` implementation the Layer constructs over the live ruleset cell — `runsOn: "server"`, `metadata`, one `OpenFeatureEventEmitter`, the four `resolve*Evaluation` members delegating to one interior `_resolved(kind, flag, fallback, context)` that recalls the cell, folds `Rollout.decide` under the subject's salted bucket, resolves the variant's value from the definition's map, and answers `ResolutionDetails` — value, variant, reason, `errorCode` on degradation; the object kind rides `resolveObjectEvaluation` over the `_Json` arm, so the SDK's whole kind surface is real.
 - Law: the kind/value correlation is proven, never asserted — the `_Value` table maps each kind to its value type, `_guards` is the mapped guard record `(value: Verdict.Json) => value is _Value[K]`, and `_resolved` is generic over `K extends Verdict.Kind` returning `ResolutionDetails<_Value[K]>`, so the guard's narrowing IS the evidence and the three primitive members are cast-free; the SDK's `resolveObjectEvaluation<T extends JsonValue>` generic promises the caller's `T` with no runtime witness — a foreign contract unsound by its own declaration — so that one member is the marked boundary adapter: the guard proves the JSON-object shape and the pin crosses the SDK's own seam on one marked line, nowhere else.
 - Law: the promise members are the platform-forced boundary — each `resolve*` bridges through the runtime captured at Layer build (`Effect.runtime` then `Runtime.runPromise`), the sanctioned callback-seam spelling, and the bridged effect is total, so a provider promise never rejects on a domain condition; `initialize` resolves once registration completes and `onClose` releases nothing because the feed fiber's lifetime is the Layer scope.
-- Law: events are the invalidation edge — every accepted patch emits `ProviderEvents.ConfigurationChanged` with the changed flag keys, so SDK consumers and the memo tier invalidate on the SDK's own signal; a poll or side-channel epoch probe beside the emitter is the rejected second signal.
+- Law: events are the invalidation edge and the HEALTH edge, and the server event map carries exactly four rows the feed fold drives from its own seams — every accepted patch emits `ConfigurationChanged` with the changed flag keys, a malformed patch emits `Error`, feed death emits `Stale` before the reconnect budget runs, and an accepted `Reset` emits `Ready` because a whole document is the plane's own recovery edge. Without them the cell freezes at its last epoch and `evaluate` keeps answering `CACHED`/`STATIC` off a document nobody refreshes, with no reason column separating that from health and nothing for `client.addHandler` consumers or the `Setting.flag.quarantine` posture to observe; `Rollout.Reason` already carries `STALE`, so the reason vocabulary was waiting on the producer. A poll or side-channel epoch probe beside the emitter is the rejected second signal.
+- Law: outcome association has no seat here, and the reason is a vocabulary gap rather than a member gap — `client.track` is real and synchronous (`void`, never a promise, so no runtime bridge applies), but the SDK client NO-OPS it unless the registered `Provider` implements the optional `track` member, so the seat is the provider literal and any service entry is only its caller. What blocks the seat is that a tracking event names a BUSINESS outcome, and `core/observe/convention` carries only `feature_flag.key`, `feature_flag.provider.name`, and `feature_flag.result.reason` — stamping an outcome name under a flag-key row asserts a value the row does not mean. The vocabulary lands at the convention owner first, this seat second.
 - Law: the subject projects from the SDK `EvaluationContext` — `targetingKey` is the subject key (absent folds to `TARGETING_KEY_MISSING` evidence on targeted rules), string-valued attributes are the axes — so context construction is the SDK's standard seam and transaction-context propagation composes at the app edge, never a parallel context shape.
 - Law: kind agreement is evidence — a resolved value that fails the requested kind's guard answers the fallback with `TYPE_MISMATCH`; a cold cell (epoch 0) answers `PROVIDER_NOT_READY`; a populated cell missing the flag answers `FLAG_NOT_FOUND` — the error channel stays empty and every degradation is data.
 - Packages: `@openfeature/server-sdk` (`Provider`, `ResolutionDetails`, `EvaluationContext`, `OpenFeatureEventEmitter`, `ProviderEvents`, `JsonValue`), `effect` (`Effect`, `Runtime`, `Option`, `HashMap`, `DateTime`).
@@ -313,7 +314,7 @@ declare namespace Verdict {
 - Law: `Flags.gate` satisfies the `security` port — a Layer requiring the already-built `Flags` service and projecting the claim set to subject axes — so the access fold and direct consumers share one provider cell, memo, feed, and SDK lifecycle; the gate never mounts a second `Flags.Default` beneath itself.
 - Entry: `Flags.Default(digest, mode)` at the root; `flags.evaluate(flag, subject, fallback)` everywhere; `Flags.gate` beside it for the access graph.
 - Receipt: every read is a `Verdict` — reason, code, variant, and instant travel with the value, so audit and telemetry consume evaluation evidence with no second surface.
-- Packages: `@openfeature/server-sdk` (`OpenFeature`, `Hook`), `@effect/platform` (`KeyValueStore.forSchema`), `effect` (`Cache`, `Data`, `Effect`, `Exit`, `HashMap`, `Layer`, `Match`, `Option`, `Predicate`, `Record`, `Runtime`, `Schedule`, `Schema`, `Stream`, `SubscriptionRef`), `./config.ts` (`Setting`), `../net/channel.ts` (`Feed`), `@rasm/ts/core` (`Convention`), `@rasm/ts/security` (`FlagGate`).
+- Packages: `@openfeature/server-sdk` (`OpenFeature`, `Hook`, the four `ProviderEvents` server rows), `@effect/platform` (`KeyValueStore.forSchema`), `effect` (`Cache`, `Cause`, `Data`, `Effect`, `Exit`, `Function`, `HashMap`, `Layer`, `Match`, `Option`, `Predicate`, `Record`, `Runtime`, `Schedule`, `Schema`, `Stream`, `SubscriptionRef`), `./config.ts` (`Setting`), `../net/channel.ts` (`Feed`), `@rasm/ts/core` (`Budget`, `Convention`), `@rasm/ts/security` (`FlagGate`).
 
 ```typescript signature
 import {
@@ -329,8 +330,10 @@ import {
     type ResolutionDetails,
 } from '@openfeature/server-sdk';
 import { KeyValueStore } from '@effect/platform';
-import { Cache, Data, Effect, Exit, HashMap, Layer, Match, Option, Predicate, Record, Runtime, Schedule, Schema, Stream, SubscriptionRef } from 'effect';
-import { Convention } from '@rasm/ts/core';
+import {
+    Cache, Cause, Data, Effect, Exit, Function, HashMap, Layer, Match, Option, Predicate, Record, Runtime, Schedule, Schema, Stream, SubscriptionRef,
+} from 'effect';
+import { Budget, Convention } from '@rasm/ts/core';
 import { FlagGate } from '@rasm/ts/security';
 import { Setting } from './config.ts';
 import { Feed } from '../net/channel.ts';
@@ -451,22 +454,44 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
             const sticky = { lease: setting.flag.sticky, quarantine: setting.flag.quarantine } as const;
             const posture = Sticky.modes[mode];
 
-            yield* feed.open(setting.flag.origin).pipe(
-                Stream.runForEach((event) =>
-                    _shifted(event.data).pipe(
-                        Effect.flatMap((shift) =>
-                            SubscriptionRef.modify(cell, (held) => {
-                                const [next, changed] = _patched(held, shift);
-                                return [changed, next] as const;
-                            }),
+            const announce = (event: ProviderEvents, detail: Record<string, unknown>): Effect.Effect<void> =>
+                Effect.sync(() => events.emit(event, detail));
+
+            yield* feed
+                .open(setting.flag.origin)
+                .pipe(
+                    Stream.runForEach((event) =>
+                        _shifted(event.data).pipe(
+                            Effect.flatMap((shift) =>
+                                SubscriptionRef.modify(cell, (held) => {
+                                    const [next, changed] = _patched(held, shift);
+                                    return [[shift, changed] as const, next] as const;
+                                }),
+                            ),
+                            Effect.tap(([shift, changed]) =>
+                                Effect.zipRight(
+                                    announce(ProviderEvents.ConfigurationChanged, { flagsChanged: [...changed] }),
+                                    // an accepted Reset is the plane's own recovery edge: the document is whole again,
+                                    // so the SDK's readiness signal closes the Stale it opened
+                                    shift._tag === 'Reset' ? announce(ProviderEvents.Ready, {}) : Effect.void,
+                                ),
+                            ),
+                            // a malformed patch is one skipped row, and the SDK hears it: consumers see a provider in
+                            // error rather than a cell that silently stops advancing
+                            Effect.tapErrorCause((cause) => announce(ProviderEvents.Error, { message: Cause.pretty(cause) })),
+                            Effect.ignoreLogged,
                         ),
-                        Effect.tap((changed) => Effect.sync(() => events.emit(ProviderEvents.ConfigurationChanged, { flagsChanged: [...changed] }))),
-                        Effect.ignoreLogged,
                     ),
-                ),
-                Effect.retry(pace), // the session reconnects internally under the feed budget; exhaustion re-opens here at the cadence pacing
-                Effect.forkScoped,
-            );
+                    // the feed DIED: the cell freezes at its last epoch and every later read is CACHED/STATIC off a
+                    // document nobody refreshes, so the SDK's own staleness signal fires before the reconnect budget
+                    Effect.tapErrorCause((cause) => announce(ProviderEvents.Stale, { message: Cause.pretty(cause) })),
+                    // the reconnect burst rides the core `feed` budget — jittered exponential, attempt-bounded,
+                    // elapsed-ceilinged, reset after quiet — then phases into the steady cadence, so a transient blip
+                    // backs off against a fleet-decorrelated curve while a long outage keeps re-opening forever;
+                    // a bare `spaced` pace re-derives the compile and synchronizes every replica onto one instant
+                    Effect.retry(Schedule.andThen(Budget.schedule('feed', Function.constTrue), pace)),
+                    Effect.forkScoped,
+                );
 
             const provider: Provider = {
                 runsOn: 'server',
@@ -624,4 +649,4 @@ export { Flags, Rollout, Sticky, Verdict };
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+[TRACK_VOCABULARY]-[BLOCKED]: which attribute rows carry an OpenFeature tracking event — its name, its numeric `value`, and its `TrackingEventDetails` members — onto the evaluation span; blocked on `core/observe/convention` holding no tracking row, since the incubating flag family stops at `feature_flag.key`/`.provider.name`/`.result.reason`. Verify against the convention owner's row tables once the rows land, then the `Provider.track` seat follows here.

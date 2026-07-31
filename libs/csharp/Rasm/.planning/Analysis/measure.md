@@ -6,25 +6,26 @@ Every native mass-properties handle leases through the `Domain/rails` `Lease<T>`
 
 ## [01]-[INDEX]
 
-- [02]-[MEASURE]: `Measure` `[Union]` over `MassKind` compute/aggregate rows and `MassProperty` moment-column rows; the polymorphic `LengthOf`/`CentroidOf` scalar folds and `MassKind.PrincipalFrameOf` frame recovery.
+- [02]-[MEASURE]: `Measure` `[Union]` over `MassKind` compute/aggregate rows and `MassProperty` moment-column rows; the polymorphic `LengthOf`/`CentroidOf` scalar folds, `MassKind.PrincipalFrameOf` frame recovery, and `GeometryMeasures` the one aggregate metrology bundle.
 - [03]-[BOUNDS]: `Bounds` `[Union]` — box modalities, metrics through one `BoxMetric` builder, principal-frame OBB, and enclosing solids through one `RitterFit` fold with `EnclosingSamples` fallback.
-- [04]-[CONFORMANCE]: `ConformanceMetric` `[SmartEnum<int>]` over the `ResidualSample` evidence receipt; the residual sampling pipeline with the exact curve-deviation short-circuit.
+- [04]-[CONFORMANCE]: `ConformanceMetric` `[SmartEnum<int>]` over the `ResidualSample` evidence receipt; the residual pipeline's two arities — sampled pair with its exact curve-deviation short-circuit, and measured stream — over one admission and one band derivation.
 
 ## [02]-[MEASURE]
 
 - Owner: `MassKind` and `MassProperty` `[BoundaryAdapter]` `[SmartEnum<int>]` policy rows drive the `Measure` `[Union]` — a `MassKind` binds its `Requirement` and its compute and aggregate delegates, a `MassProperty` binds its moment-demand columns and typed extract, `KindOf` resolves the solid-aware default reading `IsSolid`, and `PrincipalFrameOf` recovers the centroid-anchored principal plane. Three `Measure` cases `Length`/`SpatialMidpoint`/`MassProperty(MassKind, MassProperty)` carry eleven factories minting `(MassKind, MassProperty)` coordinates.
-- Entry: `Measure.Operation<TGeometry, TOut>()` builds the op the `Analysis/query` seam forwards; `MassProperty` always builds the AGGREGATE op, so a single geometry is the one-item degenerate case and per-item and batch answers ride one leased handle whose projections extract once.
+- Entry: `Measure.Operation<TGeometry, TOut>()` builds the op the `Analysis/query` seam forwards; `MassProperty` always builds the AGGREGATE op, so a single geometry is the one-item degenerate case and per-item and batch answers ride one leased handle whose projections extract once. `GeometryMeasures.Of(GeometryBase, Context, Op?)` is the bundle entry the AEC import edge binds: `KindOf` resolves the solid-aware domain, one aggregate fold computes with all three moment demands, and every projection extracts from that one handle — a takeoff over a thousand elements pays one mass computation each, never eight.
 - Auto: `LengthOf` short-circuits analytic primitives before the tolerance `Curve.GetLength` fold; `CentroidOf` routes each carrier to its exact center or mass computation, reading `IsSolid` per geometry rather than a caller flag; the aggregate fold accumulates leases, sums through the host mutator, disposes every non-surviving handle on success and failure, and routes a homogeneous curve set through the native multi-curve overload.
 - Receipt: measures project onto host value types admitted through the acceptance gate; the principal-axis `(Moment, Axis)` tuple is oracle-validated per element — finite non-negative moment, non-tiny axis.
 - Packages: RhinoCommon mass-properties `Compute`/`Sum`/moment accessors and `IsSolid`; `Rasm.Domain` `Requirement`, `Lease<T>`, `Op`, `Capability`, and `Normalization` owners.
 - Growth: a new mass projection is one `MassProperty` row, a new mass domain one `MassKind` row binding its requirement and delegates, a new analytic centroid carrier one `CentroidOf` arm — zero operation edits.
-- Boundary: eleven measures are three cases over two policy enums — a `MeasureLength`/`MeasureArea`/`MeasureVolume` sibling-operation family is the proliferation this coordinate design deletes; every mass handle is leased and an escaped `Compute` handle is the resource-leak defect; the moment-demand columns request exactly the moments the extraction reads; `MassKind.None` rejects through its delegates rather than a silent null-object; the area path threads model tolerances and a hardcoded tolerance literal is the deleted form.
+- Boundary: eleven measures are three cases over two policy enums — a `MeasureLength`/`MeasureArea`/`MeasureVolume` sibling-operation family is the proliferation this coordinate design deletes; every mass handle is leased and an escaped `Compute` handle is the resource-leak defect; the moment-demand columns request exactly the moments the extraction reads; `MassKind.None` rejects through its delegates rather than a silent null-object; the area path threads model tolerances and a hardcoded tolerance literal is the deleted form. `GeometryMeasures` fields are `Option` because a domain the geometry does not admit has no value to report and a zero spells a measurement no fold took; `Kind` carries WHICH domain answered, so a consumer reading `Volume` on an open Brep sees `None` rather than a surface area wearing a volume's name. Measures leave as bare `double` — `MeasureValue` is Bim's dimensioned carrier, wrapped downstream through `MeasureValue.OfSi`, and the `Domain/context` unit bridge stays orthogonal.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Rasm.Csp;
 using LanguageExt;
 using Rasm.Domain;
@@ -189,6 +190,52 @@ public sealed partial class MassProperty {
             : Fin.Fail<Seq<TValue>>(key.Unsupported(geometryType: typeof(IDisposable), outputType: typeof(TValue)));
 }
 
+// --- [MODELS] -------------------------------------------------------------------------------
+// AEC consumers import one aggregate metrology bundle: one value carrying every MassProperty projection the
+// resolved MassKind admits. Every field is Option because a domain the geometry does not admit has no value to
+// report and a zero spells a measurement no fold took; Kind carries WHICH domain answered, so a consumer
+// reading Volume on an open Brep sees None rather than a surface area wearing a volume's name.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct GeometryMeasures(
+    MassKind Kind, Option<double> Length, Option<double> Area, Option<double> Volume,
+    Option<Point3d> Centroid, Option<Vector3d> Radii, Option<Vector3d> Inertia,
+    Option<Vector3d> InertiaProducts, Option<Plane> PrincipalFrame) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(holds: Kind is not null),
+        ValidityClaim.Of(holds: Length.Map(static v => ValidityClaim.Nonnegative(v).Holds).IfNone(noneValue: true)),
+        ValidityClaim.Of(holds: Area.Map(static v => ValidityClaim.Nonnegative(v).Holds).IfNone(noneValue: true)),
+        ValidityClaim.Of(holds: Volume.Map(static v => ValidityClaim.Nonnegative(v).Holds).IfNone(noneValue: true)),
+        ValidityClaim.Of(holds: Centroid.Map(static p => ValidityClaim.Finite(p).Holds).IfNone(noneValue: true)),
+        ValidityClaim.Of(holds: PrincipalFrame.Map(static f => f.IsValid).IfNone(noneValue: true)));
+
+    // ONE leased handle answers every property: KindOf resolves the solid-aware domain, the aggregate fold computes
+    // once with all three moment demands, and each MassProperty extracts from that one handle — so a takeoff over a
+    // thousand elements pays one mass computation each, never eight. The frame recovery is Option-valued: a
+    // degenerate moment tensor yields None, never a failed bundle.
+    public static Fin<GeometryMeasures> Of(GeometryBase geometry, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return MassKind.KindOf(geometry: geometry) switch {
+            MassKind none when none.Equals(MassKind.None) => Fin.Fail<GeometryMeasures>(op.Unsupported(geometryType: geometry.GetType(), outputType: typeof(GeometryMeasures))),
+            MassKind kind => kind.Aggregate(geometry: [geometry], context: context, firstMoments: true, secondMoments: true, productMoments: true, op: op)
+                .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(mass => (mass switch {
+                    LengthMassProperties l => Fin.Succ((Magnitude: l.Length, l.Centroid, Radii: l.CentroidCoordinatesRadiiOfGyration, Inertia: l.WorldCoordinatesMomentsOfInertia, Products: l.WorldCoordinatesProductMoments)),
+                    AreaMassProperties a => Fin.Succ((Magnitude: a.Area, a.Centroid, Radii: a.CentroidCoordinatesRadiiOfGyration, Inertia: a.WorldCoordinatesMomentsOfInertia, Products: a.WorldCoordinatesProductMoments)),
+                    VolumeMassProperties v => Fin.Succ((Magnitude: v.Volume, v.Centroid, Radii: v.CentroidCoordinatesRadiiOfGyration, Inertia: v.WorldCoordinatesMomentsOfInertia, Products: v.WorldCoordinatesProductMoments)),
+                    _ => Fin.Fail<(double Magnitude, Point3d Centroid, Vector3d Radii, Vector3d Inertia, Vector3d Products)>(op.InvalidResult()),
+                }).Bind(moments => op.AcceptValue(value: new GeometryMeasures(
+                    Kind: kind,
+                    Length: kind.Equals(MassKind.Length) ? Some(moments.Magnitude) : Option<double>.None,
+                    Area: kind.Equals(MassKind.Area) ? Some(moments.Magnitude) : Option<double>.None,
+                    Volume: kind.Equals(MassKind.Volume) ? Some(moments.Magnitude) : Option<double>.None,
+                    Centroid: Some(moments.Centroid),
+                    Radii: Some(moments.Radii),
+                    Inertia: Some(moments.Inertia),
+                    InertiaProducts: Some(moments.Products),
+                    PrincipalFrame: MassKind.PrincipalFrameOf(mass: mass, key: op).ToOption()))))),
+        };
+    }
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static partial class Analyze {
     internal static Operation<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull {
@@ -306,7 +353,7 @@ public static partial class Analyze {
 - Auto: `EnclosingSamples` samples the surface and DEGRADES to the eight box corners when sampling is unsupported, so enclosure coarsens rather than fails; `RitterFit` is one generic two-pass fold shared verbatim by sphere and cylinder-disc; the cylinder admits its axis through `VectorIntent.Direction` and folds the exact axial extent, and the enclosing circle delegates to the host exact smallest-enclosing-circle in the projection plane.
 - Packages: RhinoCommon box accessors, oriented capture, and `Circle.TrySmallestEnclosingCircle`; `Rasm.Domain` `BoundsOf`/`SamplePoints` extensions and `Capability` rows; `Rasm.Processing` `VectorIntent.Direction` axis admission.
 - Growth: a new box metric is one `BoxMetric` arm, a new enclosing solid composes the same `EnclosingSamples`+fit machinery, a new recovery frame one case arm — never a `BoundsCalculator` sibling.
-- Boundary: fifteen modalities live on one union under one `Switch` — a `BoundingBoxOps`/`OrientedBoxOps`/`EnclosingSolidOps` class family is the fragmentation this owner deletes; the aspect-ratio denominator floors at `RhinoMath.ZeroTolerance` so a degenerate extent yields a large finite ratio rather than an infinity crossing the rail; `Corners(unique)` deduplicates at model tolerance, never a literal epsilon; enclosing fits are measured approximations by contract, every sample enclosed rather than a minimal-ball claim; box-metric ops accept box VALUES while recovery ops accept geometry, the type gates keeping the two altitudes disjoint.
+- Boundary: fifteen modalities live on one union under one `Switch` — a `BoundingBoxOps`/`OrientedBoxOps`/`EnclosingSolidOps` class family is the fragmentation this owner deletes; the aspect-ratio denominator floors at `EpsilonPolicy.ZeroTolerance` so a degenerate extent yields a large finite ratio rather than an infinity crossing the rail; `Corners(unique)` deduplicates at model tolerance, never a literal epsilon; enclosing fits are measured approximations by contract, every sample enclosed rather than a minimal-ball claim; box-metric ops accept box VALUES while recovery ops accept geometry, the type gates keeping the two altitudes disjoint.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -409,7 +456,7 @@ public abstract partial record Bounds {
                     from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
                     from obb in state.AcceptValue(value: new Box(frame, native)).ToEff()
                     from aabb in native.BoundsOf(key: state).ToEff()
-                    from result in (obb.Volume > RhinoMath.ZeroTolerance ? state.Accept(value: aabb.Volume / obb.Volume) : Fin.Fail<Seq<double>>(state.InvalidResult())).ToEff()
+                    from result in (obb.Volume > EpsilonPolicy.ZeroTolerance ? state.Accept(value: aabb.Volume / obb.Volume) : Fin.Fail<Seq<double>>(state.InvalidResult())).ToEff()
                     select result)
             : BoxTightnessKey.Unsupported<TGeometry, TOut>(),
         enclosingSphereCase: static s => (typeof(TOut) == typeof(Sphere) && Capability.Bound.Admits(type: typeof(TGeometry)))
@@ -452,7 +499,7 @@ public abstract partial record Bounds {
 
     private static double AspectOf(Vector3d extents) {
         double ax = Math.Abs(extents.X), ay = Math.Abs(extents.Y), az = Math.Abs(extents.Z);
-        return Math.Max(Math.Max(ax, ay), az) / Math.Max(Math.Min(Math.Min(ax, ay), az), RhinoMath.ZeroTolerance);
+        return Math.Max(Math.Max(ax, ay), az) / Math.Max(Math.Min(Math.Min(ax, ay), az), EpsilonPolicy.ZeroTolerance);
     }
     private static Fin<Seq<Point3d>> EnclosingSamples<TGeometry>(TGeometry geometry, int count, Context context, Op key) where TGeometry : notnull =>
         geometry.SamplePoints(count: count, context: context, key: key)
@@ -502,14 +549,14 @@ public static partial class Analyze {
 
 ## [04]-[CONFORMANCE]
 
-- Owner: `ConformanceMetric` `[BoundaryAdapter]` `[SmartEnum<int>]` policy rows drive one residual pipeline — each row binds its typed `Output`, its `IsSigned`/`IsContainment`/`ExactCurveDeviation` admission columns, and its projection folding the sampled residual stream; `ResidualSample` is the per-sample receipt declaring `IValidityEvidence`.
+- Owner: `ConformanceMetric` `[BoundaryAdapter]` `[SmartEnum<int>]` policy rows drive one residual pipeline — each row binds its typed `Output`, its `IsSigned`/`IsContainment`/`ExactCurveDeviation` admission columns, and its projection folding the residual stream; `ResidualSample` is the per-sample receipt declaring `IValidityEvidence`.
 - Cases: `Distance`, `Rms`, `WithinTolerance`, `Summary`, `Maximum`, `SignedResidual`, `Containment`, `Distribution`.
-- Entry: `Analyze.RelationConformance<TGeometry, TTarget, TOut>(metric, count, percentiles, key)` — the pair op the `Analysis/query` `Conformance` case forwards to; build-time gates reject a null metric, non-positive count, inadmissible kind pair, or output mismatch.
-- Auto: admission is data-driven — `AcceptsTarget` reads the metric columns and `TargetRequirement` escalates containment targets to solid topology, all through `RequirementContext.Pair` before any sample; a curve-vs-curve pair under an exact metric SHORT-CIRCUITS to the exact `CurveDeviationOf`, one host call replacing N samples, while every other pair samples N points through the support-projection gate, reading the runtime token between samples so a cancelled run faults mid-stream rather than passing a truncated set as complete.
-- Receipt: `ResidualSample` is evidence-carrying and admitted through the acceptance gate; aggregate metrics re-emit `Stat`/`Distribution` whose validity the Domain oracle already owns.
-- Packages: `Rasm.Spatial` support projection, `Rasm.Processing` `VectorIntent.Support`, `Rasm.Domain` `Stat`/`RequirementContext`/`SamplePoints`/`Capability` owners, RhinoCommon geometry payloads.
-- Growth: a new conformance metric is one row — key, output, three columns, one projection; a new target admission class is one column `AcceptsTarget` reads — zero pipeline edits.
-- Boundary: the residual pipeline is one sampling fold parameterized by the metric row — a `DistanceConformance`/`ContainmentConformance`/`SignedConformance` family is the deleted form; distance routes through the `Spatial/support` projection gate exclusively, a local closest-point switch beside it the killed parallel proximity rail; every sample's `WithinTolerance` is DERIVED at construction from model tolerance, so the evidence law makes an inconsistent sample unrepresentable past the oracle; percentiles reach only the `Distribution` row.
+- Entry: the `Analysis/query` `Conformance` case is one entry over two arities the INPUT SHAPE selects — `Analyze.RelationConformance<TGeometry, TTarget, TOut>(metric, count, percentiles, key)` for a `(geometry, target)` pair that samples its own residuals, `Analyze.MeasuredConformance<TGeometry, TOut>(metric, percentiles, key)` for a consumer arriving with the residuals already measured; build-time gates reject a null metric, a sampling budget the arity cannot consume, an inadmissible kind pair, and an output mismatch.
+- Auto: pair admission is data-driven — `AcceptsTarget` reads the metric columns and `TargetRequirement` escalates containment targets to solid topology, all through `RequirementContext.Pair` before any sample; a curve-vs-curve pair under an exact metric SHORT-CIRCUITS to the exact `CurveDeviationOf`, one host call replacing N samples, while every other pair samples N points through the support-projection gate, reading the runtime token between samples so a cancelled run faults mid-stream rather than passing a truncated set as complete. `Project` is where both arities meet: it admits every sample through the oracle once, derives the band off the admitted stream, then runs the row's projection.
+- Receipt: `ResidualSample` is evidence-carrying and admitted through the acceptance gate; aggregate metrics re-emit `Stat`/`Distribution` whose validity the Domain oracle already owns, each carrying the stream's own tolerance verdict.
+- Packages: `Rasm.Spatial` support projection, `Rasm.Processing` `VectorIntent.Support`, `Rasm.Domain` `Stat`/`Distribution`/`StatContext`/`RequirementContext`/`SamplePoints`/`Capability` owners, RhinoCommon geometry payloads.
+- Growth: a new conformance metric is one row — key, output, three columns, one projection; a new target admission class is one column `AcceptsTarget` reads; a new residual SOURCE is one arity on the same entry — zero pipeline edits.
+- Boundary: the residual pipeline is one fold parameterized by the metric row — a `DistanceConformance`/`ContainmentConformance`/`SignedConformance` family, or a residual-stream entrypoint beside the pair one, are the deleted forms; distance routes through the `Spatial/support` projection gate exclusively, a local closest-point switch beside it the killed parallel proximity rail; every sample's `WithinTolerance` is DERIVED from its own band, so the evidence law makes an inconsistent sample unrepresentable past the oracle; the BAND is the stream's own, so a tranche measured against a probe band summarizes against that band and a tranche mixing bands refuses rather than folding two populations under one verdict; `Maximum` ranks on `|Distance|` because the band the sample carries is the same magnitude claim; percentiles reach only the `Distribution` row.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -531,13 +578,13 @@ namespace Rasm.Analysis;
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class ConformanceMetric {
     public static readonly ConformanceMetric Distance = new(key: 0, output: typeof(double), isSigned: false, isContainment: false, exactCurveDeviation: false,
-        projection: static (residuals, _, _, key) => Analyze.ConformanceResidualDistances(samples: residuals, key: key).Map(static values => values.Map(static value => (object)value)));
+        projection: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample.Distance)));
     public static readonly ConformanceMetric Rms = new(key: 1, output: typeof(double), isSigned: false, isContainment: false, exactCurveDeviation: false,
-        projection: static (residuals, _, context, key) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: context.Absolute.Value, key: key).Map(static stat => Seq((object)stat.Rms)));
+        projection: static (residuals, _, band, key) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: band, key: key).Map(static stat => Seq((object)stat.Rms)));
     public static readonly ConformanceMetric WithinTolerance = new(key: 2, output: typeof(bool), isSigned: false, isContainment: false, exactCurveDeviation: true,
-        projection: static (residuals, _, context, key) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: context.Absolute.Value, key: key).Map(static stat => Seq((object)stat.WithinTolerance)));
+        projection: static (residuals, _, band, key) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: band, key: key).Map(static stat => Seq((object)stat.WithinTolerance)));
     public static readonly ConformanceMetric Summary = new(key: 3, output: typeof(Stat), isSigned: false, isContainment: false, exactCurveDeviation: false,
-        projection: static (residuals, _, context, key) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: context.Absolute.Value, key: key).Map(static stat => Seq((object)stat)));
+        projection: static (residuals, _, band, key) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: band, key: key).Map(static stat => Seq((object)stat)));
     public static readonly ConformanceMetric Maximum = new(key: 4, output: typeof(ResidualSample), isSigned: false, isContainment: false, exactCurveDeviation: true,
         projection: static (residuals, _, _, key) => Analyze.ConformanceResidualMaximum(samples: residuals, key: key).Map(static sample => Seq((object)sample)));
     public static readonly ConformanceMetric SignedResidual = new(key: 5, output: typeof(ResidualSample), isSigned: true, isContainment: false, exactCurveDeviation: false,
@@ -545,8 +592,10 @@ public sealed partial class ConformanceMetric {
     public static readonly ConformanceMetric Containment = new(key: 6, output: typeof(ResidualSample), isSigned: true, isContainment: true, exactCurveDeviation: false,
         projection: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample)));
     public static readonly ConformanceMetric Distribution = new(key: 7, output: typeof(Distribution), isSigned: false, isContainment: false, exactCurveDeviation: false,
-        projection: static (residuals, percentiles, _, key) => Analyze.ConformanceResidualDistribution(samples: residuals, percentiles: percentiles, key: key).Map(static result => Seq((object)result)));
-    internal delegate Fin<Seq<object>> ConformanceProjection(Seq<ResidualSample> residuals, Seq<double> percentiles, Context context, Op key);
+        projection: static (residuals, percentiles, band, key) => Analyze.ConformanceResidualDistribution(samples: residuals, percentiles: percentiles, tolerance: band, key: key).Map(static result => Seq((object)result)));
+    // Slot three carries the BAND the stream was measured against, derived in Project off the admitted samples,
+    // never the ambient model tolerance a probe tranche measured against its own spec band never held.
+    internal delegate Fin<Seq<object>> ConformanceProjection(Seq<ResidualSample> residuals, Seq<double> percentiles, double tolerance, Op key);
     public Type Output { get; }
     internal bool IsSigned { get; }
     internal bool IsContainment { get; }
@@ -559,46 +608,78 @@ public sealed partial class ConformanceMetric {
             || (curveSource && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Polyline) || Capability.CurveForm.Admits(type: target)))));
     internal Requirement TargetRequirement(Kind kind) =>
         IsContainment && (kind.Topology == Topology.Brep || kind.Topology == Topology.Mesh) ? Requirement.SolidTopology : Requirement.None;
-    internal Fin<Seq<TOut>> Project<TOut>(Seq<ResidualSample> residuals, Seq<double> percentiles, Context context, Op key) =>
+    // ONE admission for both arities: a sampled pair's residuals and a consumer's measured tranche are the same
+    // evidence, so every sample crosses the oracle here rather than inside four of eight projections — the two
+    // pass-through rows published unadmitted samples before this collapse. The band follows the same rule.
+    internal Fin<Seq<TOut>> Project<TOut>(Seq<ResidualSample> residuals, Seq<double> percentiles, Op key) =>
         Output == typeof(TOut)
-            ? Projection(residuals: residuals, percentiles: percentiles, context: context, key: key).Bind(values => new AnalysisOutput<TOut>(key).Objects(values: values, sourceType: Output))
+            ? residuals.TraverseM(sample => key.AcceptValue(value: sample)).As()
+                .Bind(admitted => Analyze.ConformanceResidualBand(samples: admitted, key: key).Map(band => (Samples: admitted, Band: band)))
+                .Bind(stream => Projection(residuals: stream.Samples, percentiles: percentiles, tolerance: stream.Band, key: key))
+                .Bind(values => new AnalysisOutput<TOut>(key).Objects(values: values, sourceType: Output))
             : Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(ConformanceMetric), outputType: typeof(TOut)));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
+// Acceptance DERIVES from the band the sample carries, so no producer — kernel sampler, exact curve-deviation
+// short-circuit, or foreign measured tranche — hands the oracle a verdict its own numbers contradict; the
+// coherence conjunct a stored flag needed is unrepresentable rather than checked.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance) : IValidityEvidence {
+public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance) : IValidityEvidence {
+    public bool WithinTolerance => Math.Abs(Distance) <= Tolerance;
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(Index >= 0),
         ValidityClaim.Finite(Location),
         ValidityClaim.Finite(Distance),
-        ValidityClaim.Nonnegative(Tolerance),
-        ValidityClaim.Of(WithinTolerance == (Math.Abs(Distance) <= Tolerance)));
+        ValidityClaim.Nonnegative(Tolerance));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static partial class Analyze {
-    internal static Operation<(TGeometry Geometry, TTarget Target), TOut> RelationConformance<TGeometry, TTarget, TOut>(ConformanceMetric? metric, int count, Seq<double> percentiles, Op key) where TGeometry : notnull where TTarget : notnull =>
-        (metric, count) switch {
-            (null, _) => Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (_, <= 0) => Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (ConformanceMetric active, _) when CanConform(metric: active, geometry: typeof(TGeometry), target: typeof(TTarget)) && typeof(TOut) == active.Output =>
-                ConformancePair<TGeometry, TTarget, TOut>(metric: active, count: count, percentiles: percentiles, key: key),
+    internal static Operation<(TGeometry Geometry, TTarget Target), TOut> RelationConformance<TGeometry, TTarget, TOut>(ConformanceMetric? metric, Option<int> count, Seq<double> percentiles, Op key) where TGeometry : notnull where TTarget : notnull =>
+        (metric, count.Filter(static budget => budget > 0).Case) switch {
+            (ConformanceMetric active, int budget) when CanConform(metric: active, geometry: typeof(TGeometry), target: typeof(TTarget)) && typeof(TOut) == active.Output =>
+                ConformancePair<TGeometry, TTarget, TOut>(metric: active, count: budget, percentiles: percentiles, key: key),
+            (null, _) or (_, not int) => Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: key, fault: key.InvalidInput()),
             _ => key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
         };
-    internal static Fin<Seq<double>> ConformanceResidualDistances(Seq<ResidualSample> samples, Op key) =>
-        samples.TraverseM(sample => key.AcceptValue(value: sample)).As().Map(static validated => validated.Map(static sample => sample.Distance));
+    // MEASURED arity of the one conformance entry: a consumer holding residuals it took itself — an in-process
+    // probe touch, an inspection tranche — reaches every aggregate row through the same request case the sampled
+    // pair rides, its input type selecting the arity, so no residual-stream entrypoint stands beside the pair one.
+    // No sampling budget and no context enter: input length answers the count and the samples carry the band, so
+    // one aggregate fold consumes the whole prepared stream.
+    internal static Operation<TGeometry, TOut> MeasuredConformance<TGeometry, TOut>(ConformanceMetric? metric, Seq<double> percentiles, Op key) where TGeometry : notnull =>
+        (metric, typeof(TGeometry) == typeof(ResidualSample)) switch {
+            (null, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (ConformanceMetric active, true) when typeof(TOut) == active.Output =>
+                Operation<ResidualSample, TOut>.Aggregate(key: key,
+                    project: samples => active.Project<TOut>(residuals: samples, percentiles: percentiles, key: key).ToEff())
+                    .As<TGeometry, TOut>(key: key),
+            _ => key.Unsupported<TGeometry, TOut>(),
+        };
+    // One band per stream, read off the evidence: the samples carry the band they were measured against, so a
+    // summary never restates the ambient model tolerance, and a tranche mixing bands refuses rather than folding
+    // two populations under one verdict. An empty tranche has no band and no summary to report.
+    internal static Fin<double> ConformanceResidualBand(Seq<ResidualSample> samples, Op key) =>
+        samples.Map(static sample => sample.Tolerance).Distinct() switch {
+            Seq<double> bands when bands.Count == 1 => Fin.Succ(bands[0]),
+            _ => Fin.Fail<double>(key.InvalidInput()),
+        };
     internal static Fin<Stat> ConformanceResidualSummary(Seq<ResidualSample> samples, double tolerance, Op key) =>
-        ConformanceResidualDistances(samples: samples, key: key)
-            .Bind(distances => Stat.Of(values: distances, key: key))
+        Stat.Of(values: samples.Map(static sample => sample.Distance), key: key)
             .Bind(stat => key.AcceptValue(value: stat with { Context = StatContext.Tolerance(tolerance: tolerance, minimum: stat.Minimum, maximum: stat.Maximum) }));
+    // Ranking is on |Distance| because the band the sample carries is that same magnitude claim; ranking on the
+    // signed value returns the most POSITIVE residual, which on a signed or containment stream is not the worst one.
     internal static Fin<ResidualSample> ConformanceResidualMaximum(Seq<ResidualSample> samples, Op key) =>
-        samples.TraverseM(sample => key.AcceptValue(value: sample)).As()
-            .Bind(validated => Stat.Extrema(items: validated, projection: static sample => sample.Distance, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(key.InvalidResult()))
-            .Bind(sample => key.AcceptValue(value: sample));
-    internal static Fin<Distribution> ConformanceResidualDistribution(Seq<ResidualSample> samples, Seq<double> percentiles, Op key) =>
-        ConformanceResidualDistances(samples: samples, key: key)
-            .Bind(distances => Distribution.Of(values: distances, percentiles: percentiles, key: key));
+        Stat.Extrema(items: samples, projection: static sample => Math.Abs(sample.Distance), tolerance: 0.0, direction: ExtremumDirection.Maximum)
+            .Head.ToFin(key.InvalidResult());
+    // Spread carries its own summary, so the band verdict stamps onto that summary's OWN extrema and the fold runs
+    // once; leaving the nested summary at StatContext.None publishes a false negative verdict for a conformant stream.
+    internal static Fin<Distribution> ConformanceResidualDistribution(Seq<ResidualSample> samples, Seq<double> percentiles, double tolerance, Op key) =>
+        Distribution.Of(values: samples.Map(static sample => sample.Distance), percentiles: percentiles, key: key)
+            .Bind(spread => key.AcceptValue(value: spread with {
+                Summary = spread.Summary with { Context = StatContext.Tolerance(tolerance: tolerance, minimum: spread.Summary.Minimum, maximum: spread.Summary.Maximum) },
+            }));
     private static bool CanConform(ConformanceMetric metric, Type geometry, Type target) =>
         geometry == typeof(object) || target == typeof(object)
         || (Capability.CurveForm.Admits(type: geometry) && metric.AcceptsTarget(target: target, curveSource: true))
@@ -613,13 +694,13 @@ public static partial class Analyze {
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: key)
             .Bind(points => points.Map((p, i) => cancel.IsCancellationRequested
                 ? Fin.Fail<ResidualSample>(new Fault.Cancelled())
-                : distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
+                : distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value))).TraverseM(identity).As());
     private static Fin<Seq<ResidualSample>> ConformanceSamples<TGeometry, TTarget>(ConformanceMetric metric, int count, TGeometry geometry, TTarget target, Context context, Op key, CancellationToken cancel) where TGeometry : notnull where TTarget : notnull =>
         (geometry, target) switch {
             (object curveLike, object targetCurveLike) when Capability.CurveForm.Admits(type: curveLike.GetType()) && Capability.CurveForm.Admits(type: targetCurveLike.GetType()) && metric.ExactCurveDeviation =>
                 Normalization.CurveForm(source: curveLike, key: key).Bind(leftLease => Normalization.CurveForm(source: targetCurveLike, key: key).Bind(rightLease => leftLease.Use(left => rightLease.Use(right =>
                     CurveDeviationOf(left: left, right: right, context: context, op: key)
-                        .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance))))))),
+                        .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance))))))),
             (object curveLike, _) when Capability.CurveForm.Admits(type: curveLike.GetType()) =>
                 Normalization.CurveForm(source: curveLike, key: key).Bind(lease => lease.Use(curve => ConformanceSampleResiduals(curve, target, count, context, key, cancel,
                     sampler: static (c, n, ctx, op) => c.SamplePoints(count: n, context: ctx, key: op),
@@ -639,7 +720,7 @@ public static partial class Analyze {
                     guard(kindG.Topology == Topology.Curve || kindG.Topology == Topology.Surface, op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))).ToFin()
                         .Map(_ => (A: Requirement.ForKind(kind: kindG), B: state.Metric.TargetRequirement(kind: kindT))), cancel: runtime.Cancellation).ToEff()
                 from residuals in ConformanceSamples(metric: state.Metric, count: state.Count, geometry: resolved.A, target: resolved.B, context: runtime.Context, key: state.Key, cancel: runtime.Cancellation).ToEff()
-                from result in state.Metric.Project<TValue>(residuals: residuals, percentiles: state.Percentiles, context: runtime.Context, key: state.Key).ToEff()
+                from result in state.Metric.Project<TValue>(residuals: residuals, percentiles: state.Percentiles, key: state.Key).ToEff()
                 select result);
 }
 ```
@@ -653,14 +734,17 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Mass, bounds, and conformance measurement fan
+    accDescr: The query dispatch forwarding into the three family builders, the mass coordinate resolving length, area, and volume properties into one bundle of projections, bounds yielding boxes and fitted solids, and conformance folding residuals into statistics under the validity oracle from either a sampled pair or a consumer's measured tranche.
+    Query[Analysis/query dispatch] -->|Operation builders| Measure & Bounds & ConformanceMetric
     Measure -->|MassKind × MassProperty coordinate| MassOps[LengthMassProperties · AreaMassProperties · VolumeMassProperties]
     MassOps -->|Lease compute → extract → dispose| Projections[double · Point3d · Vector3d · Plane · axis tuples]
+    MassOps -->|one handle, every projection| GeometryMeasures[GeometryMeasures bundle]
     Bounds -->|BoundsOf / Box capture / PrincipalFrameOf| Boxes[BoundingBox · Box]
     Bounds -->|EnclosingSamples → RitterFit| Solids[Sphere · Circle · Cylinder]
-    ConformanceMetric -->|SamplePoints × SupportProjection| ResidualSample
-    ResidualSample -->|Stat.Of · Stat.Extrema · Distribution.Of| Statistics[Stat · Distribution]
+    ConformanceMetric -->|pair arity SamplePoints × SupportProjection · stream arity the consumer's tranche| ResidualSample
+    ResidualSample -->|Project: admit once → band → row| Statistics[Stat · Distribution · worst sample]
     ResidualSample -.->|IValidityEvidence| Oracle[one validity oracle]
-    Measure & Bounds & ConformanceMetric -->|Operation builders| Query[Analysis/query dispatch]
 ```
 
 ## [05]-[RESEARCH]

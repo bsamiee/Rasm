@@ -6,7 +6,7 @@ Rhino-styled presentation is a policy row: `ChromeRow.Rhino` routes through the 
 
 ## [01]-[INDEX]
 
-- [02]-[COMMANDS]: `CommandTag` + `CommandRole` + `CommandSpec` + `CommandEcho` + `CommandDeck` + `CommandForge` — the reusable action rows, the mint fold with radio-group wiring, and the receipted execution journal.
+- [02]-[COMMANDS]: `CommandTag` + `CommandRole` + `CommandSpec` + `CommandEcho` + `CommandDeck` + `EtoLifetime` + `CommandForge` — the reusable action rows, the leased mint fold with radio-group wiring and its reverse-order detach, and the receipted execution journal.
 - [03]-[MENUS]: `MenuNode` + `MenuForge` — the recursive menu union over the deck, context-menu construction, control attachment, and the marshalled popup.
 - [04]-[WINDOWS]: `WindowRole` + `WindowChrome` + `ChromeRow` + `WindowSpec` + `WindowVerb` + `WindowReceipt` + `WindowHost.Raise`/`Steer` — modeless windows as spec rows, the one raise marshal, the live-window verb gate, and lease-owned teardown.
 - [05]-[DIALOGS]: `DialogSpec<TResult>` + `FilterPlan` + `PickerSpec` + `PickerResult` + `WindowHost.Run`/`Present` — the typed-result modal fold over harvested content and the one native-picker gate.
@@ -14,12 +14,13 @@ Rhino-styled presentation is a policy row: `ChromeRow.Rhino` routes through the 
 ## [02]-[COMMANDS]
 
 - Owner: `CommandSpec` — one row per reusable action: `CommandTag` `[ValueObject<string>]` intent identity, menu text, optional bar text and tooltip, optional `Keys` chord, the enablement seed, the `CommandRole` row, the radio group tag, the toggle seed, and the `Fin`-railed effect. `CommandRole` `[SmartEnum<int>]` — `Push` (`Command`), `Toggle` (`CheckCommand` with seeded `Checked`), `Radio` (`RadioCommand` wired to its group head's `Controller`) — carries construction as one `[UseDelegateFromConstructor]` column, so a stateful or grouped verb is a row value, never a sibling spec family.
-- Owner: `CommandForge.Mint` — the one deck fold: every spec mints its native command, radio rows resolve their group head through the fold's accumulating head map (the first row of a group becomes the controller), and every `Executed` raise runs the effect under `Op.Catch`, stamping a `CommandEcho` (tag, settlement, latency) from one kernel `MonotonicTimeline` into the deck's journal atom. `CommandDeck` is the sealed result — the tag-keyed command map with the journal — and duplicate tags refuse at the seal.
-- Entry: `CommandForge.Mint(Seq<CommandSpec> specs, Op? key = null)` → `Fin<CommandDeck>`; `CommandDeck.Verb(CommandTag)` → `Option<Command>`.
+- Owner: `CommandForge.Mint` — the one deck fold: every spec mints its native command, radio rows resolve their group head through the fold's accumulating head map (the first row of a group becomes the controller), and every `Executed` raise runs the effect under `Op.Catch`, stamping a `CommandEcho` (tag, settlement, latency) from one kernel `MonotonicTimeline` into the deck's journal atom. `CommandDeck` is the leased result — the tag-keyed command map, the journal, and the exact delegate identities the fold attached — and duplicate tags refuse at the seal.
+- Entry: `CommandForge.Mint(Seq<CommandSpec> specs, Op? key = null)` → `Fin<Lease<CommandDeck>>`; `CommandDeck.Verb(CommandTag)` → `Option<Command>`.
+- Law: the mint has an inverse — a subscription IS the detacher attach returned, so the deck carries every `(Command, EventHandler)` pair it wired and releases them in reverse mint order on one idempotent UI-affine arrow, exactly as `OwnedContextMenu` releases its `MenuItem`s. A refusal mid-fold unwinds every pair already attached before the fault returns, so no spec set can leave a live handler behind a deck no consumer holds.
 - Law: an effect never throws into the host event pump — the `Executed` handler is the one exception funnel, a faulted effect stamps an unsettled echo and the fault rides the journal, so palette ranking, usage attribution, and failure surfacing are folds over one echo stream.
 - Law: the tag is triple-duty — menu identity, journal identity, and the key every menu node and toolbar row resolves against — so a literal command name at a consuming surface is a bypassed row field.
 - Boundary: chord conflict folding, availability streams, and per-placement policy are the shell chrome owner's concerns over this deck; `Command.Execute()` remains the programmatic raise and enters the same journal.
-- Packages: Eto (`Command`, `CheckCommand.Checked`, `RadioCommand.Controller`, `Command.MenuText`/`ToolBarText`/`ToolTip`/`Shortcut`/`Enabled`/`Execute`/`Executed`, `Keys`), LanguageExt.Core (`Fin`, `HashMap`, `Atom`), `Rasm.Domain` (`Op`, `ValidityClaim`, `IValidityEvidence`), `Rasm.Parametric` (`MonotonicTimeline`).
+- Packages: Eto (`Command`, `CheckCommand.Checked`, `RadioCommand.Controller`, `Command.MenuText`/`ToolBarText`/`ToolTip`/`Shortcut`/`Enabled`/`Execute`/`Executed`, `Keys`), LanguageExt.Core (`Fin`, `HashMap`, `Atom`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`, `IValidityEvidence`), `Rasm.Parametric` (`MonotonicTimeline`), `Eto/runtime.md` (`EtoDispatch`).
 - Growth: a new verb posture is one `CommandRole` row; a new journal fact is one `CommandEcho` field; the mint gate never widens.
 
 ```csharp signature
@@ -58,50 +59,116 @@ public readonly record struct CommandEcho(CommandTag Tag, bool Settled, TimeSpan
     public bool IsValid => ValidityClaim.All(ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
 }
 
-public sealed record CommandDeck(HashMap<CommandTag, Command> Verbs, Atom<Seq<CommandEcho>> Journal) {
+internal sealed record CommandFold(
+    HashMap<CommandTag, Command> Verbs,
+    HashMap<CommandTag, RadioCommand> Heads,
+    Seq<(Command Verb, EventHandler<EventArgs> Handler)> Attached) {
+    internal static readonly CommandFold Empty = new(
+        Verbs: HashMap<CommandTag, Command>(),
+        Heads: HashMap<CommandTag, RadioCommand>(),
+        Attached: Seq<(Command, EventHandler<EventArgs>)>());
+}
+
+internal static class EtoLifetime {
+    internal static Fin<Unit> Preserve(Fin<Unit> first, Fin<Unit> next) => first.IsFail ? first : next;
+
+    internal static Fin<Unit> Release<T>(Seq<Lease<T>> resources, Op key) where T : class, IDisposable =>
+        resources.Reverse().Aggregate(
+            seed: Fin.Succ(unit),
+            func: (first, resource) => Preserve(
+                first: first,
+                next: key.Catch(body: () => Fin.Succ(resource.Dispose()))));
+
+    internal static Fin<Unit> Detach(Seq<(Command Verb, EventHandler<EventArgs> Handler)> attached, Op key) =>
+        attached.Reverse().Fold(
+            Fin.Succ(unit),
+            (first, row) => Preserve(
+                first: first,
+                next: key.Catch(body: () => Fin.Succ(Op.Side(action: () => row.Verb.Executed -= row.Handler)))));
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+public sealed class CommandDeck : IDisposable {
+    private readonly Seq<(Command Verb, EventHandler<EventArgs> Handler)> attached;
+    private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
+    private int releaseState;
+
+    internal CommandDeck(
+        HashMap<CommandTag, Command> verbs, Atom<Seq<CommandEcho>> journal,
+        Seq<(Command Verb, EventHandler<EventArgs> Handler)> attached) {
+        Verbs = verbs;
+        Journal = journal;
+        this.attached = attached;
+    }
+
+    public HashMap<CommandTag, Command> Verbs { get; }
+    public Atom<Seq<CommandEcho>> Journal { get; }
+    public Option<Error> LastFault => lastFault.Value;
     public Option<Command> Verb(CommandTag tag) => Verbs.Find(tag);
+
+    public void Dispose() => ignore(Release(key: Op.Of(name: nameof(CommandDeck))));
+
+    private Fin<Unit> Release(Op key) {
+        if (Interlocked.Exchange(location1: ref releaseState, value: 1) != 0) return Fin.Succ(unit);
+        Fin<Unit> released = EtoDispatch.Run(body: () => EtoLifetime.Detach(attached: attached, key: key), key: key);
+        released.Match(
+            Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return unit; },
+            Fail: error => {
+                ignore(lastFault.Swap(_ => Some(error)));
+                Volatile.Write(location: ref releaseState, value: 0);
+                return unit;
+            });
+        return released;
+    }
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class CommandForge {
-    public static Fin<CommandDeck> Mint(Seq<CommandSpec> specs, Op? key = null) {
+    public static Fin<Lease<CommandDeck>> Mint(Seq<CommandSpec> specs, Op? key = null) {
         Op op = key.OrDefault();
         Atom<Seq<CommandEcho>> journal = Atom(Seq<CommandEcho>());
         return from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: op)
                from rows in Optional(specs).ToFin(op.InvalidInput())
-               from state in rows.Fold(
-                Fin.Succ((Verbs: HashMap<CommandTag, Command>(), Heads: HashMap<CommandTag, RadioCommand>())),
-                (acc, spec) => acc.Bind(state => state.Verbs.ContainsKey(spec.Tag)
-                    ? Fin.Fail<(HashMap<CommandTag, Command>, HashMap<CommandTag, RadioCommand>)>(op.InvalidInput())
-                    : op.Catch(body: () => {
-                        CommandTag anchor = spec.Group.IfNone(spec.Tag);
-                        Command verb = spec.Role.Mint(seed: spec.Checked, head: state.Heads.Find(anchor));
-                        verb.MenuText = spec.MenuText;
-                        verb.Enabled = spec.Enabled;
-                        spec.BarText.Iter(text => verb.ToolBarText = text);
-                        spec.Hint.Iter(hint => verb.ToolTip = hint);
-                        spec.Chord.Iter(chord => verb.Shortcut = chord);
-                        verb.Executed += (_, _) => {
-                            Fin<MonotonicStamp> entered = timeline.Capture(key: op);
-                            bool settled = op.Catch(body: spec.Effect).IsSucc;
-                            TimeSpan latency = (
-                                from start in entered
-                                from end in timeline.Capture(key: op)
-                                from elapsed in timeline.Elapsed(start: start, end: end, key: op)
-                                select elapsed).IfFail(TimeSpan.Zero);
-                            ignore(journal.Swap(held => held.Add(new CommandEcho(
-                                Tag: spec.Tag, Settled: settled,
-                                Latency: latency))));
-                        };
-                        return Fin.Succ((
-                            state.Verbs.Add(spec.Tag, verb),
-                            verb is RadioCommand radio && state.Heads.Find(anchor).IsNone
-                                ? state.Heads.Add(anchor, radio)
-                                : state.Heads));
-                    })))
-               select new CommandDeck(Verbs: state.Verbs, Journal: journal);
+               from folded in rows.Fold(
+                Fin.Succ(CommandFold.Empty),
+                (acc, spec) => acc.Bind(state => Grown(state: state, spec: spec, journal: journal, timeline: timeline, op: op)
+                    .MapFail(error => (EtoLifetime.Detach(attached: state.Attached, key: op), error).Item2)))
+               select (Lease<CommandDeck>)new Lease<CommandDeck>.Owned(
+                   Value: new CommandDeck(verbs: folded.Verbs, journal: journal, attached: folded.Attached));
     }
+
+    private static Fin<CommandFold> Grown(
+        CommandFold state, CommandSpec spec, Atom<Seq<CommandEcho>> journal, MonotonicTimeline timeline, Op op) =>
+        state.Verbs.ContainsKey(spec.Tag)
+            ? Fin.Fail<CommandFold>(op.InvalidInput())
+            : op.Catch(body: () => {
+                CommandTag anchor = spec.Group.IfNone(spec.Tag);
+                Command verb = spec.Role.Mint(seed: spec.Checked, head: state.Heads.Find(anchor));
+                verb.MenuText = spec.MenuText;
+                verb.Enabled = spec.Enabled;
+                spec.BarText.Iter(text => verb.ToolBarText = text);
+                spec.Hint.Iter(hint => verb.ToolTip = hint);
+                spec.Chord.Iter(chord => verb.Shortcut = chord);
+                EventHandler<EventArgs> raised = (_, _) => {
+                    Fin<MonotonicStamp> entered = timeline.Capture(key: op);
+                    bool settled = op.Catch(body: spec.Effect).IsSucc;
+                    TimeSpan latency = (
+                        from start in entered
+                        from end in timeline.Capture(key: op)
+                        from elapsed in timeline.Elapsed(start: start, end: end, key: op)
+                        select elapsed).IfFail(TimeSpan.Zero);
+                    ignore(journal.Swap(held => held.Add(new CommandEcho(
+                        Tag: spec.Tag, Settled: settled, Latency: latency))));
+                };
+                verb.Executed += raised;
+                return Fin.Succ(new CommandFold(
+                    Verbs: state.Verbs.Add(spec.Tag, verb),
+                    Heads: verb is RadioCommand radio && state.Heads.Find(anchor).IsNone
+                        ? state.Heads.Add(anchor, radio)
+                        : state.Heads,
+                    Attached: state.Attached.Add((verb, raised))));
+            });
 }
 ```
 
@@ -131,17 +198,6 @@ public abstract partial record MenuNode {
 }
 
 internal sealed record MenuBranch(MenuItem Root, Seq<Lease<MenuItem>> Owned);
-
-internal static class EtoLifetime {
-    internal static Fin<Unit> Preserve(Fin<Unit> first, Fin<Unit> next) => first.IsFail ? first : next;
-
-    internal static Fin<Unit> Release<T>(Seq<Lease<T>> resources, Op key) where T : class, IDisposable =>
-        resources.Reverse().Aggregate(
-            seed: Fin.Succ(unit),
-            func: (first, resource) => Preserve(
-                first: first,
-                next: key.Catch(body: () => Fin.Succ(resource.Dispose()))));
-}
 
 internal sealed class OwnedContextMenu(Seq<MenuBranch> branches) : ContextMenu {
     private readonly Seq<MenuBranch> branches = branches;
@@ -541,7 +597,7 @@ public static partial class WindowHost {
                     picker.CheckFileExists = true;
                     c.Home.Iter(home => picker.Directory = home);
                     c.Filters.Iter(filter => picker.Filters.Add(new FileFilter(filter.Label, [.. filter.Extensions])));
-                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                    return Fin.Succ(s.Anchor.Match(Some: owner => picker.ShowDialog(owner), None: () => picker.ShowDialog()) == DialogResult.Ok
                         ? (PickerResult)new PickerResult.PathsCase(Values: toSeq(picker.Filenames))
                         : new PickerResult.DismissedCase());
                 });
@@ -553,7 +609,7 @@ public static partial class WindowHost {
                     c.Home.Iter(home => picker.Directory = home);
                     c.Seed.Iter(name => picker.FileName = name);
                     c.Filters.Iter(filter => picker.Filters.Add(new FileFilter(filter.Label, [.. filter.Extensions])));
-                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                    return Fin.Succ(s.Anchor.Match(Some: owner => picker.ShowDialog(owner), None: () => picker.ShowDialog()) == DialogResult.Ok
                         ? (PickerResult)new PickerResult.PathCase(Value: picker.FileName)
                         : new PickerResult.DismissedCase());
                 });
@@ -563,7 +619,7 @@ public static partial class WindowHost {
                 return owned.Use(picker => {
                     picker.Title = c.Title;
                     c.Home.Iter(home => picker.Directory = home);
-                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                    return Fin.Succ(s.Anchor.Match(Some: owner => picker.ShowDialog(owner), None: () => picker.ShowDialog()) == DialogResult.Ok
                         ? (PickerResult)new PickerResult.PathCase(Value: picker.Directory)
                         : new PickerResult.DismissedCase());
                 });
@@ -573,7 +629,7 @@ public static partial class WindowHost {
                 return owned.Use(picker => {
                     picker.Color = c.Seed;
                     picker.AllowAlpha = c.Alpha && picker.SupportsAllowAlpha;
-                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                    return Fin.Succ(s.Anchor.Match(Some: owner => picker.ShowDialog(owner), None: () => picker.ShowDialog()) == DialogResult.Ok
                         ? (PickerResult)new PickerResult.ShadeCase(Value: picker.Color)
                         : new PickerResult.DismissedCase());
                 });
@@ -582,13 +638,13 @@ public static partial class WindowHost {
                 Lease<FontDialog> owned = new Lease<FontDialog>.Owned(Value: new FontDialog());
                 return owned.Use(picker => {
                     c.Seed.Iter(font => picker.Font = font);
-                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                    return Fin.Succ(s.Anchor.Match(Some: owner => picker.ShowDialog(owner), None: () => picker.ShowDialog()) == DialogResult.Ok
                         ? (PickerResult)new PickerResult.GlyphCase(Value: picker.Font)
                         : new PickerResult.DismissedCase());
                 });
             }),
             askCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ((PickerResult)new PickerResult.VerdictCase(
-                Value: MessageBox.Show(Anchored(anchor: s.Anchor), c.Text, c.Caption, c.Buttons, c.Kind)))),
+                Value: s.Anchor.Match(Some: owner => MessageBox.Show(owner, c.Text, c.Caption, c.Buttons, c.Kind), None: () => MessageBox.Show(c.Text, c.Caption, c.Buttons, c.Kind))))),
             editCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(
                 Rhino.UI.Dialogs.ShowEditBox(title: c.Title, message: c.Message, defaultText: c.Seed, multiline: c.Multiline, text: out string text)
                     ? (PickerResult)new PickerResult.TextCase(Value: text)
@@ -646,8 +702,6 @@ public static partial class WindowHost {
         });
     });
 
-    private static Control Anchored(Option<Control> anchor) =>
-        anchor.MatchUnsafe(Some: static owner => owner, None: static () => null!);
 }
 ```
 
@@ -693,7 +747,7 @@ One owner per axis; capability lands as a case, a row, or a field — never a si
 
 | [INDEX] | [CONCERN]          | [OWNER]                                      | [RAIL]                              | [CASES] |
 | :-----: | :----------------- | :------------------------------------------- | :---------------------------------- | :-----: |
-|  [01]   | reusable actions   | `CommandTag` + `CommandRole` + `CommandSpec` | `Mint → Fin<CommandDeck>`           |    3    |
+|  [01]   | reusable actions   | `CommandTag` + `CommandRole` + `CommandSpec` | `Mint → Fin<Lease<CommandDeck>>`    |    3    |
 |  [02]   | execution evidence | `CommandEcho` + `CommandDeck`                | journal fold                        |    1    |
 |  [03]   | menus              | `MenuNode` + `MenuForge`                     | `Context → Fin<Lease<ContextMenu>>` |    3    |
 |  [04]   | windows            | `WindowRole` + `WindowChrome` + `WindowSpec` | `Raise → Fin<WindowReceipt>`        |   2+2   |

@@ -14,7 +14,7 @@ This realtime serve plane: SSE and WebSocket endpoints over the branch's own fee
 ## [02]-[LIVE_FAULT]
 
 [LIVE_FAULT]:
-- Owner: `LiveFault` — the realtime reason family: `denied` (subscription refused by admission), `shed` (fan capacity refused), `lost` (resume coordinate no longer replayable — the client re-syncs from a snapshot), `closed` (channel retired or transport failed) — rows carrying the core class so the `problem` net renders an escaped instance at its own status; and `Realtime.Source` — the resumable-feed contract every endpoint takes: `from(resume)` opens the stream, `token(item)` mints the reattach coordinate as `Option` so a snapshot-shaped feed (each emission a fresh decoded read) is honestly tokenless and a journal-shaped feed is replay-exact.
+- Owner: `LiveFault` — the realtime reason family, its rows closed through the core `FaultClass.family` seam: `denied` (subscription refused by admission), `shed` (fan capacity refused), `lost` (resume coordinate no longer replayable — the client re-syncs from a snapshot), `closed` (channel retired or transport failed) — each row the core class alone, so the `problem` net renders an escaped instance at the governed status and no local rank, retry, or status column rides beside it; and `Realtime.Source` — the resumable-feed contract every endpoint takes: `from(resume)` opens the stream, `token(item)` mints the reattach coordinate as `Option` so a snapshot-shaped feed (each emission a fresh decoded read) is honestly tokenless and a journal-shaped feed is replay-exact.
 - Law: `from(resume)` owns replay truth — `Option.none` starts live with the source's own warm-up, `Option.some(resume)` resumes after the attested coordinate, and a coordinate the source can no longer honor fails `lost` so the client re-syncs instead of silently missing a gap; the token travels as the SSE event `id`, so the browser's `Last-Event-ID` reconnect machinery carries the resume attestation with zero client code.
 - Law: tokens are opaque and bounded — the `Resume` brand admits the wire form at the header seam; minting is the source's, and this plane never parses a token's interior.
 - Packages: `effect` (`Schema`, `Option`, `Stream`); `@rasm/ts/core` (`FaultClass`).
@@ -24,34 +24,33 @@ import { Sse } from "@effect/experimental"
 import { ChannelSchema, type HttpApp, HttpServerRequest, HttpServerResponse, Ndjson, Socket } from "@effect/platform"
 import { SqlClient, type SqlError } from "@effect/sql"
 import {
-  Channel, Chunk, Context, DateTime, Duration, Effect, FiberMap, HashMap, Layer, Option, type ParseResult, Ref, Schedule,
-  Schema, type Scope, Stream, Trie,
+  Channel, Chunk, Context, DateTime, Deferred, Duration, Effect, Either, HashMap, Layer, Option, type ParseResult, Ref,
+  Schedule, Schema, type Scope, Stream, Trie,
 } from "effect"
-import { type FaultClass, type Fold, Hlc, Presence } from "@rasm/ts/core"
+import { FaultClass, type Fold, Hlc, Presence } from "@rasm/ts/core"
 import { Live } from "@rasm/ts/data"
 import { Envelope, Fanout } from "../net/pubsub.ts"
 import { Principal } from "./api.ts"
 
-const _reasons = ["denied", "shed", "lost", "closed"] as const
-
-const _faults = {
+// One row per reason: the core kind alone. Retryability, blame, and the response code stay the core row
+// table's and problem#STATUS_RECORD's, so no local policy column rides beside `class`.
+const _live = FaultClass.family(["denied", "shed", "lost", "closed"] as const, {
   denied: { class: "denied" },
   shed: { class: "unavailable" },
   lost: { class: "conflicted" },
   closed: { class: "unavailable" },
-} as const
+})
 
 declare namespace LiveFault {
-  type Reason = keyof typeof _faults
-  type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _faults> = T
+  type Reason = (typeof _live.reasons)[number]
 }
 
 class LiveFault extends Schema.TaggedError<LiveFault>()("LiveFault", {
-  reason: Schema.Literal(..._reasons),
+  reason: _live.schema,
   detail: Schema.String,
 }) {
   get class(): FaultClass.Kind {
-    return _faults[this.reason].class
+    return _live.classOf(this.reason)
   }
   override get message(): string {
     return `<live:${this.reason}> ${this.detail}`
@@ -76,8 +75,9 @@ declare namespace Realtime {
 - Law: `_SSE` is the policy row — `beat` (heartbeat cadence) and `lag` (the buffer bound between the fold and a slow consumer, `"suspend"` so pressure stops the producer before any frame is lost) — one value tuned per app, threaded nowhere. Dropping and sliding buffers are forbidden on a resumable stream because it creates an in-connection gap the browser's reconnect token cannot attest.
 - Law: the encode seam is the codec's own — frames lower to response bytes through `Sse.encoder`, the heartbeat is a named `ping` event clients ignore by name, and a tokenless item writes no `id` so the browser attests only coordinates the source honors.
 - Law: a source's own `LiveFault` passes the seam intact; any foreign source fault normalizes to `closed` at the one `Stream.mapError` seam — the same one-seam fold the socket row runs.
+- Law: the fold TAKES `[06]`'s reservation fence and never reaches the admission plane itself — `Stream.interruptWhenDeferred` over the whole frame stream is what makes the per-principal cap a fact about live responses, so a supersede or a response-scope close ends this feed and frees the slot in one motion.
 - Boundary: which feeds exist and who attaches is `[06]`'s admission; the inbound SSE parser is `net/channel#FEED_SEAM`'s — this endpoint only emits.
-- Packages: `@effect/experimental` (`Sse`); `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`); `effect` (`Stream`, `Schedule`, `Duration`).
+- Packages: `@effect/experimental` (`Sse`); `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`); `effect` (`Stream`, `Schedule`, `Duration`, `Deferred`).
 
 ```typescript signature
 const _SSE = {
@@ -98,6 +98,7 @@ const _sse = <A, I, E, R, R2>(
   name: string,
   item: Schema.Schema<A, I, R2>,
   source: Realtime.Source<A, E, R>,
+  fence: Deferred.Deferred<void>,
 ): Effect.Effect<
   HttpServerResponse.HttpServerResponse,
   LiveFault,
@@ -123,9 +124,11 @@ const _sse = <A, I, E, R, R2>(
       Stream.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ reason: "closed", detail: String(cause) }))),
       Stream.buffer({ capacity: _SSE.lag, strategy: "suspend" }),
     )
+    // the admission fence bounds the WHOLE frame stream, heartbeat included: a superseding subscribe settles it and
+    // this response ends, so the plane-level slot the successor took is never held by two live feeds at once
     const framed = Stream.merge(events, Stream.repeatEffectWithSchedule(Effect.succeed(_BEAT), Schedule.spaced(_SSE.beat)), {
       haltStrategy: "left",
-    })
+    }).pipe(Stream.interruptWhenDeferred(fence))
     return HttpServerResponse.stream(Stream.provideContext(_encoded(framed), context)).pipe(
       HttpServerResponse.setHeaders({ "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" }),
     )
@@ -138,7 +141,8 @@ const _sse = <A, I, E, R, R2>(
 - Owner: `Realtime.socket` — the WS upgrade fold: `HttpServerRequest.upgrade` yields the peer socket, `Socket.toChannelWith` lifts it to a byte channel, `Ndjson.duplexString` frames text lines, and `ChannelSchema.duplexUnknown({ inputSchema, outputSchema })` types both directions in one composition — a live session is one typed duplex channel whose inbound decodes INTO the caller's vocabulary (`Presence.Op`, subscribe intents) and whose outbound is the encoded frame family, backpressure inherited from the channel stack; the binary peer swaps `Ndjson` for the `net/channel#FRAME_ROWS` msgpack row with an unchanged schema seam.
 - Law: frame vocabularies are parameters — this row owns transport and typing, never the frame family; `[06]` supplies the inbound admission fold and the outbound feeds, so a new realtime feature is a frame case at its owner, not a socket edit.
 - Law: a decode failure on any inbound frame ends the session typed — a malformed client frame is a `LiveFault`, never a silent drop; the channel's error fold normalizes every transport, frame, and parse fault into the family at the one `Channel.mapError` seam.
-- Packages: `@effect/platform` (`Socket`, `Ndjson`, `ChannelSchema`, `HttpServerRequest`); `effect` (`Channel`, `Chunk`).
+- Law: this row honors `[06]`'s fence on the identical member family the SSE row does — `Channel.interruptWhenDeferred` — so one admission plane governs both transports and a duplex cannot outlive the reservation that admitted it.
+- Packages: `@effect/platform` (`Socket`, `Ndjson`, `ChannelSchema`, `HttpServerRequest`); `effect` (`Channel`, `Chunk`, `Deferred`).
 
 ```typescript signature
 const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
@@ -146,6 +150,7 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
     readonly inbound: Schema.Schema<In, IEnc, RIn>
     readonly outbound: Schema.Schema<Out, OEnc, ROut>
   },
+  fence: Deferred.Deferred<void>,
 ): Effect.Effect<
   Channel.Channel<Chunk.Chunk<In>, Chunk.Chunk<Out>, LiveFault, unknown, void, unknown, RIn | ROut>,
   LiveFault,
@@ -158,6 +163,8 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
       Ndjson.duplexString(),
       ChannelSchema.duplexUnknown({ inputSchema: frames.inbound, outputSchema: frames.outbound }),
       Channel.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ reason: "closed", detail: String(cause) }))),
+      // the same admission fence both endpoint rows honor: one supersede closes the duplex exactly as it closes an SSE
+      Channel.interruptWhenDeferred(fence),
     )
   })
 ```
@@ -165,18 +172,21 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
 ## [05]-[FEED_ROWS]
 
 [FEED_ROWS]:
-- Owner: the source adapters — the three branch feed families lifted into the one `Source` contract so every endpoint fold serves them unchanged. `Realtime.query(bound)` serves a data `Live.Bound`: `changes` is the push stream re-running on every overlapping mutation, each emission a fresh decoded read, so the source is honestly tokenless — a reconnect re-reads current state and misses nothing by construction — and the pull twin stays the consumer-side `mailbox`, never an SSE concern; `Realtime.topic(topic)` serves a fanout subject: a fresh attach warms from the topic row's replay window, and a caller holding its own sequence ledger opens `Fanout.replay(topic, anchor)` instead — the anchor is the caller's evidence, so the adapter mints no token it cannot honor; `Realtime.roster(feed, lease)` serves presence: the folded table stream projects through `Presence.roster` against a horizon minted per emission, so liveness is a read-time verdict and no timer fiber sweeps anything.
+- Owner: the source adapters — the three branch feed families lifted into the one `Source` contract so every endpoint fold serves them unchanged. `Realtime.query(bound)` serves a data `Live.Bound`: `changes` is the push stream re-running on every overlapping mutation, each emission a fresh decoded read, so a reconnect re-reads current state and misses nothing by construction; the bound's own `coordinate` projection answers the token — a lane carrying a durable emission identity (its `AsOf` sequence) serves it as the event `id`, a DEDUPE coordinate the client proves its rendered state against and never a replay cursor, while a coordinate-free bound is honestly tokenless — and the pull twin stays the consumer-side `mailbox`, never an SSE concern; `Realtime.topic(topic)` serves a fanout subject: a fresh attach warms from the topic row's replay window, and a caller holding its own sequence ledger opens `Fanout.replay(topic, anchor)` instead — the anchor is the caller's evidence, so the adapter mints no token it cannot honor; `Realtime.roster(feed, lease)` serves presence: the folded table stream projects through `Presence.roster` against a horizon minted per emission, so liveness is a read-time verdict and no timer fiber sweeps anything.
 - Law: a feed value arrives bound, never rebuilt — the adapter composes `bound.changes`, `fanout.subscribe`, or the app-wired fold handle; re-running a query, caching a copy, or subscribing twice restates delivery the owning page already guarantees.
 - Law: fault normalization is the endpoint's one seam — `SqlError`/`ParseError` on a query feed and `FanoutFault` on a topic feed pass as the stream's own error into the endpoint fold, which normalizes foreign faults to `closed`; a `horizon` fanout fault maps to `lost` first because the client must re-sync, the one evidence-preserving arm.
 - Growth: a new feed family (a flag-verdict stream, a vital fact stream) is one adapter over the same contract; the endpoints never change.
-- Packages: `@rasm/ts/data` (`Live`); `@rasm/ts/core` (`Presence`, `Hlc`); `../net/pubsub.ts` (`Fanout`); `effect` (`Stream`, `Option`, `DateTime`).
+- Packages: `@rasm/ts/data` (`Live`); `@rasm/ts/core` (`Presence`, `Hlc`); `../net/pubsub.ts` (`Fanout`); `effect` (`Stream`, `Option`, `DateTime`, `Schema`).
 
 ```typescript signature
 const _query = <A, R>(
   bound: Live.Bound<A, R>,
 ): Realtime.Source<A, SqlError.SqlError | ParseResult.ParseError, R | SqlClient.SqlClient> => ({
   from: () => bound.changes,
-  token: () => Option.none(),
+  // the bound's own emission-identity projection: a durable coordinate (a lane's AsOf sequence) rides as the event
+  // id and a coordinate-free bound answers none — a DEDUPE token the client proves its rendered state against,
+  // never a replay cursor, because every emission already carries the complete answer
+  token: (value) => Option.flatMap(bound.coordinate(value), (id) => Schema.decodeOption(_Resume)(id)),
 })
 
 const _topic = (topic: string): Realtime.Source<Envelope, LiveFault, Fanout> => ({
@@ -216,10 +226,11 @@ const _roster = <E, R>(
 - Owner: `Admission.make(rules)` — one constructor over the app's channel-rule rows, built ONCE per served app and held by the serving Layer, never per session: each row keys a branded channel prefix and carries an `Admission.Rule` `Schema.Class` with `scope` (the `Principal` scope a subscriber must hold, `Option` for public channels), `presence` (whether the channel serves a roster), positive `fan` (the per-principal live-subscription cap), and `lease` (the presence liveness windows) — held in a `Trie` so `Trie.longestPrefixOf` resolves any concrete channel to its most specific family row in one read, and a channel family is one row, never one row per channel.
 - Law: admission is a two-gate fold — the channel must resolve to a rule (an unmatched channel is `denied`, never a default-open), and the rule's scope, when present, must pass `Principal.allows` — producing a `Grant` that carries the resolved rule, so every later decision (roster serving, fan cap, lease) reads the grant's own row and nothing downstream re-looks anything up.
 - Law: the stamp guard pins identity — a decoded `Presence.Op` reaches the fold only when its `actor` equals the authenticated principal's subject AND the grant's channel serves presence; a mismatched actor is `denied` with the op discarded, so presence forgery is refused at this plane and the core fold never carries an authorization concern; forwarding is a supplied sink, so where the fold runs is composition, never law here.
-- Law: the fan bound has one authoritative scope — the PRINCIPAL — and the registry is plane-level: one `FiberMap` keyed `subject:channel` holds every live subscription across every session, so a second session of one principal draws from the same cap and cannot mint a fresh allowance; the census is an epoch-counted key ledger — reserve increments the key, the subscription's `ensuring` releases it, and a supersede on a held key (a re-subscribe from any session) interrupts the predecessor whose own release balances the ledger — so distinct held channels per subject is the cap read, no counter drifts, and scope close releases every slot; a subscription past the grant's `fan` refuses as `shed` before any stream opens.
+- Law: the fan bound has one authoritative scope — the PRINCIPAL — and the registry is plane-level: one cell keyed `subject:channel` holds every live subscription across every session, so a second session of one principal draws from the same cap and cannot mint a fresh allowance; presence in the cell IS the held slot and the value is that holder's own FENCE, so the census read, the supersede swap, and the release are one atomic `Ref.modify` apiece and no epoch counter exists to drift. A subscription past the grant's `fan` refuses as `shed` before any stream opens.
+- Law: the reservation is what the served response HOLDS, never a fiber beside it — `subscribe` is a scoped acquisition answering the fence, the endpoint folds it through `Stream.interruptWhenDeferred` / `Channel.interruptWhenDeferred`, and the finalizer releases the slot only while that fence still owns the key; so a supersede settles the predecessor's fence and its RESPONSE closes, a client disconnect closes the response scope and the slot frees, and the cap counts live responses rather than bookkeeping fibers a served stream never rides. A registry forking its own fiber holds a count nothing can interrupt and leaves the cap tracking a ghost.
 - Law: the rule table is app data under a lib shape — which channels exist is composition material, so two apps with different channel maps share every line of this module.
 - Growth: a new admission axis (a payload ceiling, a rate row) is one `Rule` field read at its gate; a new channel family is one app-side row.
-- Packages: `effect` (`Trie`, `Option`, `FiberMap`, `HashMap`, `Ref`, `Scope`); `@rasm/ts/core` (`Presence`, `Hlc`); `./api.ts` (`Principal`).
+- Packages: `effect` (`Trie`, `Option`, `Either`, `Deferred`, `HashMap`, `Ref`, `Scope`); `@rasm/ts/core` (`Presence`, `Hlc`); `./api.ts` (`Principal`).
 
 ```typescript signature
 const _Channel = Schema.NonEmptyString.pipe(Schema.maxLength(128), Schema.pattern(/^[a-z0-9][a-z0-9:_-]*$/), Schema.brand("Channel"))
@@ -263,38 +274,58 @@ const _guard = (
         ? Effect.fail(new LiveFault({ reason: "denied", detail: op.actor }))
         : forward(op)
 
+// one atomic verdict over the whole cell: `left` is the refused cap, `right` carries the superseded incumbent's
+// fence when a held key re-reserved and `none` when the slot was fresh — three outcomes one boolean cannot spell
+const _reserved = (
+  cell: Ref.Ref<HashMap.HashMap<string, Deferred.Deferred<void>>>,
+  key: string,
+  subject: string,
+  fan: number,
+  fence: Deferred.Deferred<void>,
+): Effect.Effect<Either.Either<Option.Option<Deferred.Deferred<void>>, void>> =>
+  Ref.modify(cell, (slots) =>
+    Option.match(HashMap.get(slots, key), {
+      // a held key re-reserves from ANY session of this principal and never charges the cap twice
+      onSome: (incumbent) => [Either.right(Option.some(incumbent)), HashMap.set(slots, key, fence)] as const,
+      onNone: () =>
+        HashMap.size(HashMap.filter(slots, (_, held) => held.startsWith(`${subject}:`))) >= fan
+          ? ([Either.left<void>(undefined), slots] as const)
+          : ([Either.right(Option.none<Deferred.Deferred<void>>()), HashMap.set(slots, key, fence)] as const),
+    }))
+
 const _make = (rows: ReadonlyArray<readonly [prefix: Admission.Channel, rule: Admission.Rule]>) =>
   Effect.gen(function* () {
     const rules = Trie.fromIterable(rows)
-    const held = yield* FiberMap.make<string>()
-    const census = yield* Ref.make(HashMap.empty<string, number>())
+    const cell = yield* Ref.make(HashMap.empty<string, Deferred.Deferred<void>>())
     const admit = _admit(rules)
-    const release = (key: string): Effect.Effect<void> =>
-      Ref.update(census, (counts) =>
-        HashMap.modifyAt(counts, key, (slot) =>
-          Option.flatMap(slot, (epoch) => (epoch <= 1 ? Option.none() : Option.some(epoch - 1)))))
-    const subscribe = <E, R>(
+    const subscribe = (
       grant: Admission.Grant,
       principal: Principal.Shape,
-      run: Effect.Effect<void, E, R>,
-    ): Effect.Effect<void, E | LiveFault, R | Scope.Scope> =>
+    ): Effect.Effect<Deferred.Deferred<void>, LiveFault, Scope.Scope> =>
       Effect.gen(function* () {
         const key = `${principal.subject}:${grant.channel}`
-        // reserve is atomic over the principal's distinct held channels; a held key re-reserves (supersede), and the
-        // interrupted predecessor's own ensuring balances the epoch — so the cap spans every session of one principal
-        const admitted = yield* Ref.modify(census, (counts) => {
-          const mine = HashMap.size(HashMap.filter(counts, (_, k) => k.startsWith(`${principal.subject}:`)))
-          const supersede = Option.isSome(HashMap.get(counts, key))
-          return !supersede && mine >= grant.rule.fan
-            ? ([false, counts] as const)
-            : ([
-                true,
-                HashMap.modifyAt(counts, key, Option.match({ onNone: () => Option.some(1), onSome: (epoch) => Option.some(epoch + 1) })),
-              ] as const)
+        const fence = yield* Deferred.make<void>()
+        const verdict = yield* _reserved(cell, key, principal.subject, grant.rule.fan, fence)
+        return yield* Either.match(verdict, {
+          onLeft: () => Effect.fail(new LiveFault({ reason: "shed", detail: key })),
+          onRight: (incumbent) =>
+            Effect.as(
+              Effect.zipRight(
+                // settling the predecessor's fence interrupts ITS served stream, so a supersede closes a response
+                // rather than leaving a slot the cap still counts and nothing can reach
+                Option.match(incumbent, { onNone: () => Effect.void, onSome: (spent) => Deferred.succeed(spent, undefined) }),
+                // the slot frees on response-scope close, and only while this fence still owns the key — a
+                // successor that already superseded keeps its own reservation
+                Effect.addFinalizer(() =>
+                  Ref.update(cell, (slots) =>
+                    Option.match(HashMap.get(slots, key), {
+                      onNone: () => slots,
+                      onSome: (current) => (current === fence ? HashMap.remove(slots, key) : slots),
+                    }))),
+              ),
+              fence,
+            ),
         })
-        yield* admitted
-          ? FiberMap.run(held, key, Effect.ensuring(run, release(key)))
-          : Effect.fail(new LiveFault({ reason: "shed", detail: key }))
       })
     return { admit, guard: _guard, subscribe } as const
   })

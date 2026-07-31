@@ -2,7 +2,7 @@
 
 Experiment-run persistence, resume, and comparison rail on the study spine: `experiments/study#STUDY` owns one grid evaluation, `RunHistory` owns the multi-run cohort that persists, resumes, and compares those evaluations, never a parallel experiment tracker. A `Partial` resume evaluates only the remaining grid rows yet recomputes the sensitivity indices over the whole reconstituted response vector — a SALib variance-, moment-, or derivative-based index is undefined over a design tail slice — so a resumed receipt is statistically indistinguishable from an unbroken run. Compute owns no durable run store: the resume proof is key equality over caller-supplied evidence, never storage.
 
-Response caching is one `Map[ContentKey, np.ndarray]` keyed by `Study.spec_key` — axes, method, mode, the objective's full identity (row/batch scorer shipping identity and the jit route row), and design bytes in one preimage — so a data, method, mode, scorer, or jit/batch configuration change keys distinctly and never collides to a stale hit. `resume` evaluates its remaining rows through the same `HOSTILE`-trait `Kernel` crossing `experiments/study#STUDY` `Study.run` rides — the module-level `_resume_kernel` ships `REFERENCE`, a closure-bearing objective crosses on the pool's cloudpickle wire — while `compare` stays the sync `_traced` weave; both run under the `EvidenceScope.HISTORY` span with the `boundary` fence over beartype-guarded bodies, receipts harvested through the weave's fenced emit at the `runtime/observability/receipts#RECEIPT` owner.
+Response caching is one `Map[ContentKey, np.ndarray]` keyed by `Study.spec_key` — axes, method, mode, the objective's full identity (row/batch scorer shipping identity and the jit route row), the sampler-and-analyzer seed, and design bytes in one preimage — so a data, method, mode, scorer, seed, or jit/batch configuration change keys distinctly and never collides to a stale hit. The seed threads the WHOLE resume chain for that reason: it draws the design, folds into the key preimage, and drives the analyzer, so keying without it makes every non-zero-seed resume miss by construction and the plan answers `Fresh` forever. `resume` evaluates its remaining rows through the same `HOSTILE`-trait `Kernel` crossing `experiments/study#STUDY` `Study.run` rides — the module-level `_resume_kernel` ships `REFERENCE`, a closure-bearing objective crosses on the pool's cloudpickle wire — while `compare` stays the sync `_traced` weave; both run under the `EvidenceScope.HISTORY` span with the `boundary` fence over beartype-guarded bodies, both thread the caller's composition `ScopeKey` onto that weave, and receipts harvest through the weave's fenced emit at the `runtime/observability/receipts#RECEIPT` owner. `scipy.stats` supplies the rank-correlation family the cohort comparison reads.
 
 ## [01]-[INDEX]
 
@@ -12,18 +12,20 @@ Response caching is one `Map[ContentKey, np.ndarray]` keyed by `Study.spec_key` 
 
 - Owner: `RunHistory` — the study receipt is the per-grid evidence, `RunHistory` the cohort that keys, resumes, and compares those receipts.
 - Cases: `ResumePlan` discriminates `Complete`/`Partial`/`Fresh` against the prior run through one total `match`, so a new resume policy is one plan case and one `match` arm, never a new entrypoint.
-- Output: `CrossStat` parameterizes the comparison on both axes — the variadic `*keys` cohort in, the per-statistic agreement table out — reading run concurrence as per-axis sensitivity-ordering agreement, never a side-by-side index transpose.
-- Growth: a new resume outcome is one `ResumePlan` case and its `match` arm; a new comparison projection is one `RunProjection` field; a new cross-run statistic is one `CrossStat` member and one `_KERNELS` row; a new sync entrypoint shares the `_traced` weave by passing its `Traceable`-returning thunk, and an evaluating entrypoint crosses on the study kernel's lane.
+- Output: `CrossStat` parameterizes the comparison on both axes — the variadic `*keys` cohort in, the per-statistic agreement table out — reading run concurrence as per-axis sensitivity-ordering agreement, never a side-by-side index transpose. The kernels ARE the `scipy.stats` estimators: `spearmanr`, `kendalltau`, and `pearsonr` each answer their `.statistic` with the tie correction a local double-`argsort` transform silently drops, and `kendalltau`'s merge is O(n log n) where a sign-matrix contraction materializes two O(n²) operands per pair. Only the footrule distance has no scipy estimator, so it alone composes `rankdata` — one row, never a rank transform standing beside the provider's.
+- Absence: a degenerate operand — a constant index column — has no defined correlation, and the pair drops from the agreement map rather than being scored a fabricated perfect agreement or carrying a `nan` into the receipt facts and the span attributes; `score` returns `Option[float]` and the pair fold `choose`s over it, so absence is structural rather than a sentinel a reader must learn to disbelieve.
+- Growth: a new resume outcome is one `ResumePlan` case and its `match` arm; a new comparison projection is one `RunProjection` field; a new cross-run statistic is one `CrossStat` member and one `_KERNELS` row naming its estimator; a new sync entrypoint shares the `_traced` weave by passing its `Traceable`-returning thunk, and an evaluating entrypoint crosses on the study kernel's lane.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum
+from math import isfinite
 from typing import Final, Literal, Protocol, assert_never, runtime_checkable
 
 import numpy as np
 from beartype import beartype
-from expression import Error, Nothing, Ok, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
@@ -32,13 +34,16 @@ from rasm.compute.graduation.handoff import EvidenceScope, SpanFacts, evidence_r
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt, ReceiptContributor
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ReceiptContributor, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
+
+lazy from scipy import stats
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# every kernel reads the raw shared-axis index vectors AND their ordinal ranks, so one signature serves the rank and raw rows.
-type CrossKernel = Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], float]
+# every kernel reads the two shared-axis index vectors and nothing else: scipy's rank correlations take raw values and
+# rank internally with the tie correction, so a rank pair threaded beside them was a second transform the provider owns.
+type CrossKernel = Callable[[np.ndarray, np.ndarray], float]
 
 
 # `_traced` egress bound: a receipt streams its `contribute` facts AND projects the bounded scalars the `Ok` arm writes
@@ -50,18 +55,21 @@ class Traceable(ReceiptContributor, Protocol):
 
 
 class CrossStat(StrEnum):
-    RANK_CORRELATION = "rank_correlation"  # Spearman rho: Pearson over the no-ties argsort ranks
+    RANK_CORRELATION = "rank_correlation"  # Spearman rho over tie-corrected ranks
     RANK_DISTANCE = "rank_distance"  # Spearman footrule: 1 - normalized L1 rank displacement
-    KENDALL_TAU = "kendall_tau"  # concordant-minus-discordant pair fraction over the ranks
+    KENDALL_TAU = "kendall_tau"  # tau-b concordant-minus-discordant fraction, tie-corrected
     LINEAR_CORRELATION = "linear_correlation"  # Pearson over the raw shared-axis index magnitudes
 
-    # statistic family OWNS its kernels: the rank transform, the closed-form kernels, and the `_KERNELS` dispatch table are
-    # static members of this owner, never module-level free functions the enum reaches back down into.
-    def score(self, u_idx: np.ndarray, v_idx: np.ndarray) -> float:
-        u_rank, v_rank = CrossStat._rank(u_idx), CrossStat._rank(v_idx)
-        return CrossStat._KERNELS[self](u_idx, v_idx, u_rank, v_rank)
+    # statistic family OWNS its dispatch table; the kernels themselves are the scipy estimators, never a local
+    # re-derivation of a correlation the admitted package already ships at better complexity and with tie handling.
+    def score(self, u_idx: np.ndarray, v_idx: np.ndarray) -> Option[float]:
+        # a degenerate operand — a constant index column, where every run ranks every axis identically — has no
+        # defined correlation and every estimator answers `nan` there, so the pair is ABSENT from the agreement map
+        # rather than scored a fabricated perfect `1.0` or leaked as a `nan` into the receipt facts and the span.
+        scored = CrossStat._KERNELS[self](u_idx, v_idx)
+        return Some(scored) if isfinite(scored) else Nothing
 
-    # every shared-axis run pair scores through `self.score` and lands in one agreement map.
+    # every shared-axis run pair scores through `self.score` and the defined scores land in one agreement map.
     def agreement(self, rows: "Block[RunProjection]") -> dict[str, float]:
         shared = sorted(rows.map(lambda r: frozenset(r.indices)).reduce(frozenset.intersection)) if rows else []
         if len(shared) < 2:
@@ -70,40 +78,31 @@ class CrossStat(StrEnum):
         def vector(run: "RunProjection") -> np.ndarray:
             return np.asarray([run.indices[axis] for axis in shared], dtype=float)
 
-        pairs = rows.mapi(lambda i, a: rows.skip(i + 1).map(lambda b: (f"{a.name}~{b.name}", self.score(vector(a), vector(b))))).collect(lambda p: p)
+        pairs = rows.mapi(
+            lambda i, a: rows.skip(i + 1).choose(lambda b: self.score(vector(a), vector(b)).map(lambda s: (f"{a.name}~{b.name}", s)))
+        ).collect(lambda p: p)
         return dict(pairs)
-
-    @staticmethod
-    def _rank(values: np.ndarray) -> np.ndarray:
-        # double-argsort ordinal rank transform: no-ties ranks for the shared-axis index vector.
-        return np.argsort(np.argsort(values))
-
-    @staticmethod
-    def _correlation(u: np.ndarray, v: np.ndarray) -> float:
-        # Pearson over `u`/`v`; the population-std ddof cancels in the ratio. A zero-variance operand
-        # (constant index column) folds to perfect agreement `1.0` rather than a `0/0` NaN.
-        du, dv = u - u.mean(), v - v.mean()
-        denom = float(du.std() * dv.std())
-        return float((du * dv).mean() / denom) if denom else 1.0
-
-    @staticmethod
-    def _tau(u_rank: np.ndarray, v_rank: np.ndarray) -> float:
-        # `einsum("ij,ij->", su, sv)` contracts the two sign matrices without materializing their product; symmetric with a zero
-        # diagonal under no-ties ranks, so `/ 2` is the upper-triangular pair sum with no explicit `triu` extract.
-        su = np.sign(np.subtract.outer(u_rank, u_rank))
-        sv = np.sign(np.subtract.outer(v_rank, v_rank))
-        n = len(u_rank)
-        return float(np.einsum("ij,ij->", su, sv)) / 2.0 / max(n * (n - 1) // 2, 1)
 
     # a new statistic is one enum member plus one row, never a per-stat method.
     _KERNELS: "Map[CrossStat, CrossKernel]"
 
 
+def _footrule(u: np.ndarray, v: np.ndarray) -> float:
+    # Spearman footrule — normalized L1 rank displacement — is the one row scipy ships no estimator for, so it
+    # composes `rankdata` (average-rank tie correction, matching what `spearmanr` ranks with internally) rather than
+    # standing up a second rank transform beside the provider's.
+    u_rank, v_rank = stats.rankdata(u), stats.rankdata(v)
+    return 1.0 - float(np.abs(u_rank - v_rank).sum()) / max(len(u_rank) ** 2 // 2, 1)
+
+
+# `spearmanr`/`kendalltau`/`pearsonr` each return a result object whose `.statistic` is the coefficient; kendall's
+# default `variant="b"` is the tie-corrected form, and its O(n log n) merge beats the O(n²) sign-matrix contraction a
+# local kernel would materialize twice per pair.
 CrossStat._KERNELS = Map.of_seq([
-    (CrossStat.RANK_CORRELATION, lambda _u, _v, ur, vr: CrossStat._correlation(ur, vr)),
-    (CrossStat.RANK_DISTANCE, lambda _u, _v, ur, vr: 1.0 - float(np.abs(ur - vr).sum()) / max(len(ur) ** 2 // 2, 1)),
-    (CrossStat.KENDALL_TAU, lambda _u, _v, ur, vr: CrossStat._tau(ur, vr)),
-    (CrossStat.LINEAR_CORRELATION, lambda u, v, _ur, _vr: CrossStat._correlation(u, v)),
+    (CrossStat.RANK_CORRELATION, lambda u, v: float(stats.spearmanr(u, v).statistic)),
+    (CrossStat.RANK_DISTANCE, _footrule),
+    (CrossStat.KENDALL_TAU, lambda u, v: float(stats.kendalltau(u, v).statistic)),
+    (CrossStat.LINEAR_CORRELATION, lambda u, v: float(stats.pearsonr(u, v).statistic)),
 ])
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -210,7 +209,13 @@ def _compare(by_key: Map[ContentKey, StudyReceipt], keys: tuple[ContentKey, ...]
 
 @beartype(conf=FAULT_CONF)
 def _resume(
-    by_key: Map[ContentKey, StudyReceipt], cache: Map[ContentKey, np.ndarray], study: Study, objective: Objective, design: np.ndarray, key: ContentKey
+    by_key: Map[ContentKey, StudyReceipt],
+    cache: Map[ContentKey, np.ndarray],
+    study: Study,
+    objective: Objective,
+    design: np.ndarray,
+    key: ContentKey,
+    seed: int,
 ) -> StudyReceipt:
     prior = by_key.try_find(key).to_optional()
     cached = cache.try_find(key).to_optional()
@@ -220,17 +225,18 @@ def _resume(
         case ResumePlan(tag="partial", partial=(_, done, prefix)):
             # only the rows the prior run left undone ride the study owner's `Objective.rows` serial
             # stack; `concatenate` reconstitutes the full vector a single unbroken run would produce.
-            return _recompute(study, design, np.concatenate([prefix, objective.rows(design[done:])]), key)
+            return _recompute(study, design, np.concatenate([prefix, objective.rows(design[done:])]), key, seed)
         case ResumePlan(tag="fresh"):
-            return _recompute(study, design, objective.rows(design), key)
+            return _recompute(study, design, objective.rows(design), key, seed)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _recompute(study: Study, design: np.ndarray, responses: np.ndarray, key: ContentKey) -> StudyReceipt:
+def _recompute(study: Study, design: np.ndarray, responses: np.ndarray, key: ContentKey, seed: int) -> StudyReceipt:
     # `graded` re-derives indices and discrepancy through the `StudyMethod` union folds, so this owner re-declares no design
-    # algebra; elapsed is zero and speedup absent because the timing belongs to the original evaluation.
-    return StudyReceipt.graded(study, design, Measured(responses, 0.0, Nothing), key)
+    # algebra; the SALib analyzers read the same seed the sampler drew under, so a resumed receipt's indices reproduce the
+    # unbroken run's exactly. Elapsed is zero and speedup absent because the timing belongs to the original evaluation.
+    return StudyReceipt.graded(study, design, Measured(responses, 0.0, Nothing), key, seed)
 
 
 def _resume_kernel(
@@ -239,10 +245,13 @@ def _resume_kernel(
     # module-level so REFERENCE shipping resolves it by import — the crossing law `study._study_kernel` holds; the fence
     # converts a design/scorer/analyzer raise, and a closure-bearing objective crosses on the pool's cloudpickle wire.
     # design generation and the key mint run worker-side: `method.design` is CPU work an awaiting caller must never host,
-    # and an encode refusal rails through the same fence as every other worker fault.
+    # and an encode refusal rails through the same fence as every other worker fault. The seed threads the WHOLE chain —
+    # the design draw, the key preimage, and the analyzer — because `spec_key` folds it: keying without it makes the
+    # recomputed key differ from the original run's for every non-zero seed, so `ResumePlan.of` answers `Fresh` forever
+    # and the response cache this owner exists to serve can never hit.
     def worked() -> RuntimeRail[StudyReceipt]:
         design = study.method.design(study.axes, seed)
-        return study.spec_key(design, Some(objective)).map(lambda key: _resume(by_key, cache, study, objective, design, key))
+        return study.spec_key(design, Some(objective), seed=seed).map(lambda key: _resume(by_key, cache, study, objective, design, key, seed))
 
     return boundary("history.resume", worked).bind(lambda rail: rail)
 
@@ -258,7 +267,9 @@ class RunHistory(Struct, frozen=True):
     def _by_key(self) -> Map[ContentKey, StudyReceipt]:
         return Map.of_seq((r.content_key, r) for r in self.runs)
 
-    async def resume(self, study: Study, objective: Objective, lane: LanePolicy, /, *, seed: int = 0) -> RuntimeRail[StudyReceipt]:
+    async def resume(
+        self, study: Study, objective: Objective, lane: LanePolicy, /, *, seed: int = 0, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> RuntimeRail[StudyReceipt]:
         # remaining-row evaluation is the same HOSTILE crossing `Study.run` rides — `objective.rows` AND `method.design`
         # on the loop would stall it, so the kernel derives design and key worker-side through `Study.spec_key`, the ONE
         # mint both owners share (axes, method, mode, objective label, design bytes), so the key equals the original
@@ -268,17 +279,25 @@ class RunHistory(Struct, frozen=True):
             kernel = Kernel.of(_resume_kernel, KernelTrait.HOSTILE)
             return (await lane.offload(kernel, self._by_key, self.responses, study, objective, seed)).bind(lambda rail: rail)
 
-        facts = {"method": study.method.tag, "runs": len(self.runs)}
-        return await evidence_run(EvidenceScope.HISTORY, "history.resume", dispatch, facts=facts)
+        facts = {"method": study.method.tag, "runs": len(self.runs), "seed": seed}
+        return await evidence_run(EvidenceScope.HISTORY, "history.resume", dispatch, facts=facts, composition=composition)
 
-    def compare(self, *keys: ContentKey, stats: frozenset[CrossStat] = frozenset({CrossStat.RANK_CORRELATION})) -> RuntimeRail[ComparisonReceipt]:
+    def compare(
+        self,
+        *keys: ContentKey,
+        stats: frozenset[CrossStat] = frozenset({CrossStat.RANK_CORRELATION}),
+        composition: ScopeKey = DEFAULT_SCOPE,
+    ) -> RuntimeRail[ComparisonReceipt]:
         # single-pair join is the two-key cohort; the statistic family is the `stats` parameter.
-        return self._traced("compare", lambda: _compare(self._by_key, keys, stats), {"cohort": len(keys), "stats": len(stats)})
+        return self._traced("compare", lambda: _compare(self._by_key, keys, stats), {"cohort": len(keys), "stats": len(stats)}, composition)
 
-    def _traced[E: Traceable](self, op: str, thunk: Callable[[], E], facts: SpanFacts = Map.empty()) -> RuntimeRail[E]:
+    def _traced[E: Traceable](
+        self, op: str, thunk: Callable[[], E], facts: SpanFacts = Map.empty(), composition: ScopeKey = DEFAULT_SCOPE
+    ) -> RuntimeRail[E]:
         # sync weave — span, fence over the beartype-guarded body, fenced receipt harvest — so a contract violation folds
-        # through the `CLASSIFY` `api` row and a missing-cohort `KeyError` through the `boundary` row.
-        return evidence_run(EvidenceScope.HISTORY, f"history.{op}", lambda: boundary(f"history.{op}", thunk), facts=facts)
+        # through the `CLASSIFY` `api` row and a missing-cohort `KeyError` through the `boundary` row; the caller's
+        # composition key threads onto the weave so an embedded composition's facts key to it.
+        return evidence_run(EvidenceScope.HISTORY, f"history.{op}", lambda: boundary(f"history.{op}", thunk), facts=facts, composition=composition)
 ```
 
 ## [03]-[RESEARCH]

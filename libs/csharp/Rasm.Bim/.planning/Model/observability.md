@@ -8,12 +8,12 @@ Wire posture: HOST-LOCAL, BCL-only. Point, instrument-spec, advice-bucket, contr
 
 - [02]-[HOOK_RAIL]: `BimPoint` closes the eight-row point vocabulary on its kernel `Modality` column and its derived `TraceScope` plane, `BimHooks` mints that roster as one per-composition registry record over the kernel point capsule, and `BimFact` closes the payload family every point types over.
 - [03]-[TELEMETRY_TAP]: `BimTelemetry` declares the `rasm.bim.<domain>.<measure>` roster as kernel `InstrumentSpec` rows, mints the contributor port, rails the tap subscriptions, and owns the span and attribution law over the kernel `SpanBand`.
-- [04]-[BENCH_RECEIPTS]: `BimBenchClaim` rosters the per-op claims, `BimBenchReceipt` carries the run evidence, and the corpus-gate row admits a claim as standing.
+- [04]-[BENCH_RECEIPTS]: `BimBenchClaims` rosters the per-op kernel `BenchClaim` rows, `BimBenchReceipt` carries the run evidence, and the corpus-gate row admits a claim as standing.
 
 ## [02]-[HOOK_RAIL]
 
 - Owner: `BimPoint` the `[SmartEnum<string>]` point vocabulary keyed `rasm.bim.<domain>.<point>` with the kernel `HookModality` column and the kernel `TraceScope` plane derived off the id's own head; `BimHooks` the per-composition registry record — one instance per app composition, so two apps built on the library never fight over hook slots and no process-global registry exists; `BimFact` the closed payload family every point types over. Point capsule, modality rows, detacher, and isolation are the kernel signal capsule composed as settled vocabulary.
-- Cases: point roster rows — `rasm.bim.exchange.progress` (observe, `BimFact.Progress` — the ACadSharp `ICadReader.OnProgress` stage stream on the DWG/DXF decode arm), `rasm.bim.exchange.imported` (observe, `BimFact.Imported` — the `ModelLoad` receipt fact post-decode), `rasm.bim.exchange.exported` (observe, `BimFact.Exported` — the export-rail artifact emit), `rasm.bim.projection.lowered` (observe, `BimFact.Lowered` — the seam `GraphDelta` magnitude off the semantic projector), `rasm.bim.projection.legality` (veto, `BimFact.Admission` — an app policy refuses an emit before the IFC egress authors it), `rasm.bim.review.verdict` (replay, `BimFact.Verdict` — IDS-facet and template-audit outcomes, buffered so a late panel drains the recent window), `rasm.bim.energy.progress` (observe, `BimFact.Progress` — the OpenStudio `ProgressBar.onPercentageUpdated` percentage stream on the energy translate rows), `rasm.bim.energy.emitted` (observe, `BimFact.Emitted` — the `EnergyReceipt` fact per artifact).
+- Cases: point roster rows — `rasm.bim.exchange.progress` (observe, `BimFact.Progress` — the ACadSharp `ICadReader.OnProgress` stage stream on the DWG/DXF decode arm), `rasm.bim.exchange.imported` (observe, `BimFact.Imported` — the `ModelLoad` receipt fact post-decode), `rasm.bim.exchange.exported` (observe, `BimFact.Exported` — the export-rail artifact emit), `rasm.bim.projection.lowered` (observe, `BimFact.Lowered` — the seam `GraphDelta` magnitude off the semantic projector), `rasm.bim.projection.legality` (veto, `BimFact.Admission` — an app policy refuses an emit before the IFC egress authors it), `rasm.bim.review.verdict` (replay, `BimFact.Verdict` — IDS-facet and template-audit outcomes, buffered so a late panel drains the recent window), `rasm.bim.energy.progress` (observe, `BimFact.Progress` — the OpenStudio `ProgressBar.onPercentageUpdated` percentage stream on the energy translate rows), `rasm.bim.energy.emitted` (observe, `BimFact.Emitted` — the `EnergyReceipt` fact per artifact), `rasm.bim.exchange.textured` (observe, `BimFact.Textured` — the appearance channel census `MaterialFinish.Author` and `AppearanceProjection.TexturesOf` fire once per authored surface style, so the one exchange leg that drops payload by design is counted rather than silent).
 - Entry: `BimHooks.Live()` mints the roster once at composition by seating one kernel point per `BimPoint` row; an emitting page fires its declared point value (`hooks.Imported.Fire(fact)`), so a name-resolved lookup surface never exists; `Veto`, `Observe`, and `Drain` are the capsule's subscriber entries, each returning the disposable detacher; `Points` hands the point set to `HookRegistry.Mount` at the app root, and `BimPoint.Scopes` enters that root's `SpanBand.Of(version, scopes)`.
 - Auto: fire order is the capsule's law — retention first, the veto fold second (the first refusal is the emitter's verdict AND parks on the evidence cell), observe taps forked and shielded last, so `Fire` returns without waiting on any tap; `BimIo.ImportGeometry` and `EnergyTranslate.Run` take `Option<BimHooks> hooks = default` — the optional slot every later fire-site entry repeats — so a hook-less composition pays one `IsNone` test and a fired point with zero subscribers costs one empty fold.
 - Receipt: a hook fire is the evidence event itself — the emitter's typed receipt already carries the fact, so a point mints nothing; the `Faults` cell (`Atom<Seq<IsolatedFault>>`) is the one registry evidence surface — veto refusals and shielded tap faults, point-attributed — drained by the composing app and projected onto the `[03]` rejects counter through the cell's `Change` tap.
@@ -49,6 +49,7 @@ public sealed partial class BimPoint {
     public static readonly BimPoint Verdict = new("rasm.bim.review.verdict", modality: HookModality.Replay);
     public static readonly BimPoint EnergyProgress = new("rasm.bim.energy.progress", modality: HookModality.Observe);
     public static readonly BimPoint Emitted = new("rasm.bim.energy.emitted", modality: HookModality.Observe);
+    public static readonly BimPoint Textured = new("rasm.bim.exchange.textured", modality: HookModality.Observe);
 
     // Items-derived index materializes on first read, so a bracket pays a lookup rather than re-parsing the id.
     static readonly Lazy<FrozenDictionary<BimPoint, TraceScope>> Planes = new(
@@ -84,6 +85,13 @@ public abstract partial record BimFact {
     public sealed record Admission(Op Key, GraphDelta Delta) : BimFact(Key);
     public sealed record Verdict(Op Key, string Tier, string Outcome, int Findings) : BimFact(Key);
     public sealed record Emitted(Op Key, string Leg, string Format, int Warnings) : BimFact(Key);
+    // Texture binding is the one exchange leg that drops payload BY DESIGN: a channel with no admitted
+    // target, an unresolvable image reference, and a coordinate set the target format cannot carry all
+    // fall out silently at the appearance projection. The three counts are disjoint by construction —
+    // Bound is what reached the artifact, Dropped is what a target refused, Unresolved is what never
+    // resolved to bytes — so the sum is the authored channel census and a missing texture is attributable
+    // to its cause rather than merely absent.
+    public sealed record Textured(Op Key, string Format, int Bound, int Dropped, int Unresolved) : BimFact(Key);
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------
@@ -99,6 +107,7 @@ public sealed record BimHooks(
     HookPoint<BimFact.Verdict> Verdict,
     HookPoint<BimFact.Progress> EnergyProgress,
     HookPoint<BimFact.Emitted> Emitted,
+    HookPoint<BimFact.Textured> Textured,
     Atom<Seq<IsolatedFault>> Faults) {
     public static BimHooks Live() {
         Atom<Seq<IsolatedFault>> faults = Atom(Seq<IsolatedFault>());
@@ -111,12 +120,13 @@ public sealed record BimHooks(
             Seat<BimFact.Verdict>(BimPoint.Verdict, faults),
             Seat<BimFact.Progress>(BimPoint.EnergyProgress, faults),
             Seat<BimFact.Emitted>(BimPoint.Emitted, faults),
+            Seat<BimFact.Textured>(BimPoint.Textured, faults),
             faults);
     }
 
     // Mount table the app root audits every registered point through.
     public Seq<IHookPoint> Points =>
-        Seq<IHookPoint>(ExchangeProgress, Imported, Exported, Lowered, Legality, Verdict, EnergyProgress, Emitted);
+        Seq<IHookPoint>(ExchangeProgress, Imported, Exported, Lowered, Legality, Verdict, EnergyProgress, Emitted, Textured);
 
     static HookPoint<TFact> Seat<TFact>(BimPoint row, Atom<Seq<IsolatedFault>> faults) =>
         new(id: HookId.Create(value: row.Key), modality: row.Modality, faults: faults);
@@ -126,7 +136,7 @@ public sealed record BimHooks(
 ## [03]-[TELEMETRY_TAP]
 
 - Owner: `BimTelemetry` the one roster and projection owner — receipts stay billing truth, instruments are the lossy dashboard channel projected from them; rows are kernel `InstrumentSpec` declarations carrying kind, measurement form, and their closed `Dimensions` columns, advice bounds read the kernel `Buckets` holder, and the write capsule is the kernel `InstrumentSet`.
-- Cases: projection map — `rasm.bim.exchange.import.duration`/`import.size`/`instancing` off `BimFact.Imported` (duration, payload size, and instance placements sharing one evidence read), `rasm.bim.exchange.export.duration` off `BimFact.Exported`, `rasm.bim.projection.nodes`/`edges` off `BimFact.Lowered`, `rasm.bim.legality.rejects` off the `Faults` evidence cell through its `Change` tap (veto refusals and hook-tap isolations, banded by point and kernel fault category), `rasm.bim.review.verdicts` off `BimFact.Verdict`, `rasm.bim.energy.exchanges`/`warnings` off `BimFact.Emitted`.
+- Cases: projection map — `rasm.bim.exchange.import.duration`/`import.size`/`instancing` off `BimFact.Imported` (duration, payload size, and instance placements sharing one evidence read), `rasm.bim.exchange.export.duration` off `BimFact.Exported`, `rasm.bim.projection.nodes`/`edges` off `BimFact.Lowered`, `rasm.bim.legality.rejects` off the `Faults` evidence cell through its `Change` tap (veto refusals and hook-tap isolations, banded by point and kernel fault category), `rasm.bim.review.verdicts` off `BimFact.Verdict`, `rasm.bim.energy.exchanges`/`warnings` off `BimFact.Emitted`, `rasm.bim.exchange.texture.drops` off `BimFact.Textured` banded by format and drop cause (the two loss causes write, the bound count does not — it is the artifact's own evidence).
 - Entry: `BimTelemetry.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the string-scoped contributor port the composing root materializes, scope the kernel `TelemetrySource.Bim` identity and the semconv coordinate defaulting to the kernel pin; a root outside that fan binds `InstrumentSet.Of(cells, (meter, Rows))` directly against its own minted meter, never both. `BimTelemetry.Tap(BimHooks hooks, InstrumentSet set)` mounts the observe subscriptions at composition, so declaration and write calls live only inside this spine. `BimTelemetry.Traced<T>(SpanBand? band, BimPoint at, Op op, string model, Func<Fin<T>> body, params ReadOnlySpan<(string Slot, object? Value)> marks)` is the span wrapper every long-running entry composes over the composing root's kernel band, model identity a required argument so no Bim span exists unattributed and the band nullable so a composition admitting no scope runs the identical rail untraced.
 - Auto: every advised row ships its explicit-bucket bounds through the kernel's `InstrumentKind` x `MeasureForm` derivation, so this page names a bound row and never a create call; instrument identity de-duplicates by name inside the meter, so name, unit, kind, and description are declaration facts this roster carries once; tag values ride the typed fact's own vocabulary keys, never free text.
 - Receipt: none — the tap projects receipts and hook facts; a metric minted beside it is a second truth. Every arm returns the kernel write rail and subscribes through the capsule's own rail-shaped `Observe`, which lifts the refusal and parks it point-attributed, so a folder-local rail-to-effect adapter has nothing to add; the rejects counter alone discards, because its park re-enters the cell it observes.
@@ -155,6 +165,7 @@ public static class BimTelemetry {
     public const string ReviewVerdicts = "rasm.bim.review.verdicts";
     public const string EnergyExchanges = "rasm.bim.energy.exchanges";
     public const string EnergyWarnings = "rasm.bim.energy.warnings";
+    public const string TextureDrops = "rasm.bim.exchange.texture.drops";
 
     // Model identity stays SPAN-only: identifier-grade cardinality is free on a sampler-thinned span and
     // unbounded on a series. The slot carries the package namespace like every sibling dimension — a bare
@@ -169,6 +180,9 @@ public static class BimTelemetry {
     public const string PointSlot = "rasm.bim.point";
     public const string ProjectorSlot = "rasm.bim.projector";
     public const string TierSlot = "rasm.bim.review.tier";
+    // Drop cause is the whole point of this counter: a refused target and an unresolvable image are
+    // different exchange defects, so one counter banded by cause replaces two counters that would drift.
+    public const string ChannelSlot = "rasm.bim.exchange.texture.cause";
 
     public static readonly Seq<InstrumentSpec> Rows = Seq(
         InstrumentSpec.Advised(ImportDuration, "s", "foreign-bytes decode wall duration per format and codec",
@@ -190,7 +204,9 @@ public static class BimTelemetry {
         InstrumentSpec.Count(EnergyExchanges, "{exchange}", "energy artifacts by leg and format",
             MeasureForm.Whole, TenantContext.TenantSlot, LegSlot, FormatSlot),
         InstrumentSpec.Count(EnergyWarnings, "{warning}", "energy exchange warning tallies per format",
-            MeasureForm.Whole, TenantContext.TenantSlot, FormatSlot));
+            MeasureForm.Whole, TenantContext.TenantSlot, FormatSlot),
+        InstrumentSpec.Count(TextureDrops, "{channel}", "appearance texture channels lost at binding, banded by cause",
+            MeasureForm.Whole, TenantContext.TenantSlot, FormatSlot, ChannelSlot));
 
     public static TelemetryContributorPort Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl) =>
         new(Scope: Scope, Version: version, Instruments: Rows, Planes: BimPoint.Scopes, SchemaUrl: schemaUrl);
@@ -234,7 +250,15 @@ public static class BimTelemetry {
             set.Write(ReviewVerdicts, 1L, InstrumentSet.Tags(TenantContext.Current, (TierSlot, fact.Tier), (OutcomeSlot, fact.Outcome)))),
         hooks.Emitted.Observe(fact =>
             set.Write(EnergyExchanges, 1L, InstrumentSet.Tags(TenantContext.Current, (LegSlot, fact.Leg), (FormatSlot, fact.Format)))
-             .Bind(_ => set.Write(EnergyWarnings, (long)fact.Warnings, InstrumentSet.Tags(TenantContext.Current, (FormatSlot, fact.Format))))));
+             .Bind(_ => set.Write(EnergyWarnings, (long)fact.Warnings, InstrumentSet.Tags(TenantContext.Current, (FormatSlot, fact.Format))))),
+        // Only the LOSSES write. A bound channel is the artifact's own evidence and needs no counter; the
+        // two loss causes write under one instrument banded by cause, so the drop total and its attribution
+        // are one series rather than two that drift.
+        hooks.Textured.Observe(fact =>
+            set.Write(TextureDrops, (long)fact.Dropped,
+                    InstrumentSet.Tags(TenantContext.Current, (FormatSlot, fact.Format), (ChannelSlot, "target-refused")))
+                .Bind(_ => set.Write(TextureDrops, (long)fact.Unresolved,
+                    InstrumentSet.Tags(TenantContext.Current, (FormatSlot, fact.Format), (ChannelSlot, "image-unresolved"))))));
 
     // Span wrapper every long-running Bim entry composes over the composing root's kernel band, which owns the
     // source, the listener gate, the ActivityKind.Internal open, and the fail-leg status verdict — this page
@@ -263,45 +287,44 @@ public static class BimTelemetry {
 
 ## [04]-[BENCH_RECEIPTS]
 
-- Owner: `BimBenchClaim` the `[SmartEnum<string>]` per-op claim roster — every Rasm.Bim performance claim names its row; `BimBenchReceipt` the typed run evidence a bench run mints per claim.
-- Cases: claim rows — `ImportGlb`, `ImportIfc`, `ImportDwg`, `ImportPly`, `ImportScene`, `ImportUsd`, `ImportDotbim` (foreign-bytes decode per codec arm), `EgressReauthor` (IFC re-author over an admitted graph), `QueryMedium`/`QueryLarge` (element-set predicate folds at the two corpus graph scales), `GeoVector`/`GeoRaster` (geospatial-seam ingest), `TessellationRoundTrip` (tessellation-bridge companion round trip) — each row carrying its `Corpus` column, the estate corpus artifact slug whose content fingerprint the receipt stamps.
+- Owner: `BimBenchClaims` the folder claim roster — thirteen `static readonly` kernel `BenchClaim` rows per the kernel law that claim rows live BESIDE the lanes they gate on their owning pages; every Rasm.Bim performance claim names its row and a folder-local claim type is the deleted form. `BimBenchReceipt` the typed run evidence a bench run mints per claim.
+- Cases: claim rows — `ImportGlb`, `ImportIfc`, `ImportDwg`, `ImportPly`, `ImportScene`, `ImportUsd`, `ImportDotbim` (foreign-bytes decode per `BimIo` codec arm), `EgressReauthor` (IFC re-author over an admitted graph), `QueryMedium`/`QueryLarge` (element-set predicate folds at the two corpus graph scales), `GeoVector`/`GeoRaster` (geospatial-seam ingest), `TessellationRoundTrip` (tessellation-bridge companion round trip) — each row carrying its `Corpus` slug, the estate corpus artifact whose content fingerprint the receipt stamps.
 - Entry: the bench project constructs `BimBenchReceipt` rows at its edge — one per claim per run — and the corpus-gate admission row below is the ONE path a receipt becomes a standing claim.
-- Auto: `CorpusFingerprint` derives through the one kernel content hasher over the corpus artifact bytes, so a claim binds to the exact input it measured and a corpus revision invalidates every dependent claim structurally, never by prose.
+- Auto: `CorpusFingerprint` derives through the one kernel content hasher over the corpus artifact bytes, so a claim binds to the exact input it measured and a corpus revision invalidates every dependent claim structurally, never by prose; a corpus-bound claim discharges `BenchLedger.Unproven` only through a proof pair whose fingerprint is present.
 - Receipt: `BimBenchReceipt` — claim, corpus fingerprint, median and p95 wall duration, allocated bytes, operation count, instant; distribution truth, no verdict field — judging is the gate fold's, not the receipt's.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm, BCL inbox.
-- Growth: a new measured operation is one `BimBenchClaim` row; a new measured axis is one field on the receipt breaking the gate mapping at compile time.
+- Packages: LanguageExt.Core, NodaTime, Rasm, BCL inbox.
+- Growth: a new measured operation is one `BenchClaim` row on `BimBenchClaims`; a new measured axis is one field on the receipt breaking the gate mapping at compile time.
 - Boundary: corpus-gate admission — a speed or allocation claim on any Rasm.Bim page resolves to a `BimBenchReceipt` the estate BenchmarkDotNet corpus gate stamped: the branch bench project folds each receipt into the app-tier benchmark envelope (suite `rasm.bim`, case the claim key) and the AppHost `BenchmarkGate.Judge` fold owns pass-or-regress under the host-evidence and budget law; BenchmarkDotNet binds in the branch test and benchmark projects per the Test Stack manifest tier, never `Rasm.Bim.csproj`, so no benchmark type crosses into this package; a hand-rolled kernel is admitted only after its receipt defeats the library route under that gate.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
-// Per-op claim roster: every Rasm.Bim performance claim names its row; Corpus is the estate corpus
-// artifact slug whose content fingerprint the receipt stamps.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class BimBenchClaim {
-    public static readonly BimBenchClaim ImportGlb = new("import-glb", corpus: "corpus-scene-glb");
-    public static readonly BimBenchClaim ImportIfc = new("import-ifc", corpus: "corpus-model-ifc");
-    public static readonly BimBenchClaim ImportDwg = new("import-dwg", corpus: "corpus-drawing-dwg");
-    public static readonly BimBenchClaim ImportPly = new("import-ply", corpus: "corpus-mesh-ply");
-    public static readonly BimBenchClaim ImportScene = new("import-scene", corpus: "corpus-scene-fbx");
-    public static readonly BimBenchClaim ImportUsd = new("import-usd", corpus: "corpus-stage-usd");
-    public static readonly BimBenchClaim ImportDotbim = new("import-dotbim", corpus: "corpus-model-bim");
-    public static readonly BimBenchClaim EgressReauthor = new("egress-reauthor", corpus: "corpus-model-ifc");
-    public static readonly BimBenchClaim QueryMedium = new("query-medium", corpus: "corpus-graph-100k");
-    public static readonly BimBenchClaim QueryLarge = new("query-large", corpus: "corpus-graph-1m");
-    public static readonly BimBenchClaim GeoVector = new("geo-vector", corpus: "corpus-geo-gpkg");
-    public static readonly BimBenchClaim GeoRaster = new("geo-raster", corpus: "corpus-geo-cog");
-    public static readonly BimBenchClaim TessellationRoundTrip = new("tessellation-roundtrip", corpus: "corpus-model-ifc");
-
-    public string Corpus { get; }
+// Folder claim roster: thirteen kernel BenchClaim rows, one per measured operation, per the kernel law that
+// claim rows live beside the lanes they gate. Every row is a corpus-regression claim: the measured lane is
+// judged against its own prior stamped receipt on the same corpus, so both lane columns spell the measured
+// member and the floor is the no-regression 1.0; Corpus carries the estate corpus artifact slug whose content
+// fingerprint the receipt stamps.
+public static class BimBenchClaims {
+    public static readonly BenchClaim ImportGlb = new(Op.Of(name: "import-glb"), "BimIo.ImportGeometry", "BimIo.ImportGeometry", 1.0, Some("corpus-scene-glb"));
+    public static readonly BenchClaim ImportIfc = new(Op.Of(name: "import-ifc"), "BimIo.ImportIfc", "BimIo.ImportIfc", 1.0, Some("corpus-model-ifc"));
+    public static readonly BenchClaim ImportDwg = new(Op.Of(name: "import-dwg"), "BimIo.ImportGeometry", "BimIo.ImportGeometry", 1.0, Some("corpus-drawing-dwg"));
+    public static readonly BenchClaim ImportPly = new(Op.Of(name: "import-ply"), "BimIo.ImportGeometry", "BimIo.ImportGeometry", 1.0, Some("corpus-mesh-ply"));
+    public static readonly BenchClaim ImportScene = new(Op.Of(name: "import-scene"), "BimIo.ImportGeometry", "BimIo.ImportGeometry", 1.0, Some("corpus-scene-fbx"));
+    public static readonly BenchClaim ImportUsd = new(Op.Of(name: "import-usd"), "BimIo.ImportGeometry", "BimIo.ImportGeometry", 1.0, Some("corpus-stage-usd"));
+    public static readonly BenchClaim ImportDotbim = new(Op.Of(name: "import-dotbim"), "BimIo.ImportGeometry", "BimIo.ImportGeometry", 1.0, Some("corpus-model-bim"));
+    public static readonly BenchClaim EgressReauthor = new(Op.Of(name: "egress-reauthor"), "BimExport.ExportIfc", "BimExport.ExportIfc", 1.0, Some("corpus-model-ifc"));
+    public static readonly BenchClaim QueryMedium = new(Op.Of(name: "query-medium"), "ElementPredicate.Match", "ElementPredicate.Match", 1.0, Some("corpus-graph-100k"));
+    public static readonly BenchClaim QueryLarge = new(Op.Of(name: "query-large"), "ElementPredicate.Match", "ElementPredicate.Match", 1.0, Some("corpus-graph-1m"));
+    public static readonly BenchClaim GeoVector = new(Op.Of(name: "geo-vector"), "GeoVector.Read", "GeoVector.Read", 1.0, Some("corpus-geo-gpkg"));
+    public static readonly BenchClaim GeoRaster = new(Op.Of(name: "geo-raster"), "GeoRaster.Read", "GeoRaster.Read", 1.0, Some("corpus-geo-cog"));
+    public static readonly BenchClaim TessellationRoundTrip = new(Op.Of(name: "tessellation-roundtrip"), "TessellationRequest.Plan", "TessellationRequest.Plan", 1.0, Some("corpus-model-ifc"));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // Distribution truth per claim per run: the verdict lives on the app-tier gate fold, never here; the corpus
-// fingerprint binds the claim to the exact measured input through the one kernel content hasher.
+// fingerprint binds the claim to the exact measured input through the one kernel content hasher and is the
+// presence witness the kernel BenchLedger.Unproven proof pair reads.
 public sealed record BimBenchReceipt(
-    BimBenchClaim Claim,
+    BenchClaim Claim,
     UInt128 CorpusFingerprint,
     Duration Median,
     Duration P95,
@@ -312,4 +335,4 @@ public sealed record BimBenchReceipt(
 
 ## [05]-[RESEARCH]
 
-- [CORPUS_ARTIFACT_SLUGS]-[OPEN]: which corpus-manifest rows ground the `BimBenchClaim.Corpus` slugs and the content-fingerprint derivation over the artifact bytes; verify each slug against the `tests/csharp/_benchmarks/` corpus manifest when it lands and re-anchor any divergent row here.
+- [CORPUS_ARTIFACT_SLUGS]-[OPEN]: which corpus-manifest rows ground the `BimBenchClaims` row `Corpus` slugs and the content-fingerprint derivation over the artifact bytes; verify each slug against the `tests/csharp/_benchmarks/` corpus manifest when it lands and re-anchor any divergent row here.

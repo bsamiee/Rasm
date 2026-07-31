@@ -6,24 +6,24 @@ Settled vocabulary arrives from the seam `Graph/element#ELEMENT_GRAPH` `ElementG
 
 ## [01]-[INDEX]
 
-- [02]-[EXPORT_RAIL]: artifact emit — the `ExportPayload` `Soup`/`Scene` union through one TOTAL `InterchangeCodec.Switch` (GLB with Draco/meshopt encode, the per-element `GlbScene` author + `EXT_mesh_gpu_instancing`, the `dotbim` instancing wire, AssimpNetter FBX/Collada, `UsdStage`); the `GltfChannel` canonical-channel binding roster, the `MaterialFinish`/`ChannelImage` pooled material identity authoring the seam appearance summary as linear glTF factors and binding every texture map onto one `MaterialBuilder` with its obliged `KhrExtension` rows registered from the payload itself; the IFC STEP/XML/JSON leg DELEGATING to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, this rail owning only the `ExportArtifact` seal + the `InterchangeFormat.Serialization` column read.
+- [02]-[EXPORT_RAIL]: artifact emit — the `ExportPayload` `Soup`/`Scene` union through one TOTAL `InterchangeCodec.Switch` (GLB with Draco/meshopt encode, the per-element `GlbScene` author + `EXT_mesh_gpu_instancing`, the `dotbim` instancing wire, AssimpNetter FBX/Collada, `UsdStage`); the `GltfChannel` canonical-channel binding roster, the `MaterialFinish`/`ChannelImage` pooled material identity authoring the seam appearance summary as linear glTF factors and binding every texture map onto one `MaterialBuilder` — sampler wrap and min/mag pair, the core-container fallback an extension-obliging primary degrades to, and the obliged `KhrExtension` rows registered from the payload itself; the IFC STEP/XML/JSON leg DELEGATING to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, this rail owning only the `ExportArtifact` seal + the `InterchangeFormat.Serialization` column read.
 - [03]-[TILE_METADATA]: per-tile `EXT_structural_metadata` schema/class/property-table over the seam `Graph/element#ELEMENT_GRAPH` `Element` semantic (the baked element, not a stored record), bound through `EXT_mesh_features` over the `Staged`-authored per-vertex `_FEATURE_ID_0` row stamps the `GlbScene.Rows` index names.
 - [04]-[BIM_LOD]: `Meshopt.Simplify`/`SimplifySloppy` build the per-element LOD pyramid, `Meshopt.BuildMeshlets` bands meshlet residency, and each LOD carries the content key the `Rasm.Compute/Runtime/codecs#TILE_PARTITION` pyramid addresses.
-- [05]-[SCHEDULE_ANIMATION]: `AnimateSchedule` bakes the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element glTF visibility/scale keyframe tracks through `ModelRoot.CreateAnimation` and the `KHR_node_visibility` channel over the `Author`-minted `GlbScene` `GlobalId`→`Node` index, so a 4D schedule exports as one animated GLB a web viewer scrubs.
+- [05]-[SCHEDULE_ANIMATION]: `AnimateSchedule` bakes the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element glTF visibility/scale keyframe tracks through `ModelRoot.CreateAnimation` and the `KHR_node_visibility` channel over the `Author`-minted `GlbScene` `GlobalId`→`Node` index, with the in-progress tint riding the `KHR_animation_pointer` material base-colour channel glTF's absent per-node colour forces, so a 4D schedule exports as one animated GLB a web viewer scrubs.
 - [06]-[ROUNDTRIP]: `RoundTrip` folds an `ElementGraph` emit→`BimIo.ImportIfc` schema-sniffed re-decode→`Project`→`Assemble` cycle across the IFC STEP/ifcXML/ifcJSON serializations into one lossless-verification matrix, witnessing per-element fidelity by the seam content key joined on the 1:1 `ExternalId` and naming the divergent members through the `Generator.Equals` structured diff.
-- [07]-[TILE_AVAILABILITY]: `TileAvailability` authors the 3D-Tiles 1.1 implicit-tiling `.subtree` availability bitstream over the `subtree` `SubtreeCreator`/`SubtreeCreator3D`/`Tile`/`Tile3D`/`MortonIndex` surface, completing the tileset side the `SharpGLTF.Ext.3DTiles` per-tile content leg cannot reach and retiring the hand-rolled implicit-tiling bitstream.
+- [07]-[TILE_AVAILABILITY]: `TileAvailability` authors the 3D-Tiles 1.1 implicit-tiling `.subtree` availability bitstream over the `subtree` `SubtreeCreator`/`SubtreeCreator3D`/`Tile`/`Tile3D`/`MortonIndex` surface and witnesses it back through `SubtreeReader.ReadSubtree` onto a content-keyed `SubtreeReceipt`, completing the tileset side the `SharpGLTF.Ext.3DTiles` per-tile content leg cannot reach and retiring the hand-rolled implicit-tiling bitstream.
 - [08]-[COBIE_EMIT]: `CobieEmit.Export` the COBie FM-handover XLSX author — a transient `CobieModel` folded `Instances.New<T>` from the seam `ElementGraph` (facility/floor/space, type/component, `CobieAttribute` rows) and sealed through `ExportToTable`, content-keyed off the kernel `ContentHash`; never a held xBIM `IModel` and never the parallel xBIM IFC reader.
 
 ## [02]-[EXPORT_RAIL]
 
-- Owner: `BimExport` — the export fold over `InterchangeFormat`, one TOTAL generated `InterchangeCodec.Switch` over the `ExportPayload` union (`Soup(ImportedGeometry)` | `Scene(ElementScene)`), the IFC STEP/XML/JSON leg DELEGATING to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit` (this rail seals the bytes, the projector owns the re-author); `ElementScene` the per-element carrier — a `Map<UInt128, ImportedGeometry>` content-keyed mesh pool with placed `ElementInstance` rows (GlobalId, name, classification code, mesh key, rigid `Matrix4x4` placement, `MaterialFinish`) — so repeated geometry travels ONCE; `GltfChannel` the `[SmartEnum<string>]` roster projecting a CANONICAL texture-channel name onto the glTF `KnownChannel` targets it binds and the `format#FORMAT_AXIS` `KhrExtension` it obliges; `MaterialFinish` the pooled material identity pairing the seam `Rasm.Element/Graph/element#NODE_MODEL` `AppearanceSummary` with its `ChannelImage` bindings and owning the whole `MaterialBuilder` mint; `ChannelImage` one bound glTF texture map (its resolved `GltfChannel`, already-encoded bytes, UV set, wrap pair, optional `Semantics/appearance#APPEARANCE_PROJECTION` `UvTransform` frame, and the `KhrExtension` row its container obliges); `GlbScene` the `Author`-minted `(ModelRoot, Map<string, Node>, Map<string, int>)` triple carrying the per-element node index AND the `GlobalId`→feature-row index downstream legs bind; `ExportArtifact` the emitted-bytes carrier feeding the Compute content-addressing seam.
-- Entry: `BimExport.Export` is the ONE entry, its `ExportPayload` case discriminating flat-soup from per-element emit per MODAL_ARITY (a `bool perElement` knob beside the value is the rejected form); `BimExport.Author` mints the `GlbScene` the metadata/animation legs decorate before `Emit` seals it; `BimExport.ExportIfc` carries the IFC serialization — its `graph` a seam read snapshot, its `projector` the Bim-internal IFC-egress owner the app wires, its `EmitContext` riding through whole (the diff-prior `ChangeAction` snapshot [H9], the scoped partial-export selection, the declared unit regime), the profile store staying the projector's ctor-held capability. `Fin<T>` aborts on a write-capability miss (`Model/faults#FAULT_BAND` `BimFault.CodecReject`), a route miss the total `Switch` names with its owning rail in the message, or a captured serialization/predefined-gate fault the projector lowers (`BimFault.ModelRejected`/`BimFault.UnmappedClass`), each typed case (band 2600, `Expected`-derived) lifting BARE onto the rail with no `.ToError()` hop.
-- Auto: `GlbBytes` switches on `InterchangePolicy.Compression` — `KhrEncoder.None` routes `Soup` through the single-mesh `SceneOf` and `Scene` through `Author`, both writing the GLB container, while `Draco` and `Meshopt` bypass the container: neither compression codec takes a glTF `ModelRoot`, so the compression leg REPLACES the GLB write rather than post-processing it, and a per-element `Scene` flattens through `ElementScene.Soup` because the raw streams carry no scene graph (per-element structure rides the GLB arms only). `.bim` pools distinct geometry by content key and places each `ElementInstance`, so instancing survives the wire. IFC selects no serialization writer here — `ExportIfc` reads the `format#FORMAT_AXIS` `InterchangeFormat.Serialization` column (`Some` exactly on the GeometryGym rows) and hands the seam `ElementGraph` and that serialization to `SemanticProjector.Emit`, which re-authors the whole graph and returns the IFC text this rail seals; no `DatabaseIfc` is constructed on this page.
+- Owner: `BimExport` — the export fold over `InterchangeFormat`, one TOTAL generated `InterchangeCodec.Switch` over the `ExportPayload` union (`Soup(ImportedGeometry)` | `Scene(ElementScene)`), the IFC STEP/XML/JSON leg DELEGATING to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit` (this rail seals the bytes, the projector owns the re-author); `ElementScene` the per-element carrier — a `Map<UInt128, ImportedGeometry>` content-keyed mesh pool with placed `ElementInstance` rows (GlobalId, name, classification code, mesh key, rigid `Matrix4x4` placement, `MaterialFinish`) — so repeated geometry travels ONCE; `GltfChannel` the `[SmartEnum<string>]` roster projecting a CANONICAL texture-channel name onto the glTF `KnownChannel` targets it binds and the `format#FORMAT_AXIS` `KhrExtension` it obliges; `MaterialFinish` the pooled material identity pairing the seam `Rasm.Element/Graph/element#NODE_MODEL` `AppearanceSummary` with its `ChannelImage` bindings and its `DoubleSided` render-representation bit, and owning the whole `MaterialBuilder` mint; `ChannelImage` one bound glTF texture map (its resolved `GltfChannel`, already-encoded bytes beside the core-container fallback bytes an extension-obliging primary degrades to, UV set, wrap pair, min/mag filter pair, optional `Semantics/appearance#APPEARANCE_PROJECTION` `UvTransform` frame, and the `KhrExtension` row its container obliges); `GlbScene` the `Author`-minted `(ModelRoot, Map<string, Node>, Map<string, int>)` triple carrying the per-element node index AND the `GlobalId`→feature-row index downstream legs bind; `ExportArtifact` the emitted-bytes carrier feeding the Compute content-addressing seam.
+- Entry: `BimExport.Export` is the ONE entry, its `ExportPayload` case discriminating flat-soup from per-element emit per MODAL_ARITY (a `bool perElement` knob beside the value is the rejected form); `BimExport.Author` mints the `GlbScene` the metadata/animation legs decorate before `Emit` seals it; `BimExport.ExportIfc` carries the IFC serialization — its `graph` a seam read snapshot, its `projector` the Bim-internal IFC-egress owner the app wires, its `EmitContext` riding through whole (the diff-prior `ChangeAction` snapshot [H9], the scoped partial-export selection, the declared unit regime), the profile store staying the projector's ctor-held capability. `Fin<T>` aborts on a write-capability miss (`Model/faults#FAULT_BAND` `BimFault.CodecReject`), a route miss the total `Switch` names with its owning rail in the message, an empty scene pool or an arena re-mint refusal the `ExportPayload.Flat` flatten surfaces, or a captured serialization/predefined-gate fault the projector lowers (`BimFault.ModelRejected`/`BimFault.UnmappedClass`), each typed case (band 2600, `Expected`-derived) lifting BARE onto the rail with no `.ToError()` hop.
+- Auto: `GlbBytes` switches on `InterchangePolicy.Compression` — `KhrEncoder.None` routes `Soup` through the single-mesh `SceneOf` and `Scene` through `Author`, both writing the GLB container, while `Draco` and `Meshopt` bypass the container: neither compression codec takes a glTF `ModelRoot`, so the compression leg REPLACES the GLB write rather than post-processing it, and a per-element `Scene` flattens through `ElementScene.Soup` because the raw streams carry no scene graph (per-element structure rides the GLB arms only). `.bim` pools distinct geometry by content key and places each `ElementInstance`, so instancing survives the wire. IFC selects no serialization writer here — `ExportIfc` reads the `format#FORMAT_AXIS` `InterchangeFormat.Serialization` column (`Some` exactly on the GeometryGym rows, its value the `Projection/egress#IFC_EGRESS` `IfcWireForm` row carrying serialization AND container together) and hands the seam `ElementGraph` and that wire form to `SemanticProjector.Emit`, which re-authors the whole graph and returns the IFC BYTES this rail seals — plain STEP, the zipped `.ifczip` container, ifcXML, or ifcJSON, each the row's own seal, so no transcode and no zip happens on this rail; no `DatabaseIfc` is constructed on this page.
 - Receipt: the `ModelEmit` receipt case carries the format key, codec key, emitted byte count, and the `ExportArtifact.ContentKey` the Compute addressing seam computes, symmetric to the import `ModelLoad` case; emission rides the sink port at the composition edge.
 - Events: a sealed `ExportArtifact` mints the `Exchange/events#EVENTS` `BimEvent.ArtifactMinted` row at the composing rail's edge — the Compute-computed `ContentKey`, the `InterchangeFormat.Key`, and the emitted byte count off the `ModelEmit` receipt — subject the `key:kind` artifact address; envelope seal and transport are the events owner's, never a second emit path here.
-- Packages: SharpGLTF.Core, SharpGLTF.Toolkit, GeometryGymIFC_Core, Openize.Drako, Alimer.Bindings.MeshOptimizer, CommunityToolkit.HighPerformance, AssimpNetter, dotbim, UniversalSceneDescription, Rasm.Element, NodaTime, LanguageExt.Core
-- Growth: a new managed export is one arm on the TOTAL `InterchangeCodec.Switch` — the compiler forces the arm the moment the codec row lands (the `dotBim` instancing arm joined the SharpGltf/SceneExchange/UsdStage arms this way), never a per-format exporter family and never a silent ladder tail; a new emit modality is one `ExportPayload` case every codec arm is compiler-forced to route; a new IFC serialization is the `InterchangeFormat.Serialization` column value on one GeometryGym row; a new glTF KHR/EXT capability the exporter attaches is one `KhrExtension` row registered through `KhrExtension.Register` before write; a new BOUND texture channel is one `GltfChannel` row naming its `KnownChannel` targets and its obliged extension — `ChannelImage.Of` admits it, `MaterialFinish.Author` binds it with zero arm, and the `Obliges` union registers the row — a new appearance FACTOR is one column on the seam `AppearanceSummary` read once in `Shaded`, and a new sampler or transform axis is one column on `ChannelImage`, never a second material builder; a new compression encoder is one `KhrEncoder` arm on the `GlbBytes` fold; a new assimp export target is one scene-exchange row whose KEY is the `ExportToBlob` `exportFormatId` (`IsExportFormatSupported`-guarded).
-- Boundary: dispatch is the generated exhaustive `Switch` — every codec row declares its export route or its route-naming fault (`ExportIfc` for GeometryGym, `Semantics/geospatial#VECTOR_INGEST` `GeoVector.Write` for geospatial, the companion bridge for native/IGES), so no row falls into a stale miss tail. GLB emission is deterministic byte layout — `SceneBuilderSchema2Settings` strided/merged buffers, the `GpuMeshInstancingMinCount` threshold, and `MergeBuffers` before write — so the same geometry always emits the same bytes the Compute content-key addresses. `Author` is the ONE `GlobalId`→`Node` index minter (nodes named by the seam `Object.ExternalId`, read back from `ModelRoot.LogicalNodes`), the ONE feature-row stamp minter (`GlbScene.Rows` ordinals stamped `_FEATURE_ID_0` at `Staged` — the only point the vertex layout is open), AND the ONE material minter (`ElementInstance.Finish` authors its own pooled `MaterialBuilder` — the seam `AppearanceSummary` as linear factors and every bound map through its own `ChannelImage.Bind`, materials pooled per distinct finish KEY so a textured element never inherits its untextured neighbour's material, uniform-finish repeats keeping theirs — the GLB arm erasing the color the dotbim arm round-trips was the deleted asymmetry); a caller-walked scene graph, a second index mint, a post-hoc attribute write, or an image ENCODE on this rail is the deleted form — the texture bytes arrive already sealed by their owner and this rail binds them. `AppearanceSummary` sources every glTF factor and holds each channel in its declared domain: base colour is scene-linear and enters `baseColorFactor` unencoded (routing the display-referred dotbim byte tint into that linear slot is the same unlinearized pass-through `Semantics/appearance#APPEARANCE_PROJECTION` names as deleted on the ingest side), metalness and roughness are written on EVERY material because the glTF factor defaults are both 1.0 and an unwritten material renders as rough metal, opacity below unity selects `AlphaMode.BLEND`, and the `Transmissive` bit writes `KHR_materials_transmission` and NEVER alpha mode — so an opaque-alpha glass round-trips its transmission exactly as the IFC `IfcSurfaceStyleRefraction` egress does. `GltfChannel` alone owns the canonical-channel-to-`KnownChannel` correspondence: a call site choosing a `KnownChannel` is the unowned projection the roster deletes, a canonical name with no row REFUSES at `ChannelImage.Of` rather than lighting a nearest slot, and the `orm` pack binds ONE `ImageBuilder` onto both the occlusion and metallic-roughness channels because glTF reads one image through two references. `KhrExtension` rows roster only extensions a finish fills, deleting the phantom row — the roster is the caller's declared write capability, the payload's `Obliges` is the truth, and the two union at registration. `EXT_mesh_gpu_instancing` collapse is a POLICY threshold because a gpu-merged node loses its per-node visibility/metadata identity (the 4D/metadata pipeline runs `GpuInstancingMinCount: 0`, the streaming-tile pipeline raises it — a policy value, never a code fork). `KhrExtension` rows register through the per-row `Registrar` closure before any write, so a material/light/texture channel serializes through its SharpGLTF schema type rather than a hand-authored JSON extension block; registration sweeps the UNION of the `InterchangePolicy` roster and the payload's own `ElementScene.Obliges` rows, because a bound KTX2 or transform-bearing map obliges its extension whether or not the caller listed it, and the four `format#FORMAT_AXIS` texture rows realize exactly here — `KHR_texture_transform` through `TextureBuilder.WithTransform`, `KHR_texture_basisu`/`EXT_texture_webp`/`MSFT_texture_dds` through the container the sealed bytes already carry (`TextureBuilder.PrimaryImage` reads PNG, JPG, DDS, WEBP, and KTX2), so no texture row is a capability flag with no realizing arm. `KHR_draco_mesh_compression` and `KHR_meshopt_compression` carry a `KhrEncoder` discriminant rather than a SharpGLTF schema type because SharpGLTF ships no compression encoder — `Openize.Drako` owns the Draco encode and `Alimer.Bindings.MeshOptimizer` the meshopt encode, both quantizing to the `InterchangePolicy` bit budget, a glTF `ModelRoot` passed to either the rejected form because neither package owns a glTF model type. `.bim` and USD arms cross a temp path because their `Save`/`Export` are path-bound (no stream overload) — the temp file is deleted in the same expression and never escapes the capsule. IFC egress is NOT this rail's — `ExportIfc` delegates to `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, and a hand-rolled `IfcBuildingElementProxy` re-author (the deleted `IfcBytes` form) is a SECOND IFC-egress owner the seam forbids; the `GlobalId` round-trips 1:1 from `Object.ExternalId` inside `Emit` (never a fresh GUID per export), making export idempotent under the Compute content-key. `ExportIfc` retains only the `CanExport` gate and the `Serialization` column read (a `None` column IS the non-IFC-row fault, the deleted `SerializationOf` ladder now row data). Chunked-field and structural-delta codecs stay at `Rasm.Compute/Runtime/codecs` consumed at the seam.
+- Packages: SharpGLTF.Core, SharpGLTF.Toolkit, GeometryGymIFC_Core, Openize.Drako, Alimer.Bindings.MeshOptimizer, CommunityToolkit.HighPerformance, AssimpNetter, dotbim, UniversalSceneDescription, Rasm.Element, Rasm (the kernel `Drawing` arena — `EncodedGeometry.Descriptors`/`Channel`, `Encode.Of`, the `EncodingChannel` roster, `ChannelDtype.Unpack`, `ContentHash`/`CanonicalWriter`), NodaTime, LanguageExt.Core
+- Growth: a new managed export is one arm on the TOTAL `InterchangeCodec.Switch` — the compiler forces the arm the moment the codec row lands (the `dotBim` instancing arm joined the SharpGltf/SceneExchange/UsdStage arms this way), never a per-format exporter family and never a silent ladder tail; a new emit modality is one `ExportPayload` case every codec arm is compiler-forced to route; a new IFC serialization is the `InterchangeFormat.Serialization` column value on one GeometryGym row; a new glTF KHR/EXT capability the exporter attaches is one `KhrExtension` row registered through `KhrExtension.Register` before write; a new BOUND texture channel is one `GltfChannel` row naming its `KnownChannel` targets and its obliged extension — `ChannelImage.Of` admits it, `MaterialFinish.Author` binds it with zero arm, and the `Obliges` union registers the row — a new appearance FACTOR is one column on the seam `AppearanceSummary` read once in `Shaded`, a new RENDER-REPRESENTATION toggle (the sidedness bit is the landed one) is one column on `MaterialFinish` its own `Key` seed frames, and a new sampler, degradation, or transform axis is one column on `ChannelImage` the `MaterialFinish.Key` `Sampled` frame folds so the pool keeps discriminating it, never a second material builder; a new compression encoder is one `KhrEncoder` arm on the `GlbBytes` fold; a new PER-VERTEX attribute is one kernel `EncodingChannel` row — the descriptor-addressed `Lane` read, the `ElementScene.Pooled` union fold, and the `MeshoptLane` arity column carry it with no arm here, and giving it its own filter-coded meshopt stream is one `MeshoptLane` row; a new assimp export target is one scene-exchange row whose KEY is the `ExportToBlob` `exportFormatId` (`IsExportFormatSupported`-guarded).
+- Boundary: dispatch is the generated exhaustive `Switch` — every codec row declares its export route or its route-naming fault (`ExportIfc` for GeometryGym, `Semantics/geospatial#VECTOR_INGEST` `GeoVector.Write` for geospatial, the companion bridge for native/IGES), so no row falls into a stale miss tail. GLB emission is deterministic byte layout — `SceneBuilderSchema2Settings` strided/merged buffers, the `GpuMeshInstancingMinCount` threshold, and `MergeBuffers` before write — so the same geometry always emits the same bytes the Compute content-key addresses. Every per-vertex attribute reaches this rail through the seam carrier's ONE kernel `EncodedGeometry` arena and is read by DESCRIPTOR through the page's single `Lane`/`Required` pair, each lane lifted to floats by its own `ChannelDtype` — so a hand-derived stride, a per-channel column read, and a second lane arena on this rail are all deleted forms, and a widened channel arity reaches every arm as data. Absence is a MISSING DESCRIPTOR, never an empty buffer: the parameterization axis the mesh-builder layout, the Draco attribute set, the meshopt stream roster, and the LOD weight vector each discriminate on is the seam's own evidence, so a length probe — which a zero-filled forged unwrap passes — is unspellable here. `ElementScene.Pooled` re-mints the pooled arena through the kernel `Encode.Of` over the UNION of its entries' declared channels (an entry lacking a lane leaves its range at that channel's zero, mirroring the import rail's own pool builder), so the flatten rides `Fin` and the arena's arity screen and per-lane round-trip witness gate the pooled result rather than a hand-assembled carrier reaching a codec. `Author` is the ONE `GlobalId`→`Node` index minter (nodes named by the seam `Object.ExternalId`, read back from `ModelRoot.LogicalNodes`), the ONE feature-row stamp minter (`GlbScene.Rows` ordinals stamped `_FEATURE_ID_0` at `Staged` — the only point the vertex layout is open), AND the ONE material minter (`ElementInstance.Finish` authors its own pooled `MaterialBuilder` — the seam `AppearanceSummary` as linear factors and every bound map through its own `ChannelImage.Bind`, materials pooled per distinct finish KEY so a textured element never inherits its untextured neighbour's material, uniform-finish repeats keeping theirs — the GLB arm erasing the color the dotbim arm round-trips was the deleted asymmetry); a caller-walked scene graph, a second index mint, a post-hoc attribute write, or an image ENCODE on this rail is the deleted form — the texture bytes arrive already sealed by their owner and this rail binds them. `AppearanceSummary` sources every glTF FACTOR and holds each channel in its declared domain: base colour is scene-linear and enters `baseColorFactor` unencoded (routing the display-referred dotbim byte tint into that linear slot is the same unlinearized pass-through `Semantics/appearance#APPEARANCE_PROJECTION` names as deleted on the ingest side), metalness and roughness are written on EVERY material because the glTF factor defaults are both 1.0 and an unwritten material renders as rough metal, opacity below unity selects `AlphaMode.BLEND`, and the `Transmissive` bit writes `KHR_materials_transmission` and NEVER alpha mode — so an opaque-alpha glass round-trips its transmission exactly as the IFC `IfcSurfaceStyleRefraction` egress does. Sidedness is the one RENDER-REPRESENTATION toggle beside those factors and it rides `MaterialFinish.DoubleSided` rather than a summary column, because it selects which faces the material paints where every summary channel answers how a painted face reflects — its producer is the `Semantics/appearance#APPEARANCE_PROJECTION` `StyledAppearance.DoubleSided` bit the source's own `IfcSurfaceSide` declares, it frames into the pool `Key` so a two-sided and a one-sided element never share a `MaterialBuilder`, and `WithDoubleSide` writes on every material because glTF's default is FALSE and an unwritten thin panel culls from inside the model. `GltfChannel` alone owns the canonical-channel-to-`KnownChannel` correspondence: a call site choosing a `KnownChannel` is the unowned projection the roster deletes, a canonical name with no row REFUSES at `ChannelImage.Of` rather than lighting a nearest slot, and the `orm` pack binds ONE `ImageBuilder` onto both the occlusion and metallic-roughness channels because glTF reads one image through two references. `KhrExtension` rows roster only extensions a finish fills, deleting the phantom row — the roster is the caller's declared write capability, the payload's `Obliges` is the truth, and the two union at registration. `EXT_mesh_gpu_instancing` collapse is a POLICY threshold because a gpu-merged node loses its per-node visibility/metadata identity (the 4D/metadata pipeline runs `GpuInstancingMinCount: 0`, the streaming-tile pipeline raises it — a policy value, never a code fork). `KhrExtension` rows register through the per-row `Registrar` closure before any write, so a material/light/texture channel serializes through its SharpGLTF schema type rather than a hand-authored JSON extension block; registration sweeps the UNION of the `InterchangePolicy` roster and the payload's own `ElementScene.Obliges` rows, because a bound KTX2 or transform-bearing map obliges its extension whether or not the caller listed it, and the four `format#FORMAT_AXIS` texture rows realize exactly here — `KHR_texture_transform` through `TextureBuilder.WithTransform`, `KHR_texture_basisu`/`EXT_texture_webp`/`MSFT_texture_dds` through the container the sealed bytes already carry (`TextureBuilder.PrimaryImage` reads PNG, JPG, DDS, WEBP, and KTX2), so no texture row is a capability flag with no realizing arm. Each of those three container rows binds its `ChannelImage.Fallback` bytes through `TextureBuilder.WithFallbackImage` — the PNG-or-JPG-only degradation SharpGLTF guards — so a viewer that never negotiated the extension resolves a core texture rather than an unresolvable reference, and a container-obliging map bound with no fallback is an extension the consumer must have; a fallback beside a core PNG/JPG primary is the deleted second copy of the same bytes. Every binding writes the sampler's min/mag pair rather than leaving SharpGLTF's unset `DEFAULT`, because an unset minification filter hands mip selection to the consumer and a KTX2 pyramid the press paid to build may never be sampled — trilinear admission defaults state the law, and a non-interpolating data plane states `NEAREST` at its own admission. `KHR_draco_mesh_compression` and `KHR_meshopt_compression` carry a `KhrEncoder` discriminant rather than a SharpGLTF schema type because SharpGLTF ships no compression encoder — `Openize.Drako` owns the Draco encode and `Alimer.Bindings.MeshOptimizer` the meshopt encode, both quantizing to the `InterchangePolicy` bit budget, a glTF `ModelRoot` passed to either the rejected form because neither package owns a glTF model type. `.bim` and USD arms cross a temp path because their `Save`/`Export` are path-bound (no stream overload) — the temp file is deleted in the same expression and never escapes the capsule. IFC egress is NOT this rail's — `ExportIfc` delegates to `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, and a hand-rolled `IfcBuildingElementProxy` re-author (the deleted `IfcBytes` form) is a SECOND IFC-egress owner the seam forbids; the `GlobalId` round-trips 1:1 from `Object.ExternalId` inside `Emit` (never a fresh GUID per export), making export idempotent under the Compute content-key. `ExportIfc` retains only the `CanExport` gate and the `Serialization` column read (a `None` column IS the non-IFC-row fault, the deleted `SerializationOf` ladder now row data), the column's `IfcWireForm` value carrying the container so a `.ifczip` artifact differs from a `.ifc` one by its row alone — a rail-side `ZipArchive` over emitted text, or a `Encoding.UTF8.GetBytes` hop over a returned string, is the deleted form. Chunked-field and structural-delta codecs stay at `Rasm.Compute/Runtime/codecs` consumed at the seam.
 
 ```csharp signature
 public sealed record InterchangePolicy(
@@ -34,15 +34,27 @@ public sealed record InterchangePolicy(
     StepProtocol StepProtocol,
     bool MergeBuffers,
     bool StridedBuffers,
+    ValidationMode Validation,
     KhrEncoder Compression,
     int QuantizationBits,
+    Seq<(string Channel, float Weight)> AttributeWeights,
+    bool LockBorder,
     int GpuInstancingMinCount,
     Seq<double> LodRatios,
     Seq<KhrExtension> Extensions) {
     public static readonly InterchangePolicy Canonical = new(
         Deflection: 0.01, Tolerance: 1e-6, AngleTolerance: 1e-4,
         IfcSchema: ReleaseVersion.Ifc4X3Add2, StepProtocol: StepProtocol.Ap242, MergeBuffers: true, StridedBuffers: true,
-        Compression: KhrEncoder.None, QuantizationBits: 14, GpuInstancingMinCount: 0,
+        Validation: ValidationMode.Strict,
+        Compression: KhrEncoder.None, QuantizationBits: 14,
+        // Attribute weights are the simplifier's per-lane error budget in the SAME units the attribute carries. A UV
+        // weight near unity makes a texel-space seam as expensive to cross as a world-space one, so the
+        // collapse stops at the discontinuity instead of migrating vertices across it; normals ride an order
+        // lower because a shaded-normal deviation is recoverable and a smeared map is not. A channel with no row
+        // is unweighted, so a source carrying no unwrap costs nothing.
+        AttributeWeights: Seq(("geometry_uv", 1.0f), ("geometry_normal", 0.1f)),
+        LockBorder: true,
+        GpuInstancingMinCount: 0,
         LodRatios: Seq(0.5, 0.25, 0.1, 0.05), Extensions: Seq<KhrExtension>());
     public static readonly InterchangePolicy Web = Canonical with {
         Compression = KhrEncoder.Meshopt, QuantizationBits = 12, GpuInstancingMinCount = 16,
@@ -54,11 +66,11 @@ public sealed record InterchangePolicy(
     // _ior, _emissive_strength and KHR_lights_punctual carry no row.
     //
     // VOLUME is settled at the PLANE altitude, not the factor one, because the corpus roster does carry a
-    // volume-shaped channel. KHR_materials_volume exposes exactly one texture, thicknessTexture, whose quantity is
-    // the DISTANCE THROUGH the shell — a per-geometry measure no channel in the closed roster carries, so
+    // volume-shaped channel. KHR_materials_volume exposes exactly one texture, thicknessTexture, whose quantity is the
+    // DISTANCE THROUGH the shell — a per-geometry measure no channel in the closed roster carries, so
     // KnownChannel.VolumeThickness has no canonical name to bind from. The one volume channel the roster does carry,
-    // `subsurface_radius`, is a three-band mean free path landing on attenuationColor and attenuationDistance, and
-    // the extension defines both as FACTORS with no texture at all — so a `subsurface_radius` GltfChannel row would
+    // `subsurface_radius`, is a three-band mean free path landing on attenuationColor and attenuationDistance, and the
+    // extension defines both as FACTORS with no texture at all — so a `subsurface_radius` GltfChannel row would
     // be a row that can never bind a map, and the seam summary carries no radius column for Author to write either.
     // Neither end of the extension has a filler, which is why it is absent rather than declared-and-dark. Dispersion,
     // IOR and emissive strength are the plain factor cases — the seam summary drops the refraction magnitude and the
@@ -105,8 +117,8 @@ public sealed record ExportArtifact(
 // KHR extension factors default to ZERO (SharpGLTF's own MaterialValue seeding, decompile-verified: ClearCoatFactor
 // 0, ClearCoatRoughness RoughnessFactor 0, TransmissionFactor 0, SheenColor RGB zero, SheenRoughness
 // RoughnessFactor 0, IridescenceFactor 0, AnisotropyStrength 0, DiffuseTransmission factor, Emissive RGB zero) — a
-// bound emission map on a zero factor renders black and a bound coat map has zero effect, silently. Each row spells
-// the (target, property, unit value) triples its binding writes as DATA, so Bind folds the column and a new
+// bound emission map on a zero factor renders black and a bound coat map has zero effect, silently. Each row spells the
+// (target, property, unit value) triples its binding writes as DATA, so Bind folds the column and a new
 // zero-default extension is one tuple on its row, never a finish arm.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -138,8 +150,8 @@ public sealed partial class GltfChannel {
     public static readonly GltfChannel FilmWeight   = new("thin_film_weight",     Seq(KnownChannel.Iridescence),              KhrExtension.MaterialsIridescence,
         Seq((KnownChannel.Iridescence, KnownProperty.IridescenceFactor, (object)1f)));
     // KHR iridescence reads its thickness TEXTURE as a [0,1] factor lerping iridescenceThicknessMinimum..Maximum
-    // (both nanometres, SharpGLTF defaults 100/400) — a THIRD thickness convention beside the frozen nm plane and
-    // the .mtlx micrometre input. The producer normalizes the nm plane against the set's declared span before
+    // (both nanometres, SharpGLTF defaults 100/400) — a THIRD thickness convention beside the frozen nm plane and the
+    // .mtlx micrometre input. The producer normalizes the nm plane against the set's declared span before
     // sealing, and the binder writes Minimum=0 / Maximum=that span off the ChannelImage row's own ThicknessSpanNm
     // column; a raw nm plane bound as the factor is wrong by ~2.5 orders.
     public static readonly GltfChannel FilmThick    = new("thin_film_thickness",  Seq(KnownChannel.IridescenceThickness),     KhrExtension.MaterialsIridescence);
@@ -163,8 +175,9 @@ public sealed partial class GltfChannel {
 }
 
 // One BOUND texture map on a glTF material: the ALREADY-ENCODED image bytes (SharpGLTF's TextureBuilder reads
-// PNG/JPG/DDS/WEBP/KTX2 containers), the resolved GltfChannel row, the UV set the primitive samples it through, the
-// wrap pair, and the optional KHR_texture_transform frame the Semantics/appearance#APPEARANCE_PROJECTION UvTransform
+// PNG/JPG/DDS/WEBP/KTX2 containers), the optional core-container FALLBACK bytes, the resolved GltfChannel row, the UV
+// set the primitive samples it through, the wrap pair, the min/mag filter pair, and the optional
+// KHR_texture_transform frame the Semantics/appearance#APPEARANCE_PROJECTION UvTransform
 // owns. This rail ENCODES nothing: a texture-set owner seals the bytes and the composing edge hands them here, so the
 // GLB author stays a binder and no image codec enters Rasm.Bim. Container is SNIFFED off the payload's own magic
 // bytes (KTX2 -> TextureBasisu, WebP's RIFF -> TextureWebp, DDS -> TextureDds, PNG/JPG -> None) — a caller knob
@@ -178,23 +191,37 @@ public sealed partial class GltfChannel {
 // registration, never a second legality gate re-deciding what the producer already proved.
 public sealed record ChannelImage {
     private ChannelImage(
-        GltfChannel channel, ReadOnlyMemory<byte> bytes, string name, int coordinateSet,
-        TextureWrapMode wrapS, TextureWrapMode wrapT, Option<UvTransform> transform, Option<KhrExtension> container,
-        Option<double> thicknessSpanNm) =>
-        (Channel, Bytes, Name, CoordinateSet, WrapS, WrapT, Transform, Container, ThicknessSpanNm) =
-        (channel, bytes, name, coordinateSet, wrapS, wrapT, transform, container, thicknessSpanNm);
+        GltfChannel channel, ReadOnlyMemory<byte> bytes, Option<ReadOnlyMemory<byte>> fallback, string name, int coordinateSet,
+        TextureWrapMode wrapS, TextureWrapMode wrapT, TextureMipMapFilter minFilter, TextureInterpolationFilter magFilter,
+        Option<UvTransform> transform, Option<KhrExtension> container, Option<double> thicknessSpanNm) =>
+        (Channel, Bytes, Fallback, Name, CoordinateSet, WrapS, WrapT, MinFilter, MagFilter, Transform, Container, ThicknessSpanNm) =
+        (channel, bytes, fallback, name, coordinateSet, wrapS, wrapT, minFilter, magFilter, transform, container, thicknessSpanNm);
 
     public GltfChannel Channel { get; }
     public ReadOnlyMemory<byte> Bytes { get; }
+    // Fallback bytes realize the core-container degradation the format#FORMAT_AXIS texture rows promise:
+    // SharpGLTF's FallbackImage admits PNG and JPG ALONE (its own guard rejects anything else), so a KTX2/WebP/DDS
+    // primary pairs with core-format bytes and a viewer lacking KHR_texture_basisu / EXT_texture_webp /
+    // MSFT_texture_dds resolves a texture instead of a dangling extension block. Binding reads this only where
+    // Container is Some — a core primary needs no second copy of itself, while a KTX2-only binding is a hard
+    // dependency on an extension whose absence renders untextured with no diagnostic.
+    public Option<ReadOnlyMemory<byte>> Fallback { get; }
     public string Name { get; }
     public int CoordinateSet { get; }
     public TextureWrapMode WrapS { get; }
     public TextureWrapMode WrapT { get; }
+    // Minification and magnification ride these two columns. glTF leaves both sampler slots OPTIONAL and SharpGLTF
+    // defaults each to its unset DEFAULT member, handing mip selection to the consumer — so a KTX2 whose press paid
+    // for a pyramid can meet a runtime that never descends it. Admission defaults state trilinear
+    // (LINEAR_MIPMAP_LINEAR minification, LINEAR magnification) so sampling is declared law, while a data map that
+    // must not interpolate — an id or mask plane — states NEAREST at its own admission.
+    public TextureMipMapFilter MinFilter { get; }
+    public TextureInterpolationFilter MagFilter { get; }
     public Option<UvTransform> Transform { get; }
     public Option<KhrExtension> Container { get; }
-    // The nm span the producer normalized the thin_film_thickness plane against — the wire's own heightScale-class
-    // evidence, threaded from the TextureSetWire the composing edge holds. Read by the FilmThick binding alone;
-    // inert on every other row, because only the iridescence-thickness lerp carries a min/max pair to fill.
+    // ThicknessSpanNm carries the nm span the producer normalized the thin_film_thickness plane against — the wire's
+    // own heightScale-class evidence, threaded from the TextureSetWire the composing edge holds. Read by the FilmThick
+    // binding alone; inert on every other row, because only the iridescence-thickness lerp carries a min/max pair to fill.
     public Option<double> ThicknessSpanNm { get; }
 
     // Admission takes the CANONICAL channel name and refuses at the boundary, so a map naming a channel glTF
@@ -202,10 +229,14 @@ public sealed record ChannelImage {
     public static Option<ChannelImage> Of(
         string channel, ReadOnlyMemory<byte> bytes, string name, int coordinateSet = 0,
         TextureWrapMode wrapS = TextureWrapMode.REPEAT, TextureWrapMode wrapT = TextureWrapMode.REPEAT,
+        TextureMipMapFilter minFilter = TextureMipMapFilter.LINEAR_MIPMAP_LINEAR,
+        TextureInterpolationFilter magFilter = TextureInterpolationFilter.LINEAR,
+        Option<ReadOnlyMemory<byte>> fallback = default,
         Option<UvTransform> transform = default, Option<double> thicknessSpanNm = default) =>
-        GltfChannel.From(channel).Map(row => new ChannelImage(row, bytes, name, coordinateSet, wrapS, wrapT, transform, Sniffed(bytes.Span), thicknessSpanNm));
+        GltfChannel.From(channel).Map(row => new ChannelImage(
+            row, bytes, fallback, name, coordinateSet, wrapS, wrapT, minFilter, magFilter, transform, Sniffed(bytes.Span), thicknessSpanNm));
 
-    // The magic-byte correspondence, spelled once: KTX2 identifier, RIFF+WEBP, DDS fourcc; anything else is a
+    // Sniffed spells the magic-byte correspondence once: KTX2 identifier, RIFF+WEBP, DDS fourcc; anything else is a
     // core PNG/JPG container obliging no extension row.
     static Option<KhrExtension> Sniffed(ReadOnlySpan<byte> payload) =>
         payload.Length >= 12 && payload[..12].SequenceEqual((ReadOnlySpan<byte>)[0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A])
@@ -224,6 +255,14 @@ public sealed record ChannelImage {
     // per-channel With* members are the live spellings — so a channel value never rides the deprecated vector form.
     public MaterialBuilder Bind(MaterialBuilder material) {
         ImageBuilder image = ImageBuilder.From(Wrapped(Bytes), Name);
+        // Fallback bytes mint ONE ImageBuilder beside the primary and thread every target the same way, so a
+        // two-channel pack references one fallback rather than two copies. Binding rides exactly when the primary's
+        // container obliges an extension: a core PNG/JPG primary already resolves everywhere. WithFallbackImage
+        // guards its own PNG/JPG contract and RAISES on anything else, and that raise funnels through the Author /
+        // GlbBytes Try.lift onto the typed rail — a non-core fallback is a caller defect, never a silent bind.
+        Option<ImageBuilder> core = Container.IsSome
+            ? Fallback.Map(bytes => ImageBuilder.From(Wrapped(bytes), $"{Name}-fallback"))
+            : Option<ImageBuilder>.None;
         // Iter, not Fold: the builder MUTATES and the accumulator never changes, so a fold spelling here reads
         // as construction while performing iteration — the honest verb is the iteration.
         Channel.Targets.Iter(target => {
@@ -232,13 +271,14 @@ public sealed record ChannelImage {
                 .UseTexture()
                 .WithPrimaryImage(image)
                 .WithCoordinateSet(CoordinateSet)
-                .WithSampler(WrapS, WrapT);
+                .WithSampler(WrapS, WrapT, MinFilter, MagFilter);
+            core.IfSome(fallback => texture.WithFallbackImage(fallback));
             Transform.IfSome(uv => texture.WithTransform(uv.Offset, uv.Scale, (float)uv.Rotation));
         });
-        // The row's unit-factor writes: a bound map multiplies its channel factor, and the KHR factors default to
+        // Unit-factor writes ride the row: a bound map multiplies its channel factor, and the KHR factors default to
         // ZERO, so the map is a no-op until its factor states unity — folded off the roster column, never an arm.
         Channel.Units.Iter(unit => material.WithChannelParam(unit.Target, unit.Property, unit.Value));
-        // The iridescence-thickness lerp band: Minimum 0 / Maximum the producer's own normalization span, so the
+        // Iridescence-thickness lerp band: Minimum 0 / Maximum the producer's own normalization span, so the
         // [0,1] plane decodes to the same nanometres the producer encoded — SharpGLTF's 100/400 defaults decode a
         // normalized plane into a band the bytes never carried.
         ThicknessSpanNm.IfSome(span => material
@@ -269,10 +309,21 @@ public sealed record ChannelImage {
 // sharing a summary but differing in one bound map are two materials, so the pool keys on the whole finish; an
 // rgba-only key silently gave a textured element its untextured neighbour's material. Finishes carrying NO
 // summary are the untinted default the flat-soup and mixed-repeat paths take.
-public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<ChannelImage> Images) {
-    public static readonly MaterialFinish White = new(Option<AppearanceSummary>.None, Seq<ChannelImage>());
+// DoubleSided is the RENDER-REPRESENTATION toggle beside the reflectance vector, never a summary column: every
+// AppearanceSummary channel answers how a painted face reflects, this one answers WHICH faces the material paints,
+// and widening the frozen seven-value preimage to carry it re-keys every stored Node.Appearance. Its producer is
+// the Semantics/appearance#APPEARANCE_PROJECTION StyledAppearance.DoubleSided bit the IFC IfcSurfaceSide attribute
+// declares, so the exported glTF states the sidedness the source file stated rather than the format default —
+// glTF doubleSided defaults FALSE, so a two-sided IFC style left unwritten culls every interior face and a curtain
+// wall, a railing infill, and a thin partition each vanish when viewed from inside the model.
+public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<ChannelImage> Images, bool DoubleSided) {
+    public static readonly MaterialFinish White = new(Option<AppearanceSummary>.None, Seq<ChannelImage>(), DoubleSided: false);
 
-    public static MaterialFinish Of(AppearanceSummary surface) => new(Some(surface), Seq<ChannelImage>());
+    // The bit arrives REQUIRED beside the summary: its holder is the composition edge reading a
+    // Semantics/appearance#APPEARANCE_PROJECTION StyledAppearance, which carries both, and a defaulted slot lets
+    // whichever caller omits it assert single-sided over a source that declared otherwise.
+    public static MaterialFinish Of(AppearanceSummary surface, bool doubleSided) =>
+        new(Some(surface), Seq<ChannelImage>(), doubleSided);
 
     // dotbim's Color column is display-referred 0-255 RGBA, so the scene-linear summary encodes through the ONE
     // sRGB OETF this package owns (Semantics/appearance#APPEARANCE_PROJECTION Encode) rather than a second
@@ -288,18 +339,40 @@ public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<Chann
             None: static () => 0xFFFFFFFFu);
 
     // Key spans the WHOLE material identity: the seam AppearanceKey — itself the content hash over the entire
-    // neutral vector, so no local canonicalization of six scalars exists here to fork — beside each binding's
-    // canonical channel key, byte length, and content hash, length-framed under the kernel seed-zero hasher, so the
-    // key is stable across runs and two byte-identical finishes pool once.
+    // neutral vector, so no local canonicalization of six scalars exists here to fork — beside the sidedness bit
+    // and every axis each binding writes onto its glTF texture, length- and presence-framed under the kernel
+    // seed-zero hasher, so the key is stable across runs and two byte-identical finishes pool once. Sidedness
+    // frames because it is a MaterialBuilder axis the pool must discriminate: two elements sharing a summary and
+    // a map roster but differing in sidedness are two glTF materials, and a key blind to the bit hands whichever
+    // element the pool saw second the first one's culling — the identical failure the pre-sampler rgba-only key
+    // produced for wrap and filter.
     public UInt128 Key =>
         ContentHash.Of(Images
             .Fold(
                 new CanonicalWriter(0.0)
                     .U128(Surface.Match(Some: static s => s.AppearanceKey, None: static () => UInt128.Zero))
+                    .Ordinal(DoubleSided ? 1 : 0)
                     .Ordinal(Images.Count),
-                static (writer, image) => writer.String(image.Channel.Key).Ordinal(image.Bytes.Length)
-                    .U128(ContentHash.Of(image.Bytes.Span)))
+                static (writer, image) => Sampled(writer, image))
             .ToBytes().Span);
+
+    // Every axis a binding writes IS material identity — the primary bytes, the fallback bytes, the UV set, the wrap
+    // pair, the min/mag filter pair, the transform frame, and the iridescence span. A key over the primary bytes
+    // alone pooled two distinct SAMPLERS onto one MaterialBuilder, so a CLAMP map inherited its REPEAT neighbour's
+    // wrap and a trilinear map its nearest neighbour's filter with nothing raising. Each optional axis is
+    // PRESENCE-framed by its own value COUNT ahead of its values, so an absent frame and a zero-valued one never
+    // collide and the fold stays one expression over the roster rather than an arm per axis.
+    static CanonicalWriter Sampled(CanonicalWriter writer, ChannelImage image) =>
+        (image.Transform.Map(static uv => Seq<double>(uv.Offset.X, uv.Offset.Y, uv.Scale.X, uv.Scale.Y, uv.Rotation)).IfNone(Seq<double>())
+         + image.ThicknessSpanNm.ToSeq())
+            .Fold(
+                writer.String(image.Channel.Key).Ordinal(image.Bytes.Length).U128(ContentHash.Of(image.Bytes.Span))
+                    .Ordinal(image.Fallback.Map(static bytes => bytes.Length).IfNone(-1))
+                    .U128(image.Fallback.Map(static bytes => ContentHash.Of(bytes.Span)).IfNone(UInt128.Zero))
+                    .Ordinal(image.CoordinateSet).Ordinal((int)image.WrapS).Ordinal((int)image.WrapT)
+                    .Ordinal((int)image.MinFilter).Ordinal((int)image.MagFilter)
+                    .Ordinal(image.Transform.IsSome ? 5 : 0).Ordinal(image.ThicknessSpanNm.IsSome ? 1 : 0),
+                static (framed, value) => framed.Double(value));
 
     // Every row this finish obliges: each binding's own union plus the transmission row a refractive summary
     // writes with no map behind it, so a glass element registers KHR_materials_transmission whether or not a
@@ -323,8 +396,15 @@ public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<Chann
     // KHR_materials_ior block asserting the default.
     public MaterialBuilder Author() => Images.Fold(Shaded(), static (material, image) => image.Bind(material));
 
+    // WithDoubleSide writes on EVERY material for the same reason metalness and roughness do: the glTF default is
+    // a value (FALSE), not an absence, so leaving it unwritten asserts single-sided on every element rather than
+    // deferring the choice — and the one class of element that most needs the bit (a zero-thickness curtain-wall
+    // panel, a railing infill, a partition surface) is exactly the class a single-sided default renders invisible
+    // from one side with nothing raising.
     MaterialBuilder Shaded() {
-        MaterialBuilder material = new MaterialBuilder($"finish-{Key:x32}").WithMetallicRoughnessShader();
+        MaterialBuilder material = new MaterialBuilder($"finish-{Key:x32}")
+            .WithMetallicRoughnessShader()
+            .WithDoubleSide(DoubleSided);
         return Surface.Match(
             Some: s => Refracted(
                 material
@@ -359,14 +439,16 @@ public sealed record ElementInstance(string GlobalId, string Name, string Class,
 
 // Per-element carrier: a content-keyed mesh pool (each entry ONE baked single-block ImportedGeometry — a
 // canonical soup for one distinct geometry) with the placement rows. Pooled re-describes the scene as the
-// import carrier's Blocks/Instances overlay; Soup flattens it through the seam's ONE Bake fold for the arms
-// that carry no scene graph (Draco/meshopt streams, single-mesh scene rows) — a second transform loop beside
-// ImportedGeometry.Bake is the deleted re-derivation.
+// import carrier's Blocks/Instances overlay over ONE re-minted kernel arena; Soup flattens that through the
+// seam's ONE Bake fold for the arms that carry no scene graph (Draco/meshopt streams, single-mesh scene rows)
+// — a second transform loop beside ImportedGeometry.Bake is the deleted re-derivation. Both ride Fin because
+// Encode.Of screens every re-minted lane's arity and witnesses its round-trip error.
 public sealed record ElementScene(Map<UInt128, ImportedGeometry> Pool, Seq<ElementInstance> Instances) {
-    // Single-element degrade for a flat soup reaching a per-element wire: one pool entry keyed by the
-    // vertex-bytes hash, one identity placement, the untyped-proxy classification.
+    // Single-element degrade for a flat soup reaching a per-element wire: one pool entry keyed by the whole
+    // arena PAYLOAD — every declared lane, so two meshes agreeing on position and differing in unwrap or vertex
+    // colour never collapse onto one entry — one identity placement, the untyped-proxy classification.
     public static ElementScene Of(ImportedGeometry soup) {
-        UInt128 key = XxHash128.HashToUInt128(MemoryMarshal.AsBytes(soup.Vertices.Span));
+        UInt128 key = ContentHash.Of(soup.Lanes.Payload.Span);
         return new ElementScene(Map((key, soup)), Seq(new ElementInstance("soup", "soup", "IfcBuildingElementProxy", key, Matrix4x4.Identity, MaterialFinish.White)));
     }
 
@@ -375,35 +457,45 @@ public sealed record ElementScene(Map<UInt128, ImportedGeometry> Pool, Seq<Eleme
     // without listing KHR_texture_basisu still emits a registered extension instead of an unresolved block.
     public Seq<KhrExtension> Obliges => Instances.Bind(static instance => instance.Finish.Obliges).Distinct();
 
-    public ImportedGeometry Soup() => Pooled().Bake();
+    public Fin<ImportedGeometry> Soup(Op key) => Pooled(key).Bind(pooled => pooled.Bake(key));
 
     // Each pool entry lands one MeshBlock, each ElementInstance one MeshInstance over its block ordinal — the
     // pooled ImportedGeometry carries the SAME sharing this scene does, so a consumer needing world-space
-    // geometry calls the one seam Bake owner and a consumer preserving instancing reads the overlay. The pool
-    // Uvs column materializes when any entry carries one (unmapped entries zero-fill their range), else stays
-    // the EMPTY typed absence.
-    public ImportedGeometry Pooled() {
-        var head = Pool.Values.HeadOrNone().IfNoneUnsafe(() => throw new InvalidDataException("<element-scene-empty>"));
+    // geometry calls the one seam Bake owner and a consumer preserving instancing reads the overlay. The pooled
+    // lane set is the UNION of the entries' declared channels, mirroring the import rail's own pool builder: an
+    // entry lacking a lane leaves its range at that channel's zero so per-vertex lockstep holds across the whole
+    // arena, and a lane NO entry declares is simply absent — a missing descriptor, never a column a consumer
+    // length-probes. The fold names no channel, so a new EncodingChannel row reaches the pooled arena with zero
+    // edit here and the per-attribute buffer-and-guard ladder the parallel-column form grew is unspellable.
+    public Fin<ImportedGeometry> Pooled(Op key) {
+        if (toSeq(Pool.Values).Head.Case is not ImportedGeometry lead) {
+            return Fin.Fail<ImportedGeometry>(new BimFault.CodecReject(key, "element-scene-empty"));
+        }
         var keys = Pool.Keys.ToSeq();
         var ordinals = keys.Select(static (k, i) => (k, i)).ToMap();
         int vertexTotal = Pool.Values.Sum(static m => m.VertexCount);
         int indexTotal = Pool.Values.Sum(static m => m.Indices.Length);
-        var (vertices, normals, indices) = (new float[vertexTotal * 3], new float[vertexTotal * 3], new long[indexTotal]);
-        float[] uvs = Pool.Values.Exists(static m => !m.Uvs.IsEmpty) ? new float[vertexTotal * 2] : [];
+        // Strict() forces the lane arenas ONCE: a lazily re-evaluated Map hands Encode.Of freshly-zeroed arrays
+        // after the fold below filled a different set, so the mint witnesses an empty payload as lossless.
+        Seq<(EncodingChannel Channel, float[] Raw)> lanes = toSeq(Pool.Values)
+            .Bind(static m => m.Lanes.Descriptors.Map(static d => d.Channel)).Distinct()
+            .Map(channel => (channel, new float[vertexTotal * channel.Arity])).Strict();
+        long[] indices = new long[indexTotal];
         var blocks = new MeshBlock[keys.Count];
         var (vBase, iBase, slot) = (0, 0, 0);
-        foreach (var key in keys) {
-            var mesh = Pool[key];
-            mesh.Vertices.Span.CopyTo(vertices.AsSpan(vBase * 3));
-            mesh.Normals.Span.CopyTo(normals.AsSpan(vBase * 3));
-            if (uvs.Length > 0 && !mesh.Uvs.IsEmpty) { mesh.Uvs.Span.CopyTo(uvs.AsSpan(vBase * 2)); }
-            var t = mesh.Indices.Span;
-            for (int s = 0; s < t.Length; s++) { indices[iBase + s] = t[s] + vBase; }
-            blocks[slot] = new MeshBlock(vBase, mesh.VertexCount, iBase, t.Length);
-            (vBase, iBase, slot) = (vBase + mesh.VertexCount, iBase + t.Length, slot + 1);
+        foreach (var pooled in keys) {
+            var mesh = Pool[pooled];
+            foreach (var lane in lanes) {
+                if (BimExport.Lane(mesh, lane.Channel).Case is float[] source) { source.CopyTo(lane.Raw.AsSpan(vBase * lane.Channel.Arity)); }
+            }
+            var corners = mesh.Indices.Span;
+            for (int s = 0; s < corners.Length; s++) { indices[iBase + s] = corners[s] + vBase; }
+            blocks[slot] = new MeshBlock(vBase, mesh.VertexCount, iBase, corners.Length);
+            (vBase, iBase, slot) = (vBase + mesh.VertexCount, iBase + corners.Length, slot + 1);
         }
         var placed = Instances.Map(i => new MeshInstance(ordinals[i.MeshKey], i.Placement));
-        return new ImportedGeometry(head.FormatKey, vertices, normals, uvs, indices, vertexTotal, indexTotal / 3, blocks.ToSeq(), placed, head.At);
+        return Encode.Of(vertexTotal, lanes, key).Map(arena => new ImportedGeometry(
+            lead.FormatKey, arena, indices, vertexTotal, indexTotal / 3, blocks.ToSeq(), placed, lead.At));
     }
 }
 
@@ -414,7 +506,12 @@ public abstract partial record ExportPayload {
     public sealed record Soup(ImportedGeometry Geometry) : ExportPayload;
     public sealed record Scene(ElementScene Elements) : ExportPayload;
 
-    public ImportedGeometry Flat() => Switch(soup: static s => s.Geometry, scene: static s => s.Elements.Soup());
+    // Flattening rides Fin because a Scene re-mints its pooled arena and bakes it through the seam's own fold, and
+    // Switch's state parameter carries the key rather than a captured closure, so both arms stay static.
+    public Fin<ImportedGeometry> Flat(Op key) => Switch(
+        state: key,
+        soup:  static (_, s) => Fin.Succ(s.Geometry),
+        scene: static (k, s) => s.Elements.Soup(k));
 }
 
 // Author-minted triple: the glTF model, the GlobalId->Node index, and the GlobalId->feature-row index —
@@ -431,8 +528,8 @@ public static partial class BimExport {
         : format.Codec.Switch(
             sharpGltf:        () => GlbBytes(payload, policy, key).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
             dotBim:           () => Try.lift(() => Sealed(format, DotBimBytes(payload), policy, clock.GetCurrentInstant())).Run().MapFail(error => new BimFault.CodecReject(key, $"bim-export:{error.Message}")),
-            sceneExchange:    () => Try.lift(() => Sealed(format, SceneBytes(format, payload), policy, clock.GetCurrentInstant())).Run().MapFail(error => new BimFault.CodecReject(key, $"scene-export:{error.Message}")),
-            usdStage:         () => Try.lift(() => Sealed(format, UsdBytes(format, payload), policy, clock.GetCurrentInstant())).Run().MapFail(error => new BimFault.CodecReject(key, $"usd-export:{error.Message}")),
+            sceneExchange:    () => payload.Flat(key).Bind(flat => Try.lift(() => Sealed(format, SceneBytes(format, flat), policy, clock.GetCurrentInstant())).Run().MapFail(error => new BimFault.CodecReject(key, $"scene-export:{error.Message}"))),
+            usdStage:         () => payload.Flat(key).Bind(flat => Try.lift(() => Sealed(format, UsdBytes(format, flat), policy, clock.GetCurrentInstant())).Run().MapFail(error => new BimFault.CodecReject(key, $"usd-export:{error.Message}"))),
             geometryGym:      () => Fin.Fail<ExportArtifact>(new BimFault.CodecReject(key, $"ifc-export-route:use-ExportIfc:{format.Key}")),
             geospatialVector: () => Fin.Fail<ExportArtifact>(new BimFault.CodecReject(key, $"geo-export-route:GeoVector.Write:{format.Key}")),
             geospatialRaster: () => Fin.Fail<ExportArtifact>(new BimFault.CodecReject(key, $"raster-export-none:{format.Key}")),
@@ -460,6 +557,27 @@ public static partial class BimExport {
     public static Fin<ExportArtifact> Emit(GlbScene scene, InterchangeFormat format, InterchangePolicy policy, IClock clock, Op key) =>
         Try.lift(() => Sealed(format, WriteGlb(scene.Model, policy), policy, clock.GetCurrentInstant())).Run()
             .MapFail(error => new BimFault.CodecReject(key, $"gltf-export:{error.Message}"));
+
+    // Lane is the ONE arena read every emit arm on this page composes. The seam carrier holds each per-vertex
+    // attribute as a descriptor-addressed slice of ONE kernel payload, so a site NAMES the EncodingChannel it wants
+    // and takes back exactly Count × Arity floats lifted through that descriptor's OWN dtype — a float32 position
+    // and a unorm8 colour read identically and no arm re-derives a stride or a byte offset. Absence is a MISSING
+    // DESCRIPTOR, so the read answers None and the parameterization axis every arm below discriminates on stays
+    // seam evidence rather than a length probe over a buffer a zero-fill could forge.
+    internal static Option<float[]> Lane(ImportedGeometry geometry, EncodingChannel channel) =>
+        geometry.Lanes.Descriptors.Find(descriptor => descriptor.Channel == channel).Map(descriptor => {
+            float[] raw = new float[descriptor.Floats];
+            descriptor.Dtype.Unpack(geometry.Lanes.Channel(channel).Span, raw);
+            return raw;
+        });
+
+    // Position and Normal are the two lanes EVERY decoded source declares, so an arm needing one takes it through
+    // here: a carrier missing either is a malformed decode faulting loud inside that arm's own Try.lift funnel as
+    // a typed BimFault, where a silent empty-array default would emit headless geometry a viewer renders as void.
+    internal static float[] Required(ImportedGeometry geometry, EncodingChannel channel) =>
+        Lane(geometry, channel).Case is float[] raw
+            ? raw
+            : throw new InvalidDataException($"<carrier-lane-absent:{channel.Key}:{geometry.FormatKey}>");
 
     // Feature-row stamp AND the whole material FINISH are authored HERE, at MeshBuilder time — the only point the
     // vertex layout and the primitive material are open: a pool mesh referenced by exactly ONE instance stamps
@@ -510,14 +628,14 @@ public static partial class BimExport {
     // per-element node authoring is the admission-gated growth). The row KEY is the exportFormatId
     // (`fbx`/`collada`), guarded against the live export matrix; glTF/GLB export stays on SharpGLTF so the
     // Draco/meshopt encode stacks on that path, not this one.
-    static byte[] SceneBytes(InterchangeFormat format, ExportPayload payload) {
-        var geometry = payload.Flat();
+    static byte[] SceneBytes(InterchangeFormat format, ImportedGeometry geometry) {
         var mesh = new Assimp.Mesh("bim") { MaterialIndex = 0 };
-        var verts = geometry.Vertices.Span;
-        var normals = geometry.Normals.Span;
+        float[] verts = Required(geometry, EncodingChannel.Position);
+        float[] normals = Required(geometry, EncodingChannel.Normal);
         for (int v = 0; v < geometry.VertexCount; v++) {
-            mesh.Vertices.Add(new Vector3(verts[v * 3], verts[v * 3 + 1], verts[v * 3 + 2]));
-            mesh.Normals.Add(new Vector3(normals[v * 3], normals[v * 3 + 1], normals[v * 3 + 2]));
+            int p = v * EncodingChannel.Position.Arity, n = v * EncodingChannel.Normal.Arity;
+            mesh.Vertices.Add(new Vector3(verts[p], verts[p + 1], verts[p + 2]));
+            mesh.Normals.Add(new Vector3(normals[n], normals[n + 1], normals[n + 2]));
         }
         var indices = geometry.Indices.Span;
         for (int t = 0; t < geometry.TriangleCount; t++) {
@@ -544,7 +662,7 @@ public static partial class BimExport {
         var ordinals = scene.Pool.Keys.Select(static (k, index) => (k, index)).ToMap();
         var meshes = scene.Pool.AsIterable().Map(pair => new dotbim.Mesh {
             MeshId = ordinals[pair.Key],
-            Coordinates = [.. pair.Value.Vertices.ToArray().Select(static v => (double)v)],
+            Coordinates = [.. Required(pair.Value, EncodingChannel.Position).Select(static v => (double)v)],
             Indices = [.. pair.Value.Indices.ToArray().Select(static i => (int)i)],
         }).ToList();
         var elements = scene.Instances.Map(instance => {
@@ -556,7 +674,7 @@ public static partial class BimExport {
                 MeshId = ordinals[instance.MeshKey],
                 Vector = new dotbim.Vector { X = translation.X, Y = translation.Y, Z = translation.Z },
                 Rotation = new dotbim.Rotation { Qx = rotation.X, Qy = rotation.Y, Qz = rotation.Z, Qw = rotation.W },
-                Guid = new Guid(XxHash128.Hash(Encoding.UTF8.GetBytes(instance.GlobalId))).ToString(),
+                Guid = Rfc4122(instance.GlobalId),
                 Type = instance.Class,
                 Color = new dotbim.Color {
                     R = (int)(instance.Rgba >> 24 & 0xFF), G = (int)(instance.Rgba >> 16 & 0xFF),
@@ -572,20 +690,31 @@ public static partial class BimExport {
         } finally { File.Delete(path); }
     }
 
+    // Rfc4122 renders the ONE federation key as the text the dotbim wire demands, never a second digest: the
+    // kernel seed-zero ContentHash over the GlobalId bytes IS those 128 bits, so the deterministic Guid and
+    // every other content key in the estate share one hasher. A local XxHash128 call here forked the content
+    // space this package's own ruling seals — the same defect its Review/diff owner already names deleted.
+    static string Rfc4122(string globalId) {
+        UInt128 key = ContentHash.Of(Encoding.UTF8.GetBytes(globalId));
+        return new Guid(MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref key, 1))).ToString();
+    }
+
     // USD emit through UniversalSceneDescription — the `usd-stage` codec. One UsdStage authors a UsdGeomMesh
     // prim (points VtVec3fArray, faceVertexCounts/Indices VtIntArray through the typed-array Set seam), exports
     // to the temp path, and reads the bytes; a Scene payload flattens (per-prim element authoring over
     // UsdGeomXformable.AddXformOp is the admission-gated growth); USD is a scene-graph peer, never re-deriving
     // BIM semantics. A usdz row is import-only: the binding ships no .usdz packaging member.
-    static byte[] UsdBytes(InterchangeFormat format, ExportPayload payload) {
-        var geometry = payload.Flat();
+    static byte[] UsdBytes(InterchangeFormat format, ImportedGeometry geometry) {
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{format.Extensions.Head.IfNone(".usd")}");
         try {
             using var stage = UsdStage.CreateNew(path);
             var mesh = UsdGeomMesh.Define(stage, new SdfPath("/Bim"));
-            var verts = geometry.Vertices.Span;
+            float[] verts = Required(geometry, EncodingChannel.Position);
             var points = new VtVec3fArray((uint)geometry.VertexCount);
-            for (int v = 0; v < geometry.VertexCount; v++) { points[v] = new GfVec3f(verts[v * 3], verts[v * 3 + 1], verts[v * 3 + 2]); }
+            for (int v = 0; v < geometry.VertexCount; v++) {
+                int p = v * EncodingChannel.Position.Arity;
+                points[v] = new GfVec3f(verts[p], verts[p + 1], verts[p + 2]);
+            }
             mesh.GetPointsAttr().Set(new VtValue(points), UsdTimeCode.Default());
             var counts = new VtIntArray((uint)geometry.TriangleCount);
             var corners = new VtIntArray((uint)(geometry.TriangleCount * 3));
@@ -606,7 +735,9 @@ public static partial class BimExport {
     // round-trip [H6], the diff-derived OwnerHistory ChangeAction against `prior` [H9], the material/classification/
     // relationship re-author). This rail OWNS only the CanExport capability gate, the format#FORMAT_AXIS
     // InterchangeFormat.Serialization column read (None IS the non-IFC-row rejection — the retired SerializationOf
-    // ladder as row data), and the ExportArtifact content-key seal; the hand-rolled IfcBuildingElementProxy re-author
+    // ladder as row data; the column's IfcWireForm value carries the CONTAINER beside the serialization, so the
+    // `.ifczip` row seals a zipped STEP through the projector's own writer and no ZipArchive exists on this rail),
+    // and the ExportArtifact content-key seal; the hand-rolled IfcBuildingElementProxy re-author
     // is the DELETED form (a lossy second IFC-egress owner). The app wires the projector (the seam owns Assemble,
     // app owning the wiring); the EmitContext carrier rides through whole — the diff-prior, the scoped trade-package
     // slice, and the declared unit regime — and the profile store is the projector's ingress-part capture-promoted
@@ -617,24 +748,28 @@ public static partial class BimExport {
         !format.CanExport ? Fin.Fail<ExportArtifact>(new BimFault.CodecReject(key, $"export-unsupported:{format.Key}"))
         : format.Serialization.Match(
             None: () => Fin.Fail<ExportArtifact>(new BimFault.CodecReject(key, $"ifc-export-codec-miss:{format.Key}")),
-            Some: serialization => projector.Emit(graph, serialization, key, context)
-                .Map(text => Sealed(format, Encoding.UTF8.GetBytes(text), policy, clock.GetCurrentInstant())));
+            Some: form => projector.Emit(graph, form, key, context)
+                .Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())));
 
-    // SharpGLTF/Draco/meshopt encode funnels its native faults onto the rail (Draco.Encode raises DrakoException,
-    // ToGltf2/WriteGLB raise SharpGLTF ModelException) so a malformed-geometry or compression fault lifts BARE as a typed
-    // BimFault.CodecReject(key) — symmetric with the bim/scene/usd arms — never escaping the Fin<T> rail as an uncaught
-    // exception; RegisterExtensions keeps its own registration rail ahead of the encode. The raw Draco/meshopt streams
-    // carry no scene graph, so BOTH payload cases flatten there; the container arm routes Soup through the single-mesh
-    // SceneOf and Scene through the per-element Staged author.
+    // RegisterExtensions keeps its own registration rail ahead of the encode. The raw Draco/meshopt streams carry
+    // no scene graph, so BOTH payload cases flatten there — one Bake through the seam's own fold, ON the rail
+    // because the flatten re-mints the arena and re-witnesses every lane — while the container arm routes Soup
+    // through the single-mesh SceneOf and Scene through the per-element Staged author with no flatten at all.
     static Fin<byte[]> GlbBytes(ExportPayload payload, InterchangePolicy policy, Op key) =>
-        RegisterExtensions(policy, payload, key).Bind(_ => Try.lift(() => policy.Compression switch {
-            KhrEncoder.Draco => DracoBytes(payload.Flat(), policy),
-            KhrEncoder.Meshopt => MeshoptBytes(payload.Flat(), policy),
-            KhrEncoder.None => WriteGlb(payload.Switch(
+        RegisterExtensions(policy, payload, key).Bind(_ => policy.Compression switch {
+            KhrEncoder.Draco => payload.Flat(key).Bind(flat => Encoded(() => DracoBytes(flat, policy), key)),
+            KhrEncoder.Meshopt => payload.Flat(key).Bind(flat => Encoded(() => MeshoptBytes(flat, policy), key)),
+            KhrEncoder.None => Encoded(() => WriteGlb(payload.Switch(
                      soup:  s => SceneOf(s.Geometry, policy),
-                     scene: s => Staged(s.Elements, policy).Model), policy),
-            var unknown => throw new NotSupportedException($"<khr-encoder-unrouted:{unknown}>"),   // a new encoder faults LOUD, never a silent uncompressed container
-        }).Run().MapFail(error => new BimFault.CodecReject(key, $"gltf-export:{error.Message}")));
+                     scene: s => Staged(s.Elements, policy).Model), policy), key),
+            var unknown => Fin.Fail<byte[]>(new BimFault.CodecReject(key, $"khr-encoder-unrouted:{unknown}")),   // a new encoder REFUSES, never a silent uncompressed container
+        });
+
+    // ONE native-fault funnel the three encode arms share: Openize.Drako raises DrakoException, SharpGLTF's
+    // ToGltf2/WriteGLB raise ModelException, and a malformed carrier raises from Required — each lifting BARE as a
+    // typed BimFault.CodecReject, symmetric with the bim/scene/usd arms and never escaping the Fin<T> rail.
+    static Fin<byte[]> Encoded(Func<byte[]> encode, Op key) =>
+        Try.lift(encode).Run().MapFail(error => new BimFault.CodecReject(key, $"gltf-export:{error.Message}"));
 
     static ModelRoot SceneOf(ImportedGeometry geometry, InterchangePolicy policy) {
         var scene = new SceneBuilder();
@@ -645,27 +780,101 @@ public static partial class BimExport {
         return scene.ToGltf2(new SceneBuilderSchema2Settings { UseStridedBuffers = policy.StridedBuffers });
     }
 
-    // Toolkit custom-attribute fragment (api-sharpgltf IVertexCustom, the vertex-fragment seam): ONE float
-    // custom attribute named "_FEATURE_ID_0" — the per-vertex EXT_mesh_features row stamp — on a zero-channel
-    // IVertexMaterial face. <fragment members: the IVertexCustom/IVertexMaterial contract surface, spelled at
-    // realization against the SharpGLTF.Toolkit catalogue>
-    readonly struct FeatureVertex(int row) : IVertexMaterial, IVertexCustom { /* _FEATURE_ID_0 = row */ }
+    // Toolkit custom-attribute fragments (api-sharpgltf IVertexCustom/IVertexMaterial, the vertex-fragment seam).
+    // MaxTextCoords is a COMPILE-TIME property of the fragment type — the Toolkit reads it to decide whether the
+    // primitive writes TEXCOORD_0 — so the mapped and unmapped layouts are two types by construction, never one
+    // type with a runtime flag; the FEATURE row is a column on BOTH because the property-table stamp is orthogonal
+    // to the parameterization. A single fragment writing a zero UV for an unmapped mesh is the forged-attribute
+    // form: a consumer cannot tell a fabricated (0,0) unwrap from an authored one.
+    // Two TYPES rather than one arity-flagged fragment because the type IS the emitted vertex layout: MeshBuilder
+    // takes the fragment as a type argument, so the unmapped and mapped layouts are distinguishable only by being
+    // distinct types, and the member sets stay side by side because a struct inherits no implementation base —
+    // there is no shared owner to fold them onto, and an interface default would put the arity back on a runtime
+    // read the layout already fixed. MaxColors is zero on both: the property-table stamp IS the element identity
+    // and per-vertex colour rides its own seam lane onto its own layout. The single custom attribute is the
+    // _FEATURE_ID_0 ordinal EXT_mesh_features reads. Both getters THROW past their declared arity rather than
+    // returning a zero vector, because a silent (0,0) is the same forged attribute the two-type split exists to
+    // refuse; every setter is a no-op return, since SharpGLTF's own assembly writes fragments back through them
+    // and a throwing setter would abort a write the builder is entitled to perform over values the constructor
+    // already fixed.
+    // The contract is THREE interfaces deep, not one: IVertexCustom : IVertexMaterial : IVertexReflection, so a
+    // fragment owes the morph pair (Subtract/Add over VertexMaterialDelta), the encoding declaration
+    // (GetEncodingAttributes), and Validate — Validate is IVertexCustom's, NOT IVertexGeometry's, which declares no
+    // such member. The morph pair is the SharpGLTF VertexEmpty shape verbatim: a stamp-only fragment has no
+    // interpolable channel, so Subtract returns VertexMaterialDelta.Zero and Add is a no-op — a delta computed off
+    // the ordinal would interpolate a property-table ROW INDEX across a morph and address the wrong element.
+    // GetEncodingAttributes DECLARES the emitted accessor layout the Toolkit encodes against, so the feature ordinal
+    // writes as the scalar Float1 EXT_mesh_features reads and the mapped layout declares its TEXCOORD_0 beside it —
+    // an unimplemented declaration writes the attribute under a guessed default format.
+    const string FeatureIdAttribute = "_FEATURE_ID_0";
 
-    // One triangle-soup MeshBuilder the soup scene and the per-element pool share — the vertex layout
-    // is an Option discriminant, never a sibling builder pair: Some(row) stamps every vertex's _FEATURE_ID_0
-    // with the element's property-table row through FeatureVertex, None emits the bare position+normal layout
-    // flat-soup rows use.
+    readonly struct FeatureVertex(int row) : IVertexCustom {
+        public int MaxColors => 0;
+        public int MaxTextCoords => 0;
+        public Vector4 GetColor(int index) => throw new ArgumentOutOfRangeException(nameof(index));
+        public Vector2 GetTexCoord(int index) => throw new ArgumentOutOfRangeException(nameof(index));
+        public void SetColor(int index, Vector4 color) { }
+        public void SetTexCoord(int index, Vector2 coord) { }
+        public VertexMaterialDelta Subtract(IVertexMaterial baseValue) => VertexMaterialDelta.Zero;
+        public void Add(in VertexMaterialDelta delta) { }
+        public IEnumerable<KeyValuePair<string, AttributeFormat>> GetEncodingAttributes() =>
+            [new(FeatureIdAttribute, AttributeFormat.Float1)];
+        public IEnumerable<string> CustomAttributes => [FeatureIdAttribute];
+        public bool TryGetCustomAttribute(string name, out object value) =>
+            (value = name == FeatureIdAttribute ? row : null!) is not null;
+        public void SetCustomAttribute(string name, object value) { }
+        public void Validate() { }
+    }
+
+    readonly struct FeatureUvVertex(int row, Vector2 uv) : IVertexCustom {
+        public int MaxColors => 0;
+        public int MaxTextCoords => 1;
+        public Vector4 GetColor(int index) => throw new ArgumentOutOfRangeException(nameof(index));
+        public Vector2 GetTexCoord(int index) => index == 0 ? uv : throw new ArgumentOutOfRangeException(nameof(index));
+        public void SetColor(int index, Vector4 color) { }
+        public void SetTexCoord(int index, Vector2 coord) { }
+        public VertexMaterialDelta Subtract(IVertexMaterial baseValue) => VertexMaterialDelta.Zero;
+        public void Add(in VertexMaterialDelta delta) { }
+        public IEnumerable<KeyValuePair<string, AttributeFormat>> GetEncodingAttributes() =>
+            [new("TEXCOORD_0", AttributeFormat.Float2), new(FeatureIdAttribute, AttributeFormat.Float1)];
+        public IEnumerable<string> CustomAttributes => [FeatureIdAttribute];
+        public bool TryGetCustomAttribute(string name, out object value) =>
+            (value = name == FeatureIdAttribute ? row : null!) is not null;
+        public void SetCustomAttribute(string name, object value) { }
+        public void Validate() { }
+    }
+
+    // One triangle-soup MeshBuilder every arm shares, dispatched on ONE joint tuple pattern over the two
+    // ORTHOGONAL layout axes — the property-table stamp (Some(row) per-element, None flat-soup) and the arena's
+    // own Uv DESCRIPTOR. Four arms, one level: a nested ladder over discriminants available together is the
+    // rejected shape. The UV axis is the seam's evidence, never a policy knob: the carrier declares an Uv lane
+    // exactly when the source declared a parameterization (import#IMPORT_RAIL probes the TEXCOORD_0 accessor, the
+    // IFC arm the tessellated face set's own texture map), so an unmapped element carries NO descriptor, emits the
+    // untextured layout, and a mapped one carries TEXCOORD_0 the ChannelImage.CoordinateSet bindings sample
+    // through. Both axes are presence patterns over the same Option shape — the emptiness probe a parallel-buffer
+    // column forced is what a zero-filled lane could have forged past.
     static IMeshBuilder<MaterialBuilder> MeshOf(ImportedGeometry geometry, MaterialBuilder material, Option<int> feature) =>
-        feature.Match<IMeshBuilder<MaterialBuilder>>(
-            Some: row => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, FeatureVertex, VertexEmpty>(geometry.FormatKey), geometry, material, _ => new FeatureVertex(row)),
-            None: () => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty>(geometry.FormatKey), geometry, material, static _ => default));
+        (feature, Lane(geometry, EncodingChannel.Uv)) switch {
+            ({ IsSome: true, Case: int row }, { Case: float[] uv }) => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, FeatureUvVertex, VertexEmpty>(geometry.FormatKey), geometry, material, i => new FeatureUvVertex(row, Uv(uv, i))),
+            ({ IsSome: true, Case: int row }, _)                    => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, FeatureVertex, VertexEmpty>(geometry.FormatKey), geometry, material, _ => new FeatureVertex(row)),
+            (_, { Case: float[] uv })                               => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexTexture1, VertexEmpty>(geometry.FormatKey), geometry, material, i => new VertexTexture1(Uv(uv, i))),
+            _                                                       => Filled(new MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty>(geometry.FormatKey), geometry, material, static _ => default),
+        };
+
+    // Every lane arrives in the SAME vertex order the position lane uses, so this read is one index at the
+    // channel's OWN declared arity — a stride literal beside the descriptor that already states it is the deleted
+    // second fact, and a per-vertex lookup table beside it the deleted re-derivation.
+    static Vector2 Uv(float[] uvs, int index) {
+        int u = index * EncodingChannel.Uv.Arity;
+        return new(uvs[u], uvs[u + 1]);
+    }
 
     static MeshBuilder<MaterialBuilder, VertexPositionNormal, TvM, VertexEmpty> Filled<TvM>(
         MeshBuilder<MaterialBuilder, VertexPositionNormal, TvM, VertexEmpty> mesh, ImportedGeometry geometry, MaterialBuilder material, Func<int, TvM> slot)
         where TvM : struct, IVertexMaterial {
         var primitive = mesh.UsePrimitive(material);
-        var verts = geometry.Vertices.Span;
-        var normals = geometry.Normals.Span;
+        float[] verts = Required(geometry, EncodingChannel.Position);
+        float[] normals = Required(geometry, EncodingChannel.Normal);
         var indices = geometry.Indices.Span;
         for (int tri = 0; tri < geometry.TriangleCount; tri++) {
             primitive.AddTriangle(
@@ -676,25 +885,35 @@ public static partial class BimExport {
         return mesh;
     }
 
-    static VertexBuilder<VertexPositionNormal, TvM, VertexEmpty> Vertex<TvM>(ReadOnlySpan<float> verts, ReadOnlySpan<float> normals, int index, Func<int, TvM> slot)
+    static VertexBuilder<VertexPositionNormal, TvM, VertexEmpty> Vertex<TvM>(float[] verts, float[] normals, int index, Func<int, TvM> slot)
         where TvM : struct, IVertexMaterial {
-        int v = index * 3;
+        int p = index * EncodingChannel.Position.Arity, n = index * EncodingChannel.Normal.Arity;
         return new VertexBuilder<VertexPositionNormal, TvM, VertexEmpty>(
-            new VertexPositionNormal(verts[v], verts[v + 1], verts[v + 2], normals[v], normals[v + 1], normals[v + 2]), slot(index));
+            new VertexPositionNormal(verts[p], verts[p + 1], verts[p + 2], normals[n], normals[n + 1], normals[n + 2]), slot(index));
     }
 
+    // Write validation is the SAME axis the read sets: import#IMPORT_RAIL reads under ValidationMode.Strict, so a
+    // document this rail authors — extension blocks, per-vertex feature stamps, an EXT_structural_metadata property
+    // table, a KHR channel roster, every one a LinkException/SemanticException class — proves well-formed HERE
+    // rather than in a downstream viewer, and the deterministic-bytes law is asserted against a validated model. The
+    // mode is the policy column, not a literal: a compressed or partially-authored intermediate takes Skip on the
+    // same value the read leg reads. GlbBytes' own Try.lift funnels the resulting ModelException onto the
+    // typed rail, so validation adds no fault arm.
     static byte[] WriteGlb(ModelRoot model, InterchangePolicy policy) {
         if (policy.MergeBuffers) { model.MergeBuffers(); }
-        return model.WriteGLB(new WriteSettings { MergeBuffers = policy.MergeBuffers }).ToArray();
+        return model.WriteGLB(new WriteSettings { MergeBuffers = policy.MergeBuffers, Validation = policy.Validation }).ToArray();
     }
 
-    // Two ToArray copies are BOUNDARY-FORCED exact-length arrays: PointAttribute.Wrap couples its point count
-    // to array.Length, so a pool rent (pow2-oversized backing) corrupts the attribute count — the pooled
-    // staging law applies to the count-explicit meshopt kernel below, never to this length-coupled vendor seam.
+    // PointAttribute.Wrap couples its point count to array.Length, so a pool rent (pow2-oversized backing) would
+    // corrupt the attribute count — the lane read mints exactly Count × Arity floats off the descriptor, so the
+    // coupling holds by construction and the pooled-staging law binds only the count-explicit meshopt kernel below.
     static byte[] DracoBytes(ImportedGeometry geometry, InterchangePolicy policy) {
         var mesh = new DracoMesh { NumPoints = geometry.VertexCount };
-        mesh.AddAttribute(PointAttribute.Wrap(AttributeType.Position, 3, geometry.Vertices.ToArray()));
-        mesh.AddAttribute(PointAttribute.Wrap(AttributeType.Normal, 3, geometry.Normals.ToArray()));
+        mesh.AddAttribute(PointAttribute.Wrap(AttributeType.Position, EncodingChannel.Position.Arity, Required(geometry, EncodingChannel.Position)));
+        mesh.AddAttribute(PointAttribute.Wrap(AttributeType.Normal, EncodingChannel.Normal.Arity, Required(geometry, EncodingChannel.Normal)));
+        // TEXCOORD_0 rides the same Wrap seam as position and normal — an unparameterized source declares NO Uv
+        // descriptor, so it adds no attribute rather than a zero-filled one.
+        if (Lane(geometry, EncodingChannel.Uv).Case is float[] uv) { mesh.AddAttribute(PointAttribute.Wrap(AttributeType.TexCoord, EncodingChannel.Uv.Arity, uv)); }
         var indices = geometry.Indices.Span;
         for (int tri = 0; tri < geometry.TriangleCount; tri++) {
             mesh.AddFace([(int)indices[tri * 3], (int)indices[tri * 3 + 1], (int)indices[tri * 3 + 2]]);
@@ -702,74 +921,144 @@ public static partial class BimExport {
         mesh.DeduplicateAttributeValues();   // the corner-expanded soup repeats each value 3-6x; collapse before encode per the catalogue law
         return Draco.Encode(mesh, new DracoEncodeOptions {
             PositionBits = policy.QuantizationBits, NormalBits = policy.QuantizationBits,
+            // TextureCoordinateBits takes the SAME budget the geometry lanes take rather than the package's own 12-bit
+            // default: a bit budget the caller narrowed for a streaming tile must narrow every lane it encodes,
+            // and a lane silently held at a package default is the quantization the policy column does not govern.
+            TextureCoordinateBits = policy.QuantizationBits,
             CompressionLevel = DracoCompressionLevel.Optimal,
         });
+    }
+
+    // MeshoptLane rosters the frame's attribute streams: the glTF attribute name as its KEY, the kernel
+    // EncodingChannel the seam arena supplies it from, the meshopt FILTER token its encode applies, and the row's
+    // lane bit. The filter is the whole point of the extension's layout — a raw float32 stream through an entropy
+    // coder realizes none of the compression the format exists for, and the quantization the caller budgeted
+    // governs nothing. Position rides the exponent filter (shared-vector, so the three components keep one
+    // exponent and a millimetre model and a kilometre one both spend their bits on mantissa), normal the
+    // octahedral filter (two components reconstruct the unit vector, so half the lane disappears), UV the exponent
+    // filter at the same budget. Import already decodes every one of these tokens (import#IMPORT_RAIL MeshoptView's
+    // filter switch), so the frame is decodable by the rail's own reader rather than a second grammar.
+    [SmartEnum<string>]
+    public sealed partial class MeshoptLane {
+        public static readonly MeshoptLane Position = new("POSITION",   EncodingChannel.Position, filter: "EXPONENTIAL", bit: 1);
+        public static readonly MeshoptLane Normal   = new("NORMAL",     EncodingChannel.Normal,   filter: "OCTAHEDRAL",  bit: 2);
+        public static readonly MeshoptLane Uv       = new("TEXCOORD_0", EncodingChannel.Uv,       filter: "EXPONENTIAL", bit: 4);
+
+        public EncodingChannel Channel { get; }
+        public string Filter { get; }
+        public int Bit { get; }
+
+        // Component count IS the carrier lane's declared arity — ONE fact, so a widened channel cannot drift
+        // from the descriptor the encode actually reads and the frame header stays honest.
+        public int Components => Channel.Arity;
+
+        private MeshoptLane(string key, EncodingChannel channel, string filter, int bit) : this(key) =>
+            (Channel, Filter, Bit) = (channel, filter, bit);
     }
 
     // Pooled staging end to end: every transient buffer rents through SpanOwner<T> (the meshopt pinned-pointer
     // surface takes EXPLICIT counts, never array lengths, so pool-oversized rents are safe) and only the final
     // self-delimiting frame allocates — the eight per-export staging arrays were the LOH churn the admitted
-    // CommunityToolkit.HighPerformance owner deletes.
+    // CommunityToolkit.HighPerformance owner deletes. The interleave is ROSTER-DRIVEN rather than a fixed vertex
+    // struct: each active stream writes its own arity at its own running lead, so a fourth lane costs one roster
+    // row and the arena's typed absence (NO Uv descriptor) drops its lane whole — a zero-filled UV stream inside
+    // an encoded frame is the forged-attribute form a decoder cannot tell from an authored unwrap. Position and
+    // Normal read through Required, so a carrier missing either refuses here rather than encoding a frame a viewer
+    // reads as headless geometry.
     static unsafe byte[] MeshoptBytes(ImportedGeometry geometry, InterchangePolicy policy) {
-        var verts = geometry.Vertices.Span;
-        var normals = geometry.Normals.Span;
-        using var soupOwner = SpanOwner<VertexPositionNormal>.Allocate(geometry.VertexCount);
-        Span<VertexPositionNormal> soup = soupOwner.Span;
-        for (int v = 0; v < geometry.VertexCount; v++) {
-            int o = v * 3;
-            soup[v] = new VertexPositionNormal(verts[o], verts[o + 1], verts[o + 2], normals[o], normals[o + 1], normals[o + 2]);
+        Seq<(MeshoptLane Lane, float[] Source)> active =
+            Seq((Lane: MeshoptLane.Position, Source: Required(geometry, MeshoptLane.Position.Channel)),
+                (Lane: MeshoptLane.Normal,   Source: Required(geometry, MeshoptLane.Normal.Channel)))
+            + Lane(geometry, MeshoptLane.Uv.Channel).Map(static uv => (Lane: MeshoptLane.Uv, Source: uv)).ToSeq();
+        Seq<MeshoptLane> lanes = active.Map(static row => row.Lane);
+        int floats = lanes.Sum(static lane => lane.Components);
+        nuint vertSize = (nuint)(floats * sizeof(float));
+        nuint soupCount = (nuint)geometry.VertexCount;
+        using var soupOwner = SpanOwner<float>.Allocate(geometry.VertexCount * floats);
+        Span<float> soup = soupOwner.Span;
+        int head = 0;
+        foreach (var row in active) {
+            int width = row.Lane.Components;
+            for (int v = 0; v < geometry.VertexCount; v++) {
+                row.Source.AsSpan(v * width, width).CopyTo(soup.Slice((v * floats) + head, width));
+            }
+            head += width;
         }
         using var soupIndexOwner = SpanOwner<uint>.Allocate(geometry.TriangleCount * 3);
         Span<uint> soupIndices = soupIndexOwner.Span;
         for (int i = 0; i < soupIndices.Length; i++) { soupIndices[i] = (uint)geometry.Indices.Span[i]; }
-        nuint vertSize = (nuint)Unsafe.SizeOf<VertexPositionNormal>();
-        nuint soupCount = (nuint)geometry.VertexCount;
         nuint indexCount = (nuint)soupIndices.Length;
         using var remapOwner = SpanOwner<uint>.Allocate(geometry.VertexCount);
         Span<uint> remap = remapOwner.Span;
         nuint uniqueCount;
         fixed (uint* remapPtr = remap)
         fixed (uint* idxPtr = soupIndices)
-        fixed (VertexPositionNormal* vSoup = soup) {
+        fixed (float* vSoup = soup) {
             uniqueCount = Meshopt.GenerateVertexRemap(remapPtr, idxPtr, indexCount, vSoup, soupCount, vertSize);
         }
-        using var remappedOwner = SpanOwner<VertexPositionNormal>.Allocate((int)uniqueCount);
-        using var interleavedOwner = SpanOwner<VertexPositionNormal>.Allocate((int)uniqueCount);
+        using var remappedOwner = SpanOwner<float>.Allocate((int)uniqueCount * floats);
+        using var interleavedOwner = SpanOwner<float>.Allocate((int)uniqueCount * floats);
         using var indexOwner = SpanOwner<uint>.Allocate((int)indexCount);
-        Span<VertexPositionNormal> remapped = remappedOwner.Span;
-        Span<VertexPositionNormal> interleaved = interleavedOwner.Span;
+        Span<float> remapped = remappedOwner.Span;
+        Span<float> interleaved = interleavedOwner.Span;
         Span<uint> indices = indexOwner.Span;
         fixed (uint* remapPtr = remap)
         fixed (uint* idxSrc = soupIndices)
         fixed (uint* idxDst = indices)
-        fixed (VertexPositionNormal* vSoup = soup)
-        fixed (VertexPositionNormal* vRemap = remapped)
-        fixed (VertexPositionNormal* vDstI = interleaved) {
+        fixed (float* vSoup = soup)
+        fixed (float* vRemap = remapped)
+        fixed (float* vDstI = interleaved) {
             Meshopt.RemapVertexBuffer(vRemap, vSoup, soupCount, vertSize, remapPtr);
             Meshopt.RemapIndexBuffer(idxDst, idxSrc, indexCount, remapPtr);
             Meshopt.OptimizeVertexCache(idxDst, idxDst, indexCount, uniqueCount);
-            Meshopt.OptimizeOverdraw(idxDst, idxDst, indexCount, (float*)vRemap, uniqueCount, vertSize, 1.05f);
+            Meshopt.OptimizeOverdraw(idxDst, idxDst, indexCount, vRemap, uniqueCount, vertSize, 1.05f);
             Meshopt.OptimizeVertexFetch(vDstI, idxDst, indexCount, vRemap, uniqueCount, vertSize);
         }
-        using var vOwner = SpanOwner<byte>.Allocate((int)Meshopt.EncodeVertexBufferBound(uniqueCount, vertSize));
+        // One filter-coded stream PER LANE, exactly the layout EXT_meshopt_compression declares and the import
+        // rail's per-view filter switch already decodes — the single interleaved stream forced one filter on
+        // every lane, so an octahedral normal and an exponent-coded position could not coexist and neither ran.
+        // EncodeVertexBufferLevel takes the bit budget as a real argument, so policy.QuantizationBits governs the
+        // meshopt arm exactly as it governs Draco; version -1 keeps the process-wide EncodeVertexVersion.
+        var streams = new List<(MeshoptLane Lane, byte[] Bytes)>(lanes.Count);
+        int lead = 0;
+        foreach (var lane in lanes) {
+            int width = lane.Components;
+            using var laneOwner = SpanOwner<float>.Allocate((int)uniqueCount * width);
+            Span<float> plane = laneOwner.Span;
+            for (int v = 0; v < (int)uniqueCount; v++) {
+                interleaved.Slice((v * floats) + lead, width).CopyTo(plane.Slice(v * width, width));
+            }
+            using var codedOwner = SpanOwner<byte>.Allocate((int)uniqueCount * width * sizeof(float));
+            Span<byte> coded = codedOwner.Span;
+            if (lane == MeshoptLane.Normal) { Meshopt.EncodeFilterOct(coded, policy.QuantizationBits, plane); }
+            else { Meshopt.EncodeFilterExp(coded, policy.QuantizationBits, plane, EncodeExpMode.EncodeExpSharedVector); }
+            nuint laneStride = (nuint)(width * sizeof(float));
+            using var encodedOwner = SpanOwner<byte>.Allocate((int)Meshopt.EncodeVertexBufferBound(uniqueCount, laneStride));
+            Span<byte> encoded = encodedOwner.Span;
+            nuint written = Meshopt.EncodeVertexBufferLevel(encoded, coded[..((int)uniqueCount * (int)laneStride)], policy.QuantizationBits, version: -1);
+            streams.Add((lane, encoded[..(int)written].ToArray()));
+            lead += width;
+        }
         using var iOwner = SpanOwner<byte>.Allocate((int)Meshopt.EncodeIndexBufferBound(indexCount, uniqueCount));
-        Span<byte> vBuffer = vOwner.Span;
         Span<byte> iBuffer = iOwner.Span;
-        nuint vLen, iLen;
-        fixed (byte* vDst = vBuffer)
+        nuint iLen;
         fixed (byte* iDst = iBuffer)
-        fixed (VertexPositionNormal* vSrc = interleaved)
         fixed (uint* iSrc = indices) {
-            vLen = Meshopt.EncodeVertexBuffer(vDst, (nuint)vBuffer.Length, vSrc, uniqueCount, vertSize);
             iLen = Meshopt.EncodeIndexBuffer(iDst, (nuint)iBuffer.Length, iSrc, indexCount);
         }
-        // Self-delimiting frame: (uniqueCount, indexCount, vLen, iLen) little-endian int32 header, then the two
-        // encoded streams — DecodeVertexBuffer/DecodeIndexBuffer each need their element count and byte length,
-        // so a frame omitting indexCount/iLen is undecodable (the deleted form).
+        // Self-delimiting frame: a fixed header (uniqueCount, indexCount, laneMask, quantization bits, iLen)
+        // then one (componentCount, byteLength) pair per lane in roster order, then the lane streams and the
+        // index stream. Every DecodeVertexBuffer/DecodeFilter* call needs its element count, its stride, and its
+        // byte length, and every lane needs its filter token — the mask recovers the roster rows, so a frame
+        // omitting any of them is undecodable (the deleted form) and a lane roster row is the only growth axis.
+        int mask = lanes.Fold(0, static (bits, lane) => bits | lane.Bit);
         return [
             .. BitConverter.GetBytes((int)uniqueCount), .. BitConverter.GetBytes((int)indexCount),
-            .. BitConverter.GetBytes((int)vLen), .. BitConverter.GetBytes((int)iLen),
-            .. vBuffer[..(int)vLen], .. iBuffer[..(int)iLen],
+            .. BitConverter.GetBytes(mask), .. BitConverter.GetBytes(policy.QuantizationBits),
+            .. BitConverter.GetBytes((int)iLen),
+            .. streams.SelectMany(static s => (byte[])[.. BitConverter.GetBytes(s.Lane.Components), .. BitConverter.GetBytes(s.Bytes.Length)]),
+            .. streams.SelectMany(static s => s.Bytes),
+            .. iBuffer[..(int)iLen],
         ];
     }
 
@@ -784,12 +1073,12 @@ public static partial class BimExport {
     // Artifact content key: the kernel seed-zero ContentHash over the seam CanonicalWriter fold of the format
     // key, the quality triple, and the emitted bytes — the one-hasher law every sibling key observes (reconstruct/
     // tessellation); minting through the Rasm.Compute InterchangeIdentity was the deleted downward strata reference.
-    static ExportArtifact Sealed(InterchangeFormat format, byte[] bytes, InterchangePolicy policy, Instant at) =>
+    static ExportArtifact Sealed(InterchangeFormat format, ReadOnlyMemory<byte> bytes, InterchangePolicy policy, Instant at) =>
         new(format, bytes,
             ContentHash.Of(new CanonicalWriter(0.0)
                 .String(format.Key).Double(policy.Deflection).Double(policy.Tolerance).Double(policy.AngleTolerance)
-                .Raw(bytes).ToBytes().Span),
-            bytes.LongLength, at);
+                .Raw(bytes.Span).ToBytes().Span),
+            bytes.Length, at);
 }
 ```
 
@@ -822,7 +1111,7 @@ public static class TileMetadata {
     static GlbScene Author(GlbScene scene, Seq<Element> elements) {
         Tiles3DExtensions.RegisterExtensions();
         var byExternal = elements.Choose(static e => e.ExternalId.Map(ext => (ext, e))).ToMap();
-        var slots = scene.Rows.AsIterable().OrderBy(static pair => pair.Value).Select(pair => byExternal.Find(pair.Key)).ToSeq();
+        var slots = toSeq(scene.Rows.AsIterable().OrderBy(static pair => pair.Value).Select(pair => byExternal.Find(pair.Key)));
         var root = scene.Model.UseStructuralMetadata();
         var schema = root.UseEmbeddedSchema("rasm-element");
         var classIndex = IfcClass.Items.Select(static (row, i) => (row.Key, i)).ToMap();
@@ -855,65 +1144,129 @@ public static class TileMetadata {
 - Boundary: the LOD decimation is `Alimer.Bindings.MeshOptimizer`'s — `Meshopt.Simplify` (error-threshold decimation with `SimplificationOptions` flags) and `Meshopt.SimplifySloppy` (aggressive fallback) over the optimized indexed buffer own the LOD chain, and a hand-rolled edge-collapse decimator is the deleted form; the meshlet residency rides `Meshopt.BuildMeshlets` (allocated via `BuildMeshletsBound`, optimized per meshlet via `OptimizeMeshlet`) so the WebGPU raster path consumes the package-owned meshlet partition, never a hand-rolled cluster algorithm; the per-LOD content key meets `Rasm.Compute/Runtime/codecs#TILE_PARTITION` at the seam — `Rasm.Bim` derives the per-element pyramid and seals each level's content key, the tile-pyramid partitioning and streaming stay at Compute consumed at the seam; the residency band feeds the `WEB_GEOMETRY_RESIDENCY_WIRE` manifest the AppUi projection mints, never a second residency owner; the LOD leg composes the same `ImportedGeometry` triangle-soup the `EXPORT_RAIL` `SceneOf` reads, never a second geometry carrier.
 
 ```csharp signature
-public sealed record LodLevel(int Level, double TargetRatio, int TriangleCount, double WorldError, ReadOnlyMemory<uint> Indices, UInt128 ContentKey);
+// Per-level receipt. WorldError is the solver's own deformation bound; Acmr/Overdraw/Overfetch are the three
+// MEASURED draw-cost figures the analyzers return over the level's own index set — the typed-algorithm-receipt
+// law that already keeps WorldError here keeps them beside it, because a streaming consumer selecting LODs by
+// deviation alone can pick a level that deforms less and DRAWS worse than the parent it replaced.
+public sealed record LodLevel(
+    int Level, double TargetRatio, int TriangleCount, double WorldError,
+    double Acmr, double Overdraw, double Overfetch,
+    ReadOnlyMemory<uint> Indices, UInt128 ContentKey);
+
+// One meshlet band row: the cluster and the sphere-plus-normal-cone bounds a mesh-shader path culls on. A
+// Meshlet with no Bounds is a partition with NO selection criterion — the residency band the AppUi
+// WEB_GEOMETRY_RESIDENCY_WIRE manifest consumes exists to be culled, and the quantized cone_axis_s8/
+// cone_cutoff_s8 bytes are exactly the wire-sized payload that manifest carries.
+public sealed record MeshletBand(Meshlet Meshlet, Bounds Bounds);
 
 public static class BimLod {
     public static Fin<Seq<LodLevel>> Pyramid(ImportedGeometry geometry, InterchangePolicy policy, Op key) =>
         Try.lift(() => Levels(geometry, policy)).Run().MapFail(error => new BimFault.ModelRejected(key, $"lod-decimate:{error.Message}"));
 
+    // Attributes builds the SAME interleave the encode path does — normals then UVs behind the position
+    // lane — so the simplifier sees the whole vertex, not its position alone. Weights come off the policy roster
+    // by canonical channel name, so a source declaring no unwrap contributes no lane and costs nothing.
     static unsafe Seq<LodLevel> Levels(ImportedGeometry geometry, InterchangePolicy policy) {
         var source = new uint[geometry.Indices.Length];
         for (int i = 0; i < source.Length; i++) { source[i] = (uint)geometry.Indices.Span[i]; }
-        var verts = geometry.Vertices.ToArray();
+        float[] verts = BimExport.Required(geometry, EncodingChannel.Position);
         nuint vertexCount = (nuint)geometry.VertexCount;
-        nuint vertexStride = (nuint)(3 * sizeof(float));
+        nuint vertexStride = (nuint)(EncodingChannel.Position.Arity * sizeof(float));
+        var (attributes, weights) = Attributes(geometry, policy);
         float scale;
         fixed (float* vPtr = verts) { scale = Meshopt.SimplifyScale(vPtr, vertexCount, vertexStride); }
-        return policy.LodRatios.Select((ratio, level) => Decimate(source, verts, vertexCount, vertexStride, scale, ratio, level, geometry.FormatKey, policy)).ToSeq();
+        return policy.LodRatios.Select((ratio, level) =>
+            Decimate(source, verts, attributes, weights, vertexCount, vertexStride, scale, ratio, level, geometry.FormatKey, policy)).ToSeq();
     }
 
-    // target_error is RELATIVE to mesh extents under SimplificationOptions.None (0.01 = 1% deformation);
-    // SimplifyScale is the relative->world conversion factor for the RECEIPT, never a budget multiplier —
-    // `0.01f * scale` passed a world-sized budget where a fraction belongs, so every level hit its count under
-    // unbounded deformation (the deleted defect). The solver's resultError lands on the receipt as WorldError = error x scale,
-    // per-level deviation the streaming consumer selects LODs by.
-    static unsafe LodLevel Decimate(uint[] source, float[] verts, nuint vertexCount, nuint vertexStride, float scale, double ratio, int level, string formatKey, InterchangePolicy policy) {
+    // Attribute lanes in the policy roster's own order, each resolved to the kernel channel the arena addresses.
+    // That roster is the SHARED decimation vocabulary the point-cloud pyramid also reads (reconstruct#RECONSTRUCT
+    // weights `base_color` off the same column), so the mesh leg projects only the rows a per-vertex lane can
+    // serve and a row the arena declares NO descriptor for contributes nothing — weight vector and interleave stay
+    // index-aligned by construction, each lane's width the channel's own arity rather than a literal beside it.
+    static (float[] Lanes, float[] Weights) Attributes(ImportedGeometry geometry, InterchangePolicy policy) {
+        var rows = policy.AttributeWeights
+            .Choose(row => (row.Channel switch {
+                    "geometry_normal" => Some(EncodingChannel.Normal),
+                    "geometry_uv" => Some(EncodingChannel.Uv),
+                    _ => Option<EncodingChannel>.None,
+                })
+                .Bind(channel => BimExport.Lane(geometry, channel).Map(source => (channel.Arity, row.Weight, Source: source))))
+            .ToSeq();
+        int stride = rows.Sum(static row => row.Arity);
+        var lanes = new float[geometry.VertexCount * stride];
+        var weights = new float[stride];
+        int lead = 0;
+        foreach (var row in rows) {
+            for (int v = 0; v < geometry.VertexCount; v++) {
+                row.Source.AsSpan(v * row.Arity, row.Arity).CopyTo(lanes.AsSpan((v * stride) + lead, row.Arity));
+            }
+            weights.AsSpan(lead, row.Arity).Fill(row.Weight);
+            lead += row.Arity;
+        }
+        return (lanes, weights);
+    }
+
+    // target_error is RELATIVE to mesh extents under the options flag (0.01 = 1% deformation); SimplifyScale is the
+    // relative->world conversion factor for the RECEIPT, never a budget multiplier — `0.01f * scale` passed a
+    // world-sized budget where a fraction belongs, so every level hit its count under unbounded deformation (the
+    // deleted defect). SimplifyWithAttributes is the ATTRIBUTE-AWARE collapse: a position-only simplifier migrates
+    // vertices across a UV discontinuity, so LOD1 of a textured element renders its map smeared across the seam — the
+    // exact failure this campaign exists to foreclose — and the weighted attribute error makes crossing the
+    // seam cost what it costs. SimplifyLockBorder pins the open boundary so adjacent decimated elements keep a
+    // watertight shared edge instead of opening gaps; the flag is the policy column because a whole-model
+    // decimation wants it and an isolated-part one does not. The sloppy fallback stays position-only and
+    // border-free by construction (the package ships no attribute form), so it is the LAST resort it always was
+    // and its receipt reads the same measured figures.
+    static unsafe LodLevel Decimate(
+        uint[] source, float[] verts, float[] attributes, float[] weights,
+        nuint vertexCount, nuint vertexStride, float scale, double ratio, int level, string formatKey, InterchangePolicy policy) {
         nuint sourceCount = (nuint)source.Length;
         nuint targetCount = (nuint)((long)source.Length * ratio);
+        nuint attributeCount = (nuint)weights.Length;
+        nuint attributeStride = (nuint)(weights.Length * sizeof(float));
+        var options = policy.LockBorder ? SimplificationOptions.SimplifyLockBorder : SimplificationOptions.None;
         var destination = new uint[source.Length];
-        nuint resultCount;
-        float resultError;
-        fixed (uint* dst = destination)
-        fixed (uint* src = source)
-        fixed (float* vPtr = verts) {
-            resultCount = Meshopt.Simplify(dst, src, sourceCount, vPtr, vertexCount, vertexStride, targetCount, 0.01f, SimplificationOptions.None, &resultError);
-            if (resultCount > targetCount) {
+        nuint resultCount = Meshopt.SimplifyWithAttributes(
+            destination, source, verts, vertexStride, attributes, attributeStride, weights, attributeCount,
+            ReadOnlySpan<byte>.Empty, targetCount, 0.01f, options, out float resultError);
+        if (resultCount > targetCount) {
+            fixed (uint* dst = destination)
+            fixed (uint* src = source)
+            fixed (float* vPtr = verts) {
                 resultCount = Meshopt.SimplifySloppy(dst, src, sourceCount, vPtr, vertexCount, vertexStride, (byte*)null, targetCount, 0.05f, &resultError);
             }
         }
         var indices = destination.AsSpan(0, (int)resultCount).ToArray();
+        // Three analyzers read the level's OWN index set against the shared position lane, so the cost figures
+        // are measured on the emitted level rather than inferred from its ratio.
+        var cache = Meshopt.AnalyzeVertexCache(indices, vertexCount, cacheSize: 16, warpSize: 0, primGroupSize: 0);
+        var overdraw = Meshopt.AnalyzeOverdraw(indices, verts, vertexStride);
+        var fetch = Meshopt.AnalyzeVertexFetch(indices, vertexCount, vertexStride);
         var bytes = MemoryMarshal.AsBytes(indices.AsSpan());
-        return new LodLevel(level, ratio, (int)resultCount / 3, resultError * scale, indices,
+        return new LodLevel(level, ratio, (int)resultCount / 3, resultError * scale,
+            cache.acmr, overdraw.overdraw, fetch.overfetch, indices,
             ContentHash.Of(new CanonicalWriter(0.0)
                 .String($"{formatKey}:lod{level}").Double(policy.Deflection).Double(policy.Tolerance).Double(policy.AngleTolerance)
                 .Raw(bytes).ToBytes().Span));
     }
 
-    public static unsafe Fin<Seq<Meshlet>> Meshlets(ImportedGeometry geometry, Op key) =>
+    public static unsafe Fin<Seq<MeshletBand>> Meshlets(ImportedGeometry geometry, Op key) =>
         Try.lift(() => Cluster(geometry)).Run().MapFail(error => new BimFault.ModelRejected(key, $"meshlet-build:{error.Message}"));
 
-    static unsafe Seq<Meshlet> Cluster(ImportedGeometry geometry) {
+    static unsafe Seq<MeshletBand> Cluster(ImportedGeometry geometry) {
         var indices = new uint[geometry.Indices.Length];
         for (int i = 0; i < indices.Length; i++) { indices[i] = (uint)geometry.Indices.Span[i]; }
-        var verts = geometry.Vertices.ToArray();
+        float[] verts = BimExport.Required(geometry, EncodingChannel.Position);
         nuint indexCount = (nuint)indices.Length;
         nuint vertexCount = (nuint)geometry.VertexCount;
-        nuint vertexStride = (nuint)(3 * sizeof(float));
+        nuint vertexStride = (nuint)(EncodingChannel.Position.Arity * sizeof(float));
         const nuint maxVertices = 64, maxTriangles = 124;
         nuint bound = Meshopt.BuildMeshletsBound(indexCount, maxVertices, maxTriangles);
         var meshlets = new Meshlet[(int)bound];
         var meshletVertices = new uint[(int)bound * (int)maxVertices];
         var meshletTriangles = new byte[(int)bound * (int)maxTriangles * 3];
+        var bounds = new Bounds[(int)bound];
         nuint count;
         fixed (Meshlet* mPtr = meshlets)
         fixed (uint* mvPtr = meshletVertices)
@@ -921,41 +1274,73 @@ public static class BimLod {
         fixed (uint* iPtr = indices)
         fixed (float* vPtr = verts) {
             count = Meshopt.BuildMeshlets(mPtr, mvPtr, mtPtr, iPtr, indexCount, vPtr, vertexCount, vertexStride, maxVertices, maxTriangles, 0.0f);
-            for (nuint m = 0; m < count; m++) { Meshopt.OptimizeMeshlet(&mvPtr[mPtr[m].vertex_offset], &mtPtr[mPtr[m].triangle_offset], mPtr[m].triangle_count, mPtr[m].vertex_count); }
+            // OptimizeMeshlet and ComputeMeshletBounds take the same two slices, so the cull
+            // bounds derive inside the loop that already holds them — a second walk over the meshlet set is the
+            // deleted re-derivation. Bounds are computed AFTER the per-meshlet optimize so the cone fits the
+            // emitted triangle order.
+            for (nuint m = 0; m < count; m++) {
+                Meshopt.OptimizeMeshlet(&mvPtr[mPtr[m].vertex_offset], &mtPtr[mPtr[m].triangle_offset], mPtr[m].triangle_count, mPtr[m].vertex_count);
+                bounds[(int)m] = Meshopt.ComputeMeshletBounds(
+                    meshletVertices.AsSpan((int)mPtr[m].vertex_offset, (int)mPtr[m].vertex_count),
+                    meshletTriangles.AsSpan((int)mPtr[m].triangle_offset, (int)mPtr[m].triangle_count * 3),
+                    verts, vertexStride);
+            }
         }
-        return meshlets.AsSpan(0, (int)count).ToArray().ToSeq();
+        return meshlets.AsSpan(0, (int)count).ToArray()
+            .Select((meshlet, m) => new MeshletBand(meshlet, bounds[m])).ToSeq();
     }
 }
 ```
 
 ## [05]-[SCHEDULE_ANIMATION]
 
-- Owner: `ScheduleAnimation` the 4D-emit leg ADDITIVE to the export rail — one glTF `Animation` baking the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element keyframe tracks: each `ConstructionTask`'s scheduled `Interval` drives a per-element visibility track (the element is invisible before its task starts and visible from its task start) with an optional scale track (the element grows from a zero-scale point to its full scale across its task window) so a viewer scrubs the construction sequence on the GLB timeline; `AnimationTrack` the per-element keyframe record carrying the element `GlobalId`, the appear-time and full-time seconds, and the glTF `Node` the element's mesh binds to.
-- Entry: `BimExport.AnimateSchedule(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy, Op key)` bakes the schedule into the scene model's animation set — projecting each `ConstructionTask` `Interval` bound onto its glTF time-in-seconds through `policy.SecondsOf(Instant moment, Instant projectStart)` (the bound mapped to the timeline via the NodaTime `Duration` from the project start, scaled by `policy.SecondsPerDay`), resolving each assigned element's glTF `Node` through the `Author`-minted `GlbScene` `GlobalId→Node` index (the element `GlobalId` is the seam `Graph/element#ELEMENT_GRAPH` `Object.ExternalId`; `Author` names each node by it, so the 4D leg binds the scene emitted — the retired caller-supplied index parameter is GONE), and authoring one `KHR_node_visibility` visibility channel (and the `policy.Grow` scale channel when set) per element through the SharpGLTF `Animation.CreateVisibilityChannel`/`CreateScaleChannel` keyframe surface — `Fin<T>` aborts on a SharpGLTF authoring fault captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lifting BARE onto the `Fin<T>` rail (band 2600, `Expected`-derived), no `.ToError()` hop; the animation and the `Planning/schedule#SCHEDULE` `ConstructionState.At` snapshot share one `Interval`-to-`Instant` time axis so a scrub at glTF time `t` shows exactly the element set `ConstructionState.At` resolves at the inverse instant (the schedule owner is the `BimModel`→`ElementGraph` cross-file alignment point its rebuild settles).
-- Auto: `AnimateSchedule` registers `KHR_node_visibility`, creates one `Animation`, and folds each element's assigned task windows into an `AnimationTrack` (appear = earliest `Interval.Start`, full = latest `Interval.End`, so a multi-task element appears at its earliest task). Each element gets a visibility track popping in at its appear time under the `STEP` interpolation the `bool` channel forces, and the optional scale track grows it from zero across its window under `LINEAR`. `policy.SecondsOf` projects an `Interval` bound onto the float-seconds axis the `ConstructionState.At` snapshot reads, so the keyframe author and the snapshot never carry two clocks; the scene returns with `LogicalAnimations` populated so `Emit` seals the animated GLB and the `TileMetadata` semantic rides each frame unchanged.
-- Receipt: the `Seq<AnimationTrack>` is the 4D-emit evidence — each row carries the element `GlobalId`, the appear/full seconds, and the bound `Node` logical index so the Cesium/three.js timeline scrub resolves the construction state at any timeline instant; the animated GLB the `WriteGlb` emits is the streamed 4D timeline a web viewer plays, the `Planning/schedule#SCHEDULE` `ScheduleNetwork.Identity` `(GeometryKey, ScheduleKey)` re-keying the animation only on a re-sequenced plan.
+- Owner: `ScheduleAnimation` the 4D-emit leg ADDITIVE to the export rail — one glTF `Animation` baking the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element keyframe tracks: each `ConstructionTask`'s scheduled `Interval` drives a per-element visibility track (the element is invisible before its task starts and visible from its task start) with an optional scale track (the element grows from a zero-scale point to its full scale across its task window) so a viewer scrubs the construction sequence on the GLB timeline, and an optional in-progress base-colour track tints the element across its window through the material `KHR_animation_pointer` channel glTF's absent per-node colour property forces; `AnimationTrack` the per-element keyframe record carrying the element `GlobalId`, the appear-time and full-time seconds, the glTF `Node` the element's mesh binds to, and the logical material the colour track bound or the refusal a pooled material earns.
+- Entry: `BimExport.AnimateSchedule(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy, Op key)` bakes the schedule into the scene model's animation set — projecting each `ConstructionTask` `Interval` bound onto its glTF time-in-seconds through `policy.SecondsOf(Instant moment, Instant projectStart)` (the bound mapped to the timeline via the NodaTime `Duration` from the project start, scaled by `policy.SecondsPerDay`), resolving each assigned element's glTF `Node` through the `Author`-minted `GlbScene` `GlobalId→Node` index (the element `GlobalId` is the seam `Graph/element#ELEMENT_GRAPH` `Object.ExternalId`; `Author` names each node by it, so the 4D leg binds the scene emitted — the retired caller-supplied index parameter is GONE), and authoring one `KHR_node_visibility` visibility channel (the `policy.Grow` scale channel and the `policy.Tint` material base-colour channel when set) per element through the SharpGLTF `Animation.CreateVisibilityChannel`/`CreateScaleChannel`/`CreateMaterialPropertyChannel` keyframe surface — `Fin<T>` aborts on a SharpGLTF authoring fault captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lifting BARE onto the `Fin<T>` rail (band 2600, `Expected`-derived), no `.ToError()` hop; the animation and the `Planning/schedule#SCHEDULE` `ConstructionState.At` snapshot share one `Interval`-to-`Instant` time axis so a scrub at glTF time `t` shows exactly the element set `ConstructionState.At` resolves at the inverse instant (the schedule owner is the `BimModel`→`ElementGraph` cross-file alignment point its rebuild settles).
+- Auto: `AnimateSchedule` registers `KHR_node_visibility`, creates one `Animation`, and folds each element's assigned task windows into an `AnimationTrack` (appear = earliest `Interval.Start`, full = latest `Interval.End`, so a multi-task element appears at its earliest task). Each element gets a visibility track popping in at its appear time under the `STEP` interpolation the `bool` channel forces, the optional scale track grows it from zero across its window under `LINEAR`, and the optional tint track drives its material's `baseColorFactor` from the policy's active factor at appear to the material's OWN authored factor at settle — bound only where one node references one material no second node shares, because `Staged` pools materials on the finish key and a shared material tints every repeat on one element's schedule. `policy.SecondsOf` projects an `Interval` bound onto the float-seconds axis the `ConstructionState.At` snapshot reads, so the keyframe author and the snapshot never carry two clocks; the scene returns with `LogicalAnimations` populated so `Emit` seals the animated GLB and the `TileMetadata` semantic rides each frame unchanged.
+- Receipt: the `Seq<AnimationTrack>` is the 4D-emit evidence — each row carries the element `GlobalId`, the appear/full seconds, the bound `Node` logical index so the Cesium/three.js timeline scrub resolves the construction state at any timeline instant, and the `TintedMaterial` index the colour channel bound (absent where the policy carried no tint or a pooled material refused the 1:1 binding, so a reader tells an untinted run from a refused element instead of reading silence); the animated GLB the `WriteGlb` emits is the streamed 4D timeline a web viewer plays, the `Planning/schedule#SCHEDULE` `ScheduleNetwork.Identity` `(GeometryKey, ScheduleKey)` re-keying the animation only on a re-sequenced plan.
 - Packages: SharpGLTF.Core, SharpGLTF.Runtime, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
-- Growth: a new keyframe channel (a translation track lowering an element into place, a color track tinting the active task) is one `Animation.Create*Channel` arm on the same fold; a new interpolation mode rides the SharpGLTF `bool linear` channel knob; a new time-axis policy is one column on `ScheduleAnimationPolicy`; never a per-element `Animation` instance, never a hand-authored glTF animation JSON block, and never a second time axis beside the `ConstructionState.At` `Interval`.
-- Boundary: keyframes ride the SharpGLTF `ModelRoot.CreateAnimation` + `Animation.Create*Channel` surface — a hand-authored glTF `animations[]`/`samplers[]`/`channels[]` JSON block is the deleted form. `KHR_node_visibility` drives the per-element visibility keyframe, so the `bool` track is the settled `format#FORMAT_AXIS` `KhrExtension.NodeVisibility` row registered once through the factory — a custom visibility-by-opacity hack is the deleted form. SharpGLTF.Runtime is already csproj-referenced (exercised for `IMeshDecoder`/`SceneTemplate` decode), so this leg needs no new package and no new `InterchangeFormat` row. Animation time is the `Planning/schedule#SCHEDULE` `ConstructionTask.Interval` projected to seconds; a second clock on the export side is the named seam violation, the `ConstructionState.At` snapshot and the keyframe author reading one `Interval`-to-`Instant` axis. Per-element glTF `Node` resolves through the `Author`-minted `GlbScene` index (nodes NAMED by the seam `Object.ExternalId`) — a caller-supplied index parameter, a re-walked scene graph, or a second index mint is the deleted form; a 4D-emit fault lowers onto `Model/faults#FAULT_BAND` `BimFault`.
+- Growth: a new NODE-scoped keyframe channel — a translation track lowering an element into place, a rotation track swinging it — is one `Animation.Create*Channel` arm on the same fold; a new MATERIAL-scoped channel is one `CreateMaterialPropertyChannel` pointer tail beside `BaseColorPointer`, because glTF declares no per-node colour or factor property and every material-valued track is a `KHR_animation_pointer` path onto `/materials/{index}/…`, authorable only on a material no second node references; a new interpolation mode rides the SharpGLTF `bool linear` channel knob; a new time-axis or tint policy is one column on `ScheduleAnimationPolicy`; never a per-element `Animation` instance, never a hand-authored glTF animation JSON block, and never a second time axis beside the `ConstructionState.At` `Interval`.
+- Boundary: keyframes ride the SharpGLTF `ModelRoot.CreateAnimation` + `Animation.Create*Channel` surface — a hand-authored glTF `animations[]`/`samplers[]`/`channels[]` JSON block is the deleted form. `KHR_node_visibility` drives the per-element visibility keyframe, so the `bool` track is the settled `format#FORMAT_AXIS` `KhrExtension.NodeVisibility` row registered once through the factory — a custom visibility-by-opacity hack is the deleted form. `KHR_animation_pointer` drives the colour track through `CreateMaterialPropertyChannel`, and its `format#FORMAT_AXIS` `KhrExtension.AnimationPointer` row registers exactly when the policy carries a tint, so the row never advertises a capability the run does not exercise; a per-node colour track is UNSPELLABLE — glTF's node channels are translation, rotation, scale, weights, and visibility alone, so a colour is a material property and a hand-authored `KHR_materials_*` factor track beside the pointer channel is the deleted form. SharpGLTF.Runtime is already csproj-referenced and already exercised — `import#IMPORT_RAIL` decodes each logical mesh through its `IMeshDecoder<Material>` surface — so this leg needs no new package and no new `InterchangeFormat` row. Animation time is the `Planning/schedule#SCHEDULE` `ConstructionTask.Interval` projected to seconds; a second clock on the export side is the named seam violation, the `ConstructionState.At` snapshot and the keyframe author reading one `Interval`-to-`Instant` axis. Per-element glTF `Node` resolves through the `Author`-minted `GlbScene` index (nodes NAMED by the seam `Object.ExternalId`) — a caller-supplied index parameter, a re-walked scene graph, or a second index mint is the deleted form; a 4D-emit fault lowers onto `Model/faults#FAULT_BAND` `BimFault`.
 
 ```csharp signature
-public sealed record ScheduleAnimationPolicy(double SecondsPerDay, bool Grow, double EpsilonSeconds) {
+public sealed record ScheduleAnimationPolicy(
+    double SecondsPerDay, bool Grow, double EpsilonSeconds, Option<Vector4> Tint = default) {
     public static readonly ScheduleAnimationPolicy Default = new(SecondsPerDay: 1.0, Grow: false, EpsilonSeconds: 0.001);
     public static readonly ScheduleAnimationPolicy Growing = Default with { Grow = true };
+    // Tint names the SCENE-LINEAR base-colour factor an element wears across its task window, settling on that
+    // material's OWN authored factor at task end. Only the active factor is declared — settling reads off the
+    // material, so a tinted playback returns every element to exactly the colour MaterialFinish.Author wrote and no
+    // second colour vocabulary forks from the finish. This factor stays linear like every other glTF factor the rail
+    // writes, so a display-referred tint would wash out exactly as an sRGB baseColorFactor does.
+    public static readonly ScheduleAnimationPolicy Tinted = Default with { Tint = Some(new Vector4(1f, 0.62f, 0.09f, 1f)) };
 
     public float SecondsOf(Instant moment, Instant projectStart) =>
         (float)((moment - projectStart).TotalDays * SecondsPerDay);
 }
 
-public sealed record AnimationTrack(string GlobalId, float AppearSeconds, float FullSeconds, int NodeIndex);
+// TintedMaterial is the tint track's own evidence: the logical material index the colour channel bound, or None
+// where the policy carried no tint, the node bound no single material, or a pooled material serves a second node —
+// so a receipt reader distinguishes an untinted run from an element the pooling refused, never a silent nothing.
+public sealed record AnimationTrack(string GlobalId, float AppearSeconds, float FullSeconds, int NodeIndex, Option<int> TintedMaterial);
 
 public static partial class BimExport {
+    // KHR_animation_pointer targets a material through this tail: CreateMaterialPropertyChannel prefixes
+    // `/materials/{LogicalIndex}/` and verifies the whole path against the model's own reflection DOM before the
+    // sampler mints, so a misspelled property faults at author time rather than reading as an inert track in a viewer.
+    const string BaseColorPointer = "pbrMetallicRoughness/baseColorFactor";
+
+    // Schema2 keys the authored settle-factor read on this channel name.
+    const string BaseColorChannel = "BaseColor";
+
     // Element GlobalId->glTF Node index is the Author-minted GlbScene (nodes named by the seam
     // Object.ExternalId): this leg binds keyframes onto the scene actually emitted — never a caller-supplied
-    // index, never a re-walked scene graph, never a retired BimModel.
+    // index, never a re-walked scene graph, never a retired BimModel. The extension sweep is the policy's own
+    // roster: KHR_node_visibility always, KHR_animation_pointer exactly when a tint rides, so no row registers
+    // without the arm that fills it.
     public static Fin<Seq<AnimationTrack>> AnimateSchedule(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy, Op key) =>
-        KhrExtension.NodeVisibility.Register(key).Bind(_ =>
-            Try.lift(() => Tracks(scene, network, policy)).Run()
+        (Seq(KhrExtension.NodeVisibility) + policy.Tint.Map(static _ => KhrExtension.AnimationPointer).ToSeq())
+            .TraverseM(khr => khr.Register(key)).As()
+            .Bind(_ => Try.lift(() => Tracks(scene, network, policy)).Run()
                 .MapFail(error => new BimFault.ModelRejected(key, $"schedule-animation:{error.Message}")));
 
     static Seq<AnimationTrack> Tracks(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy) {
@@ -963,6 +1348,18 @@ public static partial class BimExport {
         var animation = scene.Model.CreateAnimation("construction-sequence");
         // Tasks index ONCE by GlobalId — the per-assignment Tasks.Find linear scan was O(assignments·tasks).
         var taskWindow = network.Tasks.Fold(Map<string, Interval>(), static (held, task) => held.TryAdd(task.GlobalId, task.Scheduled));
+        // Material reference census, ONE pass, per-node distinct: glTF carries no per-node colour, so a tint targets
+        // a MATERIAL and reaches every node that material serves. Staged pools materials on the finish key, so a
+        // repeat wearing its neighbour's finish shares its material — a tint there lights elements whose tasks never
+        // started. The census is what lets the tint author only on a 1:1 correspondence and the receipt record the rest.
+        var references = scene.Nodes.Values.AsIterable()
+            .Choose(static node => Optional(node.Mesh))
+            .Bind(static mesh => mesh.Primitives.AsIterable()
+                .Choose(static primitive => Optional(primitive.Material)).Map(static material => material.LogicalIndex).ToSeq().Distinct())
+            .ToSeq()
+            .GroupBy(static index => index)
+            .Select(static group => (group.Key, group.Count()))
+            .ToMap();
         var windows = network.Assignments
             .Bind(a => taskWindow.Find(a.TaskGlobalId)
                 .Map(window => a.ElementGlobalIds.Map(id => (Id: id, Window: window))).IfNone(Seq<(string, Interval)>()))
@@ -971,13 +1368,16 @@ public static partial class BimExport {
             .ToMap();
         return windows
             .Choose(pair => scene.Nodes.Find(pair.Key)
-                .Map(node => Track(animation, node, pair.Key, pair.Value, projectStart, policy)))
+                .Map(node => Track(scene, animation, node, pair.Key, pair.Value, projectStart, policy, references)))
             .ToSeq();
     }
 
-    static AnimationTrack Track(Animation animation, SharpGLTF.Schema2.Node node, string globalId, Seq<Interval> windows, Instant projectStart, ScheduleAnimationPolicy policy) {
+    static AnimationTrack Track(
+        GlbScene scene, Animation animation, SharpGLTF.Schema2.Node node, string globalId, Seq<Interval> windows,
+        Instant projectStart, ScheduleAnimationPolicy policy, Map<int, int> references) {
         float appear = windows.Map(w => policy.SecondsOf(w.Start, projectStart)).Min();
         float full = windows.Map(w => policy.SecondsOf(w.End, projectStart)).Max();
+        float settled = Math.Max(full, appear + (float)policy.EpsilonSeconds);
         animation.CreateVisibilityChannel(node, new Dictionary<float, bool> {
             [Math.Max(0f, appear - (float)policy.EpsilonSeconds)] = false,
             [appear] = true,
@@ -985,10 +1385,42 @@ public static partial class BimExport {
         if (policy.Grow) {
             animation.CreateScaleChannel(node, new Dictionary<float, Vector3> {
                 [appear] = Vector3.Zero,
-                [Math.Max(full, appear + (float)policy.EpsilonSeconds)] = Vector3.One,
+                [settled] = Vector3.One,
             });
         }
-        return new AnimationTrack(globalId, appear, full, node.LogicalIndex);
+        return new AnimationTrack(globalId, appear, full, node.LogicalIndex, Tinted(scene, animation, node, appear, settled, policy, references));
+    }
+
+    // Material colour rides its own track. glTF defines no per-node colour TRS property, so an in-progress tint is
+    // a KHR_animation_pointer channel on the material's own baseColorFactor rather than a node channel — exactly why
+    // no `Create*Channel` arm can carry it. Resolution reads scene.Model.LogicalMaterials by logical index, the
+    // roster read satisfying the channel's shared-logical-parent guard, and authoring happens ONLY where one node
+    // binds one material no second node references; settling restores that material's authored factor so the
+    // element ends the timeline in its own colour.
+    static Option<int> Tinted(
+        GlbScene scene, Animation animation, SharpGLTF.Schema2.Node node, float appear, float settled,
+        ScheduleAnimationPolicy policy, Map<int, int> references) =>
+        from active in policy.Tint
+        from mesh in Optional(node.Mesh)
+        from bound in Sole(mesh)
+        where references.Find(bound.LogicalIndex).IfNone(0) == 1
+        let material = scene.Model.LogicalMaterials[bound.LogicalIndex]
+        from authored in Optional(material.FindChannel(BaseColorChannel)).Map(static channel => channel.Color)
+        select Channelled(animation, material, appear, settled, active, authored);
+
+    // One material or none: a mesh whose primitives carry two materials has no single colour slot an element-scoped
+    // track could own, so it takes the same refusal a pooled material takes.
+    static Option<SharpGLTF.Schema2.Material> Sole(SharpGLTF.Schema2.Mesh mesh) =>
+        mesh.Primitives.AsIterable().Choose(static primitive => Optional(primitive.Material)).ToSeq().Distinct() is { Count: 1 } single
+            ? single.Head
+            : Option<SharpGLTF.Schema2.Material>.None;
+
+    static int Channelled(Animation animation, SharpGLTF.Schema2.Material material, float appear, float settled, Vector4 active, Vector4 authored) {
+        animation.CreateMaterialPropertyChannel(material, BaseColorPointer, new Dictionary<float, Vector4> {
+            [appear] = active,
+            [settled] = authored,
+        });
+        return material.LogicalIndex;
     }
 }
 ```
@@ -1079,23 +1511,81 @@ public static class RoundTrip {
 
 ## [07]-[TILE_AVAILABILITY]
 
-- Owner: `TileAvailability` the 3D-Tiles 1.1 implicit-tiling `.subtree` availability-bitstream author over the `subtree` package — the tileset AVAILABILITY structure (the Morton-ordered tile/content/child-subtree bitstreams telling a 3D-Tiles client which implicit nodes exist) the `SharpGLTF.Ext.3DTiles` `[3]-[TILE_METADATA]` per-tile CONTENT author cannot reach, the two meeting at the shared Morton tile index; `TileNode` the scheme-neutral per-tile authoring coordinate — `Lod` the subdivision level (mapped onto the quadtree `subtree.Tile.Z` level field or the octree `subtree.Tile3D.Level`), `X`/`Y` the in-level position, `Z` the octree vertical axis (unused under the `Quadtree` scheme, where `subtree.Tile` carries no spatial third axis), with the `Available`/`ContentUri`/`GeometricError` columns the `subtree.Tile` node carries — retiring the hand-rolled implicit-tiling bitstream.
-- Entry: `TileAvailability.Author(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme, Op key)` folds the tile list into the `.subtree` binary, the `scheme` discriminant selecting the authoring root — `SubtreeCreator.GenerateSubtreefile(List<Tile>)` for `Quadtree` (each `TileNode` projected through `TileOf` onto `subtree.Tile(z: node.Lod, x, y, available)` so the LOD lands in the `Tile.Z` level field the Morton author folds on, carrying its `ContentUri`/`GeometricError`) and `SubtreeCreator3D.GenerateSubtreefile(List<Tile3D>)` for `Octree` (each projected through `TileOf3D` onto `subtree.Tile3D(level: node.Lod, x, y, z: node.Z)` so the octree gains its third spatial axis) — `Fin<T>` aborts on a degenerate tile list captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lifting BARE onto the `Fin<T>` rail (band 2600, `Expected`-derived), no `.ToError()` hop; `TileAvailability.AuthorMany(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme, Op key)` lifts to the matching `GenerateSubtreefiles` (the `Dictionary<Tile, byte[]>`/`Dictionary<Tile3D, byte[]>` multi-subtree overflow form) when the tileset exceeds one subtree's level budget, keying each binary by its root tile's `(Level, X, Y, Z)` coordinate (the library builds each root through `new Tile(level, x, y)`/`new Tile3D(level, x, y, z)`, so the root key reads the level-and-position identity, never the auxiliary `Tile.Lod` the author leaves zero).
-- Auto: `Author` maps each `TileNode` onto the `subtree.Tile` node (or `subtree.Tile3D` under the `Octree` scheme) and authors the binary availability bitstream, returning the raw `.subtree` the caller seals through the `EXPORT_RAIL` `Sealed` content-key. `MortonIndex` buckets each tile's availability by its level and sets the bit cell at its `X`/`Y`(`/Z`) position, so tile and content availability order identically — a tile is "available with content" exactly when both bitstreams set the same Morton position, the same index the `[3]-[TILE_METADATA]` tile content keys off. Multi-subtree tilesets re-base child coordinates so the child-subtree availability pointers resolve.
-- Receipt: the `.subtree` binary is the tileset availability evidence the 3D-Tiles client reads to stream only the existing implicit nodes; the subdivision scheme, level count, and available-tile count are the receipt facts the export records, and each binary content-addresses through the same `InterchangeIdentity` the GLB tile content seals so the tileset and its content share one content space.
-- Packages: subtree, SharpGLTF.Ext.3DTiles, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
-- Growth: a new subdivision scheme is the `ImplicitSubdivisionScheme.Quadtree`/`Octree` discriminant the `SubtreeCreator`/`SubtreeCreator3D` pair already carries; a new availability column is one field on `TileNode` the `subtree.Tile` node exposes; a multi-subtree overflow is the existing `GenerateSubtreefiles` form; never a hand-rolled Morton/bitstream codec and never a second availability authoring path beside `subtree`.
-- Boundary: the `.subtree` availability authoring is `subtree`'s — `SubtreeCreator`/`SubtreeCreator3D` `GenerateSubtreefile`/`GenerateSubtreefiles`, the `Tile`/`Tile3D` authoring nodes, the `MortonOrder.Encode2D`/`Encode3D` z-order index, and `SubtreeReader.ReadSubtree` for the round-trip receipt assertion own the bitstream, and a hand-rolled implicit-tiling bitstream is the retired form; the content/availability split is the law — `SharpGLTF.Ext.3DTiles` (`[3]-[TILE_METADATA]`) authors the per-tile glTF CONTENT and `EXT_structural_metadata`, `subtree` authors the tileset AVAILABILITY indexing which implicit nodes exist, the two meeting at the shared Morton tile index and never duplicating the availability logic; the tileset.json root hierarchy and the per-tile bounding-volume geometry stay outside this owner (the `subtree` package carries no tileset.json and no geometry), and the tile-pyramid partitioning/streaming stay at `Rasm.Compute/Runtime/codecs#TILE_PARTITION` consumed at the seam — `Rasm.Bim` authors the availability binary and the content glTF, never the pyramid.
+- Owner: `TileAvailability` the 3D-Tiles 1.1 implicit-tiling `.subtree` availability-bitstream author over the `subtree` package — the tileset AVAILABILITY structure (the Morton-ordered tile/content/child-subtree bitstreams telling a 3D-Tiles client which implicit nodes exist) the `SharpGLTF.Ext.3DTiles` `[3]-[TILE_METADATA]` per-tile CONTENT author cannot reach, the two meeting at the shared Morton tile index; `TileNode` the scheme-neutral per-tile authoring coordinate — `Lod` the subdivision level (mapped onto the quadtree `subtree.Tile.Z` level field or the octree `subtree.Tile3D.Level`), `X`/`Y` the in-level position, `Z` the octree vertical axis (unused under the `Quadtree` scheme, where `subtree.Tile` carries no spatial third axis), with the `Available`/`ContentUri`/`GeometricError` columns the `subtree.Tile` node carries; `SubtreeReceipt` the authored binary beside the facts decoded back out of it and the kernel content key addressing it — retiring the hand-rolled implicit-tiling bitstream.
+- Entry: `TileAvailability.Author(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme, Op key)` folds the tile list into the `.subtree` binary and READS IT BACK through `SubtreeReader.ReadSubtree` before returning, so the `SubtreeReceipt` it yields carries decoded facts and a bitstream that lost a node faults here rather than streaming nothing at a client, the `scheme` discriminant selecting the authoring root — `SubtreeCreator.GenerateSubtreefile(List<Tile>)` for `Quadtree` (each `TileNode` projected through `TileOf` onto `subtree.Tile(z: node.Lod, x, y, available)` so the LOD lands in the `Tile.Z` level field the Morton author folds on, carrying its `ContentUri`/`GeometricError`) and `SubtreeCreator3D.GenerateSubtreefile(List<Tile3D>)` for `Octree` (each projected through `TileOf3D` onto `subtree.Tile3D(level: node.Lod, x, y, z: node.Z)` so the octree gains its third spatial axis) — `Fin<T>` aborts on a degenerate tile list captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lifting BARE onto the `Fin<T>` rail (band 2600, `Expected`-derived), no `.ToError()` hop; `TileAvailability.AuthorMany(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme, Op key)` lifts to the matching `GenerateSubtreefiles` (the `Dictionary<Tile, byte[]>`/`Dictionary<Tile3D, byte[]>` multi-subtree overflow form) when the tileset exceeds one subtree's level budget, keying each binary by its root tile's `(Level, X, Y, Z)` coordinate (the library builds each root through `new Tile(level, x, y)`/`new Tile3D(level, x, y, z)`, so the root key reads the level-and-position identity, never the auxiliary `Tile.Lod` the author leaves zero).
+- Auto: `Author` maps each `TileNode` onto the `subtree.Tile` node (or `subtree.Tile3D` under the `Octree` scheme), authors the binary availability bitstream, and witnesses it — the re-read `Subtree` record's `ContentAvailability` bit at each node's own `LevelOffset` + `MortonOrder` address must equal that node's `Available`, a uniform stream answering from its `*Constant` where the reader leaves the `BitArray` null, and a divergence faulting with the offending Morton positions named. `TileAvailability` is deliberately NOT the assertion target: `SubtreeCreator` derives it as the ancestor CLOSURE of the content set, so it answers "does an implicit node exist here" where content answers "does this node carry a payload", and the receipt counts each stream separately. `MortonIndex` buckets each tile's availability by its level and sets the bit cell at its `X`/`Y`(`/Z`) position, so tile and content availability order identically — a tile is "available with content" exactly when both bitstreams set the same Morton position, the same index the `[3]-[TILE_METADATA]` tile content keys off. Multi-subtree tilesets re-base child coordinates so the child-subtree availability pointers resolve.
+- Receipt: `SubtreeReceipt` carries the subdivision scheme, the authored level depth, the DECODED tile- and content-availability set counts, the `.subtree` bytes, and the kernel content key — measured off the emitted bitstream rather than re-reported off the input, so a caller reads what the client will read. Key minting rides the kernel seed-zero `ContentHash` over the seam `CanonicalWriter` fold, the one-hasher law `Sealed` and the `BimLod` per-level keys observe, so a tileset's availability binary and its glTF tile content address in ONE content space; the multi-subtree `AuthorMany` form returns the package's own `Fill`-padded per-root binaries, which are subtree-local bitstreams no whole-tileset node set addresses.
+- Packages: subtree, SharpGLTF.Ext.3DTiles, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Element, Rasm
+- Growth: a new subdivision scheme is the `ImplicitSubdivisionScheme.Quadtree`/`Octree` discriminant the `SubtreeCreator`/`SubtreeCreator3D` pair already carries; a new availability column is one field on `TileNode` the `subtree.Tile` node exposes; a new decoded fact is one column on `SubtreeReceipt` read off the re-parsed `Subtree` record, never a value copied forward from the input; a multi-subtree overflow is the existing `GenerateSubtreefiles` form; never a hand-rolled Morton/bitstream codec and never a second availability authoring path beside `subtree`.
+- Boundary: the `.subtree` availability authoring is `subtree`'s — `SubtreeCreator`/`SubtreeCreator3D` `GenerateSubtreefile`/`GenerateSubtreefiles`, the `Tile`/`Tile3D` authoring nodes, the `MortonOrder.Encode2D`/`Encode3D` z-order index composed with `LevelOffset.GetLevelOffset` into the one bit address, and `SubtreeReader.ReadSubtree` driving the `Author` round-trip witness own the bitstream, and a hand-rolled implicit-tiling bitstream or a hand-rolled Morton address beside the package's own is the retired form; the content/availability split is the law — `SharpGLTF.Ext.3DTiles` (`[3]-[TILE_METADATA]`) authors the per-tile glTF CONTENT and `EXT_structural_metadata`, `subtree` authors the tileset AVAILABILITY indexing which implicit nodes exist, the two meeting at the shared Morton tile index and never duplicating the availability logic; the tileset.json root hierarchy and the per-tile bounding-volume geometry stay outside this owner (the `subtree` package carries no tileset.json and no geometry), and the tile-pyramid partitioning/streaming stay at `Rasm.Compute/Runtime/codecs#TILE_PARTITION` consumed at the seam — `Rasm.Bim` authors the availability binary and the content glTF, never the pyramid.
 
 ```csharp signature
 public sealed record TileNode(int Lod, int X, int Y, bool Available, string ContentUri, double GeometricError, int Z = 0);
 
+// Receipt pairs the authored availability binary with facts DECODED back out of it: subdivision scheme, authored
+// level depth, and two set-bit counts read off the re-parsed bitstreams — measured from emitted bytes, never
+// re-reported off input. ContentKey mints through the kernel seed-zero ContentHash over the seam CanonicalWriter
+// fold, the one-hasher law every sibling artifact key observes, so a tileset's availability binary and its glTF tile
+// content address in ONE content space and a Rasm.Compute InterchangeIdentity mint is the deleted downward reference.
+public sealed record SubtreeReceipt(
+    subtree.ImplicitSubdivisionScheme Scheme, int Levels, int AvailableTiles, int ContentTiles,
+    ReadOnlyMemory<byte> Bytes, UInt128 ContentKey);
+
 public static class TileAvailability {
-    public static Fin<byte[]> Author(Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme, Op key) =>
+    public static Fin<SubtreeReceipt> Author(Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme, Op key) =>
         Try.lift(() => scheme == subtree.ImplicitSubdivisionScheme.Octree
                 ? subtree.SubtreeCreator3D.GenerateSubtreefile(tiles.Map(TileOf3D).ToList())
                 : subtree.SubtreeCreator.GenerateSubtreefile(tiles.Map(TileOf).ToList())).Run()
-            .MapFail(error => new BimFault.ModelRejected(key, $"subtree-author:{error.Message}"));
+            .MapFail(error => new BimFault.ModelRejected(key, $"subtree-author:{error.Message}"))
+            .Bind(binary => Witness(binary, tiles, scheme, key));
+
+    // Witness reads the emitted bitstream BACK and re-checks every input node against its own Morton bit, so
+    // receipt counts are decoded facts and a codec regression surfaces here rather than in a client that streams
+    // nothing. Bit addressing composes the subdivision level's own offset with the in-level z-order index —
+    // LevelOffset plus MortonOrder, the package's own arithmetic, matching where the per-level bitstrings
+    // concatenate — and BitArray round-trips index-for-index through the writer's CopyTo / new BitArray(byte[]) pair.
+    // CONTENT availability carries the INPUT set: SubtreeCreator derives TILE availability as the ancestor CLOSURE
+    // (every parent of an available cell is set), so both bitstreams answer different questions — checking input
+    // against the tile stream fails on every interior level, checking the closure against content fails on every
+    // parent — and this witness reads each against its own.
+    static Fin<SubtreeReceipt> Witness(byte[] binary, Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme, Op key) {
+        int levels = tiles.Map(static node => node.Lod).Max() + 1;
+        int cells = subtree.LevelOffset.GetLevelOffset(levels, scheme);
+        return Try.lift(() => subtree.SubtreeReader.ReadSubtree(new MemoryStream(binary, writable: false))).Run()
+            .MapFail(error => new BimFault.ModelRejected(key, $"subtree-reread:{error.Message}"))
+            .Bind(read => tiles
+                .Filter(node => Bit(read.ContentAvailability, read.ContentAvailabilityConstant, Position(node, scheme)) != node.Available)
+                .Map(node => Position(node, scheme)) is var divergent && divergent.IsEmpty
+                ? Fin.Succ(new SubtreeReceipt(
+                    scheme, levels,
+                    Set(read.TileAvailability, read.TileAvailabilityConstant, cells),
+                    Set(read.ContentAvailability, read.ContentAvailabilityConstant, cells),
+                    binary,
+                    ContentHash.Of(new CanonicalWriter(0.0).String($"subtree:{scheme}").Raw(binary).ToBytes().Span)))
+                // Faulting names the divergent Morton POSITIONS, capped, so a codec regression diagnoses from this
+                // message alone rather than by re-running the author.
+                : Fin.Fail<SubtreeReceipt>(new BimFault.ModelRejected(
+                    key, $"subtree-availability-mismatch:{divergent.Count}:{string.Join(',', divergent.Take(4))}")));
+    }
+
+    // Addressing composes the level's own prefix offset (quadtree 4^L, octree 8^L sums) with the in-level z-order
+    // index the package's own encoder produces.
+    static int Position(TileNode node, subtree.ImplicitSubdivisionScheme scheme) =>
+        subtree.LevelOffset.GetLevelOffset(node.Lod, scheme)
+        + (int)(scheme == subtree.ImplicitSubdivisionScheme.Octree
+            ? subtree.MortonOrder.Encode3D((ulong)node.X, (ulong)node.Y, (ulong)node.Z)
+            : subtree.MortonOrder.Encode2D((uint)node.X, (uint)node.Y));
+
+    // Uniform availability collapses to a CONSTANT descriptor whose BitArray the reader leaves null, so that
+    // constant IS the answer at every position; a null-array read falling through to false would report every
+    // uniformly-available tileset as a mismatch.
+    static bool Bit(System.Collections.BitArray? bits, int constant, int at) =>
+        bits is { } array ? at < array.Length && array[at] : constant != 0;
+
+    // Set-bit count over the decoded stream, byte padding included harmlessly because padding bits read false; a
+    // constant descriptor answers the whole level-stack cell count rather than a zero the stream never carried.
+    static int Set(System.Collections.BitArray? bits, int constant, int cells) =>
+        bits is { } array ? array.Cast<bool>().Count(static bit => bit) : constant != 0 ? cells : 0;
 
     public static Fin<Map<(int Level, int X, int Y, int Z), byte[]>> AuthorMany(Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme, Op key) =>
         Try.lift<Map<(int Level, int X, int Y, int Z), byte[]>>(() => scheme == subtree.ImplicitSubdivisionScheme.Octree
@@ -1143,7 +1633,3 @@ public static class CobieEmit {
         }).Run().MapFail(error => new BimFault.CodecReject(key, $"cobie-emit:{error.Message}"));
 }
 ```
-
-## [09]-[RESEARCH]
-
-- [FEATURE_VERTEX_FRAGMENT]-[OPEN]: `FeatureVertex` stamps every uniquely-meshed vertex's `_FEATURE_ID_0` through an unspelled `IVertexCustom`/`IVertexMaterial` member surface; verify the exact contract members against the SharpGLTF.Toolkit `IVertexCustom`/`IVertexMaterial` catalogue at realization.

@@ -6,6 +6,7 @@ dependencies = [
     # --- [GENERAL]
     "anyio",
     "apscheduler",                                  # [RUNTIME]: cron, interval, and date triggers
+    "azure-identity",                               # [RUNTIME]: TokenCredential chain (DefaultAzureCredential) backing the Azure Key Vault SecretTier.cloud arm
     "azure-keyvault-secrets",                       # [RUNTIME]: Azure Key Vault secret backend closing the SecretTier.cloud provider family beside the GCP and Vault arms
     "beartype",
     "cloudpickle",                                  # [RUNTIME]: kernel and closure shipping across the worker process/subinterpreter seams
@@ -308,6 +309,7 @@ dependencies = [
     "grandalf",                                    # [ARTIFACTS]: Sugiyama and routed diagram layout (fallback until fast-sugiyama parity lands)
     "igraph",                                      # [DATA]: C-core Leiden/Louvain/Infomap community detection
     "kiwisolver",                                  # [ARTIFACTS]: Cassowary constraint layout solver promoted to a direct surface
+    "latex2mathml",                                # [ARTIFACTS]: LaTeX-to-MathML front-end ziamath drives; composed directly at the commands.FUNCTIONS operator registry
     "networkx",
     "pyelk",                                       # [ARTIFACTS]: ELK layered/orthogonal/ports/nesting diagram layout
     "resvg-py",                                    # [ARTIFACTS]: in-process SVG-to-PNG rasterization (embedded Rust resvg)

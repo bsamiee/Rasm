@@ -37,6 +37,7 @@ declare namespace Cadence {
     readonly clazz: WorkClass.Kind
     readonly group: string
   }
+  type Backlog = { readonly ticks: ReadonlyArray<DateTime.Utc>; readonly truncated: boolean }
   type Row = Policy & { readonly name: string }
   type Table = { readonly [name: string]: Policy }
 }
@@ -52,18 +53,21 @@ const _rows = (table: Cadence.Table): ReadonlyArray<Cadence.Row> =>
 [CLUSTER_MINT]:
 - Owner: `Cadence.cluster(table, run, marks)` — the registration fold: each row becomes one `ClusterCron.make({ name, cron, execute, shardGroup, calculateNextRunFromPrevious, skipIfOlderThan })` Layer, merged into the one schedule Layer the composition root supplies beside `entity#GRID`. The `execute` is the shared `_fired` pass — catch-up prefix, backfill meter, current tick — with every tick wrapped in `Step.run(row.name, row.clazz, …)` so it carries the class's deadline geometry and durable exit, and each execution's step key is the tick's `DateTime.formatIso` instant — a re-fired tick replays its recorded exit instead of double-running.
 - Law: exactly-once-per-tick is the cluster fact — the cron rides the singleton substrate, migrating on rebalance, firing once per cluster regardless of runner count; a per-runner guard, a lock row, or a "am I the leader" read beside it is unspellable.
-- Law: catch-up is a bounded computed prefix, not an open loop — on execution the pass reads the last-run mark through the caller-supplied `marks` projection (an audit read over the `cadence.backfilled`/step-exit evidence — read-side material, so the mint carries no run-history table), walks `Cron.sequenceReverse(cron, now)` only until the last run, filters ticks older than the misfire horizon, and applies the posture row: `skip` takes none, `once` takes the latest missed instant, and `all` takes at most the row's `backfill` ceiling before restoring chronological execution order. Every replay uses the same instant-keyed step, and each non-empty pass records a meter fact, so a long outage cannot allocate an unbounded tick roster or conceal truncated recovery policy.
+- Law: catch-up is a bounded computed prefix, not an open loop — on execution the pass reads the last-run mark through the caller-supplied `marks` projection (an audit read over the `cadence.backfilled`/step-exit evidence — read-side material, so the mint carries no run-history table), walks `Cron.sequenceReverse(cron, now)` only until the last run, filters ticks older than the misfire horizon, and applies the posture row: `skip` takes none, `once` takes the latest missed instant, and `all` takes at most the row's `backfill` ceiling before restoring chronological execution order. Every replay uses the same instant-keyed step, so a long outage can never allocate an unbounded tick roster.
+- Law: the backlog carries its own truncation, because the executed count cannot state it — the walk pulls ONE element past the posture ceiling, which proves a clip while the ceiling still bounds the iteration, and the meter fact publishes the admitted count beside that flag. A fact carrying the count alone reads identically whether the backlog fit the posture or the posture silently dropped every earlier tick of an outage, and only the second is a recovery an operator must widen a ceiling for; counting the true missed set to state the same fact would materialize the roster the ceiling exists to refuse.
 - Law: `Date` lives only at the `Cron.sequenceReverse` seam — the iterator's platform `Date` converts through `DateTime.unsafeFromDate` inside the seam's own `Iterable.map`, so the cadence-domain callback, the tick identity, and every comparison ride `DateTime.Utc`; a `Date`-typed callback or a `toISOString` identity is the host-scalar leak `values.md` names.
 - Receipt: every tick's step exit is the durable run evidence — instant, verdict, duration — the operator census reads; no separate run-history table exists.
 - Growth: a new posture is one `Anchor` discriminant and one `_missed` arm; per-row notification is a tap on the row's body at its owner.
 - Packages: `@effect/cluster` (`ClusterCron`); `effect` (`Cron`, `Array`, `Iterable`, `Layer`, `DateTime`); `./flow.ts` (`Step`); `@rasm/ts/data` (`Fact` — the backfill meter).
 
 ```typescript
-const _missed = (row: Cadence.Row, lastRun: DateTime.Utc, now: DateTime.Utc): ReadonlyArray<DateTime.Utc> => {
-  if (row.catchUp === "skip") return []
+// The pull is `ceiling + 1`: the one element past the posture's admission PROVES the clip while the ceiling still
+// bounds the walk, so a long outage's truncation is a measured fact and never a materialized backlog.
+const _missed = (row: Cadence.Row, lastRun: DateTime.Utc, now: DateTime.Utc): Cadence.Backlog => {
+  if (row.catchUp === "skip") return { ticks: [], truncated: false }
   const horizon = DateTime.subtractDuration(now, row.misfire)
   const ceiling = row.catchUp === "once" ? 1 : row.backfill
-  return Array.reverse(Array.fromIterable(
+  const probed = Array.fromIterable(
     Iterable.take(
       Iterable.filter(
         Iterable.takeWhile(
@@ -72,9 +76,10 @@ const _missed = (row: Cadence.Row, lastRun: DateTime.Utc, now: DateTime.Utc): Re
         ),
         (tick) => DateTime.greaterThanOrEqualTo(tick, horizon),
       ),
-      ceiling,
+      ceiling + 1,
     ),
-  ))
+  )
+  return { ticks: Array.reverse(Array.take(probed, ceiling)), truncated: probed.length > ceiling }
 }
 
 const _step = <R>(row: Cadence.Row, run: (row: Cadence.Row, tick: DateTime.Utc) => Effect.Effect<void, never, R>, tick: DateTime.Utc) =>
@@ -93,16 +98,21 @@ const _caughtUp = <R, R2>(
   Effect.gen(function* () {
     const last = yield* marks(row.name)
     const backlog = _missed(row, Option.getOrElse(last, () => now), now)
-    yield* Effect.forEach(backlog, (tick) => _step(row, run, tick), { discard: true })
+    yield* Effect.forEach(backlog.ticks, (tick) => _step(row, run, tick), { discard: true })
     yield* Effect.when(
       Fact.record({
         action: "cadence.backfilled",
         actor: { key: row.name, kind: "system" },
-        change: [{ _tag: "Assigned", path: "/ticks", next: String(backlog.length) }],
+        // both halves ride the fact: the executed count alone reads identically whether the backlog fit the posture
+        // or the posture clipped an outage, and only the second is a recovery an operator must widen a ceiling for
+        change: [
+          { _tag: "Assigned", path: "/ticks", next: String(backlog.ticks.length) },
+          { _tag: "Assigned", path: "/truncated", next: String(backlog.truncated) },
+        ],
         retention: "operational",
         target: { key: row.name, kind: "cadence" },
       }),
-      () => backlog.length > 0,
+      () => backlog.ticks.length > 0,
     )
   })
 
@@ -157,7 +167,10 @@ const _host = <R, R2>(
         yield* _caughtUp(row, run, marks, booted)
         const driver = yield* Schedule.driver(Schedule.cron(row.cron))
         yield* Stream.runDrain(Stream.repeatEffectOption(
-          Effect.zipRight(driver.next(undefined), _fired(row, run, marks)),
+          // `driver.next` owns the stream's ONE termination channel (`Option<never>`), so a tick's own refusal folds
+          // to the log rail before the zip: a `StepFault` left on the channel neither types as that terminator nor
+          // may end a daemon whose law is at-most-once-per-process, and the tick's durable exit is the real evidence.
+          Effect.zipRight(driver.next(undefined), Effect.catchAllCause(_fired(row, run, marks), Effect.logError)),
         ))
       })), { discard: true }),
   )

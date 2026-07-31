@@ -1,8 +1,8 @@
 # [COMPUTE_ESTIMATOR]
 
-Rasm.Compute statistical-learning lane: one `Estimator` `[Union]` carrying a uniform `Fit(Estimator, Design, EstimatorPolicy, IClock) → FittedModel` / `Predict(FittedModel, X) → Prediction` contract across regression, reduction, clustering, classification, forecasting, changepoint, and anomaly families, keyed to one `EstimatorModel` fit-result carrier. Contract stays uniform while each row owns its mechanism: closed-form factorization covers OLS/ridge QR, PCA SVD, LS-SVM Gram, and AR lag-QR; `torch.autograd` with `torch.optim` minimizes lasso L1 and canonical-link GLM deviance; specialized folds own k-means, GMM, NMF, DBSCAN, linkage, CUSUM, Bayesian-online run-length inference, and correlated-residual scoring. `Design.Admit` proves raw evidence once; row admission then proves response support, feature support, labels, temporal history, and detector ranges. `Prediction` closes over response, projection, assignment, and anomaly evidence.
+Rasm.Compute statistical-learning lane: one `Estimator` `[Union]` carrying a uniform `Fit(Estimator, Design, EstimatorPolicy, IClock) → FittedModel` / `Predict(FittedModel, X) → Prediction` contract across regression, reduction, clustering, classification, forecasting, changepoint, and anomaly families, keyed to one `EstimatorModel` fit-result carrier. Contract stays uniform while every row owns its own mechanism, which `[02]` fixes row by row. `Design.Admit` proves raw evidence once; row admission then proves response, feature, label, history, curve-support, and detector ranges.
 
-Vocabulary owned here: `EstimatorFamily`/`EstimatorKind`/`LinkFunction`/`OptimDriver`/`TimeSeriesModel`, `TemporalSpec`, the `Estimator`/`EstimatorModel`/`Prediction`/`FittedModel` carriers, `Design`, family-shaped `EstimatorPolicy`, `EstimatorFold`, and the `[02.1]-[HYPOTHESIS_LAW]` `StatisticalTest` axis. Dense factorizations ride `Tensor/blas#DENSE_ALGEBRA`; descriptive and distribution surfaces ride `MathNet.Numerics`; `ComputeReceipt`, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition. Conditioned multi-channel evidence enters detection from `Stats/signal#SIGNAL_LANE`; a fit lands the dedicated `Runtime/receipts#RECEIPT_UNION` `Fit` case; offline deep-training studies cross `ONE_GRADUATION_EVIDENCE` by content key.
+Dense factorizations ride `Tensor/blas#DENSE_ALGEBRA`; descriptive, regression, and distribution surfaces ride `MathNet.Numerics`; `ComputeReceipt`, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition. Conditioned multi-channel evidence enters detection from `Stats/signal#SIGNAL_LANE`; a fit lands the dedicated `Runtime/receipts#RECEIPT_UNION` `Fit` case; offline deep-training studies cross `ONE_GRADUATION_EVIDENCE` by content key.
 
 ## [01]-[INDEX]
 
@@ -11,14 +11,14 @@ Vocabulary owned here: `EstimatorFamily`/`EstimatorKind`/`LinkFunction`/`OptimDr
 
 ## [02]-[ESTIMATOR_LANE]
 
-- Owner: `EstimatorFamily` is the receipt family axis; `EstimatorKind` rows carry supervised fit behavior; `TimeSeriesModel` rows carry forecast or detector fit behavior; `TemporalSpec` is the parameterized temporal generator and derives its `TimeSeriesModel`; `Estimator` types the problem; `ClusterShape` types grouping ingress; `EstimatorModel` carries fitted parameters; `Prediction` types response, projection, assignment, or anomaly egress; `Design` admits evidence once; `EstimatorPolicy` admits family policy; `FitContext` carries the proven correspondence; `IterativeEngine` owns torch-loss fitting; `EstimatorFold` owns `Fit`, `Predict`, and `Validate`.
-- Cases: `EstimatorFamily` regression · reduction · cluster · classify · temporal; `EstimatorKind` owns the supervised/reduction/grouping/classification rows; `TimeSeriesModel` owns ar · arma · exponential-smoothing · state-space · cusum · bayesian-online · correlated-residual; `TemporalSpec` carries one parameter-complete case for each temporal row; `EstimatorModel` adds `Detector` beside the fit carriers; `Prediction` adds `Anomaly` beside `Response`/`Projection`/`Assignment`.
+- Owner: `EstimatorFamily` is the receipt family axis; `EstimatorKind` rows carry supervised fit behavior; `TimeSeriesModel` rows carry forecast or detector fit behavior; `CurveForm` rows carry the coefficient fit and the evaluator for one curve shape; `TemporalSpec` is the parameterized temporal generator and derives its `TimeSeriesModel`, `CurveSpec` the parameterized curve generator deriving its `CurveForm`; `Estimator` types the problem; `ClusterShape` types grouping ingress; `EstimatorModel` carries fitted parameters; `Prediction` types response, projection, assignment, or anomaly egress; `Design` admits evidence once; `EstimatorPolicy` admits family policy; `FitContext` carries the proven correspondence; `IterativeEngine` owns torch-loss fitting; `EstimatorFold` owns `Fit`, `Predict`, and `Validate`.
+- Cases: `EstimatorFamily` regression · reduction · cluster · classify · temporal; `EstimatorKind` owns the supervised/reduction/grouping/classification rows; `TimeSeriesModel` owns ar · arma · exponential-smoothing · state-space · cusum · bayesian-online · correlated-residual; `CurveForm` owns polynomial · exponential · power · logarithm · combination; `TemporalSpec` and `CurveSpec` each carry one parameter-complete case per row; `Estimator.Curve` reports the regression family so the held-out validator scores it with no second split policy; `EstimatorModel` adds `Curve` and `Detector` beside the fit carriers; `Prediction` adds `Anomaly` beside `Response`/`Projection`/`Assignment`.
 - Entry: `Design.Admit(Matrix<double>, Option<Vector<double>>)` proves non-empty, finite, aligned evidence. `Fit` proves family correspondence, policy ranges, estimator support, and `TemporalSpec` history/ranges before dispatch. `Predict` projects, assigns, forecasts, or scores anomalies through the total `EstimatorModel` switch. `Validate` scores supervised held-out folds and forecasting forward chains; unsupervised detectors do not fabricate validation labels.
-- Auto: `Fit` flattens unions once into `FitContext`, then dispatches the row kernel. Temporal forecasting routes AR through thin QR and ARMA/Holt/state-space through `LevenbergMarquardt`; detection fits one admitted multivariate Gaussian baseline through `Admission.Definite`, then CUSUM folds whitened innovation magnitude, Bayesian-online maintains a budget-capped run-length posterior with conjugate known-covariance mean updates, and correlated-residual scoring reads a `ChiSquared.InvCDF` threshold over Mahalanobis evidence. `Validate` derives contiguous, forward-chain, or unsupported behavior from the typed estimator case.
+- Auto: `Fit` flattens unions once into `FitContext`, then dispatches the row kernel. Curve rows run one shared kernel that captures the library fit, proves the coefficient census and finiteness, and scores `RSquared` and `StandardError` on the original response scale rather than the linearized one the library fits on, so an exponential row's quality compares with a polynomial's. Temporal forecasting routes AR through thin QR and ARMA/Holt/state-space through `LevenbergMarquardt`; detection fits one admitted multivariate Gaussian baseline through `Admission.Definite`, then CUSUM folds whitened innovation magnitude, Bayesian-online maintains a budget-capped run-length posterior with conjugate known-covariance mean updates, and correlated-residual scoring reads a `ChiSquared.InvCDF` threshold over Mahalanobis evidence. `Validate` derives contiguous, forward-chain, or unsupported behavior from the typed estimator case.
 - Receipt: a fit emits the dedicated `Fit` `ComputeReceipt` case `Runtime/receipts#RECEIPT_UNION` declares for this lane (one case row per measured concern, as the FEA `Solver/contract#SOLVE_CONTRACT` `Solve` and the optimizer/sweep/clash/twin/uncertainty cases each own a row rather than overloading a sibling), carrying family, estimator key, carrier parameter count, iteration count, residual, converged flag, the named fit-quality value, the metric label read off the row's `Metric` column (never a per-arm literal), and retained reduction rank; a closed-form fit ALSO emits the blas `Factorization` receipt under the same `CorrelationId`. Fit-quality and rank read back operator-visibly through the receipt stream (a stall through `ReceiptFolds.Nonconverged`) instead of dying write-only on the carrier.
 - Packages: MathNet.Numerics, TorchSharp, libtorch-cpu, HyperJet (temporal-fit exact-Jacobian scalar-AD — recurrences authored once over `DDScalar`, the LM hyperdual arm reading `GetGradient()`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), Rasm.Persistence (project), BCL inbox
-- Growth: a new temporal modality is one `TemporalSpec` case deriving one `TimeSeriesModel` row and binding one kernel; the spec owns every non-reconstructible parameter. New fitted or prediction shapes extend `EstimatorModel` or `Prediction` only when payload timing differs. Per-model estimator classes, detector DTOs, and universal temporal knob records are rejected.
-- Boundary: each row binds its genuine mechanism; forced SVD or torch-loss routing is rejected. Closed-form estimators reuse `Tensor/blas#DENSE_ALGEBRA`, GLM rows minimize canonical-link deviance, specialized grouping rows retain their mutation-local kernels, and detector covariance factors through `Admission.Definite`. `Prediction` is total across response, projection, assignment, and anomaly evidence; neither `Tensor` nor an untyped score array crosses the boundary. `Stats/signal#SIGNAL_LANE` produces conditioned evidence, Stats owns reusable changepoint/anomaly detection, and the digital twin consumes that detector beside its optimizer-owned surrogate. Hypothesis tests validate `Solver/uncertainty#UNCERTAINTY_LANE` samples; offline deep training remains Python-owned behind `ONE_GRADUATION_EVIDENCE`.
+- Growth: a new temporal modality is one `TemporalSpec` case deriving one `TimeSeriesModel` row and binding one kernel; a new curve shape is one `CurveSpec` case deriving one `CurveForm` row carrying its coefficient fit and evaluator, with the shared kernel untouched; each spec owns every non-reconstructible parameter. New fitted or prediction shapes extend `EstimatorModel` or `Prediction` only when payload timing differs. Per-model estimator classes, detector DTOs, and universal temporal knob records are rejected.
+- Boundary: each row binds its genuine mechanism; forced SVD or torch-loss routing is rejected. Curve rows are univariate by construction — a multi-column design is a typed refusal, not a silent first-column read — and each row proves the support its own linearization needs, so a non-positive response never reaches an exponential log and a non-positive feature never reaches a power or logarithm log. Closed-form estimators reuse `Tensor/blas#DENSE_ALGEBRA`, GLM rows minimize canonical-link deviance, specialized grouping rows retain their mutation-local kernels, and detector covariance factors through `Admission.Definite`. `Prediction` is total across response, projection, assignment, and anomaly evidence; neither `Tensor` nor an untyped score array crosses the boundary. `Stats/signal#SIGNAL_LANE` produces conditioned evidence, Stats owns reusable changepoint/anomaly detection, and the digital twin consumes that detector beside its optimizer-owned surrogate. Hypothesis tests validate `Solver/uncertainty#UNCERTAINTY_LANE` samples; offline deep training remains Python-owned behind `ONE_GRADUATION_EVIDENCE`.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -137,6 +137,57 @@ public sealed partial class TimeSeriesModel {
     internal Fin<FittedModel> Fit(FitContext context) => fit(context);
 }
 
+// Curve rows own the linear-in-parameters fits whose design matrix is a transform of one feature column, so the
+// library's own log-linearization conventions stay authoritative and no arm re-derives which side gets logged.
+// Every row scores identically — `RSquared` is the quality and `StandardError` the residual — because each fits an
+// identity link, so the link-weighted Pearson dispersion the GLM rows need has nothing to weight here.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CurveForm {
+    public static readonly CurveForm Polynomial = new(
+        "polynomial",
+        static (spec, x, y) => Fit.Polynomial(x, y, spec.Terms - 1, DirectRegressionMethod.QR),
+        static (_, c, x) => MathNet.Numerics.Polynomial.Evaluate(x, [.. c]));
+    public static readonly CurveForm Exponential = new(
+        "exponential",
+        static (_, x, y) => Pair(Fit.Exponential(x, y, DirectRegressionMethod.QR)),
+        static (_, c, x) => c[0] * Math.Exp(c[1] * x));
+    public static readonly CurveForm Power = new(
+        "power",
+        static (_, x, y) => Pair(Fit.Power(x, y, DirectRegressionMethod.QR)),
+        static (_, c, x) => c[0] * Math.Pow(x, c[1]));
+    public static readonly CurveForm Logarithm = new(
+        "logarithm",
+        static (_, x, y) => Pair(Fit.Logarithm(x, y, DirectRegressionMethod.QR)),
+        static (_, c, x) => c[0] + c[1] * Math.Log(x));
+    public static readonly CurveForm Combination = new(
+        "combination",
+        static (spec, x, y) => Fit.LinearCombination(x, y, [.. spec.Functions]),
+        static (spec, c, x) => spec.Functions.Map((basis, k) => c[k] * basis(x)).Sum());
+
+    private CurveForm(
+        string key,
+        Func<CurveSpec, double[], double[], double[]> fit,
+        Func<CurveSpec, Vector<double>, double, double> evaluate) : this(key) {
+        this.fit = fit;
+        this.evaluate = evaluate;
+    }
+
+    private readonly Func<CurveSpec, double[], double[], double[]> fit;
+    private readonly Func<CurveSpec, Vector<double>, double, double> evaluate;
+
+    public string Metric => "r2";
+
+    internal double[] Fit(CurveSpec spec, double[] x, double[] y) => fit(spec, x, y);
+
+    internal double Evaluate(CurveSpec spec, Vector<double> coefficients, double x) => evaluate(spec, coefficients, x);
+
+    // Two-parameter library fits name their elements differently (`(A, R)` versus `(A, B)`), so positional
+    // deconstruction reads both and no row spells a member name the next release could rename.
+    private static double[] Pair((double, double) row) => [row.Item1, row.Item2];
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ClusterShape {
     private ClusterShape() { }
@@ -189,30 +240,87 @@ public abstract partial record TemporalSpec {
             : Fin.Fail<Unit>(ComputeFault.Create($"<temporal-detection:{rows}x{columns}:warmup={warmup}:{first}:{second}>"));
 }
 
+// `CurveSpec` generates a curve row exactly as `TemporalSpec` generates a temporal one, owning every parameter its
+// form cannot reconstruct and deriving the `CurveForm` that binds the kernel.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CurveSpec {
+    private CurveSpec() { }
+
+    public sealed record Polynomial(int Order) : CurveSpec;
+    public sealed record Exponential : CurveSpec;
+    public sealed record Power : CurveSpec;
+    public sealed record Logarithm : CurveSpec;
+    public sealed record Combination(Seq<Func<double, double>> Basis) : CurveSpec;
+
+    public CurveForm Form => Switch(
+        polynomial: static _ => CurveForm.Polynomial, exponential: static _ => CurveForm.Exponential,
+        power: static _ => CurveForm.Power, logarithm: static _ => CurveForm.Logarithm,
+        combination: static _ => CurveForm.Combination);
+
+    // Fitted-parameter count, the degrees of freedom `GoodnessOfFit.StandardError` consumes: a polynomial of order n
+    // fits n+1 coefficients, the log-linearized rows fit two, and a combination fits one per basis function.
+    public int Terms => Switch(
+        polynomial: static s => s.Order + 1, exponential: static _ => 2,
+        power: static _ => 2, logarithm: static _ => 2,
+        combination: static s => s.Basis.Count);
+
+    internal Seq<Func<double, double>> Functions => Switch(
+        combination: static s => s.Basis,
+        polynomial: static _ => Seq<Func<double, double>>(), exponential: static _ => Seq<Func<double, double>>(),
+        power: static _ => Seq<Func<double, double>>(), logarithm: static _ => Seq<Func<double, double>>());
+
+    // `Power` and `Logarithm` linearize through `ln x` and `Exponential` through `ln y`, so each row's admission
+    // proves the support its transform needs instead of letting the library return a silent NaN coefficient.
+    internal Fin<Unit> Admit(Design design) =>
+        design.Columns != 1
+            ? Fin.Fail<Unit>(ComputeFault.Create($"<curve-univariate:{design.Columns}>"))
+        : design.Rows <= Terms
+            ? Fin.Fail<Unit>(ComputeFault.Create($"<curve-underdetermined:{design.Rows}<={Terms}>"))
+        : Switch(
+            state: design,
+            polynomial: static (d, s) => s.Order >= 1
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(ComputeFault.Create($"<curve-order:{s.Order}>")),
+            exponential: static (d, _) => Support(d.Targets, "curve-exponential-response"),
+            power: static (d, _) => Support(Optional(d.Features.Column(0)), "curve-power-feature")
+                .Bind(_ => Support(d.Targets, "curve-power-response")),
+            logarithm: static (d, _) => Support(Optional(d.Features.Column(0)), "curve-logarithm-feature"),
+            combination: static (_, s) => !s.Basis.IsEmpty && s.Basis.ForAll(static f => f is not null)
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(ComputeFault.Create("<curve-basis-empty>")));
+
+    private static Fin<Unit> Support(Option<Vector<double>> values, string gate) =>
+        values.Filter(static v => v.All(static value => value > 0.0)).IsSome
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(ComputeFault.Create($"<{gate}>"));
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Estimator {
     private Estimator() { }
 
     public sealed record Regression(EstimatorKind Kind, Option<LinkFunction> Link) : Estimator;
+    public sealed record Curve(CurveSpec Spec) : Estimator;
     public sealed record Reduction(EstimatorKind Kind, int Rank) : Estimator;
     public sealed record Cluster(EstimatorKind Kind, ClusterShape Shape) : Estimator;
     public sealed record Classify(EstimatorKind Kind) : Estimator;
     public sealed record Temporal(TemporalSpec Spec) : Estimator;
 
     public EstimatorFamily Family => Switch(
-        regression: static _ => EstimatorFamily.Regression, reduction: static _ => EstimatorFamily.Reduction,
+        regression: static _ => EstimatorFamily.Regression, curve: static _ => EstimatorFamily.Regression,
+        reduction: static _ => EstimatorFamily.Reduction,
         cluster: static _ => EstimatorFamily.Cluster, classify: static _ => EstimatorFamily.Classify,
         temporal: static _ => EstimatorFamily.Temporal);
 
     // One uniform estimator key and metric label for the receipt — both read the row columns, so no arm
     // re-derives per-kind knowledge through nested ternaries or label literals.
     public string Key => Switch(
-        regression: static r => r.Kind.Key, reduction: static d => d.Kind.Key, cluster: static c => c.Kind.Key,
-        classify: static c => c.Kind.Key, temporal: static t => t.Spec.Model.Key);
+        regression: static r => r.Kind.Key, curve: static c => c.Spec.Form.Key, reduction: static d => d.Kind.Key,
+        cluster: static c => c.Kind.Key, classify: static c => c.Kind.Key, temporal: static t => t.Spec.Model.Key);
 
     public string Metric => Switch(
-        regression: static r => r.Kind.Metric, reduction: static d => d.Kind.Metric, cluster: static c => c.Kind.Metric,
-        classify: static c => c.Kind.Metric, temporal: static t => t.Spec.Model.Metric);
+        regression: static r => r.Kind.Metric, curve: static c => c.Spec.Form.Metric, reduction: static d => d.Kind.Metric,
+        cluster: static c => c.Kind.Metric, classify: static c => c.Kind.Metric, temporal: static t => t.Spec.Model.Metric);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -220,6 +328,9 @@ public abstract partial record EstimatorModel {
     private EstimatorModel() { }
 
     public sealed record Linear(Vector<double> Coefficients, double Intercept, LinkFunction Link) : EstimatorModel;
+    // Specs ride the carrier because a combination row's basis is the only thing that can evaluate its own
+    // coefficients, and a polynomial's order is recoverable from the coefficient count for every other row.
+    public sealed record Curve(CurveSpec Spec, Vector<double> Coefficients) : EstimatorModel;
     public sealed record Basis(Matrix<double> Components, Vector<double> Singular, Vector<double> Mean, double EnergyFraction) : EstimatorModel;
     public sealed record KernelBasis(Matrix<double> Training, Matrix<double> Alphas, Vector<double> Eigen, double Bandwidth, Vector<double> RowMean, double GrandMean) : EstimatorModel;
     public sealed record Factors(Matrix<double> Encoder, Matrix<double> Components) : EstimatorModel;
@@ -236,6 +347,7 @@ public abstract partial record EstimatorModel {
 
     public long ParameterCount => Switch(
         linear: static c => (long)c.Coefficients.Count,
+        curve: static c => (long)c.Coefficients.Count,
         basis: static b => (long)b.Components.RowCount,
         kernelBasis: static k => (long)k.Eigen.Count,
         factors: static f => (long)f.Components.RowCount * f.Components.ColumnCount,
@@ -254,7 +366,7 @@ public abstract partial record EstimatorModel {
         basis: static b => b.Singular.Count,
         kernelBasis: static k => k.Eigen.Count,
         factors: static f => f.Encoder.ColumnCount,
-        linear: static _ => 0, partition: static _ => 0, density: static _ => 0, mixture: static _ => 0,
+        linear: static _ => 0, curve: static _ => 0, partition: static _ => 0, density: static _ => 0, mixture: static _ => 0,
         margin: static _ => 0, neighbors: static _ => 0, bayes: static _ => 0, lag: static _ => 0, detector: static _ => 0);
 }
 
@@ -356,7 +468,7 @@ public sealed record Design {
 // so a kernel reads proven scalars and never re-probes a case or casts a policy.
 internal sealed record FitContext(
     Estimator Estimator, Design Design, IClock Clock, LinkFunction Link, OptimDriver Driver,
-    int Rank, Option<ClusterShape> Cluster, Option<TemporalSpec> Temporal,
+    int Rank, Option<ClusterShape> Cluster, Option<TemporalSpec> Temporal, Option<CurveSpec> Curve,
     double Regularization, double LearningRate, double EnergyFraction, double Bandwidth, int Neighbors, double Ridge, FitBudget Budget);
 
 public sealed record FittedModel(Estimator Estimator, EstimatorModel Carrier, double Quality, double Residual, int Iterations, bool Converged, Instant At) {
@@ -407,6 +519,7 @@ public static class EstimatorFold {
         Admitted(estimator, design, policy, clock).Bind(static ctx => ctx.Estimator.Switch(
             state: ctx,
             regression: static (c, r) => r.Kind.Fit(c),
+            curve: static (c, k) => CurveFit(c, k.Spec),
             reduction: static (c, d) => d.Kind.Fit(c),
             cluster: static (c, g) => g.Kind.Fit(c),
             classify: static (c, k) => k.Kind.Fit(c),
@@ -416,6 +529,9 @@ public static class EstimatorFold {
         model.Carrier.Switch<Matrix<double>, Fin<Prediction>>(
             state: features,
             linear: static (x, c) => Fin.Succ<Prediction>(new Prediction.Response(x.Multiply(c.Coefficients).Add(c.Intercept).Map(c.Link.Mean))),
+            curve: static (x, c) => x.ColumnCount == 1
+                ? Fin.Succ<Prediction>(new Prediction.Response(x.Column(0).Map(value => c.Spec.Form.Evaluate(c.Spec, c.Coefficients, value))))
+                : Fin.Fail<Prediction>(ComputeFault.Create($"<curve-univariate:{x.ColumnCount}>")),
             basis: static (x, b) => Fin.Succ<Prediction>(new Prediction.Projection(Center(x, b.Mean).Multiply(b.Components.Transpose()))),
             kernelBasis: static (x, k) => Fin.Succ<Prediction>(new Prediction.Projection(KernelProject(x, k))),
             factors: static (x, f) => Fin.Succ<Prediction>(new Prediction.Projection(NonNegativeEncode(x, f.Components))),
@@ -452,12 +568,13 @@ public static class EstimatorFold {
     // --- [ADMISSION] ----------------------------------------------------------------------
 
     private static Fin<FitContext> Admitted(Estimator estimator, Design design, EstimatorPolicy policy, IClock clock) {
-        (Option<EstimatorKind> kind, LinkFunction link, int rank, Option<ClusterShape> cluster, Option<TemporalSpec> temporal) = estimator.Switch(
-            regression: static r => (Optional(r.Kind), r.Link.IfNone(r.Kind.Link), 0, Option<ClusterShape>.None, Option<TemporalSpec>.None),
-            reduction: static d => (Optional(d.Kind), LinkFunction.Identity, d.Rank, Option<ClusterShape>.None, Option<TemporalSpec>.None),
-            cluster: static c => (Optional(c.Kind), LinkFunction.Identity, 0, Optional(c.Shape), Option<TemporalSpec>.None),
-            classify: static c => (Optional(c.Kind), LinkFunction.Identity, 0, Option<ClusterShape>.None, Option<TemporalSpec>.None),
-            temporal: static t => (Option<EstimatorKind>.None, LinkFunction.Identity, 0, Option<ClusterShape>.None, Optional(t.Spec)));
+        (Option<EstimatorKind> kind, LinkFunction link, int rank, Option<ClusterShape> cluster, Option<TemporalSpec> temporal, Option<CurveSpec> curve) = estimator.Switch(
+            regression: static r => (Optional(r.Kind), r.Link.IfNone(r.Kind.Link), 0, Option<ClusterShape>.None, Option<TemporalSpec>.None, Option<CurveSpec>.None),
+            curve: static c => (Option<EstimatorKind>.None, LinkFunction.Identity, 0, Option<ClusterShape>.None, Option<TemporalSpec>.None, Optional(c.Spec)),
+            reduction: static d => (Optional(d.Kind), LinkFunction.Identity, d.Rank, Option<ClusterShape>.None, Option<TemporalSpec>.None, Option<CurveSpec>.None),
+            cluster: static c => (Optional(c.Kind), LinkFunction.Identity, 0, Optional(c.Shape), Option<TemporalSpec>.None, Option<CurveSpec>.None),
+            classify: static c => (Optional(c.Kind), LinkFunction.Identity, 0, Option<ClusterShape>.None, Option<TemporalSpec>.None, Option<CurveSpec>.None),
+            temporal: static t => (Option<EstimatorKind>.None, LinkFunction.Identity, 0, Option<ClusterShape>.None, Optional(t.Spec), Option<CurveSpec>.None));
         (double Regularization, double LearningRate, double EnergyFraction, double Bandwidth, int Neighbors, double Ridge, FitBudget Budget) knobs = policy.Switch(
             regression: static p => (p.Regularization, p.LearningRate, 0.0, 0.0, 0, 0.0, p.Budget),
             reduction: static p => (0.0, 0.0, p.EnergyFraction, p.Bandwidth, 0, 0.0, p.Budget),
@@ -477,9 +594,12 @@ public static class EstimatorFold {
         return correspondence
             .Bind(_ => policy.Admit())
             .Bind(_ => temporal.Map(spec => spec.Admit(design.Rows, design.Columns)).IfNone(Fin.Succ(unit)))
-            .Map(_ => new FitContext(estimator, design, clock, link, driver, rank, cluster, temporal,
+            .Bind(_ => curve.Map(spec => spec.Admit(design)).IfNone(Fin.Succ(unit)))
+            .Map(_ => new FitContext(estimator, design, clock, link, driver, rank, cluster, temporal, curve,
                 knobs.Regularization, knobs.LearningRate, knobs.EnergyFraction, knobs.Bandwidth, knobs.Neighbors, knobs.Ridge, knobs.Budget))
-            .Bind(ctx => kind.Map(row => row.Admit(ctx)).IfNone(TemporalDesign(ctx)).Map(_ => ctx));
+            .Bind(ctx => kind.Map(row => row.Admit(ctx))
+                .IfNone(() => curve.IsSome ? RealResponse(ctx) : TemporalDesign(ctx))
+                .Map(_ => ctx));
     }
 
     internal static Fin<Unit> AnyDesign(FitContext _) => Fin.Succ(unit);
@@ -587,6 +707,32 @@ public static class EstimatorFold {
             Vector<double> b = tikhonov > 0.0 ? Vector<double>.Build.Dense(design.RowCount + design.ColumnCount, i => i < design.RowCount ? y[i] : 0.0) : y;
             return DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), a, b, TolerancePolicy.Derive(a, b))
                 .Map(theta => Build(ctx, y, Split(theta), 0.0, 1, true));
+        });
+
+    // One kernel serves every curve row: the row supplies its coefficient fit and its evaluator, and the shared body
+    // owns capture, finiteness, and the uniform quality pair. `RSquared` scores the surrogate on the ORIGINAL scale
+    // rather than the linearized one the library fits on, so an exponential row's quality is comparable with a
+    // polynomial's; `StandardError` reads the row's own fitted-parameter count as its degrees of freedom.
+    internal static Fin<FittedModel> CurveFit(FitContext ctx, CurveSpec spec) =>
+        Supervised(ctx).Bind(y => {
+            double[] x = ctx.Design.Features.Column(0).AsArray() ?? ctx.Design.Features.Column(0).ToArray();
+            double[] observed = y.AsArray() ?? y.ToArray();
+            return Try.lift(() => spec.Form.Fit(spec, x, observed)).Run()
+                .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<curve-fit:{error.Message}>"))
+                .Bind(coefficients => coefficients.Length == spec.Terms && TensorPrimitives.IsFiniteAll<double>(coefficients)
+                    ? Fin.Succ(Vector<double>.Build.DenseOfArray(coefficients))
+                    : Fin.Fail<Vector<double>>(ComputeFault.Create($"<curve-coefficients:{coefficients.Length}/{spec.Terms}>")))
+                .Map(coefficients => {
+                    double[] modelled = [.. x.Select(value => spec.Form.Evaluate(spec, coefficients, value))];
+                    return new FittedModel(
+                        ctx.Estimator,
+                        new EstimatorModel.Curve(spec, coefficients),
+                        GoodnessOfFit.RSquared(modelled, observed),
+                        GoodnessOfFit.StandardError(modelled, observed, spec.Terms),
+                        1,
+                        true,
+                        ctx.Clock.GetCurrentInstant());
+                });
         });
 
     internal static Fin<FittedModel> Penalized(FitContext ctx) =>

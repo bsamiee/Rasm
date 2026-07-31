@@ -12,21 +12,38 @@ Retrieval is one bound owner: five data-driven lanes — FTS, trigram, phonetic,
 ## [02]-[PORTS]
 
 - Owner: the `Embedder` `Context.Tag` — embed-with-fingerprint, the one cross-folder retrieval contract — and the `Reranker` tag read through `Effect.serviceOption` so rerank is presence-typed, never a knob.
-- Packages: `effect` (`Context`, `Schema`, `Array`).
+- Packages: `effect` (`Context`, `Schema`, `Array`); `@rasm/ts/core` (`FaultClass`).
 - Entry: the runtime branch's embedding rows satisfy `Embedder` at app composition; nothing in this folder imports a provider — the port is the whole seam, and a scope without an embedder simply has no semantic lane, the same degradation shape as a missing grant.
 - Receipt: singular `embed(text)` answers one vector under the port's own `fingerprint` — the satisfying Layer batches calls through `Batch.Engine`, the consuming seam proves both `vector.length === corpus.embedding.dims` and `port.fingerprint === corpus.embedding.fingerprint`, and only then can the semantic lane run.
 - Growth: an embedding capability axis (dimension negotiation, batch policy) is a member on this one port; a second model in one app is a second Layer against the same tag selected per scope, never a second tag.
-- Law: `EmbedFault` is the port's typed failure — reason-discriminated `budget | provider | shape`, schema-tagged so the persisted request band and any wire crossing carry it structurally — and retrieval folds it into lane exclusion BEFORE the census settles: the embed runs first, a failed embed folds to absence through `Effect.option`, the census marks the semantic lane `unembedded`, and the fused statement never names the lane its parameters cannot serve; text lanes still answer.
+- Law: `EmbedFault` is the port's typed failure — reason-discriminated `budget | provider | shape` over the core `FaultClass.family` seam, schema-tagged so the persisted request band and any wire crossing carry it structurally — and retrieval folds it into lane exclusion BEFORE the census settles: the embed runs first, a failed embed folds to absence through `Effect.option`, the census marks the semantic lane `unembedded`, and the fused statement never names the lane its parameters cannot serve; text lanes still answer.
+- Law: recovery policy reads the core lattice off `class` — `budget` classifies `exhausted` and `provider` `unavailable` (both system-blamed and retryable, so a satisfying Layer's own schedule re-drives them), `shape` classifies `invalid` because a vector disagreeing with the corpus dimension or fingerprint is quarantined evidence a re-drive cannot fix — so retryability, blame, and quarantine derive from the core row table and no local rank or retry column rides beside `class`.
 - Law: the `Reranker` answer is provider material, never trusted order — the port's declared type admits duplicates, unknown cells, and omissions, so the consuming seam (`[4]`'s rerank admission) proves the answer against its own candidate window and no port value can change hit cardinality; the port stays thin because the evidence lives at the seam that holds the candidates.
 - Law: the port's provider side batches through `read/batch.md`'s engine — the window geometry is the satisfying Layer's concern; this port declares only the vector contract.
 
 ```typescript signature
 import { Array, Context, Effect, Schema } from "effect"
+import { FaultClass } from "@rasm/ts/core"
+
+// One row per reason: the core kind alone. Retryability, blame, and quarantine are the core FaultClass row
+// table's — a rank or retry column here would fork that taxonomy into this folder.
+const _family = FaultClass.family(["budget", "provider", "shape"] as const, {
+  budget: { class: "exhausted" },
+  provider: { class: "unavailable" },
+  shape: { class: "invalid" },
+})
 
 class EmbedFault extends Schema.TaggedError<EmbedFault>()("EmbedFault", {
-  reason: Schema.Literal("budget", "provider", "shape"),
+  reason: _family.schema,
   detail: Schema.String,
-}) {}
+}) {
+  get class(): FaultClass.Kind {
+    return _family.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<embed:${this.reason}> ${this.detail}`
+  }
+}
 
 class Embedder extends Context.Tag("data/Embedder")<Embedder, {
   readonly fingerprint: Search.Fingerprint
@@ -312,7 +329,7 @@ const _admitted = (
 - Law: rerank is an admitted window policy — when the `Reranker` is present and the request asks, the top `window` fused hits re-order by the port's verdict AFTER the seam proves it: the answer deduplicates, unknown cells drop, candidates the provider omitted keep their fusion order behind the ranked head, an empty body window reports `partial`, and the tail beyond the window never moves — so hit cardinality is invariant under any provider answer, the page's tail guarantee holds for every value the port type admits, and a provider fault degrades to fusion order through `Effect.option`; retrieval never fails on the accelerator.
 
 ```typescript signature
-import { Array, Effect, HashMap, HashSet, Match, Option, type ParseResult, Record, Schema } from "effect"
+import { Array, Effect, HashMap, HashSet, Match, Option, type ParseResult, pipe, Record, Schema } from "effect"
 import { SqlClient, SqlSchema, type SqlError, type Statement } from "@effect/sql"
 import { Capability } from "../lane/capability.ts"
 import type { Pg } from "../lane/postgres.ts"
@@ -404,16 +421,25 @@ const _Facet = Schema.Struct({
   count: Schema.Union(Schema.NonNegativeInt, Schema.NumberFromString.pipe(Schema.int(), Schema.nonNegative())),
 })
 
+// The reusable record terminal is `Match.tagsExhaustive` under `Match.type`, so every arm checks against the stated
+// return at the arm rather than at the terminal, and one dispatch spelling serves the whole corpus.
 const _scoped = (sql: SqlClient.SqlClient, filter: ReadonlyArray<Search.Filter>) =>
   Array.isNonEmptyReadonlyArray(filter)
-    ? sql.and(Array.map(filter, Match.typeTags<Search.Filter, Statement.Fragment>()({
-        Equal: (term) => sql`c.${sql(term.dim)} = ${term.value}`,
-        NotEqual: (term) => sql`c.${sql(term.dim)} <> ${term.value}`,
-        AtLeast: (term) => sql`c.${sql(term.dim)} >= ${term.value}`,
-        AtMost: (term) => sql`c.${sql(term.dim)} <= ${term.value}`,
-        Between: (term) => sql`c.${sql(term.dim)} BETWEEN ${term.lower} AND ${term.upper}`,
-        AnyOf: (term) => sql.or(Array.map(term.values, (value) => sql`c.${sql(term.dim)} = ${value}`)),
-      })))
+    ? sql.and(Array.map(
+      filter,
+      pipe(
+        Match.type<Search.Filter>(),
+        Match.withReturnType<Statement.Fragment>(),
+        Match.tagsExhaustive({
+          Equal: (term) => sql`c.${sql(term.dim)} = ${term.value}`,
+          NotEqual: (term) => sql`c.${sql(term.dim)} <> ${term.value}`,
+          AtLeast: (term) => sql`c.${sql(term.dim)} >= ${term.value}`,
+          AtMost: (term) => sql`c.${sql(term.dim)} <= ${term.value}`,
+          Between: (term) => sql`c.${sql(term.dim)} BETWEEN ${term.lower} AND ${term.upper}`,
+          AnyOf: (term) => sql.or(Array.map(term.values, (value) => sql`c.${sql(term.dim)} = ${value}`)),
+        }),
+      ),
+    ))
     : sql`1 = 1`
 
 const _fused = (

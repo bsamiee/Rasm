@@ -1,6 +1,6 @@
 # [CORE_CODEC]
 
-Keyed decoding drives the interchange plane: ONE closed census of every contract wire family — arm, mint source, consuming surface, and owning page as data columns — and ONE polymorphic registry whose mapped landing table resolves each codec-homed family to its decoded type, so `Wire.decode(family, octets)` is the single decode entry the branch owns and a per-family codec page is unspellable. Families landing in core vocabulary decode INTO the `value`/`state` owners with zero local twins; families whose consumers live in later waves land wire-owned shapes declared here once, adopted-verbatim on the decode-boundary names the producing peer mints. Beside the registry sit the four cross-cutting mechanics every row shares, each spelled once: the reason-discriminated `WireFault` rail with its bounded, replayable poison quarantine; the `Parity` combinator family — content-key mint-and-compare, golden-byte roundtrip, and the reflection walk over key cells; the divert-and-dedup `feed` combinator whose per-family transition policy is a row; and the sequence-gap Mealy the oplog watermark and the frame ordinal chain both mint evidence through. Module `core/src/interchange/codec.ts` owns it; a new wire family is one census row with one landing row, a new failure cause is one policy row, and a new feed is one `_feeds` row — never a sibling page, never a second rail.
+Keyed decoding drives the interchange plane: ONE closed census of every contract wire family — arm, mint source, consuming surface, and owning page as data columns — and ONE polymorphic registry whose mapped landing table resolves each codec-homed family to its decoded type, so `Wire.decode(family, octets)` is the single decode entry the branch owns and a per-family codec page is unspellable. Families landing in core vocabulary decode INTO the `value`/`state` owners with zero local twins; families whose consumers live outside core land wire-owned shapes declared here once, adopted-verbatim on the decode-boundary names the producing peer mints. Beside the registry sit the four cross-cutting mechanics every row shares, each spelled once: the reason-discriminated `WireFault` rail with its bounded, replayable poison quarantine; the `Parity` combinator family — content-key mint-and-compare, golden-byte roundtrip, and the reflection walk over key cells; the divert-and-dedup `feed` combinator whose per-family transition policy is a row; and the sequence-gap Mealy the oplog watermark and the frame ordinal chain both mint evidence through. Module `core/src/interchange/codec.ts` owns it; a new wire family is one census row with one landing row, a new failure cause is one policy row, and a new feed is one `_feeds` row — never a sibling page, never a second rail.
 
 ## [01]-[INDEX]
 
@@ -43,7 +43,7 @@ const _families = [
   "FlagVerdictWire", "ControlIntentWire", "LayoutConstraintWire", "CommandGateWire",
   "BcfTopicWire", "BcfViewpointWire", "GeoFeatureWire",
   "BimWire", "DiffWire", "IdsAuditWire",
-  "MaterialWire", "OpenPbrGroupsWire", "AppearanceSummaryWire", "TextureSetWire", "AssetSetManifest",
+  "MaterialWire", "OpenPbrGroupsWire", "TextureSetWire", "AssetSetManifest",
   "ArtifactFrameWire", "GeometryPayloadWire", "GeometryResidencyWire",
   "CommandPayloadWire", "SupportCaptureWire", "CapabilityDescriptorWire",
   "FileDescriptorSetWire",
@@ -85,9 +85,19 @@ const _census = {
   BimWire: { arm: "proto", source: "Rasm.Bim/Exchange", consumer: "ui", home: "codec" },
   DiffWire: { arm: "proto", source: "Rasm.Bim/Exchange", consumer: "ui", home: "codec" },
   IdsAuditWire: { arm: "proto", source: "Rasm.Bim/Exchange", consumer: "ui", home: "codec" },
-  MaterialWire: { arm: "proto", source: "Rasm.Materials/Appearance", consumer: "ui", home: "codec" },
-  OpenPbrGroupsWire: { arm: "proto", source: "Rasm.Materials/Appearance", consumer: "ui", home: "codec" },
-  AppearanceSummaryWire: { arm: "proto", source: "Rasm.Materials/Appearance", consumer: "ui", home: "codec" },
+  // The appearance families are MessagePack integer-keyed rosters mirrored field-for-field at every peer —
+  // `tests/contracts/MANIFEST.md` [02.9] forecloses a proto declaration beside them ("a second schema for one
+  // wire"), and `rasm/channels.proto` declares no message for either, so a proto arm here bound a generated
+  // schema that cannot exist and the landing could never decode the producer's actual bytes.
+  // The rosters are POSITIONAL: `[Key(n)]` is the array index, so the landings decode through the `[06]`
+  // wire-twin tuples under the [MIRROR_ORDER] law, and the vector family crosses NESTED at `MaterialWire`
+  // Key(1) — the producer's codec is `IAppearanceWire`-generic and emits no standalone vector document, so the
+  // `OpenPbrGroupsWire` row binds the same nested declaration rather than a second schema. The seam SUMMARY is
+  // NOT a family here: no producer emits a standalone summary document — its one wire leg is the
+  // `rasm.element.v1` `AppearanceWire` payload inside `NodeWire` (field 7), so the summary arrives through the
+  // `NodeWire` landing and `AppearanceSummary` below is its landing shape, never a census row.
+  MaterialWire: { arm: "msgpack", source: "Rasm.Materials/Appearance", consumer: "ui", home: "codec" },
+  OpenPbrGroupsWire: { arm: "msgpack", source: "Rasm.Materials/Appearance", consumer: "ui", home: "codec" },
   TextureSetWire: { arm: "proto", source: "Rasm.Materials/Raster", consumer: "ui", home: "codec" },
   AssetSetManifest: { arm: "proto", source: "python:artifacts/graphic/texture", consumer: "ui", home: "codec" },
   ArtifactFrameWire: { arm: "proto", source: "Rasm.Compute/Runtime", consumer: "runtime", home: "frame" },
@@ -105,45 +115,60 @@ const _wireLiteral: Schema.Literal<Wire.Families> = Schema.Literal(..._families)
 ## [03]-[FAULT_RAIL]
 
 [FAULT_RAIL]:
-- Owner: `WireFault`, the one reason-discriminated `Schema.TaggedError` for the whole plane over the `_policy` table — rank, quarantine disposition, replayability per reason — with `fromSlot`, the patch-arm slot triage, riding it as a static; and `Quarantine`, the `Effect.Service` owning the bounded poison intake, the held-frame census, the budgeted replay drain, and the `divert` dual transformer every decode surface composes; `PoisonFrame` rides the service as `Quarantine.Frame`, and the divert is the branch's `rasm.core.interchange.quarantine` tap point — the `observe/tap` name row a subscription observes held-frame evidence through.
+- Owner: `WireFault`, the one reason-discriminated `Schema.TaggedError` for the whole plane over a `FaultClass.family` mint — the branch class per reason beside the plane's own retention and replay dispositions — with `fromSlot`, the patch-arm slot triage, riding it as a static; and `Quarantine`, the `Effect.Service` owning the bounded poison intake, the held-frame census, the held-frame `diagnostic` render, the budgeted replay drain, and the `divert` dual transformer every decode surface composes; `PoisonFrame` rides the service as `Quarantine.Frame`, and the divert is the branch's `rasm.core.interchange.quarantine` tap point — the `observe/tap` name row a subscription observes held-frame evidence through.
 - Law: the family is sized by routing — every consumer routes on the one tag and reads `reason`/`family` as evidence; a per-cause class or a second plane fault family is the named spam defect, and `family` is typed by the census literal so an unnamed family is a compile error.
+- Law: severity is the branch lattice, never a plane rank — `class` projects through the family mint and dominance is `Array.max` over `FaultClass.severity`, so a wire fault and a folder fault compare on ONE scale and the tuple that declares that scale is the only edit site. A local rank column reproduces the ordering in a second place where the two silently disagree, and the two columns that DO survive beside `class` are dispositions no class row answers: whether the frame is held, and whether re-decoding it can change the verdict.
 - Law: evidence is data — `evidence` carries the `{ actual, expected }` pair for `stale`, `parity`, and `sequence`; `message` derives from fields and is never stored; classification of a `ParseError` into the family happens exactly once, at the intake seam where frame context exists to name `family` and `reason`.
 - Law: `sequence` never quarantines — a gap has no frame to hold; `overrun` marks a pre-decode ceiling refusal the frame rail mints; engine-internal ceiling throws surface as `ParseError` and classify `malformed` at intake; a truncated size-delimited header triages through `format#PROTO_ENGINE`'s `peek` into `truncated`.
 - Law: the patch arm's per-op error slots classify through `fromSlot` — `TestError` folds to `stale` carrying its `{ actual, expected }` pre-image evidence, `MissingError` to `conflict` naming the vanished path, and the residue to `malformed` — so the OCC refusal and the concurrent-edit divergence read as data on the one rail, and `stale`/`conflict` have exactly one mint site.
 - Law: the intake is a bounded `TQueue` with transactional backpressure — a poison storm suspends its producer until replay takes capacity; `octets` arrive as a lazy thunk so the re-encode runs only on the failure path; `attempts` lives on the frame and replay re-enters a successor carrying `attempts + 1` with the original fault intact, so the terminal report names the first cause.
 - Law: the held census is slot-keyed and settles — the service's transactional `TRef<bigint>` mints one collision-free `slot` per intake, replay successors retain that slot, and one STM transaction installs the held row and executes `TQueue.offer` against the bounded intake atomically, so simultaneous same-family frames cannot overwrite one another and a replay take cannot settle a frame before its census row exists. Delivered and retired frames remove the row transactionally, so `census` reads the live poison set exactly and the table cannot grow past the frames still owed a verdict; `release` removes the same slot, and replay rechecks membership immediately before decode so a queued foreign eviction cannot deliver later.
 - Law: replay is generic over every row — the drain takes the family-keyed decode as a parameter, so the service imports no landing and the app root supplies the record it composed from `Wire.decode`; the pump cadence is unbounded `spaced` because the per-frame `attempts` budget is the bound, and the drain suspends on an empty intake rather than polling.
-- Growth: a new failure cause is one `_policy` row; a retention or per-family cap axis is one `_INTAKE` field.
+- Law: the drain grades the whole `Exit`, never the typed channel alone — the replay decode reifies through `Effect.exit` and folds through `Exit.match` interrupt-first: an interrupted attempt decided nothing and re-admits the frame unchanged, a typed failure re-admits a successor at `attempts + 1`, and a DEFECT retires the frame. `Effect.matchEffect` sees `E` alone, so one `Effect.orDie` or rejected promise on any landing's decode path would escape the fold, kill the enclosing `Effect.forEach`, and terminate the pump for the process lifetime — every held frame then keeps a census row it can never discharge, which is the unbounded growth the settle law forecloses.
+- Law: a held frame is readable evidence, not opaque bytes — `diagnostic` renders a proto-armed frame through the family's own suite row and `toJsonString`, so the `rasm.core.interchange.quarantine` tap point and the operator report carry the decoded document beside the fault. The suite roster IS the arm probe (a family absent from `Proto.names` renders nothing), the drift-tolerant `_READ` posture keeps unknown fields in the rendering, and a decode that fails a second time answers absence rather than a nested fault.
+- Growth: a new failure cause is one `_policy` row carrying its class; a retention or per-family cap axis is one `_INTAKE` field.
 - Boundary: the wire-crossed `FaultDetail` altitude is `[05]`'s landing — a local rail importing it for a local failure is the altitude defect; availability degradation under a poison storm is `state` vocabulary wired at the app root.
-- Packages: `effect` (`Schema`, `Effect`, `STM`, `TMap`, `TQueue`, `TRef`, `HashMap`, `Chunk`, `DateTime`, `Schedule`, `Order`, `Array`, `Either`, `Function`, `Match`, `Option`); `rfc6902/patch` (`MissingError`, `TestError`); `./format.ts` (`Patch`).
+- Packages: `@bufbuild/protobuf` (`toJsonString`); `effect` (`Schema`, `Effect`, `STM`, `TMap`, `TQueue`, `TRef`, `Cause`, `Exit`, `HashMap`, `Chunk`, `DateTime`, `Schedule`, `Order`, `Array`, `Either`, `Function`, `Match`, `Option`); `rfc6902/patch` (`MissingError`, `TestError`); `./format.ts` (`Proto`, `Patch`); `../value/fault.ts` (`FaultClass`).
 
 ```typescript signature
-import { Chunk, DateTime, Effect, Either, Function, HashMap, Match, Option, Order, pipe, Predicate, Schedule, STM, TMap, TQueue, TRef } from "effect"
+import { toJsonString } from "@bufbuild/protobuf"
+import {
+  Cause, Chunk, DateTime, Effect, Either, Exit, Function, HashMap, Match, Option, Order, pipe, Predicate, Schedule,
+  STM, TMap, TQueue, TRef,
+} from "effect"
 import { MissingError, TestError } from "rfc6902/patch"
+import { FaultClass } from "../value/fault.ts"
+import { Proto } from "./format.ts"
 import type { Patch } from "./format.ts"
 
 const _causes = ["malformed", "truncated", "overrun", "sequence", "parity", "drift", "stale", "conflict"] as const
 
-const _policy = {
-  malformed: { rank: 4, quarantine: true, replayable: true },
-  truncated: { rank: 3, quarantine: true, replayable: true },
-  overrun: { rank: 5, quarantine: true, replayable: false },
-  sequence: { rank: 3, quarantine: false, replayable: false },
-  parity: { rank: 6, quarantine: true, replayable: false },
-  drift: { rank: 5, quarantine: true, replayable: true },
-  stale: { rank: 2, quarantine: false, replayable: true },
-  conflict: { rank: 2, quarantine: false, replayable: true },
-} as const
+// The plane's one family mint: `class` is the branch taxonomy every rail already grades and orders on, and the two
+// columns beside it are genuinely this plane's — `held` whether the failing frame is RETAINED in the poison census
+// (a frame-retention disposition, not the class table's repair-intake divert), `replayable` whether re-decoding the
+// same octets can change the verdict at all (which no class-level retryability answers: unparseable bytes are
+// non-retryable as transport and replayable as evidence the moment the producing peer is fixed). A local rank column
+// beside `class` would fork the one severity lattice the branch tuple already declares.
+const _policy = FaultClass.family(_causes, {
+  malformed: { class: "malformed", held: true, replayable: true },
+  truncated: { class: "malformed", held: true, replayable: true },
+  overrun: { class: "exhausted", held: true, replayable: false },
+  sequence: { class: "absent", held: false, replayable: false },
+  parity: { class: "breached", held: true, replayable: false },
+  drift: { class: "invalid", held: true, replayable: true },
+  stale: { class: "conflicted", held: false, replayable: true },
+  conflict: { class: "conflicted", held: false, replayable: true },
+})
 
 class WireFault extends Schema.TaggedError<WireFault>()("WireFault", {
   family: _wireLiteral,
-  reason: Schema.Literal(..._causes),
+  reason: _policy.schema,
   detail: Schema.NonEmptyString,
   evidence: Schema.optionalWith(Schema.Struct({ actual: Schema.Unknown, expected: Schema.Unknown }), { as: "Option" }),
 }) {
-  static readonly byRank: Order.Order<WireFault> = Order.mapInput(Order.number, (fault: WireFault) => fault.policy.rank)
+  static readonly bySeverity: Order.Order<WireFault> = Order.mapInput(FaultClass.severity, (fault: WireFault) => fault.class)
   static readonly dominant = (faults: Array.NonEmptyReadonlyArray<WireFault>): WireFault =>
-    Array.max(faults, WireFault.byRank)
+    Array.max(faults, WireFault.bySeverity)
   static readonly fromSlot = (family: Wire.Family, slot: Patch.Slot, at: number): WireFault =>
     Match.value(slot).pipe(
       Match.when(Match.instanceOf(TestError), (test) =>
@@ -153,8 +178,11 @@ class WireFault extends Schema.TaggedError<WireFault>()("WireFault", {
       Match.orElse((residue) =>
         new WireFault({ family, reason: "malformed", detail: `<op@${at}:${String(residue)}>`, evidence: Option.none() })),
     )
-  get policy(): (typeof _policy)[WireFault.Reason] {
-    return _policy[this.reason]
+  get class(): FaultClass.Kind {
+    return _policy.classOf(this.reason)
+  }
+  get policy(): WireFault.Row {
+    return _policy.rows[this.reason]
   }
   override get message(): string {
     return `<${this.family}:${this.reason}> ${this.detail}`
@@ -162,10 +190,8 @@ class WireFault extends Schema.TaggedError<WireFault>()("WireFault", {
 }
 
 declare namespace WireFault {
-  type Reason = keyof typeof _policy
-  type Row = { readonly rank: number; readonly quarantine: boolean; readonly replayable: boolean }
-  type _Rows<T extends Record<(typeof _causes)[number], Row> = typeof _policy> = T
-  type _Keys<K extends (typeof _causes)[number] = Reason> = K
+  type Reason = (typeof _policy.reasons)[number]
+  type Row = (typeof _policy.rows)[Reason]
 }
 
 const _INTAKE = { capacity: 256, attempts: 3 } as const
@@ -213,6 +239,12 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
             return frame
           }))),
       census: STM.commit(TMap.values(held)),
+      diagnostic: (frame: PoisonFrame): Option.Option<string> =>
+        Option.flatMap(Array.findFirst(Proto.names, (name) => name === frame.family), (name) =>
+          Option.map(
+            Either.getRight(Schema.decodeUnknownEither(Proto.frame(Proto.suite[name]))(frame.octets)),
+            (message) => toJsonString(Proto.suite[name], message, { prettySpaces: 2 }),
+          )),
       release: (frame: PoisonFrame) => settled(frame),
       replayed: <A, R>(
         decode: (family: Wire.Family, octets: Uint8Array) => Effect.Effect<A, WireFault, R>,
@@ -225,10 +257,20 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
               !pending
                 ? Effect.void
                 : frame.replayable
-                ? decode(frame.family, frame.octets).pipe(Effect.matchEffect({
-                    onFailure: () => Effect.asVoid(admit(new PoisonFrame({ ...frame, attempts: frame.attempts + 1 }))),
-                    onSuccess: (value) => Effect.andThen(delivered(value), settled(frame)),
-                  }))
+                ? Effect.flatMap(
+                    Effect.exit(decode(frame.family, frame.octets)),
+                    Exit.match({
+                      // interrupt-first: an interrupted attempt graded nothing, a typed failure spends one attempt,
+                      // and a defect retires the frame instead of escaping the fold and killing the pump
+                      onFailure: (cause) =>
+                        Cause.isInterruptedOnly(cause)
+                          ? Effect.asVoid(admit(frame))
+                          : Option.isSome(Cause.failureOption(cause))
+                          ? Effect.asVoid(admit(new PoisonFrame({ ...frame, attempts: frame.attempts + 1 })))
+                          : Effect.andThen(retired(frame), settled(frame)),
+                      onSuccess: (value: A) => Effect.andThen(delivered(value), settled(frame)),
+                    }),
+                  )
                 : Effect.andThen(retired(frame), settled(frame))), { concurrency: 1, discard: true })).pipe(
           Effect.repeat(_REPLAY),
           Effect.asVoid,
@@ -255,7 +297,7 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
       self.pipe(
         Effect.map(Either.right),
         Effect.catchIf(
-          (fault) => fault.policy.quarantine,
+          (fault) => fault.policy.held,
           (fault) => Effect.as(Quarantine.intake(context.family, context.octets(), fault), Either.left(fault)),
         ),
       ),
@@ -270,19 +312,44 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
 - Law: the mint is delegated, never local — `Digest.mint("content", payload)` is the branch's one `XxHash128` seed-zero fold with the canonical `:x32` spelling, branded keys compare by bare `===`, and a second mint or normalize step anywhere on a verify path is the cross-language drift defect.
 - Law: the payload is `Digest.Payload` — a whole buffer or a band iterable riding the mint's own chunk-walk modality — so a multi-frame artifact verifies over its held bands with no joined re-hash and a parity miss refuses before any summed allocation exists; the streaming lane is the same single delegation site, never a second verify.
 - Law: a parity miss is evidence, not a crash — the fault holds both keys or, for the byte proof, both `{ extent, offset, byte }` observations at the first divergence, so an equal-length mismatch never reports two equal extents as if they explained the failure and the operator report and quarantine row read the disagreement as data.
-- Law: the reflection walk resolves every requested field once at composition — `cells(family, gen, fields)` traverses the complete name roster through `Either.all`, an absent descriptor fails as typed `drift` evidence instead of silently shrinking the proof, `buildPath` addresses each admitted key cell against the `GenMessage`, and `reflect` reads by descriptor with no generated type; the read traverses that same complete roster through a second `Either.all`, so a resolved field whose value is not `Uint8Array` also fails as `drift` instead of disappearing through a filter, and verification of the extracted cells is `verified` on the same combinator, so extraction and proof never fork.
+- Law: the reflection walk ACCUMULATES, never short-circuits — both legs partition their roster through `Array.partitionMap`, so a resolve carrying three renamed fields and a read carrying three non-bytes cells each report their whole missing set in ONE `drift` fault rather than the first member; `Either.all` aborts at the first left, which makes the operator re-run the proof once per disagreement and turns the complete-roster claim into a claim the code does not keep.
+- Law: a drift fault names its coordinate — `pathToString(buildPath(gen).field(field).toPath())` is the `detail` of every resolve and read refusal, so the field-mask address the walk already computes IS the evidence a report joins on and the returned `paths` array is the same addressing spelled once.
+- Law: the read arm dispatches on `fieldKind` and reflects ONCE — `ReflectMessage.get` narrows its own return off the descriptor's discriminant, answering a `ReflectList` (itself an `Iterable`) on a list field and the scalar cell on a singular one, so one reflected view serves the whole roster and the list run folds into the cell array with no second accessor; without the list arm every repeated key column (`BimDiff.added`/`removed`, `IdsAudit` verdict anchors) fails as `drift` on a document that is exactly correct, and reflecting per field charges one view per roster entry over a document the walk already holds whole.
 - Growth: a second content-keyed proto family composes `cells` with its own field roster — one call, zero new walks.
 - Boundary: the `Digest` table, session algebra, and binary key twin are `value/contentKey.ts`'s; the frame rail's whole-artifact verify and the invoke page's descriptor admission compose `verified` and add nothing to it.
-- Packages: `@bufbuild/protobuf` (`DescField`, `DescMessage`); `@bufbuild/protobuf/reflect` (`buildPath`, `reflect`, `Path`); `effect` (`Schema`, `Effect`, `Either`, `Option`, `Array`); `../value/contentKey.ts` (`ContentKey`, `Digest`).
+- Packages: `@bufbuild/protobuf` (`DescField`, `DescMessage`); `@bufbuild/protobuf/reflect` (`buildPath`, `pathToString`, `reflect`, `ReflectMessage`, `Path`); `effect` (`Schema`, `Effect`, `Either`, `Option`, `Array`); `../value/contentKey.ts` (`ContentKey`, `Digest`).
 
 ```typescript signature
 import { type DescField, type DescMessage, type Message, type UnknownField } from "@bufbuild/protobuf"
-import { buildPath, type Path, reflect } from "@bufbuild/protobuf/reflect"
+import { buildPath, type Path, pathToString, reflect, type ReflectMessage } from "@bufbuild/protobuf/reflect"
 import { ContentKey, Digest } from "../value/contentKey.ts"
 import { Cbor, Pack, Proto } from "./format.ts"
 
 const _mismatch = (family: Wire.Family, actual: unknown, expected: unknown, detail: string): WireFault =>
   new WireFault({ family, reason: "parity", detail, evidence: Option.some({ actual, expected }) })
+
+// The field-mask address the walk already computes IS the refusal's coordinate, so `paths` and `detail` are one
+// spelling and a report joins a drift row to the field it names without re-deriving the address.
+const _addressed = (gen: DescMessage, field: DescField): string => pathToString(buildPath(gen).field(field).toPath())
+
+const _drifted = (family: Wire.Family, coordinates: Array.NonEmptyReadonlyArray<string>): WireFault =>
+  new WireFault({ family, reason: "drift", detail: `<fields:${Array.join(coordinates, ",")}>`, evidence: Option.none() })
+
+// Repeated key columns are the roster families this walk exists for, so the read dispatches on the descriptor's own
+// `fieldKind`: a list cell folds its whole run into the cell array through the list accessor, a singular cell
+// contributes one. Reading every field through the singular accessor refuses a correct roster document as `drift`.
+// The reflected view is the WALK's, never the field's: reflecting per field costs one view per roster entry on a
+// document the walk already holds whole, so the read arm takes the view and dispatches on the descriptor's own kind.
+const _keyCells = (view: ReflectMessage, field: DescField): Option.Option<ReadonlyArray<Uint8Array>> =>
+  field.fieldKind === "list"
+    ? Option.liftPredicate(
+        Array.fromIterable(view.get(field)),
+        (run): run is ReadonlyArray<Uint8Array> => Array.every(run, (cell) => cell instanceof Uint8Array),
+      )
+    : Option.map(
+        Option.liftPredicate(view.get(field), (cell): cell is Uint8Array => cell instanceof Uint8Array),
+        Array.of,
+      )
 
 const Parity: {
   readonly key: (payload: Digest.Payload) => Effect.Effect<ContentKey>
@@ -319,32 +386,28 @@ const Parity: {
           ))
     }),
   cells: (family, gen, fields) =>
-    Either.map(
-      Either.all(Array.map(fields, (name) =>
-        pipe(
-          Array.findFirst(gen.fields, (field) => field.name === name),
-          Either.fromOption(() =>
-            new WireFault({ family, reason: "drift", detail: `<field:${name}>`, evidence: Option.none() })),
-        ))),
-      (resolved: ReadonlyArray<DescField>) => ({
-        paths: Array.map(resolved, (field) => buildPath(gen).field(field).toPath()),
-        read: (octets: Uint8Array) =>
-          Either.flatMap(Schema.decodeUnknownEither(Proto.frame(gen))(octets), (message) =>
-            Either.all(Array.map(resolved, (field) =>
-              pipe(
-                Option.liftPredicate(
-                  reflect(gen, message).get(field),
-                  (cell): cell is Uint8Array => cell instanceof Uint8Array,
-                ),
-                Either.fromOption(() =>
-                  new WireFault({
-                    family,
-                    reason: "drift",
-                    detail: `<field:${field.name}:bytes>`,
-                    evidence: Option.none(),
-                  })),
-              )))),
-      }),
+    pipe(
+      Array.partitionMap(fields, (name) =>
+        Either.fromOption(Array.findFirst(gen.fields, (field) => field.name === name), () => name)),
+      ([absent, resolved]: readonly [ReadonlyArray<string>, ReadonlyArray<DescField>]) =>
+        Array.isNonEmptyReadonlyArray(absent)
+          ? Either.left(_drifted(family, absent)) // the WHOLE unresolved roster in one fault: an aborting walk costs one re-run per renamed field
+          : pipe(Proto.frame(gen), (framed) => // the byte schema and the field-mask addresses resolve ONCE per walk, never per read
+            Either.right({
+              paths: Array.map(resolved, (field) => buildPath(gen).field(field).toPath()),
+              read: (octets: Uint8Array) =>
+                Either.flatMap(Schema.decodeUnknownEither(framed)(octets), (message) =>
+                  pipe(
+                    reflect(gen, message), // one reflected view per document, shared across the whole roster read
+                    (view) =>
+                      Array.partitionMap(resolved, (field) =>
+                        Either.fromOption(_keyCells(view, field), () => _addressed(gen, field))),
+                    ([forked, runs]: readonly [ReadonlyArray<string>, ReadonlyArray<ReadonlyArray<Uint8Array>>]) =>
+                      Array.isNonEmptyReadonlyArray(forked)
+                        ? Either.left(_drifted(family, forked))
+                        : Either.right(Array.flatten(runs)),
+                  )),
+            })),
     ),
 }
 ```
@@ -424,32 +487,39 @@ type CrdtOp = typeof CrdtOp.Type
 ## [06]-[LANDING_WIRE]
 
 [LANDING_WIRE]:
-- Owner: the wire-owned decoded shapes — decode-boundary vocabulary for consumers in later waves, adopted verbatim from the C# mints and declared exactly once. Evidence plane: `RenderReceipt` (the frame-hash proof; `matched` is C#-computed and never re-hashed), `FaultDetail` over the `Hops` sixteen-row vocabulary with the `FaultEnricher` Layer, `FlagVerdict` (the OpenFeature evaluation projection the runtime flag service consumes). Shell plane: `BindingStatus`/`CoercedValue`/`WriteReceipt` live-binding triple, the closed `ControlIntent` union gaining its `_tag` at the declaration, `LayoutProgram` (order-preserving Cassowary constraint program, decode-only, never solved here). BIM plane: `BcfTopic`/`BcfViewpoint` over the one `_GlobalId` brand, `BimModel`/`BimDiff`/`IdsAudit`. Appearance plane: `Material`/`PbrGroups`/`AppearanceSummary` mirroring the OpenPBR projection field-for-field, `TextureSet` the C#-baked plane-set document riding behind the appearance key, and `AssetSetManifest` the python-assembled ingest/IBL set manifest — the two set documents transcribing the one frozen shared texture vocabulary. Geo plane: `GeoFeature` with the opaque WKB band, the seven-kind geometry union, the CRS rows, the tile quadkey algebra, and the `WkbParser` port. Identity plane: `SnapshotHeader` (canonical-CBOR, segment roster), `Claim`/`HostFingerprint` with the boot-identity admission gate, `Credential` (the sealed PEM carrier — secret sealed AT the decode transform, fingerprint-only audit identity, sealed rotation compare).
+- Owner: the wire-owned decoded shapes — decode-boundary vocabulary the live consumers bind (`ui/viewer/scene` seats `TextureSet` through `Pbr.seat`/`Pbr.index`; `runtime/browser/fetch` decodes `AssetSetManifest` on the dome lane), adopted verbatim from the C# mints and declared exactly once. Evidence plane: `RenderReceipt` (the frame-hash proof; `matched` is C#-computed and never re-hashed), `FaultDetail` over the `Hops` sixteen-row vocabulary with the `FaultEnricher` Layer, `FlagVerdict` (the OpenFeature evaluation projection the runtime flag service consumes). Shell plane: `BindingStatus`/`CoercedValue`/`WriteReceipt` live-binding triple, `CommandGate` (the per-row CanExecute verdict whose `level` derives from the `Availability` landing's one degradation vocabulary — distinct carriers, one level spelling), the closed `ControlIntent` union gaining its `_tag` at the declaration, `LayoutProgram` (order-preserving Cassowary constraint program, decode-only, never solved here). BIM plane: `BcfTopic`/`BcfViewpoint` over the one `_GlobalId` brand, `BimModel`/`BimDiff`/`IdsAudit`. Appearance plane: `Material`/`PbrGroups` mirroring the OpenPBR projection field-for-field, `AppearanceSummary` the landing shape for the seam summary the element suite carries (the `rasm.element.v1` `AppearanceWire` payload inside `NodeWire` — never a wire family of its own), `Texture` the one exported anchor for the frozen shared texture vocabulary, `TextureSet` the C#-baked plane-set document riding behind the appearance key, and `AssetSetManifest` the python-assembled ingest/IBL set manifest — the two set documents transcribing that anchor's rosters and carrying their own wire-legality columns beside them. Geo plane: `GeoFeature` with the opaque WKB band, the seven-kind geometry union, the CRS rows, the tile quadkey algebra, and the `WkbParser` port. Identity plane: `SnapshotHeader` (canonical-CBOR, segment roster), `Claim`/`HostFingerprint` with the boot-identity admission gate, `Credential` (the sealed PEM carrier — secret sealed AT the decode transform, fingerprint-only audit identity, sealed rotation compare).
 - Law: `_GlobalId` is one anchor — the twenty-two-character IFC base64 identity brands once and both the BCF and BIM planes compose it; a per-plane re-declaration is the split-brain defect this collapse killed. `BcfViewpoint.GlobalId` is the exported decode surface: the ui selection plane resolves raw pick material through `Schema.decodeUnknownOption(BcfViewpoint.GlobalId)`, so a locally-minted brand beside it is unspellable.
 - Law: the wire ships tagged families untagged — `Schema.tag` demands `_tag` on decode input, so every tagged landing decodes through its `FromWire` twin, `_stamp` minting the discriminant at the seam exactly as `ControlIntent` attaches its own; the stamp overwrites nothing a tagged wire already carries, encode passes through, and the twin rides the owner as a static so one import serves class and wire. Discriminant-attach has exactly these two spellings by structural necessity — `Schema.attachPropertySignature` where the input is a `Struct`, `_stamp` where the landing is a `Schema.Class` the combinator cannot prepend to — one concept, never drift, and a third spelling is the defect.
-- Law: the landing-class roster is a ratified co-located owner family — the census demands every wire-owned decoded shape in this one module, each class is an independent decode owner a later wave consumes directly, and collapsing the roster onto `Wire.*` statics trades one-hop resolution for a cosmetic export count; the charter accepts the wide export tail and the census guard keeps it closed.
-- Law: `Hops` carries four columns — gRPC `code`, `retryable`, `terminal`, and `class`, the `value/fault` classification each hop reason projects — so `FaultDetail` satisfies the branch classification convention structurally and every compiled `Budget` schedule gates it with zero adapter; the code-to-reason projection generates from the table's own `code` column and cannot drift.
+- Law: the landing-class roster is a ratified co-located owner family — the census demands every wire-owned decoded shape in this one module, each class is an independent decode owner its consumers import directly, and collapsing the roster onto `Wire.*` statics trades one-hop resolution for a cosmetic export count; the charter accepts the wide export tail and the census guard keeps it closed.
+- Law: `Hops` mints through the one `FaultClass.family` seam and carries four columns — `class`, the branch classification each hop reason projects, beside the gRPC peer's own `code`, `retryable`, and `terminal` — so `FaultDetail` satisfies the branch classification convention structurally, every compiled `Budget` schedule gates it with zero adapter, and the local reason-roster guard pair the seam already owns does not re-appear here. The peer columns stay because the protocol's retryability genuinely diverges from its class default (an already-exists refusal never succeeds on a re-send) and the code-to-reason projection generates from the `code` column, so both are adopted wire facts rather than a second taxonomy.
 - Law: `FaultDetail` is wire-only altitude — constructed at exactly two sites: the `FaultDetailWire` decode row and the invoke page's transport fold; a third construction site in the branch is the defect the architecture suite audits. `EnricherLive` satisfies the `value/fault` `FaultEnricher` endo-arrow by reading the structured `wire.reason` attribute the crash boundary preserves from a `FaultDetail`; a capture without an admitted reason passes through untouched, so enrichment degrades to identity and never parses message prose. Stamped keys ARE the `_WIRE_ATTR` vocabulary rows — this enricher's owned `wire.*` axis beside the corpus-wide registry the observe convention page owns — never free string literals at the call site.
 - Law: `Credential.material` is `Schema.Redacted` — the secret never exists raw past the decode transform, rotation compares sealed through `_sameMaterial`, the equivalence `Schema.equivalence` derives from the field's own `Schema.Redacted` declaration so equality has no second spelling beside the schema, and `fingerprint` is the only audit identity a log meets.
 - Law: the benchmark claim is the one host-admitted document `tests/contracts/` `BENCHMARK_CLAIM` fixes — `suite`, `host`, `minted`, and metric rows under the `fn`/`iter`/`yield` modality discriminant, each carrying its subject, its positive sample count beside the at-least-one-rung map its own harness measured — the two structural floors that keep an evidence-free band from grading as a passing claim — its optional `ticks` and raw `samples` timings, the honestly-optional `gc`/`heap`/`counters` enrichment bands (`counters` flattening the addon's `cycles`/`instructions`/`cache`/`cacheMisses`/`branchMisses` averages), and its warmup, allocation, and operation columns — so a TS-lane mitata run and a C#-side equivalence sweep land in ONE family with neither fabricating the other's statistic, the observe `bench` fold grades the single rung its tolerance names, and `admit` refuses a host print unequal to `AppIdentity.host`, making cross-host comparison unspellable at the landing.
 - Law: a metric row's `unit` is the MINTING HARNESS's vocabulary, deliberately outside the telemetry unit roster — a timing harness spells nanoseconds, a render probe spells a per-second rate beside a bare count, a C# sweep spells its own — so the column stays a free non-empty string the grade compares verbatim as an equality axis; narrowing it onto `Convention.units` refuses every measure that roster was never built to carry, and the claim plane measures what a harness measures rather than what the instrument census mounts.
 - Law: the claim subject carries its own tag because the selection coordinate belongs to a kernel run alone — a flat row widening `input`, `substrate`, `route`, `provider`, and the equivalence columns to optional admits a probe row claiming a substrate it never ran, and the tag refuses that shape at decode rather than at a downstream gate.
-- Law: the set documents TRANSCRIBE the frozen shared texture vocabulary as a ROW TABLE, never a name tuple — `_roles` fixes the canonical snake_case order that IS the set-key preimage rank, and `_channelRows` carries the roster's three wire-bearing columns beside it: `ch` the semantic component count, `transfer` the tag the channel is authored under, and `mip` its declared fold. Every plane law READS those three and declares nothing of its own: the colorimetric class is `transfer === "srgb"`, the direction class is `mip === "normalRenormalize"`, the storage-width floor follows both, and a derived boolean column beside them is the lossy projection that admits `specular_ior` as a light quantity. `_transferRows`, `_payloadRows`, `_planeRows`, `_depthRows`, `_containerRows`, and `_layerRows` carry the rest of the fragment's vocabularies whole, each with the legality column its own refusals read — a document-local re-spelling of a channel, transfer, pack, format, or payload row is the fork the fragment forecloses.
+- Law: the set documents TRANSCRIBE the frozen shared texture vocabulary as a ROW TABLE, never a name tuple — `_roles` fixes the canonical snake_case order that IS the set-key preimage rank, and `_channelRows` carries the roster's five wire-bearing columns beside it: `ch` the semantic component count, `transfer` the tag the channel is authored under, `neutral` the constant an absent packed slot, a mip gutter, and a UDIM hole fill with, `unit` the physical unit the value is expressed in, and `mip` its declared fold. Every plane law READS those five and declares nothing of its own: the colorimetric class is `transfer === "srgb"`, the direction class is `mip === "normalRenormalize"`, the storage-width floor follows both, the false-slot companion a consumer stamps is `neutral`, the millimetre and nanometre carriers name themselves through `unit`, and a derived boolean column beside them is the lossy projection that admits `specular_ior` as a light quantity. `_transferRows`, `_payloadRows`, `_planeRows`, `_depthRows`, `_containerRows`, `_layerRows`, and `_packRows` carry the rest of the fragment's vocabularies whole, each with the legality column its own refusals read — a document-local re-spelling of a channel, transfer, pack, format, or payload row is the fork the fragment forecloses.
+- Law: `Texture` is the ONE exported anchor for that vocabulary — the thirteen roster tuples with their derived key types and nothing else, so a later-wave module keys its own column table off the same tuples and never re-spells a roster. The anchor carries tuples alone because a COLUMN is the owner's legality, not the vocabulary's: this page's wire columns and a consuming plane's tool columns describe the same rows for different refusals, and merging them mints a table neither owner can read. A derived subset — the scene-referred transfers, the wire-legal payloads, the four-wide pack formats — closes against its own anchor row under the two-way guard pair and never enters the anchor a second time.
+- Law: a channel's `neutral` arity is the roster's `ch` column made structural — the fact type distributes over the two component counts once, so a three-band neutral on a one-component channel is unwritable and a consumer stamping a false pack slot's companion reads a tuple whose length its own channel already fixed. A free `ReadonlyArray<number>` column re-opens exactly the disagreement the roster closed.
+- Law: legality carves ride generated COLUMNS on the roster they refuse, never hand exclusions in a lawfulness chain — `_containerRows.plane` carries the producer's own refusal of the eight-bit preview container from any channel plane, and `_planeRows.web` carries the browser transcoder's unreachable stores. Both read exactly where `_payloadRows.wire` and `_transferRows.plane` read, so a second preview-class container or a newly-decodable store is one column value and every refusal follows it with no literal to chase.
 - Law: every admitted SUBSET derives from its roster's own legality column under a two-way guard pair, never as a hand-picked twin — `_PlaneTagged` reads the transfer roster's `plane` column and `_Wired` reads the payload roster's `wire` column, each closed against its declared tuple in both directions, so `pq`/`hlg` reach no channel plane (the environment products ride `AssetSetManifest.ibl`, which declares no transfer) and `rawBcn`/`astc` reach no wire row, while the branch still carries both vocabularies whole. Admitting a further transfer or a future transcodable payload is one row with one column value; a one-way subset guard lets the roster grow a legal member the subset never gains.
+- Law: `AssetSetManifest.maps` keys by `(role, container)`, never role alone — the producer's `CompanionPolicy.RENDER` publishes a sampled twin beside an unsampled primary for a render-bound slot, differing by container with the same role — so every consumer selecting a plane reads the pair and a role-keyed lookup that assumes uniqueness silently takes whichever entry sorted first; the `TextureSetWire` channel roster stays role-unique because its C# producer mints no companions.
 - Law: hex-key spelling splits by producer and folds once — `TextureSet` hex fields carry the C# `ContentAddress` X32 spelling and land through `Digest.FromX32` (UPPERCASE admitted, branded lowercase, re-emitted UPPERCASE on encode); `AssetSetManifest` digests carry the lowercase `ContentKey` spelling and land on the brand directly. Consumers joining a key to the served-asset path lower the branded key at path construction alone, so the `assets/<digest>/<file>` directory join reads these landings as its third consumer with zero new derivations — each level entry's `file` is the egress leaf verbatim and `<digest>` is the SET key, never a per-plane digest directory.
-- Law: every addressed plane is a LEVEL-ORDERED list of address triples, never a scalar address beside a level count — `_PlaneRefWeb` carries the C# `{file, blob, byteLength}` spelling and `_PlaneRefProto` the python `{file, digest, byte_length}` spelling through its generated lowerCamel locals, and `_leveled` generates the length law off the container's own `pyramid` column: a self-pyramiding container holds its whole pyramid in one file so the list holds ONE entry whatever `mips` declares, and every other container supplies one file per level so the length EQUALS `mips`. A scalar address beside a `mips` count names files it cannot address and leaves every level past the base undigested; the same triple types the IBL products, whose prefilter pyramid is levels its roughness ladder indexes position for position.
+- Law: every addressed plane is a LEVEL-ORDERED list of address triples, never a scalar address beside a level count — `_leveled` generates the length law off the container's own `pyramid` column: a self-pyramiding container holds its whole pyramid in one file so the list holds ONE entry whatever `mips` declares, and every other container supplies one file per level so the length EQUALS `mips`. A scalar address beside a `mips` count names files it cannot address and leaves every level past the base undigested; the same triple types the IBL products, whose prefilter pyramid is levels its roughness ladder indexes position for position.
+- Law: the triple is ONE variant declaration and each producer's schema is an `extract` — the two documents differ in exactly one field-level fact, the address column's key and encoding (`blob` on the C# X32 spelling, `digest` on the python lowercase brand), so `file` and `byteLength` are shared and the decoded shape names the address `address` on both. The pack row takes the same variant with its level list as the varying field, so the schema-parameterized row factory and its address parameter both delete, and the level-list refusal is one filter applied to each extract. Two parallel struct declarations that a reader must diff to find the one differing column is the shape this collapse deletes, and a third producer is one variant key with one field entry.
 - Law: field names land camelCase on BOTH documents and the projection is mechanical at each producer — the C# emit spells its PascalCase members under `JsonSerializerDefaults.Web`, and the python producer's snake_case proto fields reach this landing through the generated message's own lowerCamel locals — so one spelling serves two estates and a snake_case landing field beside them is the third spelling the transcription law deletes.
-- Law: `_absent` folds the producer's empty-string absence once through the shipped operator — proto3 emits `""` for an unset singular string, so `materialId` on an acquired set and `conductor` on a dielectric arrive empty and read as `Option.none()`; a message-typed field (`press`, `ibl`, `luminanceCdf`) is absence-capable on the wire itself and lands as `Option` through `optionalWith`, so the two absence mechanics split by field class and neither guesses.
+- Law: `_absent` folds the producer's empty-string absence once through the shipped operator — proto3 emits `""` for an unset singular string, so an authored material's `emissionUnit`, an acquired set's `materialId`, and a dielectric's `conductor` all arrive empty and read as `Option.none()`; a message-typed field (`press`, `ibl`, `luminanceCdf`) is absence-capable on the wire itself and lands as `Option` through `optionalWith`, so the two absence mechanics split by field class and neither guesses. An absent `emissionUnit` is what keeps `emissionValue` honest: a bare authored multiplier and an admitted photometric magnitude stay apart where a lone scalar collapses them.
+- Law: the pack roster carries its glTF read-order legality as a column both documents' consumers refuse against — the occlusion-first order IS the glTF KHR occlusion-plus-metallic-roughness read order and matches a three-component sampler's channel convention position for position, while the inverted order swaps its first and third slots, so binding it to those same slots reads occlusion as metalness with nothing raising. A bare role triple leaves that refusal undeclarable, and a consumer then either binds the wrong plane or hardcodes the pack name the roster already knows.
 - Law: refusals the freeze names land structurally, never as gates — `press.backend` admits `cpu` alone (a GPU-minted set never reaches the wire), `channels`/`maps` rows hold roster order because the order IS the set-key preimage, a plane row's `channels` equals its role's roster count, a block payload admits the measured 8-bit store alone and rides a `ktx2` container, a payload column on any other container reads as vacancy (`none`), a packed slot's channel carries no standalone plane row, a `pbr_set` carries no `ibl` entry, `udimTiles` ascend from the Mari floor and agree with the manifest's own `udim` declaration, `sh9` is exactly 27 band-major values with `upAxis` frozen `z`, and the specular pyramid's `roughnessPerMip` matches its level roster — each violation a decode `ParseError` carrying the filter's own identifier.
-- Law: four plane-row refusals generate off the per-channel columns and land structurally at the row, never as a consumer's re-derivation — a color channel's transfer FOLLOWS its store (`srgb` at integer depth, `linear` at float; every other row transfer-invariant), a fold policy is the roster's own or the `box` floor with `none` reserved for the single-level plane, a storage width carries the semantic count with the two-component reconstruction carved for direction planes ALONE, and a declared block format names a payload holding block data — which no wire-legal payload does, so the refusal generates rather than hardcoding `none`. Reading the roster's transfer column raw admits an 8-bit linear `base_color` a shading rail then decodes twice; leaving width free admits a three-band millimetre carrier in `rg16` with its third band unrecoverable; leaving the fold free admits `roughnessVariance` on a color plane and a pyramid depth its policy denies.
+- Law: five plane-row refusals generate off the per-channel columns and land structurally at the row, never as a consumer's re-derivation — a color channel's transfer FOLLOWS its store (`srgb` at integer depth, `linear` at float; every other row transfer-invariant), a DIMENSIONED channel refuses an integer store outright because the roster names its unit and no wire column carries a scale to normalize it against, a fold policy is the roster's own or the `box` floor with `none` reserved for the single-level plane, a storage width carries the semantic count with the two-component reconstruction carved for direction planes ALONE, and a declared block format names a payload holding block data — which no wire-legal payload does, so the refusal generates rather than hardcoding `none`. Reading the roster's transfer column raw admits an 8-bit linear `base_color` a shading rail then decodes twice; leaving the unit column unread admits a millimetre mean-free-path carrier and a cd/m2 emission floor at `u8`, where the stored integer expresses no physical magnitude at all and `height` alone — normalized on the row with its span riding `heightScale` — proves the pattern the other columns follow; leaving width free admits a three-band millimetre carrier in `rg16` with its third band unrecoverable; leaving the fold free admits `roughnessVariance` on a color plane and a pyramid depth its policy denies.
 - Law: association crosses at the SET and narrows at the row, and `container` is a REQUIRED column on every channel, pack, and map row on BOTH documents — the association gate selects on it, and a row recovering the container by string-parsing its own egress extension is the unspellable form the column replaces. Every one of the twelve `_containerRows` fixes its canonical association (the `jxl`/`jxl_f16`/`avif12` rows are the MEASURED posture of the provisioned encoders — `imagecodecs.jpegxl_encode` and `imagecodecs.avif_encode` expose no premultiplication seat, so those containers write straight alpha and `associated` on one is unrepresentable rather than merely lossy), and a plane whose declared mode differs from its container's canonical association admits at a deep store alone, because a straight-to-associated conversion at 8 bits quantizes catastrophically at low alpha; a `none` plane carries nothing to convert and passes whole. A container one branch alone writes still rides the roster — the peer refuses it by roster membership, never by an unknown key.
-- Law: `GeoFeature`'s WKB band is opaque carriage under the gated `WkbParser` port — geometry materializes only through the port the ui wave satisfies, and the tile algebra (`quadkey`, `parent`, `children`) is total over the zoom-bounded grid refinement.
+- Law: `GeoFeature`'s WKB band is opaque carriage under the gated `WkbParser` port — geometry materializes only through the port the ui wave satisfies, and the tile algebra (`quadkey`, `parent`, `children`) is total over the zoom-bounded grid refinement. The `_CRS` row table is the branch's one SRID authority — `srid` admits any positive int at decode while `Crs.of` resolves only the declared rows, so a served SRID outside them refuses at the ui admission fold as evidence; growth is one `_CRS` row HERE (`kind` + `unit`), never a consumer-side projection table.
 - Exemption: `Crs.of`'s `in`-probe key narrowing, the `EnricherLive` structured-reason probe (`token in _hops` behind its refinement), and the `Tile.quadkey` bit walk are marked kernels — the checker cannot carry the probe onto the key type, and only immutable values leave.
-- Growth: a new shell intent, appearance block, BCF axis, or fault evidence field is one case or field mirroring the producing peer's emit; a texture channel, pack, transfer, or payload row is one shared-fragment row re-frozen then transcribed into the roster tables here, its columns carrying the refusals with it; a new landing plane is one owner block here with its census rows.
-- Boundary: rollout targeting and flag evaluation are the runtime wave's service over this decoded verdict; GLB parsing, kiwi solving, BCF re-location, and OpenPBR rendering are ui-wave consumers of these values.
-- Packages: `effect` (`Schema`, `Effect`, `Layer`, `Context`, `Array`, `Equivalence`, `Function`, `Predicate`, `Redacted`, `HashMap`, `Option`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`AppIdentity`); `../value/fault.ts` (`FaultClass`, `FaultEnricher`).
+- Growth: a new shell intent, appearance block, BCF axis, or fault evidence field is one case or field mirroring the producing peer's emit; a texture channel, pack, transfer, or payload row is one shared-fragment row re-frozen then transcribed into one `Texture` tuple entry and one row on the tables that carry columns for it; a new landing plane is one owner block here with its census rows; a third plane-address producer is one variant key.
+- Boundary: rollout targeting and flag evaluation are the runtime wave's service over this decoded verdict; GLB parsing, kiwi solving, BCF re-location, and OpenPBR rendering are ui-wave consumers of these values; the browser-store refusal `_planeRows.web` declares and the pack read-order refusal `_packRows.gltf` declares are the ui bind's to raise over these columns.
+- Packages: `@effect/experimental` (`VariantSchema`); `effect` (`Schema`, `Effect`, `Layer`, `Context`, `Array`, `Equivalence`, `Function`, `Predicate`, `Redacted`, `HashMap`, `Option`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`AppIdentity`); `../value/fault.ts` (`FaultClass`, `FaultEnricher`).
 
 ```typescript signature
+import * as VariantSchema from "@effect/experimental/VariantSchema"
 import { Context, Equivalence, Layer, Redacted } from "effect"
 import { AppIdentity } from "../value/identity.ts"
 import { FaultClass, FaultEnricher } from "../value/fault.ts"
@@ -466,7 +536,11 @@ const _reasons = [
   "precondition", "aborted", "range", "unimplemented", "internal", "unavailable", "dataloss", "unauthenticated",
 ] as const
 
-const _hops = {
+// The transport family mints through the same seam every folder family takes: `class` is the branch taxonomy, and
+// `code`/`retryable`/`terminal` are the gRPC peer's OWN columns adopted verbatim — the wire's retryability diverges
+// from its class default where the protocol says so (an already-exists refusal never succeeds on a re-send), so
+// these are peer facts the landing carries, never a second taxonomy this branch mints.
+const _hops = FaultClass.family(_reasons, {
   canceled: { code: 1, retryable: false, terminal: false, class: "defect" },
   unknown: { code: 2, retryable: false, terminal: false, class: "defect" },
   invalid: { code: 3, retryable: false, terminal: false, class: "invalid" },
@@ -483,30 +557,28 @@ const _hops = {
   unavailable: { code: 14, retryable: true, terminal: false, class: "unavailable" },
   dataloss: { code: 15, retryable: false, terminal: true, class: "breached" },
   unauthenticated: { code: 16, retryable: false, terminal: true, class: "denied" },
-} as const
+})
 
 declare namespace Hops {
-  type Reason = keyof typeof _hops
-  type Row = { readonly code: number; readonly retryable: boolean; readonly terminal: boolean; readonly class: FaultClass.Kind }
-  type Shape = Types.Simplify<typeof _hops & {
+  type Reason = (typeof _hops.reasons)[number]
+  type Row = (typeof _hops.rows)[Reason]
+  type Shape = Types.Simplify<typeof _hops.rows & {
     readonly reasons: typeof _reasons
-    readonly wire: Schema.Literal<typeof _reasons>
+    readonly wire: typeof _hops.schema
     readonly fromCode: (code: number) => Reason
   }>
-  type _Rows<T extends Record<(typeof _reasons)[number], Row> = typeof _hops> = T
-  type _Keys<K extends (typeof _reasons)[number] = Reason> = K
 }
 
 const _byCode: HashMap.HashMap<number, Hops.Reason> = Array.reduce(
   _reasons,
   HashMap.empty<number, Hops.Reason>(),
-  (acc, reason) => HashMap.set(acc, _hops[reason].code, reason),
+  (acc, reason) => HashMap.set(acc, _hops.rows[reason].code, reason),
 )
 
 const Hops: Hops.Shape = {
-  ..._hops,
+  ..._hops.rows,
   reasons: _reasons,
-  wire: Schema.Literal(..._reasons),
+  wire: _hops.schema,
   fromCode: (code) => Option.getOrElse(HashMap.get(_byCode, code), () => "unknown"),
 }
 
@@ -542,15 +614,15 @@ class FaultDetail extends Schema.TaggedError<FaultDetail>()("FaultDetail", {
           Option.match(
             Option.filter(
               Option.fromNullable(capture.attributes[_WIRE_ATTR.reason]),
-              (token): token is Hops.Reason => typeof token === "string" && token in _hops,
+              (token): token is Hops.Reason => typeof token === "string" && token in _hops.rows,
             ),
             {
               onNone: () => capture,
               onSome: (reason) =>
                 capture.enriched({
                   [_WIRE_ATTR.reason]: reason,
-                  [_WIRE_ATTR.retryable]: _hops[reason].retryable,
-                  [_WIRE_ATTR.terminal]: _hops[reason].terminal,
+                  [_WIRE_ATTR.retryable]: _hops.rows[reason].retryable,
+                  [_WIRE_ATTR.terminal]: _hops.rows[reason].terminal,
                 }),
             },
           ),
@@ -558,13 +630,13 @@ class FaultDetail extends Schema.TaggedError<FaultDetail>()("FaultDetail", {
     }),
   )
   get class(): FaultClass.Kind {
-    return _hops[this.reason].class
+    return _hops.classOf(this.reason)
   }
   get retryable(): boolean {
-    return _hops[this.reason].retryable
+    return _hops.rows[this.reason].retryable
   }
   get terminal(): boolean {
-    return _hops[this.reason].terminal
+    return _hops.rows[this.reason].terminal
   }
   get origin(): Option.Option<Hop> {
     return Array.head(this.hops)
@@ -604,6 +676,16 @@ class WriteReceipt extends Schema.TaggedClass<WriteReceipt>()("WriteReceipt", {
   stamp: Hlc,
 }) {
   static readonly FromWire: Schema.Schema<WriteReceipt, unknown> = Schema.compose(_stamp("WriteReceipt"), WriteReceipt, { strict: false })
+}
+// The per-row CanExecute gate verdict the palette reads — `level` derives from the ONE degradation vocabulary the
+// `Availability` landing owns, so the two carriers stay distinct documents over one level spelling and neither shadows
+// the other (the C# owner states the non-shadowing law at its mint).
+class CommandGate extends Schema.TaggedClass<CommandGate>()("CommandGate", {
+  key: Schema.NonEmptyString,
+  available: Schema.Boolean,
+  level: Availability.fields.level,
+}) {
+  static readonly FromWire: Schema.Schema<CommandGate, unknown> = Schema.compose(_stamp("CommandGate"), CommandGate, { strict: false })
 }
 
 const _Vec3 = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number)
@@ -694,324 +776,19 @@ class IdsAudit extends Schema.Class<IdsAudit>("IdsAudit")({
   })),
 }) {}
 
-const _Color = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number)
-const _Weight = Schema.Number.pipe(Schema.between(0, 1))
-
-class PbrGroups extends Schema.Class<PbrGroups>("PbrGroups")({
-  key: Digest.FromBytes,
-  base: Schema.Struct({ color: _Color, metalness: _Weight, roughness: _Weight, weight: _Weight }),
-  specular: Schema.Struct({ color: _Color, weight: _Weight, ior: Schema.Number.pipe(Schema.positive()) }),
-  transmission: Schema.Struct({ weight: _Weight, color: _Color, depth: Schema.Number.pipe(Schema.nonNegative()) }),
-  emission: Schema.Struct({ color: _Color, luminance: Schema.Number.pipe(Schema.nonNegative()) }),
-  geometry: Schema.Struct({ opacity: _Weight, thinWalled: Schema.Boolean }),
-}) {}
-class Material extends Schema.Class<Material>("Material")({
-  key: Digest.FromBytes,
-  name: Schema.NonEmptyString,
-  groups: Digest.FromBytes,
-}) {}
-class AppearanceSummary extends Schema.Class<AppearanceSummary>("AppearanceSummary")({
-  model: Digest.FromBytes,
-  materials: Schema.Int.pipe(Schema.nonNegative()),
-  groupKeys: Schema.Array(Digest.FromBytes),
-}) {}
-
-// `_transferRows` carries the five-tag vocabulary whole beside the one column the frozen fragment's own legality
-// clause states: `plane` is true where the tag reaches a channel plane at all. The scene-referred subset DERIVES
-// from that column under a two-way guard, so a sixth tag is one row and neither the roster nor the subset can drift
-// off the other. `pq`/`hlg` are display transfers the C#-interior environment wire alone admits — both set documents
-// carry roster-keyed CHANNEL planes, and a display-referred channel plane forks its stored value from its shading value.
-const _transfers = ["linear", "srgb", "raw", "pq", "hlg"] as const
-type _Transfer = (typeof _transfers)[number]
-const _transferRows: { readonly [K in _Transfer]: { readonly plane: boolean } } = {
-  linear: { plane: true },
-  srgb: { plane: true },
-  raw: { plane: true },
-  pq: { plane: false },
-  hlg: { plane: false },
-}
-type _PlaneTagged = { readonly [K in _Transfer]: (typeof _transferRows)[K]["plane"] extends true ? K : never }[_Transfer]
-const _sceneTransfers = ["linear", "srgb", "raw"] as const
-type _SceneTransfer = (typeof _sceneTransfers)[number]
-type _SceneWhole<K extends _PlaneTagged = _SceneTransfer> = K
-type _SceneClosed<K extends _SceneTransfer = _PlaneTagged> = K
-
-// `_depthRows` splits the store class on the two axes the wire laws read: `integer` decides which transfer a color
-// channel is authored under, and `deep` decides what an 8-bit-only encoder leg and a lossy association conversion admit.
-const _depths = ["u8", "u16", "f16", "f32"] as const
-type _Depth = (typeof _depths)[number]
-const _depthRows: { readonly [K in _Depth]: { readonly integer: boolean; readonly deep: boolean } } = {
-  u8: { integer: true, deep: false },
-  u16: { integer: true, deep: true },
-  f16: { integer: false, deep: true },
-  f32: { integer: false, deep: true },
-}
-
-const _mipPolicies = ["box", "kaiser", "normalRenormalize", "roughnessVariance", "none"] as const
-type _Mip = (typeof _mipPolicies)[number]
-
-// Roster order carries the canonical channels — OpenPBR rows, then geometry, then derived; tuple position IS the
-// set-key preimage rank both set documents order their rows by.
-const _roles = [
-  "base_weight", "base_color", "base_metalness", "base_diffuse_roughness", "base_specular_tint",
-  "specular_weight", "specular_color", "specular_roughness", "specular_roughness_anisotropy", "specular_ior",
-  "transmission_weight", "transmission_roughness", "subsurface_weight", "subsurface_radius",
-  "coat_weight", "coat_color", "coat_roughness", "coat_ior", "fuzz_weight", "fuzz_color", "fuzz_roughness",
-  "thin_film_weight", "thin_film_thickness", "thin_film_ior", "emission_color", "emission_luminance",
-  "geometry_opacity", "geometry_normal", "geometry_coat_normal", "geometry_tangent", "geometry_coat_tangent",
-  "height", "occlusion", "curvature",
-] as const
-type _Role = (typeof _roles)[number]
-
-// `_channelRows` transcribes the roster's three wire-bearing columns and NOTHING derived from them: `ch` the semantic
-// component count, `transfer` the tag the channel is authored under, and `mip` its declared fold. The colorimetric
-// class, the depth-coupled transfer, the storage-width floor, and the admissible mip policy all read off those three,
-// so a new channel is ONE row and no predicate widens. A boolean standing in for `transfer` folds `linear` and `raw`
-// into one class and admits `specular_ior` as a light quantity; the mapped annotation closes the table both ways.
-const _channelRows: {
-  readonly [K in _Role]: { readonly ch: 1 | 3; readonly transfer: _SceneTransfer; readonly mip: Exclude<_Mip, "none"> }
-} = {
-  base_weight: { ch: 1, transfer: "linear", mip: "box" },
-  base_color: { ch: 3, transfer: "srgb", mip: "kaiser" },
-  base_metalness: { ch: 1, transfer: "linear", mip: "box" },
-  base_diffuse_roughness: { ch: 1, transfer: "linear", mip: "roughnessVariance" },
-  base_specular_tint: { ch: 1, transfer: "linear", mip: "box" },
-  specular_weight: { ch: 1, transfer: "linear", mip: "box" },
-  specular_color: { ch: 3, transfer: "srgb", mip: "kaiser" },
-  specular_roughness: { ch: 1, transfer: "linear", mip: "roughnessVariance" },
-  specular_roughness_anisotropy: { ch: 1, transfer: "linear", mip: "box" },
-  specular_ior: { ch: 1, transfer: "raw", mip: "box" },
-  transmission_weight: { ch: 1, transfer: "linear", mip: "box" },
-  transmission_roughness: { ch: 1, transfer: "linear", mip: "roughnessVariance" },
-  subsurface_weight: { ch: 1, transfer: "linear", mip: "box" },
-  subsurface_radius: { ch: 3, transfer: "raw", mip: "box" }, // a 3-band millimetre carrier, never a colorimetric triple
-  coat_weight: { ch: 1, transfer: "linear", mip: "box" },
-  coat_color: { ch: 3, transfer: "srgb", mip: "kaiser" },
-  coat_roughness: { ch: 1, transfer: "linear", mip: "roughnessVariance" },
-  coat_ior: { ch: 1, transfer: "raw", mip: "box" },
-  fuzz_weight: { ch: 1, transfer: "linear", mip: "box" },
-  fuzz_color: { ch: 3, transfer: "srgb", mip: "kaiser" },
-  fuzz_roughness: { ch: 1, transfer: "linear", mip: "roughnessVariance" },
-  thin_film_weight: { ch: 1, transfer: "linear", mip: "box" },
-  thin_film_thickness: { ch: 1, transfer: "raw", mip: "box" }, // nanometres; the micrometre divide is the `.mtlx` egress edge's
-  thin_film_ior: { ch: 1, transfer: "raw", mip: "box" },
-  emission_color: { ch: 3, transfer: "srgb", mip: "kaiser" },
-  emission_luminance: { ch: 1, transfer: "linear", mip: "box" },
-  geometry_opacity: { ch: 1, transfer: "linear", mip: "box" },
-  geometry_normal: { ch: 3, transfer: "raw", mip: "normalRenormalize" },
-  geometry_coat_normal: { ch: 3, transfer: "raw", mip: "normalRenormalize" },
-  geometry_tangent: { ch: 3, transfer: "raw", mip: "normalRenormalize" },
-  geometry_coat_tangent: { ch: 3, transfer: "raw", mip: "normalRenormalize" },
-  height: { ch: 1, transfer: "raw", mip: "box" }, // normalized [0,1]; the millimetre span rides the document's `heightScale`
-  occlusion: { ch: 1, transfer: "linear", mip: "box" },
-  curvature: { ch: 1, transfer: "raw", mip: "box" }, // signed [-1,1]; an integer store carries the halved encoding
-}
-
-// Color channels author their transfer to FOLLOW their store — the roster's `srgb` rows encode display-referred at integer
-// depth and scene-linear at float depth, and every other row is transfer-invariant across depth. Reading the roster
-// column raw admits `base_color` as a linear 8-bit plane the shading rail then decodes a second time.
-const _authored = (role: _Role, depth: _Depth): _SceneTransfer =>
-  _channelRows[role].transfer === "srgb" && !_depthRows[depth].integer ? "linear" : _channelRows[role].transfer
-
-// Roster folds declare a channel's DEFAULT and `box` its floor; `none` names the single-level plane alone, so
-// a pyramid depth and a fold policy never disagree. That same column fixes the direction class — the
-// `normalRenormalize` rows ARE the direction triples, and only a direction plane may store two components and
-// reconstruct the third, so a three-band millimetre carrier in `rg16` loses its third band with nothing to recover it.
-const _mipLawful = (role: _Role, mips: number, policy: _Mip): boolean =>
-  mips === 1 ? policy === "none" : policy === "box" || policy === _channelRows[role].mip
-const _widthFloor = (role: _Role): 1 | 2 | 4 =>
-  _channelRows[role].ch === 1 ? 1 : _channelRows[role].mip === "normalRenormalize" ? 2 : 4
-
-// `_planeRows` projects each storage key onto the two facts the wire laws read: its store class and its texel width.
-const _planeFormats = ["r8", "r16", "r16f", "r32f", "rg8", "rg16", "rgba8", "rgba16", "rgba16f", "rgba32f"] as const
-type _PlaneFormat = (typeof _planeFormats)[number]
-const _planeRows: { readonly [K in _PlaneFormat]: { readonly depth: _Depth; readonly width: 1 | 2 | 4 } } = {
-  r8: { depth: "u8", width: 1 }, r16: { depth: "u16", width: 1 },
-  r16f: { depth: "f16", width: 1 }, r32f: { depth: "f32", width: 1 },
-  rg8: { depth: "u8", width: 2 }, rg16: { depth: "u16", width: 2 },
-  rgba8: { depth: "u8", width: 4 }, rgba16: { depth: "u16", width: 4 },
-  rgba16f: { depth: "f16", width: 4 }, rgba32f: { depth: "f32", width: 4 },
-}
-
-// `_payloadRows` carries all five KTX2 payload classes beside the three columns their refusals read: `wire` the
-// legality the viewer's Basis transcoder path decides, `block` whether the file holds block data direct, and `ldr` the
-// MEASURED 8-bit store bound both encoder legs raise on. The wire subset derives from `wire` under a two-way guard, so
-// admitting a future transcodable payload is one column flip and every filter follows it with no literal to chase.
-const _payloads = ["rawBcn", "uastc", "etc1s", "astc", "none"] as const
-type _Payload = (typeof _payloads)[number]
-const _payloadRows: {
-  readonly [K in _Payload]: { readonly wire: boolean; readonly block: boolean; readonly ldr: boolean }
-} = {
-  rawBcn: { wire: false, block: true, ldr: true },
-  uastc: { wire: true, block: false, ldr: true },
-  etc1s: { wire: true, block: false, ldr: true },
-  astc: { wire: false, block: true, ldr: true },
-  none: { wire: true, block: false, ldr: false },
-}
-type _Wired = { readonly [K in _Payload]: (typeof _payloadRows)[K]["wire"] extends true ? K : never }[_Payload]
-const _blockFormats = ["bc1", "bc2", "bc3", "bc4", "bc5", "bc6h", "bc7", "none"] as const
-const _wirePayloads = ["uastc", "etc1s", "none"] as const
-type _WirePayload = (typeof _wirePayloads)[number]
-type _PayloadWired<K extends _Wired = _WirePayload> = K
-type _PayloadClosed<K extends _WirePayload = _Wired> = K
-
-const _alphaModes = ["straight", "associated", "none"] as const
-type _AlphaMode = (typeof _alphaModes)[number]
-const _conventions = ["gl", "dx"] as const
-
-// `_containerRows` carries the frozen fragment's twelve-row file-container roster WHOLE — a container one branch
-// alone writes still rides it, refused by roster membership rather than by an unknown key — beside the two columns
-// the wire laws read: `alpha` the canonical association encode converts to (the jxl/avif rows are the measured
-// no-premultiplication-seat posture of the provisioned encoders), and `pyramid` whether the file holds its OWN
-// mip chain, which is the column the plane-level list law generates its length off.
-const _containers = ["png16", "tiff16", "tiff_f32", "webp", "qoi", "exr", "exr_deep", "hdr", "ktx2", "jxl", "jxl_f16", "avif12"] as const
-type _Container = (typeof _containers)[number]
-const _containerRows: { readonly [K in _Container]: { readonly alpha: _AlphaMode; readonly pyramid: boolean } } = {
-  png16: { alpha: "straight", pyramid: false }, tiff16: { alpha: "straight", pyramid: false },
-  tiff_f32: { alpha: "straight", pyramid: false }, webp: { alpha: "straight", pyramid: false },
-  qoi: { alpha: "straight", pyramid: false }, exr: { alpha: "associated", pyramid: false },
-  exr_deep: { alpha: "associated", pyramid: false }, hdr: { alpha: "none", pyramid: false },
-  ktx2: { alpha: "straight", pyramid: true }, jxl: { alpha: "straight", pyramid: false },
-  jxl_f16: { alpha: "straight", pyramid: false }, avif12: { alpha: "straight", pyramid: false },
-}
-// Straight-to-associated conversion quantizes catastrophically at low alpha below 16 bits, so a plane whose container
-// fixes an association differing from its declared mode admits at a deep store alone; a `none` plane carries nothing
-// to convert and passes whole.
-const _associationLawful = (mode: _AlphaMode, container: _Container, depth: _Depth): boolean =>
-  mode === "none" || _containerRows[container].alpha === mode || _depthRows[depth].deep
-
-// `_layerRows` fixes the extent each layer law admits where the concept has one — an unlayered set holds one plane and
-// a cube holds six faces; the open laws bound their extent at the producer, so `null` imposes nothing here.
-const _layerLaws = ["none", "cubeFaces", "array", "volume", "frames"] as const
-const _layerRows: { readonly [K in (typeof _layerLaws)[number]]: { readonly extent: number | null } } = {
-  none: { extent: 1 }, cubeFaces: { extent: 6 },
-  array: { extent: null }, volume: { extent: null }, frames: { extent: null },
-}
-// `_packSlots` fixes each packing order's roster in slot order — `present` indexes it, so a packed channel is
-// addressed by its pack row and the roster names which standalone plane row then cannot exist.
-const _packs = ["orm", "mra"] as const
-const _packSlots: { readonly [K in (typeof _packs)[number]]: readonly [_Role, _Role, _Role] } = {
-  orm: ["occlusion", "specular_roughness", "base_metalness"],
-  mra: ["base_metalness", "specular_roughness", "occlusion"],
-}
-
-// ONE address triple per stored plane FILE, in each producer's own key spelling: the C# document names the address
-// `blob` on the X32 spelling, the python document names it `digest` on the lowercase brand. Every addressed plane is
-// a LEVEL-ORDERED list of these triples — entry 0 the base level — and `_leveled` generates the length law off the
-// container's `pyramid` column: a self-pyramiding container holds ONE entry whatever `mips` declares, every other
-// container one entry per level. A scalar address beside a `mips` count is the undigested-pyramid shape this deletes.
-const _PlaneRefWeb = Schema.Struct({
-  file: Schema.NonEmptyString, // the egress leaf relative to the set directory; the served-asset join consumes it verbatim
-  blob: Digest.FromX32,
-  byteLength: Schema.BigIntFromSelf,
-})
-const _PlaneRefProto = Schema.Struct({
-  file: Schema.NonEmptyString,
-  digest: ContentKey,
-  byteLength: Schema.BigIntFromSelf, // the wire's snake_case byte_length through the generated message's lowerCamel local
-})
-const _leveled = (container: _Container, mips: number, held: number): boolean =>
-  held === (_containerRows[container].pyramid ? 1 : mips)
-
 // `_absent` folds the producer's typed absence on a scalar string column once: proto3 emits `""` for an unset
-// singular string, so an acquired set's `materialId` and a dielectric's `conductor` arrive empty and read as
-// `Option.none()`. The shipped operator owns it; a local twin is the drift defect.
+// singular string, so an authored material's `emissionUnit`, an acquired set's `materialId`, and a dielectric's
+// `conductor` all arrive empty and read as `Option.none()`. The shipped operator owns it; a local twin is the drift defect.
 const _absent: typeof Schema.OptionFromNonEmptyTrimmedString = Schema.OptionFromNonEmptyTrimmedString
 
-const _ascending = (strict: boolean) => (values: ReadonlyArray<number>): boolean =>
-  Array.every(
-    Array.zipWith(values, Array.drop(values, 1), (prior, next) => (strict ? prior < next : prior <= next)),
-    Function.identity,
-  )
-const _rosterOrdered = (rows: ReadonlyArray<{ readonly role: _Role }>): boolean =>
-  _ascending(true)(Array.map(rows, (row) => _roles.indexOf(row.role)))
-
-// Plane-row laws span both documents, projected off each row's own column names: roster semantic count,
-// depth-coupled authored transfer, and the measured 8-bit store every block-compressed payload admits.
-const _planeLawful = (
-  role: _Role,
-  channels: number,
-  transfer: _SceneTransfer,
-  depth: _Depth,
-  payload: _WirePayload,
-): boolean =>
-  channels === _channelRows[role].ch
-  && transfer === _authored(role, depth)
-  && (!_payloadRows[payload].ldr || !_depthRows[depth].deep)
-
-// `_packDisjoint` refuses a channel addressed twice under one set key — a packed slot's channel is carried by its
-// pack row ALONE, and a standalone plane row beside it leaves a consumer reading whichever it resolved first.
-const _packDisjoint = (
-  rows: ReadonlyArray<{ readonly role: _Role }>,
-  packs: ReadonlyArray<{ readonly pack: (typeof _packs)[number]; readonly present: readonly [boolean, boolean, boolean] }>,
-): boolean =>
-  Array.every(packs, (entry) =>
-    Array.every(
-      _packSlots[entry.pack],
-      (role, slot) => !entry.present[slot] || !Array.some(rows, (row) => row.role === role),
-    ))
-
-const _MariTiles = Schema.Array(Schema.Int.pipe(Schema.greaterThanOrEqualTo(1001))).pipe(
-  Schema.filter((tiles) => _ascending(true)(tiles) || "<udim-tiles-unordered>", { identifier: "MariAscending" }),
-)
-
-// Packs occupy every component, so a storage row DERIVES as the four-wide half of the format roster under the
-// same two-way close every other subset takes. Both documents' pack rows are otherwise one shape whose only axis
-// is the producer's key spelling, and the row carries NO mip-policy column by design — each slot mips under its own
-// channel's roster fold, so one policy across a pack is the defect a policy column would invite.
-type _PackFormat = { readonly [K in _PlaneFormat]: (typeof _planeRows)[K]["width"] extends 4 ? K : never }[_PlaneFormat]
-const _packFormats = ["rgba8", "rgba16", "rgba16f", "rgba32f"] as const
-type _PackWidened<K extends _PackFormat = (typeof _packFormats)[number]> = K
-type _PackClosed<K extends (typeof _packFormats)[number] = _PackFormat> = K
-
-const _packRows = (ref: typeof _PlaneRefWeb | typeof _PlaneRefProto) =>
-  Schema.Array(
-    Schema.Struct({
-      pack: Schema.Literal(..._packs),
-      present: Schema.Tuple(Schema.Boolean, Schema.Boolean, Schema.Boolean), // three flags in slot order; a false slot carries its channel neutral
-      format: Schema.Literal(..._packFormats),
-      container: Schema.Literal(..._containers),
-      mips: Schema.Int.pipe(Schema.positive()),
-      levels: Schema.NonEmptyArray(ref), // level-ordered; the pack name is the <channel> slot of each leaf
-    }).pipe(
-      Schema.filter((row) => _leveled(row.container, row.mips, row.levels.length) || "<pack-levels-unaddressed>", {
-        identifier: "PlaneLevels",
-      }),
-    ),
-  )
-
-const _ChannelRow = Schema.Struct({
-  role: Schema.Literal(..._roles),
-  transfer: Schema.Literal(..._sceneTransfers),
-  format: Schema.Literal(..._planeFormats),
-  container: Schema.Literal(..._containers), // the FILE container; the association gate and the level-list law both select on it
-  channels: Schema.Literal(1, 3), // the SEMANTIC component count — the roster's own column image; storage width is `format`'s
-  alphaMode: Schema.Literal(..._alphaModes),
-  mips: Schema.Int.pipe(Schema.positive()),
-  mipPolicy: Schema.Literal(..._mipPolicies),
-  blockFormat: Schema.Literal(..._blockFormats),
-  ktxPayload: Schema.Literal(..._wirePayloads),
-  levels: Schema.NonEmptyArray(_PlaneRefWeb), // level-ordered addresses; entry 0 is the base level
-}).pipe(
-  Schema.filter(
-    (row) =>
-      (_planeLawful(row.role, row.channels, row.transfer, _planeRows[row.format].depth, row.ktxPayload)
-        && _planeRows[row.format].width >= _widthFloor(row.role)
-        && _mipLawful(row.role, row.mips, row.mipPolicy)
-        // block data rides `rawBcn` alone and `rawBcn` never crosses, so the refusal generates off the payload table
-        && (row.blockFormat === "none" || _payloadRows[row.ktxPayload].block)
-        && (_planeRows[row.format].width === 4 || row.alphaMode === "none")
-        // a payload column is the container's own: it reads as vacancy off a non-KTX2 file and names a payload on one
-        && (row.ktxPayload === "none" || row.container === "ktx2")
-        && _associationLawful(row.alphaMode, row.container, _planeRows[row.format].depth)
-        && _leveled(row.container, row.mips, row.levels.length))
-        || "<channel-row-unlawful>",
-    { identifier: "PlaneLawful" },
-  ),
-)
+const _Color = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number)
+const _Weight = Schema.Number.pipe(Schema.between(0, 1)) // the unit interval every OpenPBR weight, ratio, and grain azimuth rides
 
 // `MaterialWire` lands its receipt verbatim — capture evidence, fit conditioning, chromaticity/CCT grounding,
-// model attribution a neural capture fills; an empty string is the producer's typed absence, never a hole.
+// the chart-solve tail separating a colour-corrected capture from a camera's guess, and model attribution a neural
+// capture fills; an empty string is the producer's typed absence, never a hole. One decoded receipt serves BOTH
+// wire dialects — the proto leg lands it by name on `TextureSetWire`, the msgpack leg by position at `MaterialWire`
+// slot 3 — so no second provenance vocabulary exists.
 const _Provenance = Schema.Struct({
   device: Schema.String,
   wavelengthCount: Schema.Int.pipe(Schema.nonNegative()),
@@ -1027,7 +804,613 @@ const _Provenance = Schema.Struct({
   cctDuv: Schema.Number,
   modelCard: Schema.String,
   license: Schema.String,
+  // The chart-solve tail: `calibrated` separates a chart-corrected capture from a camera's guess and
+  // `calibrationDeltaE` carries the mean CIEDE2000 residual over the producer's measured patch set, so a receipt
+  // reading `measured` on a photographed base colour is still gradeable; `modelArtefact` digests the inferred row's
+  // own weights beside the `modelCard` naming them, so two revisions of one card separate without resolving bytes.
+  // `calibrationDeltaE` carries EXPLICIT PRESENCE — the producer's `double?` writes nil for an uncalibrated
+  // capture, and a zero here would read to any divergence gate as a perfect chart fit no solve produced.
+  calibrated: Schema.Boolean,
+  calibrationDeltaE: Schema.NullOr(Schema.Number),
+  modelArtefact: Schema.String,
 })
+
+// [MIRROR_ORDER] — the msgpack appearance wires are POSITIONAL `[MessagePackObject]` records: the producer's
+// `[Key(n)]` index IS the array position, so every wire tuple below spells its slots in KEY order and NEVER in the
+// producer's declaration order — `OpenPbrGroupsWire` declares `SpecularRotation` mid-record yet keys it 29 and
+// `GeometryThinWalled` last at 30, both APPENDED past the frozen block, so pre-append bytes decode unchanged when
+// the missing trailing slot folds to the producer's stated default (rotation 0; thinWalled false, the OpenPBR
+// closed-solid default). Position is the whole mirror contract because the array carries no names: a slot re-seated
+// to its reading position decodes a neighbour's value silently. The reshape arms move POSITION to NAME only; every
+// refinement re-proves on the named class after the mapping runs, exactly once.
+const _ColorWire = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number, Schema.String) // WireColor Key(0..3): scene-linear r/g/b + the clipped hex the web swatch reads
+const _Shade = Schema.Struct({ rgb: _Color, hex: Schema.String })
+const _shaded = ([r, g, b, hex]: typeof _ColorWire.Type): typeof _Shade.Encoded => ({ rgb: [r, g, b], hex })
+const _unshaded = ({ rgb: [r, g, b], hex }: typeof _Shade.Encoded): typeof _ColorWire.Type => [r, g, b, hex]
+
+// `WireProvenance` Key(0..16) in index order; slot 15 is the producer's `double?` nil — the one numeric slot
+// carrying explicit presence, decoded by the SAME `NullOr` the named field declares.
+const _ProvenanceWire = Schema.Tuple(
+  Schema.String, Schema.Number, Schema.Number, Schema.Boolean, Schema.String, Schema.Number, // Key 0..5: device, wavelengthCount, fitResidual, measured, method, angularSamples
+  Schema.Number, Schema.Number, Schema.Number, Schema.Number, Schema.Number, Schema.Number, // Key 6..11: fitConditionNumber, fitRank, dominantWavelengthNm, excitationPurity, cctKelvin, cctDuv
+  Schema.String, Schema.String, Schema.Boolean, Schema.NullOr(Schema.Number), Schema.String, // Key 12..16: modelCard, license, calibrated, calibrationDeltaE, modelArtefact
+)
+const _proved = (v: typeof _ProvenanceWire.Type): typeof _Provenance.Encoded => ({
+  device: v[0], wavelengthCount: v[1], fitResidual: v[2], measured: v[3], method: v[4], angularSamples: v[5],
+  fitConditionNumber: v[6], fitRank: v[7], dominantWavelengthNm: v[8], excitationPurity: v[9], cctKelvin: v[10],
+  cctDuv: v[11], modelCard: v[12], license: v[13], calibrated: v[14], calibrationDeltaE: v[15], modelArtefact: v[16],
+})
+const _unproved = (p: typeof _Provenance.Encoded): typeof _ProvenanceWire.Type => [
+  p.device, p.wavelengthCount, p.fitResidual, p.measured, p.method, p.angularSamples, p.fitConditionNumber,
+  p.fitRank, p.dominantWavelengthNm, p.excitationPurity, p.cctKelvin, p.cctDuv, p.modelCard, p.license,
+  p.calibrated, p.calibrationDeltaE, p.modelArtefact,
+]
+
+// `OpenPbrGroupsWire` Key(0..30) — the FULL OpenPBR Surface 1.1 parameter vector, one-for-one: the producer
+// flattens `OpenPbrSurface` so a peer reconstructs the exact slab stack, never a lossy subset, and this mirror
+// carries every band — subsurface, coat, fuzz, and thin-film included — because a dropped band repaints the
+// producer's surface silently. The vector crosses NESTED at `MaterialWire` Key(1); the standalone census row binds
+// this same declaration so the nested slot and the family row cannot drift.
+const _PbrVector = Schema.Tuple(
+  Schema.Number, _ColorWire, Schema.Number, Schema.Number, Schema.Number, // Key 0..4: baseWeight, baseColor, baseMetalness, baseDiffuseRoughness, baseSpecularTint
+  Schema.Number, _ColorWire, Schema.Number, Schema.Number, Schema.Number, // Key 5..9: specularWeight, specularColor, specularRoughness, specularIor, specularAnisotropy
+  Schema.Number, Schema.Number, // Key 10..11: transmissionWeight, transmissionRoughness
+  Schema.Number, Schema.Number, Schema.Number, Schema.Number, // Key 12..15: subsurfaceWeight, subsurfaceRadiusR/G/B — mean-free-path scalars, never unit-interval
+  Schema.Number, _ColorWire, Schema.Number, Schema.Number, // Key 16..19: coatWeight, coatColor, coatRoughness, coatIor
+  Schema.Number, _ColorWire, Schema.Number, // Key 20..22: fuzzWeight, fuzzColor, fuzzRoughness
+  Schema.Number, Schema.Number, Schema.Number, // Key 23..25: thinFilmWeight, thinFilmThickness, thinFilmIor
+  _ColorWire, Schema.Number, Schema.Number, // Key 26..28: emissionColor, emissionLuminance, geometryOpacity
+  Schema.optionalElement(Schema.Number), // Key 29: specularRotation — appended past the frozen block; absent decodes 0
+  Schema.optionalElement(Schema.Boolean), // Key 30: geometryThinWalled — appended; absent decodes false, the closed-solid default
+)
+// `WireEmission` Key(0..5) — the admitted-emission receipt nested at `MaterialWire` Key(7); the positional twin the
+// class field reshapes to names, per-field refinements re-proving on the named side.
+const _EmissionVector = Schema.Tuple(
+  Schema.Number, Schema.Number, // Key 0..1: dominantWavelengthNm, excitationPurity
+  Schema.Number, Schema.Number, // Key 2..3: cctKelvin, cctDuv
+  Schema.Number, Schema.Boolean, // Key 4..5: relativeLuminance, gamutMapped
+)
+const _vectored = (v: typeof _PbrVector.Type): typeof PbrGroups.Encoded => ({
+  base: { weight: v[0], color: _shaded(v[1]), metalness: v[2], diffuseRoughness: v[3], specularTint: v[4] },
+  specular: { weight: v[5], color: _shaded(v[6]), roughness: v[7], ior: v[8], anisotropy: v[9], rotation: v[29] ?? 0 },
+  transmission: { weight: v[10], roughness: v[11] },
+  subsurface: { weight: v[12], radius: [v[13], v[14], v[15]] },
+  coat: { weight: v[16], color: _shaded(v[17]), roughness: v[18], ior: v[19] },
+  fuzz: { weight: v[20], color: _shaded(v[21]), roughness: v[22] },
+  thinFilm: { weight: v[23], thickness: v[24], ior: v[25] },
+  emission: { color: _shaded(v[26]), luminance: v[27] },
+  geometry: { opacity: v[28], thinWalled: v[30] ?? false },
+})
+const _unvectored = (g: typeof PbrGroups.Encoded): typeof _PbrVector.Type => [
+  g.base.weight, _unshaded(g.base.color), g.base.metalness, g.base.diffuseRoughness, g.base.specularTint,
+  g.specular.weight, _unshaded(g.specular.color), g.specular.roughness, g.specular.ior, g.specular.anisotropy,
+  g.transmission.weight, g.transmission.roughness,
+  g.subsurface.weight, g.subsurface.radius[0], g.subsurface.radius[1], g.subsurface.radius[2],
+  g.coat.weight, _unshaded(g.coat.color), g.coat.roughness, g.coat.ior,
+  g.fuzz.weight, _unshaded(g.fuzz.color), g.fuzz.roughness,
+  g.thinFilm.weight, g.thinFilm.thickness, g.thinFilm.ior,
+  _unshaded(g.emission.color), g.emission.luminance, g.geometry.opacity,
+  g.specular.rotation, g.geometry.thinWalled,
+]
+
+class PbrGroups extends Schema.Class<PbrGroups>("PbrGroups")({
+  base: Schema.Struct({ weight: _Weight, color: _Shade, metalness: _Weight, diffuseRoughness: _Weight, specularTint: _Weight }),
+  // `anisotropy` and `rotation` are one grain: the ratio shapes the specular lobe and the azimuth orients it, with
+  // `1` a HALF TURN on the OpenPBR/`.mtlx` convention the producer converts to radians at its own lower.
+  specular: Schema.Struct({
+    weight: _Weight,
+    color: _Shade,
+    roughness: _Weight,
+    ior: Schema.Number.pipe(Schema.positive()),
+    anisotropy: _Weight,
+    rotation: _Weight,
+  }),
+  transmission: Schema.Struct({ weight: _Weight, roughness: _Weight }),
+  subsurface: Schema.Struct({ weight: _Weight, radius: _Color }), // per-channel mean-free-path, nonNegative by physics not by unit interval
+  coat: Schema.Struct({ weight: _Weight, color: _Shade, roughness: _Weight, ior: Schema.Number.pipe(Schema.positive()) }),
+  fuzz: Schema.Struct({ weight: _Weight, color: _Shade, roughness: _Weight }),
+  thinFilm: Schema.Struct({ weight: _Weight, thickness: Schema.Number.pipe(Schema.nonNegative()), ior: Schema.Number.pipe(Schema.positive()) }),
+  emission: Schema.Struct({ color: _Shade, luminance: Schema.Number.pipe(Schema.nonNegative()) }),
+  geometry: Schema.Struct({ opacity: _Weight, thinWalled: Schema.Boolean }),
+}) {
+  // The wire twin rides the owner: position moves to name in the reshape arm, every refinement re-proves here.
+  static readonly FromVector: Schema.Schema<PbrGroups, typeof _PbrVector.Encoded> = Schema.transform(
+    _PbrVector, PbrGroups, { strict: true, decode: _vectored, encode: _unvectored },
+  )
+}
+class Material extends Schema.Class<Material>("Material")({
+  // `MaterialWire` Key(0..6) by name: the `MaterialId` `family.name` seam identity crosses as the string it is —
+  // never a digest; the mesh-to-appearance pairing key lives on the element graph, not on this wire.
+  id: Schema.NonEmptyString,
+  openPbr: PbrGroups, // Key(1): the full vector nests INLINE — no digest indirection exists on the producer's wire
+  conductor: _absent, // Key(2): the `ConductorMetal` key, empty for a dielectric — the producer's typed absence
+  provenance: _Provenance, // Key(3): the capture receipt, verbatim
+  preview: _Shade, // Key(4): the resolved `SurfaceShade` scene-linear triple + clipped hex
+  // The photometric grounding the producer's admission recorded: an ABSENT unit spells an authored emission whose
+  // magnitude reads unread, so a bare multiplier and an admitted cd/m2 stay apart where a lone scalar collapses them.
+  emissionUnit: _absent, // Key(5)
+  emissionValue: Schema.Number.pipe(Schema.nonNegative()), // Key(6)
+  // Key(7): the whole admitted-emission receipt — the producer's photometric resolve readouts (chromaticity, CCT+Duv
+  // on the capture receipt's spelling, the MEASURED relative luminance its construction divided out, the gamut-map
+  // witness no peer can re-derive). A trailing nullable record: absence — pre-widening bytes, or an authored
+  // emission — reads Option.none(), never a zero-filled receipt claiming a measurement no admission took.
+  emission: Schema.optionalWith(Schema.Struct({
+    dominantWavelengthNm: Schema.Number, excitationPurity: Schema.Number,
+    cctKelvin: Schema.Number, cctDuv: Schema.Number,
+    relativeLuminance: Schema.Number.pipe(Schema.nonNegative()), gamutMapped: Schema.Boolean,
+  }), { as: "Option" }),
+}) {
+  static readonly FromWire: Schema.Schema<Material, readonly [string, typeof _PbrVector.Encoded, string, typeof _ProvenanceWire.Encoded, typeof _ColorWire.Encoded, string, number, typeof _EmissionVector.Encoded | null | undefined]> = Schema.transform(
+    Schema.Tuple(Schema.String, _PbrVector, Schema.String, _ProvenanceWire, _ColorWire, Schema.String, Schema.Number, Schema.optionalElement(Schema.NullOr(_EmissionVector))),
+    Material,
+    {
+      strict: true,
+      decode: ([id, vector, conductor, receipt, shade, emissionUnit, emissionValue, emission]) => ({
+        id, openPbr: _vectored(vector), conductor, provenance: _proved(receipt), preview: _shaded(shade), emissionUnit, emissionValue,
+        ...(emission == null ? {} : { emission: {
+          dominantWavelengthNm: emission[0], excitationPurity: emission[1],
+          cctKelvin: emission[2], cctDuv: emission[3],
+          relativeLuminance: emission[4], gamutMapped: emission[5],
+        } }),
+      }),
+      encode: (wire) => [
+        wire.id, _unvectored(wire.openPbr), wire.conductor, _unproved(wire.provenance), _unshaded(wire.preview),
+        wire.emissionUnit, wire.emissionValue,
+        wire.emission == null ? null : [
+          wire.emission.dominantWavelengthNm, wire.emission.excitationPurity,
+          wire.emission.cctKelvin, wire.emission.cctDuv,
+          wire.emission.relativeLuminance, wire.emission.gamutMapped,
+        ],
+      ],
+    },
+  )
+}
+// Field-for-field mirror of the C# seam record (`Rasm.Element` NODE_MODEL mint): its one wire leg is the
+// `rasm.element.v1` `AppearanceWire` payload inside `NodeWire` (field 7), so this class is the LANDING SHAPE the
+// `NodeWire` decode seats — never a wire family of its own, because no producer emits a standalone summary
+// document. The shape carries the XxHash128 dedup key plus the flat seven-value preview — scene-linear base
+// color, the two lobe scalars, opacity, and the refractive flag DISTINCT from opacity. `appearanceKey` is the
+// join coordinate `TextureSet.appearanceKey` hangs behind; the flat scalars serve a consumer reading without the
+// lobe graph, so no field re-derives from `PbrGroups` and no clamp, remap, or grouping forks the producer's
+// semantics.
+class AppearanceSummary extends Schema.Class<AppearanceSummary>("AppearanceSummary")({
+  appearanceKey: Digest.FromX32,
+  baseColorR: Schema.Number.pipe(Schema.nonNegative()),
+  baseColorG: Schema.Number.pipe(Schema.nonNegative()),
+  baseColorB: Schema.Number.pipe(Schema.nonNegative()),
+  metallic: _Weight,
+  roughness: _Weight,
+  opacity: _Weight,
+  transmissive: Schema.Boolean,
+}) {}
+
+// `_transferRows` carries the five-tag vocabulary whole beside the one column the frozen fragment's own legality
+// clause states: `plane` is true where the tag reaches a channel plane at all. The scene-referred subset DERIVES
+// from that column under a two-way guard, so a sixth tag is one row and neither the roster nor the subset can drift
+// off the other. `pq`/`hlg` are display transfers the C#-interior environment wire alone admits — both set documents
+// carry roster-keyed CHANNEL planes, and a display-referred channel plane forks its stored value from its shading value.
+const _transfers = ["linear", "srgb", "raw", "pq", "hlg"] as const
+const _transferRows = {
+  linear: { plane: true },
+  srgb: { plane: true },
+  raw: { plane: true },
+  pq: { plane: false },
+  hlg: { plane: false },
+} as const satisfies { readonly [K in Texture.Transfer]: { readonly plane: boolean } }
+type _PlaneTagged = {
+  readonly [K in Texture.Transfer]: (typeof _transferRows)[K]["plane"] extends true ? K : never
+}[Texture.Transfer]
+const _sceneTransfers = ["linear", "srgb", "raw"] as const
+type _SceneTransfer = (typeof _sceneTransfers)[number]
+type _SceneWhole<K extends _PlaneTagged = _SceneTransfer> = K
+type _SceneClosed<K extends _SceneTransfer = _PlaneTagged> = K
+
+// `_depthRows` splits the store class on the two axes the wire laws read: `integer` decides which transfer a color
+// channel is authored under, and `deep` decides what an 8-bit-only encoder leg and a lossy association conversion admit.
+const _depths = ["u8", "u16", "f16", "f32"] as const
+const _depthRows = {
+  u8: { integer: true, deep: false },
+  u16: { integer: true, deep: true },
+  f16: { integer: false, deep: true },
+  f32: { integer: false, deep: true },
+} as const satisfies { readonly [K in Texture.Depth]: { readonly integer: boolean; readonly deep: boolean } }
+
+const _mipPolicies = ["box", "kaiser", "normalRenormalize", "roughnessVariance", "none"] as const
+
+// The three physical units the roster's own channels carry; every other channel is a dimensionless ratio, an index,
+// or a normalized field and declares none. The column is what gives the millimetre height span, the nanometre
+// thin-film thickness, and the photometric emission floor a declared home instead of a bind-site guess.
+const _units = ["mm", "nm", "cd/m2"] as const
+
+// Roster order carries the canonical channels — OpenPBR rows, then geometry, then derived; tuple position IS the
+// set-key preimage rank both set documents order their rows by.
+const _roles = [
+  "base_weight", "base_color", "base_metalness", "base_diffuse_roughness", "base_specular_tint",
+  "specular_weight", "specular_color", "specular_roughness", "specular_roughness_anisotropy",
+  "specular_roughness_anisotropy_rotation", "specular_ior",
+  "transmission_weight", "transmission_roughness", "subsurface_weight", "subsurface_radius",
+  "coat_weight", "coat_color", "coat_roughness", "coat_ior", "fuzz_weight", "fuzz_color", "fuzz_roughness",
+  "thin_film_weight", "thin_film_thickness", "thin_film_ior", "emission_color", "emission_luminance",
+  "geometry_opacity", "geometry_normal", "geometry_coat_normal", "geometry_tangent", "geometry_coat_tangent",
+  "height", "occlusion", "curvature",
+] as const
+
+// The channel fact carries the roster's five wire-bearing columns and NOTHING derived from them: `ch` the semantic
+// component count, `transfer` the tag the channel is authored under, `neutral` the constant an absent packed slot, a
+// mip gutter, and a UDIM hole fill with, `unit` the physical unit the value is expressed in, and `mip` the declared
+// fold. Every plane law READS those five — the colorimetric class, the depth-coupled transfer, the storage-width
+// floor, the admissible fold, and the scalar companion a false pack slot stamps — so a new channel is ONE row and no
+// predicate widens. The arity distributes ONCE here, so a three-band neutral on a one-component channel cannot be
+// written; a boolean standing in for `transfer` folds `linear` and `raw` into one class and admits `specular_ior` as
+// a light quantity, and `null` on `unit` names a dimensionless ratio, an index, or a normalized field.
+type _ChannelFacts<C extends 1 | 3 = 1 | 3> = C extends unknown ? {
+    readonly ch: C
+    readonly transfer: _SceneTransfer
+    readonly neutral: C extends 1 ? readonly [number] : readonly [number, number, number]
+    readonly unit: Texture.Unit | null
+    readonly mip: Exclude<Texture.MipPolicy, "none">
+  }
+  : never
+
+const _channelRows = {
+  base_weight: { ch: 1, transfer: "linear", neutral: [1], unit: null, mip: "box" },
+  base_color: { ch: 3, transfer: "srgb", neutral: [0.8, 0.8, 0.8], unit: null, mip: "kaiser" },
+  base_metalness: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
+  base_diffuse_roughness: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "roughnessVariance" },
+  base_specular_tint: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
+  specular_weight: { ch: 1, transfer: "linear", neutral: [1], unit: null, mip: "box" },
+  specular_color: { ch: 3, transfer: "srgb", neutral: [1, 1, 1], unit: null, mip: "kaiser" },
+  specular_roughness: { ch: 1, transfer: "linear", neutral: [0.3], unit: null, mip: "roughnessVariance" },
+  specular_roughness_anisotropy: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
+  // the scalar anisotropy-direction plane; mips correctly under box where a tangent vector plane cancels
+  specular_roughness_anisotropy_rotation: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
+  specular_ior: { ch: 1, transfer: "raw", neutral: [1.5], unit: null, mip: "box" },
+  transmission_weight: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
+  transmission_roughness: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "roughnessVariance" },
+  subsurface_weight: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
+  // a 3-band mean-free-path carrier in millimetres, never a colorimetric triple
+  subsurface_radius: { ch: 3, transfer: "raw", neutral: [1, 0.5, 0.25], unit: "mm", mip: "box" },
+  coat_weight: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
+  coat_color: { ch: 3, transfer: "srgb", neutral: [1, 1, 1], unit: null, mip: "kaiser" },
+  coat_roughness: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "roughnessVariance" },
+  coat_ior: { ch: 1, transfer: "raw", neutral: [1.6], unit: null, mip: "box" },
+  fuzz_weight: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
+  fuzz_color: { ch: 3, transfer: "srgb", neutral: [1, 1, 1], unit: null, mip: "kaiser" },
+  fuzz_roughness: { ch: 1, transfer: "linear", neutral: [0.5], unit: null, mip: "roughnessVariance" },
+  thin_film_weight: { ch: 1, transfer: "linear", neutral: [0], unit: null, mip: "box" },
+  // nanometres on the column; the micrometre divide is the `.mtlx` egress edge's
+  thin_film_thickness: { ch: 1, transfer: "raw", neutral: [500], unit: "nm", mip: "box" },
+  thin_film_ior: { ch: 1, transfer: "raw", neutral: [1.4], unit: null, mip: "box" },
+  emission_color: { ch: 3, transfer: "srgb", neutral: [1, 1, 1], unit: null, mip: "kaiser" },
+  emission_luminance: { ch: 1, transfer: "linear", neutral: [0], unit: "cd/m2", mip: "box" },
+  geometry_opacity: { ch: 1, transfer: "linear", neutral: [1], unit: null, mip: "box" },
+  geometry_normal: { ch: 3, transfer: "raw", neutral: [0, 0, 1], unit: null, mip: "normalRenormalize" },
+  geometry_coat_normal: { ch: 3, transfer: "raw", neutral: [0, 0, 1], unit: null, mip: "normalRenormalize" },
+  geometry_tangent: { ch: 3, transfer: "raw", neutral: [1, 0, 0], unit: null, mip: "normalRenormalize" },
+  geometry_coat_tangent: { ch: 3, transfer: "raw", neutral: [1, 0, 0], unit: null, mip: "normalRenormalize" },
+  // normalized [0,1]; the millimetre span rides the document's `heightScale`, never the column
+  height: { ch: 1, transfer: "raw", neutral: [0.5], unit: null, mip: "box" },
+  occlusion: { ch: 1, transfer: "linear", neutral: [1], unit: null, mip: "box" },
+  // signed [-1,1]; an integer store carries the halved encoding
+  curvature: { ch: 1, transfer: "raw", neutral: [0], unit: null, mip: "box" },
+} as const satisfies { readonly [K in Texture.Role]: _ChannelFacts }
+
+// Color channels author their transfer to FOLLOW their store — the roster's `srgb` rows encode display-referred at integer
+// depth and scene-linear at float depth, and every other row is transfer-invariant across depth. Reading the roster
+// column raw admits `base_color` as a linear 8-bit plane the shading rail then decodes a second time.
+const _authored = (role: Texture.Role, depth: Texture.Depth): _SceneTransfer =>
+  _channelRows[role].transfer === "srgb" && !_depthRows[depth].integer ? "linear" : _channelRows[role].transfer
+
+// Roster folds declare a channel's DEFAULT and `box` its floor; `none` names the single-level plane alone, so
+// a pyramid depth and a fold policy never disagree. That same column fixes the direction class — the
+// `normalRenormalize` rows ARE the direction triples, and only a direction plane may store two components and
+// reconstruct the third, so a three-band millimetre carrier in `rg16` loses its third band with nothing to recover it.
+const _mipLawful = (role: Texture.Role, mips: number, policy: Texture.MipPolicy): boolean =>
+  mips === 1 ? policy === "none" : policy === "box" || policy === _channelRows[role].mip
+const _widthFloor = (role: Texture.Role): 1 | 2 | 4 =>
+  _channelRows[role].ch === 1 ? 1 : _channelRows[role].mip === "normalRenormalize" ? 2 : 4
+
+// `_planeRows` projects each storage key onto the three facts the wire laws read: its store class, its texel width,
+// and `web` — whether a browser transcoder can reach the store at all. The one-and-two-component sixteen-bit integer
+// stores have no Vulkan format row in the KTX2 read path, so they are producer-side and desktop-native only, which
+// is load-bearing precisely where `_widthFloor` routes every direction plane to width 2: the natural high-precision
+// normal store is the undecodable one. The column generates that refusal exactly like `_payloadRows.wire` and
+// `_transferRows.plane` generate theirs, so a browser-decodable store set is derived and never a hand list.
+const _planeFormats = ["r8", "r16", "r16f", "r32f", "rg8", "rg16", "rg16f", "rg32f", "rgba8", "rgba16", "rgba16f", "rgba32f"] as const
+const _planeRows = {
+  r8: { depth: "u8", width: 1, web: true }, r16: { depth: "u16", width: 1, web: false },
+  r16f: { depth: "f16", width: 1, web: true }, r32f: { depth: "f32", width: 1, web: true },
+  rg8: { depth: "u8", width: 2, web: true }, rg16: { depth: "u16", width: 2, web: false },
+  // the float two-component stores carry Vulkan format rows, so rg16f is the web re-route for the direction planes rg16 cannot serve
+  rg16f: { depth: "f16", width: 2, web: true }, rg32f: { depth: "f32", width: 2, web: true },
+  rgba8: { depth: "u8", width: 4, web: true }, rgba16: { depth: "u16", width: 4, web: true },
+  rgba16f: { depth: "f16", width: 4, web: true }, rgba32f: { depth: "f32", width: 4, web: true },
+} as const satisfies { readonly [K in Texture.PlaneFormat]: { readonly depth: Texture.Depth; readonly width: 1 | 2 | 4; readonly web: boolean } }
+
+// `_payloadRows` carries all five KTX2 payload classes beside the three columns their refusals read: `wire` the
+// legality the viewer's Basis transcoder path decides, `block` whether the file holds block data direct, and `ldr` the
+// MEASURED 8-bit store bound both encoder legs raise on. The wire subset derives from `wire` under a two-way guard, so
+// admitting a future transcodable payload is one column flip and every filter follows it with no literal to chase.
+const _payloads = ["rawBcn", "uastc", "etc1s", "astc", "none"] as const
+const _payloadRows = {
+  rawBcn: { wire: false, block: true, ldr: true },
+  uastc: { wire: true, block: false, ldr: true },
+  etc1s: { wire: true, block: false, ldr: true },
+  astc: { wire: false, block: true, ldr: true },
+  none: { wire: true, block: false, ldr: false },
+} as const satisfies { readonly [K in Texture.Payload]: { readonly wire: boolean; readonly block: boolean; readonly ldr: boolean } }
+type _Wired = {
+  readonly [K in Texture.Payload]: (typeof _payloadRows)[K]["wire"] extends true ? K : never
+}[Texture.Payload]
+const _blockFormats = ["bc1", "bc2", "bc3", "bc4", "bc5", "bc6h", "bc7", "none"] as const
+const _wirePayloads = ["uastc", "etc1s", "none"] as const
+type _PayloadWired<K extends _Wired = Texture.WirePayload> = K
+type _PayloadClosed<K extends Texture.WirePayload = _Wired> = K
+
+const _alphaModes = ["straight", "associated", "none"] as const
+const _conventions = ["gl", "dx"] as const
+
+// `_containerRows` carries the frozen fragment's twelve-row file-container roster WHOLE — a container one branch
+// alone writes still rides it, refused by roster membership rather than by an unknown key — beside the three columns
+// the wire laws read: `alpha` the canonical association encode converts to (the jxl/avif rows are the measured
+// no-premultiplication-seat posture of the provisioned encoders), `pyramid` whether the file holds its OWN mip chain,
+// which is the column the plane-level list law generates its length off, and `plane` whether the container reaches a
+// CHANNEL plane at all. The eight-bit lossless preview row admits for a thumbnail egress and never for a channel, and
+// its own producer rules the set egress grammar unable to mint one — so the carve generates like every other roster
+// refusal and a second preview-class container is one column value, never a hand exclusion in the lawfulness chain.
+const _containers = ["png16", "tiff16", "tiff_f32", "webp", "qoi", "exr", "exr_deep", "hdr", "ktx2", "jxl", "jxl_f16", "avif12"] as const
+const _containerRows = {
+  png16: { alpha: "straight", pyramid: false, plane: true },
+  tiff16: { alpha: "straight", pyramid: false, plane: true },
+  tiff_f32: { alpha: "straight", pyramid: false, plane: true },
+  webp: { alpha: "straight", pyramid: false, plane: true },
+  qoi: { alpha: "straight", pyramid: false, plane: false },
+  exr: { alpha: "associated", pyramid: false, plane: true },
+  exr_deep: { alpha: "associated", pyramid: false, plane: true },
+  hdr: { alpha: "none", pyramid: false, plane: true },
+  ktx2: { alpha: "straight", pyramid: true, plane: true },
+  jxl: { alpha: "straight", pyramid: false, plane: true },
+  jxl_f16: { alpha: "straight", pyramid: false, plane: true },
+  avif12: { alpha: "straight", pyramid: false, plane: true },
+} as const satisfies { readonly [K in Texture.Container]: { readonly alpha: Texture.AlphaMode; readonly pyramid: boolean; readonly plane: boolean } }
+// Straight-to-associated conversion quantizes catastrophically at low alpha below 16 bits, so a plane whose container
+// fixes an association differing from its declared mode admits at a deep store alone; a `none` plane carries nothing
+// to convert and passes whole.
+const _associationLawful = (mode: Texture.AlphaMode, container: Texture.Container, depth: Texture.Depth): boolean =>
+  mode === "none" || _containerRows[container].alpha === mode || _depthRows[depth].deep
+
+// `_layerRows` fixes the extent each layer law admits where the concept has one — an unlayered set holds one plane and
+// a cube holds six faces; the open laws bound their extent at the producer, so `null` imposes nothing here.
+const _layerLaws = ["none", "cubeFaces", "array", "volume", "frames"] as const
+const _layerRows = {
+  none: { extent: 1 }, cubeFaces: { extent: 6 },
+  array: { extent: null }, volume: { extent: null }, frames: { extent: null },
+} as const satisfies { readonly [K in Texture.LayerLaw]: { readonly extent: number | null } }
+// `_packRows` fixes each packing order in slot order beside the ONE legality column the fragment states: `slots` is
+// the roster `present` indexes, so a packed channel is addressed by its pack row and the roster names which
+// standalone plane row then cannot exist, and `gltf` is whether the order crosses to a glTF consumer at all. The
+// occlusion-first order IS the glTF KHR occlusion-plus-metallic-roughness read order and matches a three-component
+// sampler's `.r`/`.g`/`.b` convention; the inverted order swaps R and B, so a consumer binding it to those slots
+// reads occlusion as metalness — a refusal the consumer can only declare off a column it can read.
+const _packs = ["orm", "mra"] as const
+const _packRows = {
+  orm: { slots: ["occlusion", "specular_roughness", "base_metalness"], gltf: true },
+  mra: { slots: ["base_metalness", "specular_roughness", "occlusion"], gltf: false },
+} as const satisfies { readonly [K in Texture.Pack]: { readonly slots: readonly [Texture.Role, Texture.Role, Texture.Role]; readonly gltf: boolean } }
+
+// One exported anchor for the frozen shared texture vocabulary: the roster TUPLES, each key type derived off its
+// own tuple, PLUS this page's own wire-legality column tables on `rows` — channel, container, depth, plane, pack —
+// because the refusals those columns declare (`_planeRows.web`, `_packRows.gltf`, the channel neutrals) are the ui
+// bind's to RAISE, and a consumer told to raise over a column must be able to read it. FOREIGN owners' columns
+// (the data plane's CLI and data-format columns) stay with their owners and key off these tuples, so a fragment
+// re-freeze breaks at ONE declaration in every module rather than forking toward whichever page a writer opened.
+// Derived subsets (`_sceneTransfers`, `_wirePayloads`, `_packFormats`) close against their own anchor row and
+// never enter the anchor a second time. Every row table is `as const satisfies` — a mapped ANNOTATION erases the
+// row literals, collapsing every `extends true` derivation beside it (`_Wired`) to `never` while it reads correct.
+declare namespace Texture {
+  type AlphaMode = (typeof _alphaModes)[number]
+  type Container = (typeof _containers)[number]
+  type Convention = (typeof _conventions)[number]
+  type Depth = (typeof _depths)[number]
+  type LayerLaw = (typeof _layerLaws)[number]
+  type MipPolicy = (typeof _mipPolicies)[number]
+  type Pack = (typeof _packs)[number]
+  type Payload = (typeof _payloads)[number]
+  type PlaneFormat = (typeof _planeFormats)[number]
+  type Role = (typeof _roles)[number]
+  type Transfer = (typeof _transfers)[number]
+  type Unit = (typeof _units)[number]
+  type WirePayload = (typeof _wirePayloads)[number]
+  type Shape = Types.Simplify<{
+    readonly alphaModes: typeof _alphaModes
+    readonly containers: typeof _containers
+    readonly conventions: typeof _conventions
+    readonly depths: typeof _depths
+    readonly layerLaws: typeof _layerLaws
+    readonly mipPolicies: typeof _mipPolicies
+    readonly packs: typeof _packs
+    readonly payloads: typeof _payloads
+    readonly planeFormats: typeof _planeFormats
+    readonly roles: typeof _roles
+    readonly transfers: typeof _transfers
+    readonly units: typeof _units
+    readonly wirePayloads: typeof _wirePayloads
+    readonly rows: Types.Simplify<{
+      readonly channel: typeof _channelRows
+      readonly container: typeof _containerRows
+      readonly depth: typeof _depthRows
+      readonly plane: typeof _planeRows
+      readonly pack: typeof _packRows
+    }>
+  }>
+}
+
+const Texture: Texture.Shape = {
+  alphaModes: _alphaModes,
+  containers: _containers,
+  conventions: _conventions,
+  depths: _depths,
+  layerLaws: _layerLaws,
+  mipPolicies: _mipPolicies,
+  packs: _packs,
+  payloads: _payloads,
+  planeFormats: _planeFormats,
+  roles: _roles,
+  transfers: _transfers,
+  units: _units,
+  wirePayloads: _wirePayloads,
+  rows: { channel: _channelRows, container: _containerRows, depth: _depthRows, plane: _planeRows, pack: _packRows },
+}
+
+// ONE address triple per stored plane FILE. The two producers differ in exactly one field-level fact — the C#
+// document names the address `blob` on the X32 spelling, the python document names it `digest` on the lowercase
+// brand — so the triple is ONE variant declaration whose address column carries both encodings and whose `file` and
+// `byteLength` are shared; each document's schema is an `extract`, and a third producer is one variant key. Two
+// parallel struct declarations beside a schema-parameterized factory is the hand-rolled shape this deletes.
+// Every addressed plane is a LEVEL-ORDERED list of these triples — entry 0 the base level — and `_leveled` generates
+// the length law off the container's `pyramid` column: a self-pyramiding container holds ONE entry whatever `mips`
+// declares, every other container one entry per level. A scalar address beside a `mips` count is the
+// undigested-pyramid shape the list replaces.
+const _producer = VariantSchema.make({ variants: ["web", "proto"], defaultVariant: "web" })
+
+const _PlaneRef = _producer.Struct({
+  file: Schema.NonEmptyString, // the egress leaf relative to the set directory; the served-asset join consumes it verbatim
+  address: _producer.Field({ web: Digest.FromX32, proto: ContentKey }).pipe(
+    _producer.fieldFromKey({ web: "blob", proto: "digest" }),
+  ),
+  byteLength: Schema.BigIntFromSelf, // the python wire's snake_case byte_length arrives through the generated message's lowerCamel local
+})
+
+const _PlaneRefWeb = _producer.extract("web")(_PlaneRef)
+const _PlaneRefProto = _producer.extract("proto")(_PlaneRef)
+
+const _leveled = (container: Texture.Container, mips: number, held: number): boolean =>
+  held === (_containerRows[container].pyramid ? 1 : mips)
+
+const _ascending = (strict: boolean) => (values: ReadonlyArray<number>): boolean =>
+  Array.every(
+    Array.zipWith(values, Array.drop(values, 1), (prior, next) => (strict ? prior < next : prior <= next)),
+    Function.identity,
+  )
+const _rosterOrdered = (rows: ReadonlyArray<{ readonly role: Texture.Role }>): boolean =>
+  _ascending(true)(Array.map(rows, (row) => _roles.indexOf(row.role)))
+
+// The python producer's CompanionPolicy.RENDER emits TWO entries for one role — the primary plus a sampled
+// companion, distinguished by `container` — so the manifest's map key is `(role, container)`, never role alone:
+// roster order holds non-strictly across the role axis while each equal-role run keeps its containers distinct.
+const _companionKeyed = (rows: ReadonlyArray<{ readonly role: Texture.Role; readonly container: string }>): boolean =>
+  _ascending(false)(Array.map(rows, (row) => _roles.indexOf(row.role)))
+    && Array.every(
+      Array.zipWith(rows, Array.drop(rows, 1), (prior, next) => prior.role !== next.role || prior.container !== next.container),
+      Function.identity,
+    )
+
+// Plane-row laws span both documents, projected off each row's own column names: roster semantic count,
+// depth-coupled authored transfer, the measured 8-bit store every block-compressed payload admits, and the
+// container's own channel-plane legality — the preview-class row its producer declares unminteable from a set leaf.
+const _planeLawful = (
+  role: Texture.Role,
+  channels: number,
+  transfer: _SceneTransfer,
+  depth: Texture.Depth,
+  payload: Texture.WirePayload,
+  container: Texture.Container,
+): boolean =>
+  channels === _channelRows[role].ch
+  && transfer === _authored(role, depth)
+  && (!_payloadRows[payload].ldr || !_depthRows[depth].deep)
+  // a DIMENSIONED channel carries no normalization: the roster declares millimetres, nanometres, and cd/m2 outright
+  // and no wire column carries a scale, so an integer store has nothing to express them in — `height` proves the
+  // pattern from the other side, normalized on the row with its physical span riding the set's own `heightScale`
+  && (_channelRows[role].unit === null || !_depthRows[depth].integer)
+  && _containerRows[container].plane
+
+// `_packDisjoint` refuses a channel addressed twice under one set key — a packed slot's channel is carried by its
+// pack row ALONE, and a standalone plane row beside it leaves a consumer reading whichever it resolved first.
+const _packDisjoint = (
+  rows: ReadonlyArray<{ readonly role: Texture.Role }>,
+  packs: ReadonlyArray<{ readonly pack: Texture.Pack; readonly present: readonly [boolean, boolean, boolean] }>,
+): boolean =>
+  Array.every(packs, (entry) =>
+    Array.every(
+      _packRows[entry.pack].slots,
+      (role, slot) => !entry.present[slot] || !Array.some(rows, (row) => row.role === role),
+    ))
+
+const _MariTiles = Schema.Array(Schema.Int.pipe(Schema.greaterThanOrEqualTo(1001))).pipe(
+  Schema.filter((tiles) => _ascending(true)(tiles) || "<udim-tiles-unordered>", { identifier: "MariAscending" }),
+)
+
+// Packs occupy every component, so a storage row DERIVES as the four-wide half of the format roster under the
+// same two-way close every other subset takes. Both documents' pack rows are otherwise one shape whose only axis is
+// the producer's address spelling — which is why the row is the same variant declaration the triple is — and the row
+// carries NO mip-policy column by design: each slot mips under its own channel's roster fold, so one policy across a
+// pack is the defect a policy column would invite.
+type _PackFormat = {
+  readonly [K in Texture.PlaneFormat]: (typeof _planeRows)[K]["width"] extends 4 ? K : never
+}[Texture.PlaneFormat]
+const _packFormats = ["rgba8", "rgba16", "rgba16f", "rgba32f"] as const
+type _PackWidened<K extends _PackFormat = (typeof _packFormats)[number]> = K
+type _PackClosed<K extends (typeof _packFormats)[number] = _PackFormat> = K
+
+// The level-list law is ONE filter both documents' pack rows take, applied after `extract` because a variant
+// declaration carries fields and a refusal rides a schema.
+const _packLeveled = <
+  A extends { readonly container: Texture.Container; readonly mips: number; readonly levels: ReadonlyArray<unknown> },
+  I,
+  R,
+>(row: Schema.Schema<A, I, R>): Schema.Schema<A, I, R> =>
+  row.pipe(
+    Schema.filter((entry) => _leveled(entry.container, entry.mips, entry.levels.length) || "<pack-levels-unaddressed>", {
+      identifier: "PlaneLevels",
+    }),
+  )
+
+const _PackRow = _producer.Struct({
+  pack: Schema.Literal(..._packs),
+  present: Schema.Tuple(Schema.Boolean, Schema.Boolean, Schema.Boolean), // three flags in slot order; a false slot carries its channel neutral
+  format: Schema.Literal(..._packFormats),
+  container: Schema.Literal(..._containers),
+  mips: Schema.Int.pipe(Schema.positive()),
+  // level-ordered; the pack name is the <channel> slot of each leaf, and the address spelling is the document's own
+  levels: _producer.Field({
+    web: Schema.NonEmptyArray(_PlaneRefWeb),
+    proto: Schema.NonEmptyArray(_PlaneRefProto),
+  }),
+})
+
+const _PackRowWeb = _packLeveled(_producer.extract("web")(_PackRow))
+const _PackRowProto = _packLeveled(_producer.extract("proto")(_PackRow))
+
+const _ChannelRow = Schema.Struct({
+  role: Schema.Literal(..._roles),
+  transfer: Schema.Literal(..._sceneTransfers),
+  format: Schema.Literal(..._planeFormats),
+  container: Schema.Literal(..._containers), // the FILE container; the association gate, the plane carve, and the level-list law all select on it
+  channels: Schema.Literal(1, 3), // the SEMANTIC component count — the roster's own column image; storage width is `format`'s
+  alphaMode: Schema.Literal(..._alphaModes),
+  mips: Schema.Int.pipe(Schema.positive()),
+  mipPolicy: Schema.Literal(..._mipPolicies),
+  blockFormat: Schema.Literal(..._blockFormats),
+  ktxPayload: Schema.Literal(..._wirePayloads),
+  levels: Schema.NonEmptyArray(_PlaneRefWeb), // level-ordered addresses; entry 0 is the base level
+}).pipe(
+  Schema.filter(
+    (row) =>
+      (_planeLawful(row.role, row.channels, row.transfer, _planeRows[row.format].depth, row.ktxPayload, row.container)
+        && _planeRows[row.format].width >= _widthFloor(row.role)
+        && _mipLawful(row.role, row.mips, row.mipPolicy)
+        // block data rides `rawBcn` alone and `rawBcn` never crosses, so the refusal generates off the payload table
+        && (row.blockFormat === "none" || _payloadRows[row.ktxPayload].block)
+        && (_planeRows[row.format].width === 4 || row.alphaMode === "none")
+        // a payload column is the container's own: it reads as vacancy off a non-KTX2 file and names a payload on one
+        && (row.ktxPayload === "none" || row.container === "ktx2")
+        && _associationLawful(row.alphaMode, row.container, _planeRows[row.format].depth)
+        && _leveled(row.container, row.mips, row.levels.length))
+        || "<channel-row-unlawful>",
+    { identifier: "PlaneLawful" },
+  ),
+)
 
 const _PressReceipt = Schema.Struct({
   backend: Schema.Literal("cpu"), // a GPU press yields a preview carrying no set and no key, so `webgpu` on a persisted receipt is the decode refusal
@@ -1037,6 +1420,11 @@ const _PressReceipt = Schema.Struct({
   texels: Schema.BigIntFromSelf,
   elapsedMs: Schema.Number.pipe(Schema.nonNegative()),
   gpuDeltaMax: Schema.optionalWith(Schema.Number, { as: "Option" }), // absent until a parity run measures it; telemetry, never a key input
+  // The press's two quality tallies at wire grain: `downgraded` COUNTS the channels whose paired mip policy fell to
+  // the box floor and `faultedTexels` SUMS the neutral-filled texels across every channel, so a set that pressed
+  // clean and one that degraded per plane read apart on the analytics plane rather than on `elapsedMs`.
+  downgraded: Schema.Int.pipe(Schema.nonNegative()),
+  faultedTexels: Schema.BigIntFromSelf,
 })
 
 class TextureSet extends Schema.Class<TextureSet>("TextureSet")(Schema.Struct({
@@ -1056,7 +1444,7 @@ class TextureSet extends Schema.Class<TextureSet>("TextureSet")(Schema.Struct({
   channels: Schema.Array(_ChannelRow).pipe(
     Schema.filter((rows) => _rosterOrdered(rows) || "<channel-roster-disorder>", { identifier: "RosterOrdered" }),
   ),
-  packs: _packRows(_PlaneRefWeb),
+  packs: Schema.Array(_PackRowWeb),
   provenance: _Provenance,
   press: Schema.optionalWith(_PressReceipt, { as: "Option" }), // absent for an ingested set
 }).pipe(
@@ -1094,7 +1482,7 @@ const _MapRow = Schema.Struct({
 }).pipe(
   Schema.filter(
     (row) =>
-      (_planeLawful(row.role, row.channels, row.colorSpace, row.depth, row.ktxPayload)
+      (_planeLawful(row.role, row.channels, row.colorSpace, row.depth, row.ktxPayload, row.container)
         // a payload column is the container's own: it reads as vacancy off a non-KTX2 file and names a payload on one
         && (row.ktxPayload === "none" || row.container === "ktx2")
         && _leveled(row.container, row.mips, row.levels.length))
@@ -1106,6 +1494,8 @@ const _MapRow = Schema.Struct({
 const _Ibl = Schema.Struct({
   sh9: Schema.Array(Schema.Number).pipe(Schema.itemsCount(27)), // band-major, RGB interleaved, under the frozen SH9 layout
   equirect: _PlaneRefProto, // the source equirect plane; 2:1 extent enforced at the producer's admit
+  cubemap: Schema.optionalWith(_PlaneRefProto, { as: "Option" }), // ONE address — a single self-pyramiding KTX2 cube container holding all six faces
+  preview: Schema.optionalWith(_PlaneRefProto, { as: "Option" }), // the display-referred gain-map preview; the one product whose read-side intensity is baked
   specular: Schema.Array(_PlaneRefProto), // GGX prefilter pyramid — LEVELS, level-ordered under the plane-level list law
   roughnessPerMip: Schema.Array(Schema.Number.pipe(Schema.between(0, 1))),
   brdfLut: _PlaneRefProto, // the split-sum BRDF LUT
@@ -1136,9 +1526,11 @@ class AssetSetManifest extends Schema.Class<AssetSetManifest>("AssetSetManifest"
   udimTiles: _MariTiles,
   tiled: Schema.Boolean, // DECLARED, carried from producer or verifier — python synthesizes no tiling
   maps: Schema.Array(_MapRow).pipe(
-    Schema.filter((rows) => _rosterOrdered(rows) || "<map-roster-disorder>", { identifier: "RosterOrdered" }),
+    // `(role, container)` is the map key — a CompanionPolicy.RENDER set legitimately carries a primary and a
+    // sampled companion for one role, so the strict per-role order gate is the TextureSetWire roster's, not this one.
+    Schema.filter((rows) => _companionKeyed(rows) || "<map-roster-disorder>", { identifier: "CompanionKeyed" }),
   ),
-  packs: _packRows(_PlaneRefProto),
+  packs: Schema.Array(_PackRowProto),
   ibl: Schema.optionalWith(_Ibl, { as: "Option" }),
   unresolved: Schema.Array(Schema.NonEmptyString), // filename stems no alias claimed — the classify fault-monoid accumulation
   heightScale: Schema.Number.pipe(Schema.nonNegative()), // 0.0 = no height plane
@@ -1426,14 +1818,15 @@ const _sameMaterial: Equivalence.Equivalence<Redacted.Redacted<string>> = Schema
 ## [07]-[KEYED_REGISTRY]
 
 [KEYED_REGISTRY]:
-- Owner: `Wire`, the assembled registry — `_landingRows`, the ONE value anchor mapping every codec-homed family to its landing schema, from which `_Landing` derives by `Schema.Schema.Type` projection and `_landings` re-binds under the derived mapped annotation so the generic indexed message decode resolves one correlated signature per key; the `_schemas` byte-row table annotated by the same mapped contract; and the polymorphic entrypoints: `decode(family, octets)`, `encode(family, value)` for the egress-legal rows, `schema(family)` the raw byte schema for field composition, `stream(family, frames)` the framed feed with quarantine divert, `diverted` the one framed-divert combinator, `residue(message)` the preserved unknown-field read, `of(arm)` and `homed(page)` the census projections, and the census facts and the wire literal spread onto the owner.
+- Owner: `Wire`, the assembled registry — `_landingRows`, the ONE value anchor mapping every codec-homed family to its landing schema, from which `_Landing` derives by `Schema.Schema.Type` projection and `_landings` re-binds under the derived mapped annotation so the generic indexed message decode resolves one correlated signature per key; the `_schemas` byte-row table annotated by the same mapped contract; and the polymorphic entrypoints: `decode(family, octets)`, `encode(family, value)` for the egress-legal rows, `schema(family)` the raw byte schema for field composition, `stream(family, frames)` the framed feed with quarantine divert, `diverted` the one framed-divert combinator, `residue(message)` the preserved unknown-field read, `by(column, value)` the one census projection over any fact column, and the census facts and the wire literal spread onto the owner.
 - Law: one keyed decode, spelled once — the landing correspondence is a value anchor and its type derives, so a hand-written landing type cannot drift from the table, the `_schemas` annotation ties the byte rows to the same anchor, and the per-page `_Landing`/`_rows` restatement this collapse killed is unspellable because a family's landing exists in exactly one table; the `_Landed`/`_LandingKeys` guard pair closes the landing table against the census `home` column in both directions — a codec-homed census row missing its landing line, or a landing line for a family homed elsewhere, fails at the declaration, never at the gate's runtime coverage walk.
 - Law: rows landing sibling vocabulary compose the sibling owner whole (`Proto.family(Proto.suite.ReceiptEnvelopeWire, ReceiptEnvelope)`); rows landing wire-owned shapes compose `[06]`'s classes; msgpack rows ride `Pack.schema`, the cbor row rides `Cbor.frame` composed with its header class, and the jsonpatch row delegates to `format#JSONPATCH_ENGINE`'s document schema under home `format`.
 - Law: `diverted` is the one framed-divert spelling — source fault to `malformed`, landing decode, quarantine divert, in one combinator over `(family, source, landing, octets)` — and every framed ingress instantiates it: `stream` over the proto walk with the landing decode of the already-parsed message (the byte schema never re-parses a frame), the oplog stream over the msgpack walk, and the frame page's envelope streams; a hand pipeline beside it re-derives the walk.
 - Law: content-verified rows compose `Parity` at the entry — `verifiedSnapshot` re-proves the header key over the held octets, `admittedGraph` yields the contract gate before decoding under the drift verdict; verification is entry composition, never a per-row re-implementation.
 - Law: `residue` reads the `$unknown` rows the `_READ` posture preserved on any decoded proto message — live-message drift a partial peer emits, the runtime complement of the contract gate's boot descriptor grade; a consumer surfaces a non-empty residue beside the family's drift verdict as evidence, the rows never mutate the landing, and re-emission through the same suite row round-trips them under `writeUnknownFields`.
 - Law: quarantine thunks hold the whole-message byte form — `Wire.decode`'s own replay coordinate — so `_framedEmit` and the replay drain agree by construction; `Proto.delimit` re-frames octets only where an egress joins a size-delimited transport, never on the replay path.
-- Growth: a new family is one `_Landing` line and one `_schemas` row beside its census row; a new projection over the census is one member.
+- Law: the census reads through ONE column-parameterized projection — `by("arm", …)`, `by("home", …)`, `by("consumer", …)`, `by("source", …)` are one member over the fact table's own key space, so every column a row declares is a column a caller can read and a new fact column is readable the moment it lands. A member per column mints one surface per axis and leaves the columns no member spelled — `consumer` and `source` are exactly the rows the branch and folder seam registries join on, and a census column no read reaches governs nothing.
+- Growth: a new family is one `_Landing` line and one `_schemas` row beside its census row; a new census FACT is one column on `Row`, readable through the same projection with no member added.
 - Boundary: the contract gate service this registry's gated rows require is the contract page's; frame reassembly and the invoke verbs consume `schema`/`stream` and land their own shapes at their homes.
 - Packages: `effect` (`Schema`, `Effect`, `Stream`, `Either`, `Option`); `@bufbuild/protobuf` (`Message`, `UnknownField`); `./format.ts` (`Proto`, `Pack`, `Cbor`).
 
@@ -1470,6 +1863,7 @@ const _landingRows = {
   BindingStatusWire: BindingStatus.FromWire,
   CoercedValueWire: CoercedValue.FromWire,
   WriteReceiptWire: WriteReceipt.FromWire,
+  CommandGateWire: CommandGate.FromWire,
   FlagVerdictWire: FlagVerdict,
   ControlIntentWire: ControlIntent,
   LayoutConstraintWire: LayoutProgram,
@@ -1481,7 +1875,6 @@ const _landingRows = {
   IdsAuditWire: IdsAudit,
   MaterialWire: Material,
   OpenPbrGroupsWire: PbrGroups,
-  AppearanceSummaryWire: AppearanceSummary,
   TextureSetWire: TextureSet,
   AssetSetManifest: AssetSetManifest,
 } as const
@@ -1503,6 +1896,7 @@ const _schemas: { readonly [K in keyof _Landing]: Schema.Schema<_Landing[K], Uin
   NodeWire: Proto.family(Proto.suite.NodeWire, Node),
   RelationshipWire: Proto.family(Proto.suite.RelationshipWire, Relation),
   OpLogWire: Pack.schema(OpLogEntry),
+  // the cbor arm carries a real inverse, so this row takes the golden-byte roundtrip proof like every other
   SnapshotHeader: Cbor.frame.pipe(Schema.compose(SnapshotHeader, { strict: false })),
   CrdtOpWire: Pack.schema(CrdtOp),
   CommitWire: Pack.schema(Commit),
@@ -1516,6 +1910,7 @@ const _schemas: { readonly [K in keyof _Landing]: Schema.Schema<_Landing[K], Uin
   BindingStatusWire: Proto.family(Proto.suite.BindingStatusWire, BindingStatus.FromWire),
   CoercedValueWire: Proto.family(Proto.suite.CoercedValueWire, CoercedValue.FromWire),
   WriteReceiptWire: Proto.family(Proto.suite.WriteReceiptWire, WriteReceipt.FromWire),
+  CommandGateWire: Proto.family(Proto.suite.CommandGateWire, CommandGate.FromWire),
   FlagVerdictWire: Proto.family(Proto.suite.FlagVerdictWire, FlagVerdict),
   ControlIntentWire: Proto.family(Proto.suite.ControlIntentWire, ControlIntent),
   LayoutConstraintWire: Proto.family(Proto.suite.LayoutConstraintWire, LayoutProgram),
@@ -1525,9 +1920,11 @@ const _schemas: { readonly [K in keyof _Landing]: Schema.Schema<_Landing[K], Uin
   BimWire: Proto.family(Proto.suite.BimWire, BimModel),
   DiffWire: Proto.family(Proto.suite.DiffWire, BimDiff),
   IdsAuditWire: Proto.family(Proto.suite.IdsAuditWire, IdsAudit),
-  MaterialWire: Proto.family(Proto.suite.MaterialWire, Material),
-  OpenPbrGroupsWire: Proto.family(Proto.suite.OpenPbrGroupsWire, PbrGroups),
-  AppearanceSummaryWire: Proto.family(Proto.suite.AppearanceSummaryWire, AppearanceSummary),
+  // the appearance families decode the producer's MessagePack integer-keyed roster — the same `Pack` arm the
+  // Persistence `[Key(n)]` families ride; no proto suite row exists for them (see the census comment). The
+  // seam summary holds no row: it crosses inside the `NodeWire` proto landing, never as its own document.
+  MaterialWire: Pack.schema(Material.FromWire),
+  OpenPbrGroupsWire: Pack.schema(PbrGroups.FromVector),
   TextureSetWire: Proto.family(Proto.suite.TextureSetWire, TextureSet),
   AssetSetManifest: Proto.family(Proto.suite.AssetSetManifest, AssetSetManifest),
 }
@@ -1546,8 +1943,7 @@ declare namespace Wire {
     readonly arms: typeof _arms
     readonly families: Families
     readonly wire: Schema.Literal<Families>
-    readonly of: (arm: Arm) => ReadonlyArray<Family>
-    readonly homed: (home: Home) => ReadonlyArray<Family>
+    readonly by: <C extends keyof Row>(column: C, value: Row[C]) => ReadonlyArray<Family>
     readonly schema: <K extends Homed>(family: K) => Schema.Schema<Decoded<K>, Uint8Array>
     readonly decode: <K extends Homed>(family: K, octets: Uint8Array) => Effect.Effect<Decoded<K>, ParseResult.ParseError>
     readonly encode: <K extends Homed>(family: K, value: Decoded<K>) => Effect.Effect<Uint8Array, ParseResult.ParseError>
@@ -1602,8 +1998,7 @@ const Wire: Wire.Shape = {
   arms: _arms,
   families: _families,
   wire: _wireLiteral,
-  of: (arm) => Array.filter(_families, (family) => _census[family].arm === arm),
-  homed: (home) => Array.filter(_families, (family) => _census[family].home === home),
+  by: (column, value) => Array.filter(_families, (family) => _census[family][column] === value),
   schema: (family) => _schemas[family],
   decode: (family, octets) => Schema.decodeUnknown(_schemas[family])(octets),
   encode: (family, value) => Schema.encode(_schemas[family])(value),
@@ -1623,23 +2018,30 @@ const Wire: Wire.Shape = {
 ## [08]-[FEED_DEDUP]
 
 [FEED_DEDUP]:
-- Owner: `feed`, the one transition-feed entry, and its policy rows — `_feeds` carries one row per feed family: the coalescing `subject` projection, the transition `alike` equivalence, and the optional `flow` throttle; the combinator composes `Wire.stream`'s framed divert with one keyed transition Mealy — per-subject last-value state, an arrival equivalent to its subject's incumbent drops, a transition emits and replaces — and the declared throttle shapes the surviving flow. Merging `feed` carries the row vocabulary on the entry's own name.
+- Owner: `feed`, the one transition-feed entry, and its policy rows — `_feeds` carries one row per feed family: the keying `subject` projection, the transition `alike` equivalence, and the optional `flow` policy carrying both its coalescing window and its token bucket; the combinator composes `Wire.stream`'s framed divert with one keyed transition Mealy — per-subject last-value state, an arrival equivalent to its subject's incumbent drops, a transition emits and replaces — then coalesces each declared window to its current value and shapes the survivors. Merging `feed` carries the row vocabulary on the entry's own name.
 - Law: the pipeline is spelled once — framed decode, poison divert, keyed dedup, throttle; the per-family variation is three row columns, so the progress and flag feeds that restated this pipeline as sibling pages are two rows here and a third feed is one row.
-- Law: dedup is keyed, never global — the Mealy state maps subject to last emission, so interleaved subjects cannot mask each other's transitions; the state is fold-interior and single-fiber by construction, the ruled form over `Stream.groupByKey`, whose per-subject fiber fan-out re-merges without cross-subject order and buys nothing a last-value map needs.
+- Law: dedup is keyed, never global — the Mealy state maps subject to last emission, so interleaved subjects cannot mask each other's transitions; the state is fold-interior and single-fiber by construction, the ruled form over `Stream.groupByKey`, whose per-subject fiber fan-out re-merges without cross-subject order and buys nothing a last-value map needs. The subject projection binds once per element and the fold pays one probe plus one write on a transition: `HashMap.modifyAt` cannot serve here because a Mealy step owes an EMISSION beside its state and the fused write returns the map alone.
 - Law: `alike` derives, never restates — whole-schema equality for `FlagVerdict`, and `ProgressMark.transition` from the evidence owner for progress (the operation, parent, stage, done, and total transition axes with stamp and tenant transport noise excluded); a parent rebind therefore survives dedup, and a hand-written projection beside either Schema owner is a second unverified equality truth.
 - Law: throttle is a declared token bucket — `cost` prices a whole chunk, `"shape"` delays and never drops; a feed without a `flow` row passes unshapen.
+- Law: a flow row declaring a `window` COALESCES before it shapes — `Stream.aggregateWithin` over a last-value sink keeps the CURRENT arrival per window and the token bucket then prices the survivors, so a genuinely-advancing burst reaches a reader as its latest coordinate. Dedup alone drops equal neighbours and the bucket then delays what advanced, which turns a burst into a slow tail of values already superseded; the window is the grain a reader wants, sits at the bucket's own token period, and a row declaring none keeps the bare-throttle shape.
 - Growth: a new feed family is one `_feeds` row; a new flow axis is one field on the row's `flow` record.
 - Boundary: what a consumer folds the deduped feed into — the runtime flag cell, the state progress table — is the consumer's plan; this combinator owns only the wire-to-transition geometry.
-- Packages: `effect` (`Stream`, `Schema`, `Equivalence`, `HashMap`, `Chunk`, `Either`, `Duration`, `Option`).
+- Packages: `effect` (`Stream`, `Sink`, `Schedule`, `Schema`, `Equivalence`, `HashMap`, `Chunk`, `Either`, `Duration`, `Option`).
 
 ```typescript signature
+import { Sink } from "effect"
 import type { Duration } from "effect"
 
 const _feedKeys = ["ProgressMarkWire", "FlagVerdictWire"] as const
 
 declare namespace feed {
   type Family = (typeof _feedKeys)[number]
-  type Flow = { readonly units: number; readonly per: Duration.DurationInput; readonly burst: number }
+  type Flow = {
+    readonly units: number
+    readonly per: Duration.DurationInput
+    readonly burst: number
+    readonly window: Option.Option<Duration.DurationInput>
+  }
   type Row<A> = {
     readonly subject: (value: A) => string
     readonly alike: Equivalence.Equivalence<A>
@@ -1651,7 +2053,9 @@ const _feeds: { readonly [K in feed.Family]: feed.Row<Wire.Decoded<K>> } = {
   ProgressMarkWire: {
     subject: (mark) => mark.operation,
     alike: ProgressMark.transition,
-    flow: Option.some({ units: 240, per: "1 second", burst: 60 }),
+    // the coalescing grain sits at the bucket's own token period, so a burst collapses to its CURRENT mark inside each
+    // window and the bucket prices the residue instead of delaying a tail of superseded ones
+    flow: Option.some({ units: 240, per: "1 second", burst: 60, window: Option.some("4 millis") }),
   },
   FlagVerdictWire: {
     subject: (verdict) => verdict.flag,
@@ -1662,14 +2066,17 @@ const _feeds: { readonly [K in feed.Family]: feed.Row<Wire.Decoded<K>> } = {
 
 const _transitions = <A>(row: feed.Row<A>) => <E, R>(marks: Stream.Stream<A, E, R>): Stream.Stream<A, E, R> =>
   marks.pipe(
+    // the subject projection binds ONCE per element: a re-read per arm charges the keying fold three projections on
+    // the feed's own hot path, where the declared cadence is hundreds of marks a second
     Stream.mapAccum(HashMap.empty<string, A>(), (seen, value) =>
-      Option.match(HashMap.get(seen, row.subject(value)), {
-        onNone: () => [HashMap.set(seen, row.subject(value), value), Option.some(value)] as const,
-        onSome: (prior) =>
-          row.alike(prior, value)
-            ? ([seen, Option.none<A>()] as const)
-            : ([HashMap.set(seen, row.subject(value), value), Option.some(value)] as const),
-      })),
+      pipe(row.subject(value), (subject) =>
+        Option.match(HashMap.get(seen, subject), {
+          onNone: () => [HashMap.set(seen, subject, value), Option.some(value)] as const,
+          onSome: (prior) =>
+            row.alike(prior, value)
+              ? ([seen, Option.none<A>()] as const)
+              : ([HashMap.set(seen, subject, value), Option.some(value)] as const),
+        }))),
     Stream.filterMap((held) => held),
   )
 
@@ -1685,13 +2092,16 @@ const feed = <K extends feed.Family>(
       Option.match(row.flow, {
         onNone: () => deduped,
         onSome: (flow) =>
-          Stream.throttle(deduped, {
-            cost: Chunk.size,
-            units: flow.units,
-            duration: flow.per,
-            burst: flow.burst,
-            strategy: "shape",
-          }),
+          Stream.throttle(
+            Option.match(flow.window, {
+              onNone: () => deduped,
+              onSome: (window) =>
+                Stream.aggregateWithin(deduped, Sink.last<Wire.Decoded<K>>(), Schedule.spaced(window)).pipe(
+                  Stream.filterMap((held) => held), // an empty window closes with `None`, so a quiet grain emits nothing
+                ),
+            }),
+            { cost: Chunk.size, units: flow.units, duration: flow.per, burst: flow.burst, strategy: "shape" },
+          ),
       }),
   )
 }
@@ -1759,9 +2169,9 @@ const OpLog: {
 
 export {
   AppearanceSummary, AssetSetManifest, BcfTopic, BcfViewpoint, BimDiff, BimModel, BindingStatus, Claim,
-  CoercedValue, ControlIntent, Credential, CrdtOp, ElementGraph, FaultDetail, feed, FlagVerdict, Gap,
+  CoercedValue, CommandGate, ControlIntent, Credential, CrdtOp, ElementGraph, FaultDetail, feed, FlagVerdict, Gap,
   GeoFeature, Hops, IdsAudit, LayoutProgram, Material, OpLog, Parity, PbrGroups, Quarantine, RenderReceipt,
-  SnapshotHeader, TextureSet, Wire, WireFault, WkbParser, WriteReceipt,
+  SnapshotHeader, Texture, TextureSet, Wire, WireFault, WkbParser, WriteReceipt,
 }
 ```
 

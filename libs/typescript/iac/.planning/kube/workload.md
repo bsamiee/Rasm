@@ -1,13 +1,13 @@
 # [IAC_WORKLOAD]
 
-`Workload` lowers one service or worker row into shared identity, pod, sizing, lifecycle, and optional network cells. Service rows own rolling replacement, CPU elasticity, and a `Service`; worker rows own claim-safe `Recreate` replacement and no network surface. `_KEYS` owns environment spellings, one Kubernetes `Secret` carries `DOPPLER_TOKEN`, and `doppler run --` is the injection edge. `_LIFE` mirrors runtime drain and probe facts into pod grace and health gates. `_scale` interprets `StackSpec.profile.scale`.
+`Workload` lowers one service or worker row into shared identity, pod, sizing, lifecycle, hardening, and optional network cells. Service rows own rolling replacement, CPU elasticity, and a `Service`; worker rows own claim-safe `Recreate` replacement and no network surface. `StackOutputs.channels` and `StackOutputs.custody` supply every environment spelling, one Kubernetes `Secret` carries the custody roster, and `doppler run --` is the injection edge. `_LIFE` mirrors runtime drain and probe facts into pod grace and health gates, `Tier.harden` is the privilege posture every pod and container on the tier stamps, and `_scale` interprets `StackSpec.profile.scale`.
 
 ## [01]-[INDEX]
 
 - [02]-[SIZING_ROWS]: the scale vocabulary: replicas, requests, limits per profile row; `Workload`.
 - [03]-[LIFE_MIRROR]: the drain-budget and probe-route anchor mirrored from the runtime plane; `Workload`.
 - [04]-[ENV_ASSEMBLY]: the key map, the token secret, the env rows, the entrypoint wrap; `Workload`.
-- [05]-[WORKLOAD_TIER]: service/worker lowering, identity, deployment, optional service, cron; `Workload`.
+- [05]-[WORKLOAD_TIER]: service/worker lowering, identity, hardening, deployment, optional service, cron; `Workload`.
 
 ## [02]-[SIZING_ROWS]
 
@@ -15,6 +15,9 @@
 - Owner: the interior `_scale` table keyed by the profile's `dev | standard | fleet` literal — each row carries `replicas`, `requests`, and `limits` as the `core/v1` resource-quantity strings the generated shapes consume, with the resilience columns the row's posture earns: `disruptionBudget` realizes a `policy/v1.PodDisruptionBudget` and `autoscale` realizes an `autoscaling/v2.HorizontalPodAutoscaler` at construction, so capacity, availability floor, and elasticity retune by editing one row, never a manifest.
 - Law: the scale key is `StackSpec`'s vocabulary — this table interprets it for the k8s arm and no second interpretation exists; the guard pair anchors on the spec's own scale union, so a spec tier with no row and an excess row both fail at the declaration, and a per-arm sizing divergence is a second table in that arm's owner, never a widened key.
 - Law: an autoscale row owns the replica count — the deployment omits `replicas` on any row carrying `autoscale` so the autoscaler's live verdict survives every `up` instead of resetting to the row's floor; `minReplicas` is the floor's one spelling on such a row.
+- Law: an autoscale row owns its elasticity in both directions — `behavior` carries a stabilization window, a per-period ceiling, and a selection posture per direction, because the API's own defaults are a 300-second scale-down window against no scale-up window at all, so a row stating `replicas` and a `disruptionBudget` explicitly while leaving flap behaviour implicit is the one uncontrolled knob on a table built to make capacity editable in one place; the readonly policy tuples cross into the generated input shape at the one `_behavior` fold, so neither direction re-spreads its own list at the construction site.
+- Law: the direction keys derive and the two policy vocabularies close locally — `Direction` reads `keyof` the generated behavior shape so a row cannot name a direction the API omits, while the generated `selectPolicy` and policy `type` are bare `Input<string>` and this table closes each against its own literal union; the rules shape also carries a `tolerance` field gated behind the cluster's `HPAConfigurableTolerance` feature, so no row states it and the cluster-wide default stands.
+- Law: a disruption row owns its eviction criterion — `unhealthyPodEvictionPolicy` decides whether a drain completes, since the API default (`IfHealthyBudget`) refuses to evict a running-but-unhealthy pod while that pod is exactly what keeps `currentHealthy` below `desiredHealthy`, so a two-replica `standard` row at `minAvailable: 1` deadlocks its own node drain; `AlwaysAllow` is the estate's answer because a pod failing its readiness gate serves no traffic and its eviction costs nothing the budget was protecting.
 - Growth: a new tier is one row; a new sizing axis (a GPU request, an ephemeral-storage bound) is one column every row states.
 - Boundary: what the quantities mean to the scheduler is cluster fact; `StackSpec.profile.scale` selection is the app's.
 
@@ -23,62 +26,50 @@
 [LIFE_MIRROR]:
 - Owner: the `_LIFE` anchor — `drainSeconds` (the runtime `Setting.life.drain` default read as a deploy fact), `margin` (the finalizer headroom the pod grants past the process's own budget), and the `probes` record mirroring the runtime `Life` owner's kind/route anchor: `started → /startupz`, `ready → /readyz`, `live → /livez`; the tier derives `terminationGracePeriodSeconds = drainSeconds + margin` and the three probe blocks from this one anchor, and the `RUNTIME_LIFE_DRAIN` env row stamps the same `drainSeconds` so the process and its pod read one number.
 - Law: probe semantics follow the runtime contract — `startupProbe` gates on `/startupz` with a generous failure budget (slow warm-up is legal once per boot), `readinessProbe` polls `/readyz` at the scale row's cadence (the phase-gated report flips to 503 the instant the drain starts, so the load balancer stops routing before any finalizer runs), and `livenessProbe` polls `/livez` on a slower cadence with restart as its only verb; the serving edge encodes pass/warn as 200 and fail as 503, so the probe blocks read HTTP status alone.
+- Law: every probe row states its own response budget — the API defaults `timeoutSeconds` to ONE, so a report the process answers correctly but slowly counts as a failure, and the row that then restarts a healthy pod under load is the liveness one; each kind carries the budget its report earns, and a row silent on the field runs the whole health contract against a one-second ceiling nothing on either side of the seam chose.
 - Law: the paths exist once — the runtime anchors the routes and mounts them, this anchor mirrors the spellings into manifests, and a route rename is one edit on each side of the process boundary with the seam recorded in the folder's architecture; no third spelling exists.
 - Growth: a new probe kind on the runtime side is one `probes` row here; a drain-budget change is one `drainSeconds` edit propagating to both projections.
 - Boundary: the drain fold, the report grades, and the phase spine are the runtime plane's; this anchor is the deploy-side mirror of a settled contract, never a re-derivation.
 
 ```typescript signature
+// `timeoutSeconds` is stated on every row because the API default is ONE second: a report answered correctly
+// but slowly reads as a failure, and the row that then restarts a healthy pod under load is the liveness one.
 const _LIFE = {
   drainSeconds: 25,
   margin: 5,
   probes: {
-    started: { path: "/startupz", periodSeconds: 5, failureThreshold: 24 },
-    ready: { path: "/readyz", periodSeconds: 10, failureThreshold: 3 },
-    live: { path: "/livez", periodSeconds: 20, failureThreshold: 3 },
+    started: { path: "/startupz", periodSeconds: 5, failureThreshold: 24, timeoutSeconds: 3 },
+    ready: { path: "/readyz", periodSeconds: 10, failureThreshold: 3, timeoutSeconds: 3 },
+    live: { path: "/livez", periodSeconds: 20, failureThreshold: 3, timeoutSeconds: 5 },
   },
 } as const
 
 declare namespace _LIFE {
   type Kind = keyof typeof _LIFE.probes
-  type _Rows<T extends { readonly [K in Kind]: { readonly path: string; readonly periodSeconds: number; readonly failureThreshold: number } } = typeof _LIFE.probes> = T
+  type Row = { readonly path: string; readonly periodSeconds: number; readonly failureThreshold: number; readonly timeoutSeconds: number }
+  type _Rows<T extends { readonly [K in Kind]: Row } = typeof _LIFE.probes> = T
 }
 ```
 
 ## [04]-[ENV_ASSEMBLY]
 
 [ENV_ASSEMBLY]:
-- Owner: the env seam — `_KEYS` is the channel-to-variable map (the one place a `StackOutputs` channel becomes an environment spelling), `Workload.token` provisions the namespace-scoped `core/v1.Secret` carrying `DOPPLER_TOKEN`, `Workload.rows` assembles the container's `EnvVar` list, and `Workload.entrypoint` is the `doppler run --` wrap; pair values are `Input`-typed, so live tier `Output`s (the in-program assembly) and decoded `StackOutputs.Pair` strings (the post-run projection) ride one signature.
-- Law: the map is total over emitted channels — a channel with no `_KEYS` row is dropped by `filterMap` and that drop is deliberate absence, so publishing a new channel to processes is exactly one map row; the runtime-consumed spellings are pinned to their owners: `otlp.endpoint → OTEL_EXPORTER_OTLP_ENDPOINT` (the OTel exporter contract), `fanout.origin → RUNTIME_FANOUT_ORIGIN` (the runtime `Setting` fanout group), `object.* → OBJECT_*` (the data object plane's own Config rows), `data.pooling → DATA_PG_POOLING` (the realized PgBouncer mode the capability rail gates its session-scoped primitives on), `sharding.* → IAC_SHARDING_*` (the rows `ShardingConfig.layerFromEnv` reads at the work seam).
+- Owner: the env seam — `StackOutputs.channels` is the typed channel-to-variable catalog and `StackOutputs.custody` its custody-cell half (both owned at `program/spec.md`, the channel map derived total over the output planes), `Workload.token` provisions the unleased namespace cell carrying the token variable and yields the same `StackOutputs.Cell` shape `operate/secret.md`'s leased mint yields, `Workload.rows` assembles the container's `EnvVar` list, and `Workload.entrypoint` is the `doppler run --` wrap; pair values are `Input`-typed, so live tier `Output`s (the in-program assembly) and decoded `StackOutputs.Pair` strings (the post-run projection) ride one signature.
+- Law: the variable a channel lands on is `StackOutputs.channels`' row, not a map here — this tier renders the `EnvVar` and the catalog owns the spelling, so a channel with no catalog row is dropped by `filterMap` as the deliberate absence it is (`served` is the one such plane, its key vocabulary being its caller's), and publishing a new channel to processes is one catalog row at the plane that mints it.
 - Law: policy rows stamp beside output rows — `_POLICY` carries the deploy-owned runtime Setting rows no output plane emits: `RUNTIME_LIFE_DRAIN` from the `_LIFE` anchor and `RUNTIME_CLUSTER_LOCK_REFRESH`/`RUNTIME_CLUSTER_LOCK_EXPIRY` (the leaderless grid's advisory-lock cadence, a topology posture the deploy plane owns); the `rows` signature's `policy` parameter is the merge seam an arm widens with the `RUNTIME_MAIL_*` coordinate set (SMTP host, port, user, DKIM domain and selector, rate ceiling) when the app's mail coordinates exist — widening rows merge over the `_POLICY` base, so an arm never re-spells the standing rows to add one. Every value is a coordinate or a duration literal — the SMTP password rides Doppler like every credential.
-- Law: coordinates ride plain rows, material rides references — output pairs are non-secret by `StackOutputs.read`'s gate, so they inject as `value`; the token is the only settled `secretKeyRef`, and any other secret row is evidence a value bypassed Doppler.
+- Law: coordinates ride plain rows, material rides references — output pairs are non-secret by `StackOutputs.read`'s gate, so they inject as `value`; the custody cell's own variables are the settled `secretKeyRef` set, and any other secret row is evidence a value bypassed Doppler.
+- Law: the custody cell is one secret and its contents are data — `StackOutputs.custody` maps each variable a namespace cell may carry to its spelling, and `rows` stamps exactly the roster the cell states, so `operate/secret.md`'s plain token cell and its leased cell (the token beside the encoded lease boundary the security custodian decodes) reach this tier through one shape with no flag branching the fold; the roster seats at the spec owner because the minting tier sits on a lower stratum than this one and a literal at either end forks one variable name into two, so a second custody variable is one row there reaching the mint and this stamp together.
 - Law: the entrypoint wrap is the injection moment — a container carrying a `command` stamps `Workload.entrypoint(cmd)`, and a container without one runs an image whose baked `ENTRYPOINT` is the same `doppler run --` wrap (the app image's build contract), so `doppler run` resolves the scoped config into the process environment at start and the runtime's provider chain reads validated values; the deploy plane never writes a decrypted payload to any surface a process reads before injection.
-- Entry: `Workload.token(name, { namespace, token }, opts)` once per arm; `Workload.rows(tokenRef, pairs, policy?)` into the container env; `Workload.entrypoint(cmd)` as the container command.
-- Growth: one `_KEYS` row per new output fact; one `_POLICY` row per new deploy-owned runtime setting.
-- Boundary: pair emission is `program/spec.md`'s; token minting is `operate/secret.md`'s; runtime variable spellings are the runtime `Setting` owner's contract, mirrored here and recorded as a seam.
-- Packages: `@pulumi/kubernetes` (`core.v1.Secret`, `types.input.core.v1.EnvVar`); `@pulumi/pulumi` (`Input`, `Output`); `effect` (`Array`, `Option`, `Record`).
+- Entry: `Workload.token(name, { namespace, token }, opts)` once per arm, or `Secrets.lease(...)` where the scope is leased; `Workload.rows(custody, pairs, policy?)` into the container env; `Workload.entrypoint(cmd)` as the container command.
+- Growth: a new output channel's variable spelling is one catalog row at `StackOutputs.channels`; one `_POLICY` row per new deploy-owned runtime setting; a new custody-cell variable is one `StackOutputs.custody` row.
+- Boundary: pair emission and both variable catalogs are `program/spec.md`'s; token minting is `operate/secret.md`'s; the runtime `Setting` owner reads the catalog's spellings as its writing counterpart.
+- Packages: `@pulumi/kubernetes` (`core.v1.Secret`, `types.input.core.v1.EnvVar`); `@pulumi/pulumi` (`Input`, `Output`); `effect` (`Array`, `Option`, `Record`); `../program/spec.ts` (`StackOutputs`).
 
 ```typescript signature
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Array, Option, Record } from "effect"
-
-const _TOKEN = "DOPPLER_TOKEN"
-const _KEYS = {
-  "ingress.hostname": "IAC_INGRESS_HOSTNAME",
-  "data.host": "DATA_PG_HOST",
-  "data.port": "DATA_PG_PORT",
-  "data.database": "DATA_PG_DATABASE",
-  "data.role": "DATA_PG_ROLE",
-  "data.pooling": "DATA_PG_POOLING",
-  "object.endpoint": "OBJECT_ENDPOINT",
-  "object.bucket": "OBJECT_BUCKET",
-  "fanout.origin": "RUNTIME_FANOUT_ORIGIN",
-  "otlp.endpoint": "OTEL_EXPORTER_OTLP_ENDPOINT",
-  "grafana.url": "IAC_GRAFANA_URL",
-  "sharding.host": "IAC_SHARDING_HOST",
-  "sharding.port": "IAC_SHARDING_PORT",
-  "deploy.id": "IAC_DEPLOY_ID",
-} as const
+import { StackOutputs } from "../program/spec.ts"
 
 const _POLICY = {
   RUNTIME_LIFE_DRAIN: `${_LIFE.drainSeconds} seconds`,
@@ -86,31 +77,43 @@ const _POLICY = {
   RUNTIME_CLUSTER_LOCK_EXPIRY: "1 minute",
 } as const
 
-const _keyed: Record.ReadonlyRecord<string, string> = _KEYS
+// Both catalogs are the spec plane's — the channel map total over the output planes by derivation, so a channel
+// gaining a field there without a spelling refuses at the catalog, never silently here; the custody roster seats
+// beside it because the leased mint sits a stratum below this stamp and neither may hold the literal.
+const _keyed: Record.ReadonlyRecord<string, string> = StackOutputs.channels
+const _CUSTODY = StackOutputs.custody
 
 declare namespace Workload {
-  type Channel = keyof typeof _KEYS
+  type Channel = StackOutputs.Channel
   type EnvRow = k8s.types.input.core.v1.EnvVar
   type Pair = readonly [channel: string, value: pulumi.Input<string>]
-  type _Keys<T extends Record.ReadonlyRecord<Channel, string> = typeof _KEYS> = T
 }
 
+// The unleased custody cell, yielding the same `StackOutputs.Cell` shape `operate/secret.md`'s leased mint
+// yields — so a workload composes one value whichever path minted it and the env fold never learns which.
 const _token = (
   name: string,
   args: { readonly namespace: pulumi.Input<string>; readonly token: pulumi.Input<string> },
   opts?: pulumi.CustomResourceOptions,
-): k8s.core.v1.Secret =>
-  new k8s.core.v1.Secret(name, {
+): StackOutputs.Cell => ({
+  secret: new k8s.core.v1.Secret(name, {
     metadata: { namespace: args.namespace },
-    stringData: { [_TOKEN]: args.token },
-  }, opts)
+    stringData: { [_CUSTODY.token]: args.token },
+  }, opts).metadata.name,
+  carries: ["token"],
+})
 
 const _rows = (
-  tokenSecret: pulumi.Output<string>,
+  custody: StackOutputs.Cell,
   outputPairs: ReadonlyArray<Workload.Pair>,
   policy?: Record.ReadonlyRecord<string, string>,
 ): ReadonlyArray<Workload.EnvRow> => [
-  { name: _TOKEN, valueFrom: { secretKeyRef: { name: tokenSecret, key: _TOKEN } } },
+  // The cell's own roster is what lands: a token-only cell stamps one reference and a leased cell stamps both,
+  // so a second custody variable is one catalog row rather than a branch at this fold.
+  ...Array.map(custody.carries, (held) => ({
+    name: _CUSTODY[held],
+    valueFrom: { secretKeyRef: { name: custody.secret, key: _CUSTODY[held] } },
+  })),
   ...Array.map(Record.toEntries({ ..._POLICY, ...policy }), ([name, value]) => ({ name, value })),
   ...Array.filterMap(outputPairs, ([channel, value]) =>
     Option.map(Option.fromNullable(_keyed[channel]), (key) => ({ name: key, value }))),
@@ -127,13 +130,19 @@ const _entrypoint = (command: ReadonlyArray<string>): ReadonlyArray<string> => [
 - Law: `Recreate` prevents claim overlap, replica count remains explicit, and the network surface is absent.
 - Law: the image is a digest ref — `Workload.Args.image` receives a `docker-build.Image` `ref`/`digest` value or an app-supplied `...@sha256:...` string; a mutable tag is admitted nowhere on this tier, and the compile-time gate is `operate/policy.md`'s digest policy over exactly this resource class.
 - Law: labels are one derivation — `_labels(name)` stamps `app.kubernetes.io/name` and `app.kubernetes.io/managed-by`, and selector, template, and service all read the same value; a hand-written selector beside the derived labels is the drift this collapse deletes.
+- Law: privilege posture is `Tier.harden` and this tier stamps it, never declares it — the Deployment's pod spec, its container, `Workload.cron`'s job pod spec, and that job's container each read the base anchor, which the traffic tier's connector and the converge tier's runners read too; a copy here would be a second estate posture on a plane whose own mandatory gate asserts exactly one.
+- Law: the API token mounts on evidence, never by default — a projected service-account token is an ambient cluster credential sitting in every container's filesystem, so `automountServiceAccountToken` reads the one fact that decides whether the workload reaches the API at all: the `rbac` rows this tier granted; a workload stating none carries no token, and `Workload.cron` states none by construction.
+- Law: labels, hardening, and the backend projection stack in one pod slot each — `volumes` and `volumeMounts` merge the anchor's scratch pair with `_backed`'s projection rather than choosing between them, so a workload composing no backend generation still mounts its writable path.
+- Law: the selector rides the tier — `Workload.selector` publishes the derived label set the Service and template already share, so the traffic tier's fence selects this workload's own pods instead of every pod in a namespace the estate also fills with its data, fanout, object, and collector planes; a fence keyed on the namespace closes the app's own dependencies out of it.
 - Law: `Workload.rows` owns application settings; the backend projection adds only generated-file paths beside those rows.
 - Law: the backend generation is caller-supplied, never assumed — `_backed` folds its absence to three empty pod slots, so a workload composing no schema contract deploys with no projected volume and no pointer path; a required generation narrows this tier to the one deployment shape that already carries a merged, deployed, admitted contract.
 - Law: namespace is a parameter — the arm constructs one `core/v1.Namespace` and threads `metadata.name` here; the tier never mints its own namespace, so every arm resource shares one blast-radius scope.
-- Law: the cron verb is the host-schedule surface — `Workload.cron(name, args)` is one `batch/v1.CronJob` member reading the same labels, env assembly, and entrypoint wrap; it exists for schedules a database grant refusal pushes out of `pg_cron` and for deploy-plane maintenance verbs, and its schedule string is the caller's cron dialect fact.
-- Entry: `new Workload("app", { spec, namespace, image, role, env }, opts)` inside the k8s arm.
-- Packages: `@pulumi/kubernetes` (`core.v1`, `apps.v1`, `batch.v1`); `@pulumi/pulumi` (`Input`, `Output`); `../program/spec.ts` (`StackSpec`, `Tier`).
-- Growth: a new elasticity or availability posture is one `_scale` row column; an API grant is one `rbac` rule row; a second exposed port is one field consumed at the one construction site.
+- Law: the cron verb is the host-schedule surface — `Workload.cron(name, args)` is one `batch/v1.CronJob` member reading the same labels, env assembly, entrypoint wrap, and hardening anchor; it exists for schedules a database grant refusal pushes out of `pg_cron` and for deploy-plane maintenance verbs, and its schedule string is the caller's cron dialect fact.
+- Law: a maintenance schedule carries its execution policy, never the API's defaults — `_CRON` is the one policy row and `_cronPolicy` merges the caller's deltas over it exactly as `_rows` merges `_POLICY`, so `concurrency` defaults to `Forbid` (the API defaults to `Allow`, and an overlapping run of a verb that mutates the state it reads corrupts it), `history` retains a bounded success and failure pair as the operator's evidence, `deadlineSeconds` bounds how late a missed window may still fire, `timeZone` fixes the wall clock the schedule reads because an unset field runs it in the kube-controller-manager's own zone and drifts on a control-plane move, and `suspend` is the pause an operator holds through a migration; a caller stating no policy gets the maintenance-correct row rather than the permissive one, and `_cronPolicy` projects onto the generated spec's own field set so a renamed member breaks at the fold rather than at apply.
+- Law: the schedule's policy reaches the JOB it spawns, not the CronJob alone — `Forbid` suppresses every later run while an earlier one is alive, so a verb that hangs suspends its own schedule indefinitely unless the Job states a wall-clock ceiling: `runSeconds` bounds a single execution through `activeDeadlineSeconds`, `attempts` replaces the API's six silent retries of a mutating verb with a stated budget, and `ttlSeconds` retires the finished Job's pod so an operator's evidence window is the history pair rather than an unbounded pod residue. The two halves ride one `_CRON` row and `_jobPolicy` projects the job-level half exactly as `_cronPolicy` projects the schedule-level one.
+- Entry: `new Workload("app", { spec, namespace, image, role, env }, opts)` inside the k8s arm; `Workload.cron(name, { namespace, schedule, image, command, env, policy? }, opts)` for a maintenance verb.
+- Packages: `@pulumi/kubernetes` (`core.v1`, `apps.v1`, `batch.v1`, `policy.v1`, `autoscaling.v2`, `types.input.batch.v1.{CronJobSpec,JobSpec}`, `types.input.autoscaling.v2.{HorizontalPodAutoscalerBehavior,HPAScalingRules}`); `@pulumi/pulumi` (`Input`, `Output`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Growth: a new elasticity or availability posture is one `_scale` row column; a new privilege refusal is one `Tier.harden` field; a new schedule policy axis is one `_CRON` row field; an API grant is one `rbac` rule row; a second exposed port is one field consumed at the one construction site.
 - Boundary: runtime owns claims, leases, backlog evidence, handlers, and generation admission; this tier only lowers carrier facts.
 
 ```typescript signature
@@ -151,16 +160,89 @@ const _scale = {
     replicas: 2,
     requests: { cpu: "250m", memory: "512Mi" },
     limits: { cpu: "1", memory: "1Gi" },
-    disruptionBudget: { minAvailable: 1 },
+    // `IfHealthyBudget` is the API default and refuses to evict the very pod holding `currentHealthy`
+    // below `desiredHealthy`, so a two-replica row at `minAvailable: 1` deadlocks its own node drain.
+    disruptionBudget: { minAvailable: 1, unhealthyPodEvictionPolicy: "AlwaysAllow" },
   },
   fleet: {
     replicas: 4,
     requests: { cpu: "500m", memory: "1Gi" },
     limits: { cpu: "2", memory: "2Gi" },
-    disruptionBudget: { minAvailable: 2 },
-    autoscale: { min: 4, max: 12, cpuPercent: 70 },
+    disruptionBudget: { minAvailable: 2, unhealthyPodEvictionPolicy: "AlwaysAllow" },
+    autoscale: {
+      min: 4,
+      max: 12,
+      cpuPercent: 70,
+      // Both directions state their own window: the API defaults scale-down stabilization to 300s and
+      // scale-up to none, so leaving flap behaviour implicit is the one knob this table does not edit.
+      behavior: {
+        scaleDown: { stabilizationWindowSeconds: 300, selectPolicy: "Min", policies: [{ type: "Pods", value: 1, periodSeconds: 60 }] },
+        scaleUp: { stabilizationWindowSeconds: 30, selectPolicy: "Max", policies: [{ type: "Percent", value: 100, periodSeconds: 30 }] },
+      },
+    },
   },
 } as const
+
+// The maintenance-verb row, both levels: `Forbid` leads because the API's `Allow` default lets a second run of
+// a verb that mutates the state it reads overlap the first, and the deadline bounds how late a missed window
+// fires. `timeZone` is stated because an unset field runs the schedule in the kube-controller-manager's own
+// zone, which makes a maintenance window fire at an hour no operator picked and drift on a control-plane move.
+// The job-level half exists because `Forbid` makes a hung run suspend its own schedule: `runSeconds` is the
+// wall-clock ceiling on one execution, `attempts` replaces the API's six silent retries of a mutating verb,
+// and `ttlSeconds` retires the finished pod so the history pair is the whole evidence window.
+const _CRON: Workload.CronPolicy = {
+  concurrency: "Forbid",
+  history: { successful: 3, failed: 1 },
+  deadlineSeconds: 120,
+  suspend: false,
+  timeZone: "UTC",
+  runSeconds: 3600,
+  attempts: 1,
+  ttlSeconds: 86400,
+}
+
+// The readonly `as const` rows cross into the generated input shape at ONE fold, so neither direction
+// re-spreads its own policy list at the construction site and a widened elasticity axis edits this seam alone.
+const _behavior = (rows: Workload.Behavior): k8s.types.input.autoscaling.v2.HorizontalPodAutoscalerBehavior =>
+  Record.map(rows, (rules) => ({
+    stabilizationWindowSeconds: rules.stabilizationWindowSeconds,
+    selectPolicy: rules.selectPolicy,
+    policies: Array.map(rules.policies, (policy) => ({ type: policy.type, value: policy.value, periodSeconds: policy.periodSeconds })),
+  }))
+
+// One merge seam, exactly as `_rows` merges `_POLICY`: the caller's deltas ride over the maintenance row and
+// the spec spreads one block, so no field re-states its own fallback at the construction site. The return
+// projects onto the generated spec's own field set, so a renamed member breaks here rather than at apply.
+const _cronPolicy = (
+  policy?: Partial<Workload.CronPolicy>,
+): Pick<
+  k8s.types.input.batch.v1.CronJobSpec,
+  "concurrencyPolicy" | "successfulJobsHistoryLimit" | "failedJobsHistoryLimit" | "startingDeadlineSeconds" | "suspend" | "timeZone"
+> => {
+  const row = { ..._CRON, ...policy }
+  return {
+    concurrencyPolicy: row.concurrency,
+    successfulJobsHistoryLimit: row.history.successful,
+    failedJobsHistoryLimit: row.history.failed,
+    startingDeadlineSeconds: row.deadlineSeconds,
+    suspend: row.suspend,
+    timeZone: row.timeZone,
+  }
+}
+
+// The job-level half of the same row, projected onto the generated `JobSpec` field set for the same reason:
+// under `Forbid` an execution with no ceiling suspends every later run of its own schedule, and the API's
+// six-retry default re-runs a mutating verb five more times than a maintenance window ever asked for.
+const _jobPolicy = (
+  policy?: Partial<Workload.CronPolicy>,
+): Pick<k8s.types.input.batch.v1.JobSpec, "activeDeadlineSeconds" | "backoffLimit" | "ttlSecondsAfterFinished"> => {
+  const row = { ..._CRON, ...policy }
+  return {
+    activeDeadlineSeconds: row.runSeconds,
+    backoffLimit: row.attempts - 1,
+    ttlSecondsAfterFinished: row.ttlSeconds,
+  }
+}
 
 const _labels = (name: string): Record.ReadonlyRecord<string, string> => ({
   "app.kubernetes.io/name": name,
@@ -171,6 +253,7 @@ const _probe = (kind: _LIFE.Kind, port: number): k8s.types.input.core.v1.Probe =
   httpGet: { path: _LIFE.probes[kind].path, port },
   periodSeconds: _LIFE.probes[kind].periodSeconds,
   failureThreshold: _LIFE.probes[kind].failureThreshold,
+  timeoutSeconds: _LIFE.probes[kind].timeoutSeconds,
 })
 
 // Absence is the whole fold: a workload the caller composed without a backend generation mounts no
@@ -222,19 +305,50 @@ declare namespace Workload {
     readonly rbac?: ReadonlyArray<Rule>
     readonly zones?: ReadonlyArray<string>
   }
+  type Concurrency = "Allow" | "Forbid" | "Replace"
+  // One row, two levels: the first five fields project onto `CronJobSpec` and the last three onto the `JobSpec`
+  // the schedule spawns, because a schedule that forbids overlap owns how long one execution may hold the slot.
+  type CronPolicy = {
+    readonly concurrency: Concurrency
+    readonly history: { readonly successful: number; readonly failed: number }
+    readonly deadlineSeconds: number
+    readonly suspend: boolean
+    readonly timeZone: string
+    readonly runSeconds: number
+    readonly attempts: number
+    readonly ttlSeconds: number
+  }
   type CronArgs = {
     readonly namespace: pulumi.Input<string>
     readonly schedule: string
     readonly image: pulumi.Input<string>
     readonly command: ReadonlyArray<string>
     readonly env: ReadonlyArray<Workload.EnvRow>
+    readonly policy?: Partial<CronPolicy>
   }
+  // the direction keys derive from the generated behavior shape, so a row cannot name a direction the API
+  // does not carry; `Rules` states the readonly row the `as const` anchor holds before the crossing, and both
+  // vocabularies close locally because the generated shape types each as a bare `Input<string>`
+  type Direction = keyof k8s.types.input.autoscaling.v2.HorizontalPodAutoscalerBehavior
+  type Select = "Max" | "Min" | "Disabled"
+  type Step = "Pods" | "Percent"
+  type Rules = {
+    readonly stabilizationWindowSeconds: number
+    readonly selectPolicy: Select
+    readonly policies: ReadonlyArray<{ readonly type: Step; readonly value: number; readonly periodSeconds: number }>
+  }
+  type Behavior = { readonly [D in Direction]-?: Rules }
   type _Rows<T extends Record.ReadonlyRecord<Scale, {
     readonly replicas: number
     readonly requests: { readonly cpu: string; readonly memory: string }
     readonly limits: { readonly cpu: string; readonly memory: string }
-    readonly disruptionBudget?: { readonly minAvailable: number }
-    readonly autoscale?: { readonly min: number; readonly max: number; readonly cpuPercent: number }
+    readonly disruptionBudget?: { readonly minAvailable: number; readonly unhealthyPodEvictionPolicy: "AlwaysAllow" | "IfHealthyBudget" }
+    readonly autoscale?: {
+      readonly min: number
+      readonly max: number
+      readonly cpuPercent: number
+      readonly behavior: Behavior
+    }
   }> = typeof _scale> = T
   type _Keys<K extends Scale = keyof typeof _scale> = K
 }
@@ -248,12 +362,24 @@ class Workload extends Tier {
       metadata: { namespace: args.namespace, labels: _labels(name) },
       spec: {
         schedule: args.schedule,
+        ..._cronPolicy(args.policy),
         jobTemplate: {
           spec: {
+            ..._jobPolicy(args.policy),
             template: {
               spec: {
                 restartPolicy: "Never",
-                containers: [{ name, image: args.image, command: [..._entrypoint(args.command)], env: [...args.env] }],
+                securityContext: Tier.harden.pod,
+                automountServiceAccountToken: false, // a maintenance verb states no API rules, so it carries no token
+                containers: [{
+                  name,
+                  image: args.image,
+                  command: [..._entrypoint(args.command)],
+                  env: [...args.env],
+                  securityContext: Tier.harden.container,
+                  volumeMounts: [...Tier.harden.mounts],
+                }],
+                volumes: [...Tier.harden.volumes],
               },
             },
           },
@@ -261,11 +387,15 @@ class Workload extends Tier {
       },
     }, opts)
   readonly service: Option.Option<k8s.core.v1.Service>
+  // The Service selector, the template labels, and the traffic tier's fence read ONE derivation, so a fence
+  // scoped to this workload cannot drift from the pods it means to protect.
+  readonly selector: Record.ReadonlyRecord<string, string>
   constructor(name: string, args: Workload.Args, opts?: pulumi.ComponentResourceOptions) {
     super("Workload", name, opts)
     const row = _scale[args.spec.profile.scale]
     const backed = _backed(args.backend)
     const labels = _labels(name)
+    this.selector = labels
     const port = Match.value(args.role).pipe(Match.tagsExhaustive({
       service: (role) => role.port,
       worker: (role) => role.probePort,
@@ -300,6 +430,10 @@ class Workload extends Tier {
           metadata: { labels },
           spec: {
             serviceAccountName: account.metadata.name,
+            securityContext: Tier.harden.pod,
+            // The projected token is an ambient cluster credential in every container's filesystem, so it mounts
+            // on the evidence that the workload reaches the API at all: the `rbac` rows this tier granted.
+            automountServiceAccountToken: rules.length > 0,
             terminationGracePeriodSeconds: _LIFE.drainSeconds + _LIFE.margin,
             topologySpreadConstraints: [{
               maxSkew: 1,
@@ -324,13 +458,14 @@ class Workload extends Tier {
               ...(args.command !== undefined && { command: [..._entrypoint(args.command)] }),
               ports: [{ containerPort: port }],
               env: [...args.env, ...backed.env],
-              volumeMounts: [...backed.mounts],
+              securityContext: Tier.harden.container,
+              volumeMounts: [...Tier.harden.mounts, ...backed.mounts],
               startupProbe: _probe("started", port),
               readinessProbe: _probe("ready", port),
               livenessProbe: _probe("live", port),
               resources: { requests: row.requests, limits: row.limits },
             }],
-            volumes: [...backed.volumes],
+            volumes: [...Tier.harden.volumes, ...backed.volumes],
           },
         },
       },
@@ -338,7 +473,11 @@ class Workload extends Tier {
     if ("disruptionBudget" in row) {
       new k8s.policy.v1.PodDisruptionBudget(name, {
         metadata: { namespace: args.namespace, labels },
-        spec: { minAvailable: row.disruptionBudget.minAvailable, selector: { matchLabels: labels } },
+        spec: {
+          minAvailable: row.disruptionBudget.minAvailable,
+          unhealthyPodEvictionPolicy: row.disruptionBudget.unhealthyPodEvictionPolicy,
+          selector: { matchLabels: labels },
+        },
       }, this.child())
     }
     if (args.role._tag === "service" && "autoscale" in row) {
@@ -348,6 +487,7 @@ class Workload extends Tier {
           scaleTargetRef: { apiVersion: "apps/v1", kind: "Deployment", name },
           minReplicas: row.autoscale.min,
           maxReplicas: row.autoscale.max,
+          behavior: _behavior(row.autoscale.behavior),
           metrics: [{
             type: "Resource",
             resource: { name: "cpu", target: { type: "Utilization", averageUtilization: row.autoscale.cpuPercent } },

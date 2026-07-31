@@ -149,7 +149,7 @@ class Manifest extends Schema.Class<Manifest>("Manifest")({
 - Law: the `waiting` arm reads the event's own refinement flags — `Waiting.update` holds `isUpdate === true || wasWaitingBeforeRegister === true`, so a first-install wait and a genuine update are distinct facts in the phase cell and `Install.fresh` gates on the flag, never on the bare phase.
 - Law: the apply order is load-bearing — `apply` sets `Reloading` and only then calls `messageSkipWaiting`, so the `controlling` arm observes the intent and a `controllerchange` arriving for any other reason never reloads.
 - Law: `unsupported` short-circuits at construction — a host without `navigator.serviceWorker` yields the service in its inert posture (`Unregistered` forever, `register` answering the typed fault) so every consumer folds capability absence as data.
-- Law: the fault is class-carried — `SwFault.class` projects the reason row into the core `FaultClass` vocabulary, so budget gates and severity folds read the one branch taxonomy and no local rank table exists.
+- Law: the fault is class-carried — the family rides one core `FaultClass.family` mint and `SwFault.class` projects its frozen row, so budget gates and severity folds read the one branch taxonomy and no local rank column or guard pair exists.
 - Receipt: `register` yields `boolean` — controlled now or awaiting first load — and the phase cell carries everything else; no consumer touches the registration object.
 - Boundary: the refresh affordance is `[6]`'s read; the worker asset, precache manifest, and offline shell are the app build's, emitted through `workbox-build`'s `injectManifest` over the authored SW.
 - Packages: `workbox-window` (`Workbox`, the lifecycle event map, `WorkboxLifecycleWaitingEvent`); `effect` (`Data`, `DateTime`, `Effect`, `Option`, `Record`, `Ref`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`FaultClass`).
@@ -166,15 +166,14 @@ type SwLifecycle = Data.TaggedEnum<{
 }>
 const SwLifecycle: Data.TaggedEnum.Constructor<SwLifecycle> = Data.taggedEnum<SwLifecycle>()
 
-const _swFaults = {
+const _swFamily = FaultClass.family(["unsupported", "register", "message"] as const, {
   unsupported: { class: "absent" },
   register: { class: "unavailable" },
   message: { class: "conflicted" },
-} as const
+})
 
 declare namespace SwFault {
-  type Reason = keyof typeof _swFaults
-  type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _swFaults> = T
+  type Reason = (typeof _swFamily.reasons)[number]
 }
 
 class SwFault extends Data.TaggedError("SwFault")<{
@@ -182,7 +181,10 @@ class SwFault extends Data.TaggedError("SwFault")<{
   readonly detail: string
 }> {
   get class(): FaultClass.Kind {
-    return _swFaults[this.reason].class
+    return _swFamily.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<sw:${this.reason}> ${this.detail}`
   }
 }
 
@@ -418,7 +420,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
 [INSTALL_OWNER]:
 - Owner: `Install`, one scoped `Effect.Service` over `Sw` — `stance`, the `InstallStance` cell (`Browser`/`Ready`/`Installed`/`Standalone`) published `Subscribable` with its writers interior; `ask`, the install affordance firing the captured prompt and folding the user's choice; `fresh`, the update-available feed derived from the worker's `Waiting` phase gated on its `update` flag; `refresh`, the one update verb delegating to `Sw.apply`.
 - Law: the prompt capture is the module's platform-forced statement seam — `beforeinstallprompt` is nonstandard (absent from `WindowEventMap`, spelled here once as the `_PromptEvent` boundary refinement) and its `preventDefault` runs synchronously inside the native handler or the browser consumes the prompt; the capture bridge therefore attaches its own listener under `Stream.asyncScoped`, deferring and emitting in the same synchronous frame, and the implementer carries the `// BOUNDARY ADAPTER` mark on `_prompts`' first line.
-- Law: the prompt is single-use and the take is atomic — `ask` swaps the slot to `none` in one `modify`, so two racing asks cannot double-fire, then folds `accepted` to `Installed` and `dismissed` back to `Browser`; an `ask` with no captured prompt is the typed `unavailable` fault, never a silent no-op.
+- Law: the prompt is single-use and the take is atomic — `ask` swaps the slot to `none` in one `modify`, so two racing asks cannot double-fire, then folds `accepted` to `Installed` and `dismissed` back to `Browser`; an `ask` with no captured prompt is the typed `unavailable` fault, never a silent no-op; `InstallFault` rides its own `FaultClass.family` mint beside `[3]`'s, so both of this page's rails project their class from the one core row table.
 - Law: stance is evidence-ordered — the standalone display-mode probe (seeded from `matchMedia`, advanced by its `change` events) and the `appinstalled` event both fold to their stance directly; running standalone is terminal for the session, so no later fold demotes it.
 - Law: the update affordance is a derivation, not a state — `fresh` maps the worker phase feed through the `Waiting` refinement AND its `update` flag, so a first-install wait renders nothing, install and update read one truth, and the ui wave binds both through its atom bridge at app composition; this module exposes no second phase cell.
 - Receipt: `ask` yields the fold's stance so the caller renders the outcome without re-reading the cell.
@@ -434,14 +436,13 @@ type InstallStance = Data.TaggedEnum<{
 }>
 const InstallStance: Data.TaggedEnum.Constructor<InstallStance> = Data.taggedEnum<InstallStance>()
 
-const _installFaults = {
+const _installFamily = FaultClass.family(["unavailable", "ceremony"] as const, {
   unavailable: { class: "absent" },
   ceremony: { class: "denied" },
-} as const
+})
 
 declare namespace InstallFault {
-  type Reason = keyof typeof _installFaults
-  type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _installFaults> = T
+  type Reason = (typeof _installFamily.reasons)[number]
 }
 
 class InstallFault extends Data.TaggedError("InstallFault")<{
@@ -449,7 +450,10 @@ class InstallFault extends Data.TaggedError("InstallFault")<{
   readonly detail: string
 }> {
   get class(): FaultClass.Kind {
-    return _installFaults[this.reason].class
+    return _installFamily.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<install:${this.reason}> ${this.detail}`
   }
 }
 

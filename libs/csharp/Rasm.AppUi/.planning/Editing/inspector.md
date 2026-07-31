@@ -1,6 +1,6 @@
 # [APPUI_INSPECTOR_EDITING]
 
-Typed property inspection and value editing for product state: one `InspectorPolicy`-driven PropertyGrid admission capsule, thirteen ranked `EditorFactory` rows resolving the admitted shape families, an `EditFault`/`EditReceipt` commit rail with the preview-versus-commit law, the options-inspector composite binding policy records to user-settings writes and `ReloadReceipt` outcomes, a side-by-side conflict projection over Persistence conflict receipts, and grammar-scoped `CodePane` rows with a completion projection. The page owns the editor-row axis, the edit fault and outcome vocabulary, the inspector policy values, and the conflict and completion projections. The spine is bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, Avalonia.AvaloniaEdit with AvaloniaEdit.TextMate, ReactiveUI.Validation, UnitsNet, Thinktecture.Runtime.Extensions, NodaTime, System.Reactive, and LanguageExt.Core.
+Typed property inspection and value editing for product state: one `InspectorPolicy`-driven PropertyGrid admission capsule, thirteen ranked `EditorFactory` rows resolving the admitted shape families, an `EditFault`/`EditReceipt` commit rail with the preview-versus-commit law, the options-inspector composite binding policy records to user-settings writes and `ReloadReceipt` outcomes, a side-by-side conflict projection over Persistence conflict receipts, and grammar-scoped `CodePane` rows with a completion projection. This page owns the editor-row axis, the edit fault and outcome vocabulary, the inspector policy values, and the conflict and completion projections. Its spine is bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, Avalonia.AvaloniaEdit with AvaloniaEdit.TextMate, ReactiveUI.Validation, UnitsNet, Thinktecture.Runtime.Extensions, NodaTime, System.Reactive, and LanguageExt.Core.
 
 ## [01]-[INDEX]
 
@@ -9,7 +9,7 @@ Typed property inspection and value editing for product state: one `InspectorPol
 - [04]-[COMMIT_VALIDATION]: Typed admission rail, preview-commit law, edit receipts.
 - [05]-[OPTIONS_INSPECTOR]: Options-to-grid binding, user-settings persist, reload banner.
 - [06]-[CONFLICT_RESOLUTION]: Side-by-side conflict projection with resolution intent keys.
-- [07]-[CODE_EDITING]: Grammar-scoped code panes and completion projection.
+- [07]-[CODE_EDITING]: Grammar-scoped code panes, the fold-margin resync law, and the table-driven completion projection.
 
 ## [02]-[INSPECTOR_SURFACE]
 
@@ -81,7 +81,7 @@ public static partial class InspectorSurface {
 - Owner: `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `EditorFactory` `[SmartEnum<string>]` thirteen rows; `EditorRowFactory` — the ONE public `AbstractCellEditFactory` adapter every custom row rides.
 - Cases: quantity, value-object, optional, temporal, identifier, color, choice, path, collection, boolean, numeric, text, nested — rank equals declaration order, the match walk takes the first accepting row, and nested is the reference-record fallback.
 - Entry: `Match(Type shape, EditorAdapter adapter)` is the ranked `Option<EditorFactory>` walk; `EditorRowFactory.Register(EditorAdapter adapter)` installs the one public custom factory and returns its removal scope.
-- Auto: generated `Items` ordering and key factories sit under `[ValidationError<EditFault>]`; `Accepts` is the row delegate column, while `EditorAdapter` owns generated-owner recognition, control presentation, and refresh at composition.
+- Auto: generated `Items` ordering and key factories sit under `[ValidationError<EditFault>]`; `Accepts(Type, EditorAdapter)` is the ONE row delegate column and carries the whole predicate including the adapter, so every row — the two that read generated-owner recognition as much as the eleven that read the shape alone — answers from its own declaration and an adapter-dependent row is a row rather than a hand-written identity arm; `EditorAdapter` owns generated-owner recognition, control presentation, and refresh at composition.
 - Packages: bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, UnitsNet, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one editor row on `EditorFactory` (key, rank, accept predicate, present column); zero new surface — per-shape editor controls and per-`[ValueObject]` editor classes are deleted by the value-object and quantity rows.
 - Boundary: the built-in concrete factories are internal and never referenced. Stock rows fall to the registry's built-ins by priority, and custom rows ride one public `EditorRowFactory : AbstractCellEditFactory` registered through `CellEditFactoryService.Default.AddFactory`. `EditorAdapter` binds generated-owner recognition and complete control presentation at composition, so no `Thinktecture.Internal` metadata or hollow unbound control enters the page. Optional admission covers `Option<T>` and `Nullable<T>`; temporal admission covers the NodaTime and BCL date/time families; identifier admission covers `Guid` and `Uri`; numeric admission includes `Half`, `Int128`, and `UInt128`; and color rows bind `PreviewableColorPicker` with the admitted palette family.
@@ -94,12 +94,12 @@ public static partial class InspectorSurface {
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class EditorFactory {
     public static readonly EditorFactory Quantity = new("quantity", rank: 10, accepts: AcceptQuantity, custom: true);
-    public static readonly EditorFactory Value = new("value-object", rank: 20, accepts: static _ => false, custom: true);
+    public static readonly EditorFactory Value = new("value-object", rank: 20, accepts: AcceptValueObject, custom: true);
     public static readonly EditorFactory Optional = new("optional", rank: 30, accepts: AcceptOptional, custom: true);
     public static readonly EditorFactory Temporal = new("temporal", rank: 40, accepts: AcceptTemporal, custom: true);
     public static readonly EditorFactory Identifier = new("identifier", rank: 50, accepts: AcceptIdentifier, custom: true);
     public static readonly EditorFactory Color = new("color", rank: 60, accepts: AcceptColor, custom: true);
-    public static readonly EditorFactory Choice = new("choice", rank: 70, accepts: static shape => shape.IsEnum, custom: true);
+    public static readonly EditorFactory Choice = new("choice", rank: 70, accepts: AcceptChoice, custom: true);
     public static readonly EditorFactory Path = new("path", rank: 80, accepts: AcceptPath, custom: false);
     public static readonly EditorFactory Collection = new("collection", rank: 90, accepts: AcceptCollection, custom: false);
     public static readonly EditorFactory Boolean = new("boolean", rank: 100, accepts: AcceptBoolean, custom: false);
@@ -112,15 +112,13 @@ public sealed partial class EditorFactory {
     public int Rank { get; }
     public bool Custom { get; }
 
+    // The delegate column carries the WHOLE predicate, adapter included, so every row answers from its own
+    // value: the two adapter-dependent rows are row values like the eleven shape-only ones, and the next
+    // adapter-dependent row is a twelfth row rather than a third reference-identity arm. A ladder beside
+    // the column forced `Value` to declare a constant no shape could satisfy and left `Choice`'s declared
+    // predicate uninvoked while a duplicate ran inline — two rows whose declarations were decoration.
     [UseDelegateFromConstructor]
-    public partial bool Accepts(Type shape);
-
-    public bool Accepts(Type shape, EditorAdapter adapter) =>
-        ReferenceEquals(this, Value)
-            ? adapter.ValueObject(shape)
-            : ReferenceEquals(this, Choice)
-                ? shape.IsEnum || adapter.SmartEnum(shape)
-                : Accepts(shape);
+    public partial bool Accepts(Type shape, EditorAdapter adapter);
 
     public static Option<EditorFactory> Match(Type shape, EditorAdapter adapter) =>
         Items.AsIterable()
@@ -139,18 +137,22 @@ public sealed partial class EditorFactory {
 
     private static readonly FrozenSet<Type> IdentifierShapes = new[] { typeof(Guid), typeof(Uri) }.ToFrozenSet();
 
-    private static bool AcceptQuantity(Type shape) => typeof(IQuantity).IsAssignableFrom(shape);
-    private static bool AcceptOptional(Type shape) => shape is { IsGenericType: true }
+    // Generated-owner recognition is the adapter's, so the two rows that need it read it off the column's
+    // second argument; the eleven shape-only rows discard it by name.
+    private static bool AcceptValueObject(Type shape, EditorAdapter adapter) => adapter.ValueObject(shape);
+    private static bool AcceptChoice(Type shape, EditorAdapter adapter) => shape.IsEnum || adapter.SmartEnum(shape);
+    private static bool AcceptQuantity(Type shape, EditorAdapter _) => typeof(IQuantity).IsAssignableFrom(shape);
+    private static bool AcceptOptional(Type shape, EditorAdapter _) => shape is { IsGenericType: true }
         && (shape.GetGenericTypeDefinition() == typeof(Option<>) || shape.GetGenericTypeDefinition() == typeof(Nullable<>));
-    private static bool AcceptTemporal(Type shape) => TemporalShapes.Contains(shape);
-    private static bool AcceptIdentifier(Type shape) => IdentifierShapes.Contains(shape);
-    private static bool AcceptColor(Type shape) => shape == typeof(Avalonia.Media.Color);
-    private static bool AcceptPath(Type shape) => typeof(FileSystemInfo).IsAssignableFrom(shape);
-    private static bool AcceptCollection(Type shape) => shape != typeof(string) && typeof(IEnumerable).IsAssignableFrom(shape);
-    private static bool AcceptBoolean(Type shape) => shape == typeof(bool);
-    private static bool AcceptNumeric(Type shape) => NumericShapes.Contains(shape);
-    private static bool AcceptText(Type shape) => shape == typeof(string);
-    private static bool AcceptNested(Type shape) => shape is { IsClass: true, IsAbstract: false };
+    private static bool AcceptTemporal(Type shape, EditorAdapter _) => TemporalShapes.Contains(shape);
+    private static bool AcceptIdentifier(Type shape, EditorAdapter _) => IdentifierShapes.Contains(shape);
+    private static bool AcceptColor(Type shape, EditorAdapter _) => shape == typeof(Avalonia.Media.Color);
+    private static bool AcceptPath(Type shape, EditorAdapter _) => typeof(FileSystemInfo).IsAssignableFrom(shape);
+    private static bool AcceptCollection(Type shape, EditorAdapter _) => shape != typeof(string) && typeof(IEnumerable).IsAssignableFrom(shape);
+    private static bool AcceptBoolean(Type shape, EditorAdapter _) => shape == typeof(bool);
+    private static bool AcceptNumeric(Type shape, EditorAdapter _) => NumericShapes.Contains(shape);
+    private static bool AcceptText(Type shape, EditorAdapter _) => shape == typeof(string);
+    private static bool AcceptNested(Type shape, EditorAdapter _) => shape is { IsClass: true, IsAbstract: false };
 }
 
 public sealed record EditorAdapter(
@@ -159,7 +161,7 @@ public sealed record EditorAdapter(
     Func<EditorFactory, PropertyCellContext, Option<Control>> Present,
     Func<EditorFactory, PropertyCellContext, bool> Refresh);
 
-// The ONE public adapter: custom rows resolve through the rank walk and present their control; a stock
+// EditorRowFactory is the ONE public adapter: custom rows resolve through the rank walk and present their control; a stock
 // shape returns false so the registry's internal built-ins take the cell at their own priority.
 public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFactory {
     public override int ImportPriority => 200;
@@ -188,7 +190,7 @@ public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFa
 ## [04]-[COMMIT_VALIDATION]
 
 - Owner: `EditFault` `[Union]` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract; `EditOutcome` `[Union]`; `EditReceipt` record; `EditGate` static admission surface.
-- Cases: `EditFault` Text, Parse, Invariant, UnmatchedShape, StoreRejected, HostRejected, Aggregate — codes derive through the `AppUiFaultBand.Edit` registry row and `Aggregate` carries child codes in its payload; `EditOutcome` Observed, Committed, Reverted, Redone, Rejected, HostRouted.
+- Cases: `EditFault` Text, Parse, Invariant, UnmatchedShape, StoreRejected, HostRejected, Aggregate, ResolutionAbsent — codes derive through the `AppUiFaultBand.Edit` registry row and `Aggregate` carries child codes in its payload; `EditOutcome` Observed, Committed, Reverted, Redone, Rejected, HostRouted.
 - Entry: `Admit<TOwner, TRaw, TError>(string target, TRaw raw, IFormatProvider? culture = null)` — `Validation<EditFault,TOwner>` accumulates; `Resolve(Type shape)` lifts an unmatched shape onto the same rail.
 - Receipt: `EditReceipt` — kind, surface, target, editor row key, outcome, `Instant`, `CorrelationId`.
 - Packages: Thinktecture.Runtime.Extensions, UnitsNet, ReactiveUI.Validation, NodaTime, LanguageExt.Core
@@ -297,12 +299,12 @@ public static class EditGate {
 
 - Owner: `OptionsInspector<T>` binding record; `InspectorSurface` extension `Attach`/`Banner`.
 - Cases: banner keys per `ReloadOutcome` case — options-applied, options-unchanged, options-restart-required, options-rejected; restart-required is the frozen-row path rendered as a typed outcome, never a toast.
-- Entry: `Attach<T>(PropertyGrid grid, OptionsInspector<T> binding, InspectorPolicy policy, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner)` — `IDisposable` composing the mount, the persist hook, and the receipt subscription.
+- Entry: `Attach<T>(PropertyGrid grid, OptionsInspector<T> binding, InspectorPolicy policy, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner, Action<Error> fault)` — `IDisposable` composing the mount, the persist hook, and the receipt subscription, threading the same fault rail `Mount` takes.
 - Auto: the generated `ReloadOutcome` `Switch` is the whole banner fold.
 - Receipt: `EditReceipt` options kind per persisted commit; `ReloadReceipt` consumed from the options monitor stream.
 - Packages: bodong.Avalonia.PropertyGrid, System.Reactive, NodaTime, LanguageExt.Core
 - Growth: one options section row binds with one `OptionsInspector` record; zero new surface — a settings-dialog framework is deleted by this composite.
-- Boundary: `Attach` extends the `Mount` boundary capsule; `Persist` writes the value returned by `Current`, never the original `Draft` reference mounted into the grid. The options monitor re-validates, its `ReloadReceipt` stream closes the loop, and subscription failure enters the same `EditFault` rail. Cross-process propagation remains the op-log cursor consequence, and the grid never touches configuration directly.
+- Boundary: `Attach` extends the `Mount` boundary capsule; `Persist` writes the value returned by `Current`, never the original `Draft` reference mounted into the grid. Options monitoring re-validates, its `ReloadReceipt` stream closes the loop, and subscription failure enters the same `EditFault` rail. Cross-process propagation remains the op-log cursor consequence, and the grid never touches configuration directly.
 
 ```csharp signature
 public sealed record OptionsInspector<T>(
@@ -368,10 +370,10 @@ flowchart LR
 
 - Owner: `ConflictPane<TReceipt>` projection record with its `Project` fold; `ThreeWay` the base-local-remote hunk differ; `ConflictSide` the resolution-side axis; `GeometryDiff` the geometry-delta projection.
 - Cases: kind keys local-win, remote-win, merged, rejected arrive as projection values from the Persistence conflict union; `ConflictSide` = local | remote | base; seven resolution intent keys — conflict.accept-local, conflict.accept-remote, conflict.merge, conflict.discard, conflict.hunk-local, conflict.hunk-remote, conflict.preview-resolve.
-- Entry: `Project(TReceipt receipt, Func<TReceipt, string> kind, ..., Func<TReceipt, string> baseText, Func<TReceipt, string> stamp, Func<TReceipt, Option<GeometryDiff>> geometry)` — total projection, zero re-modeling of the source union; `PreviewMerge(HashMap<int, ConflictSide> choices)` returns the merged text and the ordered resolution evidence only after every conflict has a choice.
+- Entry: `Project(TReceipt receipt, Func<TReceipt, string> kind, ..., Func<TReceipt, string> baseText, Func<TReceipt, string> stamp, Func<TReceipt, Option<GeometryDiff>> geometry)` — `Fin<ConflictPane<TReceipt>>` gated on the differ's admitted line ceiling, zero re-modeling of the source union; `PreviewMerge(HashMap<int, ConflictSide> choices)` returns the merged text and the ordered resolution evidence only after every conflict has a choice.
 - Packages: LanguageExt.Core
 - Growth: one resolution intent row; one `ConflictSide` value; zero new surface — resolution verbs derive into the command table, never a conflict-local command registry.
-- Boundary: the receipt enters generically with delegate extraction columns because Persistence owns the conflict vocabulary — the pane re-declares nothing; `Stamp` carries the HLC text of the op-log envelope; the three-way resolver folds the base, local, and remote texts into `ThreeWayHunk` rows where a hunk is conflicted only when both sides diverge from base differently, so an auto-mergeable hunk takes the changed side and only a genuine conflict surfaces — a two-way diff that flags every divergence is the deleted form; per-hunk resolution rides the `conflict.hunk-local`/`conflict.hunk-remote` intents, and `PreviewMerge` returns `Fin<ConflictPreview>` only after every conflicted hunk has an explicit choice — silently choosing local for an unresolved hunk is the deleted form. The geometry-diff viewport is the `GeometryDiff` projection — the added, removed, and modified element ids plus the local and remote `Viewpoint` cameras so the side-by-side geometry compare renders two viewport surfaces framed by the same camera through the viewport-pipeline owner and the changed elements highlight through the viewpoint color overrides, SPIKE-gated on the viewport GPU surface over the 2D-fallback projection; modal presentation reuses the Form dialog intent with one conflict content-template row, never a new dialog case; the side-by-side text body renders `Local`, `Remote`, and `Base` through three read-only `CodePane` viewers; chosen verbs sink an `EditReceipt` conflict kind whose outcome carries the resolution.
+- Boundary: receipts enter generically through delegate extraction columns because Persistence owns the conflict vocabulary — the pane re-declares nothing; `Stamp` carries the HLC text of the op-log envelope; the three-way resolver folds the base, local, and remote texts into `ThreeWayHunk` rows where a hunk is a REGION — consecutive divergent anchors accumulate and close at the next stable anchor, so a multi-line edit is one hunk and one choice rather than one per line — and is conflicted only when both sides diverge from base differently, so an auto-mergeable region takes the changed side and only a genuine conflict surfaces; a two-way diff that flags every divergence and a per-anchor emission that atomizes a region are the two deleted forms; the alignment is an exact LCS table over the divergent middle after the shared prefix and suffix strip, admitted against a declared line ceiling before either table allocates — an unbounded quadratic differ behind a total projection is the deleted form, and calling the table Myers was the label that hid it; per-hunk resolution rides the `conflict.hunk-local`/`conflict.hunk-remote` intents, and `PreviewMerge` returns `Fin<ConflictPreview>` only after every conflicted hunk has an explicit choice — silently choosing local for an unresolved hunk is the deleted form. `GeometryDiff` projects the geometry-diff viewport — the added, removed, and modified element ids and the local and remote `Viewpoint` cameras so the side-by-side geometry compare renders two viewport surfaces framed by the same camera through the viewport-pipeline owner and the changed elements highlight through the viewpoint color overrides, SPIKE-gated on the viewport GPU surface over the 2D-fallback projection; modal presentation reuses the Form dialog intent with one conflict content-template row, never a new dialog case; the side-by-side text body renders `Local`, `Remote`, and `Base` through three read-only `CodePane` viewers; chosen verbs sink an `EditReceipt` conflict kind whose outcome carries the resolution.
 
 ```csharp signature
 public sealed record ConflictPane<TReceipt>(
@@ -393,7 +395,12 @@ public sealed record ConflictPane<TReceipt>(
     public const string TakeHunkRemoteIntent = "conflict.hunk-remote";
     public const string PreviewIntent = "conflict.preview-resolve";
 
-    public static ConflictPane<TReceipt> Project(
+    // The projection is FALLIBLE because the differ is quadratic in the divergent middle: a total pane over
+    // two large fully-diverged documents allocated its alignment tables before anything could decline, so
+    // the one surface a user opened to resolve a conflict was the surface that exhausted the process. The
+    // ceiling is the differ's own, admitted before either table exists, and the refusal is a typed fault
+    // the conflict UI renders like any other.
+    public static Fin<ConflictPane<TReceipt>> Project(
         TReceipt receipt,
         Func<TReceipt, string> kind,
         Func<TReceipt, string> target,
@@ -402,10 +409,12 @@ public sealed record ConflictPane<TReceipt>(
         Func<TReceipt, string> baseText,
         Func<TReceipt, string> stamp,
         Func<TReceipt, Option<GeometryDiff>> geometry) =>
-        new(receipt, kind(receipt), target(receipt), local(receipt), remote(receipt), baseText(receipt), stamp(receipt),
-            ThreeWay.Diff(baseText(receipt), local(receipt), remote(receipt)),
-            geometry(receipt),
-            Seq(AcceptLocalIntent, AcceptRemoteIntent, MergeIntent, DiscardIntent, TakeHunkLocalIntent, TakeHunkRemoteIntent, PreviewIntent));
+        ThreeWay.Diff(target(receipt), baseText(receipt), local(receipt), remote(receipt))
+            .Map(hunks => new ConflictPane<TReceipt>(
+                receipt, kind(receipt), target(receipt), local(receipt), remote(receipt), baseText(receipt), stamp(receipt),
+                hunks,
+                geometry(receipt),
+                Seq(AcceptLocalIntent, AcceptRemoteIntent, MergeIntent, DiscardIntent, TakeHunkLocalIntent, TakeHunkRemoteIntent, PreviewIntent)));
 
     public Fin<ConflictPreview> PreviewMerge(HashMap<int, ConflictSide> choices) {
         Seq<int> unresolved = Hunks.Map((hunk, index) => (hunk, index))
@@ -444,21 +453,57 @@ public readonly record struct GeometryDiff(
     Option<Viewpoint> RemoteView);
 
 public static class ThreeWay {
-    // Real diff3: LCS-anchored alignment per side, then hunk detection over the anchor structure — an
-    // insertion or deletion shifts nothing downstream, so a one-line insert yields ONE hunk, never a
-    // whole-file cascade. The positional zip is the deleted form.
-    public static Seq<ThreeWayHunk> Diff(string baseText, string local, string remote) {
+    // The alignment is an EXACT LCS dynamic-programming table over the divergent middle — not Myers, whose
+    // O(ND) edit-path walk exists to avoid the table and which this page does not implement. Two things
+    // make the exact form the right one here: the common prefix and suffix strip first, so a conflict over
+    // a large document runs its table over the handful of lines that actually diverge, and the admitted
+    // line ceiling bounds the pathological case where two whole documents diverge. Naming a hand-rolled
+    // O(ND) walk in a design page for a bounded conflict pane would buy nothing the strip does not already
+    // buy and would carry a kernel no benchmark demanded. The ceiling counts LINES, the axis the table is
+    // quadratic in, and its `int` cells are why an ungated pair of large documents is measured in hundreds
+    // of megabytes rather than a slow render.
+    public const int LineCeiling = 2_000;
+
+    // Real diff3: LCS-anchored alignment per side, then REGION hunking over the anchor structure — an
+    // insertion or deletion shifts nothing downstream, so a one-line insert yields ONE hunk and a
+    // twenty-line conflicting edit also yields one. The positional zip and the per-anchor emission are
+    // both deleted forms: the second asked the resolver for twenty choices where the region law asks one.
+    public static Fin<Seq<ThreeWayHunk>> Diff(string target, string baseText, string local, string remote) {
         Seq<string> baseLines = Lines(baseText);
-        Seq<(Option<string> Base, Option<string> Side)> localAligned = Align(baseLines, Lines(local));
-        Seq<(Option<string> Base, Option<string> Side)> remoteAligned = Align(baseLines, Lines(remote));
-        return Hunks(baseLines, localAligned, remoteAligned);
+        Seq<string> localLines = Lines(local);
+        Seq<string> remoteLines = Lines(remote);
+        int widest = int.Max(baseLines.Count, int.Max(localLines.Count, remoteLines.Count));
+        return widest <= LineCeiling
+            ? Fin.Succ(Hunks(baseLines, Align(baseLines, localLines), Align(baseLines, remoteLines)))
+            : Fin.Fail<Seq<ThreeWayHunk>>(new EditFault.Invariant(
+                target, $"{widest} lines exceeds the {LineCeiling}-line alignment ceiling"));
     }
 
     static Seq<string> Lines(string text) => toSeq(text.Split('\n'));
 
-    // Myers/LCS alignment: each base line pairs with its matched side line or None (deleted); side lines
-    // absent from base interleave as (None, Some) insertions at their anchor position.
+    // Each base line pairs with its matched side line or None (deleted); side lines absent from base
+    // interleave as (None, Some) insertions at their anchor position. The prefix and suffix that both
+    // sides share re-attach as matched pairs without entering the table, so the quadratic cost tracks the
+    // DIVERGENCE rather than the document — the usual conflict is a few lines inside a large file.
     static Seq<(Option<string> Base, Option<string> Side)> Align(Seq<string> baseLines, Seq<string> side) {
+        int head = 0;
+        while (head < baseLines.Count && head < side.Count && baseLines[head] == side[head]) { head++; }
+        int tail = 0;
+        while (tail < baseLines.Count - head && tail < side.Count - head
+            && baseLines[baseLines.Count - 1 - tail] == side[side.Count - 1 - tail]) { tail++; }
+        return Matched(baseLines.Take(head))
+            + Table(baseLines.Skip(head).Take(baseLines.Count - head - tail).Strict(),
+                    side.Skip(head).Take(side.Count - head - tail).Strict())
+            + Matched(baseLines.Skip(baseLines.Count - tail));
+    }
+
+    // A stripped line is identical on both sides by construction, so its pair is the line against itself.
+    static Seq<(Option<string> Base, Option<string> Side)> Matched(Seq<string> lines) =>
+        lines.Map(static line => (Some(line), Some(line)));
+
+    // The measured kernel: the LCS table and its backtrack are the named statement seam, confined here and
+    // returning owned `Seq` pairs the fold above consumes as values.
+    static Seq<(Option<string> Base, Option<string> Side)> Table(Seq<string> baseLines, Seq<string> side) {
         int[,] lcs = new int[baseLines.Count + 1, side.Count + 1];
         for (int i = baseLines.Count - 1; i >= 0; i--) {
             for (int j = side.Count - 1; j >= 0; j--) {
@@ -485,24 +530,41 @@ public static class ThreeWay {
         Seq<(Option<string> Base, Option<string> Side)> remote) =>
         toSeq(WalkAnchors(baseLines, local, remote));
 
+    // The hunk IS the region the law names, so consecutive divergent anchors accumulate into ONE pending
+    // run closed at the next stable anchor and at the tail. Emitting per anchor made every divergent line
+    // its own hunk, which lands directly on `PreviewMerge`: a twenty-line conflicting edit demanded twenty
+    // per-line `ConflictSide` choices where the region semantics ask for one.
     static IEnumerable<ThreeWayHunk> WalkAnchors(
         Seq<string> baseLines,
         Seq<(Option<string> Base, Option<string> Side)> local,
         Seq<(Option<string> Base, Option<string> Side)> remote) {
         Map<int, Seq<string>> localByAnchor = ByAnchor(local);
         Map<int, Seq<string>> remoteByAnchor = ByAnchor(remote);
+        (Seq<string> Base, Seq<string> Local, Seq<string> Remote) pending = (Seq<string>(), Seq<string>(), Seq<string>());
+        bool open = false;
         for (int anchor = 0; anchor <= baseLines.Count; anchor++) {
             Seq<string> baseRun = anchor < baseLines.Count ? Seq(baseLines[anchor]) : Seq<string>();
             Seq<string> localRun = localByAnchor.Find(anchor).IfNone(baseRun);
             Seq<string> remoteRun = remoteByAnchor.Find(anchor).IfNone(baseRun);
-            // A stable anchor — both sides equal base — emits NO hunk: only divergent regions open one,
-            // so an unchanged document yields zero hunks and a one-line insert yields exactly one.
-            if (localRun == baseRun && remoteRun == baseRun) { continue; }
-            bool conflicted = localRun != baseRun && remoteRun != baseRun && localRun != remoteRun;
-            yield return new ThreeWayHunk(
-                string.Join('\n', baseRun), string.Join('\n', localRun), string.Join('\n', remoteRun), conflicted);
+            // Stable anchors — both sides equal base — emit NO hunk of their own and CLOSE any open
+            // region, so an unchanged document yields zero hunks and a one-line insert yields exactly one.
+            if (localRun == baseRun && remoteRun == baseRun) {
+                if (open) { yield return Region(pending); }
+                pending = (Seq<string>(), Seq<string>(), Seq<string>());
+                open = false;
+                continue;
+            }
+            pending = (pending.Base + baseRun, pending.Local + localRun, pending.Remote + remoteRun);
+            open = true;
         }
+        if (open) { yield return Region(pending); }
     }
+
+    // Conflict is decided over the WHOLE accumulated run, not line by line, so two sides that made the
+    // same multi-line edit agree as one region instead of colliding at every interior line.
+    static ThreeWayHunk Region((Seq<string> Base, Seq<string> Local, Seq<string> Remote) run) =>
+        new(string.Join('\n', run.Base), string.Join('\n', run.Local), string.Join('\n', run.Remote),
+            run.Local != run.Base && run.Remote != run.Base && run.Local != run.Remote);
 
     // Projects an alignment into per-anchor side runs: the run replacing base line N, insertions attached
     // to the anchor they precede, base-count as the trailing-insert anchor.
@@ -525,12 +587,13 @@ public static class ThreeWay {
 
 ## [07]-[CODE_EDITING]
 
-- Owner: `CodeGrammar` the closed grammar-scope vocabulary; `CodePane` document-editor row record; `CompletionRow` completion projection.
-- Cases: `CodeGrammar` = source.rasm · source.rasm-expression · source.json — arbitrary scope strings cannot enter a pane, and the Rasm-DSL rows register through the custom `IRegistryOptions` implementation.
-- Entry: `Open(TextEditor editor, IRegistryOptions registry)` — `Fin<(TextMate.Installation Session, Option<FoldingManager> Folding, SearchPanel Search)>` aborts on grammar admission and mounts the grammar session, fold margin, and search overlay in one capsule; `Fold(FoldingManager manager, TextDocument document, Seq<(int Start, int End)> regions)` mints explicit folds through `CreateFolding`; `Assist(TextEditor editor)` constructs the `CompletionWindow` over the editor's text area; `Overloads(TextEditor editor)` constructs the `OverloadInsightWindow` over the same text area for multi-signature insight; `FromMetadata(Seq<(string Key, string Detail)> metadata)` — completion projection fold.
-- Packages: Avalonia.AvaloniaEdit, AvaloniaEdit.TextMate, LanguageExt.Core
-- Growth: one grammar scope row on `CodePane`; a completion, search, or fold posture is one policy value; zero new surface.
-- Boundary: `Open` is the editor boundary capsule — one TextMate installation per editor, disposed with the pane; the registry argument implements the four-member `IRegistryOptions` contract (`GetTheme(string)`, `GetGrammar(string)`, `GetInjections(string)`, `GetDefaultTheme()`), and the Rasm-DSL scopes register by returning their raw grammars from `GetGrammar`; highlight colors derive from theme tokens through `SetTheme`/`TryGetThemeColor` and re-sync on the `AppliedTheme` event when the theme-variant subscription flips, so the editor palette rides the one `TokenRow` resolution and per-editor brush literals are deleted; the mono typography role enters as the code role key, so per-editor font setup is deleted; `Folding` panes install the `FoldingManager` and `Fold` mints explicit regions through `CreateFolding`, so a hand-tracked fold-offset table is the deleted form, with the batch `UpdateFoldings`/`NewFolding` error-offset arity that re-syncs the whole region set research-gated under CODE_FOLDING; read-only panes are the evidence and conflict viewer mode; `Open` mounts the search overlay through the catalogued `SearchPanel.Install`, `Assist` constructs the catalogued `CompletionWindow`, and `Overloads` constructs the catalogued `OverloadInsightWindow` over the editor text area, so a bespoke find-replace control, a hand-rolled completion list, and a hand-rolled signature popup are the deleted forms, with the `CompletionWindow.CompletionList` population, the `ICompletionData` projection member set, and the `OverloadInsightWindow.Provider`/`IOverloadProvider` population research-gated under CODE_ASSIST; completion data is a projection fold over options section keys and policy record member names as nameof-derived symbols; Markdown never renders here — the typography projection owns it and the code pane owns only fenced code.
+- Owner: `CodeGrammar` the closed grammar-scope vocabulary; `CodePane` document-editor row record and the fold-region projection; `CompletionKind` the completion-family axis carrying the insertion column; `CompletionRow` the one `ICompletionData` projection.
+- Cases: `CodeGrammar` = source.rasm · source.rasm-expression · source.json — arbitrary scope strings cannot enter a pane, and the Rasm-DSL rows register through the custom `IRegistryOptions` implementation; `CompletionKind` = section · member · quantity · intent · snippet, declaration order descending `Weight` and `Insert` the row delegate column.
+- Entry: `Open(TextEditor editor, IRegistryOptions registry)` — `Fin<(TextMate.Installation Session, Option<FoldingManager> Folding, SearchPanel Search)>` aborts on grammar admission and mounts the grammar session, fold margin, and search overlay in one capsule; `Fold<TFrame>(FoldingManager manager, TextDocument document, Seq<TFrame> frames, Func<TFrame, (int First, int Last)> span, Func<TFrame, string> title, Func<TFrame, bool> closed, int firstError = -1)` — the whole-set resync over an already-parsed frame source; `Assist(TextEditor editor, Seq<CompletionRow> rows, int triggerStart)` mounts and shows the completion window over the trigger span; `Overloads(TextEditor editor)` constructs the `OverloadInsightWindow` over the same text area for multi-signature insight; `CompletionRow.Project(Seq<(CompletionKind Kind, string Key, string Detail, string Body, Option<Snippet> Template)> symbols, Func<CompletionKind, Option<IImage>> glyph)` — the completion projection fold.
+- Auto: `UpdateFoldings` is the diff — it reuses the section whose `StartOffset` the new pass repeats, resizing `Length` and re-titling in place, so `IsFolded` survives a re-parse on every surviving region; it removes the sections the pass no longer names and mints only genuinely new starts, so the pane declares one region set per parse and tracks no fold state of its own.
+- Packages: Avalonia.AvaloniaEdit, AvaloniaEdit.TextMate, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: one grammar scope row on `CodeGrammar`; one completion family is one `CompletionKind` row carrying key, weight, and insertion column; a completion, search, or fold posture is one policy value; zero new surface.
+- Boundary: `Open` is the editor boundary capsule — one TextMate installation per editor, disposed with the pane; the registry argument implements the four-member `IRegistryOptions` contract (`GetTheme(string)`, `GetGrammar(string)`, `GetInjections(string)`, `GetDefaultTheme()`), and the Rasm-DSL scopes register by returning their raw grammars from `GetGrammar`; highlight colors derive from theme tokens through `SetTheme`/`TryGetThemeColor` and re-sync on the `AppliedTheme` event when the theme-variant subscription flips, so the editor palette rides the one `TokenRow` resolution and per-editor brush literals are deleted; the mono typography role enters as the code role key, so per-editor font setup is deleted; `Folding` panes install the `FoldingManager` and `Fold` resyncs the whole region set through the one batch `UpdateFoldings(IEnumerable<NewFolding>, int firstErrorOffset)`, so a hand-tracked fold-offset table and the per-region `CreateFolding` mint are both the deleted forms — `CreateFolding` appends an unconditional section, so a per-region re-parse doubles the margin and orphans every region the user opened; the manager's preconditions are the projection's contract, so regions arrive sorted ascending by `StartOffset` (an unsorted sequence throws), a zero-length or out-of-document span drops before the call, and `firstErrorOffset` bounds the trusted range with `-1` as whole-document trust so a partial parse keeps the tail's fold state instead of clearing it; `DefaultClosed` binds only on the manager's first update, so the initial collapse posture rides the first projection and a later pass cannot force a region closed; the region producer is a pure projection over frames the page already parsed — the conflict pane's `ThreeWayHunk` rows, the options section rows — resolved to offsets through the document's own line index, so a second parse inside the pane is the deleted form; read-only panes are the evidence and conflict viewer mode; `Open` mounts the search overlay through the catalogued `SearchPanel.Install`, `Assist` mounts and shows the catalogued `CompletionWindow`, and `Overloads` constructs the catalogued `OverloadInsightWindow` over the editor text area, so a bespoke find-replace control, a hand-rolled completion list, and a hand-rolled signature popup are the deleted forms, with the `OverloadInsightWindow.Provider`/`IOverloadProvider` population research-gated under CODE_ASSIST; `Assist` sets the window's `StartOffset` to the trigger-word start because the window hands `Complete` an `AnchorSegment` spanning `StartOffset` to `EndOffset` — that span is the whole insertion contract, so insertion runs only on the `ICompletionData.Complete` arm and a pane-side document mutation is the deleted form; `CompletionList.IsFiltering` narrows the mounted rows by typed prefix, so a per-keystroke re-population is the deleted form; the completion families are the page's own symbol vocabulary — options section keys, nameof-derived policy member names, `Quantity.Infos` unit abbreviations, and resolution intent keys — and the snippet family expands through `Snippet.Insert` after removing the trigger span while every other family replaces it, so the insertion delegate column is the whole per-family behaviour and an item-kind ladder inside `Complete` is the deleted form; Markdown never renders here — the typography projection owns it and the code pane owns only fenced code.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -538,6 +601,64 @@ public sealed partial class CodeGrammar {
     public static readonly CodeGrammar Rasm = new("source.rasm");
     public static readonly CodeGrammar Expression = new("source.rasm-expression");
     public static readonly CodeGrammar Json = new("source.json");
+}
+
+// Declaration order is descending Weight, and the completion list ranks by Priority, so a section key
+// outranks a member name. Insert is the whole per-family behaviour: the plain arm replaces the trigger
+// span, the snippet arm removes it first because Snippet.Insert drives its own placeholder session.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+public sealed partial class CompletionKind {
+    public static readonly CompletionKind Section = new("section", weight: 50d, insert: Replace);
+    public static readonly CompletionKind Member = new("member", weight: 40d, insert: Replace);
+    public static readonly CompletionKind Quantity = new("quantity", weight: 30d, insert: Replace);
+    public static readonly CompletionKind Intent = new("intent", weight: 20d, insert: Replace);
+    public static readonly CompletionKind Snippet = new("snippet", weight: 10d, insert: Expand);
+
+    public double Weight { get; }
+
+    [UseDelegateFromConstructor]
+    public partial Unit Insert(TextArea area, ISegment trigger, CompletionRow row);
+
+    private static Unit Replace(TextArea area, ISegment trigger, CompletionRow row) =>
+        fun(() => area.Document.Replace(trigger, row.Body))();
+
+    private static Unit Expand(TextArea area, ISegment trigger, CompletionRow row) =>
+        row.Template.Match(
+            Some: template => fun(() => { area.Document.Remove(trigger); ignore(template.Insert(area)); })(),
+            None: () => Replace(area, trigger, row));
+}
+
+// CompletionRow is the ONE ICompletionData implementation: family, ranking, and insertion all resolve through the
+// CompletionKind row, so a new completion family adds a row and no member here.
+public sealed record CompletionRow(
+    CompletionKind Kind,
+    string Key,
+    string Detail,
+    string Body,
+    Option<Snippet> Template,
+    Option<IImage> Glyph) : ICompletionData {
+    public string Text => Body;
+    public object Content => Key;
+    public object Description => Detail;
+    public double Priority => Kind.Weight;
+
+    // ICompletionData declares Image non-nullable while the completion template binds it as an optional
+    // visual, so an absent glyph crosses as the absence itself rather than a substitute image.
+    IImage ICompletionData.Image => Glyph.IfNoneUnsafe((IImage)null!);
+
+    // CompletionWindow supplies the AnchorSegment spanning its own StartOffset to EndOffset; insertion is the
+    // kind's delegate over that span, never a document write from the pane.
+    public void Complete(TextArea area, ISegment trigger, EventArgs request) => ignore(Kind.Insert(area, trigger, this));
+
+    public static Seq<CompletionRow> Project(
+        Seq<(CompletionKind Kind, string Key, string Detail, string Body, Option<Snippet> Template)> symbols,
+        Func<CompletionKind, Option<IImage>> glyph) =>
+        symbols.Map(row => new CompletionRow(row.Kind, row.Key, row.Detail, row.Body, row.Template, glyph(row.Kind)))
+            .OrderByDescending(static row => row.Priority)
+            .ThenBy(static row => row.Key, ComparerAccessors.StringOrdinalIgnoreCase.Comparer)
+            .ToSeq();
 }
 
 public sealed record CodePane(
@@ -558,25 +679,55 @@ public sealed record CodePane(
         }).Run().MapFail(static error => (Error)EditFault.Create(error.Message));
     }
 
-    public static Unit Fold(FoldingManager manager, TextDocument document, Seq<(int Start, int End)> regions) =>
-        regions.Iter(region => manager.CreateFolding(region.Start, region.End));
+    // ONE resync per parse over frames the caller already holds — conflict hunk rows, options section
+    // rows, any structure the page parsed once. Spans resolve to offsets through the document's own line
+    // index, degenerate and out-of-document spans drop, and the ascending order is the manager's
+    // precondition; the manager then diffs against its live sections and keeps each survivor's fold state.
+    public static Unit Fold<TFrame>(
+        FoldingManager manager,
+        TextDocument document,
+        Seq<TFrame> frames,
+        Func<TFrame, (int First, int Last)> span,
+        Func<TFrame, string> title,
+        Func<TFrame, bool> closed,
+        int firstError = -1) =>
+        fun(() => manager.UpdateFoldings(
+            frames.Map(frame => Region(document, span(frame), title(frame), closed(frame)))
+                .Somes()
+                .OrderBy(static region => region.StartOffset)
+                .ToArray(),
+            firstError))();
 
-    public static CompletionWindow Assist(TextEditor editor) => new(editor.TextArea);
+    // Folds open at the END of the header line so the header stays visible behind the marker and
+    // close at the last line's visible end; a reversed, single-line, or past-the-document span carries
+    // no foldable body and never reaches CreateFolding, which throws on both.
+    private static Option<NewFolding> Region(TextDocument document, (int First, int Last) span, string title, bool closed) =>
+        span is { First: >= 1 } && span.Last > span.First && span.Last <= document.LineCount
+            ? Some(new NewFolding(document.GetLineByNumber(span.First).EndOffset, document.GetLineByNumber(span.Last).EndOffset) {
+                Name = title,
+                DefaultClosed = closed,
+            })
+            : Option<NewFolding>.None;
+
+    // Trigger start is the insertion contract: the window anchors StartOffset..EndOffset and hands
+    // that segment to Complete, while IsFiltering narrows the mounted rows as the caret advances.
+    public static CompletionWindow Assist(TextEditor editor, Seq<CompletionRow> rows, int triggerStart) {
+        CompletionWindow window = new(editor.TextArea) {
+            StartOffset = triggerStart,
+            CloseAutomatically = true,
+            CloseWhenCaretAtBeginning = true,
+        };
+        rows.Iter(row => window.CompletionList.CompletionData.Add(row));
+        window.Show();
+        return window;
+    }
 
     public static OverloadInsightWindow Overloads(TextEditor editor) => new(editor.TextArea);
-}
-
-public sealed record CompletionRow(string Key, string Detail) {
-    public static Seq<CompletionRow> FromMetadata(Seq<(string Key, string Detail)> metadata) =>
-        metadata.Map(static row => new CompletionRow(row.Key, row.Detail))
-            .OrderBy(static row => row.Key, ComparerAccessors.StringOrdinalIgnoreCase.Comparer)
-            .ToSeq();
 }
 ```
 
 ## [08]-[RESEARCH]
 
-- [CELL_CONTEXT_MEMBERS]: `EditorRowFactory` binds implementation-gated `PropertyCellContext` descriptor and value-channel spellings. The thirteen-row rank walk, one-adapter `CellEditFactoryService.Default.AddFactory` registration, and stock-row fall-through are settled.
-- [RECORD_DRAFT]: immutable policy-record draft route for grid editing — PropertyModels descriptor synthesis against a generated mutable draft partial, with `SetPropertyValue` landing on the draft and commit rebuilding the record.
-- [CODE_FOLDING]: the `FoldingManager.UpdateFoldings(IEnumerable<NewFolding>, int firstErrorOffset)` batch-resync arity and the `NewFolding` field set that re-folds the whole region pass — the `CreateFolding` per-fold mint and `FoldingManager.Install` are fenced.
-- [CODE_ASSIST]: completion binds `CompletionWindow.CompletionList.CompletionData` and `ICompletionData.Image`, `Text`, `Content`, `Description`, `Priority`, and `Complete`; signature help binds `OverloadInsightWindow.Provider` plus `IOverloadProvider.Count`, `SelectedIndex`, `CurrentHeader`, and `CurrentContent`. Window construction and `SearchPanel.Install` are fenced.
+- [CELL_CONTEXT_MEMBERS]-[OPEN]: which `PropertyCellContext` members spell the descriptor and value channels `EditorRowFactory` binds, the rank walk and `CellEditFactoryService.Default.AddFactory` registration being settled; `uv run python -m tools.assay api query PropertyCellContext --key bodong.Avalonia.PropertyGrid`
+- [RECORD_DRAFT]-[OPEN]: which PropertyModels descriptor-synthesis members route an immutable policy record through a generated mutable draft partial, `SetPropertyValue` landing on the draft and commit rebuilding the record; `uv run python -m tools.assay api query --key bodong.PropertyModels --grep Descriptor`
+- [CODE_ASSIST]-[OPEN]: which `OverloadInsightWindow.Provider` and `IOverloadProvider` members — `Count`, `SelectedIndex`, `CurrentHeader`, `CurrentContent` — carry the caret-tracking arity that re-selects an overload as arguments land, window construction and the completion projection being fenced; `uv run python -m tools.assay api query OverloadInsightWindow --key Avalonia.AvaloniaEdit`

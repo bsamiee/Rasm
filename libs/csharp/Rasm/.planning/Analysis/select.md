@@ -18,7 +18,7 @@ Every projection duplicating host geometry travels as a `TopologyProjection` car
 - Auto: one fold owns extraction, selection, projection, and disposal — `CurveProject` resolves the source kind, derives the emitted feature, extracts every candidate, applies `Select`, projects the chosen subset, and releases every non-transferred projection through `TopologyProjection.Project`, so a leaked duplicate is impossible on the success and failure branches alike; the per-source extraction lattice and the trim-aware iso kernel live in the fence.
 - Packages: RhinoCommon supplies brep, mesh, and SubD topology, iso extraction, and silhouette capture; `Rasm.Domain` supplies the capability vocabulary, form recoveries, the `TopologyProjection` carrier and its `Project` fold, and the `Lease`; `Rasm.Processing` supplies `VectorIntent`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and rail substrate.
 - Growth: a new edge feature is one `CurveFeature` row with one `Features` arm; a new extraction source is one lattice arm emitting `TopologyProjection`s; a new typed output is one projection row on the fan; a new silhouette flavor is a flag or policy value on the existing case — selection, projection, and disposal untouched.
-- Boundary: the edge taxonomy is data — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder is the wrong move it forecloses; every duplicate rides `TopologyProjection` with its true `ComponentIndex` so host drains and repair pages address one component space; owned lowering (`Surface`/`SubD` to brep) disposes through the `Lease` window on every branch; `Select` rejects an out-of-range index through the one `IndexSelection.At` fold both the curve and face families dispatch, so a family-local re-spelling of the empty/first/out-of-range arms is the wrong move; the silhouette arm is host capture beside the `Drawing/view` robust owner, so a local hidden-line kernel here is the altitude violation.
+- Boundary: the edge taxonomy is data — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder is the wrong move it forecloses; every duplicate rides `TopologyProjection` with its true `ComponentIndex` so host drains and repair pages address one component space; owned lowering (`Surface`/`SubD` to brep) disposes through the `Lease` window on every branch; `Select` rejects an out-of-range index through the one `IndexSelection.At` fold both the curve and face families dispatch, so a family-local re-spelling of the empty/first/out-of-range arms is the wrong move; every `Curves` fold — `CanProject`, `Feature`, `Matches`, `Select` — is the generated total `Switch`, so a new case breaks all four loudly at compile time where a discard arm would answer for it silently; the silhouette arm is host capture beside the `Drawing/view` robust owner, so a local hidden-line kernel here is the altitude violation.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -135,12 +135,16 @@ public abstract partial record Curves {
         formCase: static (state, _) =>
             Capability.CurveForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep)), (Topology.Mesh, typeof(Mesh)), (Topology.SubD, typeof(SubD))));
 
-    internal Fin<Seq<TopologyProjection>> Select(Seq<TopologyProjection> curves) =>
-        this switch {
-            AtCase at => curves.At(index: Optional(at.Value), key: Key),
-            FormCase { Index: int index } => curves.At(index: Some(index), key: Key),
-            _ => Fin.Succ(curves),
-        };
+    // Index narrowing is per-case law, so the generated Switch carries it: an absent At index resolves to the
+    // first projection while an absent Form index classifies the whole run, a distinction a discard arm erases.
+    internal Fin<Seq<TopologyProjection>> Select(Seq<TopologyProjection> curves) => Switch(
+        state: curves,
+        edgesCase: static (items, _) => Fin.Succ(items),
+        segmentsCase: static (items, _) => Fin.Succ(items),
+        isoCase: static (items, _) => Fin.Succ(items),
+        silhouetteCase: static (items, _) => Fin.Succ(items),
+        atCase: static (items, at) => items.At(index: Optional(at.Value), key: Key),
+        formCase: static (items, form) => form.Index is int index ? items.At(index: Some(index), key: Key) : Fin.Succ(items));
     internal CurveFeature Feature(Topology topology) => Switch(
         state: topology,
         edgesCase: static (t, e) => e.Kind.IfNone(EdgeFeatureFor(topology: t)),
@@ -149,12 +153,19 @@ public abstract partial record Curves {
         silhouetteCase: static (_, s) => s.DraftAngle.IsSome ? CurveFeature.Draft : CurveFeature.Silhouette,
         atCase: static (t, _) => EdgeFeatureFor(topology: t),
         formCase: static (t, _) => EdgeFeatureFor(topology: t));
-    internal bool Matches(EdgeDescriptor descriptor) =>
-        this switch {
-            EdgesCase { Kind.IsNone: true } or AtCase or FormCase => descriptor.IsSelectableEdge,
-            EdgesCase { Kind.Case: CurveFeature feature } => descriptor.Features.Exists(candidate => candidate.Equals(feature)),
-            _ => false,
-        };
+    // Segment, iso, and silhouette selection reads a parameter domain rather than adjacency, so each states its
+    // refusal at the arm; the discard tail that once carried them hid three cases behind one edge-family answer.
+    internal bool Matches(EdgeDescriptor descriptor) => Switch(
+        state: descriptor,
+        edgesCase: static (row, e) => e.Kind.Case switch {
+            CurveFeature feature => row.Features.Exists(candidate => candidate.Equals(feature)),
+            _ => row.IsSelectableEdge,
+        },
+        segmentsCase: static (_, _) => false,
+        isoCase: static (_, _) => false,
+        silhouetteCase: static (_, _) => false,
+        atCase: static (row, _) => row.IsSelectableEdge,
+        formCase: static (row, _) => row.IsSelectableEdge);
     internal static bool HasEdgeFeature(Curves aspect, bool allowNone, params ReadOnlySpan<CurveFeature> features) =>
         aspect is EdgesCase edges && ((allowNone && edges.Kind.IsNone) || FeatureIsAny(edges.Kind, features));
     private static CurveFeature EdgeFeatureFor(Topology topology) =>
@@ -397,7 +408,7 @@ public static partial class Analyze {
 - Auto: extrema resolves directions through `VectorIntent.Axes` (planar curves collapse to the in-plane pair, absent directions derive the quadrant set) then folds `Curve.ExtremeParameters` through the one `Stat.Extrema` fold; edge midpoints composes the `Curves` rail so the edge walk lives once in the curve family; vertices routes `Domain/evaluation`'s `VerticesOf`; control points unfolds NURBS nets, lowering non-NURBS sources through owned leases; spread reads vertices and either folds centroid distances into `Stat.Of` or fits a plane and derives frame, principal frame, coplanarity, or collinearity — the principal angle is the PCA of the fit-plane coordinates, every point decomposing through `VectorIntent.Components`, the rows folding through `Domain/stats`'s `SampleMoment` covariance into a `Numerics/matrix` `SymmetricMatrix`, and the dominant eigenpair (selected by `Stat.Extrema` over eigenvalues, independent of decomposition return order) giving the axis.
 - Packages: RhinoCommon supplies curve extrema, NURBS control nets, and plane fitting; `Rasm.Domain` supplies the capability and kind columns, the vertex lattice, statistics, and the lease; `Rasm.Processing` supplies `VectorIntent`; `Rasm.Numerics` supplies `SymmetricMatrix`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and rail substrate.
 - Growth: a new spread aspect is one `SpreadAspect` row with one `SpreadProject` arm over the same moment fold; a new extraction source is one lattice arm; a new extremum policy is a parameter on the existing fold.
-- Boundary: spread mathematics is composed — `SampleMoment` owns the covariance, `SymmetricMatrix` owns the spectrum, `Stat.Extrema` owns the dominant-pair selection; a local covariance accumulation or eigen-ordering assumption is the double-owner defect, and selecting the dominant eigenvalue keeps the result order-independent where a first-returned-pair convention couples correctness to an upstream sort; planar-coordinate projection failures abort the fold, since a zero-row substitution biases the covariance toward the origin; `EdgeMidpoints` composes the `Curves` rail, so a second topology-edge walker is the wrong move; control-point extraction leases every minted NURBS form so conversion never leaks.
+- Boundary: spread mathematics is composed — `SampleMoment` owns the covariance, `SymmetricMatrix` owns the spectrum, `Stat.Extrema` owns the dominant-pair selection; a local covariance accumulation or eigen-ordering assumption is the double-owner defect, and selecting the dominant eigenvalue keeps the result order-independent where a first-returned-pair convention couples correctness to an upstream sort; planar-coordinate projection failures abort the fold, since a zero-row substitution biases the covariance toward the origin; `EdgeMidpoints` composes the `Curves` rail, so a second topology-edge walker is the wrong move; control-point extraction leases every minted NURBS form so conversion never leaks. `ControlPointsOf` dispatches an ERASED `TGeometry` runtime value, not a closed family, so its discard arm is the boundary refusal the open ingress owes — it mints the typed `Unsupported` naming both the runtime type and the output, and collapsing it onto a generated `Switch` is unspellable where no union owns the input.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -545,7 +556,7 @@ public static partial class Analyze {
             .Map(static planar => planar.Map(static row => new Arr<double>([row.X, row.Y])))
             .Bind(rows => SampleMoment.Of(rows: rows, dimension: 2, key: op))
             .Bind(moment => SymmetricMatrix.Of(dim: Dimension.Create(value: moment.Dimension), upper: moment.UpperCovariance, key: op)
-                .Bind(covariance => covariance.DecomposeEigen(key: op)))
+                .Bind(covariance => covariance.DecomposeEigenDetailed(key: op)).Map(static receipt => receipt.Pairs))   // order-independent: Extrema selects by value
             .Bind(pairs => Stat.Extrema(items: pairs, projection: static pair => pair.Eigenvalue, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(op.InvalidResult()))
             .Map(static dominant => Math.Atan2(y: dominant.Eigenvector[1], x: dominant.Eigenvector[0]));
     private static Fin<Plane> OrientedFrame(Plane fit, Seq<Point3d> points, Context context, Op op) =>
@@ -573,6 +584,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Curve, face, and point selection extraction
+    accDescr: Curves extracting edge, loop, segment, iso, and silhouette features onto provenance carriers, faces decomposing borrowed or owned and ranking by axis, points sampling vertices and control lattices into principal spread, and all three entering the query dispatch as operation builders.
     Curves -->|EdgeDescriptor.Features data taxonomy| Extraction[edges · loops · segments · iso · silhouette]
     Extraction -->|TopologyProjection + ComponentIndex| Carrier[provenance carriers]
     Carrier -->|Select → Project disposal fold| Outputs[Curve · TopologyProjection · CurveFeature · ComponentIndex · CurveForm]

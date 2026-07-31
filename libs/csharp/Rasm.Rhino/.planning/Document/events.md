@@ -15,11 +15,12 @@
 
 - Owner: `EventFamily` binds one symbolic host event key to its band, cadence, attach/detach pair, and callback-scope projection.
 - Entry: `EventFamily.In` derives band membership from generated `Items`, while `Bind` retains the exact attached delegate for release.
-- Law: draw facts retain phase and viewport evidence without retaining `DisplayPipeline`, and per-object phases add the drawn or culled `RhinoObject` identity; transform completion stays unkeyed when the verified host surface supplies no durable correlation identity.
+- Law: draw facts retain phase and viewport evidence without retaining `DisplayPipeline`, and per-object phases add the drawn or culled `RhinoObject` identity.
+- Law: a bracketed host pair is one family — `Transform` binds `BeforeTransformObjects` and `AfterTransformObjects` under one `CorrelationWindow` keyed on the host `TransformEventId` both sides publish, so the closing arm resolves the opening arm's `DocKey` and every scope that delivers a start delivers its matching end; the payload case, never the family, discriminates start from end.
 - Law: table projections detach transition, index, and prior/current component evidence; later live resolution re-enters through document identity.
 - Law: callback projection faults and sink faults remain disjoint receipts; delivery failure never reclassifies as callback failure.
-- Exemption: projection deduplication uses a bounded concurrent kernel because callbacks arrive across host threads.
-- Growth: a host callback lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery.
+- Exemption: `CorrelationWindow` is a bounded concurrent kernel serving projection deduplication and bracket correlation because callbacks arrive across host threads.
+- Growth: a host callback — or a host pair bracketing one fact — lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -123,14 +124,16 @@ public sealed partial class EventFamily {
         unsubscribe: h => RhinoDoc.ModifyObjectAttributes -= h,
         project: static (_, a, scope) => Gate(document: a.Document, scope: scope, payload: new EventPayload.Attributes(
             Object: Optional(a.RhinoObject).Map(static o => o.Id).Filter(static id => id != Guid.Empty)))));
-    public static readonly EventFamily BeforeTransform = new(key: nameof(BeforeTransform), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoTransformObjectsEventArgs>(
-        subscribe: h => RhinoDoc.BeforeTransformObjects += h,
-        unsubscribe: h => RhinoDoc.BeforeTransformObjects -= h,
-        project: TransformFact));
-    public static readonly EventFamily AfterTransform = new(key: nameof(AfterTransform), band: EventBand.Structure, cadence: Cadence.Changed, bind: On<RhinoAfterTransformObjectsEventArgs>(
-        subscribe: h => RhinoDoc.AfterTransformObjects += h,
-        unsubscribe: h => RhinoDoc.AfterTransformObjects -= h,
-        project: static (_, _, scope) => Unkeyed(scope: scope, payload: new EventPayload.TransformEnded())));
+    public static readonly EventFamily Transform = new(key: nameof(Transform), band: EventBand.Structure, cadence: Cadence.Changed, bind: Bracketed<RhinoTransformObjectsEventArgs, RhinoAfterTransformObjectsEventArgs>(
+        subscribeOpen: h => RhinoDoc.BeforeTransformObjects += h,
+        unsubscribeOpen: h => RhinoDoc.BeforeTransformObjects -= h,
+        subscribeClose: h => RhinoDoc.AfterTransformObjects += h,
+        unsubscribeClose: h => RhinoDoc.AfterTransformObjects -= h,
+        correlateOpen: static a => a.TransformEventId,
+        correlateClose: static a => a.TransformEventId,
+        open: TransformFact,
+        close: static a => new EventPayload.TransformEnded(EventId: a.TransformEventId),
+        family: static () => Transform));
 
     public static readonly EventFamily SelectionAdded = new(key: nameof(SelectionAdded), band: EventBand.Selection, cadence: Cadence.Changed, bind: On<RhinoObjectSelectionEventArgs>(
         subscribe: h => RhinoDoc.SelectObjects += h, unsubscribe: h => RhinoDoc.SelectObjects -= h, project: SelectionFact));
@@ -212,7 +215,9 @@ public sealed partial class EventFamily {
     public static readonly EventFamily ViewRenamed = new(key: nameof(ViewRenamed), band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
         subscribe: h => RhinoView.Rename += h, unsubscribe: h => RhinoView.Rename -= h));
     public static readonly EventFamily ProjectionChanged = new(key: nameof(ProjectionChanged), band: EventBand.Screen, cadence: Cadence.Changed, bind: ProjectionFact(
-        subscribe: h => DisplayPipeline.ViewportProjectionChanged += h, unsubscribe: h => DisplayPipeline.ViewportProjectionChanged -= h));
+        subscribe: h => DisplayPipeline.ViewportProjectionChanged += h,
+        unsubscribe: h => DisplayPipeline.ViewportProjectionChanged -= h,
+        family: static () => ProjectionChanged));
     public static readonly EventFamily DisplayModeChanged = new(key: nameof(DisplayModeChanged), band: EventBand.Screen, cadence: Cadence.Changed, bind: On<DisplayModeChangedEventArgs>(
         subscribe: h => DisplayPipeline.DisplayModeChanged += h,
         unsubscribe: h => DisplayPipeline.DisplayModeChanged -= h,
@@ -356,23 +361,50 @@ public sealed partial class EventFamily {
 
     private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> ProjectionFact(
         Action<EventHandler<DrawEventArgs>> subscribe,
-        Action<EventHandler<DrawEventArgs>> unsubscribe) =>
+        Action<EventHandler<DrawEventArgs>> unsubscribe,
+        Func<EventFamily> family) =>
         (scope, journal, deliver, reject) => {
-            ProjectionWindow seen = new(capacity: journal.Policy.CorrelationCapacity);
+            CorrelationWindow<(Guid Viewport, uint Document), uint> seen = new(capacity: journal.Policy.CorrelationCapacity);
             return On(subscribe: subscribe, unsubscribe: unsubscribe, project: (_, a, watched) =>
                 Optional(a.RhinoDoc).Bind(document => Optional(a.Viewport).Bind(viewport => {
-                    (Guid Viewport, uint Document) key = (viewport.Id, document.RuntimeSerialNumber);
                     uint counter = viewport.ChangeCounter;
-                    (bool Advanced, bool Reset) advance = seen.Advance(key: key, counter: counter);
-                    _ = advance.Reset
-                        ? journal.Post(new StreamReceipt.ProjectionReset(
-                            Watch: journal.Watch, ViewportId: key.Viewport, DocumentSerial: key.Document))
-                        : unit;
+                    (bool Advanced, int Cleared) advance = seen.Retain(key: (viewport.Id, document.RuntimeSerialNumber), value: counter);
+                    _ = Cleared(journal: journal, family: family, cleared: advance.Cleared);
                     return advance.Advanced
                         ? Gate(document: document, scope: watched, payload: new EventPayload.Projection(ViewportId: viewport.Id, ChangeCounter: counter))
                         : Option<EventEnvelope>.None;
                 })))(scope, journal, deliver, reject);
         };
+
+    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> Bracketed<TOpen, TClose>(
+        Action<EventHandler<TOpen>> subscribeOpen,
+        Action<EventHandler<TOpen>> unsubscribeOpen,
+        Action<EventHandler<TClose>> subscribeClose,
+        Action<EventHandler<TClose>> unsubscribeClose,
+        Func<TOpen, uint> correlateOpen,
+        Func<TClose, uint> correlateClose,
+        Func<TOpen, Option<(DocKey Key, EventPayload Payload)>> open,
+        Func<TClose, EventPayload> close,
+        Func<EventFamily> family)
+        where TOpen : EventArgs
+        where TClose : EventArgs =>
+        (scope, journal, deliver, reject) => {
+            CorrelationWindow<uint, DocKey> bracket = new(capacity: journal.Policy.CorrelationCapacity);
+            return Subscription.AttachAll(Seq<Func<Fin<Subscription>>>(
+                () => On(subscribe: subscribeOpen, unsubscribe: unsubscribeOpen, project: (_, args, watched) =>
+                    open(arg: args).Bind(fact => {
+                        _ = Cleared(journal: journal, family: family, cleared: bracket.Retain(key: correlateOpen(arg: args), value: fact.Key).Cleared);
+                        return Gate(key: fact.Key, scope: watched, payload: fact.Payload);
+                    }))(scope, journal, deliver, reject),
+                () => On(subscribe: subscribeClose, unsubscribe: unsubscribeClose, project: (_, args, watched) =>
+                    bracket.Release(key: correlateClose(arg: args))
+                        .Bind(key => Gate(key: key, scope: watched, payload: close(arg: args))))(scope, journal, deliver, reject)));
+        };
+
+    private static Unit Cleared(ReceiptJournal journal, Func<EventFamily> family, int cleared) =>
+        cleared > 0
+            ? journal.Post(new StreamReceipt.CorrelationReset(Watch: journal.Watch, Family: family(), Cleared: cleared))
+            : unit;
 
     private static Option<EventEnvelope> ObjectFact(object? sender, RhinoObjectEventArgs args, EventScope scope) =>
         Gate(document: (sender as RhinoDoc) ?? args.TheObject?.Document, scope: scope, payload: new EventPayload.Objects(Ids: Seq(args.ObjectId)));
@@ -382,8 +414,9 @@ public sealed partial class EventFamily {
             Ids: toSeq(args.RhinoObjects).Choose(static item => Optional(item).Map(static value => value.Id)),
             Count: args.RhinoObjectCount));
 
-    private static Option<EventEnvelope> TransformFact(object? sender, RhinoTransformObjectsEventArgs args, EventScope scope) =>
-        TransformDocument(args).Bind(key => Gate(key: key, scope: scope, payload: new EventPayload.TransformStarted(
+    private static Option<(DocKey Key, EventPayload Payload)> TransformFact(RhinoTransformObjectsEventArgs args) =>
+        TransformDocument(args).Map(key => (Key: key, Payload: (EventPayload)new EventPayload.TransformStarted(
+            EventId: args.TransformEventId,
             Motion: args.Transform,
             Copies: args.ObjectsWillBeCopied,
             Objects: ObjectRefs(args.Objects),
@@ -396,7 +429,7 @@ public sealed partial class EventFamily {
             .Concat(toSeq(args.Grips))
             .Choose(static item => Optional(item).Bind(static value => Optional(value.Document)))
             .Choose(static document => DocKey.Of(document: document, key: Op.Of(name: nameof(TransformDocument))).ToOption())
-            .HeadOrNone();
+            .Head;
 
     private static Seq<(Guid Id, uint Serial)> ObjectRefs(IEnumerable<RhinoObject?> objects) =>
         toSeq(objects).Choose(static item => Optional(item).Map(static value => (value.Id, value.RuntimeSerialNumber)));
@@ -404,21 +437,31 @@ public sealed partial class EventFamily {
     private static Option<(Guid Id, uint Serial)> DrawSubject(RhinoObject? subject) =>
         Optional(subject).Map(static value => (value.Id, value.RuntimeSerialNumber)).Filter(static value => value.Id != Guid.Empty);
 
-    private sealed class ProjectionWindow(int capacity) {
+    private sealed class CorrelationWindow<TKey, TValue>(int capacity)
+        where TKey : notnull
+        where TValue : notnull {
         private readonly Lock gate = new();
-        private readonly Dictionary<(Guid Viewport, uint Document), uint> seen = new();
+        private readonly Dictionary<TKey, TValue> held = new();
 
-        internal (bool Advanced, bool Reset) Advance((Guid Viewport, uint Document) key, uint counter) {
+        internal (bool Advanced, int Cleared) Retain(TKey key, TValue value) {
             lock (gate) {
-                bool reset = seen.Count >= capacity && !seen.ContainsKey(key: key);
-                if (reset) {
-                    seen.Clear();
+                int cleared = 0;
+                if (held.Count >= capacity && !held.ContainsKey(key: key)) {
+                    cleared = held.Count;
+                    held.Clear();
                 }
-                bool advanced = !seen.TryGetValue(key: key, value: out uint prior) || prior != counter;
+                bool advanced = !held.TryGetValue(key: key, value: out TValue? prior)
+                    || !EqualityComparer<TValue>.Default.Equals(x: prior, y: value);
                 if (advanced) {
-                    seen[key] = counter;
+                    held[key] = value;
                 }
-                return (Advanced: advanced, Reset: reset);
+                return (Advanced: advanced, Cleared: cleared);
+            }
+        }
+
+        internal Option<TValue> Release(TKey key) {
+            lock (gate) {
+                return held.Remove(key: key, value: out TValue? claimed) ? Some(claimed) : Option<TValue>.None;
             }
         }
     }
@@ -449,12 +492,6 @@ public sealed partial class EventFamily {
                 anyDocument: static _ => Some(new EventEnvelope(
                     Key: Option<DocKey>.None,
                     Payload: new EventPayload.Active(ActiveDocument: Option<DocKey>.None))));
-
-    private static Option<EventEnvelope> Unkeyed(EventScope scope, EventPayload payload) =>
-        scope.Switch(
-            payload,
-            document: static (_, _) => Option<EventEnvelope>.None,
-            anyDocument: static (fact, _) => Some(new EventEnvelope(Key: Option<DocKey>.None, Payload: fact)));
 }
 ```
 
@@ -462,7 +499,7 @@ public sealed partial class EventFamily {
 
 - Owner: `EventPayload` owns detached callback evidence, while `DocEvent` adds source identity and the optional document key.
 - Law: every reference-like host member projects inside its callback into stable identity, value, transition, or component evidence.
-- Law: an absent active document remains a typed transition; transform completion remains unkeyed because the verified host surface supplies no durable correlation identity.
+- Law: an absent active document remains a typed transition; `TransformStarted` and `TransformEnded` both carry the host `TransformEventId`, so a consumer joins the bracket on that id without retaining either callback's arrays.
 - Law: name-keyed transition vocabularies admit host enums generically and fail unknown host values on the typed rail.
 - Law: `EventPayload.ObjectIds` defaults to no object contribution, and contributing cases override that projection; `DocEvent` delegates without an empty-arm dispatch ladder.
 
@@ -584,6 +621,7 @@ public abstract partial record EventPayload {
         public override Seq<Guid> ObjectIds => Object.ToSeq();
     }
     public sealed record TransformStarted(
+        uint EventId,
         Transform Motion,
         bool Copies,
         Seq<(Guid Id, uint Serial)> Objects,
@@ -595,7 +633,7 @@ public abstract partial record EventPayload {
             .Map(static item => item.Id)
             .Distinct();
     }
-    public sealed record TransformEnded : EventPayload;
+    public sealed record TransformEnded(uint EventId) : EventPayload;
     public sealed record Selection(Seq<Guid> Ids, int Count) : EventPayload {
         public override Seq<Guid> ObjectIds => Ids;
     }
@@ -736,7 +774,7 @@ public abstract partial record StreamReceipt {
     public sealed record Cancelled(WatchKey Watch, EventOrigin Origin) : StreamReceipt;
     public sealed record FileOverflow(WatchKey Watch, string WatchedPath) : StreamReceipt;
     public sealed record FileFault(WatchKey Watch, string WatchedPath, string Detail) : StreamReceipt;
-    public sealed record ProjectionReset(WatchKey Watch, Guid ViewportId, uint DocumentSerial) : StreamReceipt;
+    public sealed record CorrelationReset(WatchKey Watch, EventFamily Family, int Cleared) : StreamReceipt;
     public sealed record DetachFault(WatchKey Watch, string Detail) : StreamReceipt;
     public sealed record JournalOverflow(WatchKey Watch, long Lost) : StreamReceipt;
 }
@@ -856,7 +894,7 @@ internal sealed class ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
 - Law: `Watch.Close` cancels delivery, combines source and idle-pump detachment evidence, receipts each fault, and retains each failed owner for a later close attempt.
 - Law: close claims its owners under the lifecycle lock, executes callbacks after release, and publishes retry custody with one settled result atomically; concurrent callers join that result.
 - Law: an empty subscription closes as `Released(0)`; `Open` denotes only unclaimed live custody.
-- Law: reentrancy and deferred capacity belong to one watch, so recursive or queued work cannot suppress or exhaust a sibling observation.
+- Law: reentrancy and deferred capacity belong to one watch, so recursive or queued work cannot suppress or exhaust a sibling observation; `Reentrancy.Guarded` is the whole reentrancy decision for both sink-invoking arms, and the paced arm invokes no sink and consults no gate, so `Emit` carries no second guard reading as an owner.
 - Law: deferred delivery owns one idle hook per watch; closing the watch detaches that hook and receipts every queued fact as cancelled.
 - Law: file callbacks fold into one resettable trailing-edge timer and one bounded batch before entering the same delivery spine as host facts.
 - Exemption: native attach/detach, timer ownership, `Lock` scopes, and callback `try/finally` blocks are platform-forced lifetime seams.
@@ -1023,9 +1061,7 @@ internal sealed class Emission {
     internal Fin<Unit> Emit(DocEvent fact) =>
         !IsActive
             ? Fin.Succ(value: journal.Post(new StreamReceipt.Cancelled(Watch: journal.Watch, Origin: fact.Origin)))
-            : gate.Active
-                ? Fin.Succ(value: journal.Post(new StreamReceipt.Reentrant(Watch: journal.Watch, Origin: fact.Origin)))
-                : delivery.Switch(
+            : delivery.Switch(
                     (Owner: this, Fact: fact),
                     inline: static (state, mode) => state.Owner.gate.Guarded(
                         journal: state.Owner.journal, origin: state.Fact.Origin, run: () => mode.Sink(arg: state.Fact)),
@@ -1584,7 +1620,7 @@ Veto and replay truth — the exact host member each non-observe row cites:
 |  [03]   | `rasm.rhino.objects.viewable`   | `RhinoObject.IsActiveInViewport`                               |
 |  [04]   | `rasm.rhino.objects.pick`       | `RhinoObject.OnPick` sift                                      |
 |  [05]   | `rasm.rhino.objects.regrow`     | `CustomObjectGrips.NewGeometry` refusal                        |
-|  [06]   | `rasm.rhino.hostui.panel`       | `PanelHost.Facts` latest-per-panel replay ledger               |
+|  [06]   | `rasm.rhino.hostui.panel`       | `PanelHost.Facts` latest-per-seat replay ledger, one row per (panel, document)               |
 
 Gumball completion evidence is receipt-pull — `GumballReceipt` returns from `Gumballs.Configure` and no detached stream exists — so gumball earns no point row, and the pointer point already carries gumball occupancy per fact.
 
@@ -1603,6 +1639,7 @@ Process-global custody census — collision class and arbitration per surface:
 |  [09]   | `AppSettings.Commit` static families       | last-writer-wins process mutation      | app-root single-writer rule                    |
 |  [10]   | `MarshalLatency` seat                      | a second provider splits the ledger    | first-mount-wins seat; detacher returns it     |
 |  [11]   | `MountRegistry` mounts                     | duplicate point mounts fork discovery  | first-mount-wins per point; collision typed    |
+|  [12]   | `RhinoDoc.AddCustomUndoEvent`              | handler graph retained until cleared   | record-scoped; no host detach exists           |
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------

@@ -1,60 +1,56 @@
 # [SECURITY_VERIFY]
 
-External-signature ingress: one closed dialect table carries every inbound authenticity convention — symmetric HMAC webhooks and asymmetric ECDSA/RSA partner and attestation signatures in both PKIX-DER and IEEE-P1363 wire forms — and one verify fold runs any dialect over the HELD request octets, so a provider integration is a table row, never a bespoke verifier. Byte-identity law governs the whole page: verification computes over the exact bytes admitted at the edge before any parse, because a re-encoded body respells floats, key order, and escapes and signs a document the provider never sent, and the octets travel onward untouched. HMAC dialects route `crypt/sign`'s `Crypto.matches` `Mac` probe; the asymmetric dialects route `@oslojs/crypto`'s verify-only public-key surface, with the `PublicKey` tagged family carrying the SEC1/PKIX key-encoding axis and the dialect row carrying the `sigForm` signature-encoding axis, so a partner signing raw `r‖s` P1363 (the JWS ES256 wire form) and a partner shipping SPKI-DER keys both land as rows. Every verify runs under a store-backed `RateLimiter` keyed by dialect and presented key, every reject lands on the folder's one reject stream, and the fold rides its span — inbound-attack telemetry is structural, not optional. That stream lives here: `Reject` is the folder-wide authenticity-reject fact family — ONE `Convention`-named counter with a closed `kind` discriminant and bounded dialect/surface/reason facets as tags — so every refused bearer, ceremony, credential, state, CSRF, and signature lands as one queryable series and a per-page counter name has no spelling anywhere in the folder. `VerifyFault` instantiates the folder fault shape with the guard pair closed in both directions, folding a `crypt/sign` primitive fault to a caller-caused `malformed` at this seam so a bad presented signature is never a 500. Timestamp participation, candidate rotation, and the signed prefix are row grammar; tolerance, keys, and freshness are fold parameters a row cannot weaken, so admitting a dialect is review-free on the security axis. `Intake` is the typed `HttpApiMiddleware` spelling of the held-octets seam the runtime serve wave mounts.
+External-signature ingress and the folder's admission ledger: one closed dialect table carries every inbound authenticity convention — symmetric HMAC webhooks and asymmetric ECDSA/RSA partner and attestation signatures in both PKIX-DER and IEEE-P1363 wire forms — and one verify fold runs any dialect over the HELD request octets, so a provider integration is a table row, never a bespoke verifier. Byte-identity law governs the whole page: verification computes over the exact bytes admitted at the edge before any parse, because a re-encoded body respells floats, key order, and escapes and signs a document the provider never sent, and the octets travel onward untouched. HMAC dialects route `crypt/sign`'s `Crypto.matches` `Mac` probe; the asymmetric dialects route `@oslojs/crypto`'s verify-only public-key surface, with the `PublicKey` tagged family carrying the SEC1/PKIX key-encoding axis and the dialect row carrying the `sigForm` signature-encoding axis, so a partner signing raw `r‖s` P1363 (the JWS ES256 wire form) and a partner shipping SPKI-DER keys both land as rows. Every verify runs under a store-backed `RateLimiter` keyed by dialect and presented key, every reject lands on the folder's one reject stream, and the fold rides its span — inbound-attack telemetry is structural, not optional. That plane lives here: `Reject` is the folder-wide authenticity ledger over ONE closed `kind` discriminant and bounded dialect/surface/reason facets — `mark` counts a refusal, `admit` counts the same kind's success, and `measured` is the ceremony aspect that times the wall span and admits on the success arm — so refusals, their denominator, and their latency are three `Convention`-named series joined on one key, every ratio the plane exists to answer is queryable, and a per-page counter name has no spelling anywhere in the folder. `VerifyFault` instantiates the folder fault shape over one core `FaultClass.family` mint, folding a `crypt/sign` primitive fault to a caller-caused `malformed` at this seam so a bad presented signature is never a 500. Timestamp participation, candidate rotation, and the signed prefix are row grammar; tolerance, keys, and freshness are fold parameters a row cannot weaken, so admitting a dialect is review-free on the security axis. `Intake` is the typed `HttpApiMiddleware` spelling of the held-octets seam the runtime serve wave mounts.
 
 ## [01]-[INDEX]
 
 - [02]-[VERIFY_FAULT]: the folder fault shape and the `crypt/sign` re-spell; `VerifyFault`.
 - [03]-[DIALECT_TABLE]: the signing-convention rows and their header parse folds; `Verify`.
 - [04]-[VERIFY_FOLD]: the throttled constant-time verify pipeline, `Verified` receipt, key registry, intake middleware; `Verify`, `Intake`.
-- [05]-[REJECT_STREAM]: the folder-wide reject fact family: one counter, kind discriminant, bounded facets; `Reject`.
+- [05]-[ADMISSION_LEDGER]: the folder-wide authenticity ledger: refusal counter, admission twin, ceremony histogram, kind discriminant, bounded facets; `Reject`.
 
 ## [02]-[VERIFY_FAULT]
 
 [VERIFY_FAULT]:
-- Owner: `VerifyFault` — the folder fault shape for inbound authenticity: `missing` (required signature header absent), `malformed` (header grammar or signature encoding refused, or a `crypt/sign` primitive fault re-spelled here), `mismatch` (every candidate failed the constant-time compare), `stale` (timestamp outside tolerance), `unknownKey` (no registered key for the presented `kid`/issuer), `throttled` (the per-key verify budget exhausted, class `exhausted` so the edge renders `Retry-After`). Rows carry the core `FaultClass` kind and the guard pair closes the table in both directions.
+- Owner: `VerifyFault` — the folder fault shape for inbound authenticity: `missing` (required signature header absent), `malformed` (header grammar or signature encoding refused, or a `crypt/sign` primitive fault re-spelled here), `mismatch` (every candidate failed the constant-time compare), `stale` (timestamp outside tolerance), `unknownKey` (no registered key for the presented `kid`/issuer), `throttled` (the per-key verify budget exhausted, class `exhausted` so the edge renders `Retry-After`). The rows close through the core `FaultClass.family` seam, which owns membership by construction, so no local guard pair rides beside the class column.
 - Law: a crypto-primitive fault is re-spelled at this seam — a `SignFault` from a malformed presented signature folds to `malformed` (caller-caused), never escapes as a `defect`; a genuine key or algorithm defect on Rasm's side stays a fold-internal `defect`.
 - Law: verification is result-typed — a valid signature lands the `Verified` receipt, a failed one a typed fault; there is no boolean-plus-throw and a `false` compare is `mismatch`, never a thrown value.
-- Growth: a new failure mode is one reason literal and one class row.
+- Growth: a new failure mode is one family row carrying its core kind.
 - Packages: `effect` (`Schema`); `@rasm/ts/core` (`FaultClass`); `crypt/sign` (`SignFault`).
 
 ```typescript
 import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { HttpApiMiddleware } from "@effect/platform"
 import {
-  decodeIEEEP1363ECDSASignature, decodePKIXECDSAPublicKey, decodePKIXECDSASignature, decodeSEC1ECDSAPublicKey,
+  decodeIEEEP1363ECDSASignature, decodePKIXECDSAPublicKey, decodePKIXECDSASignature, decodeSEC1PublicKey,
   p256, p384, p521, verifyECDSASignature,
 } from "@oslojs/crypto/ecdsa"
-import { decodePKCS1RSAPublicKey, decodePKIXRSAPublicKey, SHA256ObjectIdentifier, verifyRSASSAPKCS1v15Signature, verifyRSASSASignature } from "@oslojs/crypto/rsa"
+import { decodePKCS1RSAPublicKey, decodePKIXRSAPublicKey, sha256ObjectIdentifier, verifyRSASSAPKCS1v15Signature, verifyRSASSAPSSSignature } from "@oslojs/crypto/rsa"
 import { SHA256, sha256 } from "@oslojs/crypto/sha2"
 import { decodeBase64, decodeHex, encodeHexLowerCase } from "@oslojs/encoding"
 import { Convention, FaultClass } from "@rasm/ts/core"
 import { Array, Config, Context, Data, DateTime, Duration, Effect, Either, Metric, Number, Option, Predicate, Record, Redacted, Schema, pipe } from "effect"
 import { Crypto, Probe, SignFault } from "./sign.ts"
 
-const _reasons = ["missing", "malformed", "mismatch", "stale", "unknownKey", "throttled"] as const
-
-const _faults = {
+const _family = FaultClass.family(["missing", "malformed", "mismatch", "stale", "unknownKey", "throttled"] as const, {
   missing: { class: "malformed" },
   malformed: { class: "malformed" },
   mismatch: { class: "denied" },
   stale: { class: "expired" },
   unknownKey: { class: "denied" },
   throttled: { class: "exhausted" },
-} as const
+})
 
 declare namespace VerifyFault {
-  type Reason = (typeof _reasons)[number]
-  type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _faults> = T
-  type _Closed<K extends Reason = keyof typeof _faults> = K
+  type Reason = (typeof _family.reasons)[number]
 }
 
 class VerifyFault extends Schema.TaggedError<VerifyFault>()("VerifyFault", {
-  reason: Schema.Literal(..._reasons),
+  reason: _family.schema,
   detail: Schema.String,
 }) {
   get class(): FaultClass.Kind {
-    return _faults[this.reason].class
+    return _family.classOf(this.reason)
   }
   override get message(): string {
     return `<verify:${this.reason}> ${this.detail}`
@@ -72,7 +68,7 @@ const _respell = (fault: SignFault): VerifyFault => new VerifyFault({ reason: "m
 - Law: rows are grammar, never trust policy — tolerance, secrets, and keys are verify-fold parameters a row cannot weaken; an asymmetric row resolves its registry key by the presented `kid`, or by the dialect name when the row carries none (`attestation`), and the scheme and `sigForm` select the oslo decode and verify primitives.
 - Law: the `_kinds` tuple anchors the key set — the `Verified.dialect` wire literal spreads it, and the guard pair closes tuple and table against each other in both directions, so a row without its tuple entry (or the converse) fails at the declaration.
 - Growth: a new provider is one row and its tuple entry; a provider changing grammar is a row edit every intake inherits; a new asymmetric suite (Ed25519 when a partner signs with it) is one row over the existing key-registry resolution.
-- Packages: `@oslojs/crypto` (`decodeSEC1ECDSAPublicKey`/`decodePKIXECDSAPublicKey`, `decodePKIXECDSASignature`/`decodeIEEEP1363ECDSASignature`, `decodePKCS1RSAPublicKey`/`decodePKIXRSAPublicKey`, curve/OID rows); `@oslojs/encoding` (base64/hex decode).
+- Packages: `@oslojs/crypto` (`decodeSEC1PublicKey`/`decodePKIXECDSAPublicKey`, `decodePKIXECDSASignature`/`decodeIEEEP1363ECDSASignature`, `decodePKCS1RSAPublicKey`/`decodePKIXRSAPublicKey`, curve/OID rows); `@oslojs/encoding` (base64/hex decode).
 
 ```typescript
 const _kinds = ["github", "stripe", "hmacHex", "hmacBase64", "ecdsaPkix", "ecdsaP1363", "rsaPss", "rsaPkcs1", "attestation"] as const
@@ -160,7 +156,7 @@ const _dialects = {
 [VERIFY_FOLD]:
 - Owner: `Verify` — the assembled owner: `verify` runs a dialect over held octets against a resolved key into a `Verified` receipt under the per-key rate budget, and `PublicKeyStore` is the `Context.Tag` registry the asymmetric dialects resolve a partner or attestation public key from by `kid`. `PublicKey` is the tagged key family — `Ecdsa` carries `bytes`, the pinned `curve`, and the `encoding` axis (`sec1` raw point or `pkix` SPKI-DER), `Rsa` carries `bytes` and its `pkcs1`/`pkix` encoding — and `$match` drives the asymmetric dispatch, so a scheme/key family mismatch is the residue arm, never an if-ladder. `Intake` is the `HttpApiMiddleware` Tag the runtime serve wave implements over the raw request octets before any body parse.
 - Law: the compare runs over the exact admitted bytes — the payload is the held request octets, the prefix rides the row, and freshness is checked before the signature (a stale stamp short-circuits to `stale` under the caller's tolerance `Duration`), so a replay outside the window never reaches the compare.
-- Law: every verify is throttled — the fold body runs under `RateLimiter.makeWithRateLimiter` keyed `<dialect>:<kid|dialect>` with `onExceeded: "fail"`, `RateLimitExceeded` folds to `throttled`, and the store-backed limiter holds the budget across every app sharing the library; every fault lands `Reject.mark("verify", { dialect, reason })` on the one reject stream.
+- Law: every verify is throttled — the fold body runs under `RateLimiter.makeWithRateLimiter` keyed `<dialect>:<kid|dialect>` with `onExceeded: "fail"`, `RateLimitExceeded` folds to `throttled`, and the store-backed limiter holds the budget across every app sharing the library; every fault lands `Reject.mark("verify", { dialect, reason })` and every admitted signature lands its `verify`-kinded twin and wall span through `Reject.measured`, so the dialect's reject ratio is queryable rather than inferred from traffic.
 - Law: every asymmetric candidate resolves its key first — the registry key is the presented `kid` or the dialect name for a kid-less row, and a miss is `unknownKey`, never a silent skip; the ECDSA arm decodes SEC1 or PKIX keys over the `p256`/`p384`/`p521` roster the registry pins per key and PKIX-DER or IEEE-P1363 signatures per the row's `sigForm`; the RSA arm decodes PKCS1/PKIX keys and checks RSASSA-PKCS1-v1_5 or PSS with the SHA-256 OID; the oslo decoders throw on malformed DER, so the per-candidate verify runs inside `Either.try` and a candidate whose signature refuses to decode verifies `false` — a structurally garbage presented signature is `mismatch`, never a defect.
 - Law: the HMAC fold tries every candidate under one `Crypto.matches` `Mac` probe and folds a primitive throw to `malformed`; a non-empty candidate set that matches none is `mismatch`.
 - Receipt: `Verified` — the `dialect`, the resolved `kid` when asymmetric, and the verified octet length, so the admitting edge enqueues exactly what was verified; `verify` returns `Verified` or a `VerifyFault`, never a boolean.
@@ -215,15 +211,15 @@ const _verifyAsym = (scheme: Verify.Scheme, sigForm: Verify.SigForm, key: Public
         Ecdsa: ({ bytes, curve, encoding }) =>
           scheme === "ecdsa"
           && verifyECDSASignature(
-            encoding === "sec1" ? decodeSEC1ECDSAPublicKey(_CURVES[curve], bytes) : decodePKIXECDSAPublicKey(bytes, [_CURVES[curve]]),
+            encoding === "sec1" ? decodeSEC1PublicKey(_CURVES[curve], bytes) : decodePKIXECDSAPublicKey(bytes, [_CURVES[curve]]),
             digest,
             sigForm === "p1363" ? decodeIEEEP1363ECDSASignature(_CURVES[curve], sig) : decodePKIXECDSASignature(sig),
           ),
         Rsa: ({ bytes, encoding }) =>
           (scheme === "rsa-pss" || scheme === "rsa-pkcs1")
           && (scheme === "rsa-pss"
-            ? verifyRSASSASignature(encoding === "pkcs1" ? decodePKCS1RSAPublicKey(bytes) : decodePKIXRSAPublicKey(bytes), SHA256, SHA256, 32, digest, sig)
-            : verifyRSASSAPKCS1v15Signature(encoding === "pkcs1" ? decodePKCS1RSAPublicKey(bytes) : decodePKIXRSAPublicKey(bytes), SHA256ObjectIdentifier, digest, sig)),
+            ? verifyRSASSAPSSSignature(encoding === "pkcs1" ? decodePKCS1RSAPublicKey(bytes) : decodePKIXRSAPublicKey(bytes), SHA256, SHA256, 32, digest, sig)
+            : verifyRSASSAPKCS1v15Signature(encoding === "pkcs1" ? decodePKCS1RSAPublicKey(bytes) : decodePKIXRSAPublicKey(bytes), sha256ObjectIdentifier, digest, sig)),
       })
     }),
     () => false,
@@ -282,6 +278,7 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
           : yield* Effect.fail(new VerifyFault({ reason: "mismatch", detail: dialect }))
       }).pipe(
         Effect.tapError((fault) => Reject.mark("verify", { dialect, reason: fault.reason })),
+        Reject.measured("verify", { dialect }), // the same kind carries the refusal and its denominator, so the ratio is a same-key join
         Effect.withSpan("security.verify", { attributes: { dialect } }),
       )
     return { verify } as const
@@ -291,16 +288,17 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
 }) {}
 ```
 
-## [05]-[REJECT_STREAM]
+## [05]-[ADMISSION_LEDGER]
 
-[REJECT_STREAM]:
-- Owner: `Reject` — the folder's one authenticity-reject fact stream: the closed `_REJECTS` kind table (`bearer` a refused presented bearer, `ceremony` a webauthn challenge replay or mismatch, `clone` a webauthn counter regression, `credential` an otp/recovery/apikey miss, `csrf` a double-submit mismatch, `reuse` a replayed rotated refresh, `state` an oauth ceremony-state replay, `verify` an external-signature reject) and `Reject.mark(kind, facet?)`, the one fold onto the `Convention.instrument.securityRejects` counter tagged `Convention.rasm.securityKind` and the present facet tags — so every rejecting surface in the folder composes one line and the whole attack picture is one series a single board panel groups by kind.
-- Law: instrument metadata derives from the Convention row — name, description, and the UCUM unit column have one spelling on the core vocabulary spine, and a page-local counter name is the parallel this owner deletes.
-- Law: facets are bounded tag values — `dialect` from the `[03]` dialect tuple, `surface` from the credential surface roster, `reason` from the owning page's closed fault-reason union — and an identifier-grade value (a subject, a kid, a session id) rides log annotations and span attributes, never a facet.
-- Law: marking is evidence, never control flow — `Reject.mark` is total, composed through `Effect.tapError` or an explicit arm beside the fault it witnesses, so a metric failure can never alter a security verdict.
-- Entry: `Reject.mark("verify", { dialect, reason })` in this page's fold; the authn pages compose `bearer`/`ceremony`/`clone`/`credential`/`csrf`/`reuse`/`state` rows at their reject arms.
-- Growth: a new rejecting surface is one `_REJECTS` row; a new facet axis is one `_FACETS` row with its Convention tag key.
-- Packages: `effect` (`Metric`, `Record`, `Array`); `@rasm/ts/core` (`Convention`).
+[ADMISSION_LEDGER]:
+- Owner: `Reject` — the folder's one authenticity ledger over the closed `_REJECTS` kind table (`bearer` a presented bearer, `ceremony` a webauthn challenge, `clone` a webauthn counter regression, `credential` an otp/recovery/apikey presentation, `csrf` a double-submit pair, `reuse` a presented rotated refresh, `state` an oauth ceremony state, `verify` an external signature) and three folds over it: `mark(kind, facet?)` increments the `securityRejects` refusal counter, `admit(kind, facet?)` its `securityAdmitted` twin, and `measured(kind, facet?)` is the ceremony aspect timing the wall span onto the `securityCeremony` distribution and admitting on the success arm — so one composed line at a ceremony entrypoint yields the refusal, the denominator, and the latency under one `Convention.rasm.securityKind` key.
+- Law: admission rides the SAME kind its refusal rides, so every rate, burn, and ratio is a same-key join — a credential-stuffing spike separates from a traffic spike because both series move under one tag set; a surface with no refusal row therefore has no admission row, and a breach-class kind (`clone`, `reuse` on a replay) is read absolutely, its enclosing ceremony's kind carrying the denominator.
+- Law: instrument metadata derives from the Convention row — name, description, dimension roster, and the UCUM unit column have one spelling on the core vocabulary spine, so the two admission rows reuse this table's kind vocabulary verbatim and a page-local counter name is the parallel this owner deletes.
+- Law: facets are bounded tag values and two of the three axes carry that bound in their own types — `dialect` is the `[03]` dialect key space and `surface` the `_SURFACES` credential roster this owner anchors, so a mistyped facet is a compile error rather than a second series; `reason` stays a string because every family that marks one declares its `Reason` above this stratum, and its bound is the caller passing that closed literal, never a member assembling text. An identifier-grade value (a subject, a kid, a session id) rides log annotations and span attributes, never a facet; one `_tagged` fold applies the kind and every present facet, so the three members cannot drift in their tagging.
+- Law: ledger writes are evidence, never control flow — every member is total and composes through `Effect.tapError`, `Effect.tap`, or the pipeline seam beside the verdict it witnesses, so a metric failure can never alter a security verdict and `measured` never widens the fault channel it wraps.
+- Entry: `Reject.measured("verify", { dialect })` in this page's fold; the authn pages compose one `measured` line per ceremony entrypoint — `bearer` at the guard, `reuse` at refresh, `csrf` at the double-submit check, `credential` at otp/recovery/api-key resolve, `state` at the oauth callback, `ceremony` at both passkey finishes — beside the `mark` line their refusal arms already carry.
+- Growth: a new ceremony surface is one `_REJECTS` row reaching all three folds at once; a new credential surface is one `_SURFACES` entry; a new facet axis is one `_FACETS` row with its Convention tag key and its `Facet` field, the `_Facets` guard closing the two against each other.
+- Packages: `effect` (`Metric`, `Record`, `Array`, `Duration`); `@rasm/ts/core` (`Convention`).
 
 ```typescript
 const _REJECTS = {
@@ -314,6 +312,11 @@ const _REJECTS = {
   verify: {},
 } as const
 
+// The credential-surface roster lives beside the kind table because the ledger is what bounds it: every
+// `credential`-kinded mark and admission across the folder tags one of these, so an unrostered spelling is a
+// compile error at the call site rather than a silent second series under a mistyped name.
+const _SURFACES = ["apikey", "otp", "recovery", "workload"] as const
+
 const _FACETS = {
   dialect: Convention.rasm.securityDialect,
   reason: Convention.rasm.securityReason,
@@ -322,23 +325,52 @@ const _FACETS = {
 
 declare namespace Reject {
   type Kind = keyof typeof _REJECTS
-  type Facet = { readonly [K in keyof typeof _FACETS]?: string }
+  type Surface = (typeof _SURFACES)[number]
+  // Two of the three axes close at their own anchors; `reason` cannot, because every folder fault family that
+  // marks one sits at or above this stratum and no union reaches down here — its boundedness is the caller
+  // passing its own closed `Reason` literal, which is why no member ever builds a reason string.
+  type Facet = {
+    readonly dialect?: Verify.Dialect
+    readonly reason?: string
+    readonly surface?: Surface
+  }
   type _Keys<K extends Kind = keyof typeof _REJECTS> = K
+  type _Facets<K extends keyof typeof _FACETS = keyof Facet> = K
 }
 
 const _rejects = Convention.mount(Convention.metric.securityRejects)
+const _admitted = Convention.mount(Convention.metric.securityAdmitted)
+const _ceremony = Convention.mount(Convention.metric.securityCeremony)
+
+// One tagging fold serves refusal, admission, and latency, so the three series carry byte-identical key sets and a
+// join across them can never silently miss on a facet one member applied and another skipped.
+const _tagged = <Type, In, Out>(
+  metric: Metric.Metric<Type, In, Out>,
+  kind: Reject.Kind,
+  facet: Reject.Facet,
+): Metric.Metric<Type, In, Out> =>
+  Array.reduce(
+    Record.toEntries(_FACETS),
+    Metric.tagged(metric, Convention.rasm.securityKind, kind),
+    (tagged, [key, tag]) =>
+      Option.match(Option.fromNullable(facet[key]), { onNone: () => tagged, onSome: (held) => Metric.tagged(tagged, tag, held) }),
+  )
 
 const Reject = {
   kinds: _REJECTS,
   mark: (kind: Reject.Kind, facet: Reject.Facet = {}): Effect.Effect<void> =>
-    Metric.increment(
-      Array.reduce(
-        Record.toEntries(_FACETS),
-        Metric.tagged(_rejects, Convention.rasm.securityKind, kind),
-        (counter, [key, tag]) =>
-          facet[key] === undefined ? counter : Metric.tagged(counter, tag, facet[key]),
+    Metric.increment(_tagged(_rejects, kind, facet)),
+  admit: (kind: Reject.Kind, facet: Reject.Facet = {}): Effect.Effect<void> =>
+    Metric.increment(_tagged(_admitted, kind, facet)),
+  // The ceremony aspect: one line at an entrypoint buys the wall span AND the denominator, so no arm can land the
+  // latency without its admission or the admission without its latency.
+  measured:
+    (kind: Reject.Kind, facet: Reject.Facet = {}) =>
+    <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+      self.pipe(
+        Metric.trackDuration(_tagged(_ceremony, kind, facet)),
+        Effect.tap(() => Reject.admit(kind, facet)),
       ),
-    ),
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

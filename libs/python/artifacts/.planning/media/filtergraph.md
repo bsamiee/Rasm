@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache, reduce
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Literal, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 import numpy as np
 from beartype import beartype
@@ -106,6 +106,18 @@ _FILTER: frozendict[FilterNodeTag, FilterRow] = frozendict({
     "amix": FilterRow("amix", SubstituteKind.NATIVE_MULTI),
     "acrossfade": FilterRow("acrossfade", SubstituteKind.NATIVE_MULTI),
 })
+
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form. Pair one: `_wire` and `_build_graph` index `_FILTER` by tag, so an unruled `FilterNodeTag` is a runtime
+# `KeyError` mid-build inside a worker. Pair two runs the INVERSE — every declared `SubstituteKind` is SELECTED by
+# some row, so a routing member no row uses is a phantom the vocabulary refuses at import rather than a dead arm
+# `_build_graph` carries forever.
+_COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = (
+    (frozenset(_FILTER), frozenset(get_args(FilterNodeTag))),
+    (frozenset(row.route for row in _FILTER.values()), frozenset(SubstituteKind)),
+)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("filter tables do not cover their vocabularies")
 
 
 @tagged_union(frozen=True)
@@ -258,7 +270,7 @@ class AudioGraph:
         while True:  # libavfilter pull protocol: drain until EAGAIN (needs input) or EOF (flushed)
             try:
                 yield self.graph.pull()
-            except BlockingIOError, EOFError:
+            except av.error.BlockingIOError, av.error.EOFError:
                 return
 
 
@@ -499,7 +511,7 @@ def _staged_pull(segment: object, frame: "object | None") -> tuple[object, ...]:
     while True:
         try:
             pulled.append(segment.pull())
-        except (av.error.BlockingIOError, av.error.EOFError):
+        except av.error.BlockingIOError, av.error.EOFError:
             return tuple(pulled)
 
 
@@ -541,7 +553,7 @@ def _build_graph(nodes: tuple[FilterNode, ...], template: object, /) -> WiredGra
                     # `filters_available` membership before Graph.add, so a limited build rails
                     # MediaFault.unregistered at the worker capture, never a deep FilterNotFoundError.
                     if spelled not in available:
-                        raise av.FilterNotFoundError(38, f"filter '{spelled}' absent from this FFmpeg build")
+                        raise av.error.FilterNotFoundError(38, f"filter '{spelled}' absent from this FFmpeg build")
                     pending.append((spelled, args))
                     node_count += 1
             case SubstituteKind.COMPOSITE if node.tag == "text_burn" and row.name in available and _native_text(node.text_burn):

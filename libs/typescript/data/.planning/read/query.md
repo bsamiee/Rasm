@@ -116,7 +116,7 @@ const _reads = (sql: SqlClient.SqlClient) => ({
 ```typescript signature
 import { Effect, Option, Schema } from "effect"
 import { SqlResolver } from "@effect/sql"
-import { Journal } from "../journal/append.ts"
+import { Journal, StreamKey } from "../journal/append.ts"
 
 const _resolverRows = (sql: SqlClient.SqlClient) => ({
   boards: SqlResolver.findById("BoardByCell", {
@@ -147,8 +147,10 @@ const _resolverRows = (sql: SqlClient.SqlClient) => ({
     Result: Schema.Struct({ id: Schema.String, head: Journal.Version }),
     ResultId: (row) => row.id,
     execute: (ids) =>
-      sql`SELECT app || ':' || tenant || ':' || aggregate AS id, coalesce(max(version), 0) AS head
-          FROM journal_event WHERE (app || ':' || tenant || ':' || aggregate) IN ${sql.in(ids)}
+      // The composed identity is the append owner's fragment, spelled once there and composed twice here — so the id
+      // this resolver keys on and the string the advisory lock hashes cannot drift apart on a separator or an order.
+      sql`SELECT ${StreamKey.identityColumn(sql)} AS id, coalesce(max(version), 0) AS head
+          FROM journal_event WHERE (${StreamKey.identityColumn(sql)}) IN ${sql.in(ids)}
           GROUP BY app, tenant, aggregate`,
   }),
 })

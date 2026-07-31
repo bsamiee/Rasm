@@ -1,12 +1,12 @@
 # [APPUI_DIAGNOSTICS_EVIDENCE]
 
-Rasm.AppUi evidence is one rail. Sixteen `EvidenceReceipt` cases fold every sibling receipt stream into the HLC-stamped sink envelope; the telemetry spine owns AppUi scope identity, the dimension vocabulary, the meter mount, and the fan every `rasm.appui.*` declaration writes through; one correlation join projects envelope streams into uncertainty-grouped timelines the document plane paginates; `[FAULT_TABLES]` is the fault-code authority every `Code` derives through. Capture, headless derivation, the dev loop, and the governor are sibling owners (`proof.md`, `devloop.md`, `governor.md`).
+Rasm.AppUi evidence is one rail. The `EvidenceReceipt` cases fold every sibling receipt stream into the HLC-stamped sink envelope; the telemetry spine owns AppUi scope identity, the dimension vocabulary, the meter mount, and the fan every `rasm.appui.*` declaration writes through; one correlation join projects envelope streams into uncertainty-grouped timelines the document plane paginates; `[FAULT_TABLES]` is the fault-code authority every `Code` derives through. Capture, headless derivation, the dev loop, and the governor are sibling owners (`proof.md`, `devloop.md`, `governor.md`).
 
 Kernel vocabulary arrives whole from the signal capsule: the causal frame (`TelemetrySource`, `CorrelationId`, `TenantContext`, `ReceiptEnvelope`, `ReceiptSinkPort`), the instrument mechanism (`InstrumentSpec` over `InstrumentKind` x `MeasureForm`, `Buckets`, `LevelCells`, `InstrumentSet`, `InstrumentArm`, `ReceiptFan`, `TelemetryContributorPort`, `TelemetryIdentity`), and the SLO algebra (`Sli`, `Objective`, `BurnRow`, `AlertSeverity`, `AlertSpec`, `Slo`). `HookRail` arrives settled from `Rasm.AppHost`.
 
 ## [01]-[INDEX]
 
-- [02]-[RECEIPT_UNION]: Sixteen-case evidence union sealed through the HLC sink envelope.
+- [02]-[RECEIPT_UNION]: The closed evidence union sealed through the HLC sink envelope.
 - [03]-[TELEMETRY_SPINE]: AppUi scope identity, the dimension vocabulary, the contribution and meter mount, the receipt-to-instrument fan, and the viewport reliability objectives over the mounted set.
 - [04]-[CORRELATION_JOIN]: Causal timeline join keyed correlation and HLC with skew bands; the report-block and tenant-usage projections.
 - [05]-[FAULT_TABLES]: Type-enforced AppUi 6xxx band registry with pinned foreign mirror rows.
@@ -15,9 +15,9 @@ Kernel vocabulary arrives whole from the signal capsule: the causal frame (`Tele
 ## [02]-[RECEIPT_UNION]
 
 - Owner: `EvidenceReceipt` — the one `[Union]` evidence vocabulary; `EvidenceOps` — the sibling-receipt projection fold and the kind roster every projection keys on; `AppUiWireContext` — the package wire context.
-- Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity | Theme | Motion | Asset | LiveData | CollabSync | CollabRevert | Media | Quality | GpuFrame under the locked kind literals surface, focus, render, disposal, edit, command, native-asset, theme, motion, asset, live-data, collab-sync, collab-revert, media, quality, gpu-frame.
+- Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity | Theme | Motion | Asset | LiveData | CollabSync | CollabRevert | Media | Quality | GpuFrame | Layout under the locked kind literals surface, focus, render, disposal, edit, command, native-asset, theme, motion, asset, live-data, collab-sync, collab-revert, media, quality, gpu-frame, layout.
 - Entry: `public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant)` — `IO` carries the sink effect; the returned envelope is the emission evidence carrying both cross-process primitives, the ambient `TenantContext` threaded from `TenantContext.Current` at composition; the tenant is consumed as settled kernel causal-frame vocabulary and never re-minted here; serialization pins to the generated `AppUiWireContext.Default.EvidenceReceipt` type info, so an off-contract options graph is structurally impossible and the `EvidenceTimelineWire` crossing is provably schema-stable against its TS decode side.
-- Auto: composition binds the settled sibling delegates onto case constructors — `ScreenRuntime.Disposed` to Disposal, `VisualRuntime.Sink` to Render through `ToEvidence`, the inspector receipt sink to the Edit flatten, the mount transaction and its fact stream to Surface and Focus, the native load-identity probe to NativeAssetIdentity, the `ThemeCell` swap, `ReducedMotion` conformance, and `AssetCatalog` preload sinks to the Theme, Motion, and Asset flattens, the `Editing/livedata.md` change-audit `ChangeSummary` fold to the LiveData case (adds, updates, removes, refreshes per slot), the `Collab/sync.md` `LiveWire` merge and `TimeTravel` revert sinks to the CollabSync and CollabRevert flattens, the `Document/media.md` mount sink to the Media flatten, and the `Diagnostics/governor.md` verdict and GPU-timeline sinks to the Quality and GpuFrame flattens — every fold one `ToEvidence` extension or one `EvidenceOps` factory (`Focus`, `Disposal`, `NativeAsset`, `LiveData` — the delegate-fed cases whose sources carry no receipt record) bound at composition, so every existing receipt stream folds into one union with zero new emitters.
+- Auto: composition binds the settled sibling delegates onto case constructors — `ScreenRuntime.Disposed` to Disposal, `VisualRuntime.Sink` to Render through `ToEvidence`, the inspector receipt sink to the Edit flatten, the mount transaction and its fact stream to Surface and Focus, the native load-identity probe to NativeAssetIdentity, the `ThemeCell` swap, `ReducedMotion` conformance, and `AssetCatalog` preload sinks to the Theme, Motion, and Asset flattens, the `Editing/livedata.md` change-audit `ChangeSummary` fold to the LiveData case (adds, updates, removes, refreshes per slot), the `Collab/sync.md` `LiveWire` merge and `TimeTravel` revert sinks to the CollabSync and CollabRevert flattens, the `Document/media.md` mount sink to the Media flatten, the `Shell/solver.md` pass receipt to the Layout flatten, and the `Diagnostics/governor.md` verdict and GPU-timeline sinks to the Quality and GpuFrame flattens — every fold one `ToEvidence` extension or one `EvidenceOps` factory (`Focus`, `Disposal`, `NativeAsset`, `LiveData`, `Layout` — the delegate-fed cases whose sources carry no receipt record or arrive as composition delegates) bound at composition, so every existing receipt stream folds into one union with zero new emitters. The Layout kind is receipt-only on the fan by declaration — `LayoutSolver.Observe` already writes both layout instruments off the same receipt through the composition-bound projection modality, so a fan arm beside it would double every count.
 - Receipt: the sealed `ReceiptEnvelope` is the emission evidence; its HLC stamp is the only time authority on evidence, so a second stamp field on a case payload is the deleted form; the envelope's `Tenant` field partitions evidence per tenant from the same threaded `TenantContext`, so a per-tenant evidence view derives from the envelope partition rather than a second tenant field on a case payload.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one case row absorbs a new evidence family — its `[JsonDerivedType]` row carries the kind literal, `Kinds` and every arm-table key derive, and `Probe` fails the composition that forgot the row; zero new surface.
@@ -42,6 +42,7 @@ Kernel vocabulary arrives whole from the signal capsule: the causal frame (`Tele
 [JsonDerivedType(typeof(EvidenceReceipt.Media), "media")]
 [JsonDerivedType(typeof(EvidenceReceipt.Quality), "quality")]
 [JsonDerivedType(typeof(EvidenceReceipt.GpuFrame), "gpu-frame")]
+[JsonDerivedType(typeof(EvidenceReceipt.Layout), "layout")]
 public abstract partial record EvidenceReceipt {
     private EvidenceReceipt() { }
     public sealed record Surface(string Host, string Descriptor, string? Handle, double Scale, Instant At, CorrelationId Correlation) : EvidenceReceipt;
@@ -60,6 +61,7 @@ public abstract partial record EvidenceReceipt {
     public sealed record Media(string Key, string Codec, string Source, string Outcome) : EvidenceReceipt;
     public sealed record Quality(string Tier, int PathTraceSamples, double WatermarkFactor, string Motion, int FoveationLevel, double RefreshHz) : EvidenceReceipt;
     public sealed record GpuFrame(string FrameOrdinal, int Passes, int Unmeasured, string MeasuredNanoseconds) : EvidenceReceipt;
+    public sealed record Layout(string Panel, int Constraints, Duration Elapsed, string? Fault) : EvidenceReceipt;
 
     public string Kind => EvidenceOps.KindOf(GetType());
 
@@ -105,11 +107,11 @@ public static class EvidenceOps {
                     Requirement: $"one distinct string discriminator per evidence case: {cases.Count} cases, {Registry.Rows.Count} rows"));
     }
 
-    // Four delegate-fed cases: their sources arrive as composition delegates rather than receipt
+    // Delegate-fed cases: their sources arrive as composition delegates rather than receipt
     // records — the mount fact stream's FocusChanged arm, ScreenRuntime.Disposed, the native
-    // load-identity probe, and the livedata change-audit CollectUpdateStats fold — so the canonical
-    // producer is a named factory the composition binds onto those delegates, and a sibling-local
-    // envelope construction is the deleted form.
+    // load-identity probe, the livedata change-audit CollectUpdateStats fold, and the layout pass
+    // seal — so the canonical producer is a named factory the composition binds onto those
+    // delegates, and a sibling-local envelope construction is the deleted form.
     public static EvidenceReceipt Focus(string target, bool focused) =>
         new EvidenceReceipt.Focus(target, focused);
 
@@ -121,6 +123,9 @@ public static class EvidenceOps {
 
     public static EvidenceReceipt LiveData(string slot, int adds, int updates, int removes, int refreshes) =>
         new EvidenceReceipt.LiveData(slot, adds, updates, removes, refreshes);
+
+    public static EvidenceReceipt Layout(string panel, int constraints, Duration elapsed, Option<LayoutFault> fault) =>
+        new EvidenceReceipt.Layout(panel, constraints, elapsed, fault.Map(static f => f.Message).IfNone((string?)null));
 
     extension(SurfaceReceipt receipt) {
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Surface(
@@ -149,7 +154,7 @@ public static class EvidenceOps {
 
     extension(ThemeSwitchReceipt receipt) {
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Theme(
-            receipt.Variant.Key, receipt.Density.Key, receipt.Trigger, receipt.ChangedKeys.Count);
+            receipt.Variant.Key, receipt.Density.Key, receipt.Trigger.Key, receipt.ChangedKeys.Count);
     }
 
     extension(MotionReceipt receipt) {
@@ -679,10 +684,11 @@ public sealed partial class AppUiFaultBand {
     public static readonly AppUiFaultBand Nav          = new(6060, 10, "NavFault",         "Shell/navigation",      mirror: false);
     public static readonly AppUiFaultBand Command      = new(6070, 10, "CommandFault",     "Shell/commands",        mirror: false);
     public static readonly AppUiFaultBand Screen       = new(6080, 10, "ScreenFault",      "Shell/screens",         mirror: false);
+    public static readonly AppUiFaultBand Accessibility = new(6090, 10, "AccessFault",      "Shell/accessibility",   mirror: false);
     // --- [RENDER_61XX]
     public static readonly AppUiFaultBand Viewport     = new(6100, 10, "ViewportFault",    "Render/pipeline",       mirror: false);
     public static readonly AppUiFaultBand Shader       = new(6110, 10, "ShaderFault",      "Render/shading",        mirror: false);
-    public static readonly AppUiFaultBand Immersive    = new(6120, 10, "ImmersiveFault",   "Render/immersive",      mirror: false);
+    public static readonly AppUiFaultBand Immersive    = new(6120, 10, "ImmersiveFault",   "Render/immersive",      mirror: false); // codes 0-9 all assigned — an eleventh immersive fault widens the band, never appends past it
     public static readonly AppUiFaultBand Capture      = new(6130, 10, "CaptureFault",     "Render/reality",        mirror: false);
     public static readonly AppUiFaultBand Draft        = new(6140, 10, "DraftFault",       "Render/drafting",       mirror: false);
     public static readonly AppUiFaultBand Animation    = new(6150, 10, "AnimationFault",   "Render/animation",      mirror: false);
@@ -737,7 +743,7 @@ public sealed partial class AppUiFaultBand {
 
     // Span-overlap proof: base uniqueness is the generated key lookup; range disjointness is this fold.
     public static readonly Unit Disjoint = ignore(
-        toSeq(Items).OrderBy(static band => band.Key).ToSeq()
+        toSeq(toSeq(Items).OrderBy(static band => band.Key))
             .Fold(0, static (ceiling, band) => band.Key >= ceiling
                 ? band.Key + band.Span
                 : throw new InvalidOperationException($"{band.Owner}:{band.Key} overlaps {ceiling}")));
@@ -768,7 +774,8 @@ type EvidenceReceiptWire =
   | { readonly kind: "collab-revert"; readonly docKey: string; readonly frontierDigest: string; readonly inverseOps: number }
   | { readonly kind: "media"; readonly key: string; readonly codec: string; readonly source: string; readonly outcome: string }
   | { readonly kind: "quality"; readonly tier: string; readonly pathTraceSamples: number; readonly watermarkFactor: number; readonly motion: string; readonly foveationLevel: number; readonly refreshHz: number }
-  | { readonly kind: "gpu-frame"; readonly frameOrdinal: string; readonly passes: number; readonly unmeasured: number; readonly measuredNanoseconds: string };
+  | { readonly kind: "gpu-frame"; readonly frameOrdinal: string; readonly passes: number; readonly unmeasured: number; readonly measuredNanoseconds: string }
+  | { readonly kind: "layout"; readonly panel: string; readonly constraints: number; readonly elapsed: string; readonly fault: string | null };
 
 interface NativeAssetFactWire {
   readonly library: string;

@@ -124,6 +124,11 @@ def _hydrate(grid: SceneGrid, scalars: str | None) -> pv.DataSet:
             curvilinear.point_data[scalars or _FIELD] = field.ravel(order="F")
             return curvilinear
         case SceneGrid(tag="glb", glb=data):
+            # GEOMETRY route by construction: `pv.read` rides `vtkGLTFReader`, which returns meshes and never
+            # materials, so this arm's appearance is the spec's own — `SurfaceBand` scalars and `maps` — and
+            # `combine()` merges nothing a reader ever carried. A GLB whose EMBEDDED appearance must render
+            # crosses through `render_ingest`'s `_IMPORTER` row (`vtkGLTFImporter`) instead; the two routes are
+            # the dataset pipeline and the importer pipeline, and neither substitutes for the other.
             with TemporaryDirectory() as work:
                 path = Path(work) / "mesh.glb"
                 path.write_bytes(data)

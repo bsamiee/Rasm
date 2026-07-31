@@ -1,4 +1,4 @@
-# [PERSISTENT_SETTINGS]
+# [RASM_RHINO_PERSISTENCE_SETTINGS]
 
 `SettingKind` owns the complete `PersistentSettings` value matrix, including explicit/default asymmetry, as one keyed behavior vocabulary whose rows carry the probe, write, default, capture, and host-projection delegates over the shared `ArchiveValue` carrier (dictionary.md). `SettingOperation` closes reads, writes, defaults, metadata, validators, change state, and saved-tree projection behind `Settings.Commit`.
 
@@ -6,90 +6,90 @@
 
 `ArchiveValue` carries every payload; `SettingKind` rows are the only site naming a host `TryGet*`/`Set*` member, and each kind adds one complete row whose delegate and type columns drive every boundary projection. `Shape` is the carrier payload type `For` matches, while `HostType` is the host runtime type `Accepts` matches — the two diverge exactly where the detached form differs from the host form (`TextList`, `TextMap`, `OptionalColor`). Rows without a default column refuse with a typed unsupported fault; the enum row rides the shared `EnumMint` reflection seam.
 
-```csharp signature
-namespace Rasm.Rhino.Persistence;
+Rename tolerance is an EXPLICIT-READ capability only: every `TryGet*` carries a third `IEnumerable<string> legacyKeyList` parameter, so the `probe` column takes the roster and the whole row vocabulary widens with it. `TryGetDefault` publishes no such overload and `TryGetEnumValue<T>` hard-passes `null` to the same resolver, so `probePreset` stays two-argument and an enum read is legacy-blind by host construction — the asymmetry is the host's, and a roster threaded into either would be an unread argument.
 
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Drawing;
-using LanguageExt;
 using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
-using Thinktecture;
-using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino.Persistence;
 
 [SmartEnum<string>]
-public sealed partial class SettingDefaultMode
-{
+public sealed partial class SettingDefaultMode {
     public static readonly SettingDefaultMode None = new("none");
     public static readonly SettingDefaultMode WriteOnly = new("write-only");
     public static readonly SettingDefaultMode ReadWrite = new("read-write");
 }
 
 [SmartEnum<string>]
-public sealed partial class SettingKind
-{
+public sealed partial class SettingKind {
     public static readonly SettingKind Guid = Of<Guid>(
         key: "guid",
         defaults: SettingDefaultMode.WriteOnly,
-        probe: static (node, key) => node.TryGetGuid(key, out Guid value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetGuid(key, out Guid value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetGuid(key, value),
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind Bool = Of<bool>(
         key: "bool",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetBool(key, out bool value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetBool(key, out bool value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetBool(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out bool value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind Byte = Of<byte>(
         key: "byte",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetByte(key, out byte value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetByte(key, out byte value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetByte(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out byte value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind Integer = Of<int>(
         key: "integer",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetInteger(key, out int value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetInteger(key, out int value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetInteger(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out int value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind UnsignedInteger = Of<uint>(
         key: "unsigned-integer",
         defaults: SettingDefaultMode.None,
-        probe: static (node, key) => node.TryGetUnsignedInteger(key, out uint value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetUnsignedInteger(key, out uint value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetUnsignedInteger(key, value));
     public static readonly SettingKind Double = Of<double>(
         key: "double",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetDouble(key, out double value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetDouble(key, out double value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetDouble(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out double value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind Char = Of<char>(
         key: "char",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetChar(key, out char value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetChar(key, out char value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetChar(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out char value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind Text = Of<string>(
         key: "text",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetString(key, out string value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetString(key, out string value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetString(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out string value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
+    // Host splice sentinel: a list ELEMENT equal to `PersistentSettings.StringListRootKey` splices the all-users
+    // list at its position on read, so a list carrying it round-trips to a DIFFERENT list by host design — a
+    // `Same` inequality across that round trip is the splice expanding, never settings drift.
     public static readonly SettingKind TextList = Of<Seq<string>>(
         key: "text-list",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetStringList(key, out string[] value) ? Some(toSeq(value)) : None,
+        probe: static (node, key, legacy) => node.TryGetStringList(key, out string[] value, legacy) ? Some(toSeq(value)) : None,
         put: static (node, key, value) => node.SetStringList(key, value.ToArray()),
         probePreset: static (node, key) => node.TryGetDefault(key, out string[] value) ? Some(toSeq(value)) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value.ToArray()),
-        capture: static (source, op) => source switch
-        {
+        capture: static (source, op) => source switch {
             string[] rows => ArchiveValue.Of(toSeq(rows), op),
             Seq<string> sequence => ArchiveValue.Of(sequence, op),
             _ => Fin.Fail<ArchiveValue>(error: op.InvalidInput()),
@@ -100,13 +100,12 @@ public sealed partial class SettingKind
     public static readonly SettingKind TextMap = Of<HashMap<string, string>>(
         key: "text-map",
         defaults: SettingDefaultMode.WriteOnly,
-        probe: static (node, key) => node.TryGetStringDictionary(key, out KeyValuePair<string, string>[] value)
+        probe: static (node, key, legacy) => node.TryGetStringDictionary(key, out KeyValuePair<string, string>[] value, legacy)
             ? Some(value.ToHashMap())
             : None,
         put: static (node, key, value) => node.SetStringDictionary(key, TextMapRows(value)),
         putPreset: static (node, key, value) => node.SetDefault(key, TextMapRows(value)),
-        capture: static (source, op) => source switch
-        {
+        capture: static (source, op) => source switch {
             KeyValuePair<string, string>[] rows => ArchiveValue.Of(rows.ToHashMap(), op),
             HashMap<string, string> map => ArchiveValue.Of(map, op),
             _ => Fin.Fail<ArchiveValue>(error: op.InvalidInput()),
@@ -117,25 +116,24 @@ public sealed partial class SettingKind
     public static readonly SettingKind Date = Of<DateTime>(
         key: "date",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetDate(key, out DateTime value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetDate(key, out DateTime value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetDate(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out DateTime value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind Color = Of<Color>(
         key: "color",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetColor(key, out Color value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetColor(key, out Color value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetColor(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out Color value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind OptionalColor = Of<Option<Color>>(
         key: "optional-color",
         defaults: SettingDefaultMode.WriteOnly,
-        probe: static (node, key) => node.TryGetColor(key, out Color? value) ? Some(Optional(value)) : None,
+        probe: static (node, key, legacy) => node.TryGetColor(key, out Color? value, legacy) ? Some(Optional(value)) : None,
         put: static (node, key, value) => node.SetColor(key, value.Match<Color?>(Some: static color => color, None: static () => null)),
         putPreset: static (node, key, value) => node.SetDefault(key, value.Match<Color?>(Some: static color => color, None: static () => null)),
-        capture: static (source, op) => source switch
-        {
+        capture: static (source, op) => source switch {
             null => ArchiveValue.Of(Option<Color>.None, op),
             Color color => ArchiveValue.Of(Some(color), op),
             Option<Color> optional => ArchiveValue.Of(optional, op),
@@ -147,27 +145,27 @@ public sealed partial class SettingKind
     public static readonly SettingKind Point = Of<Point>(
         key: "point",
         defaults: SettingDefaultMode.WriteOnly,
-        probe: static (node, key) => node.TryGetPoint(key, out Point value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetPoint(key, out Point value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetPoint(key, value),
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind Point3d = Of<Point3d>(
         key: "point3d",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetPoint3d(key, out Point3d value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetPoint3d(key, out Point3d value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetPoint3d(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out Point3d value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind Size = Of<Size>(
         key: "size",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetSize(key, out Size value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetSize(key, out Size value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetSize(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out Size value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
     public static readonly SettingKind Rectangle = Of<Rectangle>(
         key: "rectangle",
         defaults: SettingDefaultMode.ReadWrite,
-        probe: static (node, key) => node.TryGetRectangle(key, out Rectangle value) ? Some(value) : None,
+        probe: static (node, key, legacy) => node.TryGetRectangle(key, out Rectangle value, legacy) ? Some(value) : None,
         put: static (node, key, value) => node.SetRectangle(key, value),
         probePreset: static (node, key) => node.TryGetDefault(key, out Rectangle value) ? Some(value) : None,
         putPreset: static (node, key, value) => node.SetDefault(key, value));
@@ -176,7 +174,7 @@ public sealed partial class SettingKind
         defaults: SettingDefaultMode.None,
         shape: typeof(System.Enum),
         hostType: typeof(System.Enum),
-        read: static (node, key, op) => Fin.Fail<Option<ArchiveValue>>(error: op.Unsupported(
+        read: static (node, key, legacy, op) => Fin.Fail<Option<ArchiveValue>>(error: op.Unsupported(
             geometryType: typeof(System.Enum), outputType: typeof(PersistentSettings))),
         write: static (node, key, value, op) => value.EnumEntry
             .ToFin(Fail: op.InvalidInput())
@@ -199,7 +197,7 @@ public sealed partial class SettingKind
     public Type HostType { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Option<ArchiveValue>> Read(PersistentSettings node, SettingKey key, Op op);
+    internal partial Fin<Option<ArchiveValue>> Read(PersistentSettings node, SettingKey key, Seq<SettingKey> legacy, Op op);
 
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Write(PersistentSettings node, SettingKey key, ArchiveValue value, Op op);
@@ -260,7 +258,7 @@ public sealed partial class SettingKind
     private static SettingKind Of<T>(
         string key,
         SettingDefaultMode defaults,
-        Func<PersistentSettings, string, Option<T>> probe,
+        Func<PersistentSettings, string, IEnumerable<string>, Option<T>> probe,
         Action<PersistentSettings, string, T> put,
         Func<PersistentSettings, string, Option<T>>? probePreset = null,
         Action<PersistentSettings, string, T>? putPreset = null,
@@ -273,7 +271,7 @@ public sealed partial class SettingKind
             defaults,
             shape: shape ?? typeof(T),
             hostType: hostType ?? typeof(T),
-            read: (node, settingKey, op) => op.Catch(() => probe(node, settingKey.Value).Match(
+            read: (node, settingKey, legacy, op) => op.Catch(() => probe(node, settingKey.Value, legacy.Map(static row => row.Value)).Match(
                 Some: value => ArchiveValue.Of(value, op).Map(Some),
                 None: () => Fin.Succ(value: Option<ArchiveValue>.None))),
             write: (node, settingKey, value, op) => value.Project<T>(op)
@@ -298,23 +296,19 @@ public sealed partial class SettingKind
 
 ## [02]-[REQUEST_ALGEBRA]
 
-`SettingPath` carries root and child identity once. `Route` derives missing-child creation from the active operation, so reads never mutate the tree as an accidental consequence.
+`SettingPath` carries root and child identity once. `Route` derives missing-child creation from the active operation, so reads never mutate the tree as an accidental consequence. A read carrying a legacy roster is the one deliberate exception: the host renames the resolved roster key in place, which is the read's purpose, and `ValueCase.Adopted` publishes the rename rather than letting it pass silently.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
-
-using LanguageExt;
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;
-using Thinktecture;
+
+namespace Rasm.Rhino.Persistence;
 
 [ValueObject<string>]
-public readonly partial struct SettingKey
-{
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
+public readonly partial struct SettingKey {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        if (string.IsNullOrWhiteSpace(value)) {
             validationError = new ValidationError("Setting key is empty.");
             return;
         }
@@ -324,17 +318,17 @@ public readonly partial struct SettingKey
     }
 }
 
-[Union]
-public abstract partial record SettingsRoot
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SettingsRoot {
+    private SettingsRoot() { }
+
     public sealed record ApplicationCase : SettingsRoot;
     public sealed record PlugInCase(Guid PlugInId) : SettingsRoot;
 }
 
 public sealed record SettingPath(SettingsRoot Root, Seq<SettingKey> Children);
 
-public interface ISettingGuard
-{
+public interface ISettingGuard {
     SettingKind Kind { get; }
     Type HostType { get; }
     Fin<ArchiveValue> Validate(ArchiveValue current, ArchiveValue proposed);
@@ -342,17 +336,19 @@ public interface ISettingGuard
 }
 
 [SmartEnum<string>]
-public sealed partial class SettingsVisibility
-{
+public sealed partial class SettingsVisibility {
     public static readonly SettingsVisibility Visible = new("visible", false);
     public static readonly SettingsVisibility Hidden = new("hidden", true);
     internal bool IsHidden { get; }
 }
 
-[Union]
-public abstract partial record SettingOperation
-{
-    public sealed record ReadCase(SettingPath Path, SettingKey Key, SettingKind Kind) : SettingOperation;
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SettingOperation {
+    private SettingOperation() { }
+
+    // `Legacy` is an ORDERED rename-precedence roster the host walks only when the current key is absent; the first
+    // roster key it resolves is REMOVED and its value re-seated under the current key, so a legacy read migrates.
+    public sealed record ReadCase(SettingPath Path, SettingKey Key, SettingKind Kind, Seq<SettingKey> Legacy) : SettingOperation;
     public sealed record ReadEnumCase(SettingPath Path, SettingKey Key, Type EnumType) : SettingOperation;
     public sealed record PutCase(SettingPath Path, SettingKey Key, ArchiveValue Value) : SettingOperation;
     public sealed record DeleteCase(SettingPath Path, SettingKey Key) : SettingOperation;
@@ -368,9 +364,10 @@ public abstract partial record SettingOperation
     public sealed record TreeCase(SettingPath Path) : SettingOperation;
 }
 
-[Union]
-public abstract partial record SettingObservation
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SettingObservation {
+    private SettingObservation() { }
+
     public sealed record ObservedCase(Option<ArchiveValue> Value) : SettingObservation;
     public sealed record UnobservableCase(SettingKind Kind) : SettingObservation;
     public sealed record FaultedCase(SettingKind Kind, Error Fault) : SettingObservation;
@@ -403,17 +400,20 @@ public sealed record SettingNodeReceipt(
     bool CurrentHidden,
     bool ChildDeleted);
 
-[Union]
-public abstract partial record SavedSettingsRoot
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SavedSettingsRoot {
+    private SavedSettingsRoot() { }
+
     public sealed record PlugInCase : SavedSettingsRoot;
     public sealed record CommandCase(string EnglishCommandName) : SavedSettingsRoot;
 }
 
-[Union]
-public abstract partial record SettingAnswer
-{
-    public sealed record ValueCase(Option<ArchiveValue> Value) : SettingAnswer;
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SettingAnswer {
+    private SettingAnswer() { }
+
+    // `Adopted` names the legacy key the host renamed away during this read; every other read answers `None`.
+    public sealed record ValueCase(Option<ArchiveValue> Value, Option<SettingKey> Adopted) : SettingAnswer;
     public sealed record MutationCase(SettingMutationReceipt Receipt) : SettingAnswer;
     public sealed record MetadataCase(SettingMetadata Metadata) : SettingAnswer;
     public sealed record ChangedCase(bool Changed) : SettingAnswer;
@@ -430,20 +430,16 @@ public abstract partial record SettingAnswer
 `SettingOperation` derives path and creation policy once before resolution. Persistent-settings writes, validator callbacks, tree mutation, and saved-event adaptation form the platform-forced statement seam; generated dispatch keeps value, operation, and saved-root families exhaustive around it, and every host crossing rides `Op.Catch` onto typed faults.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
-
-using LanguageExt;
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.PlugIns;
-using Thinktecture;
-using static LanguageExt.Prelude;
 
-public static class Settings
-{
-    public static Fin<SettingAnswer> Commit(SettingOperation operation, Op? key = null)
-    {
+namespace Rasm.Rhino.Persistence;
+
+public static class Settings {
+    public static Fin<SettingAnswer> Commit(SettingOperation operation, Op? key = null) {
         Op op = key.OrDefault();
         return from request in Optional(operation).ToFin(Fail: op.InvalidInput())
                from active in Admit(request, op)
@@ -458,15 +454,13 @@ public static class Settings
         SavedSettingsRoot source,
         SettingPath path,
         Action<Fin<SettingsTree>> sink,
-        Op? key = null)
-    {
+        Op? key = null) {
         Op op = key.OrDefault();
         return from owner in Optional(plugIn).ToFin(Fail: op.MissingContext())
                from root in Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => Admit(value, op))
                from location in Admit(path, op)
                from receiver in Optional(sink).ToFin(Fail: op.InvalidInput())
-               let handler = new EventHandler<PersistentSettingsSavedEventArgs>((_, args) => _ = op.Catch(() =>
-               {
+               let handler = new EventHandler<PersistentSettingsSavedEventArgs>((_, args) => _ = op.Catch(() => {
                    PersistentSettings node = root.Switch<PersistentSettingsSavedEventArgs, PersistentSettings>(
                        state: args,
                        plugInCase: static (state, _) => state.PlugInSettings,
@@ -484,11 +478,12 @@ public static class Settings
     private static Fin<SettingOperation> Admit(SettingOperation operation, Op op) => operation.Switch<Op, Fin<SettingOperation>>(
         state: op,
         readCase: static (op, read) => Optional(read.Kind).ToFin(Fail: op.InvalidInput())
-            .Bind(kind => At(
+            .Bind(kind => Admit(read.Legacy, read.Key, op).Map(legacy => (Kind: kind, Legacy: legacy)))
+            .Bind(state => At(
                 read.Path,
                 read.Key,
-                kind,
-                static (path, key, admitted) => new SettingOperation.ReadCase(path, key, admitted),
+                state,
+                static (path, key, admitted) => new SettingOperation.ReadCase(path, key, admitted.Kind, admitted.Legacy),
                 op)),
         readEnumCase: static (op, read) => Optional(read.EnumType).ToFin(Fail: op.InvalidInput())
             .Bind(type => guard(type.IsEnum, op.InvalidInput()).ToFin().Map(_ => type))
@@ -589,6 +584,16 @@ public static class Settings
             .Traverse(static value => value)
         select new SettingPath(root, children);
 
+    // The host stops at the FIRST roster key it resolves, so a repeat and a self-reference name a rank that can
+    // never win: both refuse at admission rather than riding into a walk whose outcome they cannot change.
+    private static Fin<Seq<SettingKey>> Admit(Seq<SettingKey> legacy, SettingKey key, Op op) =>
+        from rows in legacy
+            .Map(row => op.AcceptValidated<SettingKey>(row.Value))
+            .Traverse(static value => value)
+        from _distinct in guard(rows.Distinct().Count() == rows.Count, op.InvalidInput()).ToFin()
+        from _self in guard(!rows.Exists(row => row == key), op.InvalidInput()).ToFin()
+        select rows;
+
     private static Fin<SavedSettingsRoot> Admit(SavedSettingsRoot source, Op op) => source.Switch<Op, Fin<SavedSettingsRoot>>(
         state: op,
         plugInCase: static (_, _) => Fin.Succ<SavedSettingsRoot>(new SavedSettingsRoot.PlugInCase()),
@@ -621,20 +626,21 @@ public static class Settings
     private static Fin<SettingAnswer> Execute(PersistentSettings node, SettingOperation operation, Op op) =>
         operation.Switch<(PersistentSettings Node, Op Op), Fin<SettingAnswer>>(
             state: (node, op),
-            readCase: static (s, read) => read.Kind.Read(s.Node, read.Key, s.Op)
-                .Map<SettingAnswer>(static value => new SettingAnswer.ValueCase(value)),
+            readCase: static (s, read) => from adopted in Adopted(s.Node, read.Key, read.Legacy, s.Op)
+                                          from value in read.Kind.Read(s.Node, read.Key, read.Legacy, s.Op)
+                                          select (SettingAnswer)new SettingAnswer.ValueCase(value, adopted),
             readEnumCase: static (s, read) => SettingKind.ReadEnum(s.Node, read.Key, read.EnumType, s.Op)
-                .Map<SettingAnswer>(static value => new SettingAnswer.ValueCase(value)),
+                .Map<SettingAnswer>(static value => new SettingAnswer.ValueCase(value, None)),
             putCase: static (s, put) => AdmitTarget(s.Node, put.Key, put.Value, s.Op).Bind(kind => Mutate(
                 put.Path,
                 put.Key,
                 kind,
                 SettingDefaultMode.ReadWrite,
-                read: () => kind.Read(s.Node, put.Key, s.Op),
+                read: () => kind.Read(s.Node, put.Key, Seq<SettingKey>.Empty, s.Op),
                 write: () => kind.Write(s.Node, put.Key, put.Value, s.Op))),
             deleteCase: static (s, delete) => Delete(s.Node, delete, s.Op),
             readDefaultCase: static (s, read) => read.Kind.ReadDefault(s.Node, read.Key, s.Op)
-                .Map<SettingAnswer>(static value => new SettingAnswer.ValueCase(value)),
+                .Map<SettingAnswer>(static value => new SettingAnswer.ValueCase(value, None)),
             putDefaultCase: static (s, put) => AdmitTarget(s.Node, put.Key, put.Value, s.Op).Bind(kind => Mutate(
                 put.Path,
                 put.Key,
@@ -723,6 +729,19 @@ public static class Settings
                 new SettingObservation.FaultedCase(kind, fault),
                 true)));
 
+    // The host resolves the current key FIRST and reaches the roster only on a miss, so the adopted key is derived
+    // by the same order before the read runs: a seated current key adopts nothing, otherwise the first seated
+    // roster key is the one the read is about to rename away. Deriving it after the read is impossible — the
+    // migration has already erased the evidence.
+    private static Fin<Option<SettingKey>> Adopted(PersistentSettings node, SettingKey key, Seq<SettingKey> legacy, Op op) =>
+        legacy.IsEmpty
+            ? Fin.Succ(value: Option<SettingKey>.None)
+            : op.Catch(() => Fin.Succ(value: Seated(node, key)
+                ? Option<SettingKey>.None
+                : legacy.Find(row => Seated(node, row))));
+
+    private static bool Seated(PersistentSettings node, SettingKey key) => node.TryGetSettingType(key.Value, out Type _);
+
     private static Fin<SettingKind> AdmitTarget(
         PersistentSettings node,
         SettingKey key,
@@ -737,8 +756,7 @@ public static class Settings
             None: () => Fin.Succ(unit))
         select kind;
 
-    private static bool Same(Option<ArchiveValue> left, Option<ArchiveValue> right) => (left, right) switch
-    {
+    private static bool Same(Option<ArchiveValue> left, Option<ArchiveValue> right) => (left, right) switch {
         ({ IsSome: false }, { IsSome: false }) => true,
         ({ IsSome: true } prior, { IsSome: true } current) => prior.Value.Same(current.Value),
         _ => false,
@@ -751,7 +769,7 @@ public static class Settings
         from prior in type.Match(
             Some: found => found.IsEnum
                 ? SettingKind.ReadEnum(node, request.Key, found, op)
-                : SettingKind.For(found, op).Bind(kind => kind.Read(node, request.Key, op)),
+                : SettingKind.For(found, op).Bind(kind => kind.Read(node, request.Key, Seq<SettingKey>.Empty, op)),
             None: () => Fin.Succ(value: Option<ArchiveValue>.None))
         from _ in op.Catch(() => node.DeleteItem(request.Key.Value))
         from _absent in op.Catch(() => guard(
@@ -815,10 +833,18 @@ public static class Settings
         select (SettingAnswer)new SettingAnswer.GuardCase(request.Guard.Kind);
 
     private static Fin<Unit> RegisterTyped<T>(PersistentSettings node, string key, ISettingGuard guard, Op op) =>
-        op.Catch(() =>
-        {
-            if (node.GetValidator<T>(key) is not null)
-            {
+        op.Catch(() => {
+            // Host truth: `GetValidator<T>` THROWS `InvalidCastException` when `T` disagrees with the registered
+            // specialization, so the collision arrives as an exception on one shape and as a non-null probe on the other;
+            // both are one refusal, and letting the cast escape to the outer catch reports it as a generic fault instead.
+            bool taken;
+            try {
+                taken = node.GetValidator<T>(key) is not null;
+            } catch (InvalidCastException) {
+                taken = true;
+            }
+
+            if (taken) {
                 return Fin.Fail<Unit>(error: op.InvalidResult(detail: $"Settings validator '{key}' is already registered."));
             }
 
@@ -829,8 +855,7 @@ public static class Settings
                 from host in guard.Kind.Host(accepted, op)
                 from _assigned in Assign(args, host, op)
                 select unit)
-                .BindFail(error => op.Catch(() =>
-                {
+                .BindFail(error => op.Catch(() => {
                     args.Cancel = true;
                     guard.Report(error);
                     return Fin.Succ(value: unit);
@@ -838,22 +863,18 @@ public static class Settings
             return Fin.Succ(value: unit);
         });
 
-    private static Fin<Unit> Assign<T>(PersistentSettingsEventArgs<T> args, object? host, Op op) => op.Catch(() =>
-    {
-        if (host is T typed)
-        {
+    private static Fin<Unit> Assign<T>(PersistentSettingsEventArgs<T> args, object? host, Op op) => op.Catch(() => {
+        if (host is T typed) {
             args.CurrentValue = typed;
             return Fin.Succ(value: unit);
         }
 
-        if (host is not null && Nullable.GetUnderlyingType(typeof(T)) == host.GetType())
-        {
+        if (host is not null && Nullable.GetUnderlyingType(typeof(T)) == host.GetType()) {
             args.CurrentValue = (T)host;
             return Fin.Succ(value: unit);
         }
 
-        if (host is null && default(T) is null)
-        {
+        if (host is null && default(T) is null) {
             args.CurrentValue = default;
             return Fin.Succ(value: unit);
         }
@@ -874,14 +895,14 @@ public static class Settings
         from valueKeys in node.Keys
             .Map(key => op.AcceptValidated<SettingKey>(key))
             .Traverse(static value => value)
-            .Map(static keys => keys.OrderBy(static key => key.Value, StringComparer.Ordinal).ToSeq())
+            .Map(static keys => toSeq(keys.OrderBy(static key => key.Value, StringComparer.Ordinal)))
         from values in valueKeys
             .Map(key => Metadata(node, key, op))
             .Traverse(static value => value)
         from childKeys in node.ChildKeys
             .Map(key => op.AcceptValidated<SettingKey>(key))
             .Traverse(static value => value)
-            .Map(static keys => keys.OrderBy(static key => key.Value, StringComparer.Ordinal).ToSeq())
+            .Map(static keys => toSeq(keys.OrderBy(static key => key.Value, StringComparer.Ordinal)))
         from children in childKeys
             .Map(admitted => from child in op.Catch(() => Fin.Succ(value: node.GetChild(admitted.Value)))
                         from tree in Snapshot(child, path with { Children = path.Children.Add(admitted) }, op)

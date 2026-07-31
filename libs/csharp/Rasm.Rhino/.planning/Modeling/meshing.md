@@ -13,7 +13,7 @@
 
 `MeshFidelity` is the sole fidelity discriminant. `MeshLaw` validates the complete custom parameter set, `MeshPreset` carries live host factories, and `Rig` creates one disposable `MeshingParameters` carrier inside the consuming arm.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MeshPreset {
@@ -133,7 +133,7 @@ public readonly partial struct MeshLaw {
 
 `QuadLaw`, `WrapLaw`, `ReduceLaw`, and `ExtrudeLaw` reject invalid counts and ranges before native configuration exists. Smart-enum rows make native boolean modalities structural. Cancellation and progress belong to `MeshRuntime`, never an operation or policy.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct MeshCount {
@@ -313,12 +313,16 @@ public readonly partial struct ExtrudeLaw {
 
 ## [04]-[ALGEBRA]
 
-`MeshOp` is the sole construction algebra and `MeshEdit` the sole value-semantic mutation algebra. `MeshRuntime` owns cancellation plus integer and scalar progress. Frozen capability sets carry fidelity, remesh, wrap, reduction, shut-line, smoothing, orientation, edge-matching, and rebuild behavior; native bit products never cross admission. Boolean verdicts, source maps, hull facets, created components, wall faces, and edit tallies remain typed `BuildReceipt<MeshSlot>` evidence.
+`MeshOp` is the sole construction algebra and `MeshEdit` the sole value-semantic mutation algebra. `MeshSlot` here is the top-level `Rasm.Rhino.Modeling` build-product vocabulary keyed by construction outcome; the `Rasm.Rhino.Objects` `SlotValue.MeshSlot` nested case names a history-record payload by its host type under that union's own `<Type>Slot` convention, so the two share a simple name across namespaces and nesting and neither is the other's twin. `MeshRuntime` owns cancellation with integer and scalar progress. Frozen capability sets carry fidelity, remesh, wrap, reduction, shut-line, smoothing, orientation, edge-matching, and rebuild behavior; native bit products never cross admission. Boolean verdicts, source maps, hull facets, created components, wall faces, and edit tallies remain typed `BuildReceipt<MeshSlot>` evidence.
 
 - Law: struct policies share one owner-local predicate between generated factories and outer operation admission; factory creation rejects invalid values, and the outer seam rejects default ghosts without duplicating rules.
-- Growth: a new mesher, engine, or edit verb is one case with its arm; the spine and every consumer read it with zero new surface.
+- Law: `MeshRuntime` exists to carry cancellation and integer progress, and the async remesh is the one host family honouring both on a WHOLE mesh, so `QuadRemesh` executes through `Mesh.QuadRemeshAsync(parameters, guideCurves, progress, cancelToken)`, its face-block overload when the case carries `FaceBlocks`, and `Mesh.QuadRemeshBrepAsync` for a Brep source — landing the same `MeshSlot.Remeshed` receipt off the runtime's own reporters. Synchronous whole-mesh overloads accept neither progress nor cancellation, and the synchronous face-block overload accepts both only by re-declaring a face grouping the caller never asked for, so a synchronous arm either strands cancellation on the page's longest operation or invents remesh topology; `MeshRuntime.Await` is the ONE seam collapsing a host `Task<T>` back onto this page's synchronous rail under the runtime's own token.
+- Law: `Check` is the reasoned verdict arm — `MeshCheckLaw` closes the eleven `MeshCheckParameters` axes as a `FrozenSet<MeshCheckAxis>` with each row carrying its own enable and tally columns, so a caller declares WHICH defects to hunt and `MeshSlot.Checked` reports the `bool` verdict, one count per axis in `MeshCheckAxis.Items` order, and the `TextLog` text; `IsValid` alone reports THAT a mesh failed and this arm reports WHY. `MeshCheckParameters` publishes eleven `CheckFor*` toggles, thirteen count getters, and `Defaults()`; its one short-edge distance is a private field with no accessor, so the axis roster IS the whole reachable parameterization and a law column naming a short-edge ratio or a normal tolerance spells a knob no caller can set.
+- Law: `Clash` runs at the GEOMETRY grain this page owns and its two host members are two cases, never a flag — `ClashLaw.Detect` carries the event cap and runs `MeshClash.Search(IEnumerable<Mesh>, IEnumerable<Mesh>, double, int)` for per-event `ClashPoint` and `ClashRadius` onto `MeshSlot.Clashed`, while `ClashLaw.Probe` carries the distance alone and runs the cheap `Intersection.MeshMeshPredicate` pre-gate whose `out int[] pairs` and `TextLog` land as the same receipt's component and text rows; the cap is unrepresentable on the probe case because the predicate has no event stream to bound. `MeshInterference` and `FindDetail` take `RhinoObject` pairs and stay outside this algebra, which admits `GeometryHandle` alone — a document-object clash belongs to the page owning document objects, and reaching for it here imports the object table into a geometry fold. Clash stays host-owned because it answers per-event contact points and radii at a grain the kernel's mesh intersection band does not produce, not because the kernel lacks mesh/mesh intersection.
+- Law: `Neighbours` is one query owner whose cases are exactly the cells the host serves — `NeighbourQuery` pairs each haystack with needles of ITS OWN precision, so a mismatched pair is unrepresentable; the two double-precision carriers (`Cloud`, `Spatial`) take a `NeighbourSearch` over the count-linear, count-tree, and radius-tree cells, and the reduced-precision carriers (`SpatialFloat`, `Planar`, `PlanarFloat`) take a bare count because `RhinoList` alone publishes their `Point3f`/`Point2d`/`Point2f` families. RhinoCommon publishes no linear radius search and no reduced-precision tree, so those cells never enter the algebra and no arm carries a refusal for a product hole; the arm folds each needle's `int[]` into one `BuildBody.SourceGroups` row set.
+- Growth: a new mesher, engine, or edit verb is one case with its arm; a new diagnostic is one `MeshCheckAxis` row; a new neighbourhood carrier or search cell is one case on its owning union; the spine and every consumer read it with zero new surface.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
@@ -344,6 +348,12 @@ public readonly partial struct MeshRuntime {
     internal IProgress<int>? IntegerReporter => IntegerProgress.IfNoneUnsafe((IProgress<int>?)null);
 
     internal IProgress<double>? ScalarReporter => ScalarProgress.IfNoneUnsafe((IProgress<double>?)null);
+
+    internal Fin<TOut> Await<TOut>(Func<Task<TOut>> work, Op key) => key.Catch(() => {
+        Task<TOut> running = work();                                  // Exemption: the ONE async-to-rail collapse on this page's synchronous spine
+        running.Wait(Cancellation);
+        return Fin.Succ(running.GetAwaiter().GetResult());
+    });
 
     internal Fin<Built<MeshSlot>> Apply(MeshOp operation, Context _) => operation.Apply(this);
 }
@@ -371,6 +381,94 @@ public sealed partial class MeshSlot {
     public static readonly MeshSlot Appended = new(key: 18);
     public static readonly MeshSlot Faces = new(key: 19);
     public static readonly MeshSlot Boundaries = new(key: 20);
+    public static readonly MeshSlot Checked = new(key: 21);
+    public static readonly MeshSlot Clashed = new(key: 22);
+    public static readonly MeshSlot Neighboured = new(key: 23);
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct MeshCheckLaw {
+    public FrozenSet<MeshCheckAxis> Axes { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref FrozenSet<MeshCheckAxis> axes) {
+        if (axes is null || axes.Count == 0) {
+            validationError = new ValidationError("Mesh check requires at least one enabled axis.");
+        }
+    }
+
+    internal MeshCheckParameters Rig() =>
+        toSeq(MeshCheckAxis.Items).Fold(
+            MeshCheckParameters.Defaults(),
+            (held, axis) => axis.Enable(held, Axes.Contains(axis)));
+}
+
+[SmartEnum<int>]
+public sealed partial class MeshCheckAxis {
+    public static readonly MeshCheckAxis DegenerateFaces = new(key: 0, enable: static (p, on) => p with { CheckForDegenerateFaces = on }, tally: static p => p.DegenerateFaceCount);
+    public static readonly MeshCheckAxis InvalidNgons = new(key: 1, enable: static (p, on) => p with { CheckForInvalidNgons = on }, tally: static p => p.InvalidNgonCount);
+    public static readonly MeshCheckAxis NakedEdges = new(key: 2, enable: static (p, on) => p with { CheckForNakedEdges = on }, tally: static p => p.NakedEdgeCount);
+    public static readonly MeshCheckAxis NonManifoldEdges = new(key: 3, enable: static (p, on) => p with { CheckForNonManifoldEdges = on }, tally: static p => p.NonManifoldEdgeCount);
+    public static readonly MeshCheckAxis ShortEdges = new(key: 4, enable: static (p, on) => p with { CheckForExtremelyShortEdges = on }, tally: static p => p.ExtremelyShortEdgeCount);
+    public static readonly MeshCheckAxis BadNormals = new(key: 5, enable: static (p, on) => p with { CheckForBadNormals = on }, tally: static p => p.NonUnitVectorNormalCount + p.ZeroLengthNormalCount + p.VertexFaceNormalsDifferCount);
+    public static readonly MeshCheckAxis DuplicateFaces = new(key: 6, enable: static (p, on) => p with { CheckForDuplicateFaces = on }, tally: static p => p.DuplicateFaceCount);
+    public static readonly MeshCheckAxis RandomFaceNormals = new(key: 7, enable: static (p, on) => p with { CheckForRandomFaceNormals = on }, tally: static p => p.RandomFaceNormalCount);
+    public static readonly MeshCheckAxis DisjointMeshes = new(key: 8, enable: static (p, on) => p with { CheckForDisjointMeshes = on }, tally: static p => p.DisjointMeshCount);
+    public static readonly MeshCheckAxis UnusedVertices = new(key: 9, enable: static (p, on) => p with { CheckForUnusedVertices = on }, tally: static p => p.UnusedVertexCount);
+    public static readonly MeshCheckAxis SelfIntersection = new(key: 10, enable: static (p, on) => p with { CheckForSelfIntersection = on }, tally: static p => p.SelfIntersectingPairsCount);
+
+    [UseDelegateFromConstructor] internal partial MeshCheckParameters Enable(MeshCheckParameters parameters, bool enabled);
+
+    [UseDelegateFromConstructor] internal partial int Tally(MeshCheckParameters parameters);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ClashLaw {
+    private ClashLaw() { }
+    public sealed record Probe(double Distance) : ClashLaw;
+    public sealed record Detect(double Distance, MeshCount MaxEvents) : ClashLaw;
+
+    internal double Tolerance => Switch(probe: static law => law.Distance, detect: static law => law.Distance);
+
+    internal bool Admissible => Switch(
+        probe: static law => Finite(law.Distance),
+        detect: static law => Finite(law.Distance) && law.MaxEvents.Value > 0);
+
+    private static bool Finite(double distance) => double.IsFinite(distance) && distance >= 0.0;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record NeighbourSearch {
+    private NeighbourSearch() { }
+    public sealed record CountLinear(MeshCount Amount) : NeighbourSearch;
+    public sealed record CountTree(MeshCount Amount) : NeighbourSearch;
+    public sealed record RadiusTree(double LimitDistance) : NeighbourSearch;
+
+    internal bool Admissible => Switch(
+        countLinear: static row => row.Amount.Value > 0,
+        countTree: static row => row.Amount.Value > 0,
+        radiusTree: static row => double.IsFinite(row.LimitDistance) && row.LimitDistance > 0.0);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record NeighbourQuery {
+    private NeighbourQuery() { }
+    public sealed record Cloud(GeometryHandle Haystack, Seq<Point3d> Needles, NeighbourSearch Search) : NeighbourQuery;
+    public sealed record Spatial(Seq<Point3d> Haystack, Seq<Point3d> Needles, NeighbourSearch Search) : NeighbourQuery;
+    public sealed record SpatialFloat(Seq<Point3f> Haystack, Seq<Point3f> Needles, MeshCount Amount) : NeighbourQuery;
+    public sealed record Planar(Seq<Point2d> Haystack, Seq<Point2d> Needles, MeshCount Amount) : NeighbourQuery;
+    public sealed record PlanarFloat(Seq<Point2f> Haystack, Seq<Point2f> Needles, MeshCount Amount) : NeighbourQuery;
+
+    internal bool Admissible => Switch(
+        cloud: static row => row.Haystack is not null && !row.Needles.IsEmpty
+            && row.Search is { Admissible: true },
+        spatial: static row => !row.Haystack.IsEmpty && !row.Needles.IsEmpty
+            && row.Search is { Admissible: true },
+        spatialFloat: static row => !row.Haystack.IsEmpty && !row.Needles.IsEmpty && row.Amount.Value > 0,
+        planar: static row => !row.Haystack.IsEmpty && !row.Needles.IsEmpty && row.Amount.Value > 0,
+        planarFloat: static row => !row.Haystack.IsEmpty && !row.Needles.IsEmpty && row.Amount.Value > 0);
 }
 
 [SmartEnum<int>]
@@ -882,6 +980,9 @@ public abstract partial record MeshOp {
     public sealed record SeedTorus(Torus Torus, MeshCount Vertical, MeshCount Around) : MeshOp;
     public sealed record SeedClosedPolyline(ClosedPolyline Boundary) : MeshOp;
     public sealed record QuadRemesh(GeometryHandle Source, QuadLaw Law, Seq<GeometryHandle> Guides, Seq<int> FaceBlocks = default) : MeshOp;
+    public sealed record Check(GeometryHandle Source, MeshCheckLaw Law) : MeshOp;
+    public sealed record Clash(Seq<GeometryHandle> SetA, Seq<GeometryHandle> SetB, ClashLaw Law) : MeshOp;
+    public sealed record Neighbours(NeighbourQuery Query) : MeshOp;
     public sealed record Wrap(Seq<GeometryHandle> Sources, WrapLaw Law, Option<MeshFidelity> Fidelity = default) : MeshOp;
     public sealed record CurvePipe(GeometryHandle Curve, double Radius, MeshCount Segments, int Accuracy, MeshPipeCapStyle Cap, MeshFaceting Faceting, Seq<Interval> Intervals = default) : MeshOp;
     public sealed record CurveExtrude(GeometryHandle Curve, Vector3d Direction, Option<MeshFidelity> Fidelity = default, Option<BoundingBox> Bounds = default) : MeshOp;
@@ -990,8 +1091,35 @@ public abstract partial record MeshOp {
                 && !edit.Components.IsEmpty
                 && edit.Components.ForAll(static component => component.Index >= 0)
                 && ExtrudeAdmissible(edit.Law),
+            Check edit => edit.Source is not null && edit.Law.Axes is { Count: > 0 },
+            Clash edit => Handles(edit.SetA) && Handles(edit.SetB) && edit.Law is { Admissible: true },
+            Neighbours edit => edit.Query is { Admissible: true },
             _ => false,
         }, key.InvalidInput()).ToFin().Map(_ => this);
+
+    // Every reachable (carrier x search) cell is a case payload, so no arm refuses a product hole at runtime: the
+    // R-tree family serves `Point3d` and `PointCloud` alone and the host publishes no linear radius search, so the
+    // reduced-precision carriers take a bare count and only the two double-precision carriers take a `NeighbourSearch`.
+    private static Fin<Seq<Seq<int>>> Rows(NeighbourQuery query, Op op) =>
+        query.Switch(
+            state: op,
+            cloud: static (key, row) => ModelGate.Borrow<PointCloud, Seq<Seq<int>>>(handle: row.Haystack, key: key, body: hay =>
+                key.Catch(() => Fin.Succ(Folded(row.Search.Switch(
+                    countLinear: search => RhinoList.PointCloudKNeighbors(pointcloud: hay, needlePoints: row.Needles.AsIterable(), amount: search.Amount.Value),
+                    countTree: search => RTree.PointCloudKNeighbors(pointcloud: hay, needlePts: row.Needles.AsIterable(), amount: search.Amount.Value),
+                    radiusTree: search => RTree.PointCloudClosestPoints(pointcloud: hay, needlePts: row.Needles.AsIterable(), limitDistance: search.LimitDistance)))))),
+            spatial: static (key, row) => key.Catch(() => Fin.Succ(Folded(row.Search.Switch(
+                countLinear: search => RhinoList.Point3dKNeighbors(hayPoints: row.Haystack.AsIterable(), needlePoints: row.Needles.AsIterable(), amount: search.Amount.Value),
+                countTree: search => RTree.Point3dKNeighbors(hayPoints: row.Haystack.AsIterable(), needlePts: row.Needles.AsIterable(), amount: search.Amount.Value),
+                radiusTree: search => RTree.Point3dClosestPoints(hayPoints: row.Haystack.AsIterable(), needlePts: row.Needles.AsIterable(), limitDistance: search.LimitDistance))))),
+            spatialFloat: static (key, row) => key.Catch(() => Fin.Succ(Folded(RhinoList.Point3fKNeighbors(
+                hayPoints: row.Haystack.AsIterable(), needlePoints: row.Needles.AsIterable(), amount: row.Amount.Value)))),
+            planar: static (key, row) => key.Catch(() => Fin.Succ(Folded(RhinoList.Point2dKNeighbors(
+                hayPoints: row.Haystack.AsIterable(), needlePoints: row.Needles.AsIterable(), amount: row.Amount.Value)))),
+            planarFloat: static (key, row) => key.Catch(() => Fin.Succ(Folded(RhinoList.Point2fKNeighbors(
+                hayPoints: row.Haystack.AsIterable(), needlePoints: row.Needles.AsIterable(), amount: row.Amount.Value)))));
+
+    private static Seq<Seq<int>> Folded(IEnumerable<int[]> rows) => toSeq(rows).Map(static row => toSeq(row));
 
     private static bool FidelityAdmissible(MeshFidelity? fidelity) => fidelity switch {
         MeshFidelity.Preset { Row: not null } => true,
@@ -1159,23 +1287,78 @@ public abstract partial record MeshOp {
                 return ModelGate.Borrow<GeometryBase, Built<MeshSlot>>(handle: edit.Source, key: op, body: source =>
                     ModelGate.BorrowMany<Curve, Built<MeshSlot>>(handles: edit.Guides, key: op, allowEmpty: true, body: guides =>
                         from parameters in edit.Law.Rig(key: op)
-                        from built in (source switch {
-                            Brep brep => ModelGate.Single(op, MeshSlot.Remeshed, () => Mesh.QuadRemeshBrep(
+                        from remeshed in (source switch {
+                            Brep brep => model.Await(() => Mesh.QuadRemeshBrepAsync(
                                 brep: brep, parameters: parameters, guideCurves: guides.AsIterable(),
-                                progress: model.IntegerReporter, cancelToken: model.Cancellation)),
-                            Mesh mesh when !edit.FaceBlocks.IsEmpty => ModelGate.Single(op, MeshSlot.Remeshed, () => mesh.QuadRemesh(
+                                progress: model.IntegerReporter, cancelToken: model.Cancellation), op),
+                            Mesh mesh when !edit.FaceBlocks.IsEmpty => model.Await(() => mesh.QuadRemeshAsync(
                                 faceBlocks: edit.FaceBlocks.AsIterable(), parameters: parameters, guideCurves: guides.AsIterable(),
-                                progress: model.IntegerReporter, cancelToken: model.Cancellation)),
-                            Mesh mesh when model.IntegerProgress.IsSome || model.Cancellation.CanBeCanceled => ModelGate.Single(
-                                op, MeshSlot.Remeshed, () => mesh.QuadRemesh(
-                                    faceBlocks: System.Linq.Enumerable.Range(0, mesh.Faces.Count),
-                                    parameters: parameters, guideCurves: guides.AsIterable(),
-                                    progress: model.IntegerReporter, cancelToken: model.Cancellation)),
-                            Mesh mesh => ModelGate.Single(op, MeshSlot.Remeshed, () => mesh.QuadRemesh(
-                                parameters: parameters, guideCurves: guides.AsIterable())),
-                            _ => Fin.Fail<Built<MeshSlot>>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(Mesh))),
+                                progress: model.IntegerReporter, cancelToken: model.Cancellation), op),
+                            Mesh mesh => model.Await(() => mesh.QuadRemeshAsync(
+                                parameters: parameters, guideCurves: guides.AsIterable(),
+                                progress: model.IntegerReporter, cancelToken: model.Cancellation), op),
+                            _ => Fin.Fail<Mesh>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(Mesh))),
                         })
+                        from built in ModelGate.Single(op, MeshSlot.Remeshed, () => remeshed)
                         select built));
+            },
+            check: static (_, edit) => {
+                Op op = Op.Of(name: nameof(Check));
+                return ModelGate.Borrow<Mesh, Built<MeshSlot>>(handle: edit.Source, key: op, body: mesh => op.Catch(() => {
+                    using TextLog log = new();                                 // Exemption: host out-channel bracket, the text detaches below
+                    MeshCheckParameters rig = edit.Law.Rig();
+                    bool verdict = mesh.Check(textLog: log, parameters: ref rig);
+                    return Fin.Succ(Built<MeshSlot>.Of(
+                        operation: op,
+                        Products: Seq<GeometryHandle>(),
+                        Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Checked, body: new BuildBody.Flag(Value: verdict))
+                            + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Checked, body: new BuildBody.Components(
+                                Indices: toSeq(MeshCheckAxis.Items).Map(axis => axis.Tally(rig))))
+                            + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Checked, body: new BuildBody.Text(Value: log.ToString()))));
+                }));
+            },
+            clash: static (_, edit) => {
+                Op op = Op.Of(name: nameof(Clash));
+                return ModelGate.BorrowMany<Mesh, Built<MeshSlot>>(handles: edit.SetA, key: op, body: first =>
+                    ModelGate.BorrowMany<Mesh, Built<MeshSlot>>(handles: edit.SetB, key: op, body: second =>
+                        edit.Law.Switch(
+                            state: (First: first, Second: second, Op: op),
+                            probe: static (ctx, law) => ctx.Op.Catch(() => {
+                                using TextLog log = new();                     // Exemption: host out-channel bracket
+                                bool hit = Intersection.MeshMeshPredicate(
+                                    meshes: (ctx.First + ctx.Second).AsIterable(),
+                                    tolerance: law.Distance,
+                                    pairs: out int[] pairs,
+                                    textLog: log);
+                                return Fin.Succ(Built<MeshSlot>.Of(
+                                    operation: ctx.Op,
+                                    Products: Seq<GeometryHandle>(),
+                                    Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Flag(Value: hit))
+                                        + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Components(Indices: toSeq(pairs ?? [])))
+                                        + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Text(Value: log.ToString())));
+                            }),
+                            detect: static (ctx, law) => ctx.Op.Catch(() => Fin.Succ(toSeq(MeshClash.Search(
+                                setA: ctx.First.AsIterable(),
+                                setB: ctx.Second.AsIterable(),
+                                distance: law.Distance,
+                                maxEventCount: law.MaxEvents.Value) ?? [])))
+                                .Map(events => Built<MeshSlot>.Of(
+                                    operation: ctx.Op,
+                                    Products: Seq<GeometryHandle>(),
+                                    Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Tally(Count: events.Count))
+                                        + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Marks(
+                                            Points: events.Map(static row => row.ClashPoint)))
+                                        + events.Fold(BuildReceipt<MeshSlot>.Empty, static (held, row) => held
+                                            + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Measure(Value: row.ClashRadius)))))));
+            },
+            neighbours: static (_, edit) => {
+                Op op = Op.Of(name: nameof(Neighbours));
+                return Rows(edit.Query, op).Map(rows => Built<MeshSlot>.Of(
+                    operation: op,
+                    Products: Seq<GeometryHandle>(),
+                    Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Neighboured, body: new BuildBody.SourceGroups(
+                        Axis: SourceAxis.Input, Groups: rows))
+                        + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Neighboured, body: new BuildBody.Tally(Count: rows.Count))));
             },
             wrap: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Wrap));
@@ -1388,17 +1571,21 @@ public abstract partial record MeshOp {
             splitMeshes: static (model, edit) => {
                 Op op = Op.Of(name: nameof(SplitMeshes));
                 return ModelGate.Borrow<Mesh, Built<MeshSlot>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.BorrowMany<Mesh, Built<MeshSlot>>(handles: edit.Cutters, key: op, body: cutters => {
-                        (bool coplanar, bool ngons) = edit.Policy.Native;
-                        return ModelGate.Many(op, MeshSlot.SplitApart, () => mesh.Split(
-                            meshes: cutters.AsIterable(),
-                            tolerance: model.Domain.MeshIntersectionTolerance,
-                            splitAtCoplanar: coplanar,
-                            createNgons: ngons,
-                            textLog: null,
-                            cancel: model.Cancellation,
-                            progress: model.ScalarReporter));
-                    }));
+                    ModelGate.BorrowMany<Mesh, Built<MeshSlot>>(handles: edit.Cutters, key: op, body: cutters =>
+                        op.Catch(() => {
+                            (bool coplanar, bool ngons) = edit.Policy.Native;
+                            using TextLog log = new();                         // Exemption: host out-channel bracket, the text detaches below
+                            return ModelGate.Many(op, MeshSlot.SplitApart, () => mesh.Split(
+                                    meshes: cutters.AsIterable(),
+                                    tolerance: model.Domain.MeshIntersectionTolerance,
+                                    splitAtCoplanar: coplanar,
+                                    createNgons: ngons,
+                                    textLog: log,
+                                    cancel: model.Cancellation,
+                                    progress: model.ScalarReporter))
+                                .Map(built => built.Witnessed(extra: BuildReceipt<MeshSlot>.Of(
+                                    slot: MeshSlot.SplitApart, body: new BuildBody.Text(Value: log.ToString()))));
+                        })));
             },
             splitDisjoint: static (_, edit) => {
                 Op op = Op.Of(name: nameof(SplitDisjoint));
@@ -1535,7 +1722,8 @@ public abstract partial record MeshOp {
             (Working: working, Runtime: runtime, Op: op),
             reduce: static (ctx, edit) =>
                 from parameters in edit.Law.Rig(runtime: ctx.Runtime, key: ctx.Op)
-                // Host Reduce(parameters, threaded: true) ignores CancelToken and ProgressReporter; the rigged controls demand the main-thread path.
+                // RhinoCommon declares `threaded: true` as "run inside a worker thread and ignore any provided
+                // CancellationTokens and ProgressReporters", so rigged controls demand the main-thread path.
                 from _ in ctx.Op.Confirm(success: ctx.Working.Reduce(parameters: parameters, threaded: false))
                 from built in ModelGate.Kept(
                     ctx.Op,
@@ -1647,13 +1835,16 @@ public abstract partial record MeshOp {
         Op op, MeshRuntime model,
         Func<MeshBooleanOptions, (Mesh[] Products, Rhino.Commands.Result Verdict, int[][] Map)> run) =>
         op.Catch(() => {
+            using TextLog log = new();                                        // Exemption: host out-channel bracket, the text detaches below
             (Mesh[] products, Rhino.Commands.Result verdict, int[][] map) = run(new MeshBooleanOptions {
                 Tolerance = model.Domain.MeshIntersectionTolerance,
+                TextLog = log,
                 CancellationToken = model.Cancellation,
                 ProgressReporter = model.ScalarReporter,
             });
             return ModelGate.Staged(op: op, success: verdict == Rhino.Commands.Result.Success,
                 extra: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Booled, body: new BuildBody.Code(Value: (int)verdict))
+                    + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Booled, body: new BuildBody.Text(Value: log.ToString()))
                     + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Booled, body: new BuildBody.SourceGroups(
                         Axis: SourceAxis.Input,
                         Groups: toSeq(map ?? []).Map(static rows => toSeq(rows)))),
@@ -1664,26 +1855,22 @@ public abstract partial record MeshOp {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Meshes {
     public static Eff<MeshRuntime, Built<MeshSlot>> Build(params ReadOnlySpan<MeshOp> operations) {
-        Op op = Op.Of();
-        Seq<MeshOp> captured = toSeq(operations.ToArray());
+        Seq<MeshOp> captured = toSeq(operations.ToArray());   // materialized ahead of the runtime bind: a span cannot cross the effect lambda
         return Eff.runtime<MeshRuntime>().Bind(runtime =>
-            (from _ in guard(!captured.IsEmpty, op.InvalidInput())
-             from admitted in captured.TraverseM(operation =>
-                     Optional(operation).ToFin(Fail: op.InvalidInput())
-                         .Bind(active => active.Admitted(key: op)))
-                 .As()
-             from built in ModelGate.Folded(
-                 context: runtime.Domain,
-                 operations: admitted,
-                 apply: runtime.Apply)
-             select built).ToEff());
+            ModelGate.Entry(
+                context: runtime.Domain,
+                operations: captured,
+                admit: static (operation, key) => operation.Admitted(key: key),
+                apply: runtime.Apply).ToEff());
     }
 }
 ```
 
 ## [05]-[EXECUTION]
 
-`Meshes.Build` admits a non-empty operation span before `MeshRuntime.Apply` threads one runtime through `ModelGate.Folded`.
+`Meshes.Build` materializes the operation span ahead of the runtime bind — a span cannot cross the `Eff.runtime<MeshRuntime>()` lambda — then runs the folder spine's `ModelGate.Entry`, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the spine's and `Built<MeshSlot>.Bench` carries harvest evidence while `MeshRuntime.Apply` threads one runtime through every arm.
+
+Every host out-channel lands as evidence: the boolean options carry a `TextLog` beside the terminal `Result` and input map, the mesh-set split carries its own log, and `Reduce` folds `ReduceMeshParameters.Error` — so no diagnostic the host wrote is discarded at the seam.
 
 `MeshOp.ProjectFaces`, `MeshOp.ProjectNakedEdges`, and `MeshOp.ProjectOutlines` keep projection discriminants on the operation owner. Polyline values become owned `PolylineCurve` products before egress. `Mesh.CreateContourCurves` and `Mesh.ComputeThickness` remain kernel analysis.
 
@@ -1694,4 +1881,4 @@ public static class Meshes {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [CLASH_CAP_SIGNAL]-[OPEN]: does `MeshClash.Search` signal that `maxEventCount` truncated the event set, or does a capped return read identically to an exhausted search; the host documents the argument as "the maximum number of clash objects" and publishes no truncation channel, so `MeshSlot.Clashed` cannot state whether its tally is complete — settle with a `tools.assay bridge` scenario capping below a known clash count and comparing the returned length against the uncapped run.

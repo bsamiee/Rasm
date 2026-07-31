@@ -13,6 +13,7 @@
 - Owner: `DiagramLayout` owns one `LayoutPolicy` dispatch over `DiagramKind` and one `LayoutFault` admission rail. Typed node evidence carries plan coordinates, program area, site polygons, nested-layout policy, edge cardinality, and solar-site atmosphere; `LayoutMap`, `RouteMap`, and `SeatMap` retain the stable graph index. `assign` re-spells the accumulated fault family onto `BoundaryFault.config`.
 - Cases: `Force`/`Radial`/`Layered`/`Projected`/`Constrained`, one total `match` over the policy `tag`; `Force.mode` selects the `_FORCE` placement row, `Layered.engine` the `_ENGINE` provider row, `Radial.mode` the `_RING` row, `Projected.kind` the `PROJECTION` transform; `Constrained` seeds plan-anchored (typed `east`/`north` under a `strong` stay, every other node the `circular_layout` spread under a `weak` stay) then folds the `LayoutRule` set to `kiwisolver` `Constraint`s; `CIRCULATION` and `SECTION_CALLOUT` select `Constrained()` in `_KIND_POLICY` because their marks are plan-anchored building geometry, the `Force()` default that scattered rooms by topology being the rejected form. Solve-quality evidence (`Constraint.violated()` tallies, edit-variable re-solve) is `composition/sheet#SHEET`'s interactive axis — this owner runs one batch solve and stops.
 - Law: `_admitted` accumulates every independent `LayoutFault` before graph construction. Required node columns, optional numeric columns when present, edge weights, unique node identity, endpoint resolution, parent resolution, constraint references, stacking row roles, site polygons, and all-or-none solar-site evidence cross this boundary once. `_num` reads admission-proven values; `_opt` preserves genuine absence. `weight` absence selects the declared style width, and `shell` absence selects one radial ring.
+- Law: every per-edge read takes the edge's OWN payload through `weighted_edge_list`, never `get_edge_data(source, target)` — the graph is a multigraph by construction, so a node pair carrying two relationships answers ONE payload there and every mark on that pair would inherit the last edge's label, weight, cardinality caps, and port refs; a Sankey ribbon losing its own measured `weight` that way is the same defect class as an absent measurement coerced to zero. Routes stay pair-keyed because a pair-based router resolves one path per pair by construction, so parallel edges share a route while keeping their own data.
 - Law: the near-peer kinds share one generator — `_standard` folds nodes and edges once over the `_EMIT` `EmitStyle` policy row (layer names, label keys, `NodeSizing` fixed/area-true/entity dims, edge width, `EdgeInk` fixed-versus-source tint, default caps), per-edge `weight` and `source_cardinality`/`target_cardinality` columns overriding by value — so `NODE_LINK`/`FLOWCHART`/`ENTITY_RELATION`/`SANKEY`/`PROGRAM`/`CIRCULATION` are six rows, not six comprehension bodies, and a new near-peer kind is one `_EMIT` row plus one `_KIND_POLICY` row with zero new emission code. Structurally distinct kinds keep their own arms: `SUN_PATH` (solar marks + furniture + compass), `STACKING` (floor bands + area segments), `SITE` (true polygons + callouts), `SECTION_CALLOUT` (detail frames + references).
 - Auto: `assign` offloads the synchronous `_render` kernel through `LanePolicy.offload(Kernel.of(_render, _trait(policy)))` and preserves the runtime rail — `_ENGINE_TRAIT` answers isolation per layered engine, so the pure-Python grandalf/pyelk passes cross `HOSTILE` onto the warm process pool instead of stalling the loop disguised as a `RELEASING` thread kernel, while sub-quantum projected and constrained transforms ride `INLINE`. `_position` resolves orthogonal layered policy to `HierarchyEngine.ELK` even when callers construct the union case directly. `_sugiyama_layout` carries crossing minimization, isolated nodes, and dummy-chain routes; `_elk_layout` carries nested containers, fixed ports, absolute routed sections, per-ordinal route keys (a port-bound endpoint id never parses as a node index), and the port-seat harvest `_seated` folds onto the emitted marks. `SUN_PATH` composes `project` and `furniture`; solar furniture requires the complete `latitude`/`longitude`/`year`/`timezone` site group, while angle-only frames emit marks without fabricated site geometry.
 - Growth: a new diagram kind is one `DiagramKind` row plus one `_EMIT` row (or one distinct `_emit` arm when structurally new) plus one `_KIND_POLICY` selection and one `_REQUIRED` contract row, never a new layout method family; a new layered engine one `HierarchyEngine` member plus one `_ENGINE` row, never a fifth `LayeredPolicy` case; a new force placement one `ForceMode`/`_FORCE` pair; a new AEC projection one `ProjectionKind` member plus a `_solar_arc`-shaped transform plus a `PROJECTION` row; a new ring mode one `RingMode`/`_RING` pair; a new constraint one `LayoutRule` case plus one `_rule_constraints` arm; a new container engine one `_SUB_ALGORITHM` row; a new cardinality token one `_CARDINALITY` row; a new route style rides the engine that owns it.
@@ -71,7 +72,7 @@ from rasm.runtime.workers import Kernel, KernelTrait
 # --- [TYPES] ----------------------------------------------------------------------------
 type Point = tuple[float, float]
 type LayoutMap = dict[int, Point]
-type RouteMap = dict[tuple[int, int], tuple[Point, ...]]
+type RouteMap = dict[tuple[int, int], tuple[Point, ...]]  # node pair -> route; a pair-based router resolves ONE path per pair, so parallel edges share it
 type SeatMap = dict[tuple[int, str], Point]  # (node index, port id) -> the engine's node-relative port seat; empty off the ELK arm
 type LayoutResult = tuple[LayoutMap, RouteMap, SeatMap]
 type Projection = Callable[[dict[str, object], float], Point]
@@ -666,6 +667,11 @@ def _standard(
         for d in (graph.get_node_data(i),)
         for w, h in (_sized(style, d),)
     )
+    # `weighted_edge_list` carries each edge's OWN payload in edge-index order; `get_edge_data(s, t)` answers ONE
+    # payload per node pair, so on a parallel pair every mark would read the last edge's label, weight, caps, and
+    # port refs and the earlier flow's measurement would vanish — the same class as an absent measurement coerced
+    # to zero, which this owner already refuses. Routes stay pair-keyed: a pair-based router resolves one path per
+    # node pair by construction, so parallel edges share a route while keeping their own data.
     edges = tuple(
         DiagramGlyph(edge=EdgeMark(
             source=s,
@@ -679,8 +685,7 @@ def _standard(
             source_port=source_port,
             target_port=target_port,
         ))
-        for s, t in graph.edge_list()
-        for e in (graph.get_edge_data(s, t),)
+        for s, t, e in graph.weighted_edge_list()
         for source_port, target_port in (_edge_seat_refs(e),)
     )
     return (*nodes, *edges)
@@ -932,7 +937,9 @@ def _grandalf_layout(graph: rx.PyDiGraph, policy: LayeredPolicy, /) -> LayoutRes
         edge.view = EdgeViewer()
     ranking, swap = _RANKING[policy.direction]
     sign = -1.0 if ranking == "up" else 1.0
-    turned = lambda x, y, dx: _oriented((float(x) + dx, sign * float(y)), swap)
+    def turned(x: float, y: float, dx: float, /) -> tuple[float, float]:
+        return _oriented((float(x) + dx, sign * float(y)), swap)
+
     offset, coords, routes = 0.0, {}, {}
     for component in GrandalfGraph(list(vertices.values()), list(edges)).C:  # Exemption: per-component draw threads a running x offset
         layout = SugiyamaLayout(component)
@@ -1000,7 +1007,8 @@ def _elk_layout(graph: rx.PyDiGraph, policy: LayeredPolicy, /) -> LayoutResult:
     seats: SeatMap = {}
     _absolutize(result.get("children") or [], (0.0, 0.0), coords, seats)
     # a port-bound edge carries the PORT id in `sources`/`targets`, so the node pair recovers from the edge ordinal, never `int(...)` on an endpoint id
-    pairs = {f"e{ordinal}": (int(source), int(target)) for ordinal, (source, target) in enumerate(graph.edge_list())}
+    # SAME enumeration `_elk_document` assigned its ids over, so ordinal `e{n}` recovers the pair it was built from
+    pairs = {f"e{ordinal}": (int(source), int(target)) for ordinal, (source, target, _data) in enumerate(graph.weighted_edge_list())}
     routes: RouteMap = {
         pairs[edge["id"]]: _elk_route(section)
         for edge in collect_edges(result)
@@ -1020,14 +1028,17 @@ def _elk_document(graph: rx.PyDiGraph, policy: LayeredPolicy, /) -> dict:
         "children": [_elk_node(index, graph, kids) for index in roots],
         # an endpoint binds its admitted named port id when the edge declares one, so routes constrain to seats.
         "edges": [
-            # explicit None checks: an admitted port id binds even when empty — truthiness would silently rebind it to the node
+            # explicit None checks: an admitted port id binds even when empty — truthiness would silently rebind it
+            # to the node. Port refs read each edge's OWN payload through `weighted_edge_list`: `get_edge_data(s, t)`
+            # answers one payload per node pair, so a parallel pair would bind both ELK edges to the last edge's
+            # ports and route two distinct relationships onto one seat.
             {
                 "id": f"e{ordinal}",
                 "sources": [str(source) if source_port is None else source_port],
                 "targets": [str(target) if target_port is None else target_port],
             }
-            for ordinal, (source, target) in enumerate(graph.edge_list())
-            for source_port, target_port in (_edge_seat_refs(graph.get_edge_data(source, target)),)
+            for ordinal, (source, target, data) in enumerate(graph.weighted_edge_list())
+            for source_port, target_port in (_edge_seat_refs(data),)
         ],
     }
 

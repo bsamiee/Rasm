@@ -13,7 +13,7 @@ Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-c
 - Owner: `DocumentLens` — the ops dispatch a provider VALUE rather than reconstructing the engine choice, the band recovered once from `provider.band`, the offload crossed through the owner's own `lane: LanePolicy` instance (`self.lane.offload`, the runtime-owned bound — never a class-qualified call nor a folder-minted limiter). One polymorphic `_node` constructor mints every node variant over a `NodeMeta` whose content key joins the structural `path` — the `tuple[int, ...]` of child ordinals from the recovery root, the node's structural uid — to the content payload, so identical-content siblings under one parent never collapse onto one slot and a content change at a fixed path re-keys without stealing a sibling's identity; `bounds` stays geometric evidence on the meta, never an identity substitute. Per-kind material admits through the closed `NodeSlot` `TypedDict`, honoring each variant's real field contract — never a per-kind sibling-factory family.
 - Cases: the non-obvious per-arm rules the fence cannot self-justify — TABLE under PDFOXIDE reads the native `extract_tables` row dicts (`rows[].cells[].text`, `is_header` folding `header_rows`, the `(x, y, w, h)` bbox converted once), under MUPDF reads the `Table.header.external` discriminant into `header_rows` (an above-body synthesized header `0`, an in-grid header row `1`, never the always-truthy `Table.header` object), and under PLUMBER folds the `Table.cells` bbox set into merged-cell `spans` quads; REGION converts the model `(x0,y0,x1,y1)` bbox once to the pdf_oxide `(x, y, w, h)` convention; OCR defaults to the in-process pdf_oxide Rust engine (no subprocess hop, no PDF/A rewrite), the gated `ocrmypdf` alternate RESERVED for the PDF/A output path with its `ExitCode` return gating the sidecar text feed, and a non-PDF raster wraps losslessly through `new_page`/`insert_image` before OCR; WIDGET folds pdf_oxide `FormField.is_required`/`is_readonly` onto `FieldNode.required`/`readonly` — the policy pair the pymupdf widget accessor cannot fill — reads `FormField.flags` as the raw AcroForm `/Ff` bitmask so `_text_mode` selects `TextMode.PASSWORD` ahead of `TextMode.MULTILINE` on a field setting both bits (a `None` there means the field dict omits `/Ff`, never a cleared bit), and builds the per-mode model `FieldValue` case through the one `_FIELD_BUILDERS` token table (a raw AcroForm `/Btn` reads back as the `"button"` token, so a bool value discriminates it to `CheckboxField`), the pymupdf alternate resolving `field_type` ints via the catalogued `PDF_WIDGET_TYPE_*` names into the same token space; CLASSIFY decodes the engine's JSON verdict strings through `msgspec.json.decode`, never a rendered-string regex; DOCX_READ groups consecutive list-styled paragraphs through `groupby` into one `ListNode` and recovers `Paragraph.hyperlinks` as `AnnotationNode` link children, the inverse of the emit `List Bullet`/`List Number` lowering; YAML_READ rides `load_all` with the single-document case subsumed, never a `multi` knob; XML_READ runs the hardened parser (`resolve_entities=False`, `no_network=True`, `huge_tree=False`) and ONLY the serialized `DocumentNode` tree crosses back across the interpreter seam.
 - Auto: every recursive foreign source — the pikepdf `/K` spine, the pdfplumber structure branches, the lxml element tree, a YAML/TOML value graph — rebuilds post-order through the one `_grown` expand/combine marker frontier on an immutable `Block` stack, so adversarial nesting depth never overflows the interpreter frame limit and every rebuilt node receives its structural path from the same frontier; the flattening walks (pypdf outline, ODT containers) run small explicit stacks under the same depth law.
-- Entry: the key mints PRE-RUN over `(op, payload, provider, scoped spec)` — the spec preimage narrowed by `_scoped` to the op's `Route.observed` roster so an unobserved knob edit never forks an op's key, and never the recovered tree, whose digest stays a `document/model#NODE` `node_digest` projection downstream consumers derive on demand. A GATED row crosses onto the worker that re-resolves the SAME `_ROUTES` row and reifies the module-scope `lazy` bindings there, so the worker lane carries no second dispatch.
+- Entry: the key mints PRE-RUN over `(op, payload, provider, scoped spec)` ONCE at `of` and rides the owner as `key` — the spec preimage narrowed by `_minted` to the op's `Route.observed` roster so an unobserved knob edit never forks an op's key, and never the recovered tree, whose digest stays a `document/model#NODE` `node_digest` projection downstream consumers derive on demand. Carrying the mint rather than re-deriving it keeps `receipt.slot == node.key` structural across both the async rail and the synchronous `contribute` port, and spares the whole-payload re-encode and the second `content.derive` span a property read costs. A GATED row crosses onto the worker that re-resolves the SAME `_ROUTES` row and reifies the module-scope `lazy` bindings there, so the worker lane carries no second dispatch.
 - Receipt: `contribute` reads the stepped `recovered` directly and never re-runs `_emit`, so a worker-gated arm is never re-imported on the core during the receipt harvest; the `Introspection` counts project by `walk` over the node variants, the tag riding the encoded `kind` field, never a runtime `.tag` attribute.
 - Growth: a new recovery op is one `LensOp` member, one `Route` row (arm, default, providers, observed), and one `_REQUIRED` row when it needs material; a new provider for an existing op is one member in the row's `providers` set with its arm branch; a new provider knob is one `LensSpec` field, one `LensPayload` row, and its op's `observed` entry; a richer recovered field is one `NodeSlot` key honored by `_node`; a new AcroForm mode is one `_FIELD_BUILDERS` row.
 
@@ -21,6 +21,7 @@ Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-c
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from enum import StrEnum
+from functools import partial
 from io import BytesIO
 from itertools import groupby
 from typing import Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
@@ -272,26 +273,20 @@ class Route(Struct, frozen=True):
 
 
 class DocumentLens(Struct, frozen=True):
+    # `key` is the PRE-RUN mint taken ONCE at `of` and carried: the preimage re-encodes the whole `payload` and
+    # `ContentIdentity.key` opens a `content.derive` span per call, so a property re-read would pay both again at the
+    # receipt and a third time at `contribute` — and the synchronous port reaches no closure to capture it.
     op: LensOp
     payload: bytes
     provider: LensProvider
     # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
+    key: ContentKey
     spec: LensSpec = field(default_factory=LensSpec)
     recovered: tuple[DocumentNode, ...] = ()
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.payload)))
-
-    @property
-    def _key(self) -> ContentKey:
-        # `ContentIdentity.key` mints the bare `ContentKey`; `.of` is the railed form and never keys a plan.
-        return ContentIdentity.key(f"lens-{self.op.value}", _KEY_ENCODER.encode((self.op, self.payload, self.provider, self._scoped())))
-
-    def _scoped(self) -> LensSpec:
-        # identity preimage carries only the fields the op's arm observes (the `Route.observed` roster), so two lenses
-        # differing on a foreign op's knob share one key and the elision cache never re-renders on an unobserved edit.
-        return LensSpec(**{name: getattr(self.spec, name) for name in _ROUTES[self.op].observed})
+        return ArtifactWork(key=self.key, work=partial(self._emit, self.key), parents=(), admission=Admission(keyed=None), cost=float(len(self.payload)))
 
     @receipted(OPEN)  # lens facts carry no classified field, so the runtime keep-all `OPEN` policy rides directly, never a re-minted per-file `Redaction`
     async def _recovered(self) -> Self:
@@ -303,10 +298,10 @@ class DocumentLens(Struct, frozen=True):
         )
         return structs.replace(self, recovered=crossed.default_with(lambda fault: _lens_raise(fault)))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # Terminal receipt threads the PRE-RUN input key so receipt.slot == node.key.
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
         railed = await async_boundary(f"lens.{self.op.value}", self._recovered)
-        return railed.map(lambda stepped: stepped._receipt(self._key))
+        return railed.map(lambda stepped: stepped._receipt(key))
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
         flat = tuple(child for node in self.recovered for child in walk(node))
@@ -319,7 +314,7 @@ class DocumentLens(Struct, frozen=True):
         )
 
     def contribute(self) -> Iterable[Receipt]:
-        yield from self._receipt(self._key).contribute()
+        yield from self._receipt(self.key).contribute()
 
     @classmethod
     def of(cls, op: LensOp, payload: bytes, /, *, lane: LanePolicy, provider: LensProvider | None = None, **raw: Unpack[LensPayload]) -> Result[Self, LensFault]:
@@ -333,7 +328,11 @@ class DocumentLens(Struct, frozen=True):
             return Error(LensFault(payload=tuple(str(error["loc"]) for error in fault.errors())))
         spec = LensSpec(**admitted)
         missing = next((name for name in _REQUIRED.try_find(op).default_value(()) if not getattr(spec, name)), None)
-        return Error(LensFault(unsatisfied=(op, missing))) if missing else Ok(cls(op=op, payload=payload, provider=selected, lane=lane, spec=spec))
+        return (
+            Error(LensFault(unsatisfied=(op, missing)))
+            if missing
+            else Ok(cls(op=op, payload=payload, provider=selected, lane=lane, key=_minted(op, payload, selected, spec), spec=spec))
+        )
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
@@ -389,6 +388,14 @@ _REQUIRED: Final[Map[LensOp, tuple[str, ...]]] = Map.of_seq([(LensOp.REGION, ("b
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _minted(op: LensOp, payload: bytes, provider: LensProvider, spec: LensSpec, /) -> ContentKey:
+    # `ContentIdentity.key` mints the bare `ContentKey`; `.of` is the railed form and never keys a plan. The spec
+    # preimage narrows to the op's `Route.observed` roster, so two lenses differing on a foreign op's knob share one
+    # key and the elision cache never re-renders on an unobserved edit. Called exactly once per owner, at admission.
+    scoped = LensSpec(**{name: getattr(spec, name) for name in _ROUTES[op].observed})
+    return ContentIdentity.key(f"lens-{op.value}", _KEY_ENCODER.encode((op, payload, provider, scoped)))
 
 
 class NodeSlot(TypedDict, total=False, closed=True):

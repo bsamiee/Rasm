@@ -253,7 +253,7 @@ public static class Simplify {
         Op token = key.OrDefault();
         Context context = op.Mesh.Tolerance;
         if (!op.Policy.IsValid) {
-            return Fin.Fail<DecimationResult>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "decimation: invalid policy").ToError());
+            return Fin.Fail<DecimationResult>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "decimation: invalid policy").ToError());
         }
         return Resample(op, context, token).Bind(space => {
             MeshEdit edit = MeshEdit.Of(space);   // arena capsule: dispose is the platform-forced lifetime seam
@@ -261,7 +261,7 @@ public static class Simplify {
                 using QuadricStore store = QuadricStore.Seed(edit);
                 int budget = op.Policy.BudgetFor(store.Live);
                 return store.Live == 0
-                    ? Fin.Fail<DecimationResult>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "decimation: no live faces").ToError())
+                    ? Fin.Fail<DecimationResult>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "decimation: no live faces").ToError())
                     : Collapse(store, edit, op, budget, context, token)
                         .Bind(_ => Emit(store, edit, op, budget, context, token));
             }
@@ -614,6 +614,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Quadric mesh decimation spine
+    accDescr: A simplify operation entering the mesh-edit arena, per-face planes and curvature weights folding into per-vertex quadrics, the optimal position keying a priority queue whose pops validate through exact orientation predicates before collapse, and the frozen result carrying vertex splits and spatial-index residuals into the decimation receipt.
     SimplifyOp -->|MeshEdit.Of arena| MeshEdit
     SimplifyOp -.->|VoxelRemesh only| Resample["SignedDistanceFromMeshCase + IsoSurface.Detailed"]
     Resample -->|clean level set| MeshEdit

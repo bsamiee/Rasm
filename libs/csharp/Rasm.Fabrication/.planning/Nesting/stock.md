@@ -17,6 +17,7 @@
 - Owner: `StockFrame` retains stock identity, source index, coordinate origin, integer provider extent, true area, material, grain, and cost.
 - Cases: `NestStrategy` carries maximal-rectangle, skyline, guillotine, shelf, homogeneous mass-cut, and parameterized sweep policies.
 - Law: `CutAxis` and `CutProof` carry the ordinal every digest and validator reads, so no consumer re-derives a discriminant by case test.
+- Packages: `Thinktecture` supplies the generated strategy, axis, and proof families; `LanguageExt` supplies admission and the `Fin` rail; `UnitsNet` supplies material quantities; `Rasm` supplies `ContentHash` for the snapshot digest.
 - Growth: a rectangular provider or heuristic lands as one `NestStrategy` case consumed by `Evaluate`; a stock modality remains a `Stock` case consumed by `Frame`.
 
 ## [03]-[ADMISSION]
@@ -25,6 +26,7 @@
 - Law: `StockNest.Frames` admits rectangular frames before applying `StockLimit`, so the budget never buys frames the packer rejects.
 - Law: `EligibilityGraph` joins each part instance only to stock frames satisfying material, extent, grain, and exclusion policy, then refuses any component whose part-area demand exceeds its reachable stock supply.
 - Entry: `NestRun.FromProfiles` expands every `PartRule.Quantity` into stable `(PartId, Instance)` identities, clamps the stock budget to real inventory, and narrows each rotation family to its quarter-turn subset.
+- Packages: `QuikGraph` supplies the eligibility components; `LanguageExt` supplies the applicative admission and traversal; the `Geometry2D` owner supplies the profile measure every part envelope reads.
 - Boundary: nonrectangular regions, interior exclusions, exhausted roll or coil length, unsupported stock modalities, oblique-only rotation families, orphan parts, and strategy expansion beyond its count or depth budget remain typed failures; the bounded queue walk is the strategy-materialization kernel.
 
 ## [04]-[PACKING]
@@ -33,6 +35,8 @@
 - Auto: `Orientations` enumerates the exact mixed-radix assignment space while it fits `OrientationBudget` and draws decorrelated assignments beyond it, so no part is pinned to its first rotation.
 - Auto: `MaxRectsBinPack`, `SkylineBinPack`, `GuillotineBinPack`, and `ShelfBinPack` share one multi-stock `Drive` fold; `SingleBinPack` owns homogeneous mass-cut.
 - Auto: `ParallelHelper.For2D` isolates each strategy-orientation evaluation; inapplicable providers return `Option.None`, provider faults abort the evaluation rail, and capacity-limited winners retain explicit unplaced cardinality in `NestPlan`.
+- Auto: one `ProviderSheet` per stock frame carries the packer's own geometry; `MaxRectsBinPack` and `GuillotineBinPack` publish their placement lists, and the max-rects row admits its list only while `BinWidth`/`BinHeight` still match the frame that constructed it.
+- Packages: `RectangleBinPack` supplies `MaxRectsBinPack` (`UsedRectangles`, `FreeRectangles`, `BinWidth`, `BinHeight`), `SkylineBinPack`, `GuillotineBinPack` (`MergeFreeRectangles`, `UsedRectangles`, `FreeRectangles`), `ShelfBinPack`, `SingleBinPack`, and `Rect.Area`; `Rasm` supplies the `Deterministic` lanes the beyond-budget orientation draw reads; `CommunityToolkit.HighPerformance` supplies the per-evaluation partition.
 - Boundary: each packer `Insert` mutates its own free geometry, so `Drive` folds eligible frames and stops at the first fit; each `Height == 0` sentinel becomes a rejected stock candidate and no provider type crosses `ProviderRun`.
 
 ## [05]-[PROOF]
@@ -41,7 +45,8 @@
 - Law: `CutAxis` rows own the trim projection, so `Pattern` generates every span and `NestPlan.Validate` re-proves it through one correspondence.
 - Law: `NestPlan.Validate` proves unique instance subset coverage, source containment, pairwise non-overlap, stock eligibility, finite coordinates, yield cardinality, and the stock-minus-placement area balance; provider free rectangles remain bounded evidence, not an exact complement claim.
 - Output: `NestPlan.Evidence` retains the `StockSnapshot` kind beside the digest over canonical placements, indexed stock identities, cut spans, free rectangles, run policy, and yield scalars; process-random hashes never enter identity.
-- Receipt: `NestYield` retains requested and placed cardinality, stock count, true and rectangular areas, stock area, utilization, waste, cost, and the continuous sheet lower bound the placed count is proved against.
+- Packages: `Rasm` supplies `ContentHash` for the placement preimage; `Thinktecture` supplies the generated proof families; `LanguageExt` supplies the validation applicative.
+- Receipt: `NestYield` retains requested and placed cardinality, stock count, true and rectangular areas, stock area, utilization, waste, cost, and the continuous sheet lower bound the placed count is proved against. Rectangular area reads the packer's own placed set wherever every used sheet publishes one, and `NestPlan.Validate` re-derives it from the projected placements, so the two sources disagreeing is an admission failure rather than a silent drift.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -53,6 +58,7 @@ using LanguageExt.Common;
 using QuikGraph;
 using Rasm.Domain;
 using Rasm.Element.Composition;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using RectangleBinPacking;
@@ -76,7 +82,7 @@ public abstract partial record NestStrategy {
 
     internal Fin<Seq<NestStrategy>> Expand(int countBudget, int depthBudget) {
         if (countBudget < 1 || depthBudget < 0)
-            return Fin.Fail<Seq<NestStrategy>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "stock:strategy-budget").ToError());
+            return Fin.Fail<Seq<NestStrategy>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:strategy-budget"));
         Queue<(NestStrategy Strategy, int Depth)> pending = new();
         Seq<NestStrategy> leaves = Seq<NestStrategy>();
         pending.Enqueue((this, 0));
@@ -84,7 +90,7 @@ public abstract partial record NestStrategy {
         while (pending.Count > 0) {
             (NestStrategy current, int depth) = pending.Dequeue();
             if (++visited > countBudget || depth > depthBudget)
-                return Fin.Fail<Seq<NestStrategy>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "stock:strategy-budget").ToError());
+                return Fin.Fail<Seq<NestStrategy>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:strategy-budget"));
             Option<Seq<NestStrategy>> children = current.Switch(
                 maxRects: static _ => None,
                 skyline: static _ => None,
@@ -100,10 +106,10 @@ public abstract partial record NestStrategy {
                 },
                 None: () => { leaves = leaves.Add(current); return unit; });
             if (overflow)
-                return Fin.Fail<Seq<NestStrategy>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "stock:strategy-budget").ToError());
+                return Fin.Fail<Seq<NestStrategy>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:strategy-budget"));
         }
         return leaves.IsEmpty
-            ? Fin.Fail<Seq<NestStrategy>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "stock:strategy-empty").ToError())
+            ? Fin.Fail<Seq<NestStrategy>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:strategy-empty"))
             : Fin.Succ(leaves);
     }
 
@@ -275,7 +281,7 @@ public sealed partial class NestRun {
                 ? new ValidationError(message: "nest run is outside the admitted domain")
                 : null;
         if (validationError is null) {
-            parts = parts.OrderBy(static part => part.PartId).ThenBy(static part => part.Instance).ToSeq();
+            parts = toSeq(parts.OrderBy(static part => part.PartId).ThenBy(static part => part.Instance));
             strategies = expanded.IfNone(Seq<NestStrategy>());
         }
     }
@@ -293,7 +299,8 @@ public sealed partial class NestRun {
                     resolutionMm, kerfMm, edgeAllowanceMm, out NestRun? run);
                 return error is null && run is not null
                     ? Fin.Succ(run)
-                    : Fin.Fail<NestRun>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, $"stock:run:{error?.Message}").ToError());
+                    : Fin.Fail<NestRun>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:run")
+                        + Error.New(Optional(error).Map(static value => value.Message).IfNone("unadmitted")));
             });
 
     // Rectangular admission retains the quarter-turn subset of a rule's rotation family; an oblique-only rule has no
@@ -310,7 +317,8 @@ public sealed partial class NestRun {
             Math.Abs(profile.Area()), profile.Tolerance.Absolute.Value, angular, rule.Material, rule.GrainAxis, quarters, out CutPart? part);
         return error is null && part is not null
             ? Fin.Succ(part)
-            : Fin.Fail<CutPart>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, $"stock:part:{rule.PartId}:{error?.Message}").ToError());
+            : Fin.Fail<CutPart>(new GeometryFault.DegenerateInput(Kind.Polyline, rule.PartId, "stock:part").ToError()
+                + Error.New(Optional(error).Map(static value => value.Message).IfNone("unadmitted")));
     }
 }
 
@@ -322,7 +330,11 @@ internal sealed record StockFrame(int Index, Stock Source, double OriginX, doubl
 
 internal sealed record OrientedPart(PartInstance Instance, CutPart Source, int Width, int Height, double Rotation);
 internal sealed record ProviderPlacement(PartInstance Instance, int StockIndex, Rect Rect, double Rotation);
-internal sealed record ProviderRun(NestStrategy Strategy, Seq<ProviderPlacement> Placements, Option<Seq<(int Stock, Rect Rect)>> Free);
+// One row per stock frame carrying the packer's own geometry: what it left free and what it placed. Only the packers
+// that publish a placement list fill `Placed`, and it fills only where the packer's own bin extent still matches the
+// frame that constructed it, so a receipt read from it cannot disagree with the placement that produced it.
+internal sealed record ProviderSheet(int Stock, Option<Seq<Rect>> Free, Option<Seq<Rect>> Placed);
+internal sealed record ProviderRun(NestStrategy Strategy, Seq<ProviderPlacement> Placements, Seq<ProviderSheet> Sheets);
 public sealed record NestPlacement(int PartId, int Instance, int SheetIndex, double XMm, double YMm,
     double RotationRadians, double WidthMm, double HeightMm);
 public sealed record CutSpan(int PlacementIndex, CutAxis Axis, double CoordinateMm, double StartMm, double EndMm, double KerfMm);
@@ -385,7 +397,7 @@ public sealed partial class NestPlan {
         });
         double slack = run.ResolutionMm * run.ResolutionMm;
         Option<NestYield> expectedYield = inventory && indexed && placementDomain
-            ? Some(StockNest.YieldOf(run, frames, placements))
+            ? Some(StockNest.YieldOf(run, frames, placements, Seq<ProviderSheet>()))
             : None;
         bool yieldDomain = expectedYield.Exists(expected => YieldMatches(yield, expected, slack));
         Seq<UInt128> selectedStrategies = patterns.Choose(pattern => Optional(pattern.Strategy).Map(strategy => strategy.Identity));
@@ -475,7 +487,7 @@ public static class StockNest {
             .Choose(row => Frame(row.stock, row.index, run.EdgeAllowanceMm, run.ResolutionMm))
             .Take(run.StockLimit).Map((frame, index) => frame with { Index = index }).ToSeq();
         return frames.IsEmpty
-            ? Fin.Fail<Seq<StockFrame>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "stock:no-rectangular-inventory").ToError())
+            ? Fin.Fail<Seq<StockFrame>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:no-rectangular-inventory"))
             : Fin.Succ(frames);
     }
 
@@ -518,11 +530,11 @@ public static class StockNest {
         long space = Saturated(strides.Last.IfNone(1L), parts.Last.Map(static part => part.Rotations.Count).IfNone(1));
         bool exhaustive = space <= budget;
         return toSeq(Enumerable.Range(0, exhaustive ? (int)space : budget))
-            .Map(seed => parts.Map((part, index) => Oriented(part, resolution, kerf, part.Rotations[
+            .Map(seed => toSeq(parts.Map((part, index) => Oriented(part, resolution, kerf, part.Rotations[
                 (int)((exhaustive
                     ? (ulong)seed / (ulong)strides[index]
-                    : Scatter((ulong)(uint)seed, (ulong)(uint)index)) % (ulong)part.Rotations.Count)]))
-                .OrderByDescending(static row => (long)row.Width * row.Height).ToSeq())
+                    : (ulong)Rotation(seed, index, part.Rotations.Count)) % (ulong)part.Rotations.Count)]))
+                .OrderByDescending(static row => (long)row.Width * row.Height)))
             .Distinct().ToSeq();
     }
 
@@ -541,10 +553,11 @@ public static class StockNest {
     static long Saturated(long prior, int radix) =>
         radix < 1 || prior > long.MaxValue / radix ? long.MaxValue : prior * radix;
 
-    static ulong Scatter(ulong seed, ulong index) {
-        ulong mixed = seed ^ (index + 0x9E3779B97F4A7C15UL + (seed << 6) + (seed >> 2));
-        mixed ^= mixed >> 30; mixed *= 0xBF58476D1CE4E5B9UL; mixed ^= mixed >> 27; mixed *= 0x94D049BB133111EBUL;
-        return mixed ^ (mixed >> 31);
+    // Beyond the exhaustive budget the assignment is DRAWN, and a raw stream modulo would bias a non-power-of-two
+    // rotation count toward its low rows; one threaded state through the kernel's rejection draw removes it.
+    static int Rotation(int seed, int index, int count) {
+        ulong stream = Deterministic.Stream(lanes: [seed, index]);
+        return Deterministic.NextBelow(ref stream, count);
     }
 
     static Fin<Seq<ProviderRun>> Evaluate(NestRun run, Seq<StockFrame> frames, EligibilityGraph eligibility,
@@ -567,26 +580,36 @@ public static class StockNest {
             maxRects: row => Drive(strategy, parts, frames, eligibility,
                 frame => new MaxRectsBinPack(frame.Width, frame.Height, allowRotations: false),
                 (packer, part) => packer.Insert(part.Width, part.Height, row.Choice.Native),
-                static packer => Some(packer.FreeRectangles.ToSeq())).Map(static run => Some(run)),
+                static (packer, frame) => new ProviderSheet(
+                    frame.Index,
+                    Some(packer.FreeRectangles.ToSeq()),
+                    packer.BinWidth == frame.Width && packer.BinHeight == frame.Height
+                        ? Some(packer.UsedRectangles.ToSeq())
+                        : None)).Map(static run => Some(run)),
             skyline: row => Drive(strategy, parts, frames, eligibility,
                 frame => new SkylineBinPack(frame.Width, frame.Height, row.Waste.Native),
-                (packer, part) => packer.Insert(part.Width, part.Height, row.Level.Native), static _ => None)
+                (packer, part) => packer.Insert(part.Width, part.Height, row.Level.Native),
+                static (_, frame) => new ProviderSheet(frame.Index, None, None))
                 .Map(static run => Some(run)),
             guillotine: row => Drive(strategy, parts, frames, eligibility,
                 frame => new GuillotineBinPack(frame.Width, frame.Height),
                 (packer, part) => packer.Insert(part.Width, part.Height, row.Merge.Native, row.Choice.Native, row.Split.Native),
-                packer => { packer.MergeFreeRectangles(); return Some(packer.FreeRectangles.ToSeq()); })
+                static (packer, frame) => {
+                    packer.MergeFreeRectangles();
+                    return new ProviderSheet(frame.Index, Some(packer.FreeRectangles.ToSeq()), Some(packer.UsedRectangles.ToSeq()));
+                })
                 .Map(static run => Some(run)),
             shelf: row => Drive(strategy, parts, frames, eligibility,
                 frame => new ShelfBinPack(frame.Width, frame.Height, row.Waste.Native),
-                (packer, part) => packer.Insert(part.Width, part.Height, row.Choice.Native), static _ => None)
+                (packer, part) => packer.Insert(part.Width, part.Height, row.Choice.Native),
+                static (_, frame) => new ProviderSheet(frame.Index, None, None))
                 .Map(static run => Some(run)),
             massCut: _ => MassCut(parts, frames, eligibility),
-            sweep: static _ => Fin.Fail<Option<ProviderRun>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "stock:nested-sweep").ToError()));
+            sweep: static _ => Fin.Fail<Option<ProviderRun>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:nested-sweep")));
 
     static Fin<ProviderRun> Drive<TPacker>(NestStrategy strategy, Seq<OrientedPart> parts, Seq<StockFrame> frames,
         EligibilityGraph eligibility, Func<StockFrame, TPacker> create, Func<TPacker, OrientedPart, Rect> insert,
-        Func<TPacker, Option<Seq<Rect>>> free) where TPacker : class {
+        Func<TPacker, StockFrame, ProviderSheet> state) where TPacker : class {
         TPacker[] packers = frames.Map(create).ToArray();
         // Each Insert mutates its packer, so the frame walk short-circuits on the first fit; a lazy filter-map would
         // insert the part into every eligible packer and keep one, silently consuming free area in all the others.
@@ -598,12 +621,7 @@ public static class StockNest {
                     ? Some(new ProviderPlacement(part.Instance, frame.Index, rect, part.Rotation))
                     : found)
             .Map(placement => accepted.Add(placement)).IfNone(accepted));
-        Seq<Option<Seq<(int Stock, Rect Rect)>>> freeRows = frames.Map(frame => free(packers[frame.Index])
-            .Map(rows => rows.Map(rect => (frame.Index, rect))));
-        Option<Seq<(int Stock, Rect Rect)>> available = freeRows.ForAll(static row => row.IsSome)
-            ? Some(freeRows.Bind(static row => row.IfNone(Seq<(int, Rect)>())))
-            : None;
-        return Fin.Succ(new ProviderRun(strategy, placements, available));
+        return Fin.Succ(new ProviderRun(strategy, placements, frames.Map(frame => state(packers[frame.Index], frame))));
     }
 
     static Fin<Option<ProviderRun>> MassCut(Seq<OrientedPart> parts, Seq<StockFrame> frames, EligibilityGraph eligibility) {
@@ -611,7 +629,7 @@ public static class StockNest {
             .Map(static row => (row.Width, row.Height, row.Source.Material, row.Source.GrainAxis, row.Rotation,
                 row.Source.AngularTolerance)).Distinct();
         if (extents.Count != 1) return Fin.Succ(Option<ProviderRun>.None);
-        return parts.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "stock:mass-cut-empty").ToError()).Bind(prototype => {
+        return parts.Head.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:mass-cut-empty")).Bind(prototype => {
             (Seq<ProviderPlacement> Placements, Seq<OrientedPart> Remaining) packedRun = frames.Fold(
                 (Placements: Seq<ProviderPlacement>(), Remaining: parts), (state, frame) => {
                 Seq<OrientedPart> eligible = state.Remaining
@@ -625,7 +643,7 @@ public static class StockNest {
                     placed[offset].Instance, frame.Index, rect, placed[offset].Rotation))),
                     state.Remaining.Filter(part => !assigned.Contains(part.Instance)));
             });
-            return Fin.Succ(Some(new ProviderRun(new NestStrategy.MassCut(), packedRun.Placements, None)));
+            return Fin.Succ(Some(new ProviderRun(new NestStrategy.MassCut(), packedRun.Placements, Seq<ProviderSheet>())));
         });
     }
 
@@ -637,7 +655,7 @@ public static class StockNest {
                 row.Rotation, row.Rect.Width * run.ResolutionMm, row.Rect.Height * run.ResolutionMm);
         });
         Seq<int> used = provider.Placements.Map(static row => row.StockIndex).Distinct();
-        NestYield yield = YieldOf(run, frames, placements);
+        NestYield yield = YieldOf(run, frames, placements, provider.Sheets);
         Seq<CutPattern> patterns = used.Map(index => Pattern(index, provider,
             placements.Filter(row => row.SheetIndex == index), frames[index], run.ResolutionMm, run.KerfMm));
         Seq<Stock> stock = frames.Map(static row => row.Source);
@@ -645,15 +663,24 @@ public static class StockNest {
         ValidationError? error = NestPlan.Validate(run, stock, placements, patterns, yield, evidence, out NestPlan? plan);
         return error is null && plan is not null
             ? Fin.Succ(plan)
-            : Fin.Fail<NestPlan>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, $"stock:plan:{error?.Message}").ToError());
+            : Fin.Fail<NestPlan>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:plan")
+                + Error.New(Optional(error).Map(static value => value.Message).IfNone("unadmitted")));
     }
 
-    internal static NestYield YieldOf(NestRun run, Seq<StockFrame> frames, Seq<NestPlacement> placements) {
+    // Each packer holds the placed set it mutated, so where every used sheet publishes one the rectangle area is
+    // READ rather than re-accumulated from the projected footprints; the placement derivation stays the
+    // independent recomputation plan admission proves the receipt against.
+    internal static NestYield YieldOf(NestRun run, Seq<StockFrame> frames, Seq<NestPlacement> placements,
+        Seq<ProviderSheet> sheets) {
         FrozenDictionary<PartInstance, CutPart> parts = run.Parts
             .ToFrozenDictionary(static row => new PartInstance(row.PartId, row.Instance));
         Seq<int> used = placements.Map(static row => row.SheetIndex).Distinct();
         double trueArea = placements.Sum(row => parts[new PartInstance(row.PartId, row.Instance)].TrueAreaMm2);
-        double rectangleArea = placements.Sum(static row => row.WidthMm * row.HeightMm);
+        double resolutionArea = run.ResolutionMm * run.ResolutionMm;
+        Seq<ProviderSheet> placedSheets = sheets.Filter(sheet => used.Contains(sheet.Stock) && sheet.Placed.IsSome);
+        double rectangleArea = placedSheets.Count == used.Count
+            ? placedSheets.Sum(static sheet => sheet.Placed.Map(static rows => rows.Sum(static rect => (double)rect.Area)).IfNone(0.0)) * resolutionArea
+            : placements.Sum(static row => row.WidthMm * row.HeightMm);
         double stockArea = used.Sum(index => frames[index].TrueArea);
         return new NestYield(
             run.Parts.Count,
@@ -677,7 +704,7 @@ public static class StockNest {
                 .ForAll(right => !left.Intersects(right))).ForAll(identity));
         return contained && disjoint
             ? Fin.Succ(provider)
-            : Fin.Fail<ProviderRun>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "stock:provider-proof").ToError());
+            : Fin.Fail<ProviderRun>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:provider-proof"));
     }
 
     static CutPattern Pattern(int stock, ProviderRun provider, Seq<NestPlacement> sheet, StockFrame frame,
@@ -686,9 +713,11 @@ public static class StockNest {
             (double Coordinate, double Start, double End) trim = axis.Trim(row);
             return new CutSpan(placementIndex, axis, trim.Coordinate, trim.Start, trim.End, kerf);
         }));
-        Option<Seq<(double, double, double, double)>> free = provider.Free.Map(rows => rows.Filter(row => row.Stock == stock)
-            .Map(row => (frame.OriginX + (row.Rect.X * resolution), frame.OriginY + (row.Rect.Y * resolution),
-                row.Rect.Width * resolution, row.Rect.Height * resolution)));
+        Option<Seq<(double, double, double, double)>> free = provider.Sheets
+            .Find(row => row.Stock == stock)
+            .Bind(static row => row.Free)
+            .Map(rows => rows.Map(rect => (frame.OriginX + (rect.X * resolution), frame.OriginY + (rect.Y * resolution),
+                rect.Width * resolution, rect.Height * resolution)));
         return new CutPattern(stock, provider.Strategy, provider.Strategy.Proof, spans, free);
     }
 
@@ -702,137 +731,152 @@ public static class StockNest {
     static double UsedCost(ProviderRun run, Seq<StockFrame> frames) => run.Placements.Map(static row => row.StockIndex)
         .Distinct().Sum(index => frames[index].Cost);
 
+    // The ONE byte codec is the `Rasm.Element` `CanonicalWriter` INSTANCE: it folds `-0.0`, collapses every NaN
+    // payload to one pattern, frames each string by its UTF-8 byte count, and writes a presence bit before an
+    // optional value, so a rectangular digest and a true-shape digest can never fork on framing. Field ORDER is
+    // the page's and stays; the static twin this page once composed is deleted, not aliased.
     internal static ContentKey Digest(NestRun run, Seq<Stock> stock, Seq<NestPlacement> placements,
         Seq<CutPattern> patterns, NestYield yield) {
-        using ArrayPoolBufferWriter<byte> buffer = new();
-        CanonicalWriter.Write(buffer, run.Strategy.Identity);
-        CanonicalWriter.Write(buffer, run.StrategyBudget);
-        CanonicalWriter.Write(buffer, run.StrategyDepth);
-        CanonicalWriter.Write(buffer, run.Strategies.Count);
-        run.Strategies.Iter(strategy => CanonicalWriter.Write(buffer, strategy.Identity));
-        CanonicalWriter.Write(buffer, run.StockLimit);
-        CanonicalWriter.Write(buffer, run.OrientationBudget);
-        CanonicalWriter.Write(buffer, run.BatchFloor);
-        CanonicalWriter.Write(buffer, run.ResolutionMm);
-        CanonicalWriter.Write(buffer, run.KerfMm);
-        CanonicalWriter.Write(buffer, run.EdgeAllowanceMm);
-        CanonicalWriter.Write(buffer, run.Inventory.Count);
+        CanonicalWriter buffer = new(run.ResolutionMm);
+        buffer.U128(run.Strategy.Identity);
+        buffer.Ordinal(run.StrategyBudget);
+        buffer.Ordinal(run.StrategyDepth);
+        buffer.Ordinal(run.Strategies.Count);
+        run.Strategies.Iter(strategy => buffer.U128(strategy.Identity));
+        buffer.Ordinal(run.StockLimit);
+        buffer.Ordinal(run.OrientationBudget);
+        buffer.Ordinal(run.BatchFloor);
+        buffer.Double(run.ResolutionMm);
+        buffer.Double(run.KerfMm);
+        buffer.Double(run.EdgeAllowanceMm);
+        buffer.Ordinal(run.Inventory.Count);
         foreach ((Stock item, int index) in run.Inventory.Map((item, index) => (item, index))) {
-            CanonicalWriter.Write(buffer, index);
-            CanonicalWriter.Write(buffer, item.Identity);
+            buffer.Ordinal(index);
+            buffer.U128(item.Identity);
         }
-        CanonicalWriter.Write(buffer, run.Parts.Count);
+        buffer.Ordinal(run.Parts.Count);
         foreach (CutPart part in run.Parts) {
-            CanonicalWriter.Write(buffer, part.PartId);
-            CanonicalWriter.Write(buffer, part.Instance);
-            CanonicalWriter.Write(buffer, part.WidthMm);
-            CanonicalWriter.Write(buffer, part.HeightMm);
-            CanonicalWriter.Write(buffer, part.TrueAreaMm2);
-            CanonicalWriter.Write(buffer, part.LinearTolerance);
-            CanonicalWriter.Write(buffer, part.AngularTolerance);
-            CanonicalWriter.Write(buffer, part.Material.Map(static row => row.Value).IfNone(string.Empty));
-            CanonicalWriter.Write(buffer, part.GrainAxis.IfNone(double.NaN));
-            CanonicalWriter.Write(buffer, part.Rotations.Count);
-            part.Rotations.Iter(rotation => CanonicalWriter.Write(buffer, rotation));
+            buffer.Ordinal(part.PartId);
+            buffer.Ordinal(part.Instance);
+            buffer.Double(part.WidthMm);
+            buffer.Double(part.HeightMm);
+            buffer.Double(part.TrueAreaMm2);
+            buffer.Double(part.LinearTolerance);
+            buffer.Double(part.AngularTolerance);
+            Maybe(buffer, part.Material.Map(static row => row.Value));
+            Maybe(buffer, part.GrainAxis);
+            buffer.Ordinal(part.Rotations.Count);
+            part.Rotations.Iter(rotation => buffer.Double(rotation));
         }
-        CanonicalWriter.Write(buffer, placements.Count);
+        buffer.Ordinal(placements.Count);
         foreach (NestPlacement row in placements.OrderBy(static row => row.SheetIndex).ThenBy(static row => row.PartId)
             .ThenBy(static row => row.Instance)) {
-            CanonicalWriter.Write(buffer, row.PartId);
-            CanonicalWriter.Write(buffer, row.Instance);
-            CanonicalWriter.Write(buffer, row.SheetIndex);
-            CanonicalWriter.Write(buffer, row.XMm);
-            CanonicalWriter.Write(buffer, row.YMm);
-            CanonicalWriter.Write(buffer, row.RotationRadians);
-            CanonicalWriter.Write(buffer, row.WidthMm);
-            CanonicalWriter.Write(buffer, row.HeightMm);
+            buffer.Ordinal(row.PartId);
+            buffer.Ordinal(row.Instance);
+            buffer.Ordinal(row.SheetIndex);
+            buffer.Double(row.XMm);
+            buffer.Double(row.YMm);
+            buffer.Double(row.RotationRadians);
+            buffer.Double(row.WidthMm);
+            buffer.Double(row.HeightMm);
         }
-        CanonicalWriter.Write(buffer, stock.Count);
+        buffer.Ordinal(stock.Count);
         foreach ((Stock item, int index) in stock.Map((item, index) => (item, index))) {
-            CanonicalWriter.Write(buffer, index);
-            CanonicalWriter.Write(buffer, item.Identity);
+            buffer.Ordinal(index);
+            buffer.U128(item.Identity);
         }
-        CanonicalWriter.Write(buffer, patterns.Count);
+        buffer.Ordinal(patterns.Count);
         foreach (CutPattern pattern in patterns.OrderBy(static row => row.SheetIndex)) {
-            CanonicalWriter.Write(buffer, pattern.SheetIndex);
-            CanonicalWriter.Write(buffer, pattern.Strategy.Identity);
-            CanonicalWriter.Write(buffer, pattern.Proof.Ordinal);
-            CanonicalWriter.Write(buffer, pattern.Spans.Count);
+            buffer.Ordinal(pattern.SheetIndex);
+            buffer.U128(pattern.Strategy.Identity);
+            buffer.Ordinal(pattern.Proof.Ordinal);
+            buffer.Ordinal(pattern.Spans.Count);
             foreach (CutSpan span in pattern.Spans.OrderBy(static row => row.PlacementIndex)
                 .ThenBy(static row => row.Axis.Ordinal)) {
-                CanonicalWriter.Write(buffer, span.PlacementIndex);
-                CanonicalWriter.Write(buffer, span.Axis.Ordinal);
-                CanonicalWriter.Write(buffer, span.CoordinateMm);
-                CanonicalWriter.Write(buffer, span.StartMm);
-                CanonicalWriter.Write(buffer, span.EndMm);
-                CanonicalWriter.Write(buffer, span.KerfMm);
+                buffer.Ordinal(span.PlacementIndex);
+                buffer.Ordinal(span.Axis.Ordinal);
+                buffer.Double(span.CoordinateMm);
+                buffer.Double(span.StartMm);
+                buffer.Double(span.EndMm);
+                buffer.Double(span.KerfMm);
             }
             _ = pattern.Free.Match(
-                Some: rows => { CanonicalWriter.Write(buffer, rows.Count); return rows.OrderBy(static row => row.X).ThenBy(static row => row.Y)
+                Some: rows => { buffer.Ordinal(rows.Count); return rows.OrderBy(static row => row.X).ThenBy(static row => row.Y)
                     .ThenBy(static row => row.Width).ThenBy(static row => row.Height).Iter(row => {
-                        CanonicalWriter.Write(buffer, pattern.SheetIndex);
-                        CanonicalWriter.Write(buffer, row.X);
-                        CanonicalWriter.Write(buffer, row.Y);
-                        CanonicalWriter.Write(buffer, row.Width);
-                        CanonicalWriter.Write(buffer, row.Height);
+                        buffer.Ordinal(pattern.SheetIndex);
+                        buffer.Double(row.X);
+                        buffer.Double(row.Y);
+                        buffer.Double(row.Width);
+                        buffer.Double(row.Height);
                     }); },
-                None: () => { CanonicalWriter.Write(buffer, -1); return unit; });
+                None: () => { buffer.Ordinal(-1); return unit; });
         }
-        CanonicalWriter.Write(buffer, yield.RequestedCount);
-        CanonicalWriter.Write(buffer, yield.PlacedCount);
-        CanonicalWriter.Write(buffer, yield.UnplacedCount);
-        CanonicalWriter.Write(buffer, yield.SheetCount);
-        CanonicalWriter.Write(buffer, yield.TruePartAreaMm2);
-        CanonicalWriter.Write(buffer, yield.RectangleAreaMm2);
-        CanonicalWriter.Write(buffer, yield.StockAreaMm2);
-        CanonicalWriter.Write(buffer, yield.UtilizationRatio);
-        CanonicalWriter.Write(buffer, yield.WasteAreaMm2);
-        CanonicalWriter.Write(buffer, yield.StockCost);
-        CanonicalWriter.Write(buffer, yield.SheetLowerBound);
-        return ContentKey.Of(EgressKind.StockSnapshot, buffer.WrittenSpan);
+        buffer.Ordinal(yield.RequestedCount);
+        buffer.Ordinal(yield.PlacedCount);
+        buffer.Ordinal(yield.UnplacedCount);
+        buffer.Ordinal(yield.SheetCount);
+        buffer.Double(yield.TruePartAreaMm2);
+        buffer.Double(yield.RectangleAreaMm2);
+        buffer.Double(yield.StockAreaMm2);
+        buffer.Double(yield.UtilizationRatio);
+        buffer.Double(yield.WasteAreaMm2);
+        buffer.Double(yield.StockCost);
+        buffer.Ordinal(yield.SheetLowerBound);
+        return ContentKey.Of(EgressKind.StockSnapshot, buffer.ToBytes().Span);
     }
+
+    // A strategy key digests a closed row vocabulary and writes no `Measure`, so the writer's quantization grid
+    // never reaches the bytes; the anchor names that inertness rather than borrowing a run's geometry grid.
+    const double MeasureFreeGrid = 1.0;
 
     internal static UInt128 StrategyKey(NestStrategy strategy) {
-        using ArrayPoolBufferWriter<byte> buffer = new();
-        CanonicalWriter.Write(buffer, nameof(NestStrategy));
+        CanonicalWriter buffer = new(MeasureFreeGrid);
+        buffer.String(nameof(NestStrategy));
         WriteStrategy(buffer, strategy);
-        return ContentKey.Of(EgressKind.StockSnapshot, buffer.WrittenSpan).Digest;
+        return ContentKey.Of(EgressKind.StockSnapshot, buffer.ToBytes().Span).Digest;
     }
 
-    static void WriteStrategy(ArrayPoolBufferWriter<byte> buffer, NestStrategy strategy) {
+    // Absence is a presence bit, never an empty-string or NaN sentinel: a sentinel collides with a real value.
+    static CanonicalWriter Maybe(CanonicalWriter writer, Option<string> value) =>
+        value.Match(Some: text => writer.Bool(true).String(text), None: () => writer.Bool(false));
+
+    static CanonicalWriter Maybe(CanonicalWriter writer, Option<double> value) =>
+        value.Match(Some: number => writer.Bool(true).Double(number), None: () => writer.Bool(false));
+
+    static void WriteStrategy(CanonicalWriter buffer, NestStrategy strategy) {
         _ = strategy.Switch(
             state: buffer,
             maxRects: static (writer, row) => {
-                CanonicalWriter.Write(writer, nameof(NestStrategy.MaxRects));
-                CanonicalWriter.Write(writer, row.Choice.Key);
+                writer.String(nameof(NestStrategy.MaxRects));
+                writer.String(row.Choice.Key);
                 return unit;
             },
             skyline: static (writer, row) => {
-                CanonicalWriter.Write(writer, nameof(NestStrategy.Skyline));
-                CanonicalWriter.Write(writer, row.Level.Key);
-                CanonicalWriter.Write(writer, row.Waste.Key);
+                writer.String(nameof(NestStrategy.Skyline));
+                writer.String(row.Level.Key);
+                writer.String(row.Waste.Key);
                 return unit;
             },
             guillotine: static (writer, row) => {
-                CanonicalWriter.Write(writer, nameof(NestStrategy.Guillotine));
-                CanonicalWriter.Write(writer, row.Merge.Key);
-                CanonicalWriter.Write(writer, row.Choice.Key);
-                CanonicalWriter.Write(writer, row.Split.Key);
+                writer.String(nameof(NestStrategy.Guillotine));
+                writer.String(row.Merge.Key);
+                writer.String(row.Choice.Key);
+                writer.String(row.Split.Key);
                 return unit;
             },
             shelf: static (writer, row) => {
-                CanonicalWriter.Write(writer, nameof(NestStrategy.Shelf));
-                CanonicalWriter.Write(writer, row.Choice.Key);
-                CanonicalWriter.Write(writer, row.Waste.Key);
+                writer.String(nameof(NestStrategy.Shelf));
+                writer.String(row.Choice.Key);
+                writer.String(row.Waste.Key);
                 return unit;
             },
             massCut: static (writer, _) => {
-                CanonicalWriter.Write(writer, nameof(NestStrategy.MassCut));
+                writer.String(nameof(NestStrategy.MassCut));
                 return unit;
             },
             sweep: static (writer, row) => {
-                CanonicalWriter.Write(writer, nameof(NestStrategy.Sweep));
-                CanonicalWriter.Write(writer, row.Cases.Count);
+                writer.String(nameof(NestStrategy.Sweep));
+                writer.Ordinal(row.Cases.Count);
                 row.Cases.Iter(item => WriteStrategy(writer, item));
                 return unit;
             });
@@ -842,7 +886,7 @@ public static class StockNest {
         EligibilityGraph eligibility, Fin<Option<ProviderRun>>[] results) : IAction2D {
         public void Invoke(int i, int j) => results[(i * assignments.Length) + j] =
             Try.lift<Fin<Option<ProviderRun>>>(f: () => Evaluate(strategies[i], assignments[j], frames, eligibility)).Run()
-                .MapFail(error => new GeometryFault.DegenerateInput(Kind.Polyline, -1, $"stock:provider:{error.Message}").ToError()).Bind(identity);
+                .MapFail(error => new GeometryFault.DegenerateInput(Kind.Polyline, None, "stock:provider").ToError() + error).Bind(identity);
     }
 }
 
@@ -874,7 +918,7 @@ internal sealed class EligibilityGraph {
         if (partNodes.Exists(part => orientationNodes
             .Filter(orientation => orientation.Value == part.Value)
             .ForAll(orientation => graph.AdjacentDegree(orientation) == 1)))
-            return Fin.Fail<EligibilityGraph>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "stock:orphan-part").ToError());
+            return Fin.Fail<EligibilityGraph>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "stock:orphan-part"));
         Dictionary<EligibilityNode, int> labels = new();
         _ = graph.ConnectedComponents(labels);
         HashMap<EligibilityNode, int> components = toHashMap(toSeq(labels).Map(static row => (row.Key, row.Value)));

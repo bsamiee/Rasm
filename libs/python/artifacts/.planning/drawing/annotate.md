@@ -77,7 +77,6 @@ type AnnotateSpec = (
 _SHOULDER: float = 2.0  # landing-shoulder length, in text-height multiples (ISO 128-2 leader landing)
 _BUBBLE: float = 1.4  # keynote/flag bubble radius, in text-height multiples
 _MIN_SEP: float = 8.0  # keynote/flag-column minimum vertical separation (drawing units)
-_LEADER_STYLE: str = "ISO-128-2"  # the annotation convention the receipt style slot carries
 _PRECISION: int = 3  # ziafont emitted-d-float places — the content-key determinism lever set once per offloaded arm
 # Engine raises cross through exact provider categories; unlisted defects propagate.
 _FAULTS: tuple[type[Exception], ...] = (ValueError, OSError)
@@ -779,9 +778,9 @@ def _svg_engine(annotate: Annotate) -> tuple[tuple[LayerNode, ...], ArtifactRece
     layers = tuple(_row(name=layer.compose(), source=source, aec=Some(layer)) for layer, source in composed)
     return layers, ArtifactReceipt.Drawing(
         annotate._key,
-        "drawing-annotate",
+        "annotate",
         len(annotate.marks),
-        _LEADER_STYLE,
+        "drawsvg",
         int(box[2] - box[0]),
         int(box[3] - box[1]),
         sum(len(source) for _, source in composed),
@@ -807,7 +806,7 @@ def _dxf_engine(annotate: Annotate) -> tuple[tuple[LayerNode, ...], ArtifactRece
     doc.write(stream)
     data = stream.getvalue().encode()
     return (_row(name="dxf", source=data, aec=Nothing),), ArtifactReceipt.Drawing(
-        annotate._key, "drawing-annotate", len(annotate.marks), _LEADER_STYLE, width, height, len(data)
+        annotate._key, "annotate", len(annotate.marks), "ezdxf", width, height, len(data)
     )
 
 

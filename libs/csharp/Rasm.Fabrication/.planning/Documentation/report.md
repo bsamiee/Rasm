@@ -1671,7 +1671,7 @@ public static class QualityReport {
     internal static Error Refused(RecordRefusal reason) => RecordOp.InvalidResult(detail: reason.Key);
 
     internal static K<Validation<Error>, Unit> Gate(bool condition, RecordRefusal reason) =>
-        guard(condition, Refused(reason)).ToFin().ToValidation();
+        AdmissionSlots.Gate(condition, Refused(reason));
 
     extension(ValidationError? error) {
         internal Fin<TValue> Admitted<TValue>(TValue candidate, RecordRefusal reason) =>

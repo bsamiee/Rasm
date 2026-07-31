@@ -37,7 +37,8 @@
 - Law: inclusion, exclusion, and unrestricted scope remain distinct even when their member sets are empty; admission canonicalizes identifiers once.
 - Law: each edit mutates one deep working copy, re-reads the complete state, and proves the requested transition before lease swap.
 - Law: viewport edits are set algebra over canonical before and after values, so add and remove are idempotent and replace derives one delta.
-- Boundary: document lookup, viewport existence, table mutation, and redraw remain on the document transaction spine.
+- Law: a clipping plane authors DETACHED — `GeometryHandle` holds one custody lease and no document — so a raw `Guid` handed to `ViewportOp` is REQUESTED membership, admitted against `Guid.Empty` alone, and `Confirm` proves only that the written set equals the requested set. `ViewportOp.Proven` is the one fence turning requested membership into existence evidence: a caller holding a document folds `ViewportTarget` addresses through `ViewportTarget.ResolveViewport` before constructing the edit, so a committed plane carries ids that name live viewports. A committing rail that skips that fold commits fabricated ids, and no downstream read can tell them from real ones.
+- Boundary: document lookup, table mutation, and redraw remain on the document transaction spine; viewport EXISTENCE is proven by `ViewportOp.Proven` at whichever seam holds the document, because the spine never sees the detached authoring path.
 - Growth: a clipping capability extends `ClipOp`; a membership modality extends `ClipScope`.
 
 ## [05]-[IMPLEMENTATION]
@@ -48,6 +49,7 @@ using System.Threading;
 using Rasm.Analysis;
 using Rasm.Domain;
 using Rasm.Numerics;
+using Rhino;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 
@@ -403,6 +405,18 @@ public abstract partial record ViewportOp {
                 .Map(ids => state.Current.Filter(id => !ids.Exists(candidate => candidate == id))),
             replace: static (state, edit) => Admit(edit.Ids, state.Op))
         select desired;
+
+    public static Fin<Seq<Guid>> Proven(RhinoDoc document, params ReadOnlySpan<ViewportTarget> targets) {
+        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+        return toSeq(targets.ToArray())
+            .Traverse(target => Optional(target).ToFin(Fail: op.InvalidInput())
+                .Bind(address => address.ResolveViewport(document: document, key: op))
+                .Map(static viewport => viewport.Id)
+                .ToValidation())
+            .As()
+            .ToFin()
+            .Map(Canonical);
+    }
 
     private static Fin<Seq<Guid>> Admit(Seq<Guid> ids, Op key) =>
         ids.Exists(static id => id == Guid.Empty)

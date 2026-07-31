@@ -370,7 +370,7 @@ public abstract partial record GNode {
     public sealed record Word(GCommand Command, Arr<GParam> Words, Option<FeedMode> Mode) : GNode {
         public Option<double> P(char address) => Words.Find(parameter => parameter.Address == address).Bind(static parameter => parameter.Value.Scalar);
         public ProgramUnits SourceUnits => Words.Choose(static parameter => parameter.Value is GValue.Number number
-            ? Some(number.SourceUnits) : None).HeadOrNone().IfNone(ProgramUnits.Metric);
+            ? Some(number.SourceUnits) : None).Head.IfNone(ProgramUnits.Metric);
         public Word With(char address, double value) {
             Option<ProgramUnits> held = Words.Find(parameter => parameter.Address == address)
                 .Bind(static parameter => parameter.Value is GValue.Number number ? Some(number.SourceUnits) : None);
@@ -515,11 +515,13 @@ public sealed record ProgramLocus(int Block, Seq<ProgramPathStep> Path) {
     public Seq<int> Source => Path.Map(static step => step.Node);
 }
 
+// `Locus` is the universal column the root owns; each case threads it as the plain argument `locus` and never
+// re-declares the base property's name (`docs/stacks/csharp/shapes.md:240`).
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProgramEvent(ProgramLocus Locus) {
 
     public sealed record Motion(
-        ProgramLocus Locus,
+        ProgramLocus locus,
         GNode.Word Word,
         Point3d From,
         Point3d To,
@@ -530,17 +532,17 @@ public abstract partial record ProgramEvent(ProgramLocus Locus) {
         FeedMode Mode,
         MotionRole Role,
         GCommand Plane,
-        Option<MotionArc> Arc) : ProgramEvent(Locus) {
+        Option<MotionArc> Arc) : ProgramEvent(locus) {
         public bool Cutting => Role == MotionRole.Cutting;
     }
-    public sealed record State(ProgramLocus Locus, GNode.Word Word) : ProgramEvent(Locus) {
+    public sealed record State(ProgramLocus locus, GNode.Word Word) : ProgramEvent(locus) {
         public GCommand Command => Word.Command;
     }
-    public sealed record Boundary(ProgramLocus Locus, BlockFrame Frame) : ProgramEvent(Locus);
-    public sealed record Coordinate(ProgramLocus Locus, WcsAssignment Assignment, Plane Frame) : ProgramEvent(Locus);
-    public sealed record Additive(ProgramLocus Locus, int Layer, ExtrusionProfile Extrusion, TemperatureSet Temperatures) : ProgramEvent(Locus);
-    public sealed record Exchange(ProgramLocus Locus, SteelImportReceipt Receipt) : ProgramEvent(Locus);
-    public sealed record Directive(ProgramLocus Locus, MotionDirective Value) : ProgramEvent(Locus);
+    public sealed record Boundary(ProgramLocus locus, BlockFrame Frame) : ProgramEvent(locus);
+    public sealed record Coordinate(ProgramLocus locus, WcsAssignment Assignment, Plane Frame) : ProgramEvent(locus);
+    public sealed record Additive(ProgramLocus locus, int Layer, ExtrusionProfile Extrusion, TemperatureSet Temperatures) : ProgramEvent(locus);
+    public sealed record Exchange(ProgramLocus locus, SteelImportReceipt Receipt) : ProgramEvent(locus);
+    public sealed record Directive(ProgramLocus locus, MotionDirective Value) : ProgramEvent(locus);
 }
 
 public sealed record ProgramTrace {
@@ -550,7 +552,7 @@ public sealed record ProgramTrace {
     public Seq<ProgramEvent> Events => Final.Events;
 
     internal static Fin<ProgramTrace> Admit(CutProgram program) => program.Nodes.IsEmpty
-        ? Fin.Fail<ProgramTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:trace-empty").ToError())
+        ? Fin.Fail<ProgramTrace>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:trace-empty"))
         : program.Nodes.Map((node, block) => (node, block)).FoldM<Fin, ModalState>(ModalState.Empty,
             static (state, item) => state.Push(ProgramLocus.Root(item.block, item.block), item.node)).As()
             .Map(static state => new ProgramTrace(state));
@@ -991,14 +993,14 @@ public sealed partial class PostPolicy {
 
     // One bridge lifts every generated `Validate` outcome onto the rail, so no admission body re-spells the hop.
     internal static Fin<A> Rail<A>(ValidationError? error, A admitted) => error is { } rejected
-        ? Fin.Fail<A>(new GeometryFault.DegenerateInput(Kind.Curve, -1, rejected.Message).ToError())
+        ? Fin.Fail<A>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, rejected.Message))
         : Fin.Succ(admitted);
 
     // Dwell is the one posting quantity `PhysicsQuantity` carries no row for; every other dimensioned field admits there.
     internal static Fin<double> DurationOf(string source, string locus) =>
         Duration.TryParse(source, CultureInfo.InvariantCulture, out Duration value)
             ? Fin.Succ(value.Seconds)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError());
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, locus));
 }
 
 public readonly record struct OperationBoundary(Operation Op, int Node, HashMap<ToolLifeBasis, double> Consumed);
@@ -1039,7 +1041,7 @@ public static partial class Post {
         from image in Dialect.Emit(program, policy.Emit)
         from _ in image.Kind == EgressKind.CutProgram
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:image-kind:{image.Kind.Key}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"post:image-kind:{image.Kind.Key}"))
         select new FabricationResult.PostedProgram(image.Records, image.Key);
     }
 
@@ -1061,7 +1063,7 @@ public static partial class Post {
         from paths in view.Paths(trace)
         from _ in !paths.IsEmpty && paths.ForAll(static path => !path.Spans.IsEmpty)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "post:publish-points").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:publish-points"))
         from encoded in paths.TraverseM(path => Encode.Apply(new PackOp.Toolpath(path, policy))).As()
         select encoded;
     }
@@ -1092,12 +1094,12 @@ public static partial class Post {
         PostPolicy policy) =>
         from _ in dialect.Admits(input.Process.Modality)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:dialect:{dialect.Key}:{input.Process.Modality.Key}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"post:dialect:{dialect.Key}:{input.Process.Modality.Key}"))
         from changes in ToolMagazine.Schedule(policy.Tooling.Slots, policy.Tooling.Work, policy.Tooling.Policy)
         from scheduled in SetupSchedule.Apply(new SetupOp.Schedule(policy.Setup.Schedule))
         from schedule in scheduled is SetupResult.Scheduled value
             ? Fin.Succ(value.Schedule)
-            : Fin.Fail<SetupSchedule>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:setup-result").ToError())
+            : Fin.Fail<SetupSchedule>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:setup-result"))
         from program in source.Switch(
             state: (Dialect: dialect, Input: input, Policy: policy, Changes: changes, Schedule: schedule),
             motion: static (state, value) => MotionProgram(value.Value, state.Dialect, state.Policy, state.Changes, state.Schedule, state.Input.Tags),
@@ -1113,8 +1115,8 @@ public static partial class Post {
             ? Fin.Succ(CutProgram.Of(Prologue(schedule, tags)
                 .Add(new GNode.Directive(new MotionDirective.Specialized(-1, payload)))
                 .Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect))
-            : Fin.Fail<CutProgram>(new GeometryFault.DegenerateInput(
-                Kind.Curve, -1, $"post:specialized:{payload.Kind.Key}").ToError());
+            : Fin.Fail<CutProgram>(new FabricationFault.PolicyInadmissible(
+                FabConcern.Posting, $"post:specialized:{payload.Kind.Key}"));
 
     private static Fin<CutProgram> MotionProgram(
         FabricationResult.Motion motion,
@@ -1129,7 +1131,7 @@ public static partial class Post {
             motion.Moves))
         from moves in held is WorkholdingResult.Conditioned conditioned
             ? Fin.Succ(conditioned.Moves)
-            : Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:workholding-result").ToError())
+            : Fin.Fail<Seq<Move>>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:workholding-result"))
         from body in ToolSections(GNode.Moves(moves, motion.Directives, Point3d.Origin), changes, policy)
         from looked in Lookahead(body, policy.Cut.Dynamics, dialect)
         let program = CutProgram.Of(Prologue(schedule, tags).Concat(looked)
@@ -1154,28 +1156,28 @@ public static partial class Post {
 
     private static Fin<Seq<GNode>> Unlinked(FabricationResult.Placement placement, PostDialect dialect, PostPolicy policy) =>
         from profiles in placement.Parts.Map(transform => policy.Cut.Profiles.Find(transform.PartId)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:profile:{transform.PartId}").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"post:profile:{transform.PartId}"))
             .Bind(transform.Apply)).TraverseM(identity).As()
         from ordered in PolygonAlgebra.Apply(new PolygonOp.Inspect(profiles.ToSeq(), new PolygonQuery.Topology(PolygonFill.NonZero)))
         from loops in ordered is PolygonTrace.Regions regions
-            ? Fin.Succ(regions.Result.Nodes.OrderByDescending(static node => node.Depth)
-                .ThenBy(static node => Math.Abs(node.SignedArea)).Map(static node => node.Boundary).ToSeq())
-            : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:placement-topology").ToError())
+            ? Fin.Succ(toSeq(regions.Result.Nodes.OrderByDescending(static node => node.Depth)
+                .ThenBy(static node => Math.Abs(node.SignedArea)).Map(static node => node.Boundary)))
+            : Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:placement-topology"))
         from paths in loops.TraverseM(loop => Condition(loop, policy.Cut).Bind(conditioned => CutPath(conditioned, dialect, policy.Cut))).As()
         select paths.Bind(identity);
 
     private static Fin<Seq<GNode>> ChainPath(ChainRow chain, PostDialect dialect, PostPolicy policy) =>
         from _ in chain.Members.IsEmpty
-            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:chain:{chain.Chain}").ToError())
+            ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"post:chain:{chain.Chain}"))
             : Fin.Succ(unit)
         let contours = chain.Members.Bind(static member => member.Contours)
         from _ in chain.Shared.IsEmpty && contours.ForAll(static contour => contour.Omitted.IsEmpty)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:chain-shared:{chain.Chain}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"post:chain-shared:{chain.Chain}"))
         from _ in contours.Filter(static contour => contour.Pierce).Count == chain.Pierces.Count
             && chain.RapidPaths.Count == chain.Pierces.Count
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:chain-routing:{chain.Chain}").ToError())
+                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"post:chain-routing:{chain.Chain}"))
         from folded in contours.FoldM<Fin, (Seq<GNode> Nodes, int Pierce)>(
             (Seq<GNode>(), 0),
             (state, contour) =>
@@ -1191,15 +1193,15 @@ public static partial class Post {
 
     private static Fin<Loop> Condition(Loop profile, CutConditioning policy) =>
         !profile.Closed
-            ? Fin.Fail<Loop>(FabricationFault.OpenLoop(FabConcern.Program, 0).ToError())
+            ? Fin.Fail<Loop>(FabricationFault.OpenLoop(FabConcern.Posting, 0).ToError())
             : policy.Cut.Match(
                 Some: cut =>
                     from forest in ArcForest.Admit(Seq(profile), profile.Tolerance, profile.Plane).ToFin()
                     from trace in ArcAlgebra.Apply(new ArcOp.Kerf(forest, cut.KerfMm,
                         profile.Winding() == Sign.Negative ? MaterialSide.Inside : MaterialSide.Outside))
                     from loop in trace is ArcTrace.Forest result
-                        ? result.Result.Loops.HeadOrNone().ToFin(FabricationFault.KerfCollision(new KerfWitness.Vanished(0), cut.KerfMm).ToError())
-                        : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:kerf-trace").ToError())
+                        ? result.Result.Loops.Head.ToFin(FabricationFault.KerfCollision(new KerfWitness.Vanished(0), cut.KerfMm).ToError())
+                        : Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:kerf-trace"))
                     from compensated in Compensate(loop, policy)
                     select compensated,
                 None: () => Compensate(profile, policy));
@@ -1209,7 +1211,7 @@ public static partial class Post {
             from mechanical in policy.Cutting.Match(
                 Some: cutting => cutting.FeedBasis == FeedBasis.PerTooth
                     ? cutting.Force(compensation.CutWidthMm, cutting.Feed).Map(compensation.Deflection)
-                    : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:compensation-feed-basis:{cutting.FeedBasis.Key}").ToError()),
+                    : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"post:compensation-feed-basis:{cutting.FeedBasis.Key}")),
                 None: () => Fin.Succ(0.0))
             let delta = mechanical + compensation.ThermalGrowth
             from offset in Math.Abs(delta) <= loop.Tolerance.Absolute.Value
@@ -1217,8 +1219,8 @@ public static partial class Post {
                 : ArcAlgebra.Apply(new ArcOp.Offset(new ArcOffsetSource.Path(loop),
                         loop.Winding() == Sign.Negative ? -delta : delta))
                     .Bind(trace => trace is ArcTrace.Paths paths
-                        ? paths.Result.HeadOrNone().ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:compensation-empty").ToError())
-                        : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:compensation-trace").ToError()))
+                        ? paths.Result.Head.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:compensation-empty"))
+                        : Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:compensation-trace")))
             select offset,
         None: () => Fin.Succ(loop));
 
@@ -1227,7 +1229,7 @@ public static partial class Post {
         from lead in Lead(loop, policy.Cut)
         from body in Walk(loop, dialect, policy)
         select Seq<GNode>(new GNode.Word(GCommand.Rapid,
-                XY(lead.HeadOrNone().Map(GNode.Target).IfNone(pierce)), None))
+                XY(lead.Head.Map(GNode.Target).IfNone(pierce)), None))
             .Concat(PierceBlock(policy.Cut, dialect))
             .Concat(lead.IsEmpty ? Seq<GNode>() : GNode.Moves(lead, pierce))
             .Concat(body);
@@ -1238,7 +1240,7 @@ public static partial class Post {
                     loop.Winding() == Sign.Negative ? MaterialSide.Inside : MaterialSide.Outside))
                 .Bind(trace => trace is ArcTrace.Motion motion
                     ? Fin.Succ(motion.Receipt.Moves)
-                    : Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:lead-trace").ToError())),
+                    : Fin.Fail<Seq<Move>>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:lead-trace"))),
             None: () => Fin.Succ(Seq<Move>())),
         None: () => Fin.Succ(Seq<Move>()));
 
@@ -1260,16 +1262,16 @@ public static partial class Post {
     private static Fin<Seq<PathSegment>> Segments(Loop loop, Option<CutPolicy> policy) {
         double total = loop.Length();
         Seq<TabWindow> tabs = policy.Bind(cut => cut.TabSpacingMm > 0.0 && cut.TabWidthMm > 0.0
-            ? Some(Range(0, (int)Math.Floor(total / cut.TabSpacingMm)).Map(index => cut.TabSpacingMm * (index + 0.5))
+            ? Some(Range(0, (int)Math.Floor(total / cut.TabSpacingMm)).ToSeq().Map(index => cut.TabSpacingMm * (index + 0.5))
                 .Map(center => new TabWindow(center - cut.TabWidthMm / 2.0, center + cut.TabWidthMm / 2.0))
                 .Filter(window => window.Start > loop.Tolerance.Absolute.Value
                     && window.End < total - loop.Tolerance.Absolute.Value))
             : None).IfNone(Seq<TabWindow>());
-        Seq<double> stations = Range(0, loop.Spans).Map(index => loop.At(index).DistanceTo(loop.At(index + 1)))
+        Seq<double> stations = toSeq(Range(0, loop.Spans).ToSeq().Map(index => loop.At(index).DistanceTo(loop.At(index + 1)))
             .Fold(Seq(0.0), static (state, length) => state.Add(state.Last.IfNone(0.0) + length))
             .Concat(tabs.Bind(static window => Seq(window.Start, window.End))).Add(total)
-            .Distinct().OrderBy(static value => value).ToSeq();
-        return Range(0, stations.Count - 1).Map(index =>
+            .Distinct().OrderBy(static value => value));
+        return Range(0, stations.Count - 1).ToSeq().Map(index =>
             from from in Sampled(loop, stations[index])
             from to in Sampled(loop, stations[index + 1])
             let midpoint = (stations[index] + stations[index + 1]) / 2.0
@@ -1287,7 +1289,7 @@ public static partial class Post {
     private static Fin<ProfileResult.Sampled> Sampled(Loop loop, double station) =>
         loop.Apply(new ProfileOp.Sample(Length.FromMillimeters(station))).Bind(result => result is ProfileResult.Sampled sampled
             ? Fin.Succ(sampled)
-            : Fin.Fail<ProfileResult.Sampled>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:sample-result").ToError()));
+            : Fin.Fail<ProfileResult.Sampled>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:sample-result")));
 
     private static Fin<Point3d> Sample(Loop loop, double station) => Sampled(loop, station).Map(static result => result.Point);
 
@@ -1322,7 +1324,7 @@ public static partial class Post {
     private static Fin<GNode> CurveNode(IParametricCurve2d curve, double feed) => curve switch {
         Arc2d arc => Fin.Succ<GNode>(ArcNode(arc, feed)),
         Segment2d segment => Fin.Succ<GNode>(SegmentNode(segment, feed)),
-        _ => Fin.Fail<GNode>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:fit-curve:{curve.GetType().Name}").ToError()),
+        _ => Fin.Fail<GNode>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"post:fit-curve:{curve.GetType().Name}")),
     };
 
     private static GNode SegmentNode(Segment2d segment, double feed) {
@@ -1376,15 +1378,16 @@ public static partial class Post {
 
     private static Fin<Seq<GNode>> ToolSections(Seq<GNode> nodes, Seq<ToolChange> changes, PostPolicy policy) =>
         from _ in changes.Exists(static change => change.Previous.IsSome) && policy.Tooling.Boundaries.IsEmpty
-            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:tool-boundaries").ToError())
+            ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Posting, "post:tool-boundaries"))
             : Fin.Succ(unit)
         from placements in changes.TraverseM(change => change.Previous.IsNone
             ? Fin.Succ((Node: 0, Change: change))
-            : policy.Tooling.Boundaries
-                .Filter(boundary => boundary.Op == change.Op && boundary.Node >= 0 && boundary.Node < nodes.Count
-                    && boundary.Consumed.Find(change.LimitingBasis).Exists(consumed => consumed >= change.Trigger))
-                .OrderBy(static boundary => boundary.Node).HeadOrNone()
-                .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:tool-boundary:{change.Op.Key}:{change.LimitingBasis.Key}").ToError())
+            : toSeq(policy.Tooling.Boundaries
+                    .Filter(boundary => boundary.Op == change.Op && boundary.Node >= 0 && boundary.Node < nodes.Count
+                        && boundary.Consumed.Find(change.LimitingBasis).Exists(consumed => consumed >= change.Trigger))
+                    .OrderBy(static boundary => boundary.Node))
+                .Head
+                .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"post:tool-boundary:{change.Op.Key}:{change.LimitingBasis.Key}"))
                 .Map(boundary => (boundary.Node, Change: change))).As()
         select Range(0, nodes.Count).Bind(index => placements.Filter(row => row.Node == index)
             .Bind(row => ToolChangeNodes(row.Change)
@@ -1485,7 +1488,7 @@ public static partial class Post {
                     caps[index] = Math.Min(caps[index], Junction(index));
             Sweep(0, motions.Length, 1);
             Sweep(motions.Length - 1, -1, -1);
-            return Range(0, motions.Length).Filter(index => cutting[index])
+            return Range(0, motions.Length).ToSeq().Filter(index => cutting[index])
                 .Map(index => new LookaheadCap(motions[index].Locus.Source, caps[index])).ToSeq();
         }
 
@@ -1548,10 +1551,10 @@ public static partial class Post {
     // change; a tag whose content carries several lines joins them under one row rather than fanning comment lines
     // a controller's line-length rule then truncates independently.
     private static Seq<GNode> Marks(Map<string, Arr<ProfileMarking>> tags) =>
-        tags.Fold(Seq<string>(), static (rows, name, marks) => rows + marks.ToSeq()
+        toSeq(tags.Fold(Seq<string>(), static (rows, name, marks) => rows + marks.ToSeq()
             .Choose(static mark => mark.Content is MarkingContent.Tag tag ? Some(tag.Type.Text.Replace('\n', ' ')) : None)
             .Map(text => $"{name}={text}"))
-        .OrderBy(static row => row, StringComparer.Ordinal).ToSeq() switch {
+        .OrderBy(static row => row, StringComparer.Ordinal)) switch {
             { IsEmpty: true } => Seq<GNode>(),
             var rows => Seq<GNode>(new GNode.Block(
                 new BlockFrame(None, None, false, false, None, rows, "marks"), Arr<GNode>())),

@@ -194,7 +194,7 @@ public abstract partial record BevelProcess {
         abrasive: static (height, _) => height is HeightSource.Disabled);
 
     public static Fin<BevelProcess> Admit(ProcessBudget? budget, PrepLaw law) =>
-        from source in Optional(budget).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:budget").ToError())
+        from source in Optional(budget).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:budget"))
         from admitted in source.Switch(
             state: law,
             subtractive: static (prep, _) => Unsupported(prep),
@@ -211,7 +211,7 @@ public abstract partial record BevelProcess {
         select admitted;
 
     private static Fin<BevelProcess> Unsupported(PrepLaw law) =>
-        Fin.Fail<BevelProcess>(FabricationFault.BevelUnsupported(
+        Fin.Fail<BevelProcess>(new FabricationFault.BevelUnsupported(
             Subject(law),
             law.Stations.Map(static row => Math.Abs(row.Section.OffsetAt(0.0) - row.Section.OffsetAt(1.0))).Max()).ToError());
 
@@ -247,7 +247,7 @@ public sealed partial class PrepDimensions {
         from opening in Bevel.Millimeters(rootOpening, "bevel:root-opening")
         from radius in Bevel.Millimeters(radiusText, "bevel:radius")
         from admitted in Validate(total, face, opening, radius, angleDeg, out PrepDimensions dimensions) is { } error
-            ? Fin.Fail<PrepDimensions>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<PrepDimensions>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(dimensions)
         select admitted;
 
@@ -326,7 +326,7 @@ public sealed partial class PrepLaw {
     public static Fin<PrepLaw> Admit(string thickness, Arr<PrepStation> stations) =>
         from total in Bevel.Millimeters(thickness, "bevel:thickness")
         from admitted in Validate(stations, total, out PrepLaw law) is { } error
-                    ? Fin.Fail<PrepLaw>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                    ? Fin.Fail<PrepLaw>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
                     : Fin.Succ(law)
         select admitted;
 
@@ -363,7 +363,7 @@ public sealed partial class PassRow {
         HeightSource height,
         double pierceDelaySeconds) =>
         Validate(ordinal, depthShare, feedScale, height, pierceDelaySeconds, out PassRow pass) is { } error
-            ? Fin.Fail<PassRow>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<PassRow>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(pass);
 
     static partial void ValidateFactoryArguments(
@@ -411,7 +411,7 @@ public sealed partial class HeadPolicy {
         from pivot in Bevel.Millimeters(pivotLength, "bevel:pivot")
         from admitted in Validate(kinematics, orient, pivot, tiltLimit, feed,
             cornerRadius, chamferWidth, out HeadPolicy head) is { } error
-            ? Fin.Fail<HeadPolicy>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<HeadPolicy>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(head)
         select admitted;
 
@@ -461,7 +461,7 @@ public sealed partial class CompensationPolicy {
         from kerf in Bevel.Millimeters(nominalKerf, "bevel:nominal-kerf")
         from admitted in Validate(mode, kerf, kerfGain, lagDegPerMeterPerMinute, wearMm,
             angleBiasDeg, crossTiltDeg, out CompensationPolicy policy) is { } error
-            ? Fin.Fail<CompensationPolicy>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<CompensationPolicy>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(policy)
         select admitted;
 
@@ -489,7 +489,7 @@ public sealed partial class ThcPolicy {
 
     public static Fin<ThcPolicy> Admit(double antiDiveFeedRatio, double angleRateHoldDegPerStation, int responseBlocks) =>
         Validate(antiDiveFeedRatio, angleRateHoldDegPerStation, responseBlocks, out ThcPolicy policy) is { } error
-            ? Fin.Fail<ThcPolicy>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<ThcPolicy>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(policy);
 
     static partial void ValidateFactoryArguments(
@@ -531,11 +531,11 @@ public sealed partial class BevelJob {
     public Func<Seq<BevelBlock>, Fin<Unit>> Guard { get; }
 
     public static Fin<BevelJob> Admit(BevelDemand? candidate) =>
-        from raw in Optional(candidate).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:demand").ToError())
+        from raw in Optional(candidate).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:demand"))
         from admitted in Validate(raw.Edge, raw.Preparation, raw.Passes, raw.Budget, raw.Head, raw.Compensation, raw.Thc, raw.Observations,
             raw.ChordErrorMm,
             raw.Lower, raw.Guard, out BevelJob job) is { } error
-            ? Fin.Fail<BevelJob>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<BevelJob>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(job)
         select admitted;
 
@@ -600,7 +600,7 @@ public sealed partial class ThcSpan {
 
     public static Fin<ThcSpan> Admit(int fromInclusive, int toExclusive, ThcDirective directive) =>
         Validate(fromInclusive, toExclusive, directive, out ThcSpan span) is { } error
-            ? Fin.Fail<ThcSpan>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<ThcSpan>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(span);
 
     // Run boundaries derive from adjacent-directive inequality, so coalescing stays one linear pass rather than a per-block tail rewrite.
@@ -610,7 +610,7 @@ public sealed partial class ThcSpan {
         ThcPolicy policy,
         double nominalFeed) {
         return from _ in blocks.IsEmpty
-                   ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:thc-coverage").ToError())
+                   ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:thc-coverage"))
                    : Fin.Succ(unit)
                let directives = Directives(blocks, source, policy, nominalFeed)
                let starts = Seq(0) + toSeq(Range(1, Math.Max(directives.Count - 1, 0)))
@@ -623,7 +623,7 @@ public sealed partial class ThcSpan {
                    .Traverse(row => Admit(row.From, row.To, row.Directive).ToValidation()).As().ToFin()
                from covered in Covers(spans, blocks.Count)
                    ? Fin.Succ(spans)
-                   : Fin.Fail<Seq<ThcSpan>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:thc-coverage").ToError())
+                   : Fin.Fail<Seq<ThcSpan>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:thc-coverage"))
                select covered;
     }
 
@@ -655,7 +655,8 @@ public sealed partial class ThcSpan {
             .Rows;
 
     private static bool Covers(Seq<ThcSpan> spans, int count) =>
-        !spans.IsEmpty && spans.Head.FromInclusive == 0 && spans.Last.ToExclusive == count
+        spans.Head.Map(head => head.FromInclusive == 0).IfNone(false)
+        && spans.Last.Map(last => last.ToExclusive == count).IfNone(false)
         && spans.Zip(spans.Skip(1)).ForAll(static pair => pair.First.ToExclusive == pair.Second.FromInclusive);
 }
 
@@ -729,7 +730,7 @@ public sealed record Beveled(BevelReceipt Receipt) {
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Bevel {
     public static Fin<TOut> Condition<TOut>(BevelDemand? demand, Func<Beveled, TOut> project) =>
-        from _ in Optional(project).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:projection").ToError())
+        from _ in Optional(project).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:projection"))
         from job in BevelJob.Admit(demand)
         from edge in Offset(job.Edge, job.Preparation.KerfSideMm(job.Budget.KerfWidth(job.Compensation)))
         from passes in job.Passes.AsIterable().ToSeq().TraverseM(pass => Pass(job, edge, pass)).As()
@@ -861,7 +862,7 @@ public static class Bevel {
         Vector3d normal = new(-nativeTangent.Y, nativeTangent.X, 0.0);
         if (!tangent.Unitize() || !normal.Unitize())
             return Fin.Fail<(Point3d, Vector3d, Point3d, double, double, double, double, double, double)>(
-                new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:tangent").ToError());
+                new GeometryFault.DegenerateInput(Kind.Curve, sample.Span, "bevel:tangent").ToError());
         double offset = job.Preparation.OffsetAt(station, pass.DepthShare);
         double speed = job.Budget.Speed();
         double linearCompensation = job.Budget.KerfWidth(job.Compensation) * job.Compensation.KerfGain
@@ -878,7 +879,7 @@ public static class Bevel {
         if (Math.Sqrt(angle * angle + crossTilt * crossTilt) > job.Head.MaxTiltDeg
             || Math.Abs(offset) > job.Head.ChamferWidth.Value)
             return Fin.Fail<(Point3d, Vector3d, Point3d, double, double, double, double, double, double)>(
-                FabricationFault.BevelUnsupported(
+                new FabricationFault.BevelUnsupported(
                     new FaultSubject.Bevel(FormattableString.Invariant($"{job.Preparation.ThicknessMm:R}:{job.Preparation.Stations.Count}")),
                     angle).ToError());
         double compensation = linearCompensation
@@ -907,12 +908,12 @@ public static class Bevel {
 
     private static Fin<T> Invoke<T>(Func<Fin<T>> callback, string slot) =>
         Try.lift(callback).Run()
-            .MapFail(_ => new GeometryFault.DegenerateInput(Kind.Curve, -1, slot).ToError())
+            .MapFail(_ => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, slot))
             .Bind(static result => result);
 
     internal static Fin<double> Millimeters(string text, string field) =>
         PhysicsQuantity.Length.Admit(text)
-            .MapFail(_ => new GeometryFault.DegenerateInput(Kind.Curve, -1, field).ToError());
+            .MapFail(_ => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, field));
 
     private static double Angle(PrepLaw law, double station, double through, double delta) {
         double from = Math.Max(0.0, through - delta);
@@ -933,15 +934,15 @@ public static class Bevel {
     private static Fin<Loop> Offset(Loop edge, double distance) =>
         ArcAlgebra.Apply(new ArcOp.Offset(new ArcOffsetSource.Path(edge), distance)).Bind(trace => trace.Switch(
             forest: static row => row.Result.Loops.Count == 1
-                ? Fin.Succ(row.Result.Loops.Head)
-                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:offset-topology").ToError()),
+                ? row.Result.Loops.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "bevel:offset-topology").ToError())
+                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, None, "bevel:offset-topology").ToError()),
             paths: static row => row.Result.Count == 1
-                ? Fin.Succ(row.Result.Head)
-                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:offset-topology").ToError()),
-            motion: static _ => Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:offset-topology").ToError()),
-            inspection: static _ => Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:offset-topology").ToError()),
-            densified: static _ => Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:offset-topology").ToError()),
-            recovered: static _ => Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:offset-topology").ToError())));
+                ? row.Result.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "bevel:offset-topology").ToError())
+                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, None, "bevel:offset-topology").ToError()),
+            motion: static _ => Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:offset-topology")),
+            inspection: static _ => Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:offset-topology")),
+            densified: static _ => Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:offset-topology")),
+            recovered: static _ => Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:offset-topology"))));
 
     private static Polyline<double> Native(Loop loop) =>
         new(loop.Vertices.Map((point, index) => PlineVertex<double>.FromSlice([point.X, point.Y, loop.BulgeAt(index)])), loop.Closed);
@@ -953,7 +954,7 @@ public static class Bevel {
         path.FindPointAtPathLength(length) switch {
             (true, int span, Vector2<double> point, _) => Fin.Succ((
                 new Point3d(point.X, point.Y, source.Plane), span, source.BulgeAt(span), point)),
-            _ => Fin.Fail<(Point3d, int, double, Vector2<double>)>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:station").ToError()),
+            _ => Fin.Fail<(Point3d, int, double, Vector2<double>)>(new GeometryFault.DegenerateInput(Kind.Curve, None, "bevel:station").ToError()),
         };
 
     private static Fin<Seq<double>> Stations(Loop edge, double chordError) =>
@@ -964,7 +965,7 @@ public static class Bevel {
                 double chord = from.DistanceTo(to);
                 double bulge = Math.Abs(edge.BulgeAt(index));
                 if (chord <= edge.Tolerance.Absolute.Value)
-                    return Fin.Fail<(double, Seq<double>)>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "bevel:edge-span").ToError());
+                    return Fin.Fail<(double, Seq<double>)>(new GeometryFault.DegenerateInput(Kind.Curve, index, "bevel:edge-span").ToError());
                 double sweep = 4.0 * Math.Atan(bulge);
                 double radius = bulge == 0.0 ? double.PositiveInfinity : chord * (1.0 + bulge * bulge) / (4.0 * bulge);
                 double spanLength = bulge == 0.0 ? chord : radius * sweep;
@@ -976,7 +977,7 @@ public static class Bevel {
                     : Math.Max(1, (int)Math.Ceiling(sweep / maxSweep));
                 return Fin.Succ((
                     state.Length + spanLength,
-                    state.Rows + Range(1, divisions).Map(step => state.Length + step * spanLength / divisions)));
+                    state.Rows + Range(1, divisions).ToSeq().Map(step => state.Length + step * spanLength / divisions)));
             }).As()
         select sampled.Rows;
 
@@ -984,7 +985,7 @@ public static class Bevel {
         Vector3d axis = candidate;
         return axis.Unitize()
             ? Fin.Succ(axis)
-            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, -1, field).ToError());
+            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, None, field).ToError());
     }
 
 }

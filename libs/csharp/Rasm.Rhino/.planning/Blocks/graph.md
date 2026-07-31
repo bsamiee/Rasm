@@ -6,7 +6,7 @@ Definition topology (`Rasm.Rhino.Blocks`) owns one graph-source union, one evide
 
 - [02]-[SOURCE_AND_TOPOLOGY]: `GraphSource` admitting a live session, a borrowed archive, or a stored archive opened inside the fold, `Topology` carrying nodes, dependency-first edges, and placement evidence, and `GraphFold` canonicalizing vertices so equivalent graphs emit identical sequences.
 - [03]-[ASK_FAMILY]: `BlockGraphAsk` closing host queries, whole-topology projections, and structural algorithms under one entry over the one vertex-generic `QuikGraph` fold, `BlockGraphAnswer` preserving result meaning against key, path, and completeness confusion.
-- [04]-[ARCHIVE_CLOSURE]: `ClosureReport` the bounded linked-archive walk — raw and resolved edges, source-aware broken links, self-inclusive cycle groups, unit facts, native read logs, and typed completion evidence under a closure budget.
+- [04]-[ARCHIVE_CLOSURE]: `ClosureReport` the bounded linked-archive walk — raw and resolved edges, source-aware broken links, self-inclusive cycle groups, unit facts, native read logs, and typed completion evidence under a closure budget, `ArchivePlane` stating the POSIX-only traversal seam once and refusing every unservable platform at selection, and `ClosureWalk` carrying the whole traversal as one state-threaded value the budget-bounded fold advances.
 - [05]-[SURFACE_LEDGER]: owner-to-ingress-to-algorithm-to-egress roster across `BlockGraph`, `GraphFold`, and `ClosureReport`.
 
 ## [02]-[SOURCE_AND_TOPOLOGY]
@@ -15,9 +15,24 @@ Definition topology (`Rasm.Rhino.Blocks`) owns one graph-source union, one evide
 
 Live placement evidence comes from `GetReferences(0)` and retains every instance id. Archive placement evidence correlates each `File3dmObject.Id` with definition `GetObjectIds()` membership; an instance reference outside every definition roster is top-level, while one inside a roster yields a nesting edge.
 
+`GetReferences` is thread-affine, and `DocumentSession.Demand` is the rail that satisfies it: the demand resolves on the host command thread — a live session marshals through `RhinoApp.InvokeAndWait`, a headless one stays on the caller — so every live read on this page sits inside a demand window and no arm re-derives affinity. Composing a thread-affine host member outside a demand is the deleted form.
+
 `GraphFold` canonicalizes vertices through an admitted order before grouping, component ranking, and condensed-edge ordering; equivalent graphs therefore emit identical component and edge sequences.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+using System.Collections.Generic;
+using System.Linq;
+using QuikGraph;
+using QuikGraph.Algorithms;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.DocObjects;
+using Rhino.FileIO;
+
+namespace Rasm.Rhino.Blocks;
+
 // --- [TYPES] -------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GraphSource {
@@ -499,7 +514,11 @@ internal static class GraphFold {
 
 `ClosureReport` is the bounded linked-archive walk: raw and resolved edges, source-aware broken links, self-inclusive cycle groups, unit facts, native read logs, resource usage, and typed completion evidence. `BlockGraphAsk.Archives` admits a closure budget plus only a stored path or a loaded archive carrying its path; each stored link resolves against its referencing archive directory.
 
-Queue traversal interns symlink-resolved paths, pins the canonical root directory, and opens each dependency segment relative to that handle without following links. Handle length gates bytes before an exact owned snapshot reaches the native reader; link count and depth gate expansion. Each rejected native read preserves its log beside the broken-link detail without aborting independent traversal; SCC analysis distinguishes shared dependencies from circular links after the bounded walk settles.
+`ArchivePlane` is the platform seam stated once. Relative-to-a-pinned-handle opening is a POSIX capability with no Win32 peer — `openat` has no `CreateFileW` equivalent, and the segment walk is exactly what defeats a symlink race — so the plane vocabulary carries one row per servable ABI with its own `open` flag columns and its own path-comparison policy, and `ArchivePlane.Current` REFUSES typed on any other platform instead of binding a `libc` entry point that platform does not export. Every downstream comparison reads the selected row's column, so no traversal step re-asks which platform it is on.
+
+The walk is a state-threaded fold, not a loop: `ClosureWalk` carries the frontier, the seen set, every accumulator, and the terminal as ONE value, `ClosureWalk.Step` advances exactly one frontier entry, and the drive is a bounded fixpoint whose tick count derives from `ClosureBudget.MaxArchives` — a settled walk re-emits itself, so the fold is total. Deduplication happens at ENQUEUE, so every frontier entry is new and the archive budget is the exact step bound; a link resolving onto an already-failed archive receipts its broken re-reference there rather than re-entering the frontier.
+
+The walk pins the canonical root directory and opens each dependency segment relative to that handle without following links. Handle length gates bytes before an exact owned snapshot reaches the native reader; link count and depth gate expansion. The snapshot copies through a pool lease sized from a declared chunk policy clamped to the archive's own extent, never a one-byte rent whose smallest bucket turns a real `.3dm` into millions of syscall pairs. Each rejected native read preserves its log beside the broken-link detail without aborting independent traversal; SCC analysis distinguishes shared dependencies from circular links after the bounded walk settles.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -541,6 +560,48 @@ public sealed record ClosureReport(
     public bool Sound => Terminal is ClosureTerminal.Complete && Broken.IsEmpty && Cycles.IsEmpty;
 }
 
+[SmartEnum<string>]
+public sealed partial class ArchivePlane {
+    // Flag columns are the platform's own `<fcntl.h>` ABI bits, declared per servable RID at this seam: they are
+    // compile-time kernel ordinals no managed surface publishes, and they differ per plane, which is the whole
+    // reason the plane owns them instead of a shared constant block.
+    public static readonly ArchivePlane Darwin = new(
+        key: "darwin",
+        read: 0x00000000,
+        noFollow: 0x00000100,
+        directoryOnly: 0x00100000,
+        closeOnExec: 0x01000000,
+        comparer: StringComparer.Ordinal);
+    public static readonly ArchivePlane Linux = new(
+        key: "linux",
+        read: 0x00000000,
+        noFollow: 0x00020000,
+        directoryOnly: 0x00010000,
+        closeOnExec: 0x00080000,
+        comparer: StringComparer.Ordinal);
+
+    public int Read { get; }
+    public int NoFollow { get; }
+    public int DirectoryOnly { get; }
+    public int CloseOnExec { get; }
+    public StringComparer Comparer { get; }
+
+    internal int Walk => Read | NoFollow | DirectoryOnly | CloseOnExec;
+
+    internal int Leaf => Read | NoFollow | CloseOnExec;
+
+    internal StringComparison Comparison => StringComparison.Ordinal;
+
+    // A plane with no `openat` peer cannot serve a symlink-safe segment walk, so selection refuses rather
+    // than binding a `libc` entry point the platform does not export.
+    internal static Fin<ArchivePlane> Current(Op op) =>
+        OperatingSystem.IsMacOS() ? Fin.Succ(value: Darwin)
+        : OperatingSystem.IsLinux() ? Fin.Succ(value: Linux)
+        : Fin.Fail<ArchivePlane>(error: op.Unsupported(
+            geometryType: typeof(ArchiveRoot),
+            outputType: typeof(ClosureReport)));
+}
+
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class BlockGraph {
     private sealed record ArchiveTarget(string FromPath, string StoredLink, string Path, int Depth);
@@ -554,21 +615,20 @@ public static partial class BlockGraph {
 
     private sealed class ArchiveRoot : IDisposable {
         private readonly Microsoft.Win32.SafeHandles.SafeFileHandle directory;
+        private readonly ArchivePlane plane;
         private readonly string path;
 
-        private ArchiveRoot(Microsoft.Win32.SafeHandles.SafeFileHandle directory, string path) =>
-            (this.directory, this.path) = (directory, path);
+        private ArchiveRoot(Microsoft.Win32.SafeHandles.SafeFileHandle directory, ArchivePlane plane, string path) =>
+            (this.directory, this.plane, this.path) = (directory, plane, path);
 
-        internal static Fin<ArchiveRoot> Open(string path, Op op) => op.Catch(() => {
+        internal static Fin<ArchiveRoot> Open(string path, ArchivePlane plane, Op op) => op.Catch(() => {
             string full = System.IO.Path.GetFullPath(path: path);
             string prefix = System.IO.Path.GetPathRoot(path: full)
                 ?? throw new InvalidOperationException(message: op.InvalidInput().Message);
             string[] segments = full[prefix.Length..].Split(
                 separator: [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
                 options: StringSplitOptions.RemoveEmptyEntries);
-            Microsoft.Win32.SafeHandles.SafeFileHandle opened = OpenDirectory(
-                path: prefix,
-                flags: OpenRead | OpenDirectoryOnly | OpenNoFollow | OpenCloseOnExec);
+            Microsoft.Win32.SafeHandles.SafeFileHandle opened = OpenDirectory(path: prefix, flags: plane.Walk);
             Microsoft.Win32.SafeHandles.SafeFileHandle? owned = opened;
             try {
                 if (opened.IsInvalid) {
@@ -581,7 +641,7 @@ public static partial class BlockGraph {
                     Microsoft.Win32.SafeHandles.SafeFileHandle next = OpenRelative(
                         directory: current,
                         path: segment,
-                        flags: OpenRead | OpenDirectoryOnly | OpenNoFollow | OpenCloseOnExec);
+                        flags: plane.Walk);
                     if (next.IsInvalid) {
                         int code = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
                         next.Dispose();
@@ -593,7 +653,7 @@ public static partial class BlockGraph {
                 Microsoft.Win32.SafeHandles.SafeFileHandle admitted = owned
                     ?? throw new InvalidOperationException(message: op.InvalidResult().Message);
                 owned = null;
-                return Fin.Succ(value: new ArchiveRoot(directory: admitted, path: full));
+                return Fin.Succ(value: new ArchiveRoot(directory: admitted, plane: plane, path: full));
             }
             finally {
                 owned?.Dispose();
@@ -618,7 +678,7 @@ public static partial class BlockGraph {
                     Microsoft.Win32.SafeHandles.SafeFileHandle next = OpenRelative(
                         directory: owned ?? directory,
                         path: segments[index],
-                        flags: OpenRead | OpenNoFollow | OpenCloseOnExec | (leaf ? 0 : OpenDirectoryOnly));
+                        flags: leaf ? plane.Leaf : plane.Walk);
                     if (next.IsInvalid) {
                         next.Dispose();
                         return Fin.Fail<ArchiveInput>(error: op.InvalidResult(
@@ -658,11 +718,8 @@ public static partial class BlockGraph {
         public void Dispose() => Handle.Dispose();
     }
 
-    private const int OpenRead = 0x00000000;
-    private const int OpenNoFollow = 0x00000100;
-    private const int OpenDirectoryOnly = 0x00100000;
-    private const int OpenCloseOnExec = 0x01000000;
-
+    // Exemption: the two `[LibraryImport]` declarations are the platform-forced POSIX seam `ArchivePlane` gates —
+    // no managed surface offers a relative-to-handle open, and no arm reaches them before `Current` admits a plane.
     [System.Runtime.InteropServices.LibraryImport(
         "libc",
         EntryPoint = "open",
@@ -680,235 +737,254 @@ public static partial class BlockGraph {
         string path,
         int flags);
 
-    private static Fin<ClosureReport> ArchiveClosure(string rootPath, ClosureBudget budget, Op op) => op.Catch(() => {
-            StringComparer pathComparer = OperatingSystem.IsWindows()
-                ? StringComparer.OrdinalIgnoreCase
-                : StringComparer.Ordinal;
-            StringComparison pathComparison = OperatingSystem.IsWindows()
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
-            Queue<ArchiveTarget> pending = new();
-            System.Collections.Generic.HashSet<string> visited = new(pathComparer);
-            System.Collections.Generic.Dictionary<string, string> identities = new(pathComparer);
-            System.Collections.Generic.Dictionary<string, string> failed = new(pathComparer);
-            Seq<ClosureEdge> edges = Seq<ClosureEdge>();
-            Seq<BrokenLink> broken = Seq<BrokenLink>();
-            Seq<UnitFact> units = Seq<UnitFact>();
-            Seq<string> logs = Seq<string>();
-            int archives = 0;
-            long links = 0;
-            int depth = 0;
-            long bytes = 0;
-            ClosureTerminal terminal = new ClosureTerminal.Complete();
-            string Canonical(string path) {
-                string full = System.IO.Path.TrimEndingDirectorySeparator(
-                    path: System.IO.Path.GetFullPath(path: path));
-                string prefix = System.IO.Path.GetPathRoot(path: full)
-                    ?? throw new InvalidOperationException(message: op.InvalidInput().Message);
-                string resolved = prefix;
-                foreach (string segment in full[prefix.Length..].Split(
-                    separator: [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
-                    options: StringSplitOptions.RemoveEmptyEntries)) {
-                    string candidate = System.IO.Path.Combine(path1: resolved, path2: segment);
-                    System.IO.FileSystemInfo identity = System.IO.Directory.Exists(path: candidate)
-                        ? new System.IO.DirectoryInfo(path: candidate)
-                        : new System.IO.FileInfo(fileName: candidate);
-                    resolved = identity.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? candidate;
-                }
-                resolved = System.IO.Path.TrimEndingDirectorySeparator(
-                    path: System.IO.Path.GetFullPath(path: resolved));
-                if (identities.TryGetValue(key: resolved, value: out string? known)) {
-                    return known;
-                }
-                identities.Add(key: resolved, value: resolved);
-                return resolved;
+    private const int SnapshotChunkBytes = 1 << 20;
+
+    private sealed record ClosureScope(
+        ArchiveRoot Root,
+        string Anchor,
+        ArchivePlane Plane,
+        ClosureBudget Budget,
+        Op Op);
+
+    private sealed record ClosureWalk(
+        Seq<ArchiveTarget> Pending,
+        LanguageExt.HashSet<string> Seen,
+        HashMap<string, string> Failed,
+        Seq<ClosureEdge> Edges,
+        Seq<BrokenLink> Broken,
+        Seq<UnitFact> Units,
+        Seq<string> Logs,
+        ClosureUsage Usage,
+        ClosureTerminal Terminal) {
+        internal static ClosureWalk Of(ArchiveTarget root) => new(
+            Pending: Seq(root),
+            Seen: Seq(root.Path).ToHashSet(),
+            Failed: HashMap<string, string>(),
+            Edges: Seq<ClosureEdge>(),
+            Broken: Seq<BrokenLink>(),
+            Units: Seq<UnitFact>(),
+            Logs: Seq<string>(),
+            Usage: new ClosureUsage(Archives: 0, Links: 0, Depth: 0, Bytes: 0),
+            Terminal: new ClosureTerminal.Complete());
+
+        internal bool Running => Terminal is ClosureTerminal.Complete && !Pending.IsEmpty;
+
+        internal ClosureWalk Edge(string from, string link, Option<string> resolved) =>
+            this with { Edges = Edges.Add(value: new ClosureEdge(FromPath: from, StoredLink: link, ResolvedPath: resolved)) };
+
+        internal ClosureWalk Broke(string from, string link, Option<string> resolved, string detail) =>
+            this with {
+                Broken = Broken.Add(value: new BrokenLink(
+                    FromPath: from, StoredLink: link, ResolvedPath: resolved, Detail: detail)),
+            };
+
+        internal ClosureWalk Refused(ArchiveTarget target, string detail) =>
+            (this with { Failed = Failed.AddOrUpdate(key: target.Path, value: detail) })
+                .Broke(from: target.FromPath, link: target.StoredLink, resolved: Some(target.Path), detail: detail);
+
+        internal ClosureWalk Logged(string log) =>
+            string.IsNullOrWhiteSpace(value: log) ? this : this with { Logs = Logs.Add(value: log) };
+
+        internal ClosureWalk Read(string path, UnitSystem units, string log) =>
+            Logged(log: log) with { Units = Units.Add(value: new UnitFact(Path: path, Units: units)) };
+
+        internal ClosureWalk Exhausted(ClosureLimit limit, long observed, long allowed, string path) =>
+            this with {
+                Terminal = new ClosureTerminal.Exhausted(
+                    Limit: limit, Observed: observed, Allowed: allowed, Path: path),
+            };
+    }
+
+    // The drive is a bounded fixpoint, not a loop: enqueue-side deduplication makes every frontier entry a fresh
+    // archive, so `MaxArchives + 1` ticks strictly cover the walk (the extra tick is the one that exhausts), and a
+    // settled walk re-emits itself, keeping the fold total.
+    private static Fin<ClosureReport> ArchiveClosure(string rootPath, ClosureBudget budget, Op op) =>
+        from plane in ArchivePlane.Current(op: op)
+        from root in Canonical(path: rootPath, op: op)
+        from anchor in Optional(System.IO.Path.GetDirectoryName(path: root)).ToFin(Fail: op.InvalidInput())
+        from handle in ArchiveRoot.Open(path: anchor, plane: plane, op: op)
+        from report in op.Catch(() => {
+            using (handle) {
+                ClosureScope scope = new(Root: handle, Anchor: anchor, Plane: plane, Budget: budget, Op: op);
+                ClosureWalk settled = toSeq(Enumerable.Range(start: 0, count: checked(budget.MaxArchives + 1))).Fold(
+                    ClosureWalk.Of(root: new ArchiveTarget(
+                        FromPath: root, StoredLink: rootPath, Path: root, Depth: 0)),
+                    (walk, _) => walk.Running ? Step(walk: walk, scope: scope) : walk);
+                return Fin.Succ(value: Reported(walk: settled, plane: plane));
             }
+        })
+        select report;
 
-            bool Within(string root, string candidate) {
-                string relative = System.IO.Path.GetRelativePath(relativeTo: root, path: candidate);
-                return !System.IO.Path.IsPathRooted(path: relative)
-                    && !string.Equals(a: relative, b: "..", comparisonType: pathComparison)
-                    && !relative.StartsWith(value: $"..{System.IO.Path.DirectorySeparatorChar}", comparisonType: pathComparison)
-                    && !relative.StartsWith(value: $"..{System.IO.Path.AltDirectorySeparatorChar}", comparisonType: pathComparison);
-            }
+    private static ClosureWalk Step(ClosureWalk walk, ClosureScope scope) =>
+        walk.Pending.Head.Match(
+            None: () => walk,
+            Some: target => Advanced(walk: walk with { Pending = walk.Pending.Tail }, target: target, scope: scope));
 
-            string root = Canonical(path: rootPath);
-            string rootDirectory = System.IO.Path.GetDirectoryName(path: root)
-                ?? throw new InvalidOperationException(message: op.InvalidInput().Message);
-            return ArchiveRoot.Open(path: rootDirectory, op: op).Bind(rootHandle => {
-                using (rootHandle) {
-                    pending.Enqueue(item: new ArchiveTarget(FromPath: root, StoredLink: rootPath, Path: root, Depth: 0));
+    private static ClosureWalk Advanced(ClosureWalk walk, ArchiveTarget target, ClosureScope scope) =>
+        walk.Usage.Archives >= scope.Budget.MaxArchives
+            ? walk.Exhausted(
+                limit: ClosureLimit.Archives,
+                observed: checked((long)walk.Usage.Archives + 1),
+                allowed: scope.Budget.MaxArchives,
+                path: target.Path)
+            : scope.Root.Open(candidate: target.Path, op: scope.Op).Match(
+                Fail: error => walk.Refused(target: target, detail: error.Message),
+                Succ: input => Measured(walk: walk, input: input, target: target, scope: scope));
 
-            while (terminal is ClosureTerminal.Complete && pending.TryDequeue(result: out ArchiveTarget? target)) {
-                if (!visited.Add(item: target.Path)) {
-                    if (failed.TryGetValue(key: target.Path, value: out string? prior)) {
-                        broken = broken.Add(value: new BrokenLink(
-                            FromPath: target.FromPath,
-                            StoredLink: target.StoredLink,
-                            ResolvedPath: Some(target.Path),
-                            Detail: prior));
-                    }
-                    continue;
-                }
-
-                if (archives >= budget.MaxArchives) {
-                    terminal = new ClosureTerminal.Exhausted(
-                        Limit: ClosureLimit.Archives,
-                        Observed: checked((long)archives + 1),
-                        Allowed: budget.MaxArchives,
-                        Path: target.Path);
-                    break;
-                }
-
-                ArchiveInput? input = null;
-                rootHandle.Open(candidate: target.Path, op: op).Match(
-                    Succ: opened => { input = opened; return unit; },
-                    Fail: error => {
-                        failed[target.Path] = error.Message;
-                        broken = broken.Add(value: new BrokenLink(
-                            FromPath: target.FromPath,
-                            StoredLink: target.StoredLink,
-                            ResolvedPath: Some(target.Path),
-                            Detail: error.Message));
-                        return unit;
-                    });
-                if (input is null) {
-                    continue;
-                }
-                using (input) {
-                    long archiveBytes = input.Length;
-                    if (archiveBytes > budget.MaxBytes - bytes) {
-                        terminal = new ClosureTerminal.Exhausted(
-                            Limit: ClosureLimit.Bytes,
-                            Observed: archiveBytes > long.MaxValue - bytes ? long.MaxValue : bytes + archiveBytes,
-                            Allowed: budget.MaxBytes,
-                            Path: target.Path);
-                        break;
-                    }
-                    archives = checked(archives + 1);
-                    bytes = checked(bytes + archiveBytes);
-                    depth = Math.Max(val1: depth, val2: target.Depth);
-
-                    InspectArchive(input: input, op: op).Match(
-                    Succ: scan => scan.Switch(
-                        read: read => {
-                            units = units.Add(value: new UnitFact(Path: target.Path, Units: read.Units));
-                            logs = string.IsNullOrWhiteSpace(value: read.NativeLog)
-                                ? logs
-                                : logs.Add(value: read.NativeLog);
-                            long observedLinks = read.Links.Count > long.MaxValue - links
-                                ? long.MaxValue
-                                : links + read.Links.Count;
-                            if (observedLinks > budget.MaxLinks) {
-                                terminal = new ClosureTerminal.Exhausted(
-                                    Limit: ClosureLimit.Links,
-                                    Observed: observedLinks,
-                                    Allowed: budget.MaxLinks,
-                                    Path: target.Path);
-                                return unit;
-                            }
-                            links = observedLinks;
-                            string anchor = System.IO.Path.GetDirectoryName(path: target.Path) ?? string.Empty;
-                            foreach (string link in read.Links) {
-                                if (terminal is not ClosureTerminal.Complete) {
-                                    break;
-                                }
-                                op.Catch(() => Fin.Succ(value: Canonical(path:
-                                    System.IO.Path.IsPathRooted(path: link)
-                                        ? link
-                                        : System.IO.Path.Combine(path1: anchor, path2: link)))).Match(
-                                    Succ: resolved => {
-                                        if (!Within(root: rootDirectory, candidate: resolved)) {
-                                            edges = edges.Add(value: new ClosureEdge(
-                                                FromPath: target.Path,
-                                                StoredLink: link,
-                                                ResolvedPath: Option<string>.None));
-                                            broken = broken.Add(value: new BrokenLink(
-                                                FromPath: target.Path,
-                                                StoredLink: link,
-                                                ResolvedPath: Some(resolved),
-                                                Detail: op.InvalidContext().Message));
-                                            return unit;
-                                        }
-                                        edges = edges.Add(value: new ClosureEdge(
-                                            FromPath: target.Path,
-                                            StoredLink: link,
-                                            ResolvedPath: Some(resolved)));
-                                        int nextDepth = checked(target.Depth + 1);
-                                        if (nextDepth > budget.MaxDepth) {
-                                            terminal = new ClosureTerminal.Exhausted(
-                                                Limit: ClosureLimit.Depth,
-                                                Observed: nextDepth,
-                                                Allowed: budget.MaxDepth,
-                                                Path: resolved);
-                                            return unit;
-                                        }
-                                        pending.Enqueue(item: new ArchiveTarget(
-                                            FromPath: target.Path,
-                                            StoredLink: link,
-                                            Path: resolved,
-                                            Depth: nextDepth));
-                                        return unit;
-                                    },
-                                    Fail: error => {
-                                        edges = edges.Add(value: new ClosureEdge(
-                                            FromPath: target.Path,
-                                            StoredLink: link,
-                                            ResolvedPath: Option<string>.None));
-                                        broken = broken.Add(value: new BrokenLink(
-                                            FromPath: target.Path,
-                                            StoredLink: link,
-                                            ResolvedPath: Option<string>.None,
-                                            Detail: error.Message));
-                                        return unit;
-                                    });
-                            }
-                            return unit;
+    // Exemption: the input handle's `using` is the platform-forced disposal seam bracketing one archive read.
+    private static ClosureWalk Measured(ClosureWalk walk, ArchiveInput input, ArchiveTarget target, ClosureScope scope) {
+        using (input) {
+            long extent = input.Length;
+            return extent > scope.Budget.MaxBytes - walk.Usage.Bytes
+                ? walk.Exhausted(
+                    limit: ClosureLimit.Bytes,
+                    observed: extent > long.MaxValue - walk.Usage.Bytes ? long.MaxValue : walk.Usage.Bytes + extent,
+                    allowed: scope.Budget.MaxBytes,
+                    path: target.Path)
+                : Scanned(
+                    walk: walk with {
+                        Usage = walk.Usage with {
+                            Archives = checked(walk.Usage.Archives + 1),
+                            Bytes = checked(walk.Usage.Bytes + extent),
+                            Depth = int.Max(walk.Usage.Depth, target.Depth),
                         },
-                        rejected: rejected => {
-                            logs = string.IsNullOrWhiteSpace(value: rejected.NativeLog)
-                                ? logs
-                                : logs.Add(value: rejected.NativeLog);
-                            failed[target.Path] = rejected.Error.Message;
-                            broken = broken.Add(value: new BrokenLink(
-                                FromPath: target.FromPath,
-                                StoredLink: target.StoredLink,
-                                ResolvedPath: Some(target.Path),
-                                Detail: rejected.Error.Message));
-                            return unit;
-                        }),
-                    Fail: error => {
-                        failed[target.Path] = error.Message;
-                        broken = broken.Add(value: new BrokenLink(
-                            FromPath: target.FromPath,
-                            StoredLink: target.StoredLink,
-                            ResolvedPath: Some(target.Path),
-                            Detail: error.Message));
-                        return unit;
-                        });
-                }
-            }
+                    },
+                    input: input,
+                    target: target,
+                    scope: scope);
+        }
+    }
 
-            BidirectionalGraph<string, SEdge<string>> graph = new(allowParallelEdges: false);
-            edges.Iter(edge => edge.ResolvedPath.Iter(target => graph.AddVerticesAndEdge(
-                edge: new SEdge<string>(source: edge.FromPath, target: target))));
-                    return Fin.Succ(value: new ClosureReport(
-                        Edges: edges,
-                        Broken: broken,
-                        Cycles: GraphFold.Cycles(graph: graph, comparer: pathComparer, order: pathComparer),
-                        Units: units,
-                        NativeLog: logs,
-                        Usage: new ClosureUsage(Archives: archives, Links: links, Depth: depth, Bytes: bytes),
-                        Terminal: terminal));
-                }
-            });
-        });
+    private static ClosureWalk Scanned(ClosureWalk walk, ArchiveInput input, ArchiveTarget target, ClosureScope scope) =>
+        InspectArchive(input: input, op: scope.Op).Match(
+            Fail: error => walk.Refused(target: target, detail: error.Message),
+            Succ: scan => scan.Switch(
+                rejected: rejected => walk
+                    .Logged(log: rejected.NativeLog)
+                    .Refused(target: target, detail: rejected.Error.Message),
+                read: read => Expanded(
+                    walk: walk.Read(path: target.Path, units: read.Units, log: read.NativeLog),
+                    links: read.Links,
+                    target: target,
+                    scope: scope)));
+
+    private static ClosureWalk Expanded(ClosureWalk walk, Seq<string> links, ArchiveTarget target, ClosureScope scope) {
+        long observed = links.Count > long.MaxValue - walk.Usage.Links
+            ? long.MaxValue
+            : walk.Usage.Links + links.Count;
+        return observed > scope.Budget.MaxLinks
+            ? walk.Exhausted(
+                limit: ClosureLimit.Links,
+                observed: observed,
+                allowed: scope.Budget.MaxLinks,
+                path: target.Path)
+            : links.Fold(
+                walk with { Usage = walk.Usage with { Links = observed } },
+                (state, link) => state.Terminal is ClosureTerminal.Complete
+                    ? Linked(walk: state, link: link, target: target, scope: scope)
+                    : state);
+    }
+
+    private static ClosureWalk Linked(ClosureWalk walk, string link, ArchiveTarget target, ClosureScope scope) =>
+        Canonical(
+            path: System.IO.Path.IsPathRooted(path: link)
+                ? link
+                : System.IO.Path.Combine(
+                    path1: System.IO.Path.GetDirectoryName(path: target.Path) ?? string.Empty,
+                    path2: link),
+            op: scope.Op).Match(
+            Fail: error => walk
+                .Edge(from: target.Path, link: link, resolved: Option<string>.None)
+                .Broke(from: target.Path, link: link, resolved: Option<string>.None, detail: error.Message),
+            Succ: resolved => Within(root: scope.Anchor, candidate: resolved, comparison: scope.Plane.Comparison)
+                ? Frontier(
+                    walk: walk.Edge(from: target.Path, link: link, resolved: Some(resolved)),
+                    from: target.Path,
+                    link: link,
+                    resolved: resolved,
+                    depth: checked(target.Depth + 1),
+                    scope: scope)
+                : walk
+                    .Edge(from: target.Path, link: link, resolved: Option<string>.None)
+                    .Broke(
+                        from: target.Path,
+                        link: link,
+                        resolved: Some(resolved),
+                        detail: scope.Op.InvalidContext().Message));
+
+    // Deduplication is enqueue-side: a link onto an already-failed archive receipts its broken re-reference here,
+    // a link onto a live shared dependency records its edge and stops, and only a fresh path joins the frontier.
+    private static ClosureWalk Frontier(
+        ClosureWalk walk,
+        string from,
+        string link,
+        string resolved,
+        int depth,
+        ClosureScope scope) =>
+        depth > scope.Budget.MaxDepth
+            ? walk.Exhausted(
+                limit: ClosureLimit.Depth,
+                observed: depth,
+                allowed: scope.Budget.MaxDepth,
+                path: resolved)
+            : walk.Failed.Find(key: resolved).Case switch {
+                string prior => walk.Broke(from: from, link: link, resolved: Some(resolved), detail: prior),
+                _ when walk.Seen.Contains(value: resolved) => walk,
+                _ => walk with {
+                    Seen = walk.Seen.Add(value: resolved),
+                    Pending = walk.Pending.Add(value: new ArchiveTarget(
+                        FromPath: from, StoredLink: link, Path: resolved, Depth: depth)),
+                },
+            };
+
+    private static ClosureReport Reported(ClosureWalk walk, ArchivePlane plane) {
+        BidirectionalGraph<string, SEdge<string>> graph = new(allowParallelEdges: false);
+        walk.Edges.Iter(edge => edge.ResolvedPath.Iter(target => graph.AddVerticesAndEdge(
+            edge: new SEdge<string>(source: edge.FromPath, target: target))));
+        return new ClosureReport(
+            Edges: walk.Edges,
+            Broken: walk.Broken,
+            Cycles: GraphFold.Cycles(graph: graph, comparer: plane.Comparer, order: plane.Comparer),
+            Units: walk.Units,
+            NativeLog: walk.Logs,
+            Usage: walk.Usage,
+            Terminal: walk.Terminal);
+    }
+
+    private static Fin<string> Canonical(string path, Op op) => op.Catch(() => {
+        string full = System.IO.Path.TrimEndingDirectorySeparator(path: System.IO.Path.GetFullPath(path: path));
+        string prefix = System.IO.Path.GetPathRoot(path: full)
+            ?? throw new InvalidOperationException(message: op.InvalidInput().Message);
+        string resolved = full[prefix.Length..]
+            .Split(
+                separator: [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
+                options: StringSplitOptions.RemoveEmptyEntries)
+            .Aggregate(prefix, static (held, segment) => Resolved(
+                candidate: System.IO.Path.Combine(path1: held, path2: segment)));
+        return Fin.Succ(value: System.IO.Path.TrimEndingDirectorySeparator(
+            path: System.IO.Path.GetFullPath(path: resolved)));
+    });
+
+    private static string Resolved(string candidate) =>
+        (System.IO.Directory.Exists(path: candidate)
+            ? (System.IO.FileSystemInfo)new System.IO.DirectoryInfo(path: candidate)
+            : new System.IO.FileInfo(fileName: candidate))
+            .ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? candidate;
+
+    private static bool Within(string root, string candidate, StringComparison comparison) {
+        string relative = System.IO.Path.GetRelativePath(relativeTo: root, path: candidate);
+        return !System.IO.Path.IsPathRooted(path: relative)
+            && !string.Equals(a: relative, b: "..", comparisonType: comparison)
+            && !relative.StartsWith(value: $"..{System.IO.Path.DirectorySeparatorChar}", comparisonType: comparison)
+            && !relative.StartsWith(value: $"..{System.IO.Path.AltDirectorySeparatorChar}", comparisonType: comparison);
+    }
 
     private static Fin<ArchiveScan> InspectArchive(ArchiveInput input, Op op) => op.Catch(() => {
         string snapshot = System.IO.Path.Combine(
             path1: System.IO.Path.GetTempPath(),
             path2: $"{Guid.NewGuid():N}.3dm");
-        byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(minimumLength: 1);
+        byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(
+            minimumLength: checked((int)long.Clamp(value: input.Length, min: 1, max: SnapshotChunkBytes)));
         try {
             using (Microsoft.Win32.SafeHandles.SafeFileHandle output = System.IO.File.OpenHandle(
                 path: snapshot,
@@ -967,7 +1043,8 @@ public static partial class BlockGraph {
 | :-----: | :-------------- | :------------------------ | :-------------------------------------- | :----------------- |
 |  [01]   | `BlockGraph`    | `Ask`                     | `QuikGraph` · host reads · archive fold | `BlockGraphAnswer` |
 |  [02]   | `GraphFold`     | transient graph           | SCC · components · order · reduction    | graph evidence     |
-|  [03]   | `ClosureReport` | `Archives(ClosureBudget)` | bounded breadth-first archive reads     | closure evidence   |
+|  [03]   | `ClosureReport` | `Archives(ClosureBudget)` | budget-bounded `ClosureWalk` fold       | closure evidence   |
+|  [04]   | `ArchivePlane`  | `Current`                 | per-RID open flags · path comparison    | plane or refusal   |
 
 ## [06]-[RESEARCH]
 

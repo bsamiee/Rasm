@@ -34,7 +34,7 @@ Wire posture: HOST-LOCAL. `BuildJob` and `BuildPolicy` enter once; `PlateLayoutR
 ## [04]-[COMPILATION]
 
 - Law: machine admission is `AdditiveProcess.Admits`; no external equality roster reconstructs process/head/kinematics/program compatibility.
-- Entry: `BuildProgram.Compile` is one exhaustive dispatch over additive modalities.
+- Entry: `BuildProgram.Compile` is one exhaustive dispatch over additive modalities — two cases that compose an in-page owner and one `Generated` case carrying every caller-compiled modality behind its `BuildProgramKind` row, since `AdmitArtifact` proves modality off the artifact and a per-modality delegate case adds no seam guarantee.
 - Receipt: `BuildArtifact` keeps layer, exposure, vat, binder, material-jet, lamination, and robot evidence under one union.
 - Boundary: rectangular placement remains `BuildOperators.Pack`; articulated continuity, diagnostics, duration, targets, joints, code, and warnings remain `BuildOperators.Robot`.
 
@@ -51,7 +51,9 @@ Wire posture: HOST-LOCAL. `BuildJob` and `BuildPolicy` enter once; `PlateLayoutR
 - Law: object and triangle property attribution originates from one material table; component transforms and build transforms share the selected oriented frame.
 - Law: `CReader.ReadFromBuffer`, `AddRelationToRead`, `GetResources`, `GetMeshObjects`, and `GetBuildItems` structurally read back the emitted package before identity mints.
 - Receipt: `ThreeMfReceipt` separates native read-back counts from declared resource-family counts and retains warnings, extension support, material genealogy, and canonical bytes.
-- Boundary: `ThreeMf.Write` derives required `ThreeMfExtension` values from the resource graph, capability-probes each namespace, admits every mesh through `CMeshObject.IsManifoldAndOriented`, and catches only `Lib3MFException` into `FabricationFault.ThreeMfWriteRejected`.
+- Boundary: `ThreeMf.Write` derives required `ThreeMfExtension` values from the resource graph, capability-probes each namespace, admits every mesh through `CMeshObject.IsManifoldAndOriented`, names each way a component transform breaks that proof — mirroring or degenerate — as its own refusal reason, and catches only `Lib3MFException` into `FabricationFault.ThreeMfWriteRejected`.
+- Boundary: a genuinely MIRRORED part composes the kernel re-wind and enters as its own admitted `BuildPart` model, so the placement transform reaching the write is determinant-positive by construction; the write stays a projector and re-authors no geometry, because one `CMeshObject` per `OrientedPart` is what the read-back census counts and what the part UUID identifies.
+- Boundary: a slice reference carries its layer program as data — bottom plane, resolution discriminant, and one contour set per top plane — so `AddSliceStack`/`AddSlice`/`SetVertices`/`AddPolygon` build it inside the writer over one per-slice vertex table and no caller-supplied model callback constructs a resource behind the read-back census.
 
 ## [07]-[DELIVERY]
 
@@ -69,9 +71,11 @@ using LanguageExt;
 using LanguageExt.Common;
 using Lib3MF;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Ingress;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Nesting;
+using Rasm.Fabrication.Process;
 using Rasm.Geometry;
 using Rhino.Geometry;
 using Thinktecture;
@@ -352,16 +356,16 @@ public abstract partial record OrientationProgram {
     public sealed record Generated(Func<BuildPart, Fin<Seq<BuildOrientation>>> Candidates) : OrientationProgram;
 
     public Fin<Seq<BuildOrientation>> Generate(BuildPart part) => Switch(
-        fixed: static value => Fin.Succ(Seq(value.Value)),
+        @fixed: static value => Fin.Succ(Seq(value.Value)),
         seeded: static value => value.Values.IsEmpty
-            ? Fin.Fail<Seq<BuildOrientation>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:orientation-seed-empty").ToError())
+            ? Fin.Fail<Seq<BuildOrientation>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:orientation-seed-empty"))
             : Fin.Succ(value.Values.Distinct()),
         sphere: value => OrientationGrid(value.PolarBands, value.AzimuthBands, value.RollStep),
         generated: value => value.Candidates(part));
 
     private static Fin<Seq<BuildOrientation>> OrientationGrid(int polarBands, int azimuthBands, Angle rollStep) =>
         polarBands <= 0 || azimuthBands <= 0 || rollStep <= Angle.Zero
-            ? Fin.Fail<Seq<BuildOrientation>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:orientation-grid").ToError())
+            ? Fin.Fail<Seq<BuildOrientation>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:orientation-grid"))
             : Fin.Succ(toSeq(
                 from polar in Enumerable.Range(0, polarBands)
                 from azimuth in Enumerable.Range(0, azimuthBands)
@@ -461,7 +465,7 @@ public sealed record OrientationEvidence(
         .Map(static _ => unit);
 
     private static K<Validation<Error>, Unit> Envelope(bool valid, OrientationAxis axis, string constraint) =>
-        (valid ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"production:orientation:{axis.Key}:{constraint}").ToError())).ToValidation();
+        (valid ? Fin.Succ(unit) : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"production:orientation:{axis.Key}:{constraint}"))).ToValidation();
 
     private static bool Finite(params double[] values) => values.All(double.IsFinite);
 }
@@ -530,39 +534,32 @@ public abstract partial record BuildArtifact {
         robotProgram: static _ => EgressKind.Plan);
 }
 
+// Two cases compose an in-page owner and cannot be supplied from outside — `Exposure` reads the part's own scan
+// program, `Deposition` reads the policy's robot operator. Every OTHER modality was a caller-supplied compile
+// delegate distinguished only by its artifact type parameter, and `AdmitArtifact` re-proves modality from
+// `BuildArtifact.Modalities` regardless of which case produced it, so the narrower return bought nothing at the
+// seam: those five collapse onto `Generated`, and a new caller-compiled modality is one `BuildProgramKind` row.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BuildProgram {
     private BuildProgram() { }
-    public sealed record Extrusion(Func<OrientedPart, Fin<BuildArtifact.LayerProgram>> Compile) : BuildProgram;
     public sealed record Exposure : BuildProgram;
-    public sealed record Vat(Func<OrientedPart, Fin<BuildArtifact.VatProgram>> Compile) : BuildProgram;
     public sealed record Deposition : BuildProgram;
-    public sealed record Binder(Func<OrientedPart, Fin<BuildArtifact.BinderProgram>> Compile) : BuildProgram;
-    public sealed record MaterialJet(Func<OrientedPart, Fin<BuildArtifact.MaterialJetProgram>> Compile) : BuildProgram;
-    public sealed record Lamination(Func<OrientedPart, Fin<BuildArtifact.LaminationProgram>> Compile) : BuildProgram;
     public sealed record Generated(BuildProgramKind ProgramKind, Func<OrientedPart, Fin<BuildArtifact>> Compile) : BuildProgram;
 
     public BuildProgramKind Kind => Switch(
-        extrusion: static _ => BuildProgramKind.Extrusion,
         exposure: static _ => BuildProgramKind.Exposure,
-        vat: static _ => BuildProgramKind.Vat,
         deposition: static _ => BuildProgramKind.Deposition,
-        binder: static _ => BuildProgramKind.Binder,
-        materialJet: static _ => BuildProgramKind.MaterialJet,
-        lamination: static _ => BuildProgramKind.Lamination,
         generated: static program => program.ProgramKind);
 
     public Fin<BuildArtifact> Compile(OrientedPart part, BuildPolicy policy) => Switch(
         state: (part, policy),
-        extrusion: static (state, program) => program.Compile(state.part).Map(static value => (BuildArtifact)value),
         exposure: static (state, _) => state.part.Scan
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:scan-program-missing").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:scan-program-missing"))
             .Map(scan => (BuildArtifact)new BuildArtifact.LayerProgram(
                 state.part.Stack,
                 Some(scan),
                 scan.Bytes,
                 scan.Key)),
-        vat: static (state, program) => program.Compile(state.part).Map(static value => (BuildArtifact)value),
         deposition: static (state, _) => state.policy.Operators.Robot(new RobotBuildDemand(
             state.part.Part.IdentityText, state.part.Model, state.part.Stack, state.policy.Machine.Process))
             .Map(static value => {
@@ -572,9 +569,6 @@ public abstract partial record BuildProgram {
                     payload,
                     ContentKey.Of(EgressKind.Plan, payload));
             }),
-        binder: static (state, program) => program.Compile(state.part).Map(static value => (BuildArtifact)value),
-        materialJet: static (state, program) => program.Compile(state.part).Map(static value => (BuildArtifact)value),
-        lamination: static (state, program) => program.Compile(state.part).Map(static value => (BuildArtifact)value),
         generated: static (state, program) => program.Compile(state.part));
 
 }
@@ -592,11 +586,15 @@ public abstract partial record ThreeMfResource {
     public sealed record Mesh(int Part) : ThreeMfResource;
     public sealed record Components(Seq<ThreeMfComponent> Children) : ThreeMfResource;
     public sealed record BeamLattice(int Part, ThreeMfBeamPolicy Policy, Seq<Point3d> Nodes, Seq<sBeam> Beams, Seq<sBall> Balls, Seq<ThreeMfBeamSet> Sets) : ThreeMfResource;
-    public sealed record SliceReference(int Part, Func<CModel, CSliceStack> Create) : ThreeMfResource;
+    public sealed record SliceReference(int Part, Length BottomZ, eSlicesMeshResolution Resolution, Seq<ThreeMfSliceLayer> Layers) : ThreeMfResource;
     public sealed record LevelSetReference(int Part, ContentKey Function, Length MinimumFeature, Func<CModel, CLevelSet> Create) : ThreeMfResource;
     public sealed record VolumeDataReference(int Part, Seq<(string Name, ContentKey Function)> Properties, Func<CModel, CVolumeData> Create) : ThreeMfResource;
     public sealed record Attachment(ThreeMfAttachment Value) : ThreeMfResource;
 }
+
+// Each layer is DATA — its top plane and its closed contours — so the whole layer program replays from the document
+// and no caller-supplied model callback constructs the stack behind the writer's back.
+public sealed record ThreeMfSliceLayer(Length TopZ, Seq<Loop> Contours);
 
 public sealed record ThreeMfDocument(
     Guid Build,
@@ -638,7 +636,9 @@ public static class Production {
         from _admission in (
             Gate(!job.Parts.IsEmpty
                 && job.Parts.ForAll(static part => part.Identity != Guid.Empty)
-                && job.Parts.ForAll(static part => part.Metadata.ForAll(static row => !string.IsNullOrWhiteSpace(row.Key)))
+                // A metadata key becomes a package URI SEGMENT below, so it admits through the bounded segment
+                // grammar here — a non-blank check passes a slash, a dot-dot, or a percent and forges a path.
+                && job.Parts.ForAll(static part => part.Metadata.ForAll(static row => SegmentKey(row.Key)))
                 && job.Parts.ForAll(static part => part.TriangleMaterials.Count <= part.Model.Faces.Count)
                 && job.Parts.ForAll(part => part.TriangleMaterials.ForAll(material => material < (uint)job.Parts.Count))
                 && job.Parts.ForAll(static part => part.Resources.ForAll(static resource => resource is
@@ -678,7 +678,7 @@ public static class Production {
         from candidates in policy.Orientations.Generate(part)
         from _cap in policy.OrientationCap > 0 && candidates.Count <= policy.OrientationCap
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"production:orientation-cap:{candidates.Count}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"production:orientation-cap:{candidates.Count}"))
         select candidates.Map(candidate => Evaluate(part, candidate, policy).Match<OrientationVerdict>(
             Succ: static value => new OrientationVerdict.Admitted(value),
             Fail: error => new OrientationVerdict.Rejected(candidate, error)));
@@ -688,37 +688,40 @@ public static class Production {
         from bounds in policy.Operators.Bounds(model)
         from _envelope in policy.Machine.Build.Contains(bounds)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:build-envelope").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:build-envelope"))
         from _material in policy.Machine.Materials.Contains(part.Material)
             && part.Feedstock.Constituents.ForAll(row => row.Lot.Material.Key == part.Material.Key)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:material").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:material"))
         from _feedstock in part.Feedstock.Available > Mass.Zero
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:feedstock").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:feedstock"))
         from stack in policy.Operators.Slice(model, policy.Layers)
         from _layers in AdmitsLayers(stack, policy.Machine.Layer)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:layer-envelope").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:layer-envelope"))
         from audit in Audit.Preflight(stack, policy.Audit)
         from _clean in audit.Clean
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"production:audit:{audit.Defects.Count}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"production:audit:{audit.Defects.Count}"))
         from support in policy.Operators.Support(stack)
         from scan in policy.Operators.Scan(stack, support)
         from _sources in scan.ForAll(plan => plan.Receipt.Sources.ForAll(load =>
                 policy.Machine.Sources.Exists(source => source.Id == load.Source)))
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:source-envelope").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:source-envelope"))
         from _recoater in policy.Machine.Recoater.ForAll(_ => scan.Exists(plan => plan.Layers.ForAll(layer =>
                 layer.Events.Exists(static value => value is ScanEvent.Recoat))))
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:recoater-program").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:recoater-program"))
         let requiredFeedstock = policy.Operators.RequiredFeedstock(part, model, stack, support)
         from _feedstockMass in double.IsFinite(requiredFeedstock.Kilograms)
             && requiredFeedstock > Mass.Zero && part.Feedstock.Available >= requiredFeedstock
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"production:feedstock-mass:{requiredFeedstock.Kilograms:R}").ToError())
+            // The shortfall is measured evidence, not a key: it rides the fault detail beside a bounded locus
+            // rather than a `:R` render inside the token every consumer matches on.
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:feedstock-mass")
+                + Error.New(FormattableString.Invariant($"required-kg={requiredFeedstock.Kilograms:R}")))
         from footprint in policy.Operators.Footprint(model)
         let measured = new OrientationMeasurement(part, orientation, model, stack, audit, support, scan, footprint)
         let evidence = policy.Operators.Score(measured)
@@ -734,44 +737,49 @@ public static class Production {
                 && Math.Abs(steps - Math.Round(steps)) <= 1e-9;
         });
 
+    // The ONE package-segment grammar: lowercase alphanumeric with `-` and `_`, bounded length, never empty.
+    private static bool SegmentKey(string value) =>
+        !string.IsNullOrEmpty(value) && value.Length <= 64
+        && value.All(static character => character is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-' or '_');
+
     private static Fin<BuildArtifact> AdmitArtifact(BuildProgramKind kind, BuildArtifact artifact) =>
         !artifact.Modalities.Contains(kind)
-            ? Fin.Fail<BuildArtifact>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:program-modality").ToError())
+            ? Fin.Fail<BuildArtifact>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:program-modality"))
             : artifact.Payload.IsEmpty || ContentKey.Of(artifact.IdentityKind, artifact.Payload.Span) != artifact.Key
-            ? Fin.Fail<BuildArtifact>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:program-identity").ToError())
+            ? Fin.Fail<BuildArtifact>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:program-identity"))
             : artifact.Switch(
         layerProgram: static value => value.Stack.LayerCount > 0
             && value.Scan.ForAll(scan => scan.Layers.Count == value.Stack.LayerCount)
             ? Fin.Succ<BuildArtifact>(value)
-            : Fin.Fail<BuildArtifact>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:layer-program").ToError()),
+            : Fin.Fail<BuildArtifact>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:layer-program")),
         vatProgram: static value => value.Stack.LayerCount > 0
             && value.Exposures.Count == value.Stack.LayerCount
             && value.Lifts.Count == value.Stack.LayerCount
             ? Fin.Succ<BuildArtifact>(value)
-            : Fin.Fail<BuildArtifact>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:vat-program").ToError()),
+            : Fin.Fail<BuildArtifact>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:vat-program")),
         binderProgram: static value => value.Stack.LayerCount > 0
             && value.Saturation.Count == value.Stack.LayerCount
             && value.Recoat.Count == value.Stack.LayerCount
             ? Fin.Succ<BuildArtifact>(value)
-            : Fin.Fail<BuildArtifact>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:binder-program").ToError()),
+            : Fin.Fail<BuildArtifact>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:binder-program")),
         materialJetProgram: static value => value.Stack.LayerCount > 0
             && value.Channels.Count > 0
             && value.Cure.Count == value.Stack.LayerCount
             ? Fin.Succ<BuildArtifact>(value)
-            : Fin.Fail<BuildArtifact>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:material-jet-program").ToError()),
+            : Fin.Fail<BuildArtifact>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:material-jet-program")),
         laminationProgram: static value => value.Stack.LayerCount > 0
             && value.Sheets.Count == value.Stack.LayerCount
             && value.BondMaps.Count == value.Stack.LayerCount
             ? Fin.Succ<BuildArtifact>(value)
-            : Fin.Fail<BuildArtifact>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:lamination-program").ToError()),
+            : Fin.Fail<BuildArtifact>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:lamination-program")),
         robotProgram: static value => value.Program.Errors.IsEmpty
             && !value.Program.Code.IsEmpty
             && value.Program.Joints.Count == value.Program.Targets.Count
             ? Fin.Succ<BuildArtifact>(value)
-            : Fin.Fail<BuildArtifact>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"production:robot-program:{value.Program.Errors.Count}").ToError()));
+            : Fin.Fail<BuildArtifact>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"production:robot-program:{value.Program.Errors.Count}")));
 
     private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
-        (valid ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError())).ToValidation();
+        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus));
 
     private static Fin<OrientedPart> Select(Seq<OrientationVerdict> verdicts, OrientationWeights weights) =>
         verdicts.Choose(static verdict => verdict is OrientationVerdict.Admitted admitted ? Some(admitted.Part) : None)
@@ -783,7 +791,7 @@ public static class Production {
 
     private static Error Rejections(Seq<OrientationVerdict> verdicts) =>
         verdicts.Choose(static verdict => verdict is OrientationVerdict.Rejected rejected ? Some(rejected.Error) : None)
-            .Fold(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:no-orientation").ToError(), static (faults, error) => faults + error);
+            .Fold((Error)new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:no-orientation"), static (faults, error) => faults + error);
 
     private static Fin<Option<PlateLayoutReceipt>> Packed(BuildJob job, Seq<OrientedPart> parts, BuildOperators operators) =>
         job.Switch(
@@ -797,7 +805,7 @@ public static class Production {
                     && plate.Policy.MinimumUtilization <= Ratio.FromPercent(100)
                     && plate.Policy.StockIndex >= 0
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:plate-policy").ToError())
+                    : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:plate-policy"))
                 from layout in state.operators.Pack(new PlateDemand(
                     state.parts.Map(static part => (part.Part.IdentityText, part.Footprint)), plate.Policy))
                 from _complete in layout.Unplaced.IsEmpty && layout.Utilization >= plate.Policy.MinimumUtilization
@@ -805,7 +813,7 @@ public static class Production {
                     && layout.Placements.Map(static placement => placement.PartId).Distinct().Count == state.parts.Count
                     && layout.Placements.ForAll(placement => placement.PartId >= 0 && placement.PartId < state.parts.Count)
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"production:plate-placement:{layout.Unplaced.Count}").ToError())
+                    : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"production:plate-placement:{layout.Unplaced.Count}"))
                 select Some(layout));
 
     private static ThreeMfDocument Document(
@@ -820,7 +828,7 @@ public static class Production {
         Seq<ThreeMfResource> resources = parts.Map((_, index) => (ThreeMfResource)new ThreeMfResource.Mesh(index))
             .Concat(parts.Bind((part, index) => part.Part.Resources.Map(resource => ResourceAt(resource, index))))
             .Concat(parts.Bind((part, index) => part.Support.Map(support => {
-                Seq<TreeNode> nodes = support.TreeNodes.OrderBy(static node => node.Id).ToSeq();
+                Seq<TreeNode> nodes = toSeq(support.TreeNodes.OrderBy(static node => node.Id));
                 Seq<(sBeam Beam, TreeRole Role)> beams = SupportBeams(nodes);
                 return (ThreeMfResource)new ThreeMfResource.BeamLattice(
                     index,
@@ -896,72 +904,53 @@ public static class Production {
 // --- [CANONICAL_EGRESS] ----------------------------------------------------------------------------------------------------------------------------
 public static class Canonical {
     public static byte[] Keys(Seq<ContentKey> keys) => Written(writer => {
-        Int32(keys.Count, writer);
-        keys.Iter(key => { Utf8(key.Kind.Key, writer); Digest(key.Digest, writer); });
+        writer.Ordinal(keys.Count);
+        keys.Iter(key => writer.String(key.Kind.Key).U128(key.Digest));
     });
 
     public static byte[] Feedstock(FeedstockBlend blend) => Written(writer => {
-        Float64(blend.VirginFraction.DecimalFractions, writer);
-        Float64(blend.RefreshFraction.DecimalFractions, writer);
-        Seq<FeedstockConstituent> rows = blend.Constituents.OrderBy(static row => row.Lot.Key.ToValue()).ToSeq();
-        Int32(rows.Count, writer);
+        writer.Double(blend.VirginFraction.DecimalFractions).Double(blend.RefreshFraction.DecimalFractions);
+        Seq<FeedstockConstituent> rows = toSeq(blend.Constituents.OrderBy(static row => row.Lot.Key.ToValue()));
+        writer.Ordinal(rows.Count);
         rows.Iter(row => {
-            Utf8(row.Lot.Key.ToValue(), writer);
-            Utf8(row.Lot.Material.Key, writer);
-            Digest(row.Lot.Certificate.Digest, writer);
-            Float64(row.Fraction.DecimalFractions, writer);
-            Float64(row.Lot.Received.Kilograms, writer);
-            Float64(row.Lot.Available.Kilograms, writer);
-            Int32(row.Lot.ReuseCount, writer);
-            Int32(row.Lot.ExposureCount, writer);
-            Optional(row.Lot.SieveHistory, static (key, sink) => Digest(key.Digest, sink), writer);
-            Optional(row.Lot.Parent, static (key, sink) => Utf8(key.ToValue(), sink), writer);
+            writer.String(row.Lot.Key.ToValue()).String(row.Lot.Material.Key).U128(row.Lot.Certificate.Digest)
+                .Double(row.Fraction.DecimalFractions).Double(row.Lot.Received.Kilograms).Double(row.Lot.Available.Kilograms)
+                .Ordinal(row.Lot.ReuseCount).Ordinal(row.Lot.ExposureCount);
+            row.Lot.SieveHistory.Match(
+                Some: key => { writer.Bool(true).U128(key.Digest); }, None: () => { writer.Bool(false); });
+            row.Lot.Parent.Match(
+                Some: key => { writer.Bool(true).String(key.ToValue()); }, None: () => { writer.Bool(false); });
         });
     });
 
     public static byte[] Robot(RobotProgramReceipt program) => Written(writer => {
-        Float64(program.Duration.Seconds, writer);
+        writer.Double(program.Duration.Seconds);
         Lines(program.Code, writer);
         Lines(program.Warnings, writer);
         Lines(program.Errors, writer);
-        Int32(program.Joints.Count, writer);
-        program.Joints.Iter(joints => { Int32(joints.Count, writer); joints.Iter(value => Float64(value, writer)); });
-        Int32(program.Targets.Count, writer);
+        writer.Ordinal(program.Joints.Count);
+        program.Joints.Iter(joints => { writer.Ordinal(joints.Count); joints.Iter(value => writer.Double(value)); });
+        writer.Ordinal(program.Targets.Count);
         program.Targets.Iter(target => Seq(
                 target.OriginX, target.OriginY, target.OriginZ,
                 target.XAxis.X, target.XAxis.Y, target.XAxis.Z,
                 target.YAxis.X, target.YAxis.Y, target.YAxis.Z)
-            .Iter(value => Float64(value, writer)));
+            .Iter(value => writer.Double(value)));
     });
 
-    // Exemption: pooled span framing is a measured byte kernel; every variable-width field is length-framed and
-    // every collection count-framed, so no member value can shift a neighbouring field split in the digest preimage.
-    private static byte[] Written(Action<ArrayPoolBufferWriter<byte>> emit) {
-        using ArrayPoolBufferWriter<byte> writer = new();
+    // Every variable-width field is length-framed and every collection count-framed by the Element codec, so
+    // no member value can shift a neighbouring field split in the digest preimage.
+    private static byte[] Written(Action<CanonicalWriter> emit) {
+        CanonicalWriter writer = new(0.0);
         emit(writer);
-        return writer.WrittenSpan.ToArray();
+        return writer.ToBytes().ToArray();
     }
 
-    private static void Lines(Seq<string> values, ArrayPoolBufferWriter<byte> writer) {
-        Int32(values.Count, writer);
-        values.Iter(value => Utf8(value, writer));
+    private static void Lines(Seq<string> values, CanonicalWriter writer) {
+        writer.Ordinal(values.Count);
+        values.Iter(value => writer.String(value));
     }
 
-    private static void Optional<T>(Option<T> value, Action<T, ArrayPoolBufferWriter<byte>> emit, ArrayPoolBufferWriter<byte> writer) =>
-        value.Match(
-            Some: present => { Byte(1, writer); emit(present, writer); },
-            None: () => Byte(0, writer));
-
-    private static void Byte(byte value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(1); span[0] = value; writer.Advance(1); }
-    private static void Int32(int value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(sizeof(int)); BinaryPrimitives.WriteInt32LittleEndian(span, value); writer.Advance(sizeof(int)); }
-    private static void Float64(double value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(sizeof(double)); BinaryPrimitives.WriteInt64LittleEndian(span, BitConverter.DoubleToInt64Bits(value)); writer.Advance(sizeof(double)); }
-    private static void Digest(UInt128 value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(16); BinaryPrimitives.WriteUInt128LittleEndian(span, value); writer.Advance(16); }
-    private static void Utf8(string value, ArrayPoolBufferWriter<byte> writer) {
-        int length = Encoding.UTF8.GetByteCount(value);
-        Int32(length, writer);
-        Span<byte> target = writer.GetSpan(length);
-        writer.Advance(Encoding.UTF8.GetBytes(value, target));
-    }
 
     public static Guid Derived(Guid space, string name) => Guid.CreateVersion5(space, Encoding.UTF8.GetBytes(name));
 }
@@ -975,7 +964,7 @@ public static class ThreeMf {
             && document.Resources.Choose(static resource => resource is ThreeMfResource.Attachment attachment ? Some(attachment.Value.Uri) : None).Distinct().Count
                 == document.Resources.Count(static resource => resource is ThreeMfResource.Attachment)
             ? WriteNative(document, policy)
-            : Fin.Fail<ThreeMfArtifact>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "production:3mf-policy").ToError());
+            : Fin.Fail<ThreeMfArtifact>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "production:3mf-policy"));
 
     private static Fin<ThreeMfArtifact> WriteNative(ThreeMfDocument document, ThreeMfPolicy policy) {
         try {
@@ -1043,6 +1032,12 @@ public static class ThreeMf {
             return Fin.Fail<ThreeMfArtifact>(new FabricationFault.ThreeMfWriteRejected(
                 EgressKind.ThreeMf,
                 "mesh:not-manifold-and-oriented"));
+        if (document.Resources
+            .Choose(static resource => resource is ThreeMfResource.Components components ? Some(components) : None)
+            .Bind(static components => components.Children)
+            .Choose(static child => PlacementRefusal(child.Transform))
+            .Head.Case is string refusal)
+            return Fin.Fail<ThreeMfArtifact>(new FabricationFault.ThreeMfWriteRejected(EgressKind.ThreeMf, refusal));
 
         Arr<(int Part, CMeshObject Mesh)> supports = document.Resources
             .Choose(static resource => resource is ThreeMfResource.BeamLattice lattice ? Some(lattice) : None)
@@ -1074,7 +1069,34 @@ public static class ThreeMf {
             mesh: static (_, _) => unit,
             components: static (_, _) => unit,
             beamLattice: static (_, _) => unit,
-            sliceReference: static (state, value) => (value.Create(state.model), unit).Item2,
+            // Layer program and geometry leave in ONE package: an MSLA hand-off keeps the build UUID, base
+            // materials, placed items, and metadata the mesh path already writes, where a bare `.cli` loses all four.
+            sliceReference: static (state, value) => {
+                CSliceStack stack = state.model.AddSliceStack(value.BottomZ.Millimeters);
+                value.Layers.Iter(layer => {
+                    CSlice slice = stack.AddSlice(layer.TopZ.Millimeters);
+                    // Each slice owns ONE vertex table and each polygon is an index run into it: every contour's
+                    // points land in one `SetVertices` call and each `AddPolygon` addresses its own span, its
+                    // closing index repeating the run's head so the ring closes. Closure stays the CONTOUR's fact —
+                    // an open loop emits an open run and the native's own not-closed refusal names it, where a
+                    // fabricated closing index silently publishes geometry no contour carried.
+                    slice.SetVertices(layer.Contours
+                        .Bind(static contour => contour.Vertices.Map(static point => new sPosition2D { Coordinates = [(float)point.X, (float)point.Y] }))
+                        .ToArray());
+                    _ = layer.Contours.Fold(0u, (start, contour) => {
+                        _ = slice.AddPolygon([
+                            .. Enumerable.Range(0, contour.Count).Select(offset => start + (uint)offset),
+                            .. (contour.Closed ? Seq(start) : Seq<uint>()),
+                        ]);
+                        return start + (uint)contour.Count;
+                    });
+                });
+                // Resolution and stack are two members on the object, not one call: the mesh binds the stack
+                // HANDLE, never a resource id, and the full-versus-low resolution discriminant sets on its own.
+                state.meshes[value.Part].SetSlicesMeshResolution(value.Resolution);
+                state.meshes[value.Part].AssignSliceStack(stack);
+                return unit;
+            },
             levelSetReference: static (state, value) => {
                 CLevelSet levelSet = value.Create(state.model);
                 levelSet.SetMinFeatureSize(value.MinimumFeature.Millimeters);
@@ -1163,6 +1185,18 @@ public static class ThreeMf {
     private static (sPosition[] Vertices, sTriangle[] Triangles) MeshOf(MeshSpace model) => (
         model.Vertices.Map(static point => new sPosition { Coordinates = [(float)point.X, (float)point.Y, (float)point.Z] }).ToArray(),
         model.Faces.Map(static face => new sTriangle { Indices = [(uint)face.A, (uint)face.B, (uint)face.C] }).ToArray());
+
+    // Every component transform inherits the winding `IsManifoldAndOriented` just proved, and the two ways it can
+    // break that proof are different facts carrying their own reasons: a negative determinant mirrors the part and
+    // turns every normal inward, a zero or non-finite one collapses it. Genuinely mirrored parts enter as their own
+    // `BuildPart` whose model is the kernel re-wind — `Kernels.Apply(MeshEdit.Of(space), Transform.Mirror(plane))`,
+    // frozen through `ToSpace` — so the placement reaching this seam is determinant-positive by construction and no
+    // writer re-authors geometry behind the read-back census.
+    private static Option<string> PlacementRefusal(Transform transform) => transform.Determinant switch {
+        double determinant when !double.IsFinite(determinant) || determinant == 0.0 => Some("placement:degenerate-transform"),
+        < 0.0 => Some("placement:mirroring-transform"),
+        _ => Option<string>.None,
+    };
 
     private static sTransform TransformOf(Transform transform) => new() {
         Fields = [

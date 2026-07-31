@@ -13,11 +13,11 @@
 - Owner: `AuditPolicy` composes modality, correlated build envelope, raster demand, one computational-radius ceiling, geometric thresholds, process evidence, support evidence, recoater truth, and evaluation instant. `AuditReceipt` carries component lineage, layer metrics, void escape, bound evidence, process risks, and the exhaustive per-risk census.
 - Cases: `AuditModality` carries one row for every canonical `AdditiveProcess`, including electron-beam melting. `AuditRisk` carries one row per risk family, and `AuditDefect.Risk` maps every defect case onto exactly one of them. `LayerProcessEvidence` separates thermal and recoater payload timing. `VoidReceipt` separates enclosed volume from an escaping volume with an equivalent exposed-opening diameter. `AuditDefect` covers open contour, island, split/merge lineage, enclosed medium, restricted escape, unsupported area, thin wall, independent axis bound, heat accumulation, recoater strike, area jump, and unsupported-mass trend.
 - Entry: `public static Fin<AuditReceipt> Preflight(SliceStack stack, AuditPolicy policy)` admits the stack channels first, because every later gate indexes them, then accumulates policy, process-evidence, and support admission before opening the pooled kernel. Allocation and graph construction cross one `Try` boundary; every owner disposes before egress.
-- Auto: `RasterWorkspace.Index` bounds contours once per layer and supplies row-local candidates to `ParallelHelper.For2D`, which fills disjoint occupancy and overhang-reach cells. `UndirectedGraph<Cell, SEdge<Cell>>.ConnectedComponents` labels each solid plane, the three-dimensional void lattice, and each medial thin-feature witness set. `BidirectionalGraph<ComponentId, SEdge<ComponentId>>.WeaklyConnectedComponents` derives overhang-aware cross-layer genealogies from one prior-layer label index. Support coverage subtracts `SupportPlan.PlanarRows` regions and `TreeNodes` branch capsules; one state fold consumes thermal energy, exposure, optional flow direction, recoat timing and direction, and recoater clearance.
+- Auto: each layer admits into one `SliceRegion`, so occupancy classifies on the NonZero rule every other `SliceStack` consumer reads; `RasterWorkspace.Index` buckets that region's outer and hole rings by row with their `+1`/`-1` winding and supplies row-local candidates to `ParallelHelper.For2D`, which fills disjoint occupancy and overhang-reach cells. `UndirectedGraph<Cell, SEdge<Cell>>.ConnectedComponents` labels each solid plane, the three-dimensional void lattice, and each medial thin-feature witness set. `BidirectionalGraph<ComponentId, SEdge<ComponentId>>.WeaklyConnectedComponents` derives overhang-aware cross-layer genealogies from one prior-layer label index. Support coverage subtracts `SupportPlan.PlanarRows` regions and `TreeNodes` branch capsules; one state fold consumes thermal energy, exposure, optional flow direction, recoat timing and direction, and recoater clearance.
 - Receipt: `AuditReceipt` carries `EvaluatedAt`, modality, per-layer metrics, component rows with parents and children, void rows with escape disposition, typed defects, and `Census` keyed by `AuditRisk`. A new defect case reports through the census without a receipt edit; no scalar census can discard an axis or witness.
-- Packages: `Rasm.Meshing` (`SliceStack`, `SliceFrame` contract); `Additive/support` (`SupportPlan.PlanarRows`, `SupportPlan.TreeNodes`); `Additive/production` (`AdditiveProcess`, `RecoaterEnvelope`); `Process/owner` (`Loop.Covers`); `Process/faults` (`MachineAxis`); `CommunityToolkit.HighPerformance` (`MemoryOwner<T>`, `Memory2D<T>`, `AsMemory2D`, `ParallelHelper.For2D`, `IAction2D`); QuikGraph (`UndirectedGraph`, `BidirectionalGraph`, `ConnectedComponents`, `WeaklyConnectedComponents`); `NodaTime` (`Instant`, `Duration`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
+- Packages: `Rasm.Meshing` (`SliceStack`, `SliceFrame` contract); `Additive/slicing` (`SliceRegion.Of`, `SliceRegion.Outers`/`Holes` — the one NonZero occupancy rule); `Additive/support` (`SupportPlan.PlanarRows`, `SupportPlan.TreeNodes`); `Additive/production` (`AdditiveProcess`, `RecoaterEnvelope`); `Process/owner` (`Loop.Covers`); `Process/faults` (`MachineAxis`); `CommunityToolkit.HighPerformance` (`MemoryOwner<T>`, `Memory2D<T>`, `AsMemory2D`, `ParallelHelper.For2D`, `IAction2D`); QuikGraph (`UndirectedGraph`, `BidirectionalGraph`, `ConnectedComponents`, `WeaklyConnectedComponents`); `NodaTime` (`Instant`, `Duration`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: an additive process is one `AuditModality` row referencing `AdditiveProcess`; a risk family is one `AuditRisk` row and its modality memberships; a process signal is one `LayerProcessEvidence` case; a defect is one `AuditDefect` case and its `Risk` arm; a new raster pass consumes the existing workspace.
-- Boundary: slicing owns contour topology and elevations; support owns generated support; scan-path owns vector planning; production owns `AdditiveProcess`, `RecoaterEnvelope`, and machine commitment. Audit reads those facts and never regenerates them. Build bounds and raster coordinates share one admitted local frame. `Components`, `Voids`, `Metrics`, `ThinWalls`, `Unsupported`, `BranchCovers`, and the `RasterWorkspace` fill actions are the named numerical or platform kernels. Every violated `MachineAxis`, disconnected thin feature, and void disposition remains an independent row. Clean means every admitted risk family produced no defect.
+- Boundary: slicing owns contour topology and elevations; support owns generated support; scan-path owns vector planning; production owns `AdditiveProcess`, `RecoaterEnvelope`, and machine commitment. Audit reads those facts and never regenerates them. ONE frame convention holds below `Admit`: `AuditEnvelope.Frame` projects every kernel world elevation to a local ordinate through `Ordinate` and every contour point through `Local`, `AdmittedAudit.Elevations` is that projection per layer, `RasterGrid.Local` takes only a local `w`, and `AuditEnvelope.World` is the one egress — a world elevation reaching a local slot, or a local ordinate compared against `stack.Elevations`, is a frame defect. `DemandGate` proves the co-axiality that convention rests on: a layer whose points scatter across local ordinates is refused, never rasterized. `Components`, `Voids`, `Metrics`, `ThinWalls`, `Unsupported`, `BranchCovers`, and the `RasterWorkspace` fill actions are the named numerical or platform kernels. Every violated `MachineAxis`, disconnected thin feature, and void disposition remains an independent row. Clean means every admitted risk family produced no defect.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -271,7 +271,11 @@ public sealed record AuditReceipt(
     public int Count(AuditRisk risk) => Census.Find(risk).IfNone(0);
 }
 
-internal sealed record AdmittedAudit(SliceStack Stack, AuditPolicy Policy, Seq<Seq<Loop>> Layers, RasterGrid Grid);
+// `Elevations` is the LOCAL build-frame ordinate per layer. Below this record no world coordinate exists: contours
+// admit through `AuditEnvelope.Local`, `RasterGrid.Local` takes a local `w`, and `AuditEnvelope.World` is the one
+// way back out — so a kernel world elevation reaching a local slot is a frame defect, not a unit mismatch.
+internal sealed record AdmittedAudit(SliceStack Stack, AuditPolicy Policy, Seq<SliceRegion> Layers,
+    Arr<double> Elevations, RasterGrid Grid);
 
 [ComplexValueObject]
 internal sealed partial class RasterGrid {
@@ -297,25 +301,29 @@ internal sealed partial class RasterGrid {
 public static class Audit {
     public static Fin<AuditReceipt> Preflight(SliceStack stack, AuditPolicy policy) =>
         from admitted in Admit(stack, policy)
+        // The locus stays the bounded token; the trapped kernel text rides beside it as its own accumulated error.
         from receipt in Try.lift(() => Run(admitted)).Run()
-            .MapFail(error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"audit:kernel:{error.Message}").ToError())
+            .MapFail(error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "audit:kernel").ToError() + error)
         from result in receipt
         select result;
 
     // Channel admission binds first because every accumulating gate below indexes the channels it proves; the three
     // independent gates then report together.
     private static Fin<AdmittedAudit> Admit(SliceStack stack, AuditPolicy policy) =>
-        from admittedStack in Optional(stack).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "audit:stack").ToError())
-        from admittedPolicy in Optional(policy).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "audit:policy").ToError())
+        from admittedStack in Optional(stack).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:stack"))
+        from admittedPolicy in Optional(policy).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:policy"))
         from _channels in StackGate(admittedStack)
         from _gates in (DemandGate(admittedStack, admittedPolicy), ProcessGate(admittedStack, admittedPolicy),
             SupportGate(admittedStack, admittedPolicy))
             .Apply(static (_, _, _) => unit).As().ToFin()
         from context in Context.Millimeters().ToFin()
-        from loops in Range(0, admittedStack.LayerCount)
-            .Map(layer => Loops(admittedStack, layer, context, admittedPolicy.Envelope)).TraverseM(identity).As()
+        from regions in Range(0, admittedStack.LayerCount).ToSeq()
+            .Map(layer => Region(admittedStack, layer, context, admittedPolicy.Envelope)).TraverseM(identity).As()
         from grid in Grid(admittedPolicy)
-        select new AdmittedAudit(admittedStack, admittedPolicy, loops, grid);
+        select new AdmittedAudit(admittedStack, admittedPolicy, regions,
+            Range(0, admittedStack.LayerCount).ToSeq()
+                .Map(layer => Ordinate(admittedPolicy.Envelope, admittedStack.Elevations[layer])).ToArr(),
+            grid);
 
     private static Fin<Unit> StackGate(SliceStack stack) {
         bool channels = stack.LayerCount > 1 && stack.ContourCount > 0
@@ -342,14 +350,20 @@ public static class Audit {
             .ForAll(index => stack.Elevations[index] > stack.Elevations[index - 1]);
         return channels && elevations
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "audit:stack-channels").ToError());
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "audit:stack-channels").ToError());
     }
 
+    // `W` is a LOCAL interval and `Ordinate` the one world-elevation projection, so both halves of the gate compare
+    // local against local. `correlated` is the co-axiality proof the rest of the page rests on: a layer whose points
+    // scatter across local ordinates has no single `w`, and every `RasterGrid.Local` call below would mislocate.
     private static K<Validation<Error>, Unit> DemandGate(SliceStack stack, AuditPolicy policy) {
-        bool extent = policy.Envelope.W.Contains(stack.Elevations[0]) && policy.Envelope.W.Contains(stack.Elevations[^1]);
-        bool correlated = Range(0, stack.LayerCount).ForAll(layer => stack.LayerAt(layer)
-            .ForAll(chain => chain.Points.ForAll(point => Math.Abs(
-                policy.Envelope.Local(point).Z - stack.Elevations[layer]) <= Rhino.RhinoMath.ZeroTolerance)));
+        bool extent = policy.Envelope.W.Contains(Ordinate(policy.Envelope, stack.Elevations[0]))
+            && policy.Envelope.W.Contains(Ordinate(policy.Envelope, stack.Elevations[^1]));
+        bool correlated = Range(0, stack.LayerCount).ForAll(layer => {
+            double ordinate = Ordinate(policy.Envelope, stack.Elevations[layer]);
+            return stack.LayerAt(layer).ForAll(chain => chain.Points.ForAll(point =>
+                Math.Abs(policy.Envelope.Local(point).Z - ordinate) <= Rhino.RhinoMath.ZeroTolerance));
+        });
         double rows = Math.Ceiling(policy.Envelope.V.Length / policy.Thresholds.CellMm);
         double columns = Math.Ceiling(policy.Envelope.U.Length / policy.Thresholds.CellMm);
         double wallRadius = Math.Ceiling(policy.Thresholds.MinWallMm / policy.Thresholds.CellMm);
@@ -360,7 +374,7 @@ public static class Audit {
         bool demand = rows is >= 1.0 and <= int.MaxValue && columns is >= 1.0 and <= int.MaxValue
             && rows * columns * stack.LayerCount * RasterWorkspace.Planes <= policy.Thresholds.CellCap;
         return (extent && correlated && demand && radii
-            ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "audit:policy-demand").ToError())).ToValidation();
+            ? Fin.Succ(unit) : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:policy-demand"))).ToValidation();
     }
 
     private static K<Validation<Error>, Unit> ProcessGate(SliceStack stack, AuditPolicy policy) {
@@ -369,21 +383,29 @@ public static class Audit {
                 policy.Process.Exists(value => value.Risk == risk && value.Layer == layer)));
         bool bounded = policy.Process.ForAll(row => row.Layer >= 0 && row.Layer < stack.LayerCount);
         return (covered && bounded
-            ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "audit:process-evidence").ToError())).ToValidation();
+            ? Fin.Succ(unit) : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:process-evidence"))).ToValidation();
     }
 
     private static K<Validation<Error>, Unit> SupportGate(SliceStack stack, AuditPolicy policy) {
         bool rows = policy.Supports.ForAll(plan => plan.PlanarRows.ForAll(layer => layer.Layer >= 0 && layer.Layer < stack.LayerCount));
-        return (rows ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "audit:support-evidence").ToError())).ToValidation();
+        return (rows ? Fin.Succ(unit) : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:support-evidence"))).ToValidation();
     }
 
-    private static Fin<Seq<Loop>> Loops(SliceStack stack, int layer, Context context, AuditEnvelope envelope) =>
+    // Occupancy classifies through the ONE `SliceRegion` NonZero topology receipt every other `SliceStack` consumer
+    // reads, so the preflight fills exactly the geometry the program it gates deposits; an even-odd parity count over
+    // raw contours calls two same-winding nested rings void where every `PolygonOp` on the corpus fills them solid.
+    private static Fin<SliceRegion> Region(SliceStack stack, int layer, Context context, AuditEnvelope envelope) =>
         stack.LayerAt(layer).Filter(static chain => chain.Closed).Map(chain => {
             Seq<Point3d> points = toSeq(chain.Points);
             Seq<Point3d> open = points.Count > 1 && points[0].EpsilonEquals(points[^1], Rhino.RhinoMath.ZeroTolerance)
                 ? points.Init : points;
             return Loop.Admit(open.Map(envelope.Local).ToArr(), true, Arr<double>(), context);
-        }).TraverseM(identity).As();
+        }).TraverseM(identity).As().Bind(static loops => SliceRegion.Of(loops));
+
+    // `AuditEnvelope.Frame` is admitted non-identity, so a kernel world elevation is not a local ordinate. Every
+    // world elevation projects here exactly once; `DemandGate` proves the projection agrees with every contour point.
+    private static double Ordinate(AuditEnvelope envelope, double worldElevation) =>
+        envelope.Local(new Point3d(0.0, 0.0, worldElevation)).Z;
 
     private static Fin<RasterGrid> Grid(AuditPolicy policy) {
         int rows = (int)Math.Ceiling(policy.Envelope.V.Length / policy.Thresholds.CellMm);
@@ -392,7 +414,7 @@ public static class Audit {
             policy.Thresholds.CellMm, rows, columns, out RasterGrid? grid);
         return error is null && grid is not null
             ? Fin.Succ(grid)
-            : Fin.Fail<RasterGrid>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "audit:grid").ToError());
+            : Fin.Fail<RasterGrid>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:grid"));
     }
 
     private static Fin<AuditReceipt> Run(AdmittedAudit admitted) {
@@ -445,7 +467,7 @@ public static class Audit {
             Cell witness = cells.Head.IfNone(default(Cell));
             return (new ComponentId(layer, group.Key), cells,
                 admitted.Policy.Envelope.World(admitted.Grid.Local(
-                    witness.Row, witness.Column, admitted.Stack.Elevations[layer])));
+                    witness.Row, witness.Column, admitted.Elevations[layer])));
         });
     }
 
@@ -456,14 +478,14 @@ public static class Audit {
         return toSeq(labels.GroupBy(static row => row.Value)).Map(group => {
             Seq<Cell> cells = Ordered(toSeq(group.Select(static row => row.Key)));
             Seq<Cell> boundary = cells.Filter(cell => OnBoundary(cell, admitted));
-            double volume = cells.Map(cell => admitted.Grid.CellAreaMm2 * LayerHeight(admitted.Stack, cell.Layer)).Sum();
+            double volume = cells.Map(cell => admitted.Grid.CellAreaMm2 * LayerHeight(admitted, cell.Layer)).Sum();
             Cell witness = boundary.Head.IfNone(cells.Head.IfNone(default(Cell)));
             Point3d at = admitted.Policy.Envelope.World(admitted.Grid.Local(
-                witness.Row, witness.Column, admitted.Stack.Elevations[witness.Layer]));
+                witness.Row, witness.Column, admitted.Elevations[witness.Layer]));
             return boundary.IsEmpty
                 ? (VoidReceipt)new VoidReceipt.Enclosed(group.Key, cells.Count, volume, at)
                 : new VoidReceipt.Escaping(group.Key, cells.Count, volume,
-                    EquivalentOpeningDiameter(boundary, admitted.Stack, admitted.Grid), at);
+                    EquivalentOpeningDiameter(boundary, admitted), at);
         });
     }
 
@@ -471,8 +493,8 @@ public static class Audit {
         cell.Layer == 0 || cell.Layer == admitted.Stack.LayerCount - 1 || cell.Row == 0 || cell.Column == 0
         || cell.Row == admitted.Grid.Rows - 1 || cell.Column == admitted.Grid.Columns - 1;
 
-    private static Seq<Cell> Ordered(Seq<Cell> cells) => cells
-        .OrderBy(static cell => cell.Layer).ThenBy(static cell => cell.Row).ThenBy(static cell => cell.Column).ToSeq();
+    private static Seq<Cell> Ordered(Seq<Cell> cells) => toSeq(cells
+        .OrderBy(static cell => cell.Layer).ThenBy(static cell => cell.Row).ThenBy(static cell => cell.Column));
 
     private static Seq<LayerMetric> Metrics(RasterWorkspace workspace, AdmittedAudit admitted) =>
         Range(0, admitted.Stack.LayerCount).Fold(
@@ -485,7 +507,7 @@ public static class Audit {
             (double unsupported, Option<Point3d> unsupportedAt) = layer == 0
                 || !admitted.Policy.Modality.Risks.Contains(AuditRisk.Support)
                 ? (0.0, Option<Point3d>.None) : Unsupported(workspace, admitted, layer);
-            double height = LayerHeight(admitted.Stack, layer);
+            double height = LayerHeight(admitted, layer);
             double mass = unsupported * height * admitted.Policy.Thresholds.MaterialDensityKgM3 / 1e9;
             Option<LayerProcessEvidence.Thermal> thermal = admitted.Policy.Process
                 .Filter(value => value is LayerProcessEvidence.Thermal row && row.LayerIndex == layer)
@@ -502,7 +524,7 @@ public static class Audit {
                 .Map(value => DirectionalExposure(solid, value.Direction, admitted.Grid))
                 .IfNone((Millimeters: 0.0, Witness: Option<(int Row, int Column)>.None));
             Option<Point3d> recoaterAt = recoatWitness.Map(cell => admitted.Policy.Envelope.World(
-                admitted.Grid.Local(cell.Row, cell.Column, admitted.Stack.Elevations[layer])));
+                admitted.Grid.Local(cell.Row, cell.Column, admitted.Elevations[layer])));
             double decay = Math.Exp(-recoatSeconds / admitted.Policy.Thresholds.CoolingTime.TotalSeconds);
             double ventilation = 1.0 + gasExposure / Math.Max(perimeter, admitted.Grid.CellMm);
             double powerDensity = energy / Math.Max(exposureSeconds, double.Epsilon)
@@ -524,7 +546,7 @@ public static class Audit {
     // no family carries its own guard and no new case can silently escape the policy.
     private static Seq<AuditDefect> Defects(RasterWorkspace workspace, AdmittedAudit admitted,
         Seq<ComponentReceipt> components, Seq<VoidReceipt> voids, Seq<LayerMetric> metrics) =>
-        Range(0, admitted.Stack.LayerCount)
+        Range(0, admitted.Stack.LayerCount).ToSeq()
             .Map(layer => (Layer: layer, Count: admitted.Stack.LayerAt(layer).Count(static chain => !chain.Closed)))
             .Filter(static row => row.Count > 0)
             .Map(static row => (AuditDefect)new AuditDefect.OpenContour(row.Layer, row.Count))
@@ -576,14 +598,14 @@ public static class Audit {
         Seq<AuditDefect> planar = toSeq(points.GroupBy(static row => row.Layer)).Bind(group => Seq(
                 (Axis: MachineAxis.X, Interval: admitted.Policy.Envelope.U),
                 (Axis: MachineAxis.Y, Interval: admitted.Policy.Envelope.V))
-            .Choose(row => toSeq(group)
-                .OrderBy(point => Clearance(point.Local, row.Axis, row.Interval)).ToSeq().Head
+            .Choose(row => toSeq(toSeq(group)
+                .OrderBy(point => Clearance(point.Local, row.Axis, row.Interval))).Head
                 .Filter(point => Clearance(point.Local, row.Axis, row.Interval) < admitted.Policy.Thresholds.BoundMarginMm)
                 .Map(point => (AuditDefect)new AuditDefect.TouchingBound(group.Key, row.Axis,
                     Clearance(point.Local, row.Axis, row.Interval), admitted.Policy.Envelope.World(point.Local)))));
         Seq<AuditDefect> growth = Seq(
-                (Extreme: points.OrderBy(static row => row.Local.Z).ToSeq().Head, Sign: 1.0, Bound: admitted.Policy.Envelope.W.Min),
-                (Extreme: points.OrderByDescending(static row => row.Local.Z).ToSeq().Head, Sign: -1.0, Bound: admitted.Policy.Envelope.W.Max))
+                (Extreme: toSeq(points.OrderBy(static row => row.Local.Z)).Head, Sign: 1.0, Bound: admitted.Policy.Envelope.W.Min),
+                (Extreme: toSeq(points.OrderByDescending(static row => row.Local.Z)).Head, Sign: -1.0, Bound: admitted.Policy.Envelope.W.Max))
             .Choose(row => row.Extreme
                 .Filter(value => row.Sign * (value.Local.Z - row.Bound) < admitted.Policy.Thresholds.BoundMarginMm)
                 .Map(value => (AuditDefect)new AuditDefect.TouchingBound(value.Layer, MachineAxis.Z,
@@ -599,7 +621,7 @@ public static class Audit {
     private static Seq<AuditDefect> ThinWalls(RasterWorkspace workspace, AdmittedAudit admitted) {
         int radius = (int)Math.Ceiling(admitted.Policy.Thresholds.MinWallMm / admitted.Grid.CellMm);
         Seq<(int Row, int Column)> directions = Range(-radius, radius * 2 + 1)
-            .Bind(row => Range(-radius, radius * 2 + 1).Map(column => (Row: row, Column: column)))
+            .Bind(row => Range(-radius, radius * 2 + 1).ToSeq().Map(column => (Row: row, Column: column)))
             .Filter(static value => (value.Column > 0 || value.Column == 0 && value.Row > 0)
                 && Coprime(Math.Abs(value.Row), Math.Abs(value.Column)));
         return Range(0, admitted.Stack.LayerCount).Bind(layer => {
@@ -622,9 +644,9 @@ public static class Audit {
             _ = graph.ConnectedComponents(labels);
             return toSeq(labels.GroupBy(static row => row.Value)).Map(group => {
                 Seq<Cell> cells = toSeq(group.Select(static row => row.Key));
-                Cell witness = cells.OrderBy(cell => candidates[cell]).ThenBy(static cell => cell.Row)
-                    .ThenBy(static cell => cell.Column).ToSeq().Head.IfNone(default(Cell));
-                Point3d local = admitted.Grid.Local(witness.Row, witness.Column, admitted.Stack.Elevations[layer]);
+                Cell witness = toSeq(cells.OrderBy(cell => candidates[cell]).ThenBy(static cell => cell.Row)
+                    .ThenBy(static cell => cell.Column)).Head.IfNone(default(Cell));
+                Point3d local = admitted.Grid.Local(witness.Row, witness.Column, admitted.Elevations[layer]);
                 return (AuditDefect)new AuditDefect.ThinWall(layer, candidates[witness], admitted.Policy.Envelope.World(local));
             });
         });
@@ -648,7 +670,7 @@ public static class Audit {
 
     private static bool ThicknessRidge(Memory2D<byte> solid, int row, int column, double thickness,
         Seq<(int Row, int Column)> directions, RasterGrid grid) =>
-        Range(-1, 3).Bind(dr => Range(-1, 3).Map(dc => (Row: row + dr, Column: column + dc)))
+        Range(-1, 3).Bind(dr => Range(-1, 3).ToSeq().Map(dc => (Row: row + dr, Column: column + dc)))
             .Filter(value => value.Row != row || value.Column != column)
             .Filter(value => !Empty(solid, value.Row, value.Column, grid))
             .ForAll(value => DirectionalThickness(solid, value.Row, value.Column, directions, grid)
@@ -672,7 +694,7 @@ public static class Audit {
         for (int row = 0; row < admitted.Grid.Rows; row++)
             for (int column = 0; column < admitted.Grid.Columns; column++)
                 if (current.Span[row, column] == 1 && reach.Span[row, column] == 0) {
-                    Point3d world = admitted.Policy.Envelope.World(admitted.Grid.Local(row, column, admitted.Stack.Elevations[layer]));
+                    Point3d world = admitted.Policy.Envelope.World(admitted.Grid.Local(row, column, admitted.Elevations[layer]));
                     bool planar = support.Exists(value => value.Sparse.Covers(world)
                         || value.Interface.Covers(world) || value.Contact.Covers(world));
                     bool tree = admitted.Policy.Supports.Exists(plan => plan.TreeNodes.Exists(node =>
@@ -699,14 +721,14 @@ public static class Audit {
 
     // One disc and one overhang radius serve lineage linking, reach rasterization, and support coverage alike.
     private static Seq<(int Row, int Column)> Disc(int radius) =>
-        Range(-radius, radius * 2 + 1).Bind(row => Range(-radius, radius * 2 + 1).Map(column => (Row: row, Column: column)))
+        Range(-radius, radius * 2 + 1).Bind(row => Range(-radius, radius * 2 + 1).ToSeq().Map(column => (Row: row, Column: column)))
             .Filter(offset => ((long)offset.Row * offset.Row) + ((long)offset.Column * offset.Column) <= (long)radius * radius);
 
     private static int OverhangRadius(AdmittedAudit admitted, int layer) =>
         (int)OverhangRadiusDemand(admitted.Stack, admitted.Policy, layer);
 
     private static double OverhangRadiusDemand(SliceStack stack, AuditPolicy policy, int layer) => Math.Ceiling(
-        LayerHeight(stack, layer) / Math.Tan(policy.Thresholds.OverhangAngleDeg * Math.PI / 180.0)
+        LayerHeight(stack, policy.Envelope, layer) / Math.Tan(policy.Thresholds.OverhangAngleDeg * Math.PI / 180.0)
         / policy.Thresholds.CellMm);
 
     private static bool BoundedRadius(double radius, int maximum) =>
@@ -778,23 +800,30 @@ public static class Audit {
         return (exposure * grid.CellMm, witness);
     }
 
-    private static double EquivalentOpeningDiameter(Seq<Cell> boundary, SliceStack stack, RasterGrid grid) {
+    private static double EquivalentOpeningDiameter(Seq<Cell> boundary, AdmittedAudit admitted) {
+        RasterGrid grid = admitted.Grid;
         double bottom = boundary.Count(static cell => cell.Layer == 0) * grid.CellAreaMm2;
-        double top = boundary.Count(cell => cell.Layer == stack.LayerCount - 1) * grid.CellAreaMm2;
+        double top = boundary.Count(cell => cell.Layer == admitted.Stack.LayerCount - 1) * grid.CellAreaMm2;
         double left = boundary.Filter(static cell => cell.Column == 0)
-            .Map(cell => grid.CellMm * LayerHeight(stack, cell.Layer)).Sum();
+            .Map(cell => grid.CellMm * LayerHeight(admitted, cell.Layer)).Sum();
         double right = boundary.Filter(cell => cell.Column == grid.Columns - 1)
-            .Map(cell => grid.CellMm * LayerHeight(stack, cell.Layer)).Sum();
+            .Map(cell => grid.CellMm * LayerHeight(admitted, cell.Layer)).Sum();
         double front = boundary.Filter(static cell => cell.Row == 0)
-            .Map(cell => grid.CellMm * LayerHeight(stack, cell.Layer)).Sum();
+            .Map(cell => grid.CellMm * LayerHeight(admitted, cell.Layer)).Sum();
         double back = boundary.Filter(cell => cell.Row == grid.Rows - 1)
-            .Map(cell => grid.CellMm * LayerHeight(stack, cell.Layer)).Sum();
+            .Map(cell => grid.CellMm * LayerHeight(admitted, cell.Layer)).Sum();
         return 2.0 * Math.Sqrt(Seq(bottom, top, left, right, front, back).Max() / Math.PI);
     }
 
-    private static double LayerHeight(SliceStack stack, int layer) => layer == 0
-        ? stack.Elevations[1] - stack.Elevations[0]
-        : stack.Elevations[layer] - stack.Elevations[layer - 1];
+    // Layer pitch is a LOCAL span, and the build frame may invert the slice direction, so the ordinate delta is
+    // signed and the pitch is its magnitude — a world elevation delta is the wrong length on any tilted frame.
+    private static double LayerHeight(AdmittedAudit admitted, int layer) => Math.Abs(layer == 0
+        ? admitted.Elevations[1] - admitted.Elevations[0]
+        : admitted.Elevations[layer] - admitted.Elevations[layer - 1]);
+
+    private static double LayerHeight(SliceStack stack, AuditEnvelope envelope, int layer) => Math.Abs(layer == 0
+        ? Ordinate(envelope, stack.Elevations[1]) - Ordinate(envelope, stack.Elevations[0])
+        : Ordinate(envelope, stack.Elevations[layer]) - Ordinate(envelope, stack.Elevations[layer - 1]));
 
     private sealed class RasterWorkspace : IDisposable {
         public const int Planes = 3;
@@ -837,9 +866,9 @@ public static class Audit {
         // projects onto the layer above, so lineage and support coverage read one plane instead of rescanning a disc.
         public void Fill(AdmittedAudit admitted) {
             for (int layer = 0; layer < layers; layer++) {
-                double elevation = admitted.Stack.Elevations[layer];
-                FillAction occupancy = new(Solid(layer), Void(layer), Index(admitted.Layers[layer], admitted.Grid, elevation),
-                    admitted.Grid, elevation);
+                double ordinate = admitted.Elevations[layer];
+                FillAction occupancy = new(Solid(layer), Void(layer), Index(admitted.Layers[layer], admitted.Grid, ordinate),
+                    admitted.Grid, ordinate);
                 ParallelHelper.For2D(0, grid.Rows, 0, grid.Columns, in occupancy, minimumActionsPerThread: 1);
             }
             for (int layer = 0; layer < layers - 1; layer++) {
@@ -848,16 +877,20 @@ public static class Audit {
             }
         }
 
-        private static Arr<Seq<(Loop Loop, double MinU, double MaxU)>> Index(
-            Seq<Loop> loops,
+        // The region's own outer/hole split carries the winding: outers count +1 and holes -1, so the row-bucketed
+        // index feeds the same NonZero rule `SliceRegion.Covers` states rather than a second occupancy law.
+        private static Arr<Seq<(Loop Loop, int Winding, double MinU, double MaxU)>> Index(
+            SliceRegion region,
             RasterGrid grid,
-            double elevation) {
-            Seq<(Loop Loop, BoundingBox Bounds)> bounded = loops.Map(loop => (loop, loop.Bound()));
-            return Range(0, grid.Rows).Map(row => {
-                double v = grid.Local(row, 0, elevation).Y;
+            double ordinate) {
+            Seq<(Loop Loop, int Winding, BoundingBox Bounds)> bounded =
+                region.Outers.Map(static loop => (Loop: loop, Winding: 1, Bounds: loop.Bound()))
+                    .Concat(region.Holes.Map(static loop => (Loop: loop, Winding: -1, Bounds: loop.Bound())));
+            return Range(0, grid.Rows).ToSeq().Map(row => {
+                double v = grid.Local(row, 0, ordinate).Y;
                 return bounded
                     .Filter(item => item.Bounds.Min.Y <= v && v <= item.Bounds.Max.Y)
-                    .Map(static item => (item.Loop, item.Bounds.Min.X, item.Bounds.Max.X));
+                    .Map(static item => (item.Loop, item.Winding, item.Bounds.Min.X, item.Bounds.Max.X));
             }).ToArr();
         }
 
@@ -871,13 +904,15 @@ public static class Audit {
     private readonly struct FillAction(
         Memory2D<byte> solid,
         Memory2D<byte> voids,
-        Arr<Seq<(Loop Loop, double MinU, double MaxU)>> index,
+        Arr<Seq<(Loop Loop, int Winding, double MinU, double MaxU)>> index,
         RasterGrid grid,
-        double elevation) : IAction2D {
+        double ordinate) : IAction2D {
         public void Invoke(int row, int column) {
-            Point3d local = grid.Local(row, column, elevation);
-            int covering = index[row].Count(item => item.MinU <= local.X && local.X <= item.MaxU && item.Loop.Covers(local));
-            if (covering % 2 == 1) solid.Span[row, column] = 1;
+            Point3d local = grid.Local(row, column, ordinate);
+            int winding = index[row]
+                .Filter(item => item.MinU <= local.X && local.X <= item.MaxU && item.Loop.Covers(local))
+                .Sum(static item => item.Winding);
+            if (winding > 0) solid.Span[row, column] = 1;
             else voids.Span[row, column] = 1;
         }
     }

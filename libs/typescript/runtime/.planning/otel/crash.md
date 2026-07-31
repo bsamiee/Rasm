@@ -20,7 +20,7 @@ Breadcrumb history attaches as replay evidence redacted at the moment of capture
 - Packages: `effect` (`Chunk`, `DateTime`, `Ref`), `@rasm/ts/core` (`Convention`), `./emit.ts` (`Redaction`).
 
 ```typescript signature
-import { Cause, Chunk, DateTime, Effect, FiberSet, Layer, Match, Metric, Option, Ref, pipe } from "effect"
+import { Array, Cause, Chunk, DateTime, Effect, FiberSet, Layer, Match, Metric, Option, Ref, pipe } from "effect"
 import { type AppIdentity, Convention, FaultCapture, FaultClass, FaultEnricher } from "@rasm/ts/core"
 import { Redaction } from "./emit.ts"
 
@@ -55,21 +55,40 @@ const _crumb = (
 - Law: the capture value is the core `FaultCapture` — `FaultClass.of` over the WHOLE `Cause` tree folds every failure and defect node through the severity lattice to the bounded class, the shaped exception seeds `tag`/`detail`, `identity.label` is the owning `surface`, and `FaultCapture.forensic` writes the exception evidence into the attribute band BEFORE the enricher round-trips the value — so the capture the enricher observes already carries the forensic triple and `error.type`, wire-grade forensics merge into the same band, and the emission spreads that band ONLY through the scrub; a new forensic axis is an `Evidence` field or an enricher band row (`Convention.rasm.crashHop` names the hop key), never an edit here.
 - Law: the fatal forensic band is scrubbed material — exception messages, stack text, and enricher-added rows are the highest-PII-risk attributes the process emits, so the emission passes `capture.attributes` through `Redaction.scrub` with the same ambient rules the breadcrumbs consumed; no crash attribute reaches a log annotation outside the shared fold, and the signal-safety ledger (`emit#REDACTION`) names this seam explicitly.
 - Law: the emission is one declaration — `Effect.logFatal` annotated with the scrubbed enriched band and the replay projection, and `Effect.annotateCurrentSpan` carrying `error.type` so the active span records the failure — the fatal log becomes an OTLP log record on the shared `Resource` through the replaced process logger, and the `Convention.metric.crashCaptured` counter tags by the same bounded class.
-- Law: classification and exception shaping are two reads of one `Cause` — `FaultClass.of(cause)` folds the tree's failure and defect nodes through the severity lattice so a parallel cause classifies by dominance, never by squash ordering; `Cause.squash` serves ONLY the free-form exception shaping (`Match.instanceOf` triage into name/message/stack), and `Cause.isInterruptedOnly` short-circuits because an interrupted fiber is not a crash; flattening to a message string upstream of the projections is the rejected fold.
+- Law: classification and exception shaping are two reads of one WHOLE `Cause`, and neither squashes it — `FaultClass.of(cause)` folds every failure and defect node through the severity lattice so a parallel cause classifies by dominance, and `Cause.prettyErrors(cause)` reifies every exception the tree carries so the evidence half is as total as the classification half. The head seeds the forensic triple and the tail lands as one `Convention.rasm.crashHop` band row naming the sibling exceptions, so two concurrently-failed fibers emit one fatal record naming both instead of one record whose peer's stack is unrecoverable from the emission. `Cause.squash` survives at exactly one seam — the empty-reification case, where a defect carrying no `Error` folds through the `Match.instanceOf` triage into name/message/stack — and `Cause.isInterruptedOnly` short-circuits because an interrupted fiber is not a crash; flattening to a message string upstream of the projections is the rejected fold.
 - Law: capture is total — its type is `Effect<void>` with no error channel; the enricher is total by contract and the ring read is infallible, so no interior step can open a fault channel on the crash path.
 - Boundary: the core `FaultEnricher`, `FaultCapture`, and `FaultClass` owners carry the enrichment contract; the serving edge's support-capture verb is this owner's standing consumer, reaching `Crash.capture` through app-root composition.
 - Entry: `Crash.capture(cause)`; `Crash.note(label, detail)`; `Crash.net(hook)` merged at the composition root; wiring is `Crash.Default(identity)` under the enricher Layer — the interchange codec's, or `FaultEnricher.identity` — with the root's `Redaction.Current` override governing both scrub seams.
 - Growth: a new evidence axis on the emission is one enricher band row; a new classification is a core row this page inherits.
-- Packages: `effect` (`Cause`, `Match`, `FiberSet`, `Metric`), `@rasm/ts/core` (`AppIdentity`, `FaultCapture`, `FaultClass`, `FaultEnricher`).
+- Packages: `effect` (`Array`, `Cause` incl. `prettyErrors`, `Match`, `FiberSet`, `Metric`), `@rasm/ts/core` (`AppIdentity`, `Convention`, `FaultCapture`, `FaultClass`, `FaultEnricher`).
 
 ```typescript signature
 const _captured = Convention.mount(Convention.metric.crashCaptured)
 
-const _shaped: (squashed: unknown) => { readonly name: string; readonly note: string; readonly stack: string } = pipe(
+const _triaged: (residue: unknown) => { readonly name: string; readonly note: string; readonly stack: string } = pipe(
   Match.type<unknown>(),
   Match.when(Match.instanceOf(Error), (fault) => ({ name: fault.name, note: fault.message, stack: fault.stack ?? "" })),
   Match.orElse((residue) => ({ name: "defect", note: String(residue), stack: "" })),
 )
+
+// `Cause.prettyErrors` reifies EVERY exception the tree carries as a `PrettyError extends Error` — name, message,
+// stack — where `Cause.squash` collapses to one dominant value and the rest are unrecoverable from the emission.
+// The head seeds the forensic triple exactly as before; the tail lands as one band row, so two concurrently-failed
+// fibers emit one fatal record naming both instead of one. `Array.head` is Option-returning, so a defect whose tree
+// reifies no exception folds through the squash triage the `Match.instanceOf(Error)`/`String(residue)` pair owns.
+const _shaped = (
+  cause: Cause.Cause<unknown>,
+): { readonly name: string; readonly note: string; readonly siblings: ReadonlyArray<string>; readonly stack: string } =>
+  pipe(Cause.prettyErrors(cause), (reified) =>
+    Option.match(Array.head(reified), {
+      onNone: () => ({ ..._triaged(Cause.squash(cause)), siblings: [] }),
+      onSome: (head) => ({
+        name: head.name,
+        note: head.message,
+        siblings: Array.map(Array.drop(reified, 1), (sibling) => `${sibling.name}: ${sibling.message}`),
+        stack: head.stack ?? "",
+      }),
+    }))
 
 class Crash extends Effect.Service<Crash>()("runtime/Crash", {
   scoped: (identity: AppIdentity) =>
@@ -82,7 +101,7 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
           Cause.isInterruptedOnly(cause)
             ? Effect.void
             : Effect.gen(function* () {
-                const shaped = _shaped(Cause.squash(cause))
+                const shaped = _shaped(cause)
                 const at = yield* DateTime.now
                 const capture = yield* enricher.enrich(
                   new FaultCapture({
@@ -97,7 +116,13 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
                     message: shaped.note,
                     stacktrace: shaped.stack === "" ? Option.none() : Option.some(shaped.stack),
                     type: shaped.name,
-                  }),
+                  }).enriched(
+                    // the sibling exceptions of a parallel cause, on the page's own growth seam: one band row rather
+                    // than a second signal, and it rides the same scrub the forensic triple does
+                    Array.isNonEmptyReadonlyArray(shaped.siblings)
+                      ? { [Convention.rasm.crashHop]: shaped.siblings.join(" | ") }
+                      : {},
+                  ),
                 )
                 const crumbs = yield* Ref.get(ring)
                 yield* Effect.annotateCurrentSpan(Convention.attr.errorType, capture.class)

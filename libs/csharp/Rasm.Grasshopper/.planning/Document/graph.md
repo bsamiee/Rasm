@@ -2,23 +2,25 @@
 
 `GraphScope` is the graph query-and-wire operator of the GH2 document boundary — ONE scope owner with two gates: `Ask` settles every read intent over the host's own `ObjectList` and `Connectivity` surfaces, and `Mutate` settles every wire and membership mutation over `Grasshopper2.Parameters.Connections`, `ObjectList`, and the `SplitWire` wireless split, each mutation sealed into the undo ledger as one act.
 
-Traversal is host-absorbed: reachability walks, cycle detection, bounded path enumeration, and causal ordering are the host's `Connectivity.FindImmediate*`/`FindAll*`/`FindConnections`/`SubsetTopology`/`IsLinear`/`SortCausally`/`WithoutRelays` and `ObjectList.SearchUpstream`/`SearchDownstream`, reached through typed rows, never re-implemented beside them. Read intent is a `GraphProbe` union settled into one `GraphAnswer` union; mutation intent is a `GraphMutation` union whose sealed arms pair the host verb with its `ActionList` record; direction, reach span, roster facet, wire-end role, and bulk-transfer kind are `[SmartEnum<int>]` row families so a new modality is a row, never a sibling method.
+Traversal is host-absorbed: reachability walks, cycle detection, bounded path enumeration, and causal ordering are the host's `Connectivity.FindImmediate*`/`FindAll*`/`FindConnections`/`SubsetTopology`/`IsLinear`/`SortCausally`/`WithoutRelays`, and spatial resolution is `ObjectList.SearchUpstream`/`SearchDownstream`/`FindNear`/`FindByInlet`/`FindByOutlet`/`FindByInletOrOutlet`, each reached through typed rows, never re-implemented beside them. Read intent is a `GraphProbe` union settled into one `GraphAnswer` union; mutation intent is a `GraphMutation` union whose sealed arms pair the host verb with its `ActionList` record; direction, reach span, roster facet, wire-end role, and bulk-transfer kind are `[SmartEnum<int>]` row families so a new modality is a row, never a sibling method.
 
 ## [01]-[INDEX]
 
-- [02]-[QUERY]: `FlowSide` + `GraphReach` + `GraphRoster` + `GraphProbe` + `GraphAnswer` — the read-intent union, the direction/reach/roster row families, and the one `Ask` gate.
-- [03]-[MUTATION]: `WireEndRole` + `WireFreight` + `GraphMutation` + `WirelessPair` + `MutationReceipt` — the wire/membership mutation union, the sealed settlement law, and the one `Mutate` gate.
+- [02]-[QUERY]: `FlowSide` + `GraphReach` + `GraphRoster` + `NearKind` + `GripSearch` + `GraphProbe` + `GraphAnswer` — the read-intent union, the direction/reach/roster/search row families, and the one `Ask` gate.
+- [03]-[MUTATION]: `WireEndRole` + `WireFreight` + `SelectionSurvey` + `GraphMutation` + `WirelessPair` + `PinRepairRow` — the wire/membership mutation union, the sealed settlement law, and the one `Mutate` gate onto `Document/document.md`'s `GateReceipt`.
 
 ## [02]-[QUERY]
 
-- Owner: `GraphProbe` `[Union]` — the one read-intent vocabulary. `ObjectCase(Guid)`/`ParameterCase(Guid)` resolve identity through `ObjectList.Find`/`FindParameter` into `Option`-carrying answers; `FlowCase(IParameter, FlowSide)` runs the transitive parameter sweep through `SearchUpstream`/`SearchDownstream` selected by the direction row; `ReachCase(ConnectiveObject, GraphReach)` runs the four `Connectivity` neighbourhood reads through one 4-row family (`ImmediateInputs`/`ImmediateOutputs`/`AllInputs`/`AllOutputs`); `EdgeCase(ConnectiveObject, ConnectiveObject)` looks up the connecting wires through `FindConnections`; `TopologyCase(Seq<IDocumentObject>)` projects the subgraph view through `SubsetTopology`; `LinearCase(Seq<ConnectiveObject>)` answers chain detection through `IsLinear` with its head/tail witnesses as `Option` values — a non-linear verdict carries no endpoints; `CausalCase(Seq<ConnectiveObject>)` orders through `SortCausally`; `RelayFreeCase(bool, bool, bool)` projects the relay-elided view through `WithoutRelays`; `RosterCase(GraphRoster)` sweeps the membership projections — `Forwards`, `Backwards`, `ActiveObjects`, `ExpiredObjects`, `Groups`, `AllWires`, `SelectedWires`, the global-pin roster, and the `AttributeBounds`/`PivotBounds` graph-envelope pair — through one 10-row family. `GraphAnswer` `[Union]` is the closed result: `ObjectCase`/`ParameterCase` (`Option` payloads), `ObjectsCase`/`NodesCase`/`PinsCase`/`GroupsCase`/`WiresCase`/`GlobalPinsCase` (`Seq` payloads), `BoundsCase` (a `RectangleF` envelope), `WebCase` (a `Connectivity` view), `LinearCase` (verdict with `Option` endpoint witnesses).
-- Entry: `GraphScope.Ask(GraphProbe probe, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GraphAnswer>` — the one read gate; identity lookup, neighbourhood reach, topology, and roster sweeps are cases, never sibling methods.
-- Law: traversal is host-absorbed — a reachability walk, cycle probe, path enumeration, or causal sort written locally beside `Connectivity` is the re-derivation defect this page kills; the kernel contributes no graph algorithm here because the host owns its own graph, and kernel graph owners serve host-neutral geometry, not the live document.
+- Owner: `GraphProbe` `[Union]` — the one read-intent vocabulary. `ObjectCase(Guid)`/`ParameterCase(Guid)` resolve identity through `ObjectList.Find`/`FindParameter` into `Option`-carrying answers; `FlowCase(IParameter, FlowSide)` runs the transitive object sweep through `SearchUpstream`/`SearchDownstream` selected by the direction row; `ReachCase(ConnectiveObject, GraphReach)` runs the four `Connectivity` neighbourhood reads through one 4-row family (`ImmediateInputs`/`ImmediateOutputs`/`AllInputs`/`AllOutputs`); `EdgeCase(ConnectiveObject, ConnectiveObject)` enumerates every causal path between the pair through `FindConnections`; `TopologyCase(Seq<IDocumentObject>)` measures the subset's topology class through `SubsetTopology`; `LinearCase(Seq<ConnectiveObject>)` answers chain detection through `IsLinear` with its head/tail witnesses as `Option` values — a non-linear verdict carries no endpoints; `CausalCase(Seq<ConnectiveObject>)` orders through `SortCausally`; `RelayFreeCase(RelayElision)` projects the relay-elided view through `WithoutRelays`, its flag set naming the relay arity each axis removes; `NearCase(PointF, int, float, NearKind)` runs the host's relevance-sorted spatial search through `FindNear<T>`, the kind row closing the type parameter; `GripCase(PointF, GripSearch)` resolves the closest inlet, outlet, or exposed grip through the three `FindBy*` finders; `RosterCase(GraphRoster)` sweeps the membership projections — `Forwards`, `Backwards`, `ActiveObjects`, `ExpiredObjects`, `Groups`, `AllWires`, `SelectedWires`, the document-level pin roster, the supported-pin id set, and the `AttributeBounds`/`PivotBounds` graph-envelope pair — through one 11-row family. `GraphAnswer` `[Union]` is the closed result: `ObjectCase`/`ParameterCase` (`Option` payloads), `ObjectsCase`/`NodesCase`/`PinsCase`/`GroupsCase`/`WiresCase`/`GlobalPinsCase`/`IdentitiesCase` (`Seq` payloads), `BoundsCase` (a `RectangleF` envelope), `WebCase` (a `Connectivity` view), `TopologyCase` (a `GraphTopology` verdict), `PathsCase` (route sequences), `LinearCase` (verdict with `Option` endpoint witnesses), `GripCase` (the exposed-grip parameter with its per-side range witnesses).
+- Entry: `GraphScope.Ask(GraphProbe probe, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GraphAnswer>` — the one read gate; identity lookup, neighbourhood reach, spatial search, topology, and roster sweeps are cases, never sibling methods.
+- Law: traversal is host-absorbed — a reachability walk, cycle probe, path enumeration, causal sort, or nearest-object scan written locally beside `Connectivity` and `ObjectList` is the re-derivation defect this page kills; the kernel contributes no graph algorithm here because the host owns its own graph, and kernel graph owners serve host-neutral geometry, not the live document.
+- Law: the spatial and grip finders live on `ObjectList`, never on `Connectivity` — `Connectivity` is the immutable connection snapshot and carries no coordinate, so a pick, hover, or drop probe reaches the object list directly and `ObjectList.Connectivity` is where the two meet.
+- Law: the grip family splits on OCCLUSION, not on side alone — `FindByInlet`/`FindByOutlet` answer the closest grip even where another object covers it (the drag-target read), while `FindByInletOrOutlet` refuses an occluded grip and reports which side fell within range (the hover read); a `null` from any of the three is absence, projected at the finder.
+- Law: `FindNear<T>` filters by type INSIDE its bounded search, so the type parameter is load-bearing — filtering a `FindNear<IDocumentObject>` result afterwards returns fewer rows than the caller asked for whenever a nearer foreign object consumed a slot; the `NearKind` rows therefore close the parameter at the row, never at the consumer.
 - Law: answers are values — an `Option`-carrying case states absence without a null, a `Seq`-carrying case is a detached immutable projection, and a `WebCase` hands the host's own `Connectivity` view for further row-driven reads; no answer carries a mutable host collection.
-- RESEARCH: `ObjectList.FindNear`/`FindByInlet`/`FindByOutlet` are catalog-unverified — the near/inlet/outlet probe cases land when the decompile confirms them; the `ObjectList.Pins` member spelling the global-pin roster row assumes, the element carriers of the roster properties, the `SortCausally`/`WithoutRelays`/`SubsetTopology`/`FindConnections` return spellings, the `WithoutRelays` flag semantics, and the `RectangleF` carrier the bounds rows assume re-verify at the same pass.
-- Boundary: window selection mutates selection state and rides `[03]`'s mutation union; whole-graph selection sweeps are `Document/document.md`'s `SelectionSweep`; wire picking, routing, and drawing are `Canvas/wires.md`'s visual owner.
-- Packages: Grasshopper2 (`ObjectList`, `Connectivity`, `ConnectiveObject`, `GroupObject`, `WireEnds`, `IParameter`, `IPin`), Eto (`RectangleF`), LanguageExt.Core, `Rasm.Domain`.
-- Growth: a new host reach is one `GraphReach` row; a new membership projection is one `GraphRoster` row; a new read intent is one `GraphProbe` case whose arm breaks the gate's total `Switch` loudly.
+- Boundary: window selection mutates selection state and rides `[03]`'s mutation union; whole-graph selection sweeps are `Document/document.md`'s `SelectionSweep`; wire picking, routing, and drawing are `Canvas/wires.md`'s visual owner, which composes `GripCase` for its own hit reads rather than re-scanning attributes.
+- Packages: Grasshopper2 (`ObjectList`, `Connectivity`, `ConnectiveObject`, `GroupObject`, `GraphTopology`, `WireEnds`, `IParameter`, `IPin`, `IDocumentObject`), Eto (`PointF`, `RectangleF`), LanguageExt.Core, `Rasm.Domain`.
+- Growth: a new host reach is one `GraphReach` row; a new membership projection is one `GraphRoster` row; a new searched type is one `NearKind` row; a new elision axis is one `RelayElision` flag; a new read intent is one `GraphProbe` case whose arm breaks the gate's total `Switch` loudly.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -42,8 +44,33 @@ public sealed partial class FlowSide {
         key: 1,
         search: static (objects, pin) => toSeq(objects.SearchDownstream(pin)),
         prune: static (pin, kept, actions) => Connections.DisconnectAllOutputsExcept(pin, kept, actions));
-    [UseDelegateFromConstructor] internal partial Seq<IParameter> Search(ObjectList objects, IParameter pin);
+    // The host sweeps OBJECTS from a parameter — the walk crosses each source parameter's owning component and
+    // continues through its far-side pins, so the sequence carries components and parameters alike, never pins alone.
+    [UseDelegateFromConstructor] internal partial Seq<IDocumentObject> Search(ObjectList objects, IParameter pin);
     [UseDelegateFromConstructor] internal partial void Prune(IParameter pin, HashSet<Guid> kept, ActionList actions);
+}
+
+[SmartEnum<int>]
+public sealed partial class NearKind {
+    public static readonly NearKind Objects = new(key: 0, find: static (objects, locus, cap, span) =>
+        new GraphAnswer.ObjectsCase(Members: toSeq(objects.FindNear<IDocumentObject>(locus, cap, span))));
+    public static readonly NearKind Groups = new(key: 1, find: static (objects, locus, cap, span) =>
+        new GraphAnswer.GroupsCase(Members: toSeq(objects.FindNear<GroupObject>(locus, cap, span))));
+    [UseDelegateFromConstructor] internal partial GraphAnswer Find(ObjectList objects, PointF locus, int cap, float span);
+}
+
+[SmartEnum<int>]
+public sealed partial class GripSearch {
+    public static readonly GripSearch Inlet = new(key: 0, probe: static (objects, at) =>
+        new GraphAnswer.ParameterCase(Pin: Optional(objects.FindByInlet(at))));
+    public static readonly GripSearch Outlet = new(key: 1, probe: static (objects, at) =>
+        new GraphAnswer.ParameterCase(Pin: Optional(objects.FindByOutlet(at))));
+    public static readonly GripSearch Exposed = new(key: 2, probe: static (objects, at) =>
+        Exposure(hit: objects.FindByInletOrOutlet(at)));
+    [UseDelegateFromConstructor] internal partial GraphAnswer Probe(ObjectList objects, PointF at);
+    private static GraphAnswer Exposure((IParameter parameter, bool inletWithinRange, bool outletWithinRange) hit) =>
+        new GraphAnswer.GripCase(
+            Pin: Optional(hit.parameter), InletInRange: hit.inletWithinRange, OutletInRange: hit.outletWithinRange);
 }
 
 [SmartEnum<int>]
@@ -65,8 +92,12 @@ public sealed partial class GraphRoster {
     public static readonly GraphRoster AllWires = new(key: 5, project: static objects => new GraphAnswer.WiresCase(Members: toSeq(objects.AllWires)));
     public static readonly GraphRoster SelectedWires = new(key: 6, project: static objects => new GraphAnswer.WiresCase(Members: toSeq(objects.SelectedWires)));
     public static readonly GraphRoster GlobalPins = new(key: 7, project: static objects => new GraphAnswer.GlobalPinsCase(Members: toSeq(objects.Pins)));
-    public static readonly GraphRoster AttributeBounds = new(key: 8, project: static objects => new GraphAnswer.BoundsCase(Envelope: objects.AttributeBounds));
-    public static readonly GraphRoster PivotBounds = new(key: 9, project: static objects => new GraphAnswer.BoundsCase(Envelope: objects.PivotBounds));
+    public static readonly GraphRoster SupportedPins = new(key: 8, project: static objects => new GraphAnswer.IdentitiesCase(Ids: toSeq(objects.SupportedPins)));
+    // `AttributeBounds` unions the laid-out attribute bounds and the wires joining them may exceed it; `PivotBounds`
+    // grows over the pivots alone, so it needs no layout pass and answers quicker at lower accuracy. Two envelopes,
+    // two questions — a single "bounds" row silently picks one for both.
+    public static readonly GraphRoster AttributeBounds = new(key: 9, project: static objects => new GraphAnswer.BoundsCase(Envelope: objects.AttributeBounds));
+    public static readonly GraphRoster PivotBounds = new(key: 10, project: static objects => new GraphAnswer.BoundsCase(Envelope: objects.PivotBounds));
     [UseDelegateFromConstructor] internal partial GraphAnswer Project(ObjectList objects);
 }
 
@@ -82,8 +113,23 @@ public abstract partial record GraphProbe {
     public sealed record TopologyCase(Seq<IDocumentObject> Subset) : GraphProbe;
     public sealed record LinearCase(Seq<ConnectiveObject> Nodes) : GraphProbe;
     public sealed record CausalCase(Seq<ConnectiveObject> Nodes) : GraphProbe;
-    public sealed record RelayFreeCase(bool KeepPins, bool KeepGroups, bool KeepDormant) : GraphProbe;
+    public sealed record RelayFreeCase(RelayElision Elide) : GraphProbe;
+    public sealed record NearCase(PointF Locus, int MaxResults, float MaxDistance, NearKind Kind) : GraphProbe;
+    public sealed record GripCase(PointF At, GripSearch Search) : GraphProbe;
     public sealed record RosterCase(GraphRoster Roster) : GraphProbe;
+}
+
+// The host names the three elision axes by the relay ARITY each removes — `dangling` (no inputs or no outputs),
+// `simple` (exactly one of each), `complex` (two or more on a side) — and each flag REMOVES when true. Three
+// positional bools at the call site carry neither the axis nor the polarity, so the vocabulary states both and
+// the fold is the only place the host's argument order is spelled.
+[Flags]
+public enum RelayElision {
+    None = 0,
+    Dangling = 1,
+    Simple = 2,
+    Complex = 4,
+    All = Dangling | Simple | Complex,
 }
 
 [Union]
@@ -97,9 +143,13 @@ public abstract partial record GraphAnswer {
     public sealed record GroupsCase(Seq<GroupObject> Members) : GraphAnswer;
     public sealed record WiresCase(Seq<WireEnds> Members) : GraphAnswer;
     public sealed record GlobalPinsCase(Seq<IPin> Members) : GraphAnswer;
+    public sealed record IdentitiesCase(Seq<Guid> Ids) : GraphAnswer;
     public sealed record BoundsCase(RectangleF Envelope) : GraphAnswer;
     public sealed record WebCase(Connectivity Web) : GraphAnswer;
+    public sealed record TopologyCase(GraphTopology Class) : GraphAnswer;
+    public sealed record PathsCase(Seq<Seq<ConnectiveObject>> Routes) : GraphAnswer;
     public sealed record LinearCase(bool Linear, Option<ConnectiveObject> Head, Option<ConnectiveObject> Tail) : GraphAnswer;
+    public sealed record GripCase(Option<IParameter> Pin, bool InletInRange, bool OutletInRange) : GraphAnswer;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -115,13 +165,20 @@ public static partial class GraphScope {
                 parameterCase: static (frame, c) => frame.Key.Catch(body: () =>
                     Fin.Succ<GraphAnswer>(new GraphAnswer.ParameterCase(Pin: Optional(frame.Objects.FindParameter(c.Id))))),
                 flowCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ<GraphAnswer>(new GraphAnswer.PinsCase(Members: c.Side.Search(objects: frame.Objects, pin: c.Pin)))),
+                    Fin.Succ<GraphAnswer>(new GraphAnswer.ObjectsCase(Members: c.Side.Search(objects: frame.Objects, pin: c.Pin)))),
                 reachCase: static (frame, c) => frame.Key.Catch(body: () =>
                     Fin.Succ<GraphAnswer>(new GraphAnswer.NodesCase(Members: c.Reach.Find(web: frame.Objects.Connectivity, node: c.Node)))),
+                // `FindConnections` enumerates every causal PATH between the pair as a node array, not the wires
+                // joining them, so the answer is a sequence of routes; a `WiresCase` here names a carrier the
+                // host never produces.
                 edgeCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ<GraphAnswer>(new GraphAnswer.WiresCase(Members: toSeq(frame.Objects.Connectivity.FindConnections(c.From, c.To))))),
+                    Fin.Succ<GraphAnswer>(new GraphAnswer.PathsCase(
+                        Routes: toSeq(frame.Objects.Connectivity.FindConnections(c.From, c.To)).Map(toSeq)))),
+                // `SubsetTopology` MEASURES the subset's topology class (empty, singleton, convex, disjoint, concave);
+                // it returns a verdict, never a `Connectivity` view — `WebCase` stays the `WithoutRelays` carrier alone.
                 topologyCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ<GraphAnswer>(new GraphAnswer.WebCase(Web: frame.Objects.Connectivity.SubsetTopology(c.Subset)))),
+                    Fin.Succ<GraphAnswer>(new GraphAnswer.TopologyCase(
+                        Class: frame.Objects.Connectivity.SubsetTopology(c.Subset)))),
                 linearCase: static (frame, c) => frame.Key.Catch(body: () => {
                     bool linear = frame.Objects.Connectivity.IsLinear(c.Nodes, out ConnectiveObject head, out ConnectiveObject tail);
                     return Fin.Succ<GraphAnswer>(new GraphAnswer.LinearCase(Linear: linear, Head: Optional(head), Tail: Optional(tail)));
@@ -129,7 +186,14 @@ public static partial class GraphScope {
                 causalCase: static (frame, c) => frame.Key.Catch(body: () =>
                     Fin.Succ<GraphAnswer>(new GraphAnswer.NodesCase(Members: toSeq(frame.Objects.Connectivity.SortCausally(c.Nodes.ToArray()))))),
                 relayFreeCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ<GraphAnswer>(new GraphAnswer.WebCase(Web: frame.Objects.Connectivity.WithoutRelays(c.KeepPins, c.KeepGroups, c.KeepDormant)))),
+                    Fin.Succ<GraphAnswer>(new GraphAnswer.WebCase(Web: frame.Objects.Connectivity.WithoutRelays(
+                        dangling: c.Elide.HasFlag(RelayElision.Dangling),
+                        simple: c.Elide.HasFlag(RelayElision.Simple),
+                        complex: c.Elide.HasFlag(RelayElision.Complex))))),
+                nearCase: static (frame, c) => frame.Key.Catch(body: () =>
+                    Fin.Succ(c.Kind.Find(objects: frame.Objects, locus: c.Locus, cap: c.MaxResults, span: c.MaxDistance))),
+                gripCase: static (frame, c) => frame.Key.Catch(body: () =>
+                    Fin.Succ(c.Search.Probe(objects: frame.Objects, at: c.At))),
                 rosterCase: static (frame, c) => frame.Key.Catch(body: () =>
                     Fin.Succ(c.Roster.Project(objects: frame.Objects))))));
     }
@@ -138,15 +202,17 @@ public static partial class GraphScope {
 
 ## [03]-[MUTATION]
 
-- Owner: `GraphMutation` `[Union]` `[GenerateUnionOps]` — the one wire-and-membership mutation vocabulary. `LinkCase(IParameter, IParameter)`/`UnlinkCase(IParameter, IParameter)` add and remove one wire through `Connections.Connect`/`Disconnect`; `PruneCase(IParameter, FlowSide, Seq<Guid>)` clears one side but a kept set through the direction row's `DisconnectAll*Except` column — an empty kept set is the full-side clear, so the bare disconnect-all verbs are the empty shape of one case; `RewireCase(WireEndRole, IParameter, IParameter, IParameter)` re-points a wire endpoint through `ReplaceSource`/`ReplaceTarget` selected by the end-role row; `BypassCase(IParameter, IParameter, IParameter)` cuts an intermediate through `CutOutMiddleMan`; `TransferCase(WireFreight, IParameter, IParameter)` hauls a whole wire set through `CopyAllInputs`/`MigrateAllOutputs` as freight rows; `SplitCase(IParameter, IParameter, string, PointF)` splits a wire into its wireless `Shout`/`Listen` pair through `DocumentMethods.SplitWire`, the pair's identities riding the receipt; `AdoptCase(IDocumentObject)` pulls a foreign object through `ObjectList.Transfer`; `RemapCase(Option<HashMap<Guid, Guid>>)` discriminates on payload shape — `None` remints every id through `ChangeAllIds`, `Some` applies the explicit map through `ApplyIdMap`; `PinCase(IPin)`/`RepairCase(PinRepair)` own global-pin membership and repair; `ExpireCase` expires the whole membership through `ExpireAll`; `WindowCase(WindowSelection, SelectionMode, bool, bool, bool)` applies rectangle selection through `WindowSelect`.
-- Entry: `GraphScope.Mutate(VerbNoun label, GraphMutation op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<MutationReceipt>` — the one mutation gate; wire arity, direction, and bulk kind are case payloads and rows, never sibling methods.
-- Law: mutation and undo are one act — every `ActionList`-bearing arm mints one list, runs its host verb, and seals through `Document/history.md`'s `HistoryLedger.Seal` under the caller's `VerbNoun`; `WindowCase`, `AdoptCase`, `RemapCase`, `PinCase`, `RepairCase`, and `ExpireCase` are the host's own unsealed membership verbs and stamp `Sealed: false`.
+- Owner: `GraphMutation` `[Union]` `[GenerateUnionOps]` — the one wire-and-membership mutation vocabulary. `LinkCase(IParameter, IParameter)`/`UnlinkCase(IParameter, IParameter)` add and remove one wire through `Connections.Connect`/`Disconnect`; `PruneCase(IParameter, FlowSide, Seq<Guid>)` clears one side but a kept set through the direction row's `DisconnectAll*Except` column — an empty kept set is the full-side clear, so the bare disconnect-all verbs are the empty shape of one case; `RewireCase(WireEndRole, IParameter, IParameter, IParameter)` re-points a wire endpoint through `ReplaceSource`/`ReplaceTarget` selected by the end-role row; `BypassCase(IParameter, IParameter, IParameter)` cuts an intermediate through `CutOutMiddleMan`; `TransferCase(WireFreight, IParameter, IParameter)` hauls a whole wire set through `CopyAllInputs`/`MigrateAllOutputs` as freight rows; `SplitCase(IParameter, IParameter, string, PointF)` splits a wire into its wireless `Shout`/`Listen` pair through `DocumentMethods.SplitWire`, the pair's identities riding the receipt; `RemapCase(Option<HashMap<Guid, Guid>>)` discriminates on payload shape — `None` remints every id through `ChangeAllIds` and answers the host's own correspondence, `Some` applies the explicit map through `ApplyIdMap`; `PinCase(IPin)`/`RepairCase(PinRepair)` own document-pin membership and repair, the repair arm surfacing the host's per-pin report; `ExpireCase` expires the whole membership through `ExpireAll`; `WindowCase(WindowSelection, SelectionMode, SelectionSurvey)` applies rectangle selection through `WindowSelect` over a named survey set.
+- Entry: `GraphScope.Mutate(VerbNoun label, GraphMutation op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GateReceipt>` — the one mutation gate; wire arity, direction, and bulk kind are case payloads and rows, never sibling methods.
+- Law: mutation and undo are one act — every `ActionList`-bearing arm mints one list, runs its host verb, and seals through `Document/history.md`'s `HistoryLedger.Seal` under the caller's `VerbNoun`, which the receipt carries as `Seal: Some(label)`; `WindowCase`, `RemapCase`, `PinCase`, `RepairCase`, and `ExpireCase` are the host's own unsealed membership verbs and settle with `Seal: None`.
 - Law: wire mutation writes through `Grasshopper2.Parameters.Connections`, and reads never mutate: a probe from `[02]` inside a mutation arm is composition, never a second traversal implementation.
-- Law: the wireless split is evidence-bearing — `SplitCase` surfaces the minted `Shout`/`Listen` instance ids as a `WirelessPair` on the receipt, so a consumer wires the listen side without re-searching the graph.
-- RESEARCH: the positional semantics of `ReplaceSource`/`ReplaceTarget`'s three-parameter shape and of `WindowSelect`'s three trailing flags re-verify at decompile; `Connections.SwapSources` and the bare `DisconnectAllInputs`/`DisconnectAllOutputs` forms are catalog-unverified — the empty-`PruneCase` shape covers the latter pair, and a swap case lands if the decompile confirms the member.
+- Law: every arm reports what the host answered — the wireless pair, the id correspondence `ChangeAllIds` returns, the admitted flag `AddGlobalPin` returns, and the `(method, pin, cushion)` rows `RepairPins` returns each land as the arm's `GateOutcome`; a void side effect over a value-returning host verb publishes a settled receipt no producer measured.
+- Law: `WindowSelect`'s `SelectionResult` stays inside the arm — it is the host's mutable pick accumulator, not a value, and the selection delta a consumer needs already arrives on `Shell/events.md`'s `GraphSelection` row, so the arm settles with `SettledCase` rather than leaking a live accumulator through the answer.
+- Law: cross-document adoption has no seam here — `ObjectList.Transfer` is the host's own private internal move, so a foreign object enters the live graph through the clipboard round-trip (`Document/document.md`'s `PasteCase`) or `MigrateObjects`, and a case naming an uncallable member is the deleted form.
+- RESEARCH: the positional semantics of `ReplaceSource`/`ReplaceTarget`'s three-parameter shape re-verify at decompile; `Connections.SwapSources` and the bare `DisconnectAllInputs`/`DisconnectAllOutputs` forms are catalog-unverified — the empty-`PruneCase` shape covers the latter pair, and a swap case lands if the decompile confirms the member. Route: `uv run python -m tools.assay api query 'Grasshopper2.Parameters.Connections' --key gh2 --full`.
 - Boundary: `Shout`/`Listen` as canvas objects — their attributes, painting, and interaction — are `Canvas/*` and `Components/objects.md` territory; this page owns only their minting at the split seam. Relay elision on reads is `[02]`'s `RelayFreeCase`.
-- Packages: Grasshopper2 (`Connections`, `ObjectList.Transfer`/`ChangeAllIds`/`ApplyIdMap`/`AddGlobalPin`/`RepairPins`/`ExpireAll`/`WindowSelect`, `DocumentMethods.SplitWire`, `Shout`, `Listen`, `PinRepair`, `WindowSelection`, `SelectionMode`), Eto (`PointF`), LanguageExt.Core, `Rasm.Domain`, `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Document/history.md` (`HistoryLedger.Seal`).
-- Growth: a new wire verb is one `GraphMutation` case; a new bulk-transfer kind is one `WireFreight` row; a new endpoint role is one `WireEndRole` row — the gate never widens.
+- Packages: Grasshopper2 (`Connections`, `ObjectList.ChangeAllIds`/`ApplyIdMap`/`AddGlobalPin`/`RepairPins`/`ExpireAll`/`WindowSelect`, `DocumentMethods.SplitWire`, `Shout`, `Listen`, `PinRepair`, `WindowSelection`, `SelectionMode`), Eto (`PointF`), LanguageExt.Core, `Rasm.Domain`, `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Document/document.md` (`GateReceipt`, `GateOutcome`), `Document/history.md` (`HistoryLedger.Seal`).
+- Growth: a new wire verb is one `GraphMutation` case; a new bulk-transfer kind is one `WireFreight` row; a new endpoint role is one `WireEndRole` row; a new survey axis is one `SelectionSurvey` flag — the gate never widens.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -180,6 +246,18 @@ public sealed partial class WireFreight {
     [UseDelegateFromConstructor] internal partial void Haul(IParameter from, IParameter to, ActionList actions);
 }
 
+// The host surveys three independent bands and INCLUDES each on true — objects drawn in front of the wires, objects
+// behind them, and the wires themselves — every parameter defaulting to true. Three positional bools carry neither
+// the band nor the polarity, so the flag set names both and the fold is the only place the argument order is spelled.
+[Flags]
+public enum SelectionSurvey {
+    None = 0,
+    Foreground = 1,
+    Background = 2,
+    Wires = 4,
+    All = Foreground | Background | Wires,
+}
+
 [Union]
 [GenerateUnionOps]
 public abstract partial record GraphMutation {
@@ -191,12 +269,11 @@ public abstract partial record GraphMutation {
     public sealed record BypassCase(IParameter Source, IParameter Middle, IParameter Target) : GraphMutation;
     public sealed record TransferCase(WireFreight Freight, IParameter From, IParameter To) : GraphMutation;
     public sealed record SplitCase(IParameter Source, IParameter Target, string Name, PointF At) : GraphMutation;
-    public sealed record AdoptCase(IDocumentObject Subject) : GraphMutation;
     public sealed record RemapCase(Option<HashMap<Guid, Guid>> Map) : GraphMutation;
     public sealed record PinCase(IPin Pin) : GraphMutation;
     public sealed record RepairCase(PinRepair Repair) : GraphMutation;
     public sealed record ExpireCase : GraphMutation;
-    public sealed record WindowCase(WindowSelection Frame, SelectionMode Mode, bool CrossWindow, bool KeepExisting, bool IncludeWires) : GraphMutation;
+    public sealed record WindowCase(WindowSelection Frame, SelectionMode Mode, SelectionSurvey Survey) : GraphMutation;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -208,24 +285,18 @@ public readonly record struct WirelessPair(Guid Shout, Guid Listen) : IValidityE
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct MutationReceipt(
-    Op Operation, string Verb, bool Sealed, Option<WirelessPair> Wireless,
-    MonotonicStamp Entered, MonotonicStamp Settled, TimeSpan Latency) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: Verb)),
-        ValidityClaim.Evidence(evidence: Entered),
-        ValidityClaim.Evidence(evidence: Settled),
-        ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
+public readonly record struct PinRepairRow(PinRepair Method, Guid Pin, Guid Cushion) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.Of(holds: Pin != Guid.Empty);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static partial class GraphScope {
-    public static Fin<MutationReceipt> Mutate(VerbNoun label, GraphMutation op, Option<HostDocument> graph = default, Op? key = null) {
+    public static Fin<GateReceipt> Mutate(VerbNoun label, GraphMutation op, Option<HostDocument> graph = default, Op? key = null) {
         Op active = key.OrDefault();
         return from valid in Optional(op).ToFin(active.InvalidInput())
                from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: active)
                from entered in timeline.Capture(key: active)
-               from outcome in DocumentScope.Resolve(graph: graph, key: active, body: document => valid.Switch(
+               from answer in DocumentScope.Resolve(graph: graph, key: active, body: document => valid.Switch(
                 state: (Key: active, Graph: document, Label: label),
                 linkCase: static (frame, c) => Sealed(frame, nameof(GraphMutation.LinkCase), actions => Connections.Connect(c.Source, c.Target, actions)),
                 unlinkCase: static (frame, c) => Sealed(frame, nameof(GraphMutation.UnlinkCase), actions => Connections.Disconnect(c.Source, c.Target, actions)),
@@ -241,58 +312,71 @@ public static partial class GraphScope {
                     ActionList actions = new();
                     frame.Graph.Methods.SplitWire(c.Source, c.Target, c.Name, c.At, out Shout shout, out Listen listen, actions);
                     return HistoryLedger.Seal(ledger: frame.Graph.Undo, actions: actions, label: frame.Label, key: frame.Key)
-                        .Map(_ => (Verb: nameof(GraphMutation.SplitCase), Sealed: true,
-                                   Wireless: Some(new WirelessPair(Shout: shout.InstanceId, Listen: listen.InstanceId))));
+                        .Map(_ => (Verb: nameof(GraphMutation.SplitCase), Seal: Some(frame.Label),
+                                   Outcome: (GateOutcome)new GateOutcome.WirelessCase(
+                                       Pair: new WirelessPair(Shout: shout.InstanceId, Listen: listen.InstanceId))));
                 }),
-                adoptCase: static (frame, c) => Free(frame.Key, nameof(GraphMutation.AdoptCase), () => frame.Graph.Objects.Transfer(c.Subject)),
                 remapCase: static (frame, c) => Free(frame.Key, nameof(GraphMutation.RemapCase), () => c.Map.Match(
-                    Some: map => frame.Graph.Objects.ApplyIdMap(map.ToDictionary()),
-                    None: () => frame.Graph.Objects.ChangeAllIds())),
-                pinCase: static (frame, c) => Free(frame.Key, nameof(GraphMutation.PinCase), () => frame.Graph.Objects.AddGlobalPin(c.Pin)),
-                repairCase: static (frame, c) => Free(frame.Key, nameof(GraphMutation.RepairCase), () => frame.Graph.Objects.RepairPins(c.Repair)),
-                expireCase: static (frame, _) => Free(frame.Key, nameof(GraphMutation.ExpireCase), () => frame.Graph.Objects.ExpireAll()),
-                windowCase: static (frame, c) => Free(frame.Key, nameof(GraphMutation.WindowCase), () =>
-                    frame.Graph.Objects.WindowSelect(c.Frame, c.Mode, c.CrossWindow, c.KeepExisting, c.IncludeWires))))
+                    Some: map => (Op.Side(action: () => frame.Graph.Objects.ApplyIdMap(map.ToDictionary())),
+                                  (GateOutcome)new GateOutcome.SettledCase()).Item2,
+                    None: () => new GateOutcome.RemapCase(Correspondence: toHashMap(
+                        frame.Graph.Objects.ChangeAllIds().Select(static row => (row.Key, row.Value)))))),
+                pinCase: static (frame, c) => Free(frame.Key, nameof(GraphMutation.PinCase),
+                    () => new GateOutcome.ChangedCase(Changed: frame.Graph.Objects.AddGlobalPin(c.Pin))),
+                repairCase: static (frame, c) => Free(frame.Key, nameof(GraphMutation.RepairCase),
+                    () => new GateOutcome.RepairCase(Rows: toSeq(frame.Graph.Objects.RepairPins(c.Repair))
+                        .Map(static row => new PinRepairRow(Method: row.method, Pin: row.pin, Cushion: row.cushion)))),
+                expireCase: static (frame, _) => Free(frame.Key, nameof(GraphMutation.ExpireCase),
+                    () => (Op.Side(action: () => frame.Graph.Objects.ExpireAll()), (GateOutcome)new GateOutcome.SettledCase()).Item2),
+                windowCase: static (frame, c) => Free(frame.Key, nameof(GraphMutation.WindowCase),
+                    () => (Op.Side(action: () => frame.Graph.Objects.WindowSelect(
+                        c.Frame,
+                        c.Mode,
+                        c.Survey.HasFlag(SelectionSurvey.Foreground),
+                        c.Survey.HasFlag(SelectionSurvey.Background),
+                        c.Survey.HasFlag(SelectionSurvey.Wires))), (GateOutcome)new GateOutcome.SettledCase()).Item2)))
                from settled in timeline.Capture(key: active)
                from latency in timeline.Elapsed(start: entered, end: settled, key: active)
-               select new MutationReceipt(
-                   Operation: active, Verb: outcome.Verb, Sealed: outcome.Sealed, Wireless: outcome.Wireless,
+               select new GateReceipt(
+                   Operation: active, Verb: answer.Verb, Seal: answer.Seal, Outcome: answer.Outcome,
                    Entered: entered, Settled: settled, Latency: latency);
     }
 
-    private static Fin<(string Verb, bool Sealed, Option<WirelessPair> Wireless)> Free(Op key, string verb, Action act) =>
-        key.Catch(body: () => Fin.Succ((Op.Side(action: act), (Verb: verb, Sealed: false, Wireless: Option<WirelessPair>.None)).Item2));
+    private static Fin<(string Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Free(Op key, string verb, Func<GateOutcome> settle) =>
+        key.Catch(body: () => Fin.Succ((Verb: verb, Seal: Option<VerbNoun>.None, Outcome: settle())));
 
-    private static Fin<(string Verb, bool Sealed, Option<WirelessPair> Wireless)> Sealed(
+    private static Fin<(string Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Sealed(
         (Op Key, HostDocument Graph, VerbNoun Label) frame, string verb, Action<ActionList> act) =>
         frame.Key.Catch(body: () => {
             ActionList actions = new();
             act(obj: actions);
             return HistoryLedger.Seal(ledger: frame.Graph.Undo, actions: actions, label: frame.Label, key: frame.Key)
-                .Map(_ => (Verb: verb, Sealed: true, Wireless: Option<WirelessPair>.None));
+                .Map(_ => (Verb: verb, Seal: Some(frame.Label), Outcome: (GateOutcome)new GateOutcome.SettledCase()));
         });
 }
 ```
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                             | [RAIL]                          | [CASES] |
-| :-----: | :------------------ | :---------------------------------- | :------------------------------ | :-----: |
-|  [01]   | flow direction      | `FlowSide`                          | `Search`/`Prune` (internal)     |    2    |
-|  [02]   | neighbourhood reach | `GraphReach`                        | `Find → Seq<ConnectiveObject>`  |    4    |
-|  [03]   | membership roster   | `GraphRoster`                       | `Project → GraphAnswer`         |   10    |
-|  [04]   | read intent         | `GraphProbe` + `GraphAnswer`        | `Ask → Fin<GraphAnswer>`        | 10 + 11 |
-|  [05]   | wire end role       | `WireEndRole` + `WireFreight`       | `Replace`/`Haul` (internal)     |  2 + 2  |
-|  [06]   | mutation intent     | `GraphMutation` + `MutationReceipt` | `Mutate → Fin<MutationReceipt>` |   13    |
+| [INDEX] | [CONCERN]           | [OWNER]                       | [RAIL]                         | [CASES] |
+| :-----: | :------------------ | :---------------------------- | :----------------------------- | :-----: |
+|  [01]   | flow direction      | `FlowSide`                    | `Search`/`Prune` (internal)    |    2    |
+|  [02]   | neighbourhood reach | `GraphReach`                  | `Find → Seq<ConnectiveObject>` |    4    |
+|  [03]   | membership roster   | `GraphRoster`                 | `Project → GraphAnswer`        |   11    |
+|  [04]   | spatial search      | `NearKind` + `GripSearch`     | `Find`/`Probe → GraphAnswer`   |  2 + 3  |
+|  [05]   | read intent         | `GraphProbe` + `GraphAnswer`  | `Ask → Fin<GraphAnswer>`       | 12 + 15 |
+|  [06]   | wire end role       | `WireEndRole` + `WireFreight` | `Replace`/`Haul` (internal)    |  2 + 2  |
+|  [07]   | mutation intent     | `GraphMutation`               | `Mutate → Fin<GateReceipt>`    |   12    |
 
 - [01]-[FLOW_DIRECTION]: `[SmartEnum<int>]` search + prune columns.
 - [02]-[NEIGHBOURHOOD_REACH]: `[SmartEnum<int>]` `Connectivity` rows.
 - [03]-[MEMBERSHIP_ROSTER]: `[SmartEnum<int>]` projection rows.
-- [04]-[READ_INTENT]: `[Union]` request → closed `[Union]` result.
-- [05]-[WIRE_END_ROLE]: `[SmartEnum<int>]` `Connections` delegate rows.
-- [06]-[MUTATION_INTENT]: `[GenerateUnionOps]` `[Union]` + sealed evidence receipt.
+- [04]-[SPATIAL_SEARCH]: `[SmartEnum<int>]` rows closing the host's type parameter and occlusion posture.
+- [05]-[READ_INTENT]: `[Union]` request → closed `[Union]` result.
+- [06]-[WIRE_END_ROLE]: `[SmartEnum<int>]` `Connections` delegate rows.
+- [07]-[MUTATION_INTENT]: `[GenerateUnionOps]` `[Union]` settling into the folder's one `GateReceipt`.
 
-`DocumentScope.Resolve`, `HistoryLedger.Seal`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; local graph algorithms have no home here — host `Connectivity`/`ObjectList`/`Connections` absorption carries every capability as the cases and rows above.
+`DocumentScope.Resolve`, `GateReceipt`, `HistoryLedger.Seal`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; local graph algorithms have no home here — host `Connectivity`/`ObjectList`/`Connections` absorption carries every capability as the cases and rows above.
 
 ## [05]-[RESEARCH]
 

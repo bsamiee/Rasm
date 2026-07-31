@@ -134,6 +134,15 @@ _STAGE: frozendict[StageKind, StageRow] = frozendict({
     StageKind.CHANNELMAP: StageRow("map={mapping}:channel_layout={layout}", frozendict({"mapping": "FL-FL|FR-FR", "layout": "stereo"})),
 })
 
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form: `Stage.__init__` and `Stage.args` index `_STAGE` by member, so an unruled `StageKind` is a runtime
+# `KeyError` at construction rather than a load-time refusal, and a new table joins the gate as one pair.
+# `_INGEST` carries NO pair by construction — its keys are numpy dtypes, an open vocabulary the encode and mix
+# arms membership-test (`dtype not in _INGEST`) before every lookup, so the closed-vocabulary law has nothing to prove.
+_COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = ((frozenset(_STAGE), frozenset(StageKind)),)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("audio tables do not cover their vocabularies")
+
 
 @dataclass(frozen=True, slots=True, init=False)
 class Stage:

@@ -1,10 +1,10 @@
 # [PERSISTENCE_QUERY_CACHE]
 
-Rasm.Persistence owns one content-addressed artifact index, model-result recency owner, buffer-contract L2 contribution, codec factory, and optional wide-column projection. `ArtifactKind` carries `CacheTier` into the AppHost runtime lane. `ModelResultIndex` closes `RecencyHorizon` and `IClock`; callers cannot replace freshness policy. `CacheL2Store` persists capped deadlines and tenant-partitioned keys. `IndexResidency` selects `MartenPg | ScyllaWideColumn` without forking admission, identity, retention, or horizon policy.
+Rasm.Persistence owns one content-addressed artifact index, model-result recency owner, buffer-contract L2 contribution, codec factory, and optional wide-column projection. The `Version/retention#RETENTION_CLASSES` `ArtifactKind` axis this index composes carries `CacheTier` into the AppHost runtime lane. `ModelResultIndex` closes `RecencyHorizon` and `IClock`; callers cannot replace freshness policy. `CacheL2Store` persists capped deadlines and tenant-partitioned keys. `IndexResidency` selects `MartenPg | ScyllaWideColumn` without forking admission, identity, retention, or horizon policy.
 
 ## [01]-[INDEX]
 
-- [02]-[ARTIFACT_BLOB_INDEX]: `ArtifactKind` axes the artifact taxonomy, `ArtifactIndexRow` admits content-keyed, and `Project` folds the source-keyed family.
+- [02]-[ARTIFACT_BLOB_INDEX]: `ArtifactIndexRow` admits content-keyed under the composed `Version/retention` asset-class axis, and `Project` folds the source-keyed family.
 - [03]-[MODEL_RESULT_INDEX]: `ModelResultKey` keys each call, `ModelResultIndex` owns the content-addressed recency/dedup horizon with its gate folded into the lookup, and the lookup/publish seam carries reuse.
 - [04]-[BENCHMARK_INDEX]: `BenchmarkFamily` rosters the standing corpus, `BenchmarkRow` carries the durable claim, and `Claim` resolves fingerprint-gated and recency-bounded.
 - [05]-[L2_CONTRIBUTION]: `IBufferDistributedCache` stores the `Store`-keyed buffer contract, one `IHybridCacheSerializerFactory` mints the MessagePack codec, `TenantId` partitions the content-address key the AppHost cache port resolves over, and `CacheLane.Store` gates the Redis invalidation backplane beside it.
@@ -12,13 +12,13 @@ Rasm.Persistence owns one content-addressed artifact index, model-result recency
 
 ## [02]-[ARTIFACT_BLOB_INDEX]
 
-- Owner: `ArtifactKind` is the artifact taxonomy carrying each kind's `RetentionClass` and Persistence-owned `CacheTier`; `ArtifactIndexRow` is the content-keyed residence index, and `Admit` is its sole factory.
-- Cases: each artifact family is one `ArtifactKind` row carrying its retention class and lane; a family whose retention DERIVES from provenance is two rows with the one selector that reads the discriminant off the producer's own value and returns the row beside the origin key `Admit` records — `Texture(Option<UInt128> planKey)` resolves `TextureSet` (press-baked, `Cache`, rebuildable from its recorded graph/plan/seed triple) or `TextureAcquired` (neural-acquired, `Blob`, durable because a retired model card and a drifted execution provider make the bytes unreproducible), never a caller-supplied origin flag and never the same key read twice.
+- Owner: `ArtifactIndexRow` is the content-keyed residence index, and `Admit` is its sole factory; the asset-class axis it keys on is the `Version/retention#RETENTION_CLASSES` `ArtifactKind` this index COMPOSES, seated there beside the `RetentionClass` it derives because the object-plane catalog reads the same axis one stratum below and a taxonomy two peers reach seats at the lowest stratum either reaches — an index-local kind roster is the deleted fork.
+- Cases: each artifact family is one composed `ArtifactKind` row carrying its retention class and lane; a family whose retention DERIVES from provenance is two rows with the one selector that reads the discriminant off the producer's own value and returns the row beside the origin key `Admit` records — `Texture(Option<UInt128> planKey)` resolves `TextureSet` (press-baked, `Cache`, rebuildable from its recorded graph/plan/seed triple) or `TextureAcquired` (neural-acquired, `Blob`, durable because a retired model card and a drifted execution provider make the bytes unreproducible), and `Representation(RepresentationSlot slot, Option<UInt128> bodyKey)` resolves the lossless authority against its derived projections, never a caller-supplied origin flag and never the same key read twice.
 - Entry: `Admit(ArtifactKind, string, ReadOnlySpan<byte>, DataClassification, Instant, Option<UInt128>)` requires an explicit source-key decision, content-addresses the admitted bytes through `ContentAddress.Of`, and derives `RetentionClass` from `ArtifactKind`; `Project` folds rows into source-keyed families.
 - Auto: `Admit` is the single content-addressing path — the `ContentAddress` is the seam `ContentAddress.Of(bytes)` over the artifact bytes (the suite hash law, never a path- or filename-keyed identity and never a second hasher), the byte size records from the admitted span's length (never a later filesystem stat), and a self-keyed artifact carries `None` source while a derived artifact (a GLB tessellated from a source IFC) threads the source IFC's content key as `Some` so the two-projection family stays joined; the source key is the KERNEL seed-zero key over the source bytes (the `Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE` mints it tolerance-independently), NEVER a policy-seeded interchange-cache key, so the GLB and the semantic graph share one origin even across tessellation settings; `Project` groups by `SourceKey.IfNone(Content)` so a self-keyed row projects under its own content and a source-keyed family under its shared origin; a `cloud-run` row keys by `CloudRunKey.Content` — the LENGTH-FRAMED `(recipe digest · input-asset content keys · project slug)` preimage folded through the seam `ContentAddress.Of`, exactly the `Query/lane#ELEMENT_SET_ALGEBRA` `Canonical` framing law, so a re-submitted byte-identical recipe+inputs resolves the SAME row and the prior run's landed assets serve without a cloud round-trip (the SDK's own reuse — `Helper.CheckCached` path-existence, `Wrapper.LocalDatabase` bare SQLite — is verifiably weaker and SUPERSEDED; the run's output-asset bytes travel the `Store/blobstore` presigned-grant row, lineage the `Version/provenance` PROV rows, and no `PollinationSDK` type crosses into this index); the retention class and lane arrive settled from the `ArtifactKind` row so the artifact admits into the `Version/retention#RETENTION_CLASSES` class without a second taxonomy and reads its cache lane without a second routing axis.
 - Receipt: an artifact admission rides `store.cache.artifact` carrying the kind, content key, and byte size; the actual blob write rides the `Store/blobstore#OBJECT_STORE` `store.blob.write` and the index row references that residence by content key, never duplicating the byte transfer.
 - Packages: Rasm.Element (`Projection/address#CONTENT_ADDRESS` `ContentAddress.Of`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new artifact family is one `ArtifactKind` row carrying its retention class and lane, and a family whose retention derives from provenance is two rows with one static selector reading the discriminant off a value the producer already holds and handing back the row beside the origin key that value also is; a new index column is one field on `ArtifactIndexRow`; zero new surface — a per-kind row type, a second content-key hash, a path-keyed identity, a `string` retention column beside the typed `RetentionClass`, an origin flag beside the value that already discriminates, or a managed copy of the blob bytes beside the index is the deleted form because the kind axis is the discriminant and the object store owns residence.
+- Growth: a new artifact family is one `ArtifactKind` row AT ITS OWNER (`Version/retention#RETENTION_CLASSES`) and zero edits here; a new index column is one field on `ArtifactIndexRow`; zero new surface — a per-kind row type, an index-local kind roster, a second content-key hash, a path-keyed identity, a `string` retention column beside the typed `RetentionClass`, an origin flag beside the value that already discriminates, or a managed copy of the blob bytes beside the index is the deleted form because the kind axis is the discriminant, its owner is one stratum below, and the object store owns residence.
 - Boundary: the index row is content-keyed by the same `XxHash128` the kernel mints and the `Store/blobstore#OBJECT_STORE` object name derives from, so the artifact index, the blob residence, and the retention catalog share ONE identity scheme and the index never mints a second; the row references the blob by content key and the `Store/blobstore` lane writes the bytes write-blob-first, so a crash leaves a collectible orphan blob the `Version/retention#SWEEP_AND_GC` reachability mark reaps, never a dangling index row; every `Blob` retention row registers full-history-reachable so an artifact a historical AS-OF cut or physical/compliance lineage references survives, while every `Cache` retention row is receipted-evict and re-derivable; each kind carries its `CacheTier`, and the AppHost projects that settled tier to the runtime L1/L2 lane — `ArtifactBlob` disables local caching for large payloads while `ModelResult` admits small receipts — without a second kind roster or per-call branch (`#L2_CONTRIBUTION`); the upstream `Rasm.Compute` lanes compose the `ArtifactKind` constants as settled vocabulary (`onnx-profile` from the inference profiling run, `ep-context` from the session warm-start/fleet compile, `interchange` from the codec content-addressing through `ArtifactIndexRow.Admit`) and a Compute-side artifact owner beside this index is the named drift defect; the texture-plane families reach this index through `ArtifactKind.Texture` alone — the producer hands the press plan key it holds ONCE and the selector answers both the row and the `SourceKey` the admission records, so an acquired set can never enter under the rebuildable class and be swept away as re-derivable, a press family always projects under the plan that rebuilds it, and a durable acquisition survives exactly because the model card that produced it does not; classification arrives settled so an unstamped artifact rejects at retention admission identically to an over-ceiling one because absence of evidence is not clearance.
 
 ```csharp signature
@@ -79,65 +79,6 @@ public readonly partial struct CachePageSize {
     }
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class CacheTier {
-    public static readonly CacheTier ModelResult = new("model-result");
-    public static readonly CacheTier ArtifactBlob = new("artifact-blob");
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ArtifactKind {
-    public static readonly ArtifactKind Interchange = new("interchange", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind EpContext = new("ep-context", RetentionClass.Cache, CacheTier.ModelResult);
-    public static readonly ArtifactKind OnnxProfile = new("onnx-profile", RetentionClass.Cache, CacheTier.ModelResult);
-    public static readonly ArtifactKind IfcSemantic = new("ifc-semantic", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind ChunkContent = new("chunk-content", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind CloudRun = new("cloud-run", RetentionClass.Cache, CacheTier.ModelResult);
-    public static readonly ArtifactKind Assessment = new("assessment", RetentionClass.Cache, CacheTier.ModelResult);
-    // Texture-plane families: retention derives from PROVENANCE, so the concept is two rows and the producer
-    // never hand-picks one. A PRESS-BAKED set rebuilds exactly from the (graph key, plan key, seed) triple its
-    // own press receipt records, so it is Cache — re-derivable at compute cost. A NEURAL-ACQUIRED set cannot:
-    // its model card retires, its execution provider drifts, and re-running the stage reproduces different
-    // bytes, so cache-classing it is evidence loss and the row is Blob. Both take the ArtifactBlob lane because
-    // a plane pyramid is exactly the oversized payload that must never pin L1.
-    public static readonly ArtifactKind TextureSet = new("texture-set", RetentionClass.Cache, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind TextureAcquired = new("texture-acquired", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    // Fabrication egress families: keys mirror the Rasm.Fabrication EgressKind rows verbatim; federation is
-    // content-key-only — no Fabrication type crosses this page.
-    public static readonly ArtifactKind CutProgram = new("cutprogram", RetentionClass.Cache, CacheTier.ModelResult);
-    public static readonly ArtifactKind Placement = new("placement", RetentionClass.Cache, CacheTier.ModelResult);
-    public static readonly ArtifactKind Remnant = new("remnant", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind Cli = new("cli", RetentionClass.Cache, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind ThreeMf = new("threemf", RetentionClass.Cache, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind Nc1 = new("nc1", RetentionClass.Cache, CacheTier.ModelResult);
-    public static readonly ArtifactKind StockSnapshot = new("stock-snapshot", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind Traveler = new("traveler", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind DigitalProductPassport = new("digital-product-passport", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind FlatPattern = new("flat-pattern", RetentionClass.Cache, CacheTier.ModelResult);
-    public static readonly ArtifactKind BendProgram = new("bend-program", RetentionClass.Cache, CacheTier.ModelResult);
-    public static readonly ArtifactKind WeldPlan = new("weld-plan", RetentionClass.Cache, CacheTier.ModelResult);
-    public static readonly ArtifactKind ScanVectors = new("scan-vectors", RetentionClass.Cache, CacheTier.ArtifactBlob);
-    public static readonly ArtifactKind Plan = new("plan", RetentionClass.Cache, CacheTier.ModelResult);
-
-    public RetentionClass Retention { get; }
-    public CacheTier Tier { get; }
-    private ArtifactKind(string key, RetentionClass retention, CacheTier tier) : this(key) => (Retention, Tier) = (retention, tier);
-
-    // Provenance-derived texture-set admission: the press PLAN key is present exactly when a press baked the
-    // planes and absent on an acquired set, so the discriminant is recoverable from the value the producer
-    // already holds and no origin flag rides beside it. A caller naming the row directly can pair acquired bytes
-    // with a rebuildable class, which the retention sweep then evicts — the one selector forecloses it.
-    // One plan key projects BOTH the class discriminant AND the origin `Admit` records, so the selector hands
-    // back that SOURCE KEY beside the row: a `TextureSet` row can never claim rebuildability while its own
-    // index carries no origin, and `Project` can never strand a press family under per-set content keys.
-    // Reading the key twice at a call site is exactly the divergence one return forecloses.
-    public static (ArtifactKind Kind, Option<UInt128> Source) Texture(Option<UInt128> planKey) =>
-        (planKey.IsSome ? TextureSet : TextureAcquired, planKey);
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
 
 // `ResultFingerprint` length-frames recipe strings, input count, and fixed-width kernel keys.
@@ -185,14 +126,14 @@ public sealed record ArtifactIndexRow(
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                | [BINDING]                                                 |
-| :-----: | :---------------- | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | content-key name  | kernel `XxHash128` over the bytes      | shared with blob residence + retention; never a second id |
-|  [02]   | kind taxonomy     | one `ArtifactKind` row per family      | carries typed `RetentionClass` + `CacheTier`              |
-|  [03]   | residence owner   | `Store/blobstore#OBJECT_STORE`         | the index references by content key; never the bytes      |
-|  [04]   | source projection | `Project` groups by kernel `SourceKey` | GLB + IFC-semantic of one source stay one family          |
-|  [05]   | cloud-run reuse   | `CloudRunKey` length-framed fold       | identical recipe+inputs resolve prior assets              |
-|  [06]   | texture retention | `ArtifactKind.Texture(planKey)`        | one key answers the class AND the recorded `SourceKey`    |
+| [INDEX] | [POLICY]          | [VALUE]                                     | [BINDING]                                                 |
+| :-----: | :---------------- | :------------------------------------------ | :-------------------------------------------------------- |
+|  [01]   | content-key name  | kernel `XxHash128` over the bytes           | shared with blob residence + retention; never a second id |
+|  [02]   | kind taxonomy     | composed `Version/retention` `ArtifactKind` | one axis; the store catalog reads it one stratum below    |
+|  [03]   | residence owner   | `Store/blobstore#OBJECT_STORE`              | the index references by content key; never the bytes      |
+|  [04]   | source projection | `Project` groups by kernel `SourceKey`      | GLB + IFC-semantic of one source stay one family          |
+|  [05]   | cloud-run reuse   | `CloudRunKey` length-framed fold            | identical recipe+inputs resolve prior assets              |
+|  [06]   | texture retention | `ArtifactKind.Texture(planKey)`             | one key answers the class AND the recorded `SourceKey`    |
 
 ## [03]-[MODEL_RESULT_INDEX]
 

@@ -6,25 +6,26 @@ One fault-combining fold carries the suite — `reliability/faults#FAULT` `trave
 
 ## [01]-[INDEX]
 
-- [02]-[SEED_REPRODUCTION]: `_CORPUS` fixtures grade through the `ParityAspect` vocabulary over one accumulate fold, every `KeyView` member proven.
+- [02]-[SEED_REPRODUCTION]: `_CORPUS` fixtures grade through the `ParityAspect` vocabulary over one accumulate fold behind the `claimed` fmt census, every `KeyView` member proven.
 
 ## [02]-[SEED_REPRODUCTION]
 
-- Owner: `_CORPUS` transcribes the `tests/contracts/MANIFEST.md` ledger, one row per entry whose manifest consumers name this suite — `name` the entry's seam, `kind` its class, `state` its pin, `source` the anchor that freezes the reference: the one producer of a `domain` entry, this branch's own minter of an `infrastructure` entry every branch mints from its own inputs. `real` transcribes the frozen reference verbatim; `design_pin` carries `Nothing` and no rows until its source freezes the preimage. `FrozenReference.fmt` IS the producing wire `fmt` tag rather than the seam, so a fmt drift fails the hex row instead of passing silently. `key_identity` grades the whole `ContentKey` by structural equality, so the `fmt` threading and the `byte_length` ledger ride the parity fold — evidence no scalar view reaches.
+- Owner: `_CORPUS` transcribes the `tests/contracts/MANIFEST.md` ledger, one row per entry whose manifest consumers name this suite — `name` the entry's seam, `kind` its class, `state` its pin, `source` the anchor that freezes the reference: the one producer of a `domain` entry, this branch's own minter of an `infrastructure` entry every branch mints from its own inputs. `real` transcribes the frozen reference verbatim; `design_pin` carries `Nothing` and no rows until its source freezes the preimage. `fmt` is a column on EVERY row, pending included — the producing wire tag rather than the seam name, so a fmt drift fails the hex row instead of passing silently, and the census reaches the tags no freeze has handed over yet. `key_identity` grades the whole `ContentKey` by structural equality, so the `fmt` threading and the `byte_length` ledger ride the parity fold — evidence no scalar view reaches.
+- Law: `claimed` is the fmt census `grade` binds through, so a corpus whose tags cannot resolve grades no row at all: each declared tag admits against the identity owner's own `KEY_FMT` grammar and resolves to exactly one producing fixture, accumulating so one bad row never hides another. Both halves matter on a mostly-unfrozen corpus — an unlawful tag would otherwise refuse at the derivation its freeze eventually runs, long after the row landed, and two rows claiming one tag would collapse two producers' evidence onto one key while the parity fold read the collision as agreement.
 - Auto: `xxhash` returns the digest as a Python `int` whose `to_bytes(16, "little")` IS the C# `UInt128` in-memory layout `BinaryPrimitives.WriteUInt128LittleEndian` writes, so value-equality holds with no byte-swap when both sides read seed zero. Seed zero is the `docs/laws/patterns.md` `[CONTENT_KEY]` law each branch mints its own entry under, never a peer-supplied seed — the settings-folded `ContentIdentity.seed` governs the re-tessellation cache identity alone. `MESH_ADJACENCY_GOLDEN` proves digest value, `fmt` threading, LE layout, and the byte-length ledger off one frozen literal pair; `MATERIAL_LAYER_GOLDEN` is the corpus's one carrier for the `CanonicalWriter` `Double`/`Measure` float canon an integer-topology stream cannot reach, grading once its producer freezes the reference and its rows land.
-- Growth: a new parity aspect is one `ParityAspect` member with one `ParityRow` on the owning fixture; a manifest entry newly naming this suite one `_CORPUS` row; a pending fixture graduates by one `Some(FrozenReference(...))`, its rows, and the `state="real"` flip, zero new method; a sibling-authored corpus (data's icechunk snapshot-seed fixtures, compute's canonical array bytes) is the `corpus` constructor argument over the same exported row types, never a second suite; a new derivation modality is one `FixturePayload` member only when `IdentitySource` itself grows one.
-- Boundary: the reference is read-only — a Python-fabricated byte set for an unfrozen row is the one forbidden authorship, a `domain` row decodes its producer's semantics and never re-derives them, and an `infrastructure` row grades this branch's own mint against the vector every branch reproduces. Pending rows graduate at the anchor their `source` names; the harness driver feeding payloads and grading rows is a `python:testing` consumer of this same corpus, never a second fixture store here.
+- Growth: a new parity aspect is one `ParityAspect` member with one `ParityRow` on the owning fixture; a manifest entry newly naming this suite one `_CORPUS` row carrying its producing tag, which the census admits with no second declaration; a pending fixture graduates by one `Some(FrozenReference(...))`, its rows, and the `state="real"` flip, zero new method; a sibling-authored corpus (data's icechunk snapshot-seed fixtures, compute's canonical array bytes) is the `corpus` constructor argument over the same exported row types, never a second suite; a new derivation modality is one `FixturePayload` member only when `IdentitySource` itself grows one.
+- Boundary: the reference is read-only — a Python-fabricated byte set for an unfrozen row is the one forbidden authorship, a `domain` row decodes its producer's semantics and never re-derives them, and an `infrastructure` row grades this branch's own mint against the vector every branch reproduces. The grammar is the identity owner's and is read here, never re-spelled — a second pattern beside `KEY_FMT` would let the census admit a tag the derivation refuses. Pending rows graduate at the anchor their `source` names; the harness driver feeding payloads and grading rows is a `tests/contracts` consumer of this same corpus, never a second fixture store here.
 
 ```python signature
 from collections.abc import Iterable
 from typing import Final, Literal
 
-from expression import Nothing, Option, Some, identity
-from expression.collections import Block
+from expression import Error, Nothing, Ok, Option, Some, identity
+from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.runtime.faults import Disposition, RuntimeRail, traversed
-from rasm.runtime.identity import ContentIdentity, ContentKey, KeyRender, KeyView
+from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, traversed
+from rasm.runtime.identity import KEY_FMT, ContentIdentity, ContentKey, KeyRender, KeyView
 from rasm.runtime.receipts import Receipt
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -80,15 +81,21 @@ class ParityRow(Struct, frozen=True, gc=False):
 
 
 class FrozenReference(Struct, frozen=True, gc=False):
-    fmt: str
+    # the producer-frozen bytes alone: `fmt` moved up to the fixture, because a PENDING row has no reference yet and
+    # its producing wire tag is exactly what the census must see before the freeze lands.
     payload: FixturePayload
 
 
 class CorpusFixture(Struct, frozen=True):
+    # `fmt` is a first-class column on EVERY row, pending included, so the census reads the producing wire tag a
+    # fixture will key under rather than only the tags a freeze already handed over — the reach a `FrozenReference`-only
+    # spelling could never have, since it proves nothing about the rows that have not frozen. One declaration serves
+    # both readers: `_claimed` admits it against the identity grammar and `grade` derives the key under it.
     name: str
     kind: FixtureClass
     state: FixtureState
     source: str
+    fmt: str
     reference: Option[FrozenReference]
     rows: Block[ParityRow]
 
@@ -96,13 +103,17 @@ class CorpusFixture(Struct, frozen=True):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
-    # CANONICAL_BYTE_IDENTITY — the framing and seed law itself, minted here from this branch's own canonical writer; it grades
-    # once that minter freezes a payload-agnostic framed preimage, since every vector on disk carries a domain payload.
+    # CANONICAL_BYTE_IDENTITY — the framing and seed law itself, minted here from this branch's own canonical writer.
+    # The MINTER now exists: `IdentitySource.parts` folds the count frame plus a per-field little-endian u64 length,
+    # so a payload-agnostic framed preimage is derivable rather than hypothetical. What still withholds the freeze is
+    # the CROSS-BRANCH half an infrastructure row means — every branch reproduces this vector from its own inputs, so
+    # the reference freezes when the peer writers agree on the same frame widths, never when one branch mints first.
     CorpusFixture(
         name="content-identity",
         kind="infrastructure",
         state="design_pin",
         source="python:runtime/evidence/identity#IDENTITY",
+        fmt="content-identity",
         reference=Nothing,
         rows=Block.empty(),
     ),
@@ -113,7 +124,8 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         kind="domain",
         state="real",
         source="csharp:Rasm/Spatial/reconciliation#RECONCILIATION_BRIDGE",
-        reference=Some(FrozenReference(fmt=MESH_FMT, payload=MESH_STREAM)),
+        fmt=MESH_FMT,
+        reference=Some(FrozenReference(payload=MESH_STREAM)),
         rows=Block.of_seq((
             ParityRow(aspect="value_identity", view="digest", expected=MESH_DIGEST),
             ParityRow(aspect="hex_identity", view="hex", expected=MESH_HEX),
@@ -132,6 +144,7 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         kind="domain",
         state="design_pin",
         source="csharp:Rasm.Element/Projection/address#CONTENT_ADDRESS",
+        fmt="material-layer",
         reference=Nothing,
         rows=Block.empty(),
     ),
@@ -142,6 +155,7 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         kind="infrastructure",
         state="design_pin",
         source="python:runtime/transport/shapes#VOCABULARY",
+        fmt="fault-triple",
         reference=Nothing,
         rows=Block.empty(),
     ),
@@ -151,7 +165,8 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         name="crdt-op-set",
         kind="infrastructure",
         state="design_pin",
-        source="python:runtime/transport/wire#CRDT_DECODE",
+        source="python:runtime/transport/wire#CRDT_STATE",
+        fmt="crdt-op",
         reference=Nothing,
         rows=Block.empty(),
     ),
@@ -161,6 +176,7 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         kind="infrastructure",
         state="design_pin",
         source="python:runtime/clock/clock#CLOCK",
+        fmt="hlc-stamp",
         reference=Nothing,
         rows=Block.empty(),
     ),
@@ -171,6 +187,7 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         kind="domain",
         state="design_pin",
         source="csharp:Rasm.Compute/Runtime/codecs#TILE_PARTITION",
+        fmt="glb",
         reference=Nothing,
         rows=Block.empty(),
     ),
@@ -182,15 +199,36 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
 class SeedReproduction(Struct, frozen=True):
     corpus: Block[CorpusFixture] = _CORPUS
 
+    def claimed(self) -> RuntimeRail[Map[str, str]]:
+        # the fmt census, accumulating so one bad row never hides another: every declared tag admits against the
+        # identity owner's own `KEY_FMT` grammar and resolves to exactly ONE producing fixture. Both halves are
+        # load-bearing on a corpus whose rows mostly have not frozen — an unlawful tag would refuse at the derivation
+        # the freeze eventually runs, long after the row landed, and two rows claiming one tag would collapse two
+        # producers' evidence onto one key with the parity fold reading the collision as agreement. Reading the
+        # DECLARED column rather than a frozen reference is what gives the census its reach: it grades the tags no
+        # freeze has handed over yet, which is every pending row.
+        rails = self.corpus.map(
+            lambda fixture: Ok((fixture.fmt, fixture.source))
+            if KEY_FMT.fullmatch(fixture.fmt) is not None
+            else Error(BoundaryFault(config=(f"corpus.{fixture.name}", f"{fixture.fmt!r} breaches {KEY_FMT.pattern}")))
+        )
+        return traversed(rails, by=Disposition.ACCUMULATE).bind(
+            lambda pairs: Ok(Map.of_seq(pairs))
+            if len(Map.of_seq(pairs)) == len(pairs)
+            else Error(BoundaryFault(config=("corpus.fmt", "two fixtures claim one producing tag")))
+        )
+
     def grade(self) -> RuntimeRail[Block[ParityReceipt]]:
+        # the census gates the fold, so a corpus whose tags cannot resolve never grades a single row: a graded pass
+        # over an unlawful or doubly-claimed namespace reports agreement about a key nothing can join on.
         rails = self.corpus.choose(
             lambda fixture: fixture.reference.map(
-                lambda frozen: ContentIdentity.of(frozen.fmt, frozen.payload, seed=Some(0)).map(
+                lambda frozen: ContentIdentity.of(fixture.fmt, frozen.payload, seed=Some(0)).map(
                     lambda key: fixture.rows.map(lambda row: row.grade(fixture.name, key))
                 )
             )
         )
-        return traversed(rails, by=Disposition.ACCUMULATE).map(lambda graded: graded.collect(identity))
+        return self.claimed().bind(lambda _tags: traversed(rails, by=Disposition.ACCUMULATE).map(lambda graded: graded.collect(identity)))
 
     def contribute(self) -> Iterable[Receipt]:
         # both arms are Receipt-typed, satisfying `Result.merge`; each pending fixture mints one `planned` obligation keyed

@@ -2,7 +2,7 @@
 
 One validated-numerics owner producing certified enclosures over a layered floor ladder: `IntervalNumerics` evaluates an interval extension over a box, certifies that an enclosure contains a target, refines an enclosure by bisection toward a width tolerance, and isolates certified polynomial roots, every operation one tag on one `IntervalOp` dispatch. Its receipt names which `Floor` certified an enclosure and how tight the ball is — Arb and mpmath certify, the numpy grid is a sound-but-uncertified band — so rigor is first-class evidence, never a bare boolean.
 
-`run` rides the hub `evidence_run` weave under the `compute.interval` scope row, and `graduates` feeds the solver-axis projection on `solvers/receipt#RECEIPT` with the `(ledger, ceiling, key)` triple projected from its own `Certificate`. Identity is op-owned: `identity_buffer` folds the extension key, bounds, target, and every yield-changing knob through runtime `ContentIdentity`, and a box admitting from a `numerics/array#PAYLOAD` payload keys through the same seed.
+`run` rides the hub `evidence_run` weave under the `EvidenceScope.INTERVAL` scope row and `graduates` feeds the solver-axis projection on `solvers/receipt#RECEIPT` with the `(ledger, ceiling, key)` triple projected from its own `Certificate`, both threading the caller's composition `ScopeKey` so an embedded composition's lifecycle and admission facts key to it. Identity is op-owned: `identity_buffer` folds the extension key, bounds, target, and every yield-changing knob through runtime `ContentIdentity`, and a box admitting from a `numerics/array#PAYLOAD` payload keys through the same seed.
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,10 @@ One validated-numerics owner producing certified enclosures over a layered floor
 
 - Owner: `IntervalNumerics` — every certified operation is one `IntervalOp` tag over one `_dispatch` fold, never a parallel rigorous-arithmetic surface or a per-tag evaluator family; `_dispatch` returns the honest `Yield` union its arms produce, and `IntervalReceipt.of` folds that union total, so no phantom output type parameter rides the carrier.
 - Cases: `Refine` carries the real extension so the refined half stays certified by the floor that produced it, never re-rounded through an identity placeholder, and a `Roots`-isolated enclosure feeds straight back as a refine target; `Certify` only narrows — a failed containment refutes the certificate and a refuted Arb enclosure stays first-class evidence of the failed claim.
-- Receipt: a `Roots` tuple reports its widest (loosest-certified) member beside the root count, and an empty isolation is a vacuous certified row rather than a missing receipt; `span_facts` and the receipt facts share one projection so the OTLP attribute set never forks from the receipt.
-- Growth: a new certified operation is one `IntervalOp` case, one `_dispatch` arm, and its `identity_buffer` arm; a new floor is one `Floor` member, one `_FLOOR_LADDER` row, and one `Certificate` arm; a new relational op is one `Interval` method.
+- Ladder: the rung name and the importable module are two columns, not one — the Arb rung is reached through the `flint` module, so probing the rung's own spelling answers absent on every host, silently degrades every `Evaluate`/`Refine` to the mpmath rung, and leaves the receipt reporting a rung the ladder never ran. `FloorRow.module` is the sole probe target and the unconditional numpy floor earns its row by that same presence read, never by a per-rung short-circuit; the direct-`flint` root isolator is a distinct need (the arb root isolator specifically, not the ladder's tightest rung) and stays outside the fold.
+- Receipt: a `Roots` tuple reports its widest (loosest-certified) member beside the root count; an empty isolation is a vacuous certified row rather than a missing receipt, its rung read off the ladder's resolved row and its emptiness carried as the receipt's own `vacuous` predicate. `span_facts`, the receipt facts, and the graduation ledger all read that one projection, so the OTLP attribute set, the emitted evidence, and the admission bar never fork.
+- Vacuity: `certified` over an empty root set holds by vacuous truth, which is sound on the receipt rail and worthless as outward proof — so `vacuous` is a governed ceiling bar beside `refuted` and `width`, and an isolation that enclosed nothing is a ceiling REJECTION rather than a crossing whose `{refuted: 0.0, width: 0.0}` ledger clears every other bar.
+- Growth: a new certified operation is one `IntervalOp` case, one `_dispatch` arm, and its `identity_buffer` arm; a new floor is one `Floor` member, one `_FLOOR_LADDER` row carrying its module column, and one `Certificate` arm; a new admission bar is one `_CEILING` row and one `span_facts` slot the ledger already reads; a new relational op is one `Interval` method.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -31,7 +33,7 @@ from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, ev
 from rasm.compute.solvers.receipt import graduate
 from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
 
 # --- [TYPES] -------------------------------------------------------------------------------
@@ -44,7 +46,9 @@ type Yield = Enclosure | tuple[Enclosure, ...]  # Evaluate/Certify/Refine -> one
 
 
 class Floor(StrEnum):
-    # closed certified-arithmetic ladder, tightest first; the enum value names the rung the `Certificate` carries.
+    # closed certified-arithmetic ladder, tightest first; the enum value names the RUNG the `Certificate` carries and
+    # nothing else — the importable module backing each rung is its `FloorRow.module` column, because the Arb rung is
+    # reached through the `flint` distribution and probing the rung name would answer `None` for every host.
     ARB = "arb"
     MPMATH = "mpmath"
     NUMPY = "numpy"
@@ -167,7 +171,9 @@ class IntervalReceipt(Struct, frozen=True):
         # an `Enclosure` `Struct` is not a `Sequence`, so the single-enclosure ops fall to the capture arm, never matched as `[*roots]`.
         match yielded:
             case [] | ():
-                return IntervalReceipt(op, Floor.ARB, 0.0, 0, certified=True, roots=0, content_key=key)
+                # empty isolation carries no enclosure to read a rung off, so the rung is the LADDER's resolved row —
+                # naming a fixed `Floor.ARB` here reports a rung the host may never have been able to select.
+                return IntervalReceipt(op, _resolve_floor().floor, 0.0, 0, certified=True, roots=0, content_key=key)
             case [*roots]:
                 widest = max(roots, key=lambda e: e.width)
                 cert = widest.certificate
@@ -177,9 +183,23 @@ class IntervalReceipt(Struct, frozen=True):
                 return IntervalReceipt(op, cert.floor, enclosure.width, cert.accuracy_bits, cert.certified, 1, key)
 
     @property
+    def vacuous(self) -> bool:
+        # an isolation that enclosed NOTHING: `certified` holds by vacuous truth over an empty root set, so the row is
+        # sound as receipt evidence and empty as proof. The predicate lives here so the span attributes, the receipt
+        # facts, and the graduation ledger all read one answer rather than three re-derivations of the same test.
+        return self.op == "roots" and self.roots == 0
+
+    @property
     def span_facts(self) -> dict[str, object]:
         # `content_key` hex rides the receipt facts only, not the OTLP attribute set.
-        return {"floor": self.floor.value, "width": self.width, "accuracy_bits": self.accuracy_bits, "certified": self.certified, "roots": self.roots}
+        return {
+            "floor": self.floor.value,
+            "width": self.width,
+            "accuracy_bits": self.accuracy_bits,
+            "certified": self.certified,
+            "vacuous": self.vacuous,
+            "roots": self.roots,
+        }
 
     def contribute(self) -> Iterable[Receipt]:
         facts: dict[str, object] = {**self.span_facts, "content_key": self.content_key.project("hex")}
@@ -254,11 +274,13 @@ class IntervalOp:
 # --- [TABLES] ------------------------------------------------------------------------------
 
 
-# ladder is data, not control flow: each row binds a `Floor` to its evaluator behind the gated import, and `_resolve_floor`
-# keeps the tightest importable row through one first-available fold — never stacked `try/except ImportError: pass` blocks.
+# ladder is data, not control flow: each row binds a `Floor` to its evaluator and to the module whose presence admits the
+# rung, and `_resolve_floor` keeps the tightest importable row through one first-available fold — never stacked
+# `try/except ImportError: pass` blocks.
 class FloorRow(Struct, frozen=True):
     floor: Floor
     evaluate: Callable[[Expr, Interval, int], Enclosure]
+    module: str  # the importable distribution module the row's evaluator imports — the ONE name the presence probe reads
 
 
 def _arb_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
@@ -292,23 +314,26 @@ def _numpy_evaluate(expr: Expr, box: Interval, _precision: int) -> Enclosure:
     return Enclosure(interval, Certificate(Floor.NUMPY))
 
 
+# the Arb rung imports `flint` (the `python-flint` distribution's module), never a module named for the rung, so the
+# module column and the rung name diverge by construction and the probe reads the column alone.
 _FLOOR_LADDER: Map[Floor, FloorRow] = Map.of_seq([
-    (Floor.ARB, FloorRow(Floor.ARB, _arb_evaluate)),
-    (Floor.MPMATH, FloorRow(Floor.MPMATH, _mpmath_evaluate)),
-    (Floor.NUMPY, FloorRow(Floor.NUMPY, _numpy_evaluate)),
+    (Floor.ARB, FloorRow(Floor.ARB, _arb_evaluate, "flint")),
+    (Floor.MPMATH, FloorRow(Floor.MPMATH, _mpmath_evaluate, "mpmath")),
+    (Floor.NUMPY, FloorRow(Floor.NUMPY, _numpy_evaluate, "numpy")),
 ])
 
 
-def _importable(floor: Floor) -> bool:
+def _importable(row: FloorRow) -> bool:
     from importlib.util import find_spec
 
-    # package is present, so the ladder fold reads availability without importing the heavy extension.
-    return floor is Floor.NUMPY or find_spec(floor.value) is not None
+    # row's own module column is the probe target, so the ladder fold reads availability without importing the heavy
+    # extension and without a per-rung short-circuit: the unconditional numpy floor is admitted by its own presence.
+    return find_spec(row.module) is not None
 
 
 def _resolve_floor() -> FloorRow:
     rows = Block.of_seq(_FLOOR_LADDER.values())
-    return rows.choose(lambda row: Some(row) if _importable(row.floor) else Nothing).try_head().default_value(_FLOOR_LADDER[Floor.NUMPY])
+    return rows.choose(lambda row: Some(row) if _importable(row) else Nothing).try_head().default_value(_FLOOR_LADDER[Floor.NUMPY])
 
 
 # --- [ENCLOSURE_FOLD] ----------------------------------------------------------------------
@@ -369,21 +394,26 @@ def _report(op: IntervalOp, precision: int) -> IntervalReceipt:
 
 # --- [ENTRY] -------------------------------------------------------------------------------
 
-# interval family's default graduation ceiling; a certified enclosure admits zero refutation and a finite width bound.
-_CEILING: Final[Map[str, float]] = Map.of_seq([("refuted", 0.0), ("width", 1e-6)])
+# interval family's default graduation ceiling: a certified enclosure admits zero refutation, a finite width bound, and
+# zero vacuity — the third bar is what keeps a vacuously-certified empty isolation from clearing the first two on a
+# `{refuted: 0.0, width: 0.0}` ledger and crossing the hub as certified evidence carrying nothing.
+_CEILING: Final[Map[str, float]] = Map.of_seq([("refuted", 0.0), ("width", 1e-6), ("vacuous", 0.0)])
 
 
 class IntervalNumerics:
     @staticmethod
-    def run(op: IntervalOp, *, precision: int = 128) -> RuntimeRail[IntervalReceipt]:
+    def run(op: IntervalOp, *, precision: int = 128, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[IntervalReceipt]:
         facts = {"op": op.tag, "precision": precision}
-        return evidence_run(EvidenceScope.INTERVAL, f"interval.{op.tag}", lambda: _report(op, precision), facts=facts)
+        return evidence_run(EvidenceScope.INTERVAL, f"interval.{op.tag}", lambda: _report(op, precision), facts=facts, composition=composition)
 
     @staticmethod
-    def graduates(receipt: IntervalReceipt, subject: str = "interval-certificate") -> "RuntimeRail[GraduationReceipt]":
-        # family ceiling row governs; a caller's tighter row overrides at the hub.
-        ledger = {"refuted": 0.0 if receipt.certified else 1.0, "width": float(receipt.width)}
-        return graduate(EvidenceScope.INTERVAL.value, subject, receipt.content_key, ledger, dict(_CEILING.items()))
+    def graduates(
+        receipt: IntervalReceipt, subject: str = "interval-certificate", *, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> "RuntimeRail[GraduationReceipt]":
+        # family ceiling row governs; a caller's tighter row overrides at the hub. Every bar reads the receipt's own
+        # projection, so the ledger states exactly what the span already reported.
+        ledger = {"refuted": 0.0 if receipt.certified else 1.0, "width": float(receipt.width), "vacuous": float(receipt.vacuous)}
+        return graduate(EvidenceScope.INTERVAL.value, subject, receipt.content_key, ledger, dict(_CEILING.items()), composition=composition)
 ```
 
 ## [03]-[RESEARCH]

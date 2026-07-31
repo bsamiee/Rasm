@@ -12,7 +12,7 @@ Authoring is DATA over the closed grammar: a `SchematicSpec` carries `SymbolRow`
 
 - Owner: `Schematic` the one producer `(spec, theme, mode, lane)` — it resolves the spec case onto the schemdraw canvas in a single authoring fold, renders once through the standalone SVG backend, and mints one receipt; the element vocabulary is the provider's closed catalog addressed by NAME (`elements.Resistor`, `flow.Decision`, `dsp.Adc`, `logic.Nand` resolve by row string), so a new symbol is a data row, never a method.
 - Cases: `SchematicSpec` closes the domain union — `circuit`/`flow`/`dsp` each a `SymbolRow` tuple authored by relative anchor chains, `logic` a boolean expression `parsing.logicparse` lays out via its Buchheim tree (never the corpus routing engine), `kmap`/`truth_table`/`timing`/`bitfield` the data-driven owners from dict payloads — one total `match` closed by `assert_never`. `SymbolRow` is the whole placement grammar as data: `at` names a prior row's anchor (`"U1.out"`), `anchor` seats one of the row's own anchors, `tox`/`toy` stretch a two-terminal element coordinate-free to another anchor's axis, `theta` overrides the cardinal `direction`, `flip`/`reverse`/`scale` mirror and size, `dot`/`idot` add connection dots, `pins` builds an `Ic`/`Multiplexer` from `PinRow`s, and `style` is the closed `DiagramStyle` member `Theme.diagram_ink(mode, style)` resolves.
-- Entry: `emit()` returns ONE `ArtifactWork` keyed PRE-RUN through `ContentIdentity.key` over the length-framed canonical spec⊕theme⊕mode chunks, so `receipt.slot == node.key` and keyed elision holds; `_emit` authors, renders, and mints `ArtifactReceipt.Diagram(key, kind, nodes, edges, "schemdraw", bytes)` — `nodes` the placed-element tally, `edges` the anchored-connection tally (default chains, `at=` anchors, and `tox`/`toy` stretches; provider-authored logic networks count their materialized wire elements), `bytes` the emitted SVG length.
+- Entry: `emit()` returns ONE `ArtifactWork` keyed PRE-RUN through `ContentIdentity.key` over the canonical field set the runtime `IdentitySource.parts` fold frames at its one owner (each field length-prefixed under a framed count, so no re-partition of the same bytes collides) — spec⊕theme⊕mode, so `receipt.slot == node.key` and keyed elision holds; `_emit` authors, renders, and mints `ArtifactReceipt.Diagram(key, kind, nodes, edges, "schemdraw", bytes)` — `nodes` the placed-element tally, `edges` the anchored-connection tally (default chains, `at=` anchors, and `tox`/`toy` stretches; provider-authored logic networks count their materialized wire elements), `bytes` the emitted SVG length.
 - Auto: the authoring+render fold offloads through `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING))` because the subinterpreter cannot load schemdraw's `ziafont`/`ziamath` render path; `use('svg')` + `svgconfig.text = 'path'` set ONCE at the rail boundary through the cached `_svg_backend` gate, never re-assigned per render. Admission errors land together in `SchematicFault.admission`; a pin-mismatched constructor or unsupported verb lands `element`; an unresolved provider anchor lands `anchor`; `logicparse` or a malformed structured payload lands `parse`; a backend refusal lands `render`; any remaining provider construction refusal lands `provider`. `BoundaryFault.boundary` closes the interior rail at the runtime seam.
 - Growth: a new symbol is one row (the registry resolves the provider catalog by name); a new domain one `SchematicSpec` case plus one authoring arm; a new placement verb one `SymbolRow` field mapped to one fluent call; a new aesthetic axis one theme diagram row; zero new surface for a new consumer.
 - Boundary: no generic graph layout or routing (`visualization/diagram/layout#LAYOUT`'s engines), no seven-mark rendering (`visualization/diagram/draw#DRAW`'s), no custom `Segment*`/`ElementCompound` geometry (`drawing/symbol#SYMBOL`'s), no rasterization or matplotlib backend (the standalone SVG backend is the egress), no receipt or identity beyond the runtime mint; hand-emitted SVG, imperative consumer canvas code, a parallel symbol vocabulary, an unconstructed fault case, and a subinterpreter offload of the ziafont-bound kernel are the rejected forms.
@@ -21,7 +21,7 @@ Authoring is DATA over the closed grammar: a `SchematicSpec` carries `SymbolRow`
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Mapping
 from enum import StrEnum
-from functools import cache
+from functools import cache, partial
 from math import isfinite
 from typing import Literal, assert_never
 
@@ -33,7 +33,7 @@ from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.layer import EDITORIAL, LayerContent, LayerIntent, LayerMeta, LayerNode, LayerPlan
 from rasm.artifacts.graphic.style import DiagramStyle, Theme, ThemeMode
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -128,12 +128,14 @@ class Schematic(Struct, frozen=True):
     mode: ThemeMode = ThemeMode.LIGHT
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
+        # ONE mint per node, captured into the closure: `_seed` canonically re-encodes the whole spec and `_key`
+        # opens a `content.derive` span, so the node and its receipt must not each pay it.
+        key = self._key
+        return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _seed(self) -> tuple[bytes, ...]:
-        # length-framed canonical preimage chunks (patterns rows [05]/[06]); the lane is execution policy, outside the preimage.
-        framed = lambda chunk: len(chunk).to_bytes(8, "little") + chunk
+        # RAW semantic fields; `IdentitySource.parts` owns the framing. The lane is execution policy, outside the preimage.
         match self.spec:
             case (
                 SchematicSpec(tag="circuit", circuit=rows)
@@ -154,17 +156,19 @@ class Schematic(Struct, frozen=True):
                 assert_never(unreachable)
         # theme identity enters as the content-addressed fingerprint over every render-affecting field — two themes
         # sharing one display key never collide, and a styling edit re-keys the diagram.
-        return (framed(self.spec.tag.encode()), framed(body), framed(self.theme.fingerprint.encode()), framed(self.mode.value.encode()))
+        return (self.spec.tag.encode(), body, self.theme.fingerprint.encode(), self.mode.value.encode())
 
     @property
     def _key(self) -> ContentKey:
         # PRE-RUN key over the canonical input; receipt.slot == node.key.
-        return ContentIdentity.key("schematic", self._seed)
+        # `parts`, never a bare tuple: an `Iterable[bytes]` lifts to `stream`, which concatenates chunk bytes with
+        # no delimiter — right for buffer chunks of ONE payload, wrong for N semantic fields whose boundary IS meaning.
+        return ContentIdentity.key("schematic", IdentitySource(parts=self._seed))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         drawn = await self.lane.offload(Kernel.of(self._render, KernelTrait.RELEASING))
         return drawn.bind(
-            lambda inner: inner.map(lambda r: ArtifactReceipt.Diagram(self._key, r[1].value, r[2], r[3], "schemdraw", len(r[0]))).map_error(
+            lambda inner: inner.map(lambda r: ArtifactReceipt.Diagram(key, r[1].value, r[2], r[3], "schemdraw", len(r[0]))).map_error(
                 lambda fault: BoundaryFault(boundary=("diagram.schematic", fault.tag))
             )
         )
@@ -273,6 +277,8 @@ class Schematic(Struct, frozen=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
 def _anchored(placed: dict[str, object], address: str, /) -> Result[object, SchematicFault]:
     # "<ref>.<anchor>" -> the placed element's anchor value; a missing ref or anchor is the typed refusal, never an AttributeError.
     ref, _, anchor = address.partition(".")

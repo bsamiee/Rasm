@@ -122,9 +122,9 @@ public abstract partial record GestureRequest {
 ## [03]-[PROJECTION_AND_STACK]
 
 - Owner: `ProjectionChange` `[Union]` owns parallel, perspective, two-point, reflected, lens, lock, defined, and isometric changes. `FrustumForm`, `ProjectionLock`, and `CPlaneProjectionPolicy` carry host Boolean columns as named policy rows. `StackVerb` owns view-projection and construction-plane stack transitions.
-- Law: the two-point change reuses the live camera up when it is valid and falls to `Vector3d.Zero` (the host's re-derive sentinel) otherwise, and the perspective target distance is `Option<double>` lowered to `RhinoMath.UnsetValue` at the call — absence stays typed until the host edge.
+- Law: the two-point change reuses the live camera up when it is valid and falls to `Vector3d.Zero` (the host's re-derive sentinel) otherwise, and BOTH perspective rows carry `Option<double> TargetDistance` lowered to `RhinoMath.UnsetValue` at the call — the host member takes the same argument on each, so absence stays typed until the host edge and no caller loses a distance the perspective sibling accepts.
 - Law: `IsometricCase` and `DefinedCase` are the Rhino 9 axonometric seam — `SetProjection(projection:, viewName:, updateConstructionPlane:)` — carried as first-class rows so an iso/axon view is a request value, never a command-script fallback.
-- Boundary: `PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` both at the stack boundary and when the popped projection equals the current one — a benign no-op, never a failure — so the stack rows swallow the `bool` and the receipt's unchanged `ChangeCounter` pair is the no-move evidence; the stack depth is host state this rail never mirrors.
+- Boundary: `PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` both at the stack boundary and when the popped projection equals the current one — a benign no-op, never a failure — so the stack rows swallow the `bool` and the receipt's unchanged `ChangeCounter` pair is the no-move evidence; the stack depth is host state this rail never mirrors. Swallowing the verdict never means leaving the funnel: every stack arm still runs inside `Op.Catch`, so a host throw rides the rail the arm's own `Fin<Unit>` promises.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ public abstract partial record ProjectionChange {
     private ProjectionChange() { }
     public sealed record ParallelCase(FrustumForm Frustum) : ProjectionChange;
     public sealed record PerspectiveCase(Option<double> TargetDistance, FrustumForm Frustum, double LensLength) : ProjectionChange;
-    public sealed record TwoPointCase(double LensLength) : ProjectionChange;
+    public sealed record TwoPointCase(Option<double> TargetDistance, double LensLength) : ProjectionChange;
     public sealed record ReflectedCase : ProjectionChange;
     public sealed record LensCase(LensAngle Angle) : ProjectionChange;
     public sealed record LockCase(ProjectionLock State) : ProjectionChange;
@@ -151,13 +151,13 @@ public abstract partial record ProjectionChange {
             twoPointCase: static (ctx, change) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToTwoPointPerspectiveProjection(
                 lensLength: change.LensLength,
                 up: ctx.Viewport.CameraUp.IsValid && !ctx.Viewport.CameraUp.IsTiny() ? ctx.Viewport.CameraUp : Vector3d.Zero,
-                targetDistance: RhinoMath.UnsetValue)),
+                targetDistance: change.TargetDistance.IfNone(RhinoMath.UnsetValue))),
             reflectedCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToParallelReflectedProjection()),
             lensCase: static (ctx, change) => ctx.Op.Catch(() => {
                 ctx.Viewport.CameraAngle = (double)change.Angle;
                 return Fin.Succ(value: unit);
             }),
-            lockCase: static (ctx, change) => Fin.Succ(value: Op.Side(() => ctx.Viewport.LockedProjection = change.State.IsLocked)),
+            lockCase: static (ctx, change) => ctx.Op.Catch(() => ctx.Viewport.LockedProjection = change.State.IsLocked),
             definedCase: static (ctx, change) => ctx.Op.Confirm(
                 success: ctx.Viewport.SetProjection(projection: change.Projection, viewName: change.ViewName, updateConstructionPlane: change.CPlane.ShouldUpdate)),
             isometricCase: static (ctx, change) => ctx.Op.Confirm(
@@ -196,16 +196,18 @@ public abstract partial record StackVerb {
     public sealed record CPlanePop : StackVerb;
     public sealed record SetCPlane(Plane Plane) : StackVerb;
 
+    // Every arm crosses `ctx.Op.Catch`: a benign `false` is swallowed as stack evidence, but a host throw is a fault this
+    // method's own `Fin<Unit>` must carry — a bare `Fin.Succ(Op.Side(...))` arm lets it escape the whole operation rail.
     internal Fin<Unit> Apply(RhinoViewport viewport, Op key) =>
         Switch(
             (Viewport: viewport, Op: key),
-            viewPush: static (ctx, _) => Fin.Succ(value: Op.Side(ctx.Viewport.PushViewProjection)),
-            viewPop: static (ctx, _) => Fin.Succ(value: ignore(ctx.Viewport.PopViewProjection())),
-            viewNext: static (ctx, _) => Fin.Succ(value: ignore(ctx.Viewport.NextViewProjection())),
-            viewPrevious: static (ctx, _) => Fin.Succ(value: ignore(ctx.Viewport.PreviousViewProjection())),
-            cPlanePush: static (ctx, verb) => Fin.Succ(value: Op.Side(() => ctx.Viewport.PushConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane }))),
-            cPlanePop: static (ctx, _) => Fin.Succ(value: ignore(ctx.Viewport.PopConstructionPlane())),
-            setCPlane: static (ctx, verb) => Fin.Succ(value: Op.Side(() => ctx.Viewport.SetConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane }))));
+            viewPush: static (ctx, _) => ctx.Op.Catch(ctx.Viewport.PushViewProjection),
+            viewPop: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(value: ignore(ctx.Viewport.PopViewProjection()))),
+            viewNext: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(value: ignore(ctx.Viewport.NextViewProjection()))),
+            viewPrevious: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(value: ignore(ctx.Viewport.PreviousViewProjection()))),
+            cPlanePush: static (ctx, verb) => ctx.Op.Catch(() => ctx.Viewport.PushConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane })),
+            cPlanePop: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(value: ignore(ctx.Viewport.PopConstructionPlane()))),
+            setCPlane: static (ctx, verb) => ctx.Op.Catch(() => ctx.Viewport.SetConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane })));
 }
 ```
 
@@ -438,7 +440,7 @@ public sealed partial class RestoreScope {
 - Law: `Cameras.Compile(CameraPose, CameraPose, Context, Option<MotionInterpolation>, Op?)` admits both stored poses through the camera owner's outer storage seam and mints one `CameraTrack`; absent interpolation selects `MotionInterpolation.Slerp`. `CameraTrack.Sample(UnitInterval)` composes `VectorIntent.Pose`, interpolates target and lens, and retains the single admitted projection. `MotionPump.Drive` samples the track and calls `Cameras.Apply` for every emitted frame, so a motion operation never collapses to its terminal pose.
 - Law: `ConventionCase` carries the kernel `ViewPose` — the `Rasm.Drawing` `ViewConvention.Pose` derivation over a subject bounds and a convention row — and this arm only lowers it: seat the pose, apply the row's projection intent, `ZoomBoundingBox` the subject; the six census recipes with their inline multipliers are dead.
 - Growth: a new camera capability is one `CameraOp` case plus one arm — the generated `Switch` breaks every dispatch site; a new gesture, pace, projection, or clip modality is one row on its section owner with zero rail change.
-- Boundary: every host mutation rides the lease's command-thread landing; a background caller pays one marshal per static `Apply` and one per paced frame, while no native handle leaves the rail.
+- Boundary: every host mutation rides the lease's command-thread landing, so a background caller pays one marshal per static `Apply` while a paced frame pays none — every `FrameClock` row ticks on the command thread already, and both `HostThread.Run` and the session demand take their inline branch there — which is also why the pump gate is never held across a blocking host wait. No native handle leaves the rail.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -508,6 +510,8 @@ public sealed record CameraTrack {
 
 [ValueObject<double>]
 public readonly partial struct FramePadding {
+    // Framing padding is a declared convention, not a derivation: the host publishes no framing margin, so breathing
+    // room around a zoomed subject — a fraction of the subject's own diagonal — states once here and overrides per call.
     public static FramePadding Default { get; } = Create(value: 0.05);
 
     [BoundaryAdapter]
@@ -551,7 +555,8 @@ public abstract partial record CameraOp {
                    perspectiveCase: static (inner, row) => guard(row.Frustum is not null, inner.InvalidInput()).ToFin()
                        .Bind(_ => inner.Positive(value: row.LensLength))
                        .Bind(_ => row.TargetDistance.Traverse(value => inner.Positive(value: value)).As()).Map(static _ => unit),
-                   twoPointCase: static (inner, row) => inner.Positive(value: row.LensLength).Map(static _ => unit),
+                   twoPointCase: static (inner, row) => inner.Positive(value: row.LensLength)
+                       .Bind(_ => row.TargetDistance.Traverse(value => inner.Positive(value: value)).As()).Map(static _ => unit),
                    reflectedCase: static (_, _) => Fin.Succ(unit),
                    lensCase: static (inner, row) => inner.AcceptValidated<LensAngle>(candidate: (double)row.Angle).Map(static _ => unit),
                    lockCase: static (inner, row) => guard(row.State is not null, inner.InvalidInput()).ToFin(),
@@ -728,9 +733,11 @@ public static class Cameras {
                     })
                     select Seq<Guid>(),
                 motionCase: static (ctx, _) => Fin.Fail<Seq<Guid>>(ctx.Op.InvalidResult()))
+            // Commit evidence rides `Op.Confirm` like every other host `bool` on this page; discarding it lets a
+            // refused detail commit return a receipt reporting the operation applied.
             from committed in row.Detail.Match(
                 Some: detail => plan.Details.Enabled
-                    ? key.Catch(() => Fin.Succ(value: ignore(detail.CommitViewportChanges())))
+                    ? key.Catch(() => key.Confirm(success: detail.CommitViewportChanges()))
                     : Fin.Succ(value: unit),
                 None: () => Fin.Succ(value: unit))
             from _ in Fin.Succ(value: plan.Redraw.PerRow(view: row.View))
@@ -750,12 +757,8 @@ public static class Cameras {
             script: motion.Script,
             target: plan.Redraw.Landing(target: target),
             provider: motion.Provider,
-            apply: sample => sample.Switch(
-                    (Track: motion.Track, Op: key),
-                    easedCase: static (ctx, frame) => ctx.Op.AcceptValidated<UnitInterval>(candidate: (double)frame.Value)
-                        .Bind(progress => ctx.Track.Sample(progress: progress, key: ctx.Op)),
-                    sprungCase: static (ctx, frame) => ctx.Op.AcceptValidated<UnitInterval>(candidate: frame.State.Position)
-                        .Bind(progress => ctx.Track.Sample(progress: progress, key: ctx.Op)))
+            apply: sample => Progressed(sample: sample, key: key)
+                .Bind(progress => motion.Track.Sample(progress: progress, key: key))
                 .Bind(pose => CameraOp.Pose(pose: pose, key: key)
                     .Bind(operation => Apply(
                         session: session,
@@ -769,6 +772,18 @@ public static class Cameras {
             key: key)
         select (CameraReceipt)new CameraReceipt.MotionCase(Drive: drive, Redrew: plan.Redraw);
 
+    // Producing law preserves every finite easing result, overshoot included, so the bounded consumer projects at its
+    // own boundary: a back or elastic curve leaves the unit interval by design and every spring overshoots before it
+    // settles. Admitting the raw sample instead fails `UnitInterval`, lands on the tick rail's terminal fold, and ends
+    // drive mid-animation on exactly the curves the overshoot guarantee exists to serve.
+    private static Fin<UnitInterval> Progressed(MotionSample sample, Op key) =>
+        key.AcceptValidated<UnitInterval>(candidate: double.Clamp(
+            sample.Switch(
+                easedCase: static frame => (double)frame.Value,
+                sprungCase: static frame => frame.State.Position),
+            0.0,
+            1.0));
+
     private static Fin<Seq<Guid>> Seated(CameraPose pose, RhinoViewport viewport, Op key) =>
         from _ in guard(pose.Projection.Accepts(viewport: viewport), key.InvalidInput()).ToFin()
         from seated in key.Catch(() => {
@@ -781,7 +796,7 @@ public static class Cameras {
         intent.Switch(
             parallel: static () => (ProjectionChange)new ProjectionChange.ParallelCase(Frustum: FrustumForm.Symmetric),
             perspective: () => new ProjectionChange.PerspectiveCase(TargetDistance: Option<double>.None, Frustum: FrustumForm.Symmetric, LensLength: lens),
-            twoPoint: () => new ProjectionChange.TwoPointCase(LensLength: lens),
+            twoPoint: () => new ProjectionChange.TwoPointCase(TargetDistance: Option<double>.None, LensLength: lens),
             parallelReflected: static () => new ProjectionChange.ReflectedCase());
 }
 ```
@@ -795,6 +810,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Rhino camera operation rail
+    accDescr: Consumers issuing camera operations into one apply rail that borrows a viewport lease on the command thread, drafting poses and kernel motion samples entering as intent, and the rail landing gesture, projection, stack, named, and clip rows onto the host viewport, the detail view, and one policy redraw before returning a receipt.
     Consumer["command / panel / GH2 node"] -->|CameraOp| Rail["Cameras.Apply"]
     Rail -->|ViewportTarget| Lease["ViewportLease — camera.md scope"]
     Rail -->|one command-thread borrow| Host["ViewportLease.UseAll"]

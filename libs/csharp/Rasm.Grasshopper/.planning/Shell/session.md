@@ -126,7 +126,9 @@ public sealed record SessionReceipt : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Evidence(evidence: Entered),
         ValidityClaim.Evidence(evidence: Acknowledged),
-        ValidityClaim.Of(holds: Order < 0),
+        // Non-regression, not strict advance: two captures landing inside one tick share a stamp and order zero,
+        // which is a correct settlement — a strict test reports the receipt invalid for the fastest ack it can see.
+        ValidityClaim.Of(holds: Order <= 0),
         ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
 
     internal static Fin<SessionReceipt> Of(

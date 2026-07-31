@@ -13,7 +13,7 @@ Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-
 - Owner: `CacheLane` `[SmartEnum<string>]` under the `ComparerAccessors.StringOrdinal` accessor; `CacheSurface` attaches the dispatch to `HybridCache` as one extension block and resolves each lane's keyed cache by its `Store` column.
 - Cases: `ModelResult`, `Projection`, `ArtifactBlob`.
 - Law: `CacheLane.Store` names the distributed-cache service key its `AddKeyedHybridCache(lane.Key)` registration binds through `DistributedCacheServiceKey`, so `ModelResult` and `Projection` share the `durable-l2` store while `ArtifactBlob` carries no `Store` and resolves the default cache; `Cache(lane)` resolves the keyed `HybridCache` by lane key for a stored lane and the default service otherwise — one cache contract, distinct L2 backings, never a second cache owner; that one column is the only growth axis for L2 topology.
-- Law: a consumer obtains the lane's cache as `provider.Cache(lane)` and reads through it as `provider.Cache(lane).Read(lane, key, …)`, so a stored lane's read hits its keyed L2 and never the default cache; `Read`, `Invalidate`, and `Remove` ride the same `Cache(lane)`-resolved receiver as the registration, so the keyed-store routing is one resolution per consumer, never a default-cache read against a `Store`-keyed lane.
+- Law: a consumer obtains the lane's cache as `provider.Cache(lane)` and reads through it as `provider.Cache(lane).Read(lane, key, …)`, so a stored lane's read hits its keyed L2 and never the default cache; `Read`, `Write`, `Invalidate`, and `Remove` ride the same `Cache(lane)`-resolved receiver as the registration — `Write` is the store-outside-read-through entry taking owner keys exactly as `Read` does, so no direct store hand-frames a tag — so the keyed-store routing is one resolution per consumer, never a default-cache read against a `Store`-keyed lane.
 - Law: `RemoveByTagAsync` records a timestamp cut; pre-cut entries read as misses in both tiers and persist until natural expiry — logical, never physical; `RemoveAsync` is the physical sibling deleting the key from both tiers.
 - Law: tags MINT at `CacheLane.Tag`, never at a call site — a read names owner keys and the lane frames each into its own tag space, so a free-string tag has no spelling and no caller reaches another lane's tags; every write also carries the bare lane key, so ONE `Invalidate(lane, owners)` entry cuts the whole lane through `RemoveByTagAsync(lane.Key)` on an empty owner set and exactly those owners otherwise — a lane-scoped cut is the widest invalidation the closed tag vocabulary admits, and a global reset rides provider disposal at host unload, never a write-time pattern tag.
 - Law: peer-process L1 staleness is TTL-bounded with no backplane; convergence rides natural expiry or the next tag cut.
@@ -68,6 +68,12 @@ public static class CacheSurface {
         // the bare lane key rides every write beside them.
         public ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Seq<string> owners = default, CancellationToken token = default) =>
             cache.GetOrCreateAsync(lane.Scoped(key), state, factory, lane.Entry, owners.Map(lane.Tag).Add(lane.Key), token);
+
+        // Writes take OWNER keys exactly as reads do, so no consumer spells a tag and a stored entry is cuttable
+        // by the same `Invalidate` the lane already publishes — a store outside the read-through path otherwise
+        // hand-frames its tags against the :18 mint law.
+        public ValueTask Write<T>(CacheLane lane, string key, T value, Seq<string> owners = default, Option<HybridCacheEntryOptions> entry = default, CancellationToken token = default) =>
+            cache.SetAsync(lane.Scoped(key), value, entry.IfNone(lane.Entry), owners.Map(lane.Tag).Add(lane.Key), token);
 
         // ONE cut entry over the whole vocabulary: an empty owner set cuts the lane whole through its bare key and
         // a non-empty one cuts exactly those owner tags, so lane-wide and owner-scoped invalidation cannot drift

@@ -1,6 +1,6 @@
 # [CORE_FOLD]
 
-The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>` names the key projection, the state lift, and the lawful `merge` instance — one value that is simultaneously the pure snapshot fold, the Mealy step a stream lifts unchanged, and the graph specification the incremental engines execute. `AsOf` is the ONE read time — the two `Hlc` halves plus the journal ordinal — every push, seal, time-travel read, watermark, and compaction coordinate speaks; no second engine-time notion exists. `Replay` maintains every fold incrementally through the differential engines under REPLAY_LAW — a fold rebuilt from any event prefix and advanced by the remaining deltas is equivalent, under the plan instance's `alike`, to the live fold of the whole history; the algebraic half is `merge#LAW_SURFACE`'s `Converge.commutes`, this module supplies the operational half — and the versioned lane retains history in the engine's own `Index` trace: `reconstructAt` IS the AsOf materialization, `compact` IS the retention handoff, so no owned slice log shadows the engine. The dataflow verbs — the keyed join in every engine kind, the `filterBy` semijoin, grouped aggregation over the engine's whole seven-combinator roster, the bounded per-group board, `iterate` fixpoint closure — are handle rows on the same algebra, and `Window` closes event time: the watermark meet, the honest lateness verdict, and pane folds that compose any plan under a composite pane key. The module is `core/src/state/fold.ts`; a new fold is a plan row, a new dataflow verb is a handle row, a new window shape is a policy case.
+The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>` names the key projection, the state lift, and the lawful `merge` instance — one value that is simultaneously the pure snapshot fold, the Mealy step a stream lifts unchanged, and the graph specification the incremental engines execute. `AsOf` is the ONE read time — the two `Hlc` halves plus the journal ordinal — every push, seal, time-travel read, watermark, and compaction coordinate speaks; no second engine-time notion exists. `Replay` maintains every fold incrementally through the differential engines under REPLAY_LAW — a fold rebuilt from any event prefix and advanced by the remaining deltas is equivalent, under the plan instance's `alike`, to the live fold of the whole history; the algebraic half is `merge#LAW_SURFACE`'s `Converge.commutes`, this module supplies the operational half — and one shared `Trace` owner retains history in the engine's own `Index`: `reconstructAt` IS the AsOf materialization, `versions` IS the per-key change census, `compact` IS the retention handoff, so no owned slice log shadows the engine and every versioned lane inherits the same six-member coordinate surface. The dataflow verbs — the keyed join in every engine kind, the `filterBy` semijoin, grouped aggregation over the engine's whole seven-combinator roster, the bounded per-group board, `iterate` fixpoint closure — are handle rows on the same algebra whose correlation and rollup verbs take the time coordinate as one `origin` field rather than a second handle, and `Window` closes event time: the watermark meet, the honest lateness verdict, and pane folds that compose any plan under a composite pane key. The module is `core/src/state/fold.ts`; a new fold is a plan row, a new dataflow verb is a handle row, a new window shape is a policy case.
 
 ## [01]-[INDEX]
 
@@ -8,7 +8,7 @@ The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>
 - [03]-[TIME_COORDINATE]: the one three-coordinate read time and its engine projection; `AsOf`.
 - [04]-[MEMORY_LANE]: the in-memory and ordered handles plus the lens reads over every handle; `Replay.memory/.ordered/.view/.feed`.
 - [05]-[DATAFLOW_VERBS]: joins, semijoins, rollups, bounded boards, and fixpoints; `Replay`.
-- [06]-[VERSIONED_LANE]: the Index-traced versioned handle: seal, AsOf read, diff, compaction; `Replay.versioned`.
+- [06]-[VERSIONED_LANE]: the shared Index trace and the versioned handle over it: seal, AsOf read, diff, key history, compaction; `Replay.Trace`, `Replay.versioned`.
 - [07]-[WATERMARK_PANES]: event-time completeness, the lateness verdict, and window policy folds; `Window`.
 
 ## [02]-[PLAN_CONTRACT]
@@ -27,8 +27,8 @@ The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>
 import * as Mini from "@electric-sql/d2mini"
 import * as Diff from "@electric-sql/d2ts"
 import {
-  Array, Chunk, Data, Duration, Effect, Either, Equal, HashMap, HashSet, Match, Option, Order, pipe, Predicate, Record,
-  Ref, Schema, SortedMap, Stream, Subscribable, SubscriptionRef,
+  Array, Chunk, Data, Duration, Effect, Either, Equal, HashMap, HashSet, Match, Option, Order, type ParseResult, pipe,
+  Predicate, Record, Ref, Schema, SortedMap, Stream, Subscribable, SubscriptionRef,
 } from "effect"
 import { Hlc, type Uncertainty } from "../value/clock.ts"
 import { Causal, type Vector } from "./causal.ts"
@@ -98,6 +98,7 @@ const Fold: Fold.Shape = { plan: (spec) => spec, step: _step, trace: _trace, run
 [TIME_COORDINATE]:
 - Owner: `AsOf` — the `Schema.Class` owner of `{ stamp: Hlc, ordinal }` where the ordinal is a non-negative bigint journal sequence branded in-field and the class carries the engine-window filter as its own invariant: event time plus journal position, totally ordered lexicographically on one lane (`AsOf.Order` composes the `Hlc` order then `Order.bigint` on the ordinal), the one decode anchor for any serialized coordinate — a resume token, a scrub bookmark — and the one value every handle's push, seal, read, diff, and compaction takes. `AsOf.at(stamp, sequence)` is the one mint from a durable position — the data branch's lanes construct through it and a bare position tuple never travels. The old engine-time/read-time split is dead: `AsOf.time` projects into the engine's number plane interior to this module, and no consumer meets a bare coordinate triple.
 - Law: the engine projection is total BY ADMISSION — the class filter bounds all three coordinates inside the safe-integer window (`<= 2^53 - 1`), so the `Number` narrowing at this one seam is proven, distinct admitted coordinates keep distinct engine versions, and `AsOf.Order` agrees with the engine tuple on every admitted value; an out-of-window coordinate — an adversarial wire stamp with a u64-scale logical half — fails decode as a typed `ParseError` and fails the trusted constructor at the same filter, so an aliased engine version is unspellable rather than guarded. The narrowed triple drives engines only, never re-enters `Hlc` or the identity-bearing coordinate.
+- Law: `AsOf.time` and `AsOf.of` are the one bidirectional engine projection and they ride one owner — the forward narrows an admitted coordinate into the engine's number plane, the inverse re-admits an engine version through the class's OWN filter, so a trace coordinate the window cannot hold folds to absence instead of aliasing onto an admitted one, and the versioned lanes' history read speaks `AsOf` rather than leaking the engine's triple.
 - Law: `AsOf.covers` answers containment through the engine's own product order (`Diff.v(...).lessEqual`), so watermark and retention reads share exactly the order the trace retains under; `AsOf.Order` is the total single-lane order sorts and resume tokens use — the two orders answer different questions and neither substitutes.
 - Law: cross-replica completeness is never an `AsOf` question — the coordinate orders one journal lane; multi-replica frontiers are `Vector` facts folded in `causal`, and the two vocabularies meet only at the watermark.
 - Growth: a branch axis is a key-space partition (a plan key row), never a fourth coordinate.
@@ -125,6 +126,14 @@ class AsOf extends Schema.Class<AsOf>("AsOf")(
   static time(asOf: AsOf): AsOf.Time {
     return [Number(asOf.stamp.physical), Number(asOf.stamp.logical), Number(asOf.ordinal)] as const
   }
+  static of(time: ReadonlyArray<number>): Option.Option<AsOf> {
+    const [physical, logical, ordinal] = time
+    return physical === undefined || logical === undefined || ordinal === undefined || time.length !== 3
+      ? Option.none()
+      : Option.getRight(
+        _admitted({ stamp: { physical: BigInt(physical), logical: BigInt(logical) }, ordinal: BigInt(ordinal) }),
+      )
+  }
   static covers(upper: AsOf, lower: AsOf): boolean {
     return Diff.v([...AsOf.time(lower)]).lessEqual(Diff.v([...AsOf.time(upper)]))
   }
@@ -133,6 +142,11 @@ class AsOf extends Schema.Class<AsOf>("AsOf")(
 declare namespace AsOf {
   type Time = readonly [physical: number, logical: number, ordinal: number]
 }
+
+// The inverse's own admission: the class filter is what bounds a coordinate inside the engine window, so a trace
+// version outside it folds to absence here rather than aliasing onto an admitted one. Declared after the owner because
+// the configured decode closes over the class value, and read only from `AsOf.of`, which runs past module init.
+const _admitted: (encoded: typeof AsOf.Encoded) => Either.Either<AsOf, ParseResult.ParseError> = Schema.decodeEither(AsOf)
 ```
 
 ## [04]-[MEMORY_LANE]
@@ -140,7 +154,7 @@ declare namespace AsOf {
 [MEMORY_LANE]:
 - Owner: `Replay.memory` — the browser in-memory altitude: one d2mini graph per plan (`map` to the keyed lift, `reduce` under the instance reducer, `consolidate`, `output`), a `SubscriptionRef` table advanced by the drained change wave, and a synchronous `push` that sends the signed delta and drains the scheduler to quiescence inside one `Effect.sync`; `Replay.ordered` re-keys every folded entity under one internal board key before `orderByWithFractionalIndex`, so the operator ranks entities globally instead of ranking the single value inside each entity key, a change moves one fractional key without re-sorting the collection, and `ranks` projects the ordered chunk. The engine's `sorted-btree` ordered twins are sealed out of the installed barrel — the package `exports` map is `.`-only and the operators barrel omits them — so the fractional-index operator is the whole reachable ordered surface and the lane stays synchronous end to end.
 - Owner: `Replay.view` — one lens entry over the handle modalities, discriminated on the input shape: a table handle alone yields the table view, a handle with a key yields the row view (`Option`-carried absence), an ordered handle yields the board view — overload signatures on one declaration, no `viewAll`/`viewByKey` siblings; `Replay.feed` flattens a handle's change wave into a per-row `Stream`, the delivery feed a serving edge frames onto its sockets.
-- Law: the reducer the engines run is the elementwise projection of `Merge.combineMany` — `_reduced` expands positive multiplicities, folds the survivors, and emits one `[state, 1]` row; the engine recomputes retraction by re-folding the surviving contribution set, so retraction is lawful for every instance without group inverses, and negative net rows are upstream corruption the reducer treats as absent.
+- Law: the reducer the engines run is the elementwise projection of `Merge.combineMany` — `_reduced` folds the surviving contributions and emits one `[state, 1]` row; the engine recomputes retraction by re-folding the surviving contribution set, so retraction is lawful for every instance without group inverses, and negative net rows are upstream corruption the reducer treats as absent. The instance's `posture.idempotent` column decides whether a multiplicity expands at all — every lattice row absorbs its own copies, so the expansion and its N-1 combines are paid only by the non-idempotent counter, on every keyed reduce in the memory, ordered, joined, matched, topped, and versioned lanes alike.
 - Law: `_engine` is the one graph scaffold — one interior owner holds the pending sink, `finalize`, the one-permit drain, and the publish continuation for every lane on both engines, so a lane declares only its inputs, its pipeline stages, and its publish fold, and a new dataflow verb is one `_engine` wire, never a re-rolled scaffold; the permit brackets `sendData`/`run`/publish because the engine drain is a non-STM statement seam no transaction owns, the published cells stay `SubscriptionRef`s because views need the change stream, and transactional state lives where the cells are pure: `causal#FRONTIER_TRACKER` and `merge#MERGE_CELLS`.
 - Law: every lens is `Subscribable.map` over the handle's state — get and changes stay coherent because they derive from one projection; a lens that re-runs the fold, caches its own copy, or subscribes twice is the re-derivation defect.
 - Law: redelivery is absorbed at the value plane, never by the engine — an idempotent instance re-combines a redelivered contribution to its fixed point inside `_reduced`, and a non-idempotent instance (the counter) relies on `causal`'s admission shedding duplicate envelopes as `Drained` receipt evidence before any op reaches a fold; the engine's `consolidate` is multiplicity compaction whose keyed lane compares object values by reference and never consults `Equal`, so it is not a structural dedup and no lane claims it as one.
@@ -160,6 +174,24 @@ declare namespace Replay {
     readonly ranks: Subscribable.Subscribable<Chunk.Chunk<readonly [K, S]>>
   }
   type JoinKind = "inner" | "left" | "right" | "full" | "anti"
+  // The retained history as four reads over the engine's own `Index`, and the coordinate surface a versioned handle
+  // publishes: `Timed` is what an `origin` buys, identical on every lane, so a lane never re-declares time travel.
+  type Trace<K, S> = {
+    readonly absorb: (version: Diff.Version, rows: ReadonlyArray<readonly [Diff.KeyValue<K, S>, number]>) => void
+    readonly compact: (upTo: AsOf) => void
+    readonly diff: (after: AsOf, upTo: AsOf) => Effect.Effect<Fold.Delta<readonly [K, S]>>
+    readonly history: (key: K) => Effect.Effect<ReadonlyArray<AsOf>>
+    readonly read: (upTo: AsOf) => Effect.Effect<Fold.Table<K, S>>
+  }
+  type Timed<K, S> = {
+    readonly compact: (upTo: AsOf) => Effect.Effect<void>
+    readonly diff: (after: AsOf, upTo: AsOf) => Effect.Effect<Fold.Delta<readonly [K, S]>>
+    readonly frontier: Subscribable.Subscribable<Option.Option<AsOf>>
+    readonly history: (key: K) => Effect.Effect<ReadonlyArray<AsOf>>
+    readonly read: (upTo: AsOf) => Effect.Effect<Fold.Table<K, S>>
+    readonly seal: (frontier: AsOf) => Effect.Effect<void>
+  }
+  type At<Push> = (at: AsOf, delta: Push) => Effect.Effect<void> // a versioned push carries the coordinate its rows land at
   type Joined<OpL, OpR, K, P> = {
     readonly push: (delta: Fold.Delta<Either.Either<OpR, OpL>>) => Effect.Effect<void>
     readonly state: Subscribable.Subscribable<Fold.Table<K, P>>
@@ -189,20 +221,34 @@ declare namespace Replay {
     readonly push: (delta: Fold.Delta<Op>) => Effect.Effect<void>
     readonly boards: Subscribable.Subscribable<Fold.Table<G, Chunk.Chunk<readonly [K, S]>>>
   }
+  // The two correlation verbs whose emitted row is ONE state per key ride the trace unchanged, so a joined evidence
+  // table and a grouped rollup scrub, replay to an `AsOf`, and compact exactly as the keyed fold does.
+  type JoinedAt<OpL, OpR, K, P> = Timed<K, P> & {
+    readonly push: At<Fold.Delta<Either.Either<OpR, OpL>>>
+    readonly state: Subscribable.Subscribable<Fold.Table<K, P>>
+  }
+  type GroupedAt<Op, By, Aggs> = Timed<string, By & Rollup<Aggs>> & {
+    readonly name: string
+    readonly push: At<Fold.Delta<Op>>
+    readonly state: Subscribable.Subscribable<Fold.Table<string, By & Rollup<Aggs>>>
+  }
+  type DiffAggregateOperator<Op> =
+    | ReturnType<typeof Diff.groupByOperators.count<Op>>
+    | ReturnType<typeof Diff.groupByOperators.avg<Op>>
+    | ReturnType<typeof Diff.groupByOperators.max<Op>>
+    | ReturnType<typeof Diff.groupByOperators.median<Op>>
+    | ReturnType<typeof Diff.groupByOperators.min<Op>>
+    | ReturnType<typeof Diff.groupByOperators.mode<Op>>
+    | ReturnType<typeof Diff.groupByOperators.sum<Op>>
   type Closure<K> = {
     readonly push: (at: AsOf, edges: Fold.Delta<readonly [K, K]>) => Effect.Effect<void>
     readonly seal: (frontier: AsOf) => Effect.Effect<void>
     readonly reach: Subscribable.Subscribable<Fold.Table<K, HashSet.HashSet<K>>>
   }
-  type Versioned<Op, K, S> = {
-    readonly push: (at: AsOf, delta: Fold.Delta<Op>) => Effect.Effect<void>
-    readonly seal: (frontier: AsOf) => Effect.Effect<void>
+  type Versioned<Op, K, S> = Timed<K, S> & {
+    readonly push: At<Fold.Delta<Op>>
     readonly state: Subscribable.Subscribable<Fold.Table<K, S>>
     readonly wave: Subscribable.Subscribable<Chunk.Chunk<Fold.Change<K, S>>>
-    readonly frontier: Subscribable.Subscribable<Option.Option<AsOf>>
-    readonly read: (upTo: AsOf) => Effect.Effect<Fold.Table<K, S>>
-    readonly diff: (after: AsOf, upTo: AsOf) => Effect.Effect<Fold.Delta<readonly [K, S]>>
-    readonly compact: (upTo: AsOf) => Effect.Effect<void>
   }
   type Shape = {
     readonly delta: <Op>(ops: ReadonlyArray<Op>) => Fold.Delta<Op>
@@ -220,15 +266,33 @@ declare namespace Replay {
       <OpL, OpR, K, SL, SR>(
         left: Fold.Plan<OpL, K, SL>,
         right: Fold.Plan<OpR, K, SR>,
-        kind: JoinKind,
+        spec: { readonly kind: JoinKind },
       ): Effect.Effect<Joined<OpL, OpR, K, readonly [Option.Option<SL>, Option.Option<SR>]>>
+      <OpL, OpR, K, SL, SR>(
+        left: Fold.Plan<OpL, K, SL>,
+        right: Fold.Plan<OpR, K, SR>,
+        spec: { readonly origin: AsOf },
+      ): Effect.Effect<JoinedAt<OpL, OpR, K, readonly [SL, SR]>>
+      <OpL, OpR, K, SL, SR>(
+        left: Fold.Plan<OpL, K, SL>,
+        right: Fold.Plan<OpR, K, SR>,
+        spec: { readonly kind: JoinKind; readonly origin: AsOf },
+      ): Effect.Effect<JoinedAt<OpL, OpR, K, readonly [Option.Option<SL>, Option.Option<SR>]>>
     }
     readonly matched: <Op, K, S>(plan: Fold.Plan<Op, K, S>) => Effect.Effect<Matched<Op, K, S>>
-    readonly grouped: <Op, By extends Readonly<Record<string, boolean | number | string>>, Aggs extends Readonly<Record<string, Agg<Op>>>>(spec: {
-      readonly name: string
-      readonly by: (op: Op) => By
-      readonly aggs: Aggs
-    }) => Effect.Effect<Grouped<Op, By, Aggs>>
+    readonly grouped: {
+      <Op, By extends Readonly<Record<string, boolean | number | string>>, Aggs extends Readonly<Record<string, Agg<Op>>>>(spec: {
+        readonly name: string
+        readonly by: (op: Op) => By
+        readonly aggs: Aggs
+      }): Effect.Effect<Grouped<Op, By, Aggs>>
+      <Op, By extends Readonly<Record<string, boolean | number | string>>, Aggs extends Readonly<Record<string, Agg<Op>>>>(spec: {
+        readonly name: string
+        readonly by: (op: Op) => By
+        readonly aggs: Aggs
+        readonly origin: AsOf
+      }): Effect.Effect<GroupedAt<Op, By, Aggs>>
+    }
     readonly topped: <Op, K, S, G>(
       plan: Fold.Plan<Op, K, S>,
       spec: { readonly by: (key: K, state: S) => G; readonly rank: Order.Order<S>; readonly take: number },
@@ -246,7 +310,12 @@ declare namespace Replay {
 }
 
 const _reduced = <S>(instance: Merge.Instance<S>) => (values: Array<[S, number]>): Array<[S, number]> => {
-  const survivors = Array.flatMap(values, ([state, count]) => (count > 0 ? Array.makeBy(count, () => state) : []))
+  // The instance's own posture prices the expansion: an idempotent combine folds N identical copies to the single
+  // copy by definition, so `Array.makeBy` and the N-1 combines behind it are pure waste on every lattice row —
+  // only the commutative-but-not-idempotent counter genuinely needs each multiplicity, which is exactly what the
+  // posture column already discriminates.
+  const survivors = Array.flatMap(values, ([state, count]) =>
+    count > 0 ? (instance.posture.idempotent ? [state] : Array.makeBy(count, () => state)) : [])
   return Array.isNonEmptyReadonlyArray(survivors)
     ? [[instance.combine.combineMany(Array.headNonEmpty(survivors), Array.tailNonEmpty(survivors)), 1]]
     : []
@@ -296,6 +365,87 @@ const _engine = <Row>(
     }
   })
 
+// One versioned trace owner beside the graph scaffold: the engine `Index` a d2ts sink fills IS the retained history,
+// so time travel, retention, the net-diff, and the per-key coordinate census are four reads over one structure and no
+// lane rolls a slice log beside it. A versioned lane declares its operators and its publish fold; the whole coordinate
+// surface arrives from here, which is why `versioned`, `joined`, `grouped`, and `topped` share one implementation of it.
+const _trace = <K, S>(): Replay.Trace<K, S> => {
+  const held = new Diff.Index<K, S>()
+  const at = (asOf: AsOf): Diff.Version => Diff.v([...AsOf.time(asOf)])
+  const surviving = (key: K, upTo: AsOf): Option.Option<S> =>
+    pipe(
+      new Diff.MultiSet(held.reconstructAt(key, at(upTo))).consolidate().getInner(),
+      Array.filterMap(([state, count]) => (count > 0 ? Option.some(state) : Option.none())),
+      Array.head,
+    )
+  return {
+    absorb: (version, rows) => {
+      // BOUNDARY ADAPTER: the engine sink is a void callback; the append rides the same synchronous drain the graph runs
+      for (const [[key, state], count] of rows) held.addValue(key, version, [state, count])
+    },
+    compact: (upTo) => held.compact(new Diff.Antichain([at(upTo)])),
+    diff: (after, upTo) =>
+      Effect.sync(() =>
+        Array.flatMap(held.keys(), (key) =>
+          pipe(
+            new Diff.MultiSet(held.reconstructAt(key, at(after)))
+              .negate()
+              .concat(new Diff.MultiSet(held.reconstructAt(key, at(upTo))))
+              .consolidate()
+              .getInner(),
+            Array.map(([state, count]) => [[key, state] as const, count] as const),
+          ))),
+    history: (key) => Effect.sync(() => Array.filterMap(held.versions(key), (version) => AsOf.of(version.getInner()))),
+    read: (upTo) =>
+      Effect.sync(() =>
+        Array.reduce(held.keys(), HashMap.empty<K, S>(), (table, key) =>
+          Option.match(surviving(key, upTo), { onNone: () => table, onSome: (state) => HashMap.set(table, key, state) }))),
+  }
+}
+
+const _sunk = <K, S>(trace: Replay.Trace<K, S>, emit: (change: Fold.Change<K, S>) => void) =>
+(message: Diff.Message<Diff.KeyValue<K, S>>): void => {
+  if (message.type === Diff.MessageType.DATA) {
+    const rows = message.data.collection.getInner()
+    trace.absorb(message.data.version, rows)
+    _changes(rows).forEach(emit)
+  }
+}
+
+const _published = <K, S>(
+  state: SubscriptionRef.SubscriptionRef<Fold.Table<K, S>>,
+  wave: Option.Option<SubscriptionRef.SubscriptionRef<Chunk.Chunk<Fold.Change<K, S>>>>,
+) =>
+(drained: ReadonlyArray<Fold.Change<K, S>>): Effect.Effect<void> =>
+  Effect.zipRight(
+    Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
+    Option.match(wave, {
+      onNone: () => Effect.void,
+      onSome: (cell) => Effect.when(Ref.set(cell, Chunk.fromIterable(drained)), () => Array.isNonEmptyReadonlyArray(drained)),
+    }),
+  )
+
+// `seal` is the only frontier writer and it writes what it SENT, so the watermark read is exact rather than parsed back
+// out of engine messages; `compact` rides the same permit because the trace and the drain share one JS thread.
+const _timed = <K, S>(
+  trace: Replay.Trace<K, S>,
+  drive: <A>(send: () => void, publish: (rows: ReadonlyArray<Fold.Change<K, S>>) => Effect.Effect<A>) => Effect.Effect<A>,
+  advance: (frontier: Diff.Version) => void,
+  publish: (drained: ReadonlyArray<Fold.Change<K, S>>) => Effect.Effect<void>,
+  sealed: SubscriptionRef.SubscriptionRef<Option.Option<AsOf>>,
+): Replay.Timed<K, S> => ({
+  compact: (upTo) => drive(() => trace.compact(upTo), () => Effect.void),
+  diff: trace.diff,
+  frontier: sealed,
+  history: trace.history,
+  read: trace.read,
+  seal: (frontier) =>
+    drive(
+      () => advance(Diff.v([...AsOf.time(frontier)])),
+      (drained) => Effect.zipRight(publish(drained), Ref.set(sealed, Option.some(frontier))),
+    ),
+})
+
 const _keyed = <Op, K, S>(graph: Mini.D2, plan: Fold.Plan<Op, K, S>) => {
   const input = graph.newInput<Op>()
   return {
@@ -303,6 +453,19 @@ const _keyed = <Op, K, S>(graph: Mini.D2, plan: Fold.Plan<Op, K, S>) => {
     staged: input.pipe(
       Mini.map((op: Op): Mini.KeyValue<K, S> => [plan.key(op), plan.lift(op)]),
       Mini.reduce(_reduced(plan.merge)),
+    ),
+  }
+}
+
+// The same keyed staging on the versioned engine, so a plan folds identically at both altitudes and only the operator
+// namespace differs — the reducer, the key projection, and the lift are one declaration read twice.
+const _versionedKeyed = <Op, K, S>(graph: Diff.D2, plan: Fold.Plan<Op, K, S>) => {
+  const input = graph.newInput<Op>()
+  return {
+    input,
+    staged: input.pipe(
+      Diff.map((op: Op): Diff.KeyValue<K, S> => [plan.key(op), plan.lift(op)]),
+      Diff.reduce<K, S, S, Diff.KeyValue<K, S>>(_reduced(plan.merge)),
     ),
   }
 }
@@ -402,8 +565,10 @@ const _feed = <Op, K, S>(
 - Law: `closure` grows by self-join per pass — reach extended with reach-composed-with-reach, `concat` of the base, `distinct` closing the pass — converging to the transitive closure inside the engine's fixpoint scope; `distinct` is legal because reachability is grow-only within a version, and edge retraction arrives as a signed push the next fixpoint absorbs.
 - Exemption: the verb sinks share the memory lane's platform-forced callback seam and its permit discipline; `_operators` is the marked `Record.map` key-correlation kernel — the package mapper homogenizes values, so one exact mapped-key rebinding restores the aggregate record's literal columns before `groupBy` consumes it.
 - Law: `topped` re-keys the folded row onto its group coordinate before the bounded operator — one state per entity key under the plan instance, then `[G, [K, S]]` rows ranked per group — so the board ranks merged states, never raw ops, and eviction from a full pane arrives as the operator's own signed retraction, never a re-slice.
-- Growth: a new dataflow verb (the versioned engine's `buffer` staging) is a new handle row on this family — the handle shapes and the plan contract never widen per verb.
-- Boundary: `joined`/`matched`/`grouped`/`topped` ride the time-free engine; `closure` is versioned by nature (the fixpoint needs the frontier) and takes `AsOf` pushes like the versioned lane.
+- Law: the time coordinate is a MODALITY of a verb, never a second verb — `joined` and `grouped` take an `origin` on their spec and answer the `Timed` surface (`seal`/`frontier`/`read`/`diff`/`history`/`compact`) beside their own state, so a correlated evidence table and a grouped rollup scrub, replay to an `AsOf`, and compact on exactly the algebra the time-free call folds; the altitude split the two engines carry is the composition root's selection, and the two spellings share one name so no consumer learns a second. `_versionedKeyed` is `_keyed`'s twin on the durable engine, so one plan's key projection, lift, and reducer read identically at both altitudes and only the operator namespace differs.
+- Law: `joined`'s versioned arm advances BOTH inputs on one `seal` — a frontier moved on one side alone settles a version whose correlation saw only half its rows, and the pair is the whole point of the verb.
+- Growth: a new dataflow verb (the versioned engine's `buffer` staging) is a new handle row on this family — the handle shapes and the plan contract never widen per verb; a verb gaining the time coordinate is one `origin` field, one overload line, and one `_trace`-backed arm.
+- Boundary: `matched` and `topped` ride the time-free engine alone; `closure` is versioned by nature (the fixpoint needs the frontier) and takes `AsOf` pushes like the versioned lane. `topped` stays time-free because the trace's reconstruction answers ONE surviving state per key while a bounded board holds a whole fractional-indexed pane under one group key — a versioned board is earned by a multi-survivor reconstruction on `Trace`, never by pointing the existing read at a shape it cannot express.
 
 ```typescript
 const _agg = <Op>(row: Replay.Agg<Op>): Replay.AggregateOperator<Op> =>
@@ -418,6 +583,19 @@ const _operators = <Op, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(
   }
 }
 
+// One `Either` partition serves both altitudes: the left plan's ops and the right plan's ops leave in two multisets and
+// the caller's write surface stays single whatever engine folds them.
+const _sided = <OpL, OpR>(
+  delta: Fold.Delta<Either.Either<OpR, OpL>>,
+): readonly [ReadonlyArray<readonly [OpL, number]>, ReadonlyArray<readonly [OpR, number]>] =>
+  Array.partitionMap(delta, ([op, count]) =>
+    Either.match(op, {
+      onLeft: (held): Either.Either<readonly [OpR, number], readonly [OpL, number]> => Either.left([held, count] as const),
+      onRight: (held) => Either.right([held, count] as const),
+    }))
+
+type _Pair<SL, SR> = readonly [SL, SR] | readonly [Option.Option<SL>, Option.Option<SR>]
+
 function _joined<OpL, OpR, K, SL, SR>(
   left: Fold.Plan<OpL, K, SL>,
   right: Fold.Plan<OpR, K, SR>,
@@ -425,54 +603,91 @@ function _joined<OpL, OpR, K, SL, SR>(
 function _joined<OpL, OpR, K, SL, SR>(
   left: Fold.Plan<OpL, K, SL>,
   right: Fold.Plan<OpR, K, SR>,
-  kind: Replay.JoinKind,
+  spec: { readonly kind: Replay.JoinKind },
 ): Effect.Effect<Replay.Joined<OpL, OpR, K, readonly [Option.Option<SL>, Option.Option<SR>]>>
 function _joined<OpL, OpR, K, SL, SR>(
   left: Fold.Plan<OpL, K, SL>,
   right: Fold.Plan<OpR, K, SR>,
-  kind?: Replay.JoinKind,
-): Effect.Effect<Replay.Joined<OpL, OpR, K, readonly [SL, SR] | readonly [Option.Option<SL>, Option.Option<SR>]>> {
-  return Effect.gen(function* () {
-    const graph = new Mini.D2()
-    const lhs = _keyed(graph, left)
-    const rhs = _keyed(graph, right)
-    const paired = kind === undefined
-      ? lhs.staged.pipe(Mini.innerJoin(rhs.staged))
-      : lhs.staged.pipe(
+  spec: { readonly origin: AsOf },
+): Effect.Effect<Replay.JoinedAt<OpL, OpR, K, readonly [SL, SR]>>
+function _joined<OpL, OpR, K, SL, SR>(
+  left: Fold.Plan<OpL, K, SL>,
+  right: Fold.Plan<OpR, K, SR>,
+  spec: { readonly kind: Replay.JoinKind; readonly origin: AsOf },
+): Effect.Effect<Replay.JoinedAt<OpL, OpR, K, readonly [Option.Option<SL>, Option.Option<SR>]>>
+function _joined<OpL, OpR, K, SL, SR>(
+  left: Fold.Plan<OpL, K, SL>,
+  right: Fold.Plan<OpR, K, SR>,
+  spec?: { readonly kind?: Replay.JoinKind; readonly origin?: AsOf },
+): Effect.Effect<Replay.Joined<OpL, OpR, K, _Pair<SL, SR>> | Replay.JoinedAt<OpL, OpR, K, _Pair<SL, SR>>> {
+  const origin = spec?.origin
+  const kind = spec?.kind
+  return origin === undefined
+    ? Effect.gen(function* () {
+      const graph = new Mini.D2()
+      const lhs = _keyed(graph, left)
+      const rhs = _keyed(graph, right)
+      const paired = kind === undefined
+        ? lhs.staged.pipe(Mini.innerJoin(rhs.staged))
+        : lhs.staged.pipe(
           Mini.join(rhs.staged, kind),
           Mini.map(([key, [sl, sr]]: Mini.KeyValue<K, [SL | null, SR | null]>): Mini.KeyValue<K, readonly [Option.Option<SL>, Option.Option<SR>]> =>
             [key, [Option.fromNullable(sl), Option.fromNullable(sr)] as const]), // the engine's outer arms speak null; the respell into Option happens here and never past the sink
         )
-    const engine = yield* _engine<Fold.Change<K, readonly [SL, SR] | readonly [Option.Option<SL>, Option.Option<SR>]>>(graph, (emit) =>
-      paired.pipe(
-        Mini.consolidate(),
-        Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, readonly [SL, SR] | readonly [Option.Option<SL>, Option.Option<SR>]>>) =>
-          _changes(delta.getInner()).forEach(emit)),
-      ))
-    const state = yield* SubscriptionRef.make(
-      HashMap.empty<K, readonly [SL, SR] | readonly [Option.Option<SL>, Option.Option<SR>]>(),
-    )
-    return {
-      push: (delta: Fold.Delta<Either.Either<OpR, OpL>>) =>
-        pipe(
-          Array.partitionMap(delta, ([op, count]) =>
-            Either.match(op, {
-              onLeft: (held): Either.Either<readonly [OpR, number], readonly [OpL, number]> =>
-                Either.left([held, count] as const),
-              onRight: (held) => Either.right([held, count] as const),
-            })),
-          ([lows, rows]) =>
+      const engine = yield* _engine<Fold.Change<K, _Pair<SL, SR>>>(graph, (emit) =>
+        paired.pipe(
+          Mini.consolidate(),
+          Mini.output((delta: Mini.MultiSet<Mini.KeyValue<K, _Pair<SL, SR>>>) => _changes(delta.getInner()).forEach(emit)),
+        ))
+      const state = yield* SubscriptionRef.make(HashMap.empty<K, _Pair<SL, SR>>())
+      return {
+        push: (delta: Fold.Delta<Either.Either<OpR, OpL>>) =>
+          pipe(_sided<OpL, OpR>(delta), ([lows, rows]) =>
             engine.drive(
               () => {
                 lhs.input.sendData(new Mini.MultiSet(_rows(lows)))
                 rhs.input.sendData(new Mini.MultiSet(_rows(rows)))
               },
-              (drained) => Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
-            ),
-        ),
-      state,
-    }
-  })
+              _published(state, Option.none()),
+            )),
+        state,
+      }
+    })
+    : Effect.gen(function* () {
+      const graph = new Diff.D2({ initialFrontier: [...AsOf.time(origin)] })
+      const lhs = _versionedKeyed(graph, left)
+      const rhs = _versionedKeyed(graph, right)
+      const trace = _trace<K, _Pair<SL, SR>>()
+      const paired = kind === undefined
+        ? lhs.staged.pipe(Diff.innerJoin(rhs.staged))
+        : lhs.staged.pipe(
+          Diff.join(rhs.staged, kind),
+          Diff.map(([key, [sl, sr]]: Diff.KeyValue<K, [SL | null, SR | null]>): Diff.KeyValue<K, readonly [Option.Option<SL>, Option.Option<SR>]> =>
+            [key, [Option.fromNullable(sl), Option.fromNullable(sr)] as const]),
+        )
+      const engine = yield* _engine<Fold.Change<K, _Pair<SL, SR>>>(graph, (emit) =>
+        paired.pipe(Diff.consolidate(), Diff.output(_sunk(trace, emit))))
+      const state = yield* SubscriptionRef.make(HashMap.empty<K, _Pair<SL, SR>>())
+      const sealed = yield* SubscriptionRef.make(Option.none<AsOf>())
+      const publish = _published(state, Option.none<SubscriptionRef.SubscriptionRef<Chunk.Chunk<Fold.Change<K, _Pair<SL, SR>>>>>())
+      return {
+        push: (at: AsOf, delta: Fold.Delta<Either.Either<OpR, OpL>>) =>
+          pipe(_sided<OpL, OpR>(delta), ([lows, rows]) =>
+            engine.drive(
+              () => {
+                lhs.input.sendData(Diff.v([...AsOf.time(at)]), new Diff.MultiSet(_rows(lows)))
+                rhs.input.sendData(Diff.v([...AsOf.time(at)]), new Diff.MultiSet(_rows(rows)))
+              },
+              publish,
+            )),
+        state,
+        // both inputs advance together: a frontier that moved on one side alone would settle a half-correlated version
+        ..._timed(trace, engine.drive, (frontier) => {
+          lhs.input.sendFrontier(frontier)
+          rhs.input.sendFrontier(frontier)
+        }, publish, sealed),
+      }
+    })
 }
 
 const _matched = <Op, K, S>(plan: Fold.Plan<Op, K, S>): Effect.Effect<Replay.Matched<Op, K, S>> =>
@@ -513,31 +728,63 @@ const _matched = <Op, K, S>(plan: Fold.Plan<Op, K, S>): Effect.Effect<Replay.Mat
     }
   })
 
-const _grouped = <Op, By extends Readonly<Record<string, boolean | number | string>>, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(spec: {
-  readonly name: string
-  readonly by: (op: Op) => By
-  readonly aggs: Aggs
-}): Effect.Effect<Replay.Grouped<Op, By, Aggs>> =>
-  Effect.gen(function* () {
-    const graph = new Mini.D2()
-    const input = graph.newInput<Op>()
-    const engine = yield* _engine<Fold.Change<string, By & Replay.Rollup<Aggs>>>(graph, (emit) =>
-      input.pipe(
-        Mini.groupBy(spec.by, _operators<Op, Aggs>(spec.aggs)),
-        Mini.output((delta: Mini.MultiSet<Mini.KeyValue<string, By & Replay.Rollup<Aggs>>>) =>
-          _changes(delta.getInner()).forEach(emit)),
-      ))
-    const state = yield* SubscriptionRef.make(HashMap.empty<string, By & Replay.Rollup<Aggs>>())
-    return {
-      name: spec.name,
-      push: (delta) =>
-        engine.drive(
-          () => input.sendData(new Mini.MultiSet(_rows(delta))),
-          (drained) => Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
-        ),
-      state,
-    }
-  })
+const _versionedAgg = <Op>(row: Replay.Agg<Op>): Replay.DiffAggregateOperator<Op> =>
+  row.kind === "count" ? Diff.groupByOperators.count() : Diff.groupByOperators[row.kind]((op: Op) => row.of(op))
+
+const _versionedOperators = <Op, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(
+  aggs: Aggs,
+): { readonly [Column in keyof Aggs]: Replay.DiffAggregateOperator<Op> } => {
+  // BOUNDARY ADAPTER: Record.map preserves the key census at runtime but homogenizes it in types; the mapped-key result restores that census
+  return Record.map(aggs, (row): Replay.DiffAggregateOperator<Op> => _versionedAgg(row)) as unknown as {
+    readonly [Column in keyof Aggs]: Replay.DiffAggregateOperator<Op>
+  }
+}
+
+function _grouped<Op, By extends Readonly<Record<string, boolean | number | string>>, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(
+  spec: { readonly name: string; readonly by: (op: Op) => By; readonly aggs: Aggs },
+): Effect.Effect<Replay.Grouped<Op, By, Aggs>>
+function _grouped<Op, By extends Readonly<Record<string, boolean | number | string>>, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(
+  spec: { readonly name: string; readonly by: (op: Op) => By; readonly aggs: Aggs; readonly origin: AsOf },
+): Effect.Effect<Replay.GroupedAt<Op, By, Aggs>>
+function _grouped<Op, By extends Readonly<Record<string, boolean | number | string>>, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(
+  spec: { readonly name: string; readonly by: (op: Op) => By; readonly aggs: Aggs; readonly origin?: AsOf },
+): Effect.Effect<Replay.Grouped<Op, By, Aggs> | Replay.GroupedAt<Op, By, Aggs>> {
+  const origin = spec.origin
+  return origin === undefined
+    ? Effect.gen(function* () {
+      const graph = new Mini.D2()
+      const input = graph.newInput<Op>()
+      const engine = yield* _engine<Fold.Change<string, By & Replay.Rollup<Aggs>>>(graph, (emit) =>
+        input.pipe(
+          Mini.groupBy(spec.by, _operators<Op, Aggs>(spec.aggs)),
+          Mini.output((delta: Mini.MultiSet<Mini.KeyValue<string, By & Replay.Rollup<Aggs>>>) =>
+            _changes(delta.getInner()).forEach(emit)),
+        ))
+      const state = yield* SubscriptionRef.make(HashMap.empty<string, By & Replay.Rollup<Aggs>>())
+      return {
+        name: spec.name,
+        push: (delta) => engine.drive(() => input.sendData(new Mini.MultiSet(_rows(delta))), _published(state, Option.none())),
+        state,
+      }
+    })
+    : Effect.gen(function* () {
+      const graph = new Diff.D2({ initialFrontier: [...AsOf.time(origin)] })
+      const input = graph.newInput<Op>()
+      const trace = _trace<string, By & Replay.Rollup<Aggs>>()
+      const engine = yield* _engine<Fold.Change<string, By & Replay.Rollup<Aggs>>>(graph, (emit) =>
+        input.pipe(Diff.groupBy(spec.by, _versionedOperators<Op, Aggs>(spec.aggs)), Diff.output(_sunk(trace, emit))))
+      const state = yield* SubscriptionRef.make(HashMap.empty<string, By & Replay.Rollup<Aggs>>())
+      const sealed = yield* SubscriptionRef.make(Option.none<AsOf>())
+      const publish = _published(state, Option.none<SubscriptionRef.SubscriptionRef<Chunk.Chunk<Fold.Change<string, By & Replay.Rollup<Aggs>>>>>())
+      return {
+        name: spec.name,
+        push: (at: AsOf, delta: Fold.Delta<Op>) =>
+          engine.drive(() => input.sendData(Diff.v([...AsOf.time(at)]), new Diff.MultiSet(_rows(delta))), publish),
+        state,
+        ..._timed(trace, engine.drive, (frontier) => input.sendFrontier(frontier), publish, sealed),
+      }
+    })
+}
 
 const _topped = <Op, K, S, G>(
   plan: Fold.Plan<Op, K, S>,
@@ -624,8 +871,9 @@ const _closure = <K>(origin: AsOf): Effect.Effect<Replay.Closure<K>> =>
 ## [06]-[VERSIONED_LANE]
 
 [VERSIONED_LANE]:
-- Owner: `Replay.versioned` — the d2ts altitude: the graph opens at the origin frontier, `push` sends a signed delta at an `AsOf`, `seal` advances the input frontier and settles every version at or below it, and the sink appends every emitted state row into an owned engine `Index` trace — `trace.addValue(key, version, [state, multiplicity])` — so the retained history IS the engine's versioned trace and no hand-rolled slice log exists beside it.
+- Owner: `Replay.Trace` and `Replay.versioned` — the d2ts altitude: `_trace` owns the engine `Index` and the four reads over it, `_sunk` is the one versioned sink appending every emitted row before republishing the same change wave, `_timed` wires `seal`/`frontier`/`compact` onto whatever inputs a lane holds, and `_versioned` is then one graph, one keyed stage, and one publish fold — so the retained history IS the engine's versioned trace, no hand-rolled slice log exists beside it, and `[05]`'s versioned verbs inherit the whole coordinate surface rather than each re-declaring it.
 - Law: `read(upTo)` is `Index.reconstructAt` — the trace's own time-travel read per key over `trace.keys()`, consolidated through the engine's `MultiSet` so the surviving state per key is the AsOf materialization; `diff(after, upTo)` is the negated earlier reconstruction concatenated with the later and consolidated — net signed rows with zero-sum churn removed, straight from the engine algebra.
+- Law: `history(key)` is `Index.versions` decoded back through `AsOf.of` — the exact coordinates at which a key changed, so a scrub or audit consumer reads where to look instead of probing `read(upTo)` at guessed coordinates; a version the admitted window cannot hold folds out of the roster rather than aliasing onto one, which is what makes the retained trace the surface's own answer rather than only the sink's.
 - Law: `compact(upTo)` is `Index.compact` under an `Antichain` at the coordinate — the engine's own retention collapse; the coordinate arrives as an `AsOf` minted from `causal#FRONTIER_TRACKER`'s `Retention` plus the journal ordinal, so the trace never retains below what the journal retains, and a `read` or `diff` below the compaction floor is a retention breach the journal contract excludes, never a lane behavior.
 - Law: `seal` is the only frontier writer and it writes what it sent — the frontier `Subscribable` advances from the seal argument, never parsed back out of engine messages, so watermark reads are exact.
 - Law: `Index` traces stay derived and never a second record — the durable journal owns truth, so a trace rebuilds by re-pushing deltas from the retained prefix and a compaction coordinate below that prefix fails the rebuild rather than shortening it.
@@ -641,76 +889,20 @@ const _versioned = <Op, K, S>(
 ): Effect.Effect<Replay.Versioned<Op, K, S>> =>
   Effect.gen(function* () {
     const graph = new Diff.D2({ initialFrontier: [...AsOf.time(origin)] })
-    const input = graph.newInput<Op>()
-    const trace = new Diff.Index<K, S>()
+    const keyed = _versionedKeyed(graph, plan)
+    const trace = _trace<K, S>()
     const engine = yield* _engine<Fold.Change<K, S>>(graph, (emit) =>
-      input.pipe(
-        Diff.map((op: Op): Diff.KeyValue<K, S> => [plan.key(op), plan.lift(op)]),
-        Diff.reduce<K, S, S, Diff.KeyValue<K, S>>(_reduced(plan.merge)),
-        Diff.consolidate(),
-        Diff.output((message: Diff.Message<Diff.KeyValue<K, S>>) => {
-          if (message.type === Diff.MessageType.DATA) {
-            const rows = message.data.collection.getInner()
-            for (const [[key, held], count] of rows) trace.addValue(key, message.data.version, [held, count])
-            _changes(rows).forEach(emit)
-          }
-        }),
-      ))
+      keyed.staged.pipe(Diff.consolidate(), Diff.output(_sunk(trace, emit))))
     const state = yield* SubscriptionRef.make(HashMap.empty<K, S>())
     const wave = yield* SubscriptionRef.make(Chunk.empty<Fold.Change<K, S>>())
     const sealed = yield* SubscriptionRef.make(Option.none<AsOf>())
-    const reconstructed = (key: K, at: AsOf): Option.Option<S> =>
-      pipe(
-        new Diff.MultiSet(trace.reconstructAt(key, Diff.v([...AsOf.time(at)]))).consolidate().getInner(),
-        Array.filterMap(([held, count]) => (count > 0 ? Option.some(held) : Option.none())),
-        Array.head,
-      )
-    const published = (drained: ReadonlyArray<Fold.Change<K, S>>): Effect.Effect<void> =>
-      Effect.zipRight(
-        Ref.update(state, (table) => Array.reduce(drained, table, _patch)),
-        Effect.when(Ref.set(wave, Chunk.fromIterable(drained)), () => Array.isNonEmptyReadonlyArray(drained)),
-      )
+    const publish = _published(state, Option.some(wave))
     return {
       push: (at, delta) =>
-        engine.drive(
-          () =>
-            input.sendData(
-              Diff.v([...AsOf.time(at)]),
-              new Diff.MultiSet(_rows(delta)),
-            ),
-          published,
-        ),
-      seal: (frontier) =>
-        engine.drive(
-          () => input.sendFrontier(Diff.v([...AsOf.time(frontier)])),
-          (drained) => Effect.zipRight(published(drained), Ref.set(sealed, Option.some(frontier))),
-        ),
+        engine.drive(() => keyed.input.sendData(Diff.v([...AsOf.time(at)]), new Diff.MultiSet(_rows(delta))), publish),
       state,
       wave,
-      frontier: sealed,
-      read: (upTo) =>
-        Effect.sync(() =>
-          Array.reduce(trace.keys(), HashMap.empty<K, S>(), (table, key) =>
-            Option.match(reconstructed(key, upTo), {
-              onNone: () => table,
-              onSome: (held) => HashMap.set(table, key, held),
-            }))),
-      diff: (after, upTo) =>
-        Effect.sync(() =>
-          Array.flatMap(trace.keys(), (key) =>
-            pipe(
-              new Diff.MultiSet(trace.reconstructAt(key, Diff.v([...AsOf.time(after)])))
-                .negate()
-                .concat(new Diff.MultiSet(trace.reconstructAt(key, Diff.v([...AsOf.time(upTo)]))))
-                .consolidate()
-                .getInner(),
-              Array.map(([held, count]) => [[key, held] as const, count] as const),
-            ))),
-      compact: (upTo) =>
-        engine.drive(
-          () => trace.compact(new Diff.Antichain([Diff.v([...AsOf.time(upTo)])])),
-          () => Effect.void,
-        ),
+      ..._timed(trace, engine.drive, (frontier) => keyed.input.sendFrontier(frontier), publish, sealed),
     }
   })
 

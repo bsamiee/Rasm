@@ -211,7 +211,7 @@ public sealed partial class CapacityQuote {
     public static Fin<CapacityQuote> Of(LotReceipt lot, AvailabilityPlan bottleneck, int units) =>
         Validate(new Interval(lot.Available, lot.Completion), lot.Queue, bottleneck.LoadFactor, units,
             out CapacityQuote quote) is { } error
-                ? Fin.Fail<CapacityQuote>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, error.Message).ToError())
+                ? Fin.Fail<CapacityQuote>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, error.Message))
                 : Fin.Succ(quote);
 
     [BoundaryAdapter]
@@ -246,21 +246,24 @@ public readonly record struct ActivityRows(Seq<CostActivity> Cost, Seq<ImpactAct
     public ActivityRows Concat(ActivityRows other) => new(Cost.Concat(other.Cost), Impact.Concat(other.Impact));
 }
 
+// `Subject` is the universal correlation column and the ROOT owns its property; each case takes it as the plain
+// argument `subject` and threads it to the base. A case re-declaring the base property's own name synthesizes
+// nothing and silently drops the argument the correlation gate then reads (`docs/stacks/csharp/shapes.md:240`).
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EstimateEvidence(ContentKey Subject) {
 
-    public sealed record Simulation(ContentKey Subject, SimulationReceipt Receipt) : EstimateEvidence(Subject);
-    public sealed record Machine(ContentKey Subject, MachineMatch Receipt) : EstimateEvidence(Subject);
-    public sealed record Wear(ContentKey Subject, WearReceipt Receipt) : EstimateEvidence(Subject);
-    public sealed record Stock(ContentKey Subject, StockConsumption Receipt) : EstimateEvidence(Subject);
-    public sealed record Additive(ContentKey Subject, BuildReceipt Receipt) : EstimateEvidence(Subject);
-    public sealed record Welding(ContentKey Subject, WeldSchedule Receipt) : EstimateEvidence(Subject);
-    public sealed record Operation(ContentKey Subject, OperationTime Receipt) : EstimateEvidence(Subject);
-    public sealed record Capacity(ContentKey Subject, CapacityQuote Receipt) : EstimateEvidence(Subject);
-    public sealed record Quality(ContentKey Subject, int Units) : EstimateEvidence(Subject);
-    public sealed record OutsideService(ContentKey Subject, int Units) : EstimateEvidence(Subject);
-    public sealed record Logistics(ContentKey Subject, LogisticsActivity Receipt) : EstimateEvidence(Subject);
-    public sealed record ConsumableMass(ContentKey Subject, Map<ConsumableKind, double> Kilograms) : EstimateEvidence(Subject);
+    public sealed record Simulation(ContentKey subject, SimulationReceipt Receipt) : EstimateEvidence(subject);
+    public sealed record Machine(ContentKey subject, MachineMatch Receipt) : EstimateEvidence(subject);
+    public sealed record Wear(ContentKey subject, WearReceipt Receipt) : EstimateEvidence(subject);
+    public sealed record Stock(ContentKey subject, StockConsumption Receipt) : EstimateEvidence(subject);
+    public sealed record Additive(ContentKey subject, BuildReceipt Receipt) : EstimateEvidence(subject);
+    public sealed record Welding(ContentKey subject, WeldSchedule Receipt) : EstimateEvidence(subject);
+    public sealed record Operation(ContentKey subject, OperationTime Receipt) : EstimateEvidence(subject);
+    public sealed record Capacity(ContentKey subject, CapacityQuote Receipt) : EstimateEvidence(subject);
+    public sealed record Quality(ContentKey subject, int Units) : EstimateEvidence(subject);
+    public sealed record OutsideService(ContentKey subject, int Units) : EstimateEvidence(subject);
+    public sealed record Logistics(ContentKey subject, LogisticsActivity Receipt) : EstimateEvidence(subject);
+    public sealed record ConsumableMass(ContentKey subject, Map<ConsumableKind, double> Kilograms) : EstimateEvidence(subject);
 
     public EvidenceKind Kind => Switch(
         simulation: static _ => EvidenceKind.Simulation,
@@ -530,7 +533,7 @@ internal sealed record EstimateDemand(
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Estimate {
     public static Fin<EstimateReceipt> Run(EstimateRequest request) =>
-        Optional(request).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:request").ToError()).Bind(value => value.Switch(
+        Optional(request).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "estimate:request")).Bind(value => value.Switch(
             unit: static value => Priced(value.Result, value.Basis).Map(static receipt => (EstimateReceipt)new EstimateReceipt.Unit(receipt)),
             lot: static value => Quoted(value.Result, value.Basis, value.Policy).Map(static receipt => (EstimateReceipt)new EstimateReceipt.Lot(receipt))));
 
@@ -550,10 +553,10 @@ public static class Estimate {
                 : new EstimateClock.Declared(clock.Duration));
 
     private static Fin<QuoteReceipt> Quoted(FabricationResult result, EstimateBasis basis, QuotePolicy policy) =>
-        from admittedPolicy in Optional(policy).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:quote-policy").ToError())
+        from admittedPolicy in Optional(policy).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "estimate:quote-policy"))
         from unit in Priced(result, basis)
         let allocated = unit.Money.Map(row => (EstimateRow.Money)row.Allocate(admittedPolicy.Quantity, admittedPolicy.Batches)).ToSeq()
-        let expected = toSeq(CommercialLoad.Items).OrderBy(static load => load.Rank).ToSeq()
+        let expected = toSeq(toSeq(CommercialLoad.Items).OrderBy(static load => load.Rank))
             .Fold(allocated, (rows, load) => rows.Concat(Scale(
                 rows.Filter(row => row.Kind.Allocation.CommerciallyLoadable && load.Over.Contains(row.Stage)), load, admittedPolicy)))
         let money = expected.Concat(Risk(expected, basis.CoefficientOfVariation, admittedPolicy.Confidence))
@@ -561,12 +564,12 @@ public static class Estimate {
         let capacity = basis.Find<EstimateEvidence.Capacity>().Map(static value => value.Receipt)
         from _ in capacity.ForAll(value => value.Units >= admittedPolicy.Quantity)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:lot-capacity").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "estimate:lot-capacity"))
         select new QuoteReceipt(unit, admittedPolicy, money, carbon, capacity);
 
     private static Fin<EstimateBasis> Admit(FabricationResult result, EstimateBasis basis) =>
-        from admittedResult in Optional(result).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:result").ToError())
-        from admittedBasis in Optional(basis).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:basis").ToError())
+        from admittedResult in Optional(result).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "estimate:result"))
+        from admittedBasis in Optional(basis).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "estimate:basis"))
         from _ in ResultSubject(admittedResult, admittedBasis.Subject)
         select admittedBasis;
 
@@ -584,7 +587,7 @@ public static class Estimate {
             formedResult: static value => Seq(value.Key));
         return !keys.IsEmpty && keys.Contains(subject)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:result-subject").ToError());
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "estimate:result-subject"));
     }
 
     private static Fin<EstimateDemand> Demand(FabricationResult result, EstimateBasis basis) =>
@@ -613,14 +616,14 @@ public static class Estimate {
                     && operation.Receipt.Locus == $"step:{step.Order}:{step.Process.Key}"))
                 ? Fin.Succ(new EstimateDemand("plan", ClockRequired: false, Some(Duration.Zero),
                     Set(EvidenceKind.Operation), Seq<CostActivity>()))
-                : Fin.Fail<EstimateDemand>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:plan-operation-evidence").ToError()))
+                : Fin.Fail<EstimateDemand>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "estimate:plan-operation-evidence")))
         .Bind(demand => demand.Required.ToSeq().TraverseM(kind => basis.Carries(kind)
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"estimate:{demand.Locus}:{kind.Key}").ToError())).As()
+                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, $"estimate:{demand.Locus}:{kind.Key}"))).As()
             .Map(_ => demand));
 
     private static Fin<EstimateDemand> Unpriceable(string locus) =>
-        Fin.Fail<EstimateDemand>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"estimate:{locus}").ToError());
+        Fin.Fail<EstimateDemand>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, $"estimate:{locus}"));
 
     private static Fin<(Duration Duration, bool Backed)> Clock(EstimateBasis basis, EstimateDemand demand) =>
         basis.Find<EstimateEvidence.Simulation>()
@@ -629,7 +632,7 @@ public static class Estimate {
                 ? Option<(Duration Duration, bool Backed)>.None
                 : demand.Declared.Map(static value => (Duration: value, Backed: false)))
             .Filter(static value => value.Duration >= Duration.Zero)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"estimate:{demand.Locus}-clock").ToError());
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, $"estimate:{demand.Locus}-clock"));
 
     // Machine, depreciation, and energy are the clock's own rows; every other row belongs to the evidence case proving it.
     private static ActivityRows Spine(EstimateBasis basis, (Duration Duration, bool Backed) clock, EstimateDemand demand) {

@@ -27,7 +27,7 @@ from functools import wraps
 from itertools import accumulate
 from typing import TYPE_CHECKING, Final, Literal, Self, assert_never
 
-from beartype import BeartypeConf, beartype
+from beartype import beartype
 from beartype.roar import BeartypeCallHintViolation
 from expression import Error, Ok, Result, Some, case, tag, tagged_union
 from expression.collections import Block
@@ -36,12 +36,13 @@ from msgspec import Struct
 from msgspec.structs import asdict
 
 from rasm.artifacts.graphic.vector.path import TOLERANCE, Bounds, PathFault, Point2, Tolerance, combined, fit_matrix, fragment, point_at, scene
-from rasm.runtime.faults import BoundaryFault
+from rasm.runtime.faults import FAULT_CONF, BoundaryFault
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Enforcement, Kernel, KernelTrait
 
 lazy import drawsvg as draw
 lazy import pathops
+lazy from rasm.artifacts.typography.shape import PositionedGlyphRun
 lazy import resvg_py
 lazy from fontTools.pens.svgPathPen import SVGPathPen
 lazy from svgelements import Close, CubicBezier, Matrix, Move, QuadraticBezier
@@ -52,7 +53,6 @@ if TYPE_CHECKING:
     from svgelements import Matrix, Shape
     from svgelements import Path as SvgPath
 
-    from rasm.artifacts.typography.shape import PositionedGlyphRun
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type Glyphs = tuple[tuple[str, float, float, float, float], ...]  # per-glyph (d, x_advance, y_advance, x_offset, y_offset) — PositionedGlyphRun.on_path()
@@ -298,8 +298,15 @@ def _boolean(sources: tuple[bytes, ...], op: BooleanOp, fill: WindingRule, /) ->
     def _fold(paths: Block["pathops.Path"], /) -> Result[bytes, RegionFault]:
         def _run() -> "pathops.Path":
             builder, member = pathops.OpBuilder(fix_winding=True, keep_starting_points=True), getattr(pathops.PathOp, op.name)
-            for operand in paths:  # the first add seeds the base, each later add applies `op` against the accumulator
-                builder.add(operand, member)
+            for index, operand in enumerate(paths):
+                # MEASURED: `OpBuilder` folds each `add` against an accumulator that starts EMPTY, so applying the
+                # requested operator from the first operand resolved `INTERSECTION`, `DIFFERENCE`, and
+                # `REVERSE_DIFFERENCE` against nothing — a zero-contour path for every input, which `_framed` then
+                # railed as `empty` and which made three of the five members permanently dead (a 5..10 square
+                # against a 0..15 square resolved to bounds `(0, 0, 0, 0)` where the binary `pathops.op` gives
+                # `(5, 5, 10, 10)`). The FIRST operand seeds the accumulator under `UNION` and the requested
+                # operator applies from the second onward, which is the fold the binary entry point performs.
+                builder.add(operand, member if index else pathops.PathOp.UNION)
             return _filled(builder.resolve(), fill)
 
         return _resolved(_run).bind(_framed)
@@ -322,11 +329,12 @@ def _outline(
 
 
 def _warp(source: bytes, coeffs: Perspective, /) -> Result[bytes, RegionFault]:
-    # full 3x3 affine/PERSPECTIVE placement via pathops.Path.transform in place — the keystone dewarp the 6-tuple affine lacks.
+    # full 3x3 affine/PERSPECTIVE placement through `pathops.Path.transform` — the keystone dewarp the 6-tuple
+    # affine lacks. MEASURED: `transform` RETURNS a new path and leaves the receiver untouched, so discarding the
+    # return shipped the un-warped input under a warp op — a silent identity on the page's whole dewarp capability.
     def _apply(shape: "pathops.Path", /) -> Result[bytes, RegionFault]:
         def _run() -> "pathops.Path":
-            shape.transform(*coeffs)
-            return shape
+            return shape.transform(*coeffs)
 
         return _resolved(_run).bind(_framed)
 
@@ -360,19 +368,6 @@ def _facts(source: bytes, fill: WindingRule, /) -> Result[RegionFacts, RegionFau
     def _read(shape: "pathops.Path", /) -> Result[RegionFacts, RegionFault]:
         def _run() -> RegionFacts:
             ruled = _filled(shape, fill)  # area is fill-rule-governed exactly as contains is
-            if not len(ruled):
-                return RegionFacts(
-                    area=0.0,
-                    bounds=(0.0, 0.0, 0.0, 0.0),
-                    control_bounds=(0.0, 0.0, 0.0, 0.0),
-                    contours=0,
-                    points=0,
-                    verbs=0,
-                    convex=True,
-                    clockwise=False,
-                    starts=(),
-                    fill=fill,
-                )
             box, hull = ruled.bounds, ruled.controlPointBounds  # tight extent + the control-hull extent a layout/collision consumer keys
             return RegionFacts(
                 area=abs(float(ruled.area)),
@@ -387,6 +382,10 @@ def _facts(source: bytes, fill: WindingRule, /) -> Result[RegionFacts, RegionFau
                 fill=fill,
             )
 
+        # the EMPTY shape rails as `empty` here and nowhere else: the arm used to build a whole ten-field zero
+        # receipt for that case and this very bind discarded it one line later, so every field was a measurement
+        # nothing took, constructed only to be thrown away. `pathops` answers `(0,0,0,0)` bounds on an empty path,
+        # so the ordinary read is total and the rail owns the refusal.
         return _resolved(_run).bind(lambda read: Ok(read) if read.contours else Error(RegionFault(empty=None)))
 
     return _to_pathops(source).bind(_read)
@@ -538,14 +537,14 @@ class RegionOp:
         return RegionOp(clip=(source, rect))
 
     @staticmethod
-    def TextPath(glyphs: "PositionedGlyphRun | Glyphs | Iterable[tuple[str, float]]", baseline: bytes, offset: float = 0.0) -> "RegionOp":
-        # one structural narrowing over the three caller shapes: a run shapes through on_path(), an exported five-field
-        # Glyphs row passes verbatim, and a legacy (d, x_advance) pair widens with zero y-advance and zero shaped offsets
-        rows = (
-            glyphs.on_path()
-            if hasattr(glyphs, "on_path")
-            else tuple(row if len(row) == 5 else (row[0], row[1], 0.0, 0.0, 0.0) for row in glyphs)
-        )
+    def TextPath(glyphs: "PositionedGlyphRun | Glyphs", baseline: bytes, offset: float = 0.0) -> "RegionOp":
+        # TWO caller shapes, narrowed structurally: the shaping seam's own run shapes through `on_path()` and an
+        # exported five-field `Glyphs` row passes verbatim. The third arm is deleted whole — a `(d, x_advance)`
+        # pair widened with zero y-advance and zero shaped offsets was a self-declared legacy shape publishing
+        # forged placement for every glyph, and legacy surfaces are refused outright rather than carried. The
+        # narrowing is `isinstance` against the imported owner, never a `hasattr` duck probe: the type is in scope,
+        # so the probe tested for a member the declaration already proves.
+        rows = glyphs.on_path() if isinstance(glyphs, PositionedGlyphRun) else tuple(glyphs)
         return RegionOp(text_path=(rows, baseline, offset))
 
     @staticmethod
@@ -574,11 +573,10 @@ class RegionResult:
     raster: bytes = case()
 
 
-_CONTRACT = BeartypeConf(is_pep484_tower=True)
 
 
 def _contracted(operation: Callable[[RegionOp], Result[RegionResult, RegionFault]], /) -> Callable[[RegionOp], Result[RegionResult, RegionFault]]:
-    guarded = beartype(conf=_CONTRACT)(operation)
+    guarded = beartype(conf=FAULT_CONF)(operation)
 
     @wraps(operation)
     def call(op: RegionOp, /) -> Result[RegionResult, RegionFault]:
@@ -686,6 +684,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Region operation dispatch and result rail
+    accDescr: One public applied entry totally matching each region case onto the boolean, outline, warp, wind, contains, facts, clip, text-path, transform, serialize, and rasterize arms over a single geometry spine, every arm closing on the region result rail that folds to a block and composes one hop into the downstream surfaces.
     Applied["applied(op) — the ONE public dispatch (@_contracted)"] --> Disp["total match per RegionOp case"]
     Over["Region.over (RegionOp | Iterable)"] --> Of["Region.of(lane) -> offload PROCESS (TERMINAL when rasterize-bearing) -> flatten"]
     Of -->|traverse| Applied

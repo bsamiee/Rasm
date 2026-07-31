@@ -1,6 +1,6 @@
 # [UI_PROBE]
 
-Probe owns render evidence. Its benchmark lane folds Deck and renderer counters through one bounded projection algebra, mirrors the host fingerprint, and joins local rows to identity-admitted claims by label. Its receipt lane captures a fixed-extent framebuffer, delegates content minting, and compares the result with `RenderReceipt`. Both lanes render evidence and never gate. Module: `ui/viewer/src/probe.ts`.
+Probe owns render evidence. Its benchmark lane folds Deck and renderer counters through one bounded projection algebra, mirrors the host fingerprint, and joins local rows to identity-admitted claims by label. Its receipt lane captures a fixed-extent framebuffer, delegates content minting, and compares the result with `RenderReceipt`. Every window bound arrives as the floor's `Vital.Policy` row, so the sampling cap is one estate value both evidence planes read. Both lanes render evidence and never gate. Module: `ui/viewer/src/probe.ts`.
 
 ## [01]-[INDEX]
 
@@ -14,23 +14,23 @@ Probe owns render evidence. Its benchmark lane folds Deck and renderer counters 
 
 [METRIC_FOLD]:
 - Owner: `Probe.rows` — the local capture: deck's `_onMetrics` callback is the GPU-side sink carrying the FULL shipped `DeckMetrics` roster — timing (`fps`, `gpuTime`/`gpuTimePerFrame`, `cpuTime`/`cpuTimePerFrame`, `pickTime`, `setPropsTime`, `updateAttributesTime`), counters (`framesRedrawn`, `pickCount`, `pickLayersCount`, `updateAttributesCount`, `layersCount`, `drawLayersCount`, `updateLayersCount`), and the `gpuMemory` split (`bufferMemory`, `textureMemory`, `renderbufferMemory`) — while the unified `WebGPURenderer.info` row contributes render, compute, residency-count, and byte-grade memory facts. `_DECK_TIMERS`, `_DECK_COUNTERS`, `_DECK_MEMORY`, and `_RENDERER_INFO` merge into one measure table; each row selects `mean`, `latest`, or `peak`, and ONE `Chunk.reduce` applies the projection algebra to every measure. A new counter is one measure row, never a seed-field/step/row triplicate; every output derives from `Claim`'s `label`/`value`/`unit` shape, so comparison is a keyed join, not an adapter.
-- Packages: `@deck.gl/core` (`DeckMetrics` via the `_onMetrics` prop on the surface's overlay); `three` (`WebGPURenderer["info"]` — the render/compute/memory counter surface through `three/webgpu`); `@rasm/ts/core` (`Claim` — the metric row shape IS its vocabulary); `effect` (`Chunk`, `Number`, `pipe`).
+- Packages: `@deck.gl/core` (`DeckMetrics` via the `_onMetrics` prop on the surface's overlay); `three` (`WebGPURenderer["info"]` — the render/compute/memory counter surface through `three/webgpu`); `@rasm/ts/core` (`Claim` — the metric row shape IS its vocabulary); `system/vital` (`Vital.Policy` — the floor-owned window bound); `effect` (`Array`, `Chunk`, `Number`, `Record`, `pipe`).
 - Law: probes are passive — metric capture never alters render behavior (no forced redraws, no `_animate` flips for measurement's sake); an idle viewport reports idle numbers truthfully.
 - Law: the tick assembles the sample — the deck sink caches its last payload, the frame loop reads `renderer.info` inside its own tick (the loop is already the timing source, no second RAF), and a scene-owned loop flips `info.autoReset` false with `info.reset()` closing each tick so per-frame counters stay frame-true.
-- Law: windows are policy rows — sample count lives at `_WINDOW`, projection kind lives on each bounded measure row, and `_PROJECTION` owns every step/finalize rule; a per-metric bespoke window or reducer is the named defect.
-- Law: the trace renders as a live series, never table rows — `Probe.aligned(trace)` projects the rolling window into the aligned columns `view/chart#SERIES_SURFACE` streams through `setData` (the metric board is a chart cohort synced by one key), and the summary rows feed the claim board; a metric timeline rendered through `view/table` is the named defect.
+- Law: the window algebra is the floor's, never a module re-derivation — `Vital.window` bounds the trace at the branded `Vital.Policy.samples` cap, `Vital.fold` runs the ONE accumulating pass, and `Vital.project` owns every finisher, so this page's bounded fold and the floor's entry windows share one algebra and cannot drift; projection kind lives on each bounded measure row, and a per-metric bespoke window or reducer is the named defect.
+- Law: the measure table IS the fold's key space — the read record and the row projection both derive from `_METRICS` through `Record.map`/`Record.collect`, so the accumulator's keys are the table's keys by construction and a new counter is one row with no seed, step, or reader edit; an absent part emits nothing rather than a zero no sample produced.
+- Law: the trace renders as a live series, never table rows — `Probe.aligned(trace, series)` projects the rolling window into the aligned columns `view/chart#SERIES_SURFACE` streams through `setData`, the leading column being the sample rank and each following column one named measure the caller selects off the same `_METRICS` key space (the metric board is a chart cohort synced by one key); a hardcoded series triple beside a forty-row measure table is the enumerated instance the parameterized reader deletes, and a metric timeline rendered through `view/table` is the named defect.
 - Law: residency metrics tap the scene broadcast — `scene#RESIDENCY_GRAFT`'s `Glb.Loop.facts` discriminant feeds arrival-rate and refusal-rate rows through the adopted `rasm.ui.scene.residency` hook source, so probe boards, history capture, and the app bridge consume one rail without parallel port subscriptions.
 - Boundary: `Deck`/renderer acquisition is `geo`/`scene`'s — the sinks arrive as wiring parameters; React tree, vitals, and long-frame evidence is `system/vital`'s lane rendered on this same board through the shared row shape; render-vital emission to the OTel spine is the runtime plane's, fed by an app-composed `system/hook` tap resolving these local rows onto `runtime:otel/vital`'s closed `frame`/`gpumem`/`capture` carrier set — the per-frame render timing, the gpu-memory peak, and the capture verdict this page alone produces — so this probe stays a display surface and mints no instrument, and a carrier kind landing there without its row here is a wire nobody sends.
 
 ```typescript
 import type { DeckMetrics } from "@deck.gl/core"
 import type { Claim } from "@rasm/ts/core"
-import { Chunk, Number, pipe } from "effect"
+import { Array, Chunk, Option, Record, pipe } from "effect"
 import type { WebGPURenderer } from "three/webgpu"
+import { Vital } from "../../src/system/vital.ts"
 
 type Metric = Claim["metrics"][number]
-
-const _WINDOW = { samples: 120 } as const
 
 type _Info = WebGPURenderer["info"]
 
@@ -46,8 +46,7 @@ declare namespace Probe {
   type Trace = Chunk.Chunk<Probe.Sample>
 }
 
-type _Projection = "mean" | "latest" | "peak"
-type _Measure = { readonly label: Metric["label"]; readonly unit: Metric["unit"]; readonly projection: _Projection; readonly read: (sample: Probe.Sample) => number }
+type _Measure = { readonly label: Metric["label"]; readonly unit: Metric["unit"]; readonly projection: Vital.Projection; readonly read: (sample: Probe.Sample) => number }
 
 const _DECK_TIMERS = {
   fps: { label: "fps", unit: "1/s", projection: "mean", read: (s: Probe.Sample) => s.deck.fps },
@@ -98,41 +97,33 @@ const _RENDERER_INFO = {
 
 const _METRICS = { ..._DECK_TIMERS, ..._DECK_COUNTERS, ..._DECK_MEMORY, ..._RENDERER_INFO } as const
 type _MetricKey = keyof typeof _METRICS
-type _Sums = { readonly count: number; readonly values: Readonly<Record<_MetricKey, number>> }
 
-const _PROJECTION = {
-  mean: { step: (held: number, value: number) => held + value, finish: (held: number, count: number) => held / count },
-  latest: { step: (_held: number, value: number) => value, finish: (held: number) => held },
-  peak: { step: Number.max, finish: (held: number) => held },
-} as const satisfies Record<_Projection, { readonly step: (held: number, value: number) => number; readonly finish: (held: number, count: number) => number }>
-
-const _MEASURES = Object.entries(_METRICS) as ReadonlyArray<readonly [_MetricKey, _Measure]> // BOUNDARY ADAPTER: the closed record erases once into its enumerable fold
-const _SEED: _Sums = { count: 0, values: Object.fromEntries(_MEASURES.map(([key]) => [key, 0])) as Record<_MetricKey, number> }
-
-const _stepped = (acc: _Sums, sample: Probe.Sample): _Sums => ({
-  count: acc.count + 1,
-  values: Object.fromEntries(_MEASURES.map(([key, row]) => [key, _PROJECTION[row.projection].step(acc.values[key], row.read(sample))])) as Record<_MetricKey, number>,
-})
-
-const _observe = (trace: Probe.Trace, sample: Probe.Sample): Probe.Trace =>
-  Chunk.takeRight(Chunk.append(trace, sample), _WINDOW.samples)
+// the floor owns the whole window algebra — window bound, accumulating pass, and finishers all arrive from
+// `system/vital`, so this page declares only WHAT it measures and HOW to read one sample
+const _observe = (trace: Probe.Trace, sample: Probe.Sample, policy: Vital.Policy): Probe.Trace =>
+  Vital.window(trace, [sample], policy.samples) // the branded floor cap, never a page literal
 
 const _rows = (trace: Probe.Trace): ReadonlyArray<Metric> =>
-  pipe(Chunk.reduce(trace, _SEED, _stepped), (sums) =>
-    sums.count === 0
+  pipe(Vital.fold(trace, (sample) => Record.map(_METRICS, (row) => row.read(sample))), (window) =>
+    window.count === 0
       ? [] // an empty window carries no rows — a zero-sample mean is fabricated evidence
-      : _MEASURES.map(([key, row]) => ({
-          label: row.label,
-          value: _PROJECTION[row.projection].finish(sums.values[key], sums.count),
-          unit: row.unit,
-        })))
+      : Array.getSomes(
+          Record.collect(_METRICS, (key, row) =>
+            // a measure the window never saw emits nothing rather than a zero no sample produced
+            Option.map(Record.get(window.parts, key), (held) => ({
+              label: row.label,
+              value: Vital.project[row.projection](held, window.count),
+              unit: row.unit,
+            })))))
 
-const _aligned = (trace: Probe.Trace): readonly [Float64Array, Float64Array, Float64Array, Float64Array] =>
+const _aligned = (
+  trace: Probe.Trace,
+  series: Array.NonEmptyReadonlyArray<_MetricKey>,
+): readonly [Float64Array, ...ReadonlyArray<Float64Array>] =>
+  // the caller names its series off the one measure key space; the leading column is the sample rank
   pipe(Chunk.toReadonlyArray(trace), (samples) => [
     Float64Array.from(samples, (_, rank) => rank),
-    Float64Array.from(samples, (sample) => sample.deck.fps),
-    Float64Array.from(samples, (sample) => sample.deck.gpuTime),
-    Float64Array.from(samples, (sample) => sample.deck.cpuTime),
+    ...Array.map(series, (key) => Float64Array.from(samples, _METRICS[key].read)),
   ] as const)
 ```
 
@@ -147,6 +138,7 @@ const _aligned = (trace: Probe.Trace): readonly [Float64Array, Float64Array, Flo
 ```typescript
 import { Claim } from "@rasm/ts/core"
 import { Number, Option, pipe } from "effect"
+import type { Theme } from "../../src/system/token.ts"
 
 const _host = (
   print: string,
@@ -215,7 +207,8 @@ const _board = (claim: Claim, local: ReadonlyArray<Metric>): ReadonlyArray<Probe
 
 [CAPTURE_FOLD]:
 - Owner: `Probe.capture` — the capture discipline as one fold: render into a fixed-extent target (capture never reads the live swap chain — DPR and resize break determinism), await the settled frame (`compileAsync` before first capture; capture runs after the residency fold quiesces), read pixels through `renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height, buffer)` (the WebGPU-safe async readback; a synchronous read stalls the pipeline and is the named defect), and delegate the octets to the mint delegate — the branch's content mint has exactly the delegation sites `core/value/contentKey` enumerates, so the delegate arrives as a parameter the composition satisfies from the runtime worker's mint site, and this module carries no hash code.
-- Packages: `three` (the render-target family, the async readback — members verified against the shipped runtime); `@rasm/ts/core` (`ContentKey`, `RenderReceipt`); `effect` (`DateTime`, `Effect`, `Equal`).
+- Packages: `@rasm/ts/core` (`ContentKey`, `RenderReceipt`); `effect` (`DateTime`, `Effect`, `Equal`).
+- Boundary: the render-target family and the async readback are `three`'s and reach this fold only as the `Readback` parameter `scene` satisfies, exactly as the mint delegate arrives from the runtime worker's mint site; this page owns the discipline and the verdict, never a renderer handle.
 - Law: capture parameters are a policy row — extent, target format, and the settle predicate live in one `as const` record; a capture with ad-hoc parameters produces an incomparable hash and is the named defect.
 - Law: the comparison is structural — the local key and the receipt's key compare through `Equal.equals` on the brand; the verdict is `{ view, expected, actual, matched, at }` — a plain data row beside the wire receipt's own C#-computed `matched`/`at`, so the operator reads both proofs.
 - Law: the MRT/post chain feeding a G-buffer capture is the same fold with a different target row — the WebGPU arm's `PostProcessing` pipeline with `three/tsl`'s `mrt({ … })` names the targets, and no second capture fold exists.
@@ -268,7 +261,7 @@ const _capture = (
 [EVIDENCE_ROWS]:
 - Owner: `Probe.tone` — the verdict and delta presentation vocabulary: matched renders on the success tone, mismatched on the danger tone WITH both keys shown (the `:x32` spelling the kernel brand carries); delta rows tone by sign; the wire receipt's own fields render beside the local verdict; stamps format through `Format.instant`.
 - Law: a mismatch is never a fault — no channel carries it, no retry fires; the verdict row IS the deliverable, and escalation is an operator decision outside this plane. Layout drift reports from `panel#LAYOUT_SOLVE` land on this same board as evidence rows under the same law.
-- Law: verdict history is a bounded fold — the last N verdicts per view ride a `Chunk`-backed atom (append, take-right, the `[2]` window policy shape); evidence accumulates without unbounded memory.
+- Law: verdict history is a bounded fold — the last N verdicts per view ride a `Chunk`-backed atom under the SAME `Vital.Policy.samples` bound `[02]`'s trace takes (append, take-right), so one supplied cap governs every evidence window on this page; evidence accumulates without unbounded memory.
 - Law: evidence copies through the port — the copy-evidence affordance writes `Probe.line(row)` (one serializer over board row and verdict) through the `Clipboard` Tag (`system/primitive#CLIPBOARD_PORT`); `navigator.clipboard` in an evidence row is the named defect.
 - Boundary: badge and row primitives are `system/primitive` recipes; the claim board renders `view/table` rows while metric timelines render `view/chart` series — evidence picks its surface by shape.
 
@@ -281,7 +274,7 @@ const _tone = {
   faster: { tone: "success" },
   slower: { tone: "danger" },
   incomparable: { tone: "neutral" },
-} as const
+} as const satisfies Record<string, { readonly tone: Theme.Tone }>
 
 const _line = (row: Probe.BoardRow | Probe.Verdict): string =>
   Predicate.hasProperty(row, "matched")
@@ -295,7 +288,6 @@ const _line = (row: Probe.BoardRow | Probe.Verdict): string =>
 
 declare namespace Probe {
   type Shape = {
-    readonly window: typeof _WINDOW
     readonly extent: typeof _CAPTURE
     readonly observe: typeof _observe
     readonly rows: typeof _rows
@@ -309,7 +301,6 @@ declare namespace Probe {
 }
 
 const Probe: Probe.Shape = {
-  window: _WINDOW,
   extent: _CAPTURE,
   observe: _observe,
   rows: _rows,

@@ -15,14 +15,13 @@
 - Entry: `FlatPattern.Unfold(FormPolicy, FabricationInput)` is the frozen development seam, and `FlatPattern.Formed(UnfoldResult, Seq<BendStep>)` is the frozen result projection.
 - Auto: Panel links derive a topological placement order; the generated grain field gates bend radius and loop-feature strain; surface links shift kernel islands by neutral-axis deltas; every bend endpoint enters one relief-seat census that folds co-terminating bends into one corner seat sized against the formed radius; one `PolygonOp.Boolean` subtracts admitted reliefs.
 - Receipt: `UnfoldResult` preserves flat regions, bend topology, forming physics, kernel isometry, neutral-axis displacement, feature evidence, relief evidence, and material identity.
-- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `CommunityToolkit.HighPerformance`, `QuikGraph`, `UnitsNet`, `Rasm`, and the `Geometry2D` owner compose the surface.
-- Growth: A K convention is one `KSource` row, a hem geometry is one `HemKind` row, a relief geometry is one `ReliefKind` row, a sheet feature is one `SheetForm` case, a link modality is one `SheetLink` case, and a new source is one `SheetSource` case with one total dispatch arm.
+- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `QuikGraph`, `UnitsNet`, `Rasm`, the `Rasm.Element` `CanonicalWriter` codec, and the `Geometry2D` owner compose the surface.
+- Growth: each K convention is one `KSource` row, a hem geometry is one `HemKind` row, a relief geometry is one `ReliefKind` row, a sheet feature is one `SheetForm` case, a link modality is one `SheetLink` case, and a new source is one `SheetSource` case with one total dispatch arm.
 - Boundary: Forming owns neutral-axis and feature development; kernel isometry, planar topology, process physics, and content identity remain at their canonical owners.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Buffers.Binary;
-using CommunityToolkit.HighPerformance.Buffers;
+using Rasm.Element.Projection;
 using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
@@ -30,6 +29,7 @@ using QuikGraph.Algorithms;
 using Rasm.Domain;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
+using Rasm.Meshing;
 using Rasm.Parametric;
 using Rasm.Processing;
 using Rhino.Geometry;
@@ -43,24 +43,27 @@ namespace Rasm.Fabrication.Forming;
 [SmartEnum<string>]
 public sealed partial class KSource {
     public static readonly KSource Table = new("table", static query => query.Table
-        .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-table").ToError())
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-table"))
         .Bind(table => table.Resolve(query)));
     public static readonly KSource Coupon = new("coupon", static query => query.Coupon
-        .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-coupon").ToError())
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-coupon"))
         .Bind(coupon => coupon.Calibrate(query)));
+    // DIN 6935 fixes the correction factor at `k = 0.65 + 0.5·lg(r/s)`, held at 0.65 below `r/s = 0.65` and capped
+    // at 1.0 above; the floor is the standard's own lower branch, and dropping it to 0.5 understates the neutral
+    // axis by a fifth on exactly the tight-radius bends this row exists to answer.
     public static readonly KSource Din6935 = new("din-6935", static query =>
-        Fin.Succ(Math.Clamp(0.65 + (0.5 * Math.Log10(query.RadiusMm / query.ThicknessMm)), 0.5, 1.0) / 2.0));
+        Fin.Succ(Math.Clamp(0.65 + (0.5 * Math.Log10(query.RadiusMm / query.ThicknessMm)), 0.65, 1.0) / 2.0));
     public static readonly KSource Physics = new("physics", static query => Fin.Succ(query.Forming.KFactor));
 
     [UseDelegateFromConstructor]
     private partial Fin<double> ResolveAdmitted(KQuery query);
 
     public Fin<double> Resolve(KQuery? query) => Optional(query)
-        .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-query").ToError())
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-query"))
         .Bind(ResolveAdmitted)
         .Bind(static k => double.IsFinite(k) && k is > 0.0 and < 1.0
             ? Fin.Succ(k)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-result").ToError()));
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-result")));
 }
 
 [SmartEnum<string>]
@@ -121,7 +124,7 @@ public abstract partial record SheetForm {
 
     public bool IsFeature => IsValid && !IsLine;
 
-    // A line form whose geometry demands dedicated tooling overrides the policy default at candidate admission;
+    // Line forms whose geometry demands dedicated tooling override the policy default at candidate admission;
     // None defers to FormPolicy, so one part mixes hemmed, curled, and ordinary bends under one policy.
     public Option<(BendMethod Method, PunchKind Punch)> Tooling => Switch(
         bend: static _ => Option<(BendMethod, PunchKind)>.None,
@@ -192,7 +195,7 @@ public sealed partial class BendCoupon {
             && Math.Abs(queryRatio - couponRatio) <= RadiusThicknessTolerance
             && double.IsFinite(k) && k is > 0.0 and < 1.0
                 ? Fin.Succ(k)
-                : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-coupon-applicability").ToError());
+                : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-coupon-applicability"));
     }
 }
 
@@ -246,11 +249,11 @@ public sealed partial class KFactorTable {
             ? Bands.Filter(band => band.Material == query.Material.Family && band.Method == query.Method && band.Grade.IsNone)
             : exact;
         return series.Filter(band => query.RadiusMm / query.ThicknessMm >= band.RtLow && query.RadiusMm / query.ThicknessMm < band.RtHigh)
-            .HeadOrNone()
+            .Head
             .Map(band => band.KLow + ((band.KHigh - band.KLow)
                 * ((query.RadiusMm / query.ThicknessMm) - band.RtLow) / (band.RtHigh - band.RtLow)))
             .Filter(static k => double.IsFinite(k) && k is > 0.0 and < 1.0)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:k-band:{query.Material.Family.Key}:{query.Method.Key}").ToError());
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"flat:k-band:{query.Material.Family.Key}:{query.Method.Key}"));
     }
 }
 
@@ -359,7 +362,7 @@ public sealed partial class GrainLaw {
     public Fin<double> At(Vector3d direction) {
         Vector3d projected = new(direction.X, direction.Y, 0.0);
         if (!projected.Unitize())
-            return Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:grain-axis").ToError());
+            return Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Line, None, "flat:grain-axis").ToError());
         double radians = Angle.FromDegrees(RollingDeg).Radians;
         Vector3d rolling = new(Math.Cos(radians), Math.Sin(radians), 0.0);
         double parallel = Math.Abs(projected * rolling);
@@ -536,7 +539,7 @@ public sealed partial class UnfoldResult {
 public static class FlatPattern {
     public static Fin<UnfoldResult> Unfold(FormPolicy policy, FabricationInput input) =>
         policy is null || input is null
-            ? Fin.Fail<UnfoldResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:input").ToError())
+            ? Fin.Fail<UnfoldResult>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:input"))
             : from bendLength in BendLength(policy.Source)
               from forming in FormedRow(policy.Material, input.Process, policy.State, policy.ThicknessMm, bendLength)
               from assembly in policy.Source.Switch(
@@ -563,7 +566,7 @@ public static class FlatPattern {
         ProcessPhysics.Budget(new PhysicsRequest.Forming(process, material, state, thicknessMm, bendLengthMm))
             .Bind(static budget => budget is ProcessBudget.Formed formed
             ? Fin.Succ(formed)
-            : Fin.Fail<ProcessBudget.Formed>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:forming-budget").ToError()));
+            : Fin.Fail<ProcessBudget.Formed>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:forming-budget")));
 
     private static Fin<double> BendLength(SheetSource source) => source.Switch(
         panels: static row => Total(row.Links.Map(static link => link.ParentEdge.A.DistanceTo(link.ParentEdge.B))),
@@ -574,7 +577,7 @@ public static class FlatPattern {
         Mesh mesh = source.Value.Mesh.DuplicateNative();
         return source.Links.Traverse(link => (link.SourceA < mesh.Vertices.Count && link.SourceB < mesh.Vertices.Count
                 ? Fin.Succ(mesh.Vertices.Point3dAt(link.SourceA).DistanceTo(mesh.Vertices.Point3dAt(link.SourceB)))
-                : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:surface-bend-length").ToError()))
+                : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:surface-bend-length")))
             .ToValidation()).As().ToFin().Bind(Total);
     }
 
@@ -582,7 +585,7 @@ public static class FlatPattern {
         double total = lengths.Fold(0.0, static (sum, length) => sum + length);
         return double.IsFinite(total) && total > 0.0
             ? Fin.Succ(total)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:bend-length").ToError());
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:bend-length"));
     }
 
     private static Fin<SheetAssembly> DevelopPanels(
@@ -605,7 +608,7 @@ public static class FlatPattern {
         from development in Development.Apply(new DevelopOp.Unroll(source.Value, policy.Development))
         from unrolled in development is DevelopmentResult.Unrolled value
             ? Fin.Succ(value)
-            : Fin.Fail<DevelopmentResult.Unrolled>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:surface-result").ToError())
+            : Fin.Fail<DevelopmentResult.Unrolled>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:surface-result"))
         from _ in unrolled.Receipt.MaxIsometry <= policy.IsometryBudget && unrolled.Receipt.MaxTorsal <= policy.TorsalBudget
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(FabricationFault.UnfoldInfeasible(unrolled.Atlas.Islands.Count, unrolled.Field.RailOffsets.Count))
@@ -655,9 +658,9 @@ public static class FlatPattern {
         FormPolicy policy,
         ProcessBudget.Formed forming) =>
         from parent in islands.Map((island, index) => (Island: island, Index: index)).Find(row => row.Island.Chart == link.Parent)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:surface-parent").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:surface-parent"))
         from child in islands.Map((island, index) => (Island: island, Index: index)).Find(row => row.Island.Chart == link.Child)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:surface-child").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:surface-child"))
         from a in Local(parent.Island, link.SourceA)
         from b in Local(parent.Island, link.SourceB)
         from bend in Annotate(
@@ -693,7 +696,7 @@ public static class FlatPattern {
             && double.IsFinite(resolvedRadius) && resolvedRadius >= minimumRadius
             && line.A.IsValid && line.B.IsValid && line.A != line.B
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:bend").ToError())
+                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:bend"))
                from query in KQuery.Validate(
                    policy.Material,
                    policy.Method,
@@ -703,7 +706,7 @@ public static class FlatPattern {
                    policy.Coupon,
                    forming,
                    out KQuery admitted) is { } error
-                    ? Fin.Fail<KQuery>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+                    ? Fin.Fail<KQuery>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, error.Message))
                     : Fin.Succ(admitted)
                from k in policy.KSource.Resolve(query)
                from projection in Project(form, angleDeg, resolvedRadius, policy.ThicknessMm, k, referenceArcMm)
@@ -721,10 +724,10 @@ public static class FlatPattern {
                 + value.Spacing.Millimeters),
             curl: static (state, value) => Fin.Succ(
                 value.Sweep.Radians * (value.InsideRadius.Millimeters + (state.K * state.Thickness))),
-            bead: static (_, _) => Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:line-bead").ToError()),
-            louver: static (_, _) => Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:line-louver").ToError()),
-            emboss: static (_, _) => Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:line-emboss").ToError()),
-            dimple: static (_, _) => Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:line-dimple").ToError()));
+            bead: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:line-bead")),
+            louver: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:line-louver")),
+            emboss: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:line-emboss")),
+            dimple: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:line-dimple")));
         double setback = Math.Tan(angle * Math.PI / 360.0) * (radiusMm + thicknessMm);
         return allowance.Map(value => new BendProjection(value, setback, (2.0 * setback) - value, value - referenceArcMm));
     }
@@ -750,10 +753,13 @@ public static class FlatPattern {
 
     private static Fin<PanelState> Place(PanelState state, SheetLink.Panel link, Seq<BendLine> bends) =>
         from parent in state.Placement.Find(link.Parent)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:parent:{link.Parent}").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"flat:parent:{link.Parent}"))
         from resolved in bends.Find(row => row.Child == link.Child)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:bend:{link.Child}").ToError())
-        from child in PlanarPlacement.Between(link.ChildEdge, parent.Apply(link.ParentEdge), resolved.Projection.AllowanceMm)
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"flat:bend:{link.Child}"))
+        // The flat gap between two untrimmed panel outlines is the bend DEDUCTION, not the allowance: the allowance
+        // is the developed length along the neutral axis, and seating the panels at that distance oversizes every
+        // developed flat by twice the setback per bend. `DeductionMm` is the signed gap the placement wants.
+        from child in PlanarPlacement.Between(link.ChildEdge, parent.Apply(link.ParentEdge), resolved.Projection.DeductionMm)
         from loop in Transform(state.Panels[link.Child], child.Apply)
         select state with {
             Flat = state.Flat.SetItem(link.Child, loop),
@@ -762,7 +768,8 @@ public static class FlatPattern {
 
     private static Fin<Seq<PanelRegion>> Neutralize(Seq<UvIsland> islands, Seq<BendLine> bends, Context tolerance) =>
         islands.Map((island, index) => (Island: island, Index: index))
-            .Traverse(row => Boundaries(row.Island, tolerance)
+            .Traverse(row => row.Island.Boundary(tolerance, Op.Of(name: nameof(Neutralize)))
+                .Bind(chains => Rings(chains, tolerance))
                 .Map(loops => loops.Map(loop => new PanelRegion(row.Index, loop))).ToValidation()).As().ToFin()
             .Map(static regions => regions.Bind(static region => region))
             .Bind(regions => bends.FoldM<Fin, Seq<PanelRegion>>(regions,
@@ -780,7 +787,7 @@ public static class FlatPattern {
                 ? Transform(region.Boundary, point => point + (normal * bend.Projection.NeutralShiftMm))
                     .Map(loop => region with { Boundary = loop })
                 : Fin.Succ(region)).ToValidation()).As().ToFin()
-            : Fin.Fail<Seq<PanelRegion>>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:neutral-axis").ToError());
+            : Fin.Fail<Seq<PanelRegion>>(new GeometryFault.DegenerateInput(Kind.Line, None, "flat:neutral-axis").ToError());
     }
 
     private static Set<int> Descendants(Seq<BendLine> bends, Set<int> seed) {
@@ -793,10 +800,10 @@ public static class FlatPattern {
         FormPolicy policy,
         ProcessBudget.Formed forming) => feature.Switch(
         state: (Policy: policy, Forming: forming),
-        bend: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-bend").ToError()),
-        hem: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-hem").ToError()),
-        jog: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-jog").ToError()),
-        curl: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-curl").ToError()),
+        bend: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-bend")),
+        hem: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-hem")),
+        jog: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-jog")),
+        curl: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-curl")),
         bead: static (state, value) => FeatureFromLoop(value, value.Path, value.Width.Millimeters, value.Depth.Millimeters, state.Policy, state.Forming),
         louver: static (state, value) => FeatureFromLoop(value, value.Aperture, 0.0, value.Height.Millimeters, state.Policy, state.Forming),
         emboss: static (state, value) => FeatureFromLoop(value, value.Footprint, 0.0, value.Height.Millimeters, state.Policy, state.Forming),
@@ -825,10 +832,10 @@ public static class FlatPattern {
         from bounded in loop.Apply(new ProfileOp.Bound())
         from path in measured is ProfileResult.Measure metric
             ? Fin.Succ(metric.Path.Millimeters)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-measure").ToError())
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-measure"))
         from diagonal in bounded is ProfileResult.Bound bound
             ? Fin.Succ(bound.Box.Diagonal.Length)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-bound").ToError())
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-bound"))
         from grainFactors in policy.Grain.Map(grain => toSeq(Enumerable.Range(0, loop.Count))
             .Traverse(index => grain.At(loop.At(index + 1) - loop.At(index)).ToValidation()).As().ToFin())
             .IfNone(Fin.Succ(Seq(1.0)))
@@ -840,7 +847,7 @@ public static class FlatPattern {
         PolygonAlgebra.Apply(new PolygonOp.Inspect(flat.ToSeq(), new PolygonQuery.Topology(PolygonFill.NonZero)))
             .Bind(static trace => trace is PolygonTrace.Regions regions
                 ? Fin.Succ(regions.Result)
-                : Fin.Fail<TopologyReceipt>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:topology-trace").ToError()));
+                : Fin.Fail<TopologyReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:topology-trace")));
 
     private static Fin<Seq<ReliefSeat>> ReliefSeats(Arr<Loop> flat, Seq<BendLine> bends, TopologyReceipt topology, FormPolicy policy) {
         double probe = Math.Max(policy.ThicknessMm, flat[0].Tolerance.Absolute.Value * 2.0);
@@ -855,9 +862,9 @@ public static class FlatPattern {
                     .Map(static hits => hits.Exists(identity)).ToValidation()).As().ToFin()
                 from inward in contained.Filter(identity).Count == 1
                     ? contained.Head
-                        .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:relief-side").ToError())
+                        .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "flat:relief-side").ToError())
                         .Map(hit => hit ? left : -left)
-                    : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:relief-side").ToError())
+                    : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "flat:relief-side").ToError())
                 from holeClear in topology.Nodes.Filter(static node => node.IsHole)
                     .Traverse(node => node.Boundary.Apply(new ProfileOp.Contains(pair.At))
                         .Map(static result => result is ProfileResult.Contains inside && inside.Value)
@@ -891,10 +898,10 @@ public static class FlatPattern {
                 None: () => held.Add(seat)));
 
     private static Fin<Arr<Loop>> Difference(Arr<Loop> flat, Seq<Loop> cuts) =>
-        PolygonAlgebra.Apply(new PolygonOp.Boolean(flat.ToSeq(), cuts, PolygonBoolean.Difference, PolygonFill.NonZero))
+        PolygonAlgebra.Apply(new PolygonOp.Boolean(flat.ToSeq(), cuts, BooleanOp.Difference, PolygonFill.NonZero))
             .Bind(static trace => trace is PolygonTrace.Regions regions
                 ? Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary).ToArr())
-                : Fin.Fail<Arr<Loop>>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:relief-trace").ToError()));
+                : Fin.Fail<Arr<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:relief-trace")));
 
     internal static Fin<Loop> Rectangular(ReliefSeat seat, Context tolerance) =>
         ReliefPolygon(seat, tolerance, static (center, along, normal, halfWidth, halfDepth) => [
@@ -904,7 +911,7 @@ public static class FlatPattern {
             center - (along * halfWidth) + (normal * halfDepth * 2.0),
         ], Arr<double>());
 
-    // A slot closed by one semicircle across its far edge: `Bulges[i]` owns the span opening at `Vertices[i]`,
+    // Slots close with one semicircle across the far edge: `Bulges[i]` owns the span opening at `Vertices[i]`,
     // so only index 2 — the returning width edge — carries the half turn.
     internal static Fin<Loop> Obround(ReliefSeat seat, Context tolerance) =>
         ReliefPolygon(seat, tolerance, static (center, along, normal, halfWidth, halfDepth) => [
@@ -947,7 +954,7 @@ public static class FlatPattern {
     private static Fin<Vector3d> Unit(Vector3d vector, string locus) =>
         vector.Unitize()
             ? Fin.Succ(vector)
-            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Brep, -1, locus).ToError());
+            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Line, None, locus).ToError());
 
     private static Fin<UnfoldResult> AdmitResult(
         Arr<Loop> flat,
@@ -957,230 +964,131 @@ public static class FlatPattern {
         ProcessBudget.Formed forming,
         UnfoldEvidence evidence) =>
         UnfoldResult.Validate(flat, bends, thicknessMm, material, forming, evidence, out UnfoldResult result) is { } error
-            ? Fin.Fail<UnfoldResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<UnfoldResult>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, error.Message))
             : Fin.Succ(result);
 
     private static Option<int> Local(UvIsland island, int source) =>
         toSeq(Enumerable.Range(0, island.Vertices.Count)).Find(index => island.Vertices[index] == source);
 
-    private static Fin<Seq<Loop>> Boundaries(UvIsland island, Context tolerance) {
-        Seq<(int A, int B)> boundary = toSeq(island.Faces)
-            .Bind(static face => Seq(
-                (A: face.A, B: face.B),
-                (A: face.B, B: face.C),
-                (A: face.C, B: face.A)))
-            .GroupBy(static edge => (Math.Min(edge.A, edge.B), Math.Max(edge.A, edge.B)))
-            .Filter(static group => group.Count() == 1)
-            .Map(static group => group.First())
-            .ToSeq();
-        return boundary.Count >= 3
-            ? BoundaryRegions(boundary, island, tolerance, Seq<Loop>())
-            : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island:{island.Chart}").ToError());
-    }
-
-    private static Fin<Seq<Loop>> BoundaryRegions(
-        Seq<(int A, int B)> remaining,
-        UvIsland island,
-        Context tolerance,
-        Seq<Loop> regions) =>
-        remaining.IsEmpty
-            ? Fin.Succ(regions)
-            : from cycle in BoundaryCycle(remaining, island.Chart)
-              from loop in Loop.Admit(cycle.Vertices.Map(index => Planar(island.Uv[index])).ToArr(), closed: true, Arr<double>(), tolerance)
-              from result in BoundaryRegions(
-                  remaining.Filter(edge => !cycle.Edges.Contains(Normalize(edge))),
-                  island,
-                  tolerance,
-                  regions.Add(loop))
-              select result;
-
-    private static Fin<(Seq<int> Vertices, Set<(int A, int B)> Edges)> BoundaryCycle(
-        Seq<(int A, int B)> boundary,
-        ChartId chart) =>
-        boundary.Head
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island-cycle:{chart}").ToError())
-            .Bind(seed => AdvanceBoundary(boundary, chart, seed.A, seed.B, Seq(seed.A), Set(Normalize(seed))));
-
-    private static Fin<(Seq<int> Vertices, Set<(int A, int B)> Edges)> AdvanceBoundary(
-        Seq<(int A, int B)> boundary,
-        ChartId chart,
-        int origin,
-        int current,
-        Seq<int> vertices,
-        Set<(int A, int B)> used) =>
-        current == origin
-            ? vertices.Count >= 3
-                ? Fin.Succ((vertices, used))
-                : Fin.Fail<(Seq<int>, Set<(int, int)>)>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island-cycle:{chart}").ToError())
-            : used.Count > boundary.Count
-                ? Fin.Fail<(Seq<int>, Set<(int, int)>)>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island-cycle:{chart}").ToError())
-                : from edge in boundary
-                      .Filter(edge => !used.Contains(Normalize(edge)) && (edge.A == current || edge.B == current))
-                      .OrderBy(edge => (edge.A == current ? edge.B : edge.A) == origin ? 1 : 0)
-                      .HeadOrNone()
-                      .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island-open:{chart}").ToError())
-                  from cycle in AdvanceBoundary(
-                      boundary,
-                      chart,
-                      origin,
-                      edge.A == current ? edge.B : edge.A,
-                      vertices.Add(current),
-                      used.Add(Normalize(edge)))
-                  select cycle;
-
-    private static (int A, int B) Normalize((int A, int B) edge) =>
-        edge.A <= edge.B ? edge : (edge.B, edge.A);
+    // Kernel `UvIsland.Boundary` owns the island walk — once-counted edges, face-inherited winding, outer CCW and
+    // holes CW, branching typed — so this owner only terminates its Chain carrier into the Loop atom.
+    private static Fin<Seq<Loop>> Rings(Seq<Chain> chains, Context tolerance) =>
+        chains.TraverseM(chain => Loop.Admit(
+            toSeq(chain.Points).ToArr(), chain.Closed, Arr<double>(), tolerance)).As();
 
     private static Fin<Loop> Transform(Loop loop, Func<Point3d, Point3d> apply) =>
         Loop.Admit(loop.Vertices.Map(apply).ToArr(), loop.Closed, loop.Bulges, loop.Tolerance);
 
     private static Point3d Planar(Point2d point) => new(point.X, point.Y, 0.0);
 
+    // Every preimage on this page composes the ONE `Rasm.Element` `CanonicalWriter`: a page-local `double` framing is
+    // what let two artifacts with identical content mint different keys depending on which page keyed them, and
+    // `Double` additionally folds `-0.0` and every NaN payload to one pattern the raw IEEE write leaves forked.
     private static byte[] Canonical(UnfoldResult unfold, Seq<BendStep> bends) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Write(writer, unfold.ThicknessMm);
-        Write(writer, unfold.Material.Family.Key);
-        Write(writer, unfold.Material.Identity.Grade);
-        Write(writer, unfold.Forming.TensileRm);
-        Write(writer, unfold.Forming.KFactor);
-        Write(writer, unfold.Forming.SpringbackRatio);
-        Write(writer, unfold.Forming.MinBendRadiusFactor);
-        Write(writer, unfold.Forming.FlowStressMpa);
-        Write(writer, unfold.Forming.LimitStrain);
+        CanonicalWriter writer = new(unfold.Evidence.Topology.Tolerance.Absolute.Value);
+        _ = writer.Double(unfold.ThicknessMm)
+            .String(unfold.Material.Family.Key)
+            .String(unfold.Material.Identity.Grade)
+            .Double(unfold.Forming.TensileRm)
+            .Double(unfold.Forming.KFactor)
+            .Double(unfold.Forming.SpringbackRatio)
+            .Double(unfold.Forming.MinBendRadiusFactor)
+            .Double(unfold.Forming.FlowStressMpa)
+            .Double(unfold.Forming.LimitStrain);
         Write(writer, unfold.Forming.Evidence);
-        Write(writer, unfold.Flat.Count);
+        _ = writer.Ordinal(unfold.Flat.Count);
         unfold.Flat.Iter(loop => Write(writer, loop));
-        Write(writer, unfold.Bends.Count);
+        _ = writer.Ordinal(unfold.Bends.Count);
         unfold.Bends.Iter(bend => {
-            Write(writer, bend.Index);
+            _ = writer.Ordinal(bend.Index);
             Write(writer, bend.Line.A); Write(writer, bend.Line.B);
-            Write(writer, bend.Parent); Write(writer, bend.Child);
-            Write(writer, bend.AngleDeg); Write(writer, bend.InsideRadiusMm); Write(writer, bend.K);
-            Write(writer, bend.Projection.AllowanceMm); Write(writer, bend.Projection.SetbackMm);
-            Write(writer, bend.Projection.DeductionMm); Write(writer, bend.Projection.NeutralShiftMm);
+            _ = writer.Ordinal(bend.Parent).Ordinal(bend.Child)
+                .Double(bend.AngleDeg).Double(bend.InsideRadiusMm).Double(bend.K)
+                .Double(bend.Projection.AllowanceMm).Double(bend.Projection.SetbackMm)
+                .Double(bend.Projection.DeductionMm).Double(bend.Projection.NeutralShiftMm);
             Write(writer, bend.Form);
-            Write(writer, bend.Prerequisites.Count);
-            bend.Prerequisites.Order().Iter(prerequisite => Write(writer, prerequisite));
+            _ = writer.Ordinal(bend.Prerequisites.Count);
+            bend.Prerequisites.Order().Iter(prerequisite => writer.Ordinal(prerequisite));
         });
-        Write(writer, unfold.Evidence.Features.Count);
+        _ = writer.Ordinal(unfold.Evidence.Features.Count);
         unfold.Evidence.Features.Iter(feature => {
             Write(writer, feature.Form);
-            Write(writer, feature.DevelopedMm);
-            Write(writer, feature.PeakStrain);
+            _ = writer.Double(feature.DevelopedMm).Double(feature.PeakStrain);
         });
-        Write(writer, unfold.Evidence.Reliefs.Count);
+        _ = writer.Ordinal(unfold.Evidence.Reliefs.Count);
         unfold.Evidence.Reliefs.Iter(relief => {
-            Write(writer, relief.At); Write(writer, relief.Along.X); Write(writer, relief.Along.Y); Write(writer, relief.Along.Z);
-            Write(writer, relief.Inward.X); Write(writer, relief.Inward.Y); Write(writer, relief.Inward.Z);
-            Write(writer, relief.WidthMm); Write(writer, relief.DepthMm); Write(writer, relief.InsideRadiusMm);
-            Write(writer, relief.Meeting.Count);
-            relief.Meeting.Order().Iter(bend => Write(writer, bend));
-            Write(writer, relief.ExistingClearance ? 1 : 0);
+            Write(writer, relief.At);
+            _ = writer.Double(relief.Along.X).Double(relief.Along.Y).Double(relief.Along.Z)
+                .Double(relief.Inward.X).Double(relief.Inward.Y).Double(relief.Inward.Z)
+                .Double(relief.WidthMm).Double(relief.DepthMm).Double(relief.InsideRadiusMm)
+                .Ordinal(relief.Meeting.Count);
+            relief.Meeting.Order().Iter(bend => writer.Ordinal(bend));
+            _ = writer.Bool(relief.ExistingClearance);
         });
-        Write(writer, unfold.Evidence.Isometry.IsSome ? 1 : 0);
-        unfold.Evidence.Isometry.Iter(receipt => {
-            Write(writer, receipt.Strips); Write(writer, receipt.Rulings);
-            Write(writer, receipt.MaxIsometry); Write(writer, receipt.MeanIsometry); Write(writer, receipt.MaxTorsal);
-            Write(writer, receipt.Components);
-        });
-        Write(writer, unfold.Evidence.Panels.Count);
+        _ = writer.Bool(unfold.Evidence.Isometry.IsSome);
+        unfold.Evidence.Isometry.Iter(receipt => writer
+            .Ordinal(receipt.Strips).Ordinal(receipt.Rulings)
+            .Double(receipt.MaxIsometry).Double(receipt.MeanIsometry).Double(receipt.MaxTorsal)
+            .Ordinal(receipt.Components));
+        _ = writer.Ordinal(unfold.Evidence.Panels.Count);
         unfold.Evidence.Panels.Iter(panel => {
-            Write(writer, panel.Panel); Write(writer, panel.Boundary);
+            _ = writer.Ordinal(panel.Panel);
+            Write(writer, panel.Boundary);
         });
-        Write(writer, unfold.Evidence.NeutralAxis.Count);
-        unfold.Evidence.NeutralAxis.Iter(row => {
-            Write(writer, row.Bend); Write(writer, row.ShiftMm);
-        });
-        Write(writer, unfold.Evidence.Topology.Fill.Key);
-        Write(writer, unfold.Evidence.Topology.Tolerance.Absolute.Value);
-        Write(writer, unfold.Evidence.Topology.Plane);
-        Write(writer, unfold.Evidence.Topology.Nodes.Count);
+        _ = writer.Ordinal(unfold.Evidence.NeutralAxis.Count);
+        unfold.Evidence.NeutralAxis.Iter(row => writer.Ordinal(row.Bend).Double(row.ShiftMm));
+        _ = writer.String(unfold.Evidence.Topology.Fill.Key)
+            .Double(unfold.Evidence.Topology.Tolerance.Absolute.Value)
+            .Double(unfold.Evidence.Topology.Plane)
+            .Ordinal(unfold.Evidence.Topology.Nodes.Count);
         unfold.Evidence.Topology.Nodes.Iter(node => {
-            Write(writer, node.Index);
-            Write(writer, node.Parent.IsSome ? 1 : 0);
-            node.Parent.Iter(parent => Write(writer, parent));
-            Write(writer, node.Depth); Write(writer, node.IsHole ? 1 : 0);
-            Write(writer, node.Boundary); Write(writer, node.SignedArea);
+            _ = writer.Ordinal(node.Index).Bool(node.Parent.IsSome);
+            node.Parent.Iter(parent => writer.Ordinal(parent));
+            _ = writer.Ordinal(node.Depth).Bool(node.IsHole);
+            Write(writer, node.Boundary);
+            _ = writer.Double(node.SignedArea);
         });
-        Write(writer, bends.Count);
+        _ = writer.Ordinal(bends.Count);
         bends.Iter(bend => {
             Write(writer, bend.Line.A); Write(writer, bend.Line.B);
-            Write(writer, bend.Order); Write(writer, bend.AngleDeg); Write(writer, bend.RadiusMm);
-            Write(writer, bend.KFactor); Write(writer, bend.OverbendDeg); Write(writer, bend.TonnageKn);
-            Write(writer, bend.Orientation.Key);
+            _ = writer.Ordinal(bend.Order).Double(bend.AngleDeg).Double(bend.RadiusMm)
+                .Double(bend.KFactor).Double(bend.OverbendDeg).Double(bend.TonnageKn)
+                .String(bend.Orientation.Key);
         });
-        return writer.WrittenSpan.ToArray();
+        return writer.ToBytes().ToArray();
     }
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(sizeof(int)), value);
-        writer.Advance(sizeof(int));
-    }
+    private static void Write(CanonicalWriter writer, Point3d point) =>
+        _ = writer.Double(point.X).Double(point.Y).Double(point.Z);
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, double value) {
-        BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(sizeof(double)), value);
-        writer.Advance(sizeof(double));
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, string value) {
-        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(value);
-        Write(writer, bytes.Length);
-        bytes.CopyTo(writer.GetSpan(bytes.Length));
-        writer.Advance(bytes.Length);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Point3d point) {
-        Write(writer, point.X); Write(writer, point.Y); Write(writer, point.Z);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Loop loop) {
-        Write(writer, loop.Count);
-        Write(writer, loop.Closed ? 1 : 0);
-        Write(writer, loop.Tolerance.Absolute.Value);
+    private static void Write(CanonicalWriter writer, Loop loop) {
+        _ = writer.Ordinal(loop.Count).Bool(loop.Closed).Double(loop.Tolerance.Absolute.Value);
         loop.Vertices.Iter(point => Write(writer, point));
-        loop.Bulges.Iter(bulge => Write(writer, bulge));
+        loop.Bulges.Iter(bulge => writer.Double(bulge));
     }
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, BudgetEvidence evidence) {
-        Write(writer, evidence.State.TemperatureC); Write(writer, evidence.State.Hardness);
-        Write(writer, evidence.State.StrainRate); Write(writer, evidence.State.Strain);
-        Write(writer, evidence.State.MoistureFraction); Write(writer, evidence.State.GrainSizeUm);
-        Write(writer, evidence.PowerW);
-        Write(writer, evidence.Energy.Joules.IsSome ? 1 : 0);
-        evidence.Energy.Joules.Iter(value => Write(writer, value));
-        Write(writer, evidence.Energy.Seconds.IsSome ? 1 : 0);
-        evidence.Energy.Seconds.Iter(value => Write(writer, value));
-        Write(writer, evidence.Material.Family.Key); Write(writer, evidence.Material.Identity.Grade);
+    private static void Write(CanonicalWriter writer, BudgetEvidence evidence) {
+        _ = writer.Double(evidence.State.TemperatureC).Double(evidence.State.Hardness)
+            .Double(evidence.State.StrainRate).Double(evidence.State.Strain)
+            .Double(evidence.State.MoistureFraction).Double(evidence.State.GrainSizeUm)
+            .Double(evidence.PowerW)
+            .Bool(evidence.Energy.Joules.IsSome);
+        evidence.Energy.Joules.Iter(value => writer.Double(value));
+        _ = writer.Bool(evidence.Energy.Seconds.IsSome);
+        evidence.Energy.Seconds.Iter(value => writer.Double(value));
+        _ = writer.String(evidence.Material.Family.Key).String(evidence.Material.Identity.Grade);
     }
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, SheetForm form) {
-        _ = form.Switch<ArrayPoolBufferWriter<byte>, Unit>(
-            state: writer,
-            bend: static (target, _) => {
-                Write(target, nameof(SheetForm.Bend)); return unit;
-            },
-            hem: static (target, value) => {
-                Write(target, nameof(SheetForm.Hem)); Write(target, value.Kind.Key); Write(target, value.Gap.Millimeters); return unit;
-            },
-            jog: static (target, value) => {
-                Write(target, nameof(SheetForm.Jog)); Write(target, value.Offset.Millimeters); Write(target, value.Spacing.Millimeters); return unit;
-            },
-            curl: static (target, value) => {
-                Write(target, nameof(SheetForm.Curl)); Write(target, value.InsideRadius.Millimeters); Write(target, value.Sweep.Radians); return unit;
-            },
-            bead: static (target, value) => {
-                Write(target, nameof(SheetForm.Bead)); Write(target, value.Path); Write(target, value.Width.Millimeters); Write(target, value.Depth.Millimeters); return unit;
-            },
-            louver: static (target, value) => {
-                Write(target, nameof(SheetForm.Louver)); Write(target, value.Aperture); Write(target, value.Height.Millimeters); Write(target, value.Opening.Radians); return unit;
-            },
-            emboss: static (target, value) => {
-                Write(target, nameof(SheetForm.Emboss)); Write(target, value.Footprint); Write(target, value.Height.Millimeters); Write(target, value.Draft.Radians); return unit;
-            },
-            dimple: static (target, value) => {
-                Write(target, nameof(SheetForm.Dimple)); Write(target, value.Footprint); Write(target, value.Depth.Millimeters); Write(target, value.ToolRadius.Millimeters); return unit;
-            });
-    }
+    private static void Write(CanonicalWriter writer, SheetForm form) => _ = form.Switch(
+        state: writer,
+        bend: static (target, _) => target.String(nameof(SheetForm.Bend)),
+        hem: static (target, value) => target.String(nameof(SheetForm.Hem)).String(value.Kind.Key).Double(value.Gap.Millimeters),
+        jog: static (target, value) => target.String(nameof(SheetForm.Jog)).Double(value.Offset.Millimeters).Double(value.Spacing.Millimeters),
+        curl: static (target, value) => target.String(nameof(SheetForm.Curl)).Double(value.InsideRadius.Millimeters).Double(value.Sweep.Radians),
+        bead: static (target, value) => { _ = target.String(nameof(SheetForm.Bead)); Write(target, value.Path); return target.Double(value.Width.Millimeters).Double(value.Depth.Millimeters); },
+        louver: static (target, value) => { _ = target.String(nameof(SheetForm.Louver)); Write(target, value.Aperture); return target.Double(value.Height.Millimeters).Double(value.Opening.Radians); },
+        emboss: static (target, value) => { _ = target.String(nameof(SheetForm.Emboss)); Write(target, value.Footprint); return target.Double(value.Height.Millimeters).Double(value.Draft.Radians); },
+        dimple: static (target, value) => { _ = target.String(nameof(SheetForm.Dimple)); Write(target, value.Footprint); return target.Double(value.Depth.Millimeters).Double(value.ToolRadius.Millimeters); });
 
     private sealed record SheetAssembly(
         Arr<Loop> Flat,
@@ -1207,7 +1115,7 @@ public static class FlatPattern {
             Vector3d from = source.B - source.A;
             Vector3d to = target.A - target.B;
             if (!from.Unitize() || !to.Unitize())
-                return Fin.Fail<PlanarPlacement>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:panel-edge").ToError());
+                return Fin.Fail<PlanarPlacement>(new GeometryFault.DegenerateInput(Kind.Line, None, "flat:panel-edge").ToError());
             double cos = (from * to) / (from.Length * to.Length);
             double sin = Vector3d.CrossProduct(from, to).Z;
             Vector3d normal = new(-to.Y, to.X, 0.0);

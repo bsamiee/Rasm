@@ -17,7 +17,7 @@ Every relation answer is oracle-admitted evidence: the hit `[Union]`, the `RayQu
 - Entry: `IntersectionHit.Project<TOut>` is the one batch projection — it validity-gates the whole batch through each hit's evidence, projects the requested facet, then applies the disposal law: curve payloads transfer under the `Curve` output alone, every other output and every failure disposes them. Receipts construct only through the lattice and the deviation kernel.
 - Auto: hit evidence is per-case — a point hit demands a finite point, a curve hit a live valid curve tagged `Curve` or `Overlap`, an overlap hit finite endpoints with valid intervals and any carried sub-curve valid; the batch projection short-circuits on the first invalid hit, so a poisoned lattice answer never half-projects. `CurveDeviation`'s verdict is derived (`WithinTolerance == (MaximumDistance <= Tolerance)`) and its ordering is claim law, so an incoherent receipt is unrepresentable past the oracle. `RayQuery` demands a valid anchored direction above tolerance and a reflection count inside `[1, ReflectionCeiling]`.
 - Receipt: all three carriers ARE the receipts — `IValidityEvidence` conformance registers each with the one `Domain/validation` oracle through its interface arm.
-- Packages: RhinoCommon (`Ray3d`, `Curve`, `Interval`, `Point3d`, `RhinoMath.ZeroTolerance`/`IsValidDouble`), `Rasm.Domain` (`Op`/`Fault`, `IValidityEvidence`/`ValidityClaim`, the oracle), Thinktecture.Runtime.Extensions, LanguageExt.Core, Foundation analyzer contracts (`[BoundaryAdapter]`).
+- Packages: RhinoCommon (`Ray3d`, `Curve`, `Interval`, `Point3d`), `Rasm.Numerics` (`EpsilonPolicy.ZeroTolerance`), `Rasm.Domain` (`Op`/`Fault`, `IValidityEvidence`/`ValidityClaim`, the oracle), Thinktecture.Runtime.Extensions, LanguageExt.Core, Foundation analyzer contracts (`[BoundaryAdapter]`).
 - Growth: a new hit facet is one field, one facet projection, and one claim conjunct; a new projectable output is one row in the frozen set and one projection arm; a new tangency refinement is one `IntersectionTangency` row fed by the enrichment fold.
 - Boundary: `IntersectionHit` and `RayQuery` are frozen boundary spellings the host re-enters against by docID. Curve payloads are host resources: a projection that drops a curve without disposing it is the named leak, one that disposes a transferred curve the named use-after-free. Validity is the `ValidityClaim` fold per the `Domain/rails` law, never a hand-rolled `&&`-chain; a reflection count is `ReflectionCeiling`-bounded policy, never a bare literal.
 
@@ -60,7 +60,7 @@ public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) : IVal
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(Ray.Position),
         ValidityClaim.Finite(Ray.Direction),
-        ValidityClaim.Of(Ray.Direction.SquareLength > RhinoMath.ZeroTolerance * RhinoMath.ZeroTolerance),
+        ValidityClaim.Of(Ray.Direction.SquareLength > EpsilonPolicy.ZeroTolerance * EpsilonPolicy.ZeroTolerance),
         ValidityClaim.Of(MaxReflections is >= 1 and <= ReflectionCeiling));
 }
 
@@ -565,6 +565,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Geometric relation dispatch band
+    accDescr: The query relation band dispatching pair and single builders through a twenty-five-row intersection case table whose ordered scan yields the shape union under one validity oracle, with curve-form lowering, tangency enrichment, and exact deviation beside the predicate-exact meshing path that coexists uncalled.
     Query[Analysis/query relation band] -->|Pair / Single dispatch| Builders[RelationIntersection · Classification · Deviation · SelfIntersection · Ray]
     Builders -->|PairOp: kind-resolve × Requirement × ray asymmetry| Table[25-row IntersectionCases]
     Table -->|ordered scan + Unsupported-only flip retry| Shapes[IntersectionResult: Lines · Points · Intervals · Polylines · Hits]

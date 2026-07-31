@@ -156,7 +156,7 @@ public static class ControlFactory {
         numberInput: static (ctx, c) => Fin<Control>.Succ(new NumericUpDown { Minimum = (decimal)c.Min, Maximum = (decimal)c.Max, Increment = (decimal)c.Increment }),
         dateInput: static (ctx, c) => ctx.Date(c),
         pathInput: static (ctx, c) => ctx.Path(c),
-        select: static (ctx, c) => Fin<Control>.Succ(new ComboBox { ItemsSource = c.Options.Map(static o => o.Label).ToArray() }),
+        select: static (ctx, c) => Fin<Control>.Succ(Choices(c.Options)),
         slider: static (ctx, c) => Fin<Control>.Succ(new Slider { Minimum = c.Min, Maximum = c.Max, TickFrequency = c.Step }),
         toggle: static (ctx, c) => Fin<Control>.Succ(new ToggleSwitch { Content = c.Label }),
         radio: static (ctx, c) => Fin<Control>.Succ(RadioGroup(c.Key, c.Options)),
@@ -202,6 +202,16 @@ public static class ControlFactory {
     private static Fin<Seq<Expander>> Sections(Seq<(string Header, ControlIntent Body)> sections, MaterializeContext context) =>
         sections.TraverseM(section => Materialize(section.Body, context).Map(body => new Expander { Header = section.Header, Content = body })).As();
 
+    // The bounded-choice pair survives materialization: each item shows its Label and carries its Value on
+    // Tag, and SelectedValueBinding resolves the two-way binding against that Tag — so the model receives
+    // the option VALUE exactly as the Radio arm and the wire contract already do. Binding a label-only
+    // ItemsSource wrote display text into the model and left the Value half of every option unreachable.
+    private static Control Choices(Seq<(string Value, string Label)> options) =>
+        new ComboBox {
+            ItemsSource = options.Map(static option => new ComboBoxItem { Content = option.Label, Tag = option.Value }).ToArray(),
+            SelectedValueBinding = new Binding(nameof(Control.Tag)),
+        };
+
     // Radio exclusivity keys on the intent key: one GroupName per Radio intent, so two radio intents
     // on one screen never cross-steal checks.
     private static Control RadioGroup(string key, Seq<(string Value, string Label)> options) {
@@ -235,20 +245,22 @@ public static class ControlFactory {
     // fold re-attaches command, token, trigger, and automation state — a reused control reflects its
     // CURRENT intent completely, and stale content, watermark, bounds, options, or limits cannot survive.
     public static Fin<Control> Rebind(ControlIntent intent, Control control, MaterializeContext context) =>
-        Refresh(intent, control, context).Bind(fresh => Bind(intent, fresh, context));
+        Refresh(intent, control).Bind(fresh => Bind(intent, fresh, context));
 
-    // The hot self-constructed leaf kinds re-dress the parked control in place; every context-constructed
-    // or container kind reconstructs through the ONE Visual fold instead — correct either way, pooled
-    // where hot, and construction truth keeps exactly one owner per case.
-    private static Fin<Control> Refresh(ControlIntent intent, Control control, MaterializeContext context) =>
+    // The poolable leaf kinds re-dress the parked control in place, and this arm set IS the `Some` set of
+    // ControlTypeOf: the pool admits nothing else, so the tuple switch's compiler-required default is
+    // reachable only if that gate lied and seals the violation rather than quietly reconstructing — one
+    // construction owner per case, and no second materialization path hiding behind a discard.
+    private static Fin<Control> Refresh(ControlIntent intent, Control control) =>
         (intent, control) switch {
             (ControlIntent.Button c, Button b) => Field(b, () => b.Content = c.Content),
             (ControlIntent.TextInput c, TextBox t) => Field(t, () => { t.Watermark = c.Watermark; t.AcceptsReturn = c.Multiline; }),
             (ControlIntent.NumberInput c, NumericUpDown n) => Field(n, () => { n.Minimum = (decimal)c.Min; n.Maximum = (decimal)c.Max; n.Increment = (decimal)c.Increment; }),
-            (ControlIntent.Select c, ComboBox box) => Field(box, () => box.ItemsSource = c.Options.Map(static o => o.Label).ToArray()),
+            (ControlIntent.Select c, ComboBox box) => Field(box, () => box.ItemsSource =
+                c.Options.Map(static option => new ComboBoxItem { Content = option.Label, Tag = option.Value }).ToArray()),
             (ControlIntent.Slider c, Slider s) => Field(s, () => { s.Minimum = c.Min; s.Maximum = c.Max; s.TickFrequency = c.Step; }),
             (ControlIntent.Toggle c, ToggleSwitch t) => Field(t, () => t.Content = c.Label),
-            _ => Visual(intent, context),
+            _ => Fin<Control>.Fail(new ControlFault.RecyclingViolation($"{intent.Key}:{control.GetType().Name}")),
         };
 
     private static Fin<Control> Field<TControl>(TControl control, Action assign) where TControl : Control {
@@ -294,26 +306,52 @@ public static class ControlFactory {
     }
 
     // Per-control value property (TextBox.Text, NumericUpDown.Value, ...) — one table, no per-kind binder.
+    // The ComboBox row reads SelectedValue, not SelectedItem, because the item is the ComboBoxItem carrier
+    // while the option's bounded-choice VALUE is what the two-way binding must round-trip.
     internal static AvaloniaProperty ContentPropertyOf(Control control) => control switch {
         TextBox => TextBox.TextProperty,
         NumericUpDown => NumericUpDown.ValueProperty,
         Slider => RangeBase.ValueProperty,
         ToggleSwitch => ToggleButton.IsCheckedProperty,
-        ComboBox => SelectingItemsControl.SelectedItemProperty,
+        ComboBox => SelectingItemsControl.SelectedValueProperty,
         _ => ContentControl.ContentProperty,
     };
 
+    // The pooling gate: Some names the Avalonia type a parked control must already be, None declares the
+    // kind unpoolable. The Some set is exactly the leaf kinds Refresh re-dresses IN PLACE — every
+    // context-constructed or container kind reconstructs through Visual, so parking one would hand the
+    // pool a control the next Rebind discards. Total over the family, so a nineteenth case states its
+    // parking answer at compile time instead of failing at the first recycle against an undeclared name.
+    internal static Option<string> ControlTypeOf(ControlIntent intent) => intent.Switch(
+        button: static _ => Some(nameof(Button)),
+        textInput: static _ => Some(nameof(TextBox)),
+        numberInput: static _ => Some(nameof(NumericUpDown)),
+        select: static _ => Some(nameof(ComboBox)),
+        slider: static _ => Some(nameof(Slider)),
+        toggle: static _ => Some(nameof(ToggleSwitch)),
+        dateInput: static _ => Option<string>.None,
+        pathInput: static _ => Option<string>.None,
+        radio: static _ => Option<string>.None,
+        grid: static _ => Option<string>.None,
+        tree: static _ => Option<string>.None,
+        menu: static _ => Option<string>.None,
+        toolbar: static _ => Option<string>.None,
+        tab: static _ => Option<string>.None,
+        accordion: static _ => Option<string>.None,
+        panel: static _ => Option<string>.None,
+        dock: static _ => Option<string>.None,
+        splitter: static _ => Option<string>.None);
 }
 ```
 
 ## [04]-[CONTROL_RECYCLING]
 
 - Owner: `RecycleScope` the realized-control reuse pool; `MaterializePool` the recycling-aware materialization over the `VirtualWindow` window.
-- Entry: `public Fin<Control> Realize(ControlIntent intent, MaterializeContext context, RecycleScope scope)` — materializes through the pool, reusing a parked control of the same intent key when the window scrolls a row out and back, sealing a `RecyclingViolation` when an intent key crosses control types.
-- Auto: the `Grid`, `Tree`, and `Panel` kinds materialize their row/cell controls through `MaterializePool` keyed by intent key so the `VirtualWindow` recycles realized controls over a data window rather than re-materializing per scroll tick; a parked control releases every owned binding and activation lifetime before the full replacement intent re-enters `ControlFactory.Rebind`, whose `Refresh` fold re-applies every intent-carried visual field — or reconstructs a context-constructed or container kind through the one `Visual` fold — before `Bind` re-attaches, so a recycled cell carries no stale value, field, command, trigger, token, or automation state; the pool capacity is composition-bound to the realized-window overscan bound.
+- Entry: `public Fin<Control> Realize(ControlIntent intent, MaterializeContext context)` on `RecycleScope` — materializes through the pool, reusing a parked control of the same intent key when the window scrolls a row out and back, sealing a `RecyclingViolation` when an intent key crosses control types.
+- Auto: the `Grid`, `Tree`, and `Panel` kinds materialize their row/cell controls through `MaterializePool` keyed by intent key so the `VirtualWindow` recycles realized controls over a data window rather than re-materializing per scroll tick; a parked control releases every owned binding and activation lifetime before the full replacement intent re-enters `ControlFactory.Rebind`, whose `Refresh` fold re-applies every intent-carried visual field before `Bind` re-attaches, so a recycled cell carries no stale value, field, command, trigger, token, or automation state; the pool capacity is composition-bound to the realized-window overscan bound.
 - Packages: Avalonia, LanguageExt.Core, BCL inbox
-- Growth: a new recyclable kind is one pool-key entry; zero new surface.
-- Boundary: control recycling rides the one `VirtualWindow` owner (`Shell/virtualization`) — a per-surface recycling pool is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form, and the pool is keyed by intent key so a recycled control always matches its intent type; the pool resets bindings on reuse so a recycled control never leaks the prior row's value; the realized-item count bounds the pool so recycling is constant-cost; a `RecyclingViolation` fault fires when an intent key reuses a control of a different type, so a pool-key collision aborts on the `Fin` rail rather than mounting a mismatched control.
+- Growth: a new recyclable kind is one `ControlTypeOf` arm naming its parked type; zero new surface.
+- Boundary: control recycling rides the one `VirtualWindow` owner (`Shell/virtualization`) — a per-surface recycling pool is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form, and the pool is keyed by intent key so a recycled control always matches its intent type; `ControlTypeOf` is that match's one authority and it is total over the closed family, so a new intent case declares its parking answer at compile time rather than failing at the first recycle against a name no arm ever spelled; its `Some` set is exactly the leaf kinds `Refresh` re-dresses in place, because a context-constructed or container kind reconstructs through `Visual` and parking one hands the pool a control the next `Rebind` discards — so both `Realize` and `Return` gate on the same projection and an unpoolable kind never enters the pool at either end; the pool resets bindings on reuse so a recycled control never leaks the prior row's value; the realized-item count bounds the pool so recycling is constant-cost; a `RecyclingViolation` fault fires when an intent key reuses a control of a different type, so a pool-key collision aborts on the `Fin` rail rather than mounting a mismatched control.
 
 ```csharp signature
 public sealed record RecycleScope(
@@ -325,26 +363,32 @@ public sealed record RecycleScope(
     public Option<Control> Park(string intentKey) =>
         Pool.TryGetValue(intentKey, out System.Collections.Generic.Stack<Control>? stack) && stack.Count > 0 ? Some(stack.Pop()) : None;
 
-    public Unit Return(string intentKey, Control control, MaterializeContext context) =>
-        (context.Release(control), Pool.Values.Sum(static stack => stack.Count) >= Capacity
+    // Return takes the INTENT, not a bare key, so the poolable-kind gate is the same total projection the
+    // reuse gate reads: a kind that reconstructs on refresh is released and dropped rather than parked
+    // into a stack whose next Rebind would discard it and leak the parked control with the window.
+    public Unit Return(ControlIntent intent, Control control, MaterializeContext context) =>
+        (context.Release(control),
+         ControlFactory.ControlTypeOf(intent).IsNone || Pool.Values.Sum(static stack => stack.Count) >= Capacity
             ? unit
-            : fun(() => (Pool.TryGetValue(intentKey, out System.Collections.Generic.Stack<Control>? stack)
+            : fun(() => (Pool.TryGetValue(intent.Key, out System.Collections.Generic.Stack<Control>? stack)
                 ? stack
-                : Pool[intentKey] = new()).Push(control))()).Item2;
+                : Pool[intent.Key] = new()).Push(control))()).Item2;
 }
 
 public static class MaterializePool {
     extension(RecycleScope scope) {
+        // An unpoolable kind never probes the pool, so the reuse path and the parking path read one
+        // projection and a kind that cannot be re-dressed in place materializes fresh by construction.
         public Fin<Control> Realize(ControlIntent intent, MaterializeContext context) =>
-            scope.Park(intent.Key).Match(
-                Some: parked => Rebind(parked, intent, context),
+            ControlFactory.ControlTypeOf(intent).Bind(name => scope.Park(intent.Key).Map(parked => (Name: name, Parked: parked))).Match(
+                Some: found => Rebind(found.Parked, found.Name, intent, context),
                 None: () => ControlFactory.Materialize(intent, context));
 
         // Every owned lifetime releases before the replacement intent re-enters the one Bind fold.
-        private static Fin<Control> Rebind(Control parked, ControlIntent intent, MaterializeContext context) =>
-            parked.GetType().Name == ControlTypeOf(intent)
+        private static Fin<Control> Rebind(Control parked, string name, ControlIntent intent, MaterializeContext context) =>
+            string.Equals(parked.GetType().Name, name, StringComparison.Ordinal)
                 ? Reset(parked, context).Bind(cleared => ControlFactory.Rebind(intent, cleared, context))
-                : Fin<Control>.Fail(new ControlFault.RecyclingViolation($"{intent.Key}:{parked.GetType().Name}!={ControlTypeOf(intent)}"));
+                : Fin<Control>.Fail(new ControlFault.RecyclingViolation($"{intent.Key}:{parked.GetType().Name}!={name}"));
 
         private static Fin<Control> Reset(Control parked, MaterializeContext context) {
             parked.ClearValue(ControlFactory.ContentPropertyOf(parked)); // clears the resolved value surface
@@ -368,6 +412,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Control intent materialization and binding fan
+    accDescr: A control intent resolving through the factory into a visual whose binding fans to the behavior-rail command, the token row, and automation naming, sealing a control receipt, with grid, tree, and panel intents entering the virtual window and the factory projecting the control-intent wire.
     ControlIntent --> ControlFactory
     ControlFactory --> Visual
     Visual --> Bind

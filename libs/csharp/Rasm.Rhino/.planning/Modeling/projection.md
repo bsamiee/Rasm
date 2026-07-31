@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[PROJECTION_FRAME]: `ProjectionFrame` — the value-only camera family and its `ViewportInfo` rig.
-- [03]-[DRAWING_POLICY]: `ProjectionSubject`, `DrawingLaw`, `ProjectionPacing`, `SilhouetteFrame` — subjects, flags, pacing, and the silhouette eye.
+- [03]-[DRAWING_POLICY]: `DrawingFeature`, `DrawingRejoin`, `DrawingThreads`, `DrawingSection`, `ProjectionSubject`, `DrawingLaw`, `ProjectionPacing`, `SilhouetteFrame` — flag rows, subjects, pacing, and the silhouette eye.
 - [04]-[OPERATION_RAIL]: `ProjectionSlot`, `ProjectionOp`, and the `Projections.Build` entry.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
@@ -16,7 +16,7 @@
 - Law: the seat is verified member by member — `SetCameraLocation`, `SetCameraDirection`, and `SetCameraUp` each answer `bool` and fold through one confirmation, the projection transition selects `ChangeToParallelProjection`/`ChangeToPerspectiveProjection`/`ChangeToTwoPointPerspectiveProjection` off the pose's `ProjectionKind` row, and `SetFrustumNearFar(BoundingBox)` derives the clip range from the subject bounds, so no frustum scalar is hand-derived.
 - Law: `Rig` transfers a detached frame only after every seat step succeeds; one ownership bracket disposes each refused or exceptional frame before the typed fault leaves.
 - Law: `Directed` requires its up vector — a local orthogonalization fallback is the killed form the camera page names, so an explicit up crosses the case and the plan case reads the drafting plane's own `YAxis`.
-- Law: the lens seat is the one optics inversion — `LensAngle` converts to the 35mm lens length through the named half-frame diagonal, and the perspective target distance reads the pose's admitted target, never a magic depth.
+- Law: the lens seat performs no optics arithmetic — `LensAngle` writes onto the seated frame's `CameraAngle` and the 35mm lens length reads back off `Camera35mmLensLength`, so the half-frame diagonal is the host's own constant rather than a transcribed literal this page could drift from; the perspective target distance reads the pose's admitted target, never a magic depth.
 - Boundary: screen landing is not this owner — a consumer placing the flattened drawing on a sheet composes `ViewTransforms.Mapping` over `ViewMapping` on the Viewport rail; this frame ends at the projection compute.
 
 ```csharp
@@ -28,8 +28,6 @@ public abstract partial record ProjectionFrame {
     public sealed record Pose(CameraPose Value, BoundingBox Subject) : ProjectionFrame;
     public sealed record Look(Plane Frame, BoundingBox Subject) : ProjectionFrame;
     public sealed record Directed(Vector3d Direction, Vector3d Up, BoundingBox Subject) : ProjectionFrame;
-
-    private const double HalfFrameDiagonal = 21.635;
 
     internal Fin<ViewportInfo> Rig(Op key) =>
         Switch(
@@ -69,9 +67,9 @@ public abstract partial record ProjectionFrame {
                         (frame, reach, state.Pose.Angle, basis.YAxis),
                         parallel: static seat => seat.Frame.ChangeToParallelProjection(symmetricFrustum: true),
                         perspective: static seat => seat.Frame.ChangeToPerspectiveProjection(
-                            targetDistance: seat.Reach, symmetricFrustum: true, lensLength: Lens(angle: seat.Angle)),
+                            targetDistance: seat.Reach, symmetricFrustum: true, lensLength: Lens(frame: seat.Frame, angle: seat.Angle)),
                         twoPoint: static seat => seat.Frame.ChangeToTwoPointPerspectiveProjection(
-                            targetDistance: seat.Reach, up: seat.Up, lensLength: Lens(angle: seat.Angle)))
+                            targetDistance: seat.Reach, up: seat.Up, lensLength: Lens(frame: seat.Frame, angle: seat.Angle)))
                     && frame.SetFrustumNearFar(state.Subject);
             },
             key: key);
@@ -103,20 +101,62 @@ public abstract partial record ProjectionFrame {
             }
         });
 
-    private static double Lens(LensAngle angle) => HalfFrameDiagonal / Math.Tan((double)angle / 2.0);
+    // The 35mm half-frame diagonal is the host's own constant, never a transcribed literal: writing the half-diagonal
+    // angle onto the frame and reading `Camera35mmLensLength` back yields exactly the lens length Rhino itself computes,
+    // so a bundle that re-rates the frame size re-rates this page with it and no optics arithmetic lives here.
+    private static double Lens(ViewportInfo frame, LensAngle angle) {
+        frame.CameraAngle = (double)angle / 2.0;
+        return frame.Camera35mmLensLength;
+    }
 }
 ```
 
 ## [03]-[DRAWING_POLICY]
 
-- Owner: `ProjectionSubject` carries one drawing source as a row — leased handle, optional admitted placement, per-subject clip planes, and the occluding-section flag; `DrawingLaw` closes every `HiddenLineDrawingParameters` flag as one value; `ProjectionPacing` is the cancellable-compute policy row; `SilhouetteFrame` closes the three silhouette eye modalities.
+- Owner: `ProjectionSubject` carries one drawing source as a row — leased handle, optional admitted placement, per-subject clip planes, and the section row; `DrawingFeature` closes every `HiddenLineDrawingParameters` flag as a membership vocabulary, `DrawingRejoin` and `DrawingThreads` close the two compute behaviors, `DrawingLaw` fuses them into one value; `ProjectionPacing` is the cancellable-compute policy row; `SilhouetteFrame` closes the three silhouette eye modalities.
 - Law: placement is admitted, never raw — a subject motion enters as `TransformSpec` and lowers through `Placement.Build`, so `TransformSpec.PlanarProjection` and `DirectionalProjection` are the projection-transform spellings and a directly constructed host `Transform` bypassing kernel admission is the deleted form.
 - Law: the tag channel is the correspondence — every subject registers under its ordinal, so segment-to-source and point-to-source maps are host evidence read back from `HiddenLineDrawingObject.Tag`, never a geometry re-match.
-- Law: flags map one-to-one — `Flatten`, `IncludeTangentEdges`, `IncludeTangentSeams`, `IncludeHiddenCurves`, and `OccludingSectionOption` bake in one member with `AbsoluteTolerance` reading the regime; a tolerance knob beside the law is the deleted form, and the public occluding flag is `OccludingSectionOption` — the same-named list member is host-internal.
-- Law: pacing is one optional policy value — `ProjectionPacing` fuses cancellation, progress, and the thread grant, selecting the four-argument `Compute` overload; absent pacing runs the two-argument overload under the law's thread grant, so no signature grows a token tail.
+- Law: no drawing flag travels as a bare bool — the five `HiddenLineDrawingParameters` toggles are `DrawingFeature` rows carrying their own writer column and enter as one `FrozenSet`, so `Rig` folds `DrawingFeature.Items` once and a new host flag is one row; `AbsoluteTolerance` reads the regime, a tolerance knob beside the law is the deleted form, and the public occluding flag is `OccludingSectionOption` — the same-named list member is host-internal. Rejoin and threading are compute behavior rather than parameter state, so they stay their own two-row vocabularies, and the per-subject occluding grant is a `DrawingSection` row on the subject.
+- Law: pacing is ONE value and cancellation ONE spelling — `ProjectionPacing` fuses the token, optional progress, and the thread row, and `Outline` and `Draft` carry a bare `CancellationToken` whose `default` IS the host's own `CancellationToken.None`; an `Option<CancellationToken>` stacks a second absence on a value that already models it. Every short host overload delegates verbatim to its long form with `null` progress or planes and `CancellationToken.None`, so this page composes the long form alone and no arm branches to pick an overload.
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class DrawingFeature {
+    public static readonly DrawingFeature TangentEdges = new(key: 0, write: static (p, on) => { p.IncludeTangentEdges = on; return unit; });
+    public static readonly DrawingFeature TangentSeams = new(key: 1, write: static (p, on) => { p.IncludeTangentSeams = on; return unit; });
+    public static readonly DrawingFeature HiddenCurves = new(key: 2, write: static (p, on) => { p.IncludeHiddenCurves = on; return unit; });
+    public static readonly DrawingFeature Flatten = new(key: 3, write: static (p, on) => { p.Flatten = on; return unit; });
+    public static readonly DrawingFeature OccludingSections = new(key: 4, write: static (p, on) => { p.OccludingSectionOption = on; return unit; });
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Write(HiddenLineDrawingParameters parameters, bool enabled);
+}
+
+[SmartEnum<int>]
+public sealed partial class DrawingRejoin {
+    public static readonly DrawingRejoin Raw = new(key: 0, native: false);
+    public static readonly DrawingRejoin Compatible = new(key: 1, native: true);
+
+    internal bool Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class DrawingThreads {
+    public static readonly DrawingThreads Serial = new(key: 0, native: false);
+    public static readonly DrawingThreads Parallel = new(key: 1, native: true);
+
+    internal bool Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class DrawingSection {
+    public static readonly DrawingSection Plain = new(key: 0, native: false);
+    public static readonly DrawingSection Occluding = new(key: 1, native: true);
+
+    internal bool Native { get; }
+}
+
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SilhouetteFrame {
     private SilhouetteFrame() { }
@@ -126,36 +166,34 @@ public abstract partial record SilhouetteFrame {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record ProjectionPacing(CancellationToken Cancel, IProgress<double> Progress, bool Threads = true);
+public sealed record ProjectionPacing(
+    CancellationToken Cancel,
+    Option<IProgress<double>> Progress,
+    DrawingThreads Threads) {
+    public static readonly ProjectionPacing Unpaced = new(
+        Cancel: CancellationToken.None, Progress: None, Threads: DrawingThreads.Parallel);
+
+    internal IProgress<double>? Reporter => Progress.IfNoneUnsafe((IProgress<double>?)null);
+}
 
 public sealed record ProjectionSubject(
     GeometryHandle Geometry,
+    DrawingSection Section,
     Option<TransformSpec> Placement = default,
-    Seq<Plane> Clips = default,
-    bool Occluding = false);
+    Seq<Plane> Clips = default);
 
 public sealed record DrawingLaw(
-    bool TangentEdges = true,
-    bool TangentSeams = false,
-    bool HiddenCurves = true,
-    bool Flatten = true,
-    bool OccludingSections = false,
-    bool Rejoin = true,
-    bool Threads = true,
-    Seq<Plane> Clips = default,
-    Option<ProjectionPacing> Pacing = default) {
+    FrozenSet<DrawingFeature> Features,
+    DrawingRejoin Rejoin,
+    ProjectionPacing Pacing,
+    Seq<Plane> Clips = default) {
     internal Fin<HiddenLineDrawingParameters> Rig(Context domain, Op key) {
         DrawingLaw law = this;
         return from clips in ProjectionOp.AdmittedClips(law.Clips, key)
                from parameters in key.Catch(() => {
-                   HiddenLineDrawingParameters parameters = new() {
-                       AbsoluteTolerance = domain.Absolute.Value,
-                       Flatten = law.Flatten,
-                       IncludeTangentEdges = law.TangentEdges,
-                       IncludeTangentSeams = law.TangentSeams,
-                       IncludeHiddenCurves = law.HiddenCurves,
-                       OccludingSectionOption = law.OccludingSections,
-                   };
+                   HiddenLineDrawingParameters parameters = new() { AbsoluteTolerance = domain.Absolute.Value };
+                   _ = toSeq(DrawingFeature.Items).Iter(feature =>
+                       feature.Write(parameters: parameters, enabled: law.Features.Contains(feature)));
                    foreach (Plane clip in clips) { parameters.AddClippingPlane(plane: clip); }
                    return Fin.Succ(value: parameters);
                })
@@ -170,7 +208,7 @@ public sealed record DrawingLaw(
 - Law: products detach before the engine dies — every segment curve duplicates out of the disposable `HiddenLineDrawing` onto an owned handle inside the compute window, silhouette curves own directly because `Silhouette.Compute` returns fresh geometry, and the drawing, its `ViewportInfo`, and every mid-fold failure release symmetrically.
 - Law: classification is total host evidence — the six-value segment visibility maps onto the six visibility slots with an out-of-roster host value landing on the `Unresolved` floor, `SilhouetteType` crosses as a per-product kind stream, per-side surface fills cross as paired code groups, and scene-silhouette membership rides `IsSceneSilhouette` ordinals, so a consumer partitions the drawing without re-testing geometry.
 - Law: correspondence maps survive — the subject ordinal registered at `AddGeometry` returns through `ParentCurve.SourceObject.Tag`, curve and point component indices land as `ComponentRows`, drawing points carry source and visibility streams beside their marks, and `WorldToHiddenLine` plus the host-computed drawing bounds land as frame facts, so sheet placement composes evidence rather than re-projecting.
-- Law: clipping planes cross one admission fold — drawing-global, subject-selective, and outline clip sets traverse `AcceptInput` applicatively, and each arm reuses the admitted sequence for every native overload it selects.
+- Law: clipping planes cross one admission fold — drawing-global, subject-selective, and outline clip sets traverse `AcceptInput` applicatively, and each arm hands the admitted sequence to the one host overload it composes; an empty admitted set reaches the host as an empty plane list, which the native reads exactly as the no-planes short form does.
 - Law: the capture altitudes stay split — `Drawing` is the occlusion-resolved scene, `Outline` is the per-object `Silhouette.Compute` capture whose kind mask and clip set cross as values, and `Draft` is `ComputeDraftCurve` under an explicit pull; a BSP, painter, per-sample occlusion march, or host round-trip re-derivation of any altitude is the kernel view page's enumerated dead form.
 - Boundary: geometric curve projection stays the curve rail — `CurveOp.Project` over `ProjectTarget` owns plane, brep, and mesh target projection with index maps; this rail begins where visibility classification does.
 - Growth: a new drawing modality is one `ProjectionOp` case with its arm; a new frame source is one `ProjectionFrame` case every verb reads.
@@ -211,35 +249,45 @@ public abstract partial record ProjectionOp {
     public sealed record Drawing(Seq<ProjectionSubject> Subjects, ProjectionFrame Frame, DrawingLaw Law) : ProjectionOp;
     public sealed record Outline(
         GeometryHandle Subject, SilhouetteType Kinds, SilhouetteFrame Frame,
-        Seq<Plane> Clips = default, Option<CancellationToken> Cancel = default) : ProjectionOp;
+        Seq<Plane> Clips = default, CancellationToken Cancel = default) : ProjectionOp;
     public sealed record Draft(
         GeometryHandle Subject, double Angle, Vector3d Pull,
-        Option<CancellationToken> Cancel = default) : ProjectionOp;
+        CancellationToken Cancel = default) : ProjectionOp;
+
+    internal Fin<ProjectionOp> Admitted(Op key) =>
+        guard(this switch {
+            Drawing row => !row.Subjects.IsEmpty
+                && row.Subjects.ForAll(static subject => subject is { Geometry: not null, Section: not null })
+                && row.Frame is not null
+                && row.Law is { Features: not null, Rejoin: not null, Pacing: { Threads: not null } },
+            Outline row => row.Subject is not null && row.Frame is not null && Enum.IsDefined(row.Kinds),
+            Draft row => row.Subject is not null && double.IsFinite(row.Angle)
+                && row.Pull.IsValid && !row.Pull.IsZero,
+            _ => false,
+        }, key.InvalidInput()).ToFin().Map(_ => this);
 
     internal Fin<Built<ProjectionSlot>> Apply(Context domain) =>
         Switch(
             context: domain,
             drawing: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Drawing));
-                return from _ in guard(!edit.Subjects.IsEmpty, op.InvalidInput())
-                       from law in Optional(edit.Law).ToFin(Fail: op.InvalidInput())
-                       from built in ModelGate.BorrowMany<GeometryBase, Built<ProjectionSlot>>(
-                           handles: edit.Subjects.Map(static subject => subject.Geometry), key: op,
-                           body: natives =>
-                               from parameters in law.Rig(domain: model, key: op)
-                               from rigged in edit.Frame.Rig(key: op)
-                               from harvested in op.Catch(() => {
-                                   using ViewportInfo frame = rigged;
-                                   parameters.SetViewport(frame);
-                                   return edit.Subjects
-                                       .Map((subject, ordinal) => (Subject: subject, Ordinal: ordinal))
-                                       .TraverseM(row => Registered(
-                                           parameters: parameters, subject: row.Subject, native: natives[row.Ordinal],
-                                           ordinal: row.Ordinal, model: model, op: op)).As()
-                                       .Bind(_ => Computed(parameters: parameters, law: law, op: op));
-                               })
-                               select harvested)
-                       select built;
+                DrawingLaw law = edit.Law;
+                return ModelGate.BorrowMany<GeometryBase, Built<ProjectionSlot>>(
+                    handles: edit.Subjects.Map(static subject => subject.Geometry), key: op,
+                    body: natives =>
+                        from parameters in law.Rig(domain: model, key: op)
+                        from rigged in edit.Frame.Rig(key: op)
+                        from harvested in op.Catch(() => {
+                            using ViewportInfo frame = rigged;
+                            parameters.SetViewport(frame);
+                            return edit.Subjects
+                                .Map((subject, ordinal) => (Subject: subject, Ordinal: ordinal))
+                                .TraverseM(row => Registered(
+                                    parameters: parameters, subject: row.Subject, native: natives[row.Ordinal],
+                                    ordinal: row.Ordinal, model: model, op: op)).As()
+                                .Bind(_ => Computed(parameters: parameters, law: law, op: op));
+                        })
+                        select harvested);
             },
             outline: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Outline));
@@ -247,18 +295,14 @@ public abstract partial record ProjectionOp {
                        from built in ModelGate.Borrow<GeometryBase, Built<ProjectionSlot>>(handle: edit.Subject, key: op, body: native =>
                     edit.Frame.Switch(
                         context: (Native: native, Model: model, Edit: edit, Clips: clips, Op: op),
-                        eye: static (ctx, frame) => Outlined(ctx,
-                            plain: () => Silhouette.Compute(
-                                ctx.Native, ctx.Edit.Kinds, frame.Value, ctx.Model.Absolute.Value, ctx.Model.Angle.Value),
-                            clipped: () => Silhouette.Compute(
+                        eye: static (ctx, frame) => Captured(slot: ProjectionSlot.Outline, op: ctx.Op, run: () =>
+                            Silhouette.Compute(
                                 ctx.Native, ctx.Edit.Kinds, frame.Value, ctx.Model.Absolute.Value, ctx.Model.Angle.Value,
-                                ctx.Clips.AsIterable(), ctx.Edit.Cancel.IfNone(CancellationToken.None))),
-                        along: static (ctx, frame) => Outlined(ctx,
-                            plain: () => Silhouette.Compute(
-                                ctx.Native, ctx.Edit.Kinds, frame.Value, ctx.Model.Absolute.Value, ctx.Model.Angle.Value),
-                            clipped: () => Silhouette.Compute(
+                                ctx.Clips.AsIterable(), ctx.Edit.Cancel)),
+                        along: static (ctx, frame) => Captured(slot: ProjectionSlot.Outline, op: ctx.Op, run: () =>
+                            Silhouette.Compute(
                                 ctx.Native, ctx.Edit.Kinds, frame.Value, ctx.Model.Absolute.Value, ctx.Model.Angle.Value,
-                                ctx.Clips.AsIterable(), ctx.Edit.Cancel.IfNone(CancellationToken.None))),
+                                ctx.Clips.AsIterable(), ctx.Edit.Cancel)),
                         framed: static (ctx, frame) =>
                             from rigged in frame.Value.Rig(key: ctx.Op)
                             from built in ctx.Op.Catch(() => {
@@ -267,7 +311,7 @@ public abstract partial record ProjectionOp {
                                     Silhouette.Compute(
                                         ctx.Native, ctx.Edit.Kinds, viewport,
                                         ctx.Model.Absolute.Value, ctx.Model.Angle.Value,
-                                        ctx.Clips.AsIterable(), ctx.Edit.Cancel.IfNone(CancellationToken.None)));
+                                        ctx.Clips.AsIterable(), ctx.Edit.Cancel));
                             })
                             select built)
                        select built;
@@ -275,15 +319,10 @@ public abstract partial record ProjectionOp {
             draft: static (model, edit) => {
                 Op op = Op.Of(name: nameof(Draft));
                 return ModelGate.Borrow<GeometryBase, Built<ProjectionSlot>>(handle: edit.Subject, key: op, body: native =>
-                    from _ in guard(double.IsFinite(edit.Angle), op.InvalidInput())
                     from pull in op.AcceptInput(value: edit.Pull)
                     from built in Captured(slot: ProjectionSlot.Draft, op: op, run: () =>
-                        edit.Cancel.Case switch {
-                            CancellationToken cancel => Silhouette.ComputeDraftCurve(
-                                native, edit.Angle, pull, model.Absolute.Value, model.Angle.Value, cancel),
-                            _ => Silhouette.ComputeDraftCurve(
-                                native, edit.Angle, pull, model.Absolute.Value, model.Angle.Value),
-                        })
+                        Silhouette.ComputeDraftCurve(
+                            native, edit.Angle, pull, model.Absolute.Value, model.Angle.Value, edit.Cancel))
                     select built);
             });
 
@@ -294,29 +333,27 @@ public abstract partial record ProjectionOp {
             .Traverse(spec => Placement.Build(spec: spec, context: Some(model), key: op)).As()
         from clips in AdmittedClips(subject.Clips, op)
         from _ in op.Confirm(success: (motion.Case, clips.IsEmpty) switch {
-            (Transform placed, true) => parameters.AddGeometry(native, placed, ordinal, subject.Occluding),
+            (Transform placed, true) => parameters.AddGeometry(native, placed, ordinal, subject.Section.Native),
             (Transform placed, false) => parameters.AddGeometryAndPlanes(
-                native, placed, ordinal, subject.Occluding, [.. clips]),
-            (_, true) => parameters.AddGeometry(native, ordinal, subject.Occluding),
-            (_, false) => parameters.AddGeometryAndPlanes(native, ordinal, subject.Occluding, [.. clips]),
+                native, placed, ordinal, subject.Section.Native, [.. clips]),
+            (_, true) => parameters.AddGeometry(native, ordinal, subject.Section.Native),
+            (_, false) => parameters.AddGeometryAndPlanes(native, ordinal, subject.Section.Native, [.. clips]),
         })
         select unit;
 
     private static Fin<Built<ProjectionSlot>> Computed(HiddenLineDrawingParameters parameters, DrawingLaw law, Op op) {
-        HiddenLineDrawing? computed = law.Pacing.Case switch {
-            ProjectionPacing pacing => HiddenLineDrawing.Compute(parameters, pacing.Threads, pacing.Progress, pacing.Cancel),
-            _ => HiddenLineDrawing.Compute(parameters, law.Threads),
-        };
+        HiddenLineDrawing? computed = HiddenLineDrawing.Compute(
+            parameters, law.Pacing.Threads.Native, law.Pacing.Reporter, law.Pacing.Cancel);
         return Optional(computed).ToFin(Fail: op.InvalidResult()).Bind(drawing => {
             using (drawing) {
-                if (law.Rejoin) { drawing.RejoinCompatibleVisible(); }
+                if (law.Rejoin.Native) { drawing.RejoinCompatibleVisible(); }
                 Seq<HiddenLineDrawingSegment> segments = toSeq(drawing.Segments);
                 Seq<HiddenLineDrawingPoint> points = toSeq(drawing.Points);
                 BuildReceipt<ProjectionSlot> evidence = Harvested(
                     segments: segments,
                     points: points,
                     frame: drawing.WorldToHiddenLine,
-                    bounds: drawing.BoundingBox(includeHidden: law.HiddenCurves));
+                    bounds: drawing.BoundingBox(includeHidden: law.Features.Contains(DrawingFeature.HiddenCurves)));
                 return ModelGate.OwnMany(
                         built: segments.Map(static segment => (GeometryBase)segment.CurveGeometry.Duplicate()),
                         key: op, allowEmpty: true)
@@ -364,13 +401,6 @@ public abstract partial record ProjectionOp {
                 Axis: SourceAxis.Kind, Rows: points.Map(static point => (int)point.PointVisibility)));
     }
 
-    private static Fin<Built<ProjectionSlot>> Outlined(
-        (GeometryBase Native, Context Model, Outline Edit, Seq<Plane> Clips, Op Op) ctx,
-        Func<Silhouette[]> plain,
-        Func<Silhouette[]> clipped) =>
-        Captured(slot: ProjectionSlot.Outline, op: ctx.Op,
-            run: ctx.Clips.IsEmpty && ctx.Edit.Cancel.IsNone ? plain : clipped);
-
     internal static Fin<Seq<Plane>> AdmittedClips(Seq<Plane> clips, Op key) =>
         clips
             .Traverse(clip => key.AcceptInput(value: clip).ToValidation())
@@ -403,22 +433,24 @@ public static class Projections {
         ModelGate.Entry(
             context: context,
             operations: operations,
-            admit: static (operation, _) => Fin.Succ(operation),
+            admit: static (operation, key) => operation.Admitted(key: key),
             apply: static (operation, model) => operation.Apply(domain: model));
 }
 ```
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]              | [OWNER]             | [FORM]                                                 | [ENTRY]                          |
-| :-----: | :--------------------- | :------------------ | :----------------------------------------------------- | :------------------------------- |
-|  [01]   | projection frame       | `ProjectionFrame`   | snapshot / pose / plan / directed value frames         | `ProjectionOp` frame payloads    |
-|  [02]   | drawing sources        | `ProjectionSubject` | leased handle with placement / clip / occluding rows   | `ProjectionOp.Drawing`           |
-|  [03]   | drawing flags          | `DrawingLaw`        | whole parameter surface as one regime-toleranced value | `Rig` inside the drawing arm     |
-|  [04]   | cancellable compute    | `ProjectionPacing`  | cancel + progress + thread grant as one policy row     | `DrawingLaw.Pacing`              |
-|  [05]   | silhouette eye         | `SilhouetteFrame`   | perspective point / parallel direction / rigged frame  | `ProjectionOp.Outline`           |
-|  [06]   | classified consequence | `ProjectionSlot`    | visibility, correspondence, frame, and bounds facts    | `Built<ProjectionSlot>.Evidence` |
-|  [07]   | projection verbs       | `ProjectionOp`      | one flat `[Union]` under total generated dispatch      | `Projections.Build`              |
+| [INDEX] | [CONCERN]           | [OWNER]                         | [FORM]                                              | [ENTRY]                 |
+| :-----: | :------------------ | :------------------------------ | :-------------------------------------------------- | :---------------------- |
+|  [01]   | projection frame    | `ProjectionFrame`               | snapshot / pose / plan / directed value frames      | frame payloads          |
+|  [02]   | drawing sources     | `ProjectionSubject`             | handle with placement, clips, section row          | `ProjectionOp.Drawing`        |
+|  [03]   | drawing flags       | `DrawingFeature`                | writer-column rows folded from one membership set  | `DrawingLaw.Rig`              |
+|  [04]   | compute behavior    | `DrawingRejoin`/`DrawingThreads`| two-row native grants, never bare bools            | `Computed`                    |
+|  [05]   | cancellable compute | `ProjectionPacing`              | token, optional progress, and thread row           | `DrawingLaw.Pacing`           |
+|  [06]   | silhouette eye      | `SilhouetteFrame`               | eye point, parallel direction, or rigged frame     | `ProjectionOp.Outline`        |
+|  [07]   | classified evidence | `ProjectionSlot`                | visibility, correspondence, frame, and bounds facts | `Built<ProjectionSlot>`       |
+|  [08]   | admission           | `ProjectionOp.Admitted`         | whole-roster payload gate before dispatch          | `Projections.Build`           |
+|  [09]   | projection verbs    | `ProjectionOp`                  | one flat `[Union]` under total generated dispatch  | `Projections.Build`           |
 
 ## [06]-[RESEARCH]
 

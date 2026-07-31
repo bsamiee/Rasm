@@ -14,8 +14,8 @@ The basemap is the tiled 2D geographic plane beside the Wgpu viewport: one Mapsu
 - Owner: `BasemapLayerRow` [Union] — the closed layer vocabulary; `BasemapSurface` — the one map owner; `MapNav` [Union] — the navigation verb vocabulary.
 - Cases: `BasemapLayerRow` = Tile · Overlay · Widget; `MapNav` = CenterOn · ZoomTo · ZoomToLevel · ZoomToBox · CenterAndZoom · FlyTo · RotateTo; `MapFlight` = Direct · Focus · Traverse — flight timing is declared policy data rather than a caller duration knob.
 - Entry: `public Fin<Map> Build(Seq<BasemapLayerRow> rows)` — one fold from layer rows to the mounted `Map`; `public IO<Unit> Navigate(MapNav verb)` — every camera move discriminates on the verb union through the one `Navigator`.
-- Auto: the tile row defaults to `OpenStreetMap.CreateTileLayer` and any slippy-tile source is one row value; the map chrome ships as named widget rows — `ScaleBar`, `ZoomButtons`, and `InfoBox` — screen-anchored on `Map.Widgets`; layer z-order is sequence order. `Build` stages a candidate map, disposes it on any row failure, swaps only after complete admission, calls `RefreshGraphics`, and then disposes the replaced map, so a failed rebuild preserves the mounted surface and every successful replacement has one owner.
-- Receipt: layer-set changes and navigation verbs contribute through `AppUiTelemetry.Contribute` instrument rows; faults are typed `ChartFault` cases deriving through `AppUiFaultBand.Chart` (6200) — the one Charts band shared with dashboards and custom.
+- Auto: the tile row defaults to `OpenStreetMap.CreateTileLayer` and any slippy-tile source is one row value; the map chrome ships as named widget rows — `ScaleBar`, `ZoomButtons`, and `InfoBox` — screen-anchored on `Map.Widgets`; layer z-order is sequence order. `Build` stages a candidate map, disposes it on any row failure, swaps only after complete admission, calls `RefreshGraphics`, and then disposes the replaced map, so a failed rebuild preserves the mounted surface and every successful replacement has one owner; EVERY arm of the row fold returns `Fin` — a source delegate that throws is captured as the row's own `LayerRejected` rather than escaping past the arm that disposes the candidate.
+- Receipt: `BasemapSurface.Observe` folds one observation per successful swap and one per dispatched verb under the verb's own intent key, and `RedlineSurface.Observe` one per markup gesture under its disposition, each through `AppUiTelemetry.Contribute` instrument rows whose specs DECLARE those dimensions; faults are typed `ChartFault` cases deriving through `AppUiFaultBand.Chart` (6200) — the one Charts band shared with dashboards and custom.
 - Packages: Mapsui.Avalonia12, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new basemap source, overlay family, or widget is one `BasemapLayerRow` value; a new camera move is one `MapNav` case; zero new surface.
 - Boundary: ONE `MapControl` and ONE `Map` per basemap surface — a second map control, a per-overlay map, or a parallel tile engine is the deleted form; the transitive Mapsui/Tiling/Nts/Rendering.Skia set stays transitive (the admitted pin is `Mapsui.Avalonia12`); the basemap draws BESIDE the Wgpu viewport as an Avalonia control — it never enters the render graph, and geographic dashboards that need chart-projected geography stay on the LiveCharts `GeoMap` row (`dashboards.md`), the charter split stated on both pages.
@@ -25,7 +25,18 @@ The basemap is the tiled 2D geographic plane beside the Wgpu viewport: one Mapsu
 public abstract partial record BasemapLayerRow {
     private BasemapLayerRow() { }
     public sealed record Tile(string Key, Func<ILayer> Source) : BasemapLayerRow;
-    public sealed record Overlay(string Key, Seq<GeoOverlayRow> Features, VectorStyle Style) : BasemapLayerRow;
+    // Symbology is one selector column, never a flat style beside a themed one: every overlay binds
+    // `ThemeStyle`, so a parcel set coloured by zoning class, a utility run coloured by service, and a
+    // uniform site boundary are ONE shape — `GeoOverlay.Uniform` is the constant selector — and the
+    // layer-per-attribute-value proliferation the Growth line rules out is unrepresentable. The two
+    // resolution bounds are columns because the provider chain decimates BY resolution and a row that
+    // cannot state its visible band cannot state its simplify band either.
+    public sealed record Overlay(
+        string Key,
+        Seq<GeoOverlayRow> Features,
+        Func<IFeature, Viewport, IStyle?> Symbology,
+        double MinVisible,
+        double MaxVisible) : BasemapLayerRow;
     public sealed record Widget(string Key, Func<Mapsui.Widgets.IWidget> Source) : BasemapLayerRow;
 
     public static readonly BasemapLayerRow Osm = new Tile("osm", static () => Mapsui.Tiling.OpenStreetMap.CreateTileLayer());
@@ -44,6 +55,17 @@ public abstract partial record MapNav {
     public sealed record CenterAndZoom(MPoint Center, double Resolution) : MapNav;
     public sealed record FlyTo(MPoint Center, double Resolution, MapFlight Flight) : MapNav;
     public sealed record RotateTo(double Degrees) : MapNav;
+
+    // The verb's own dimension value, projected by a total Switch so an eighth case breaks HERE at compile
+    // time; a reflected type name would widen the metric's key space silently on any rename.
+    public string Key => Switch(
+        centerOn: static _ => "center-on",
+        zoomTo: static _ => "zoom-to",
+        zoomToLevel: static _ => "zoom-to-level",
+        zoomToBox: static _ => "zoom-to-box",
+        centerAndZoom: static _ => "center-and-zoom",
+        flyTo: static _ => "fly-to",
+        rotateTo: static _ => "rotate-to");
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -86,22 +108,42 @@ public sealed record BasemapSurface(MapControl Control) {
             rotateTo: static (nav, v) => fun(() => nav.RotateTo(v.Degrees))())));
 
     // Generated total Switch over the closed family — a new BasemapLayerRow case breaks THIS dispatch at
-    // compile time; the runtime-silent `_` arm over the closed family is the deleted form.
+    // compile time; the runtime-silent `_` arm over the closed family is the deleted form. Every arm lands
+    // on the SAME Fin the overlay arm already returned, so the fold's Fail arm reaches every row failure.
     static Fin<Map> Mount(Map map, BasemapLayerRow row) => row.Switch(
         state: map,
-        tile: static (m, t) => Fin.Succ(fun(() => { m.Layers.Add(t.Source()); return m; })()),
+        tile: static (m, t) => Staged(m, t.Key, () => m.Layers.Add(t.Source())),
         overlay: static (m, o) => GeoOverlay.Layer(o).Map(layer => { m.Layers.Add(layer); return m; }),
-        widget: static (m, w) => Fin.Succ(fun(() => { m.Widgets.Add(w.Source()); return m; })()));
+        widget: static (m, w) => Staged(m, w.Key, () => m.Widgets.Add(w.Source())));
+
+    // A row's source is an unconstrained composition delegate that does real work — the OSM tile row opens
+    // an HTTP client and reads a tile schema — so an escaping throw would carry the staged candidate PAST
+    // the `Fail` arm that disposes it, leaking every layer already mounted on it and falsifying the
+    // dispose-on-any-row-failure law at the one place it is load-bearing. The capture is the row's own
+    // typed refusal, so a bad source names itself instead of surfacing as a provider exception.
+    static Fin<Map> Staged(Map map, string key, Action mount) =>
+        Try.lift(() => { mount(); return map; }).Run()
+            .MapFail(error => (Error)new ChartFault.LayerRejected($"{key}: {error.Message}"));
 
     public const string LayersInstrument = "rasm.appui.basemap.layers";
     public const string NavigatedInstrument = "rasm.appui.basemap.navigated";
 
-    // Both count direct: Build folds one observation per successful swap, Navigate one per verb
-    // dispatch tagged by verb case — the composition-bound Count delegate, never a map-local meter.
+    // Both projections bind at the fold that already holds the fact — the successful swap inside `Build`,
+    // the dispatched verb inside `Navigate` — and the per-verb breakdown the description promises rides a
+    // DECLARED dimension: an instrument claiming a breakdown its spec never declares yields one
+    // undifferentiated series no board can split. The verb's own `Key` is a total `Switch`, so a new
+    // `MapNav` case breaks the projection at compile time rather than widening the metric's key space.
+    public static Fin<Unit> Observe(InstrumentSet set) => set.Write(LayersInstrument, 1L);
+
+    public static Fin<Unit> Observe(InstrumentSet set, MapNav verb) =>
+        set.Write(NavigatedInstrument, 1L,
+            new KeyValuePair<string, object?>(AppUiTelemetry.IntentSlot, verb.Key));
+
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
             InstrumentSpec.Count(LayersInstrument, "{rebuild}", "layer-set rebuilds swapped onto the mounted map", MeasureForm.Whole),
-            InstrumentSpec.Count(NavigatedInstrument, "{navigation}", "camera moves by verb case", MeasureForm.Whole));
+            InstrumentSpec.Count(NavigatedInstrument, "{navigation}", "camera moves by verb case", MeasureForm.Whole,
+                AppUiTelemetry.IntentSlot));
 }
 ```
 
@@ -112,8 +154,8 @@ public sealed record BasemapSurface(MapControl Control) {
 - Auto: features ARRIVE as Bim-owned `GeoFeature` rows carrying their `GeoReference` lineage (the `GeoReferenceProjector` IfcMapConversion/IfcProjectedCRS lowering) already reprojected to WGS-84 by Bim's `GeoFeature.Reproject` — the declared seam, both sides (`Rasm.Bim` Semantics/geospatial -> AppUi Charts) — so the row's `SourceCrs`/SRID state IS the CRS evidence the gate reads; AppUi's ONLY reprojection is WGS-84 lon/lat -> EPSG:3857 through `SphericalMercator.FromLonLat` under `ProjectionDefaults.Projection` at the layer-build edge.
 - Receipt: an overlay row whose feature still declares a projected frame (or a non-4326 SRID) folds to `ChartFault.CrsUnresolved` — the ingress law enforced as a typed fault, never a silent draw at wrong coordinates.
 - Packages: Mapsui.Avalonia12 (Mapsui.Nts transitive), Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new overlay family (site boundary, utility run, parcel, analysis heat cells) is a seq of rows on one Overlay layer row; zero new surface.
-- Boundary: geodesy stays Bim's — `GeoFeature.Reproject`, datum transforms, and projected-CRS handling never re-implement here, and a local geodesy kernel (a proj4 port, a datum table, a second `SphericalMercator` beside the Mapsui primitive) is the FORBIDDEN form; NTS geometry types cross the seam as values inside Bim-owned features and are wrapped, never re-modeled; `GeoTiles.Catalog` TileJSON from Bim's `GeoModel.ToTiles` mounts as one Tile row when the vector-tile lane ships — a row, not a new surface.
+- Growth: a new overlay family (site boundary, utility run, parcel, analysis heat cells) is a seq of rows on one Overlay layer row, and attribute-driven symbology within a family is one `Symbology` selector reading the consumed `GeoFeature` attribute table — never a layer per attribute value; zero new surface.
+- Boundary: an overlay mounts as `Layer` over the `IndexedMemoryProvider` → `GeometryIntersectionProvider` → `GeometrySimplifyProvider` decorator chain under one `ThemeStyle`, so viewport clipping, resolution-driven decimation, and per-feature symbology are all provider and style policy — a hand-rolled cull, a resolution branch at the bind edge, and a `MemoryLayer` holding every vertex resident at every zoom are the deleted forms; geodesy stays Bim's — `GeoFeature.Reproject`, datum transforms, and projected-CRS handling never re-implement here, and a local geodesy kernel (a proj4 port, a datum table, a second `SphericalMercator` beside the Mapsui primitive) is the FORBIDDEN form; NTS geometry types cross the seam as values inside Bim-owned features and are wrapped, never re-modeled; `GeoTiles.Catalog` TileJSON from Bim's `GeoModel.ToTiles` mounts as one Tile row when the vector-tile lane ships — a row, not a new surface.
 
 ```csharp signature
 // The ingress row carries the Bim-owned GeoFeature WHOLE — geometry + attribute table + declared
@@ -125,14 +167,27 @@ public sealed record GeoOverlayRow(
     Option<string> Label);
 
 public static class GeoOverlay {
+    // The residency law of the 2D plane, spelled as the three admitted provider decorators rather than a
+    // hand-rolled cull: the indexed provider replaces the linear feature array so a fetch is an envelope
+    // query, the intersection provider clips each fetch to the viewport `MRect`, and the simplify provider
+    // decimates by the LIVE fetch resolution (a null tolerance drives it off `fetchInfo.Resolution`), so a
+    // parcel ring drawn at city zoom carries tens of vertices instead of thousands. `MemoryLayer.Features`
+    // holding every vertex of every family at every zoom is the deleted form — this is the same budget law
+    // `Render/meshlets` `ResidencyBudget` enforces for geometry VRAM, applied on the plane.
     public static Fin<ILayer> Layer(BasemapLayerRow.Overlay overlay) =>
         overlay.Features
             .Traverse(Project)
-            .Map(features => (ILayer)new MemoryLayer(overlay.Key) {
-                Features = features.ToArray(),
-                Style = overlay.Style,
+            .Map(features => (ILayer)new Layer(overlay.Key) {
+                DataSource = new GeometrySimplifyProvider(new GeometryIntersectionProvider(new IndexedMemoryProvider(features.ToArray()))),
+                Style = new ThemeStyle(overlay.Symbology),
+                MinVisible = overlay.MinVisible,
+                MaxVisible = overlay.MaxVisible,
             })
             .As();
+
+    // The constant selector: a uniform overlay states its one style HERE, so `Overlay` carries no second
+    // style column and the themed and uniform families never fork into sibling layer builders.
+    public static Func<IFeature, Viewport, IStyle?> Uniform(VectorStyle style) => (_, _) => style;
 
     // The ingress gate: a feature is admissible only when its OWN declared frame is the WGS-84 baseline
     // the seam promises (post-Reproject: no residual projected frame, SRID 4326 exactly — an unstamped
@@ -174,7 +229,7 @@ public sealed class MercatorFilter(Func<double, double, (double X, double Y)> pr
 ## [04]-[PICK_AND_SNAPSHOT]
 
 - Owner: `MapPick` — the hit-test fold; the snapshot lane is a `CaptureRow` sibling riding the capture encode fold.
-- Entry: `public static Option<BasemapPickReceipt> Pick(MapControl control, ScreenPosition screen)` — `GetMapInfo(screen, layers)` (the cataloged overload, hit-testing the mounted layer set) resolves the topmost feature at the screen point and projects its `id` attribute into the Shell pick state.
+- Entry: `public static Option<BasemapPickReceipt> Pick(MapControl control, ScreenPosition screen)` — `GetMapInfo(screen, layers)` (the cataloged overload, hit-testing the mounted layer set) resolves the topmost feature at the screen point and projects its `id` attribute into the Shell pick state; `public static IO<RenderReceipt> Snapshot(VisualRuntime runtime, MapControl control, string key)` — the encoded basemap bytes re-sealed through the one capture codec.
 - Auto: a pick lands in the same selection vocabulary the viewport pick uses — the Shell selection owner receives the scalar `BasemapPickReceipt` and never a Mapsui type; `MapControl.GetSnapshot(layers, RenderFormat.Png, quality)` yields the encoded basemap bytes that decode through `VisualCodec.Decode` and re-encode through `VisualCodec.Encode` as kind basemap, so a basemap baseline rides the same render-hash proof lanes as every visual.
 - Packages: Mapsui.Avalonia12, SkiaSharp, LanguageExt.Core
 - Growth: a new pick projection is one attribute read on the fold; zero new surface.
@@ -194,12 +249,15 @@ public static class MapPick {
                         .Map(world => new BasemapPickReceipt(id, world.X, world.Y)))));
 
     // The snapshot lane: GetSnapshot's encoded bytes decode and re-seal through the one capture codec so a
-    // basemap baseline carries the same content-hashed RenderReceipt evidence as every visual.
+    // basemap baseline carries the same content-hashed RenderReceipt evidence as every visual. Release
+    // brackets the ACQUISITION — the decoded image is a native the encode may fail against, and disposing
+    // it inside a `.Map` on the encode RESULT bound release to success and leaked the image on every
+    // refused encode.
     public static IO<RenderReceipt> Snapshot(VisualRuntime runtime, MapControl control, string key) =>
         from bytes in IO.lift(() => control.GetSnapshot(control.Map.Layers, RenderFormat.Png, quality: 100))
-        from image in VisualCodec.Decode(bytes)
-        from receipt in VisualCodec.Encode(runtime, image, VisualCodec.Png, "basemap", key)
-            .Map(sealed_ => (fun(image.Dispose)(), sealed_).Item2)
+        from receipt in VisualCodec.Decode(bytes).Bracket(
+            image => VisualCodec.Encode(runtime, image, VisualCodec.Png, "basemap", key),
+            static image => IO.lift(() => { image.Dispose(); return unit; }))
         select receipt;
 }
 ```
@@ -208,12 +266,12 @@ public static class MapPick {
 
 - Owner: `RedlineVerb` [Union] — the closed markup-verb vocabulary; `RedlineSurface` — the one `EditManager` authoring owner; the commit leg projects onto `EditIntent.Annotation`, never a basemap-local op union.
 - Cases: `RedlineVerb` = BeginMark · Modify · Delete · Commit · Discard; `RedlineKind` = Point · Path · Area; `RedlineDelta` = Upsert · Delete; `RedlineShape` = Point · Path · Area · Collection. `BeginMark` carries the kind, commit carries document, target, and the stroke/fill/opacity/dash policy, and delete carries the durable target identity.
-- Entry: `public IO<Fin<Option<EditIntent>>> Drive(RedlineVerb verb)` — every markup gesture discriminates on the verb union; `Commit` emits an upsert annotation and `Delete` emits a delete annotation, while local begin, modify, and discard return `None`; the caller composes one rail and the intent ledger commit stays caller-side (`IntentLedger.Commit` is `Collab/sync.md`'s one transaction rail).
-- Auto: authoring runs on a dedicated redline `MemoryLayer` above the overlay stack. `Apply` is the composition adapter over the research-gated `EditManager` session members and returns the current `GeometryFeature` for a sealed commit. `Sealed` admits document and target identities, copies geometry, applies `MercatorFilter.Inverse`, stamps `SRID` `4326`, and preserves finite points, paths, polygon shells and holes, multi-geometries, and heterogeneous collections before serializing `RedlineDelta.Upsert`; `Delete` needs no surviving feature and serializes `RedlineDelta.Delete`. Degenerate geometry and invalid paint, fill, width, opacity, or dash policy fail as `ChartFault.VisualDegenerate`.
-- Receipt: a committed redline is one `EditIntent.Annotation(DocKey, TargetId, Payload)` row on the single edit-intent union — durable truth rides the Persistence `OpLogEntry` projection per the `[04]-[BOUNDARIES]` Loro-byte clause, and the redline layer re-renders from the committed intent, never from retained authoring state; commits and discards contribute a `redline.commit` count through `AppUiTelemetry.Contribute`.
+- Entry: `public MemoryLayer Mounted()` — the marks layer resolved once under the shared symbology selector; `public IO<Fin<Option<EditIntent>>> Drive(RedlineVerb verb)` — every markup gesture discriminates on the verb union; `Commit` emits an upsert annotation and `Delete` emits a delete annotation, while local begin, modify, and discard return `None`; the caller composes one rail and the intent ledger commit stays caller-side (`IntentLedger.Commit` is `Collab/sync.md`'s one transaction rail).
+- Auto: authoring runs on a dedicated redline `MemoryLayer` above the overlay stack, mounted through `Mounted` under one `ThemeStyle(Symbology)` so a mark colours by its own `IssueStatus` attribute on the same symbology axis every overlay binds. `Apply` is the composition adapter over the research-gated `EditManager` session members and returns the current `GeometryFeature` for a sealed commit. `Sealed` admits document and target identities, copies geometry, applies `MercatorFilter.Inverse`, stamps `SRID` `4326`, and preserves finite points, paths, polygon shells and holes, multi-geometries, and heterogeneous collections before serializing `RedlineDelta.Upsert`; `Delete` needs no surviving feature and serializes `RedlineDelta.Delete`. Degenerate geometry and invalid paint, fill, width, opacity, or dash policy fail as `ChartFault.VisualDegenerate`.
+- Receipt: a committed redline is one `EditIntent.Annotation(DocKey, TargetId, Payload)` row on the single edit-intent union — durable truth rides the Persistence `OpLogEntry` projection per the `[04]-[BOUNDARIES]` Loro-byte clause, and the redline layer re-renders from the committed intent, never from retained authoring state; every gesture folds one `redline.commit` observation at `Drive` under the outcome slot its spec declares, so commit, discard, and local authoring stay separable series.
 - Packages: Mapsui.Avalonia12 (Mapsui.Nts transitive), Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new mark kind is one `RedlineKind` row plus its corresponding `RedlineShape` case when the payload arity differs; a new markup verb is one `RedlineVerb` case; zero new surface.
-- Boundary: `EditManager` and `EditingWidget` remain inside this section; authored geometry leaves only as the WGS-84 `RedlineDelta` payload, and delete carries no stale geometry. The session-member spellings bind through `Apply` at composition under `REDLINE_EDIT_SURFACE`. A redline over the 3D viewport remains the BCF markup charter; this section owns only the 2D geographic plane.
+- Growth: a new mark kind is one `RedlineKind` row plus its corresponding `RedlineShape` case when the payload arity differs; a new markup verb is one `RedlineVerb` case; a new review-state colouring is one branch inside the bound `Symbology` selector, never a second marks layer; zero new surface.
+- Boundary: `EditManager` and `EditingWidget` remain inside this section; authored geometry leaves only as the WGS-84 `RedlineDelta` payload, and delete carries no stale geometry. The marks layer is the ONE `MemoryLayer` this page keeps: `EditManager` writes its `.Features` in place, which the overlay provider chain structurally cannot receive, so the residency decorators stop at the overlay boundary while the symbology selector crosses it — a decorated edit layer and a flat per-layer redline style are both deleted forms. The session-member spellings bind through `Apply` at composition under `REDLINE_EDIT_SURFACE`. A redline over the 3D viewport remains the BCF markup charter; this section owns only the 2D geographic plane.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -253,10 +311,26 @@ public abstract partial record RedlineVerb {
     public sealed record Discard : RedlineVerb;
 }
 
+// Marks stays a MemoryLayer because EditManager writes its `.Features` collection DIRECTLY — the
+// overlay provider chain decorates a fetch and cannot receive an in-place authoring write, so the
+// residency law that governs overlays does not reach the edit layer and a decorated redline layer is
+// unspellable. Symbology is a different axis and DOES reach it: the layer takes the same
+// `ThemeStyle(Func<IFeature, Viewport, IStyle?>)` selector every overlay takes, so a redline mark
+// colours by its own `IssueStatus` attribute through the one symbology owner. A flat per-layer
+// VectorStyle is the deleted form — it forced every mark to one colour and forked review state into a
+// layer-per-status roster the page's own Growth line rules out.
 public sealed record RedlineSurface(
     EditManager Manager,
     MemoryLayer Marks,
+    Func<IFeature, Viewport, IStyle?> Symbology,
     Func<EditManager, RedlineVerb, Fin<Option<GeometryFeature>>> Apply) {
+    // Display style resolves once at mount from the SAME selector shape overlays bind, so the review
+    // board and the redline plane read one symbology vocabulary.
+    public MemoryLayer Mounted() {
+        Marks.Style = new ThemeStyle(Symbology);
+        return Marks;
+    }
+
     public IO<Fin<Option<EditIntent>>> Drive(RedlineVerb verb) =>
         IO.lift(() => Apply(Manager, verb).Bind(authored => verb.Switch(
             state: authored,
@@ -325,14 +399,28 @@ public sealed record RedlineSurface(
 
     public const string CommitInstrument = "rasm.appui.redline.commit";
 
-    // Commit and Discard each fold one observation tagged by disposition through the composition-bound
-    // Count delegate at Drive.
+    // `Drive` is the one place a disposition exists, so the projection binds there and the count carries it
+    // as the DECLARED outcome dimension — a spec promising a per-disposition breakdown with no declared
+    // slot folds commits, discards, and every local gesture into one number no board can separate. The
+    // disposition is a total Switch, so a sixth verb breaks this projection rather than counting untagged.
+    public static Fin<Unit> Observe(InstrumentSet set, RedlineVerb verb) =>
+        set.Write(CommitInstrument, 1L,
+            new KeyValuePair<string, object?>(AppUiTelemetry.OutcomeSlot, Disposition(verb)));
+
+    static string Disposition(RedlineVerb verb) => verb.Switch(
+        beginMark: static _ => "begin",
+        modify: static _ => "modify",
+        delete: static _ => "delete",
+        commit: static _ => "commit",
+        discard: static _ => "discard");
+
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(CommitInstrument, "{commit}", "redline commits and discards by disposition", MeasureForm.Whole));
+            InstrumentSpec.Count(CommitInstrument, "{commit}", "redline gestures by disposition", MeasureForm.Whole,
+                AppUiTelemetry.OutcomeSlot));
 }
 ```
 
 ## [06]-[RESEARCH]
 
-- [REDLINE_EDIT_SURFACE]: `Drive` binds the implementation-gated `EditManager` start/stop, edit-layer, and vertex add/drag/rotate members. `EditManager`, `EditingWidget`, the dedicated `MemoryLayer`, `MercatorFilter.Inverse`, and the `EditIntent.Annotation` projection are catalogued; session spellings remain composition-bound.
+- [REDLINE_EDIT_SURFACE]-[BLOCKED]: which `EditManager` members drive session start/stop, edit-layer selection, and vertex add/drag/rotate, so `Apply` binds each by name; route: `tools.assay api query --key Mapsui.Nts --symbol EditManager` once `Mapsui.Nts` registers as an assay source — the rail answers `no 'Mapsui.Nts' source` today.

@@ -4,21 +4,24 @@ Grasshopper's canvas boundary owns one command gate and one projection gate over
 
 ## [01]-[INDEX]
 
-- [02]-[LENS]: `PickGates` + `PickHit` + `PickReceipt` + `CanvasState` + `FramePulse` + `RasterPlan` + `CanvasQuery` + `CanvasProjection` + `CanvasLens` — typed pick, coordinate, state, telemetry, and owned-raster reads.
+- [02]-[LENS]: `PickGrain` + `DragChord` + `PickGates` + `PickHit` + `PickReceipt` + `CanvasState` + `FramePulse` + `RasterPlan` + `CanvasQuery` + `CanvasProjection` + `CanvasLens` — typed pick, coordinate, state, telemetry, and owned-raster reads.
 - [03]-[OPERATOR]: `NavTarget` + `SparkleSpec` + `ActionGate` + `SelectGates` + `InlinePrompt` + `CanvasOp` + `CanvasReceipt` + `CanvasOperator` — the closed command family and boundary gates.
-- [04]-[OWNER_MAP]: the growth axis for each canvas owner.
+- [04]-[OWNER_MAP]: each canvas owner declares its growth axis.
 
 ## [02]-[LENS]
 
 - Owner: `CanvasQuery` `[Union]` — the closed coordinate, pick, state, telemetry, and raster demand vocabulary. `CanvasProjection` `[Union]` carries only detached values or an owned bitmap lease, while the internal `CanvasLens` readonly ref struct executes one admitted query inside the marshal and exposes no live host member.
-- Owner: `PickGates` readonly record struct — the five `ResolvePick` admission axes with `Everything`, `Surfaces`, and `WiresOnly` policy rows. `PickHit` projects every admitted `SelectionResult.Kind` into a payload-valid case, and `PickReceipt` couples the finite origin with nonnegative selection deltas.
+- Owner: `PickGates` readonly record struct — the five `ResolvePick` admission axes (grips, foreground, background, wires, recursive) with `Whole`, `Bodies`, and `Wiring` category rows. `PickHit` projects every admitted `SelectionResult.Kind` into a payload-valid case, and `PickReceipt` couples the finite origin with nonnegative selection deltas.
+- Owner: `PickGrain` `[SmartEnum<int>]` keyed `(int)DragPickingMode.<row>` — the DRAG-GRAIN axis GH2 itself publishes: `Deferred` defers to keyboard state, `SubObject` drags sub-objects where supported, `OneObject` drags whole objects, `AllObjects` drags every object in a parameter at once. Its `Resolve(shift, control)` column carries the host's own deferral law verbatim — a non-`Deferred` row answers itself and `Deferred` becomes `AllObjects` under shift and `OneObject` otherwise, with `control` accepted and unread because the host's own body accepts and never reads it. `DragChord` pairs a grain with the live modifier chord, so `Resolve` and `Host` answer at the one site a drag-shaped pick names them and the resolved `DragPickingMode` rides out as receipt evidence.
+- Law: grain and gates are two axes of one pick, never one roster — `DragPickingMode` decides HOW MUCH a drag carries and the five `ResolvePick` bools decide WHAT CATEGORIES admit, so a category preset is a `PickGates` row and a drag policy is a `PickGrain` row; the earlier `Everything`/`Surfaces`/`WiresOnly` naming collapsed both onto one invented vocabulary with no host counterpart. Any grain-to-gates projection repeats that collapse wearing a column, because the host publishes no correspondence between `DragPickingMode` and the five `ResolvePick` bools — a `PickCase` therefore carries both axes and derives neither.
+- Law: `Canvas.ResolvePickMode(bool, bool)` is `public` on the PRIVATE nested `Canvas.ViewportMouseDragger`, so the host resolver is unreachable and `PickGrain.Resolve`'s column re-states its exact body instead — the host reads its own `PickMode` field, substitutes `shift ? AllObjects : OneObject` only where that field is `Default`, and never touches `control`. Row-instance dispatch reproduces the field read exactly, so the re-derivation is total; it is licensed by unreachability alone and re-proves on the `gh2` decompile rail whenever the host surface moves.
 - Owner: `CanvasState` — the immutable canvas projection. Its validity fold proves finite projection and frame values, complete action-policy evidence, admitted snap evidence, immutable host skin values, logical `CursorMode`, and both ZUI unit intervals. `FramePulse` proves nonnegative layer costs bounded by the full-frame duration.
 - Owner: `RasterPlan` `[Union]` — `FullCase`, `SizedCase`, and `PickMapCase` select the host raster modality. `Sized` admits both dimensions, and every raster leaves as `Lease<Bitmap>.Owned`.
 - Law: `ResolvePick` queries the document and wire cache directly. `DrawPickMap` independently applies the same resolver across the pixel grid for diagnostics, so point picking and diagnostic rendering share policy without sharing lifetime.
 - Law: `Map` is the coordinate authority for host `Screen`/`Control`/`Content` frames; `CanvasQuery` admits the source value and frames, and `CanvasProjection` admits the mapped result.
 - Boundary: `RepaintRow` owns this canvas's repaint policy; `FlexPulse` serves non-canvas flex controls. Canvas paint, wire routing, and responder registration remain separate canvas owners. Rasters leave as Eto `Bitmap` leases — `BitmapData` pixel locking belongs to the consumer's measured kernel, and `IndexedBitmap` carries no GH2 payload.
-- Packages: Grasshopper2 (`Canvas`, `FlexControl.Map`, `Projection`, canvas bounds, pick and raster surfaces, action and selection policy, snap axes, skins, cursors, ZUI and navigation state, layer durations, `SelectionResult`, `Pick`, `WireEnds`), Eto.Drawing (`PointF`, `RectangleF`, `Bitmap`), LanguageExt.Core, `Rasm.Domain`, `Rasm.Numerics`.
-- Growth: a new read is one `CanvasQuery` case with its `CanvasProjection` case, a new pick modality is one `PickGates` row, and a new raster modality is one `RasterPlan` case.
+- Packages: Grasshopper2 (`Canvas`, `FlexControl.Map`, `Projection`, canvas bounds, pick and raster surfaces, `DragPickingMode`, action and selection policy, snap axes, skins, cursors, ZUI and navigation state, layer durations, `SelectionResult`, `Pick`, `WireEnds`), Eto.Drawing (`PointF`, `RectangleF`, `Bitmap`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core, `Rasm.Domain`, `Rasm.Numerics`.
+- Growth: a new read is one `CanvasQuery` case with its `CanvasProjection` case, a new pick category preset is one `PickGates` row, a new host drag grain is one `PickGrain` row keyed on its `DragPickingMode` ordinal, and a new raster modality is one `RasterPlan` case.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -59,19 +62,44 @@ public abstract partial record PickHit : IValidityEvidence {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class PickGrain {
+    public static readonly PickGrain Deferred = new((int)DragPickingMode.Default, resolve: DeferredGrain);
+    public static readonly PickGrain SubObject = new((int)DragPickingMode.SubObject, resolve: static (_, _) => SubObject);
+    public static readonly PickGrain OneObject = new((int)DragPickingMode.OneObject, resolve: static (_, _) => OneObject);
+    public static readonly PickGrain AllObjects = new((int)DragPickingMode.AllObjects, resolve: static (_, _) => AllObjects);
+
+    [UseDelegateFromConstructor]
+    public partial PickGrain Resolve(bool shift, bool control);
+
+    public DragPickingMode Host => (DragPickingMode)Key;
+
+    // Host body accepts `control` and never reads it; this row reproduces that, never a guessed law.
+    private static PickGrain DeferredGrain(bool shift, bool control) => shift ? AllObjects : OneObject;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct DragChord(PickGrain Grain, bool Shift, bool Control) {
+    public PickGrain Resolved => Grain.Resolve(shift: Shift, control: Control);
+
+    public DragPickingMode Mode => Resolved.Host;
+}
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PickGates(bool Grips, bool Foreground, bool Background, bool Wires, bool Recursive) {
-    public static readonly PickGates Everything = new(Grips: true, Foreground: true, Background: true, Wires: true, Recursive: true);
-    public static readonly PickGates Surfaces = new(Grips: false, Foreground: true, Background: true, Wires: false, Recursive: true);
-    public static readonly PickGates WiresOnly = new(Grips: false, Foreground: false, Background: false, Wires: true, Recursive: false);
+    public static readonly PickGates Whole = new(Grips: true, Foreground: true, Background: true, Wires: true, Recursive: true);
+    public static readonly PickGates Bodies = Whole with { Grips = false, Wires = false };
+    public static readonly PickGates Wiring = new(Grips: false, Foreground: false, Background: false, Wires: true, Recursive: false);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PickReceipt(
-    PointF At, PickHit Hit, int SelectedObjects, int SelectedWires, int DeselectedObjects, int DeselectedWires) : IValidityEvidence {
+    PointF At, PickHit Hit, Option<DragPickingMode> Grain,
+    int SelectedObjects, int SelectedWires, int DeselectedObjects, int DeselectedWires) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(holds: float.IsFinite(At.X) && float.IsFinite(At.Y)),
         ValidityClaim.Evidence(evidence: Hit),
+        ValidityClaim.Of(holds: Grain.Map(static mode => Enum.IsDefined(mode)).IfNone(true)),
         ValidityClaim.Of(holds: SelectedObjects >= 0 && SelectedWires >= 0),
         ValidityClaim.Of(holds: DeselectedObjects >= 0 && DeselectedWires >= 0));
 }
@@ -185,7 +213,7 @@ public abstract partial record CanvasQuery : IValidityEvidence {
     private CanvasQuery() { }
     public sealed record MapPointCase(PointF Value, CoordinateSystem From, CoordinateSystem To) : CanvasQuery;
     public sealed record MapFrameCase(RectangleF Value, CoordinateSystem From, CoordinateSystem To) : CanvasQuery;
-    public sealed record PickCase(PointF At, PickGates Gates) : CanvasQuery;
+    public sealed record PickCase(PointF At, PickGates Gates, Option<DragChord> Chord) : CanvasQuery;
     public sealed record StateCase : CanvasQuery;
     public sealed record PulseCase : CanvasQuery;
     public sealed record RasterCase(RasterPlan Plan) : CanvasQuery;
@@ -240,7 +268,8 @@ internal readonly ref struct CanvasLens {
         mapFrameCase: static (state, request) => Map(
                 surface: state.Surface, frame: request.Value, from: request.From, to: request.To, key: state.Key)
             .Map(static value => (CanvasProjection)new CanvasProjection.FrameCase(Value: value)),
-        pickCase: static (state, request) => Pick(surface: state.Surface, at: request.At, gates: request.Gates, key: state.Key)
+        pickCase: static (state, request) => Pick(
+                surface: state.Surface, at: request.At, gates: request.Gates, chord: request.Chord, key: state.Key)
             .Map(static value => (CanvasProjection)new CanvasProjection.PickCase(Value: value)),
         stateCase: static (state, _) => State(surface: state.Surface, key: state.Key)
             .Map(static value => (CanvasProjection)new CanvasProjection.StateCase(Value: value)),
@@ -256,7 +285,8 @@ internal readonly ref struct CanvasLens {
     private static Fin<RectangleF> Map(HostCanvas surface, RectangleF frame, CoordinateSystem from, CoordinateSystem to, Op key) =>
         key.Catch(body: () => Fin.Succ(surface.Map(frame, from, to)));
 
-    private static Fin<PickReceipt> Pick(HostCanvas surface, PointF at, PickGates gates, Op key) {
+    private static Fin<PickReceipt> Pick(
+        HostCanvas surface, PointF at, PickGates gates, Option<DragChord> chord, Op key) {
         PickGates row = gates;
         return from result in key.Catch(body: () => Fin.Succ(surface.ResolvePick(
                        at, includeGrips: row.Grips, includeForeground: row.Foreground,
@@ -268,6 +298,7 @@ internal readonly ref struct CanvasLens {
                from receipt in key.AcceptValue(value: new PickReceipt(
                    At: origin,
                    Hit: hit,
+                   Grain: chord.Map(static held => held.Mode),
                    SelectedObjects: result.SelectedObjectCount,
                    SelectedWires: result.SelectedWireCount,
                    DeselectedObjects: result.DeselectedObjectCount,
@@ -340,7 +371,7 @@ internal readonly ref struct CanvasLens {
 - Owner: `InlinePrompt` — the content-frame editor intent with seed, parser, and optional cancellation callback. Its host adapters contain delayed callback exceptions after the opening marshal: parse faults become failed `IResult` values, and cancellation faults cannot escape the UI event. `CanvasReceipt` carries the generated command `Op`, ordered entry/settlement stamps, and elapsed evidence.
 - Entry: `CanvasOperator.Apply(CanvasOp op, MonotonicTimeline timeline, Op? key = null)` → `Fin<CanvasReceipt>`; `CanvasOperator.Read(CanvasQuery query, Op? key = null)` → `Fin<CanvasProjection>`; `CanvasOperator.FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default, Op? key = null)` → `Fin<Unit>`.
 - Law: `Apply` admits the complete case, captures entry before the marshal, executes one case inside `GhSession.Run`, and captures settlement after the marshal. `CanvasReceipt.Of` derives order and elapsed time from the same timeline before acceptance.
-- Law: policy mutation is row-driven — `PolicyCase` folds `(ActionGate, bool)` rows through `Write` onto `AllowedActions`, and a `Some` filters payload writes BOTH predicate slots. A `None` slot clears its live filter, while an absent payload leaves both slots untouched. `CanvasState.Policy` reads the same closed rows and both filter slots, so one immutable state projection carries the complete policy.
+- Law: policy mutation is row-driven — `PolicyCase` folds `(ActionGate, bool)` rows through `Write` onto `AllowedActions`, and a `Some` filters payload writes BOTH predicate slots. Every `None` slot clears its live filter, while an absent payload leaves both slots untouched. `CanvasState.Policy` reads the same closed rows and both filter slots, so one immutable state projection carries the complete policy.
 - Boundary: `IFlexControl` owns navigation, projection, coordinate mapping, and redraw scheduling; canvas motion, layout, and interaction owners compose those values without adding mutation gates here.
 - Packages: Grasshopper2 (`Canvas`, `IFlexControl`, `CanvasActions`, `Projection`, `Duration`, `CursorMode`, the public sparkle family, `ISparkle`, `IResult`), Eto.Drawing, LanguageExt.Core, `Rasm.Domain`, and `Rasm.Parametric`.
 - Growth: a command is one `CanvasOp` case, a public overlay is one `SparkleSpec` case, and an action gate is one dual-column `ActionGate` row.

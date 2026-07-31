@@ -11,7 +11,7 @@ Every content key is canonical bytes per the folder key-law — sorted per-varia
 
 ## [02]-[MANIFEST]
 
-- Owner: `FieldVirtual` — the byte-range virtual-datacube owner; the CF read/select/egress plane stays `gridded/field`, imported strictly downward for the `FieldReceipt` family this fold mints. Every `open_virtual_*` call carries an `ObjectStoreRegistry` — the mandatory positional, never an optional knob — imported from the canonical `obspec_utils.registry`, never the deprecation-flagged `virtualizarr` re-export.
+- Owner: `FieldVirtual` — the byte-range virtual-datacube owner; the CF read/select/egress plane stays `gridded/field`, imported strictly downward for the `FieldReceipt` family this fold mints. Every `open_virtual_*` call carries an `ObjectStoreRegistry` — the mandatory positional, never an optional knob — imported from the canonical `obspec_utils.registry`, never the deprecation-flagged `virtualizarr` re-export, and every handle inside it is built by the runtime `store_handle` fold off each SOURCE ref's own `credentials` column, so the registry inherits the branch retry envelope and per-source credential custody rather than opening a second bare construction spelling or crediting a mixed manifest with one page-level provider.
 - Cases: two manifest-construction paths recovered from the source kind — the `virtualizarr` manifest path and the `h5py` native path — both landing in the same `ManifestArray` chunk manifest; the parser is a `VirtualParser` case, the source-variable type a `CFDtype` case, the export target a `ManifestWrite` case, never a per-format owner or a per-accessor export branch. `CFDtype.inspect` is the total inverse of `resolve` over every case, so an opaque or reference dtype round-trips to its own case rather than collapsing to `plain`.
 - Entry: one entrypoint family owns the single-source, multi-source, HDF5-native, and data-tree modalities by source-URL-tuple arity and suffix, never a per-source-count or per-format reader family.
 - Receipt: the census folds EVERY `ManifestArray`-backed variable — the `hasattr(var.data, "manifest")` guard skips eagerly-materialized `loadable_variables` slots, never a first-variable-only read that undercounts a multi-variable cube; the `engine="virtual"` stamp is the invariant the icechunk registration path asserts as the provable `Literal["virtual"]`.
@@ -32,7 +32,7 @@ from opentelemetry import trace
 from rasm.data.gridded.field import FieldReceipt
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
 from rasm.runtime.identity import ContentIdentity
-from rasm.runtime.roots import ResourceRef
+from rasm.runtime.roots import ResourceRef, store_handle
 from virtualizarr.parsers import (
     DMRPPParser,
     FITSParser,
@@ -239,7 +239,12 @@ class ManifestWrite:
 
 
 class FieldVirtual(Struct, frozen=True):
-    sources: tuple[str, ...]
+    # `sources` are credential-bearing REFS, never bare URLs: a manifest over signed archival assets walks their
+    # headers under the same token custody that signed each href, refreshing inside the handle rather than expiring
+    # mid-walk. The credential rides each source's own coordinate because a manifest spans MANY residences — a page
+    # field would credential every source with one provider, and `target` credentials the egress residence, which is
+    # a different store entirely. Both survive the `asdict` rebind, so a registration lowering carries them unchanged.
+    sources: tuple[ResourceRef, ...]
     target: ResourceRef
     concat_dim: str = "time"
     combine: Combine = "by_coords"
@@ -271,26 +276,41 @@ class FieldVirtual(Struct, frozen=True):
         fillvalue: object | None = None,
         export: ManifestWrite = ManifestWrite(kerchunk=("parquet", None, None)),
     ) -> "RuntimeRail[FieldReceipt]":
-        return boundary(
-            "virtual.manifest.native",
-            lambda: _aggregate(FieldVirtual(sources=(_native_file(slabs, shape, dtype, target, maxshape, fillvalue),), target=target, export=export)),
-        ).bind(lambda railed: railed)
+        # `_native_file` writes the HDF5 virtual dataset AT the target, so the written file IS the target residence:
+        # the source ref is `target` itself, carrying whatever credential the caller stamped on that coordinate.
+        def _built() -> "RuntimeRail[FieldReceipt]":
+            _native_file(slabs, shape, dtype, target, maxshape, fillvalue)
+            return _aggregate(FieldVirtual(sources=(target,), target=target, export=export))
+
+        return boundary("virtual.manifest.native", _built).bind(lambda railed: railed)
 
 
-def _registry(sources: "Sequence[str]", config: StoreConfig | None) -> object:
+def _url(ref: ResourceRef) -> str:
+    # the registry, the parsers, and every `open_virtual_*` positional take a URL string; the ref is what CARRIES it
+    # plus its credential, so one projection serves all three and no call site re-joins two values.
+    return str(ref.path)
+
+
+def _registry(sources: "Sequence[ResourceRef]", config: StoreConfig | None) -> object:
+    # every per-source handle rides the runtime `store_handle` fold, so a manifest walk over archival sources
+    # inherits the branch retry envelope AND that source's OWN credential provider — a bare `from_url` here would
+    # open a second construction spelling whose reads carry neither, and a signed-catalog source would fail
+    # unauthenticated. Per-source is the honest grain: one page-level provider credentialed a mixed manifest with
+    # whichever token the first source needed.
     from obspec_utils.registry import ObjectStoreRegistry  # ruff:ignore[import-outside-top-level]
-    from obstore.store import from_url  # ruff:ignore[import-outside-top-level]
 
-    return ObjectStoreRegistry({url: from_url(url, config=config) for url in sources})
+    return ObjectStoreRegistry({_url(ref): store_handle(_url(ref), config=config, provider=ref.credentials) for ref in sources})
 
 
 def _open_virtual(spec: FieldVirtual) -> "xr.Dataset":
-    registry, parser = _registry(spec.sources, spec.store_config), VirtualParser.for_source(spec.sources[0]).build()
-    if len(spec.sources) > 1:
+    registry = _registry(spec.sources, spec.store_config)
+    urls = [_url(ref) for ref in spec.sources]
+    parser = VirtualParser.for_source(urls[0]).build()
+    if len(urls) > 1:
         return vz.open_virtual_mfdataset(
-            list(spec.sources), registry=registry, parser=parser, concat_dim=spec.concat_dim, combine=spec.combine, parallel=spec.parallel
+            urls, registry=registry, parser=parser, concat_dim=spec.concat_dim, combine=spec.combine, parallel=spec.parallel
         )
-    return vz.open_virtual_dataset(spec.sources[0], registry=registry, parser=parser)
+    return vz.open_virtual_dataset(urls[0], registry=registry, parser=parser)
 
 
 def _manifest_wire(name: str, manifest: dict[str, dict[str, object]]) -> bytes:
@@ -319,8 +339,10 @@ def _aggregate(spec: FieldVirtual) -> "RuntimeRail[FieldReceipt]":
 
 
 def _tree(spec: FieldVirtual, group: str | None) -> "RuntimeRail[FieldReceipt]":
-    registry, parser = _registry(spec.sources, spec.store_config), VirtualParser.for_source(spec.sources[0]).build()
-    tree = vz.open_virtual_datatree(spec.sources[0], registry=registry, parser=parser)
+    registry = _registry(spec.sources, spec.store_config)
+    head = _url(spec.sources[0])
+    parser = VirtualParser.for_source(head).build()
+    tree = vz.open_virtual_datatree(head, registry=registry, parser=parser)
     if group is not None:
         node = tree[group].dataset
         return _receipt(node, node, spec.export, spec.target)
@@ -348,9 +370,9 @@ def _native_file(
 - Entry: `run` returns `RuntimeRail[VirtualOutcome]` — the verbs produce genuinely irreducible outcomes no fold collapses to one shape, so the named union is what the caller `match`es, never a bare `object` erasure; `apply` fences the raising `icechunk` calls in one boundary and `.bind`s away the doubled rail.
 - Auto: a concurrent branch write auto-rebases at commit through `session.commit(rebase_with=)` under the supplied `ConflictSolver`, never a serialized retry loop; the content key materializes the snapshot-identity and registered-location component keys first, then Merkle-folds the resolved pair — the materialized-component idiom — never a nested rail the fold cannot key.
 - Receipt: the Merkle fold spans snapshot identity AND registered-location census, so a snapshot rewrite preserving the locations and a relocation preserving the snapshot id are distinct keys; the census tuple materializes once and feeds both the count and the location key, never a double walk of the lazy iterator. The `stamp`/`diff`/`reclaim`/`checkout` cases emit no `VirtualReceipt` — the typed receipt fold is the `aggregate` case alone, and the `VirtualEngine` discriminant rides the receipt subject so the cube-versus-native path survives onto the log line.
-- Packages: the icechunk S3-family storage rows carry `from_env=` credential resolution — the `azure` `account` and `r2` `account_id` secondary identities resolve from the environment under `from_env=True`, never an `r.root` aliased onto two identity slots; `containers_credentials` values are the `AnyCredential` factory-return union, never a raw token tuple.
-- Growth: a new storage backend is one `IceStorage` case plus one `_STORAGE` scheme row; a new export or registration path one `ManifestWrite` case; a new version operation (branch reset through `reset_branch`, snapshot rewrite through `rewrite_manifests`, the conflict rail through `Session.rebase`) is one `VersionOp` case composing the matching `Repository` member; a new reclaim modality one `Reclaim` case, a new time-travel anchor one `ReadAt` case; zero new surface.
-- Boundary: the durable git-like version-control ENGINE — branch-merge policy, retention orchestration, the reuse ledger — stays C# Persistence; this page emits only the snapshot identity as receipt key and consumes icechunk's native diff/reclaim/rebase-at-commit, the `ConflictSolver` a commit-time policy value, never a merge engine. The `ReadAt` case named `label` avoids the `expression.tag()` reserved discriminant, never a `tag_`-suffix mangle.
+- Packages: `_REPOSITORY` is the one `RepositoryConfig` every `open_or_create` binds — the repository's Rust-core store I/O is the one leg the runtime `store_handle` envelope cannot reach, so its `StorageRetriesSettings`/`StorageTimeoutSettings` derive from the branch `STORE_RETRIES`/`STORE_TIMEOUT` constants rather than running provider defaults beside a manifest walk that carries them, and `ManifestSplittingConfig`/`ManifestPreloadConfig` shard and bound the ref table one session open otherwise pays whole. Its `split_sizes` is a SEQUENCE of `(node-condition, sequence-of-(dim-condition, size))` pairs, never the mapping its shape reads as. The icechunk S3-family storage rows carry `from_env=` credential resolution — the `azure` `account` and `r2` `account_id` secondary identities resolve from the environment under `from_env=True`, never an `r.root` aliased onto two identity slots; `containers_credentials` values are the `AnyCredential` factory-return union, never a raw token tuple.
+- Growth: a new manifest shard axis is one `split_sizes` row narrowing `ManifestSplitCondition.PathMatches`/`NameMatches` against `ManifestSplitDimCondition.DimensionName`/`Axis`, and every other repository axis (caching budget, inline-chunk threshold, virtual-chunk containers, compression level) is a caller-supplied `RepositoryConfig` replacing the value whole with zero owner edits; a new storage backend is one `IceStorage` case plus one `_STORAGE` scheme row; a new export or registration path one `ManifestWrite` case; a new version operation (branch reset through `reset_branch`, snapshot rewrite through `rewrite_manifests`, the conflict rail through `Session.rebase`) is one `VersionOp` case composing the matching `Repository` member; a new reclaim modality one `Reclaim` case, a new time-travel anchor one `ReadAt` case; zero new surface.
+- Boundary: an `open_or_create` binding no `config` is the deleted form — the repository then re-dials and times out under provider defaults while the manifest walk against the same bucket carries the branch envelope, and the ref table shards nowhere. The durable git-like version-control ENGINE — branch-merge policy, retention orchestration, the reuse ledger — stays C# Persistence; this page emits only the snapshot identity as receipt key and consumes icechunk's native diff/reclaim/rebase-at-commit, the `ConflictSolver` a commit-time policy value, never a merge engine. The `ReadAt` case named `label` avoids the `expression.tag()` reserved discriminant, never a `tag_`-suffix mangle.
 
 ```python signature
 from typing import TYPE_CHECKING, Final, Literal, assert_never
@@ -363,21 +385,50 @@ from msgspec import Struct
 
 from rasm.runtime.faults import RuntimeRail, boundary, railed, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
-from rasm.runtime.roots import ResourceRef
+from rasm.runtime.roots import STORE_RETRIES, STORE_TIMEOUT, ResourceRef
 
 if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Callable, Iterable
 
     import xarray as xr
-    from icechunk import AnyCredential, ConflictSolver, Diff, GCSummary, Repository, Session, Storage
+    from icechunk import AnyCredential, ConflictSolver, Diff, GCSummary, Repository, RepositoryConfig, Session, Storage
 
 
 type CommitMeta = dict[str, str]
 type ContainerAuth = "tuple[tuple[str, AnyCredential], ...]"
 type VirtualEngine = Literal["virtual", "native"]
 type VirtualOutcome = "VirtualReceipt | str | Diff | set[str] | GCSummary | xr.Dataset"
+
+# chunk-refs per manifest shard, a DECLARED tuning a deployment reads and a tuning pass edits, never a measurement:
+# one manifest per array grows linear in chunk count, so an unsplit petabyte-scale cube pays the whole ref table on
+# every session open. The same number gates preload, so a shard small enough to load is exactly a shard preloaded.
+_SPLIT_CHUNKS: Final[int] = 65_536
+
+# the icechunk repository's OWN store policy. `Storage` is icechunk's Rust core rather than an `obstore` handle, so
+# the runtime `store_handle` envelope every other remote leg in this branch carries never reaches it — an
+# unconfigured repository re-dials and times out under provider defaults no page states, diverging from the manifest
+# walk running beside it against the same bucket. `RepositoryConfig` IS the vocabulary and a branch-local mirror of
+# its nested settings would be the rename wrapper, so this is ONE module-level VALUE a caller takes or replaces
+# whole, its retry and timeout axes DERIVED from the branch constants rather than re-asserted here. Manifest
+# splitting is the load-bearing axis at cube scale: `split_sizes` is a SEQUENCE of `(node-condition,
+# sequence-of-(dim-condition, size))` pairs — a mapping raises `TypeError: 'dict' object is not an instance of
+# 'Sequence'` — so a cube sharded along the axis its readers predicate on is one row, `AnyArray()`/`Any()` the
+# whole-repository default and `PathMatches`/`DimensionName` the narrowing this row family grows by.
+_REPOSITORY: "Final[RepositoryConfig]" = ic.RepositoryConfig(
+    storage=ic.StorageSettings(
+        retries=ic.StorageRetriesSettings(max_tries=STORE_RETRIES),
+        timeouts=ic.StorageTimeoutSettings(read_timeout_ms=int(STORE_TIMEOUT * 1000), operation_timeout_ms=int(STORE_TIMEOUT * 1000)),
+    ),
+    manifest=ic.ManifestConfig(
+        splitting=ic.ManifestSplittingConfig(
+            split_sizes=[(ic.ManifestSplitCondition.AnyArray(), [(ic.ManifestSplitDimCondition.Any(), _SPLIT_CHUNKS)])]
+        ),
+        preload=ic.ManifestPreloadConfig(preload_if=ic.ManifestPreloadCondition.num_refs(0, _SPLIT_CHUNKS)),
+    ),
+)
 
 _STORAGE: "Final[Map[str, Callable[[ResourceRef], IceStorage]]]" = Map.of_seq([
     ("s3", lambda r: IceStorage(s3=(r.root, r.relative, None))),
@@ -430,9 +481,9 @@ class IceStorage:
             case unreachable:
                 assert_never(unreachable)
 
-    def repository(self, containers: ContainerAuth = ()) -> "Repository":
+    def repository(self, containers: ContainerAuth = (), config: "RepositoryConfig" = _REPOSITORY) -> "Repository":
         access = ic.containers_credentials(dict(containers)) if containers else None
-        return ic.Repository.open_or_create(self.build(), authorize_virtual_chunk_access=access)
+        return ic.Repository.open_or_create(self.build(), config=config, authorize_virtual_chunk_access=access)
 
 
 @tagged_union(frozen=True)
@@ -534,12 +585,21 @@ class VirtualReceipt(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> "Iterable[Receipt]":
+        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
+        # the SAME pair handed `Metrics.record` beside the Merkle identity this commit minted — so the durable row
+        # lands in the `virtual` partition a predicate prunes and rejoins the live series its twin emitted. The
+        # metered quantity is REFERENCES rather than referenced bytes: a manifest copies nothing, so its own volume
+        # is the count of byte ranges it addressed, and the bytes column stays receipt evidence the cost fold prices.
+        Metrics.record({"rasm.virtual.references": float(self.chunk_refs)}, domain="virtual", kind=self.engine)
         yield Receipt.of(
             "virtual",
             (
                 "emitted",
                 self.engine,
                 {
+                    "domain": "virtual",
+                    "kind": self.engine,
+                    "key": self.content_key.hex,
                     "sources": self.sources,
                     "chunk_refs": self.chunk_refs,
                     "referenced": self.bytes_referenced,
@@ -552,17 +612,23 @@ class VirtualReceipt(Struct, frozen=True):
 
 
 class VirtualReference(Struct, frozen=True):
-    sources: tuple[str, ...]
+    # the SAME credential-bearing source refs `FieldVirtual` walks — one caller threads one tuple into both, so the
+    # census count and the manifest walk can never disagree about what this commit referenced.
+    sources: tuple[ResourceRef, ...]
     ref: ResourceRef
     branch: str = "main"
     containers: ContainerAuth = ()
+    # the repository policy as ONE pre-constructed value: a caller tuning a cube's manifest shards, its cache
+    # budget, or its inline-chunk threshold replaces the whole `RepositoryConfig` rather than growing a knob tail
+    # here, and every axis this page does not decide keeps icechunk's own default rather than a re-asserted number.
+    config: "RepositoryConfig" = _REPOSITORY
 
     def apply(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
         # snapshot commit/diff/reclaim run store I/O against the icechunk repository — spanned per verb, the branch a dimension.
         with _TRACER.start_as_current_span(f"virtual.{op.tag}", attributes={"rasm.virtual.branch": self.branch}):
-            return boundary(f"virtual.{op.tag}", lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers), self)).bind(
-                lambda rail: rail
-            )
+            return boundary(
+                f"virtual.{op.tag}", lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers, self.config), self)
+            ).bind(lambda rail: rail)
 ```
 
 ```mermaid
@@ -576,7 +642,7 @@ config:
 flowchart LR
     accTitle: Virtual manifest and reference flow
     accDescr: Manifest aggregation and icechunk registration folding into the version operations and the Merkle-keyed receipt.
-    Sources["HDF5/NetCDF3/Zarr/DMRPP/FITS/kerchunk URLs"] --> Registry["ObjectStoreRegistry over obstore.from_url(store_config)"]
+    Sources["HDF5/NetCDF3/Zarr/DMRPP/FITS/kerchunk source refs"] --> Registry["ObjectStoreRegistry over runtime store_handle(_url(ref), config, ref.credentials)"]
     Native["h5py File.build_virtual_dataset + CFDtype.resolve special dtype"] --> Registry
     Registry --> Open["open_virtual_dataset / open_virtual_mfdataset / open_virtual_datatree + VirtualParser case"]
     Open --> Manifest["ManifestArray + ChunkManifest chunk manifest"]
@@ -589,7 +655,7 @@ flowchart LR
     Session --> Commit["session.commit(rebase_with=solver) -> snapshot_id"]
     Commit --> VReceipt["VirtualReceipt: merkle(snapshot_key, refs_key)"]
     VReceipt --> Wire["csharp:Rasm.Persistence/Version/Snapshots (XxHash128 seed; runtime ParityReceipt rail)"]
-    Repo["IceStorage.for_ref(_STORAGE) -> repository()"] -->|stamp/diff/reclaim/checkout| Version["create_tag | diff | expire_snapshots/garbage_collect | readonly_session(snapshot/tag/as_of)"]
+    Repo["IceStorage.for_ref(_STORAGE) -> repository(containers, _REPOSITORY)"] -->|stamp/diff/reclaim/checkout| Version["create_tag | diff | expire_snapshots/garbage_collect | readonly_session(snapshot/tag/as_of)"]
 ```
 
 ## [04]-[RESEARCH]

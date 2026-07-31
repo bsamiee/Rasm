@@ -12,7 +12,7 @@ Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype g
 
 - Owner: `Study` — DOE sampling, global sensitivity, and surrogate fitting are cases on one owner; the benchmark concern is the live `MeasurementMode` discriminant folded into `Measured`, never a parallel benchmark owner; `RunHistory` rides the same spine for persistence and resume.
 - Cases: the union's keyword constructor is the one construction surface, no sibling factory family; the eight SALib analyzers are one routed sampler body and one routed analyzer body over `SALIB_ROUTES`, the per-method knobs folded from the case payload through `_salib_args`; one seed policy crosses sampler, analyzer, content identity, receipt, and evidence.
-- Entry: `Study.run` is one polymorphic entry discriminating by input shape — an `Objective` runs the sampled evaluation, a contract-gated DOE frame grades a pre-measured cohort — never a second entry.
+- Entry: `Study.run` is one polymorphic entry discriminating by input shape — an `Objective` runs the sampled evaluation, a contract-gated DOE frame grades a pre-measured cohort — never a second entry; the caller's composition `ScopeKey` threads onto the weave so an embedded composition's lifecycle facts key to it, defaulted so the root call shape stays scope-free.
 - Output: `Measured` carries the responses, the wallclock, and the `Option[float]` batch-versus-serial speedup that is `Nothing` for a bare row objective — never a fabricated ratio over the identical per-row work timed twice; the `surrogate` row reads the honest cross-validated `R^2` while the `polynomial` row's in-sample `R^2` is the cheap univariate screening diagnostic. `StudyReceipt.benched` projects the held wallclock onto the runtime bench fabric under the receipt's content-keyed subject — `BenchmarkReceipt.of` consumes the measurement the run already paid for, a SPEEDUP run recovers its serial baseline as the sibling `.serial` duration series, `RESULT`'s zero elapsed suppresses the contribution, and distinct objectives never merge into one method-only benchmark series.
 - Growth: a new input marginal is one `AxisDist` member with one `rescale` arm and one `bounds` arm; a new SALib analyzer is one `StudyMethod` case and one `SALIB_ROUTES` row, no new body; a new `qmc` engine or numpy floor is one arm on `_qmc`/`design`; a new surrogate estimator is one `SurrogateKind` member and one `SURROGATE_CLASS` row; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold; a new bench statistic is one runtime `BenchmarkReceipt` field under the bench growth law, reached with zero study edits.
 
@@ -37,7 +37,7 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.profiles import BenchMode, BenchmarkReceipt
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy from SALib import ProblemSpec
@@ -485,7 +485,9 @@ class Study(Struct, frozen=True):
     # DOE-frame arm's admission source — `FrameInterop.of` is source-bearing; a zero-arity `FrameInterop()` is not an owned shape.
     frame_backend: Backend = Backend.PYARROW
 
-    async def run(self, source: "Objective | object", lane: LanePolicy, /, *, seed: int = 0) -> RuntimeRail[StudyReceipt]:
+    async def run(
+        self, source: "Objective | object", lane: LanePolicy, /, *, seed: int = 0, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> RuntimeRail[StudyReceipt]:
         # an Objective crosses as an argument of one HOSTILE-trait Kernel — sampler natives hold process-global state — while a
         # pre-measured frame decodes inline; the weave owns span, fence, and the fenced contributor harvest. Only the RESULT
         # mode declares idempotent: a worker-death re-run under WALLCLOCK/SPEEDUP would report a post-crash retry as the measurement.
@@ -503,7 +505,7 @@ class Study(Struct, frozen=True):
                     )
 
         facts = {"method": self.method.tag, "mode": self.mode.value, "axes": len(self.axes), "seed": seed}
-        return await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch, facts=facts)
+        return await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch, facts=facts, composition=composition)
 
     def _admit_frame(self, frame: object) -> "RuntimeRail[tuple[np.ndarray, np.ndarray]]":
         # gate proves one Float64 column per `ParamAxis` plus the `response` column, and the decoded design matrix + response

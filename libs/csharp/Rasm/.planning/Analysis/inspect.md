@@ -207,9 +207,13 @@ public static partial class Analyze {
             .BindFail(error => components.Iter(static component => component.Dispose()) switch { _ => Fin.Fail<Seq<TOut>>(error) });
     private static int BrepBoundaryCount(Brep brep, Func<BrepLoop, bool> predicate) =>
         toSeq(brep.Loops).Filter(loop => predicate(arg: loop) && toSeq(loop.Trims).Exists(static trim => trim.Edge is { Valence: EdgeAdjacency.Naked })).Count;
+    // An empty decomposition has NO component count: asserting one feeds a fabricated C into the genus formula
+    // (2C - chi - B)/2 and into the hole count, publishing a wrong topological invariant instead of refusing.
     private static Fin<int> ComponentCountOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         ComponentsOf(geometry: geometry, op: op)
-            .Map(static components => components.Iter(static component => component.Dispose()) switch { _ => Math.Max(val1: 1, val2: components.Count) });
+            .Bind(components => components.Iter(static component => component.Dispose()) switch {
+                _ => components.Count > 0 ? Fin.Succ(components.Count) : Fin.Fail<int>(op.InvalidResult()),
+            });
 }
 ```
 
@@ -551,6 +555,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Topology and mesh inspection census
+    accDescr: Topologies resolving Euler characteristic, boundary loops, and components into genus, meshes capturing one check into a thirteen-row defect census and visible polygons into metric samples summarized as statistics, both feeding the validity oracle and entering the query dispatch as operation builders.
     Topologies -->|OnGeometry gate| Duality[Mesh · Brep · brep-coercible]
     Duality -->|Euler · BoundaryLoops · Components| Genus["g = (2C − χ − B) / 2"]
     Meshes -->|MeshCheck once| Capture[MeshCheckParameters]

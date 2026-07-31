@@ -311,6 +311,14 @@ class Theme:
     def palette(self, mode: ThemeMode, /) -> PaletteSpec:
         return self.schemes[mode].palette
 
+    def silhouette(self, kind: EntourageKind, scale: Positive, /) -> tuple[str, ...]:
+        # THE ENTOURAGE ROW'S OWN SELECT, and the projection that was missing while every sibling row had one: the
+        # theme carried the silhouettes and no surface could ask for one, so the whole vocabulary sat unreachable
+        # behind a field. A row is stored at its real-world height, so the caller asks in DRAWING units and the
+        # scale factor lands here rather than in each consuming plane — placing a two-metre figure on a 1:50 sheet
+        # is one number, and re-deriving it per consumer is how two planes draw the same figure at two heights.
+        return tuple(row.path_d for row in self.entourage if row.kind is kind and row.height_m * scale > 0.0)
+
     def diagram_ink(self, mode: ThemeMode, style: DiagramStyle, /) -> ColorText:
         return self.seed(mode, self.diagram.ink_roles[style])
 

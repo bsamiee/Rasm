@@ -1,23 +1,23 @@
 # [RASM_FABRICATION_SIMULATE]
 
-`Simulate.Execute` admits one landed `CutProgram`, evaluates its controller semantics without replanning, and emits the authoritative `SimulationReceipt` clock. `GCommand.Grammar` owns syntactic admission; simulation owns relational motion admission, modal execution, machine-limit evidence, coordinated timing, energy, and terminal state.
+`Simulate.Execute` admits one `SimulatePolicy`, evaluates the motion source it carries without replanning, and emits the authoritative `SimulationReceipt` clock. `MotionSource` closes that source: a posted `CutProgram` folds through controller semantics, and a `RobotCell` folds through the sampled pose census `Kinematics/cell.md` resolves. `GCommand.Grammar` owns syntactic admission; simulation owns relational motion admission, modal execution, machine-limit evidence, coordinated timing, energy, and terminal state.
 
 `GNode.Switch` derives executable leaves without a second AST. `CommandEffect` is the one admission table keyed by `GCommand`, so a command with a distinct physical effect is one row and every other command inherits its `ModalGroup` behavior. `SimulationSlice` is the sole ledger family, and every `SimulationReceipt` projection folds that ledger. `ProgramLocus` and `ProgramPathStep` arrive from `Posting/program`, so a ledger row and a program event address one execution locus in one spelling.
 
 ## [01]-[INDEX]
 
-- [02]-[SIMULATE]: owns `SimulatePolicy`, `ControllerState`, `CommandEffect`, `Instruction`, `SimulationSlice`, `SimulationReceipt`, and `Simulate.Execute`.
+- [02]-[SIMULATE]: owns `MotionSource`, `SimulatePolicy`, `ControllerState`, `CommandEffect`, `Instruction`, `SimulationSlice`, `SimulationReceipt`, and `Simulate.Execute`.
 
 ## [02]-[SIMULATE]
 
-- Owner: `SimulatePolicy` composes `MotionDynamics`, `AxisMotion`, assessed `MachineMatch` envelope and power truth, power-on modal defaults, work offsets, tool lengths, controller timing, nesting depth, and energy policy. `ControllerState` carries one canonical modal map with physical registers and the active local frame. `SimulationReceipt` carries the derived clock, energy, per-band motion tallies, per-kind delay tallies, ledger, and terminal state.
-- Cases: `CommandEffect` reduces a word to motion, dwell, tool change, halt, constant-surface-speed, spindle, auxiliary, thermal, frame, or modal admission. `SimulationSlice` distinguishes motion, controller delay, additive deposition, specialized toolpath evidence, and state evidence. Specialized envelopes retain their typed rows; a direct specialized program contributes envelope duration and machine energy, while evidence attached to realized motion contributes no duplicate clock.
-- Entry: `public static Fin<SimulationReceipt> Execute(CutProgram program, SimulatePolicy policy, FabricationTap? tap = null, SpanBand? band = null)` admits the aggregate program once, consumes the generated policy admission, folds executable `GNode` leaves through one `ControllerState`, and fails before ledger mutation on malformed inverse-time feed, inconsistent offset- or radius-defined arcs, unbanded motion role, missing rotary truth, envelope breach, nesting beyond the admitted depth, or execution after terminal stop; the whole fold runs inside the `FabricationEngine.Simulate` bracket the supplied `SpanBand` opens, and the settled receipt fires `FabricationFact.Cycle.Of` through the supplied tap — band and tap both default absent, so a headless caller runs untraced and silent with no branch of its own.
-- Auto: `GCommand.Grammar.Admit` validates address shape and `GCommand.Role` selects the clock band. `ArcEvidence.Validate` admits start/end radius consistency and derives machine-axis extrema after the active work transform. `AxisMotion` supplies bounded or cyclic rotary truth, per-axis velocity, acceleration, and jerk in radians. `MotionDynamics` supplies rapid, linear, arc, and rotary feed ceilings with acceleration and jerk already stamped by `Posting/program`.
-- Receipt: `SimulationReceipt.Cycle` sums `SimulationSlice.Elapsed` over the whole ledger and `EnergyKwh` sums `SimulationSlice.EnergyKwh`, so no projection can disagree with the ledger. `Bands` and `Delays` are folds keyed by `ClockBand` and `DelayKind`, so a new band or delay row reports without a receipt edit. `FabricationFact.Cycle.Of` projects `Cycle`, `EnergyKwh`, and `DistanceMm` onto `rasm.fabrication.cycle.duration`, `rasm.fabrication.cycle.energy`, and `rasm.fabrication.cycle.distance` through `Process/telemetry#FACT_PROJECTION` as kind `cycle`, so the authoritative cycle-time owner is the one histogram source.
-- Packages: `Posting/program` (`CutProgram`, `GNode`, `GCommand`, `GParam`, `ModalGroup`, `MotionRole`, `FeedMode`); `Kinematics/machine` (`MotionDynamics`, `AxisMotion`, `AxisPeriodicity`); `Kinematics/fleet` (`MachineMatch.PowerKw`, `MachineInstance.Envelope`, `MachineInstance.IdlePowerKw`); `Process/faults` (`FabricationFault.EnvelopeExceeded`, `FabricationFault.SimulatedOvertravel`); `NodaTime` (`Duration`); `UnitsNet` (`Angle`, `Power`, `Duration`, `Energy`); `Rhino.Geometry`; Thinktecture.Runtime.Extensions; LanguageExt.Core.
-- Growth: controller latency is one `DelayKind` policy row; a command with a distinct physical effect is one `CommandEffect` row and one `Effects` entry; a coordinate-transform command is one `FrameEffect` row; a new AST case extends the generated `GNode.Switch`; a new machine axis is one `AxisMotion` row.
-- Boundary: simulation evaluates posted intent and never rewrites feeds, geometry, or sequence. `Posting/program` owns parse, expansion, and look-ahead. `Kinematics/machine` owns dynamics and axis limits. `ArcEvidence.Witnesses`, `ArcEvidence.SweepFor`, `RadiusDefinition`, and `ProfileSeconds` are the numeric-kernel statement exemptions. Machine-less simulation omits envelope and machine-energy gates but retains program, arc, feed, and rotary admission. Every successful ledger sums exactly to the receipt.
+- Owner: `MotionSource` closes the posted-program and robot-cell lanes as the policy's own discriminant. `SimulatePolicy` composes that source with `MotionDynamics`, `AxisMotion`, assessed `MachineMatch` envelope and power truth, power-on modal defaults, work offsets, tool lengths, controller timing, nesting depth, and energy policy. `ControllerState` carries one canonical modal map with physical registers and the active local frame. `SimulationReceipt` carries the derived clock, energy, per-band motion tallies, per-kind delay tallies, the posed-station census, ledger, and terminal state.
+- Cases: `CommandEffect` reduces a word to motion, dwell, tool change, halt, constant-surface-speed, spindle, auxiliary, thermal, frame, or modal admission. `SimulationSlice` distinguishes motion, controller delay, additive deposition, specialized toolpath evidence, posed cell stations, and state evidence. Specialized envelopes retain their typed rows; a direct specialized program contributes envelope duration and machine energy, while evidence attached to realized motion contributes no duplicate clock. `SimulationSlice.Posed` contributes the elapsed and travel measured against its predecessor, so the cell lane sums to the same ledger identity every other lane does.
+- Entry: `public static Fin<SimulationReceipt> Execute(SimulatePolicy policy, FabricationTap? tap = null, SpanBand? band = null)` consumes the generated policy admission — which already proved a non-empty posted program or a complete cell request, so no lane re-tests its own source — then folds executable `GNode` leaves through one `ControllerState` or folds the cell census, and fails before ledger mutation on malformed inverse-time feed, inconsistent offset- or radius-defined arcs, unbanded motion role, missing rotary truth, envelope breach, nesting beyond the admitted depth, execution after terminal stop, or a cell whose compiled program carries no simulation; the whole fold runs inside the `FabricationEngine.Simulate` bracket the supplied `SpanBand` opens, and the settled receipt fires `FabricationFact.Cycle.Of` through the supplied tap — band and tap both default absent, so a headless caller runs untraced and silent with no branch of its own.
+- Auto: `GCommand.Grammar.Admit` validates address shape and `GCommand.Role` selects the clock band. `ArcEvidence.Validate` admits start/end radius consistency and derives machine-axis extrema after the active work transform. `AxisMotion` supplies bounded or cyclic rotary truth, per-axis velocity, acceleration, and jerk in radians. `MotionDynamics` supplies rapid, linear, arc, and rotary feed ceilings with acceleration and jerk already stamped by `Posting/program`, and the cell lane reads its clock from the look-ahead planner instead, because a serial chain resolves no `ClockBand` and no axis-limit profile.
+- Receipt: `SimulationReceipt.Cycle` sums `SimulationSlice.Elapsed` over the whole ledger and `EnergyKwh` sums `SimulationSlice.EnergyKwh`, so no projection can disagree with the ledger. `Bands`, `Delays`, and `Poses` are folds keyed by `ClockBand`, `DelayKind`, and the posed-slice payload, so a new band, delay row, or cell station reports without a receipt edit, and `DistanceMm` sums banded length beside posed travel so a cell cycle never reports a band-only zero. `FabricationFact.Cycle.Of` projects `Cycle`, `EnergyKwh`, and `DistanceMm` onto `rasm.fabrication.cycle.duration`, `rasm.fabrication.cycle.energy`, and `rasm.fabrication.cycle.distance` through `Process/telemetry#FACT_PROJECTION` as kind `cycle`, so the authoritative cycle-time owner is the one histogram source.
+- Packages: `Posting/program` (`CutProgram`, `GNode`, `GCommand`, `GParam`, `ModalGroup`, `MotionRole`, `FeedMode`); `Kinematics/machine` (`MotionDynamics`, `AxisMotion`, `AxisPeriodicity`); `Kinematics/cell` (`RobotCell`, `CellPolicy`, `CellClock`, `RobotProgram.Run`, `CellPosedStation`, `CellAnimation`); `Kinematics/fleet` (`MachineMatch.PowerKw`, `MachineInstance.Envelope`, `MachineInstance.IdlePowerKw`); `Process/owner` (`Move`); `Process/faults` (`FabricationFault.EnvelopeExceeded`, `FabricationFault.SimulatedOvertravel`); `NodaTime` (`Duration`); `UnitsNet` (`Angle`, `Power`, `Duration`, `Energy`); `Rhino.Geometry`; Thinktecture.Runtime.Extensions; LanguageExt.Core.
+- Growth: a motion modality is one `MotionSource` case and one `Execute` arm; controller latency is one `DelayKind` policy row; a command with a distinct physical effect is one `CommandEffect` row and one `Effects` entry; a coordinate-transform command is one `FrameEffect` row; a new AST case extends the generated `GNode.Switch`; a new machine axis is one `AxisMotion` row.
+- Boundary: simulation evaluates planned intent and never rewrites feeds, geometry, or sequence. `Posting/program` owns parse, expansion, and look-ahead. `Kinematics/machine` owns dynamics and axis limits. `Kinematics/cell` owns every `Robots` member and the `Rhino3dm` alias crossing, so the cell lane consumes a provider-free station census and this page names no provider type. `ArcEvidence.Witnesses`, `ArcEvidence.SweepFor`, `RadiusDefinition`, and `ProfileSeconds` are the numeric-kernel statement exemptions. Machine-less simulation omits envelope and machine-energy gates but retains program, arc, feed, and rotary admission. `ExecuteCell` carries the power-on controller state unchanged because a serial chain has no modal controller. Every successful ledger sums exactly to the receipt.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -137,8 +137,19 @@ public sealed partial class ControllerTiming {
     }
 }
 
+// `MotionSource` is the policy's own discriminant, not a second parameter beside it: the posted lane folds G-code
+// leaves, the cell lane folds the sampled poses `Kinematics/cell.md` resolves, and one entry serves both.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record MotionSource {
+    private MotionSource() { }
+
+    public sealed record Posted(CutProgram Program) : MotionSource;
+    public sealed record Cell(RobotCell Cell, Seq<Move> Moves, CellPolicy Policy, CellClock Clock) : MotionSource;
+}
+
 [ComplexValueObject]
 public sealed partial class SimulatePolicy {
+    public MotionSource Source { get; }
     public Option<MachineMatch> Machine { get; }
     public Seq<AxisMotion> Axes { get; }
     public MotionDynamics Dynamics { get; }
@@ -153,6 +164,7 @@ public sealed partial class SimulatePolicy {
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
+        ref MotionSource source,
         ref Option<MachineMatch> machine,
         ref Seq<AxisMotion> axes,
         ref MotionDynamics dynamics,
@@ -174,9 +186,14 @@ public sealed partial class SimulatePolicy {
             && double.IsFinite(activePowerFactor) && activePowerFactor is >= 0.0 and <= 1.0;
         bool assessed = machine.ForAll(static value => value is not null && value.Instance is not null && value.Checks.Feasible
             && double.IsFinite(value.PowerKw) && value.PowerKw >= 0.0);
+        // `SimulatePolicy` gates the source here, so no fold re-tests a missing or empty program mid-execution.
+        bool sourced = source is not null && source.Switch(
+            posted: static row => row.Program is not null && !row.Program.Nodes.IsEmpty,
+            cell: static row => row.Cell is not null && row.Policy is not null && row.Clock is not null
+                && !row.Moves.IsEmpty && row.Moves.ForAll(static move => move is not null));
         if (dynamics is null || timing is null || axes.Exists(static axis => axis is null) || !axisIdentity || !defaults
-            || !offsets || !tools || !scalars || !assessed)
-            validationError = new ValidationError(message: "simulation policy requires coherent dynamics, axes, power-on defaults, offsets, tools, timing, nesting, margins, and power factor");
+            || !offsets || !tools || !scalars || !assessed || !sourced)
+            validationError = new ValidationError(message: "simulation policy requires one admitted motion source and coherent dynamics, axes, power-on defaults, offsets, tools, timing, nesting, margins, and power factor");
     }
 }
 
@@ -281,18 +298,22 @@ public abstract partial record MotionGeometry {
         arc: static (state, value) => value.Evidence.Witnesses(state.Offset, state.ToolLength));
 }
 
+// `Command` is the universal column and the ROOT owns its property; each case takes it as a plain constructor
+// argument spelled `command` and threads it to the base. A case re-declaring the base property's own name
+// synthesizes nothing, silently drops the argument, and leaves `Instruction.Command` reading through a member the
+// case never wrote (`docs/stacks/csharp/shapes.md:240`).
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record Instruction(GCommand Command) {
 
-    public sealed record Motion(GCommand Command, MotionGeometry Geometry, Point3d ProgramTo, Point3d MachineTo,
-        double A, double B, double C, double FeedMmMinute, FeedMode Mode, double RotarySeconds, ClockBand Band) : Instruction(Command);
-    public sealed record Delay(GCommand Command, DelayKind Kind, Duration Duration) : Instruction(Command);
-    public sealed record Tool(GCommand Command, Option<int> Tool) : Instruction(Command);
-    public sealed record Spindle(GCommand Command, double TargetRpm) : Instruction(Command);
-    public sealed record Css(GCommand Command, double SurfaceMetersMinute, double MaximumRpm) : Instruction(Command);
-    public sealed record Thermal(GCommand Command, ThermalAction Action, double TargetC) : Instruction(Command);
-    public sealed record Frame(GCommand Command, FrameEffect Effect) : Instruction(Command);
-    public sealed record Modal(GCommand Command) : Instruction(Command);
+    public sealed record Motion(GCommand command, MotionGeometry Geometry, Point3d ProgramTo, Point3d MachineTo,
+        double A, double B, double C, double FeedMmMinute, FeedMode Mode, double RotarySeconds, ClockBand Band) : Instruction(command);
+    public sealed record Delay(GCommand command, DelayKind Kind, Duration Duration) : Instruction(command);
+    public sealed record Tool(GCommand command, Option<int> Tool) : Instruction(command);
+    public sealed record Spindle(GCommand command, double TargetRpm) : Instruction(command);
+    public sealed record Css(GCommand command, double SurfaceMetersMinute, double MaximumRpm) : Instruction(command);
+    public sealed record Thermal(GCommand command, ThermalAction Action, double TargetC) : Instruction(command);
+    public sealed record Frame(GCommand command, FrameEffect Effect) : Instruction(command);
+    public sealed record Modal(GCommand command) : Instruction(command);
 }
 
 internal readonly record struct WordContext(ProgramLocus Locus, ControllerState State, GNode.Word Word, SimulatePolicy Policy);
@@ -311,7 +332,7 @@ internal sealed partial class CommandEffect {
 
     public static readonly CommandEffect ToolChange = new(static context => Simulate
         .Identifier(context.Word.P('T'), "simulate:tool", static value => value > 0)
-        .Bind(value => value.ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:tool").ToError()))
+        .Bind(value => value.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:tool")))
         .Map(value => (Instruction)new Instruction.Tool(context.Word.Command, Some(value))));
 
     public static readonly CommandEffect Halt = new(static context => Fin.Succ<Instruction>(
@@ -319,13 +340,18 @@ internal sealed partial class CommandEffect {
             context.Word.Command == GCommand.Stop ? DelayKind.RequiredStop : DelayKind.OptionalStop,
             context.Policy.Timing.Fixed[context.Word.Command == GCommand.Stop ? DelayKind.RequiredStop : DelayKind.OptionalStop])));
 
+    // `S` is the one motion-adjacent address `ParseParam` does NOT canonicalize (`Posting/program.md:1686-1689`
+    // dimensions lengths and per-minute feed alone), so surface speed still arrives in program units: an inch
+    // program states feet per minute. The quantity library owns that conversion — no transcribed factor.
     public static readonly CommandEffect Css = new(static context =>
         from surface in context.Word.P('S').Filter(static value => double.IsFinite(value) && value > 0.0)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:css-surface").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:css-surface"))
         from maximum in context.Word.P('D').Filter(static value => double.IsFinite(value) && value > 0.0)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:css-maximum").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:css-maximum"))
         select (Instruction)new Instruction.Css(context.Word.Command,
-            surface * (context.State.Active.Find(ModalGroup.Units).Exists(static command => command == GCommand.Inch) ? 0.3048 : 1.0),
+            context.State.Active.Find(ModalGroup.Units).Exists(static command => command == GCommand.Inch)
+                ? UnitsNet.Speed.FromFeetPerMinute(surface).MetersPerMinutes
+                : surface,
             maximum));
 
     public static readonly CommandEffect Spindle = new(static context =>
@@ -333,7 +359,7 @@ internal sealed partial class CommandEffect {
             ? Some(0.0)
             : context.Word.P('S').OrElse(context.State.SpindleRpm > 0.0 ? Some(context.State.SpindleRpm) : None))
         .Filter(static value => double.IsFinite(value) && value >= 0.0)
-        .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:spindle-target").ToError())
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:spindle-target"))
         .Map(value => (Instruction)new Instruction.Spindle(context.Word.Command, value)));
 
     public static readonly CommandEffect Auxiliary = new(static context => Fin.Succ<Instruction>(
@@ -342,13 +368,13 @@ internal sealed partial class CommandEffect {
 
     public static readonly CommandEffect Thermal = new(static context =>
         from action in ThermalAction.Of(context.Word.Command)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:thermal-command").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:thermal-command"))
         from target in context.Word.P('S').Filter(static value => double.IsFinite(value) && value >= 0.0)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:thermal-target").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:thermal-target"))
         select (Instruction)new Instruction.Thermal(context.Word.Command, action, target));
 
     public static readonly CommandEffect Frame = new(static context => FrameEffect.Of(context.Word.Command)
-        .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:frame-command").ToError())
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:frame-command"))
         .Map(effect => (Instruction)new Instruction.Frame(context.Word.Command, effect)));
 
     public static readonly CommandEffect Modal = new(static context =>
@@ -397,21 +423,25 @@ public sealed record DelayTally(Duration Elapsed, int Count) {
     public DelayTally Add(Duration elapsed) => new(Elapsed + elapsed, Count + 1);
 }
 
+// `Locus` is the universal column the root owns; each case threads it as the plain argument `locus` and never
+// re-declares the base property's name (`docs/stacks/csharp/shapes.md:240`).
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SimulationSlice(ProgramLocus Locus) {
 
-    public sealed record Motion(ProgramLocus Locus, GCommand Command, ClockBand Band, Duration Duration,
-        double LengthMm, double FeedMmMinute, double EnergyKwh) : SimulationSlice(Locus);
-    public sealed record Delay(ProgramLocus Locus, GCommand Command, DelayKind Kind, Duration Duration, double EnergyKwh) : SimulationSlice(Locus);
-    public sealed record Deposition(ProgramLocus Locus, Duration Duration, double Amount, double Feed, double EnergyKwh) : SimulationSlice(Locus);
-    public sealed record Specialized(ProgramLocus Locus, SpecializedToolpathEnvelope Payload, Duration Duration, double EnergyKwh) : SimulationSlice(Locus);
-    public sealed record State(ProgramLocus Locus, GNode Node) : SimulationSlice(Locus);
+    public sealed record Motion(ProgramLocus locus, GCommand Command, ClockBand Band, Duration Duration,
+        double LengthMm, double FeedMmMinute, double EnergyKwh) : SimulationSlice(locus);
+    public sealed record Delay(ProgramLocus locus, GCommand Command, DelayKind Kind, Duration Duration, double EnergyKwh) : SimulationSlice(locus);
+    public sealed record Deposition(ProgramLocus locus, Duration Duration, double Amount, double Feed, double EnergyKwh) : SimulationSlice(locus);
+    public sealed record Specialized(ProgramLocus locus, SpecializedToolpathEnvelope Payload, Duration Duration, double EnergyKwh) : SimulationSlice(locus);
+    public sealed record Posed(ProgramLocus locus, CellPosedStation Station, double EnergyKwh) : SimulationSlice(locus);
+    public sealed record State(ProgramLocus locus, GNode Node) : SimulationSlice(locus);
 
     public Duration Elapsed => Switch(
         motion: static value => value.Duration,
         delay: static value => value.Duration,
         deposition: static value => value.Duration,
         specialized: static value => value.Duration,
+        posed: static value => value.Station.Elapsed,
         state: static _ => Duration.Zero);
 
     public double EnergyKwh => Switch(
@@ -419,6 +449,7 @@ public abstract partial record SimulationSlice(ProgramLocus Locus) {
         delay: static value => value.EnergyKwh,
         deposition: static value => value.EnergyKwh,
         specialized: static value => value.EnergyKwh,
+        posed: static value => value.EnergyKwh,
         state: static _ => 0.0);
 }
 
@@ -443,7 +474,13 @@ public sealed record SimulationReceipt(Seq<SimulationSlice> Ledger, ControllerSt
     public Seq<SpecializedToolpathEnvelope> Specialized => Ledger.Choose(static row =>
         row is SimulationSlice.Specialized value ? Some(value.Payload) : None);
 
-    public double DistanceMm => Bands.Fold(0.0, static (total, tally) => total + tally.LengthMm);
+    public Seq<CellPosedStation> Poses => Ledger.Choose(static row =>
+        row is SimulationSlice.Posed value ? Some(value.Station) : None);
+
+    // Travel sums both sources: a posted lane bands its motion by role, a cell lane measures flange advance between
+    // posed stations, so the distance a cycle fact reports is never the zero a band-only fold reads for a cell.
+    public double DistanceMm => Bands.Fold(0.0, static (total, tally) => total + tally.LengthMm)
+        + Poses.Fold(0.0, static (total, station) => total + station.TravelMm);
 }
 
 internal sealed record SimulationFold(ControllerState State, Seq<SimulationSlice> Ledger);
@@ -471,27 +508,45 @@ public static class Simulate {
         .Concat(toSeq(FrameEffect.Items).Map(static effect => (effect.Command, CommandEffect.Frame)))
         .Fold(Map<GCommand, CommandEffect>(), static (table, row) => table.AddOrUpdate(row.Item1, row.Item2));
 
-    public static Fin<SimulationReceipt> Execute(
-        CutProgram program, SimulatePolicy policy, FabricationTap? tap = null, SpanBand? band = null) =>
+    public static Fin<SimulationReceipt> Execute(SimulatePolicy policy, FabricationTap? tap = null, SpanBand? band = null) =>
         band.Traced(FabricationEngine.Simulate, Op.Of(), _ =>
-            from admittedPolicy in Optional(policy).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:policy-missing").ToError())
-            from steps in AdmitProgram(program, admittedPolicy)
-            from folded in steps.FoldM<Fin, SimulationFold>(
-                new SimulationFold(ControllerState.PowerOn(admittedPolicy), Seq<SimulationSlice>()),
-                (state, step) => ExecuteStep(state, step, admittedPolicy)).As()
+            from admittedPolicy in Optional(policy).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:policy-missing"))
+            from folded in admittedPolicy.Source.Switch(
+                state: admittedPolicy,
+                posted: static (law, row) => ExecutePosted(law, row.Program),
+                cell: static (law, row) => ExecuteCell(law, row))
             let receipt = new SimulationReceipt(folded.Ledger, folded.State)
             let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Cycle.Of(receipt))
             select receipt);
 
-    private static Fin<Seq<(ProgramLocus Locus, GNode Node)>> AdmitProgram(CutProgram program, SimulatePolicy policy) =>
-        Optional(program).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:program-missing").ToError()).Bind(value =>
-            value.Nodes.IsEmpty
-                ? Fin.Fail<Seq<(ProgramLocus, GNode)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:empty-program").ToError())
-                : Flatten(value.Nodes, Seq<ProgramPathStep>(), policy));
+    private static Fin<SimulationFold> ExecutePosted(SimulatePolicy policy, CutProgram program) =>
+        from steps in Flatten(program.Nodes, Seq<ProgramPathStep>(), policy)
+        from folded in steps.FoldM<Fin, SimulationFold>(
+            new SimulationFold(ControllerState.PowerOn(policy), Seq<SimulationSlice>()),
+            (state, step) => ExecuteStep(state, step, policy)).As()
+        select folded;
+
+    // `MotionSource.Cell` carries no controller modality, so its ledger holds posed stations over the power-on state
+    // and reads `Program.Duration` off the look-ahead planner rather than a `MotionDynamics` law with no answer for a
+    // serial chain. `Kinematics/cell.md` owns every `Robots` member the census is built from.
+    private static Fin<SimulationFold> ExecuteCell(SimulatePolicy policy, MotionSource.Cell source) =>
+        RobotProgram.Run(source.Cell, source.Moves, new CellProgramRequest.Animation(source.Policy, source.Clock))
+            .Bind(receipt => receipt.Switch(
+                    motion: static _ => Option<CellAnimation>.None,
+                    placement: static _ => Option<CellAnimation>.None,
+                    animation: static row => Some(row.Result))
+                .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:cell-modality")))
+            .Map(animation => new SimulationFold(
+                ControllerState.PowerOn(policy),
+                animation.Stations.Map(station => (SimulationSlice)new SimulationSlice.Posed(
+                    new ProgramLocus(station.Station, Seq(new ProgramPathStep(station.Station, None))),
+                    station,
+                    policy.Machine.Map(machine => EnergyKwh(machine.PowerKw * policy.ActivePowerFactor, station.Elapsed))
+                        .IfNone(0.0)))));
 
     private static Fin<Seq<(ProgramLocus Locus, GNode Node)>> Flatten(Seq<GNode> nodes, Seq<ProgramPathStep> path, SimulatePolicy policy) =>
         path.Count > policy.MaximumNesting
-            ? Fin.Fail<Seq<(ProgramLocus, GNode)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:nesting-depth").ToError())
+            ? Fin.Fail<Seq<(ProgramLocus, GNode)>>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:nesting-depth"))
             : nodes.Map((node, block) => (node, locus: new ProgramLocus(block, path.Add(new ProgramPathStep(block, None)))))
                 .TraverseM(item => AdmitNode(item.locus, item.node, policy)).As()
                 .Map(static groups => groups.Fold(Seq<(ProgramLocus, GNode)>(), static (all, group) => all.Concat(group)));
@@ -503,35 +558,35 @@ public static class Simulate {
             .Map(_ => Seq((at.Locus, (GNode)value))),
         cannedCycle: static (at, value) => value.Repeats > 0
             ? Fin.Succ(Seq((at.Locus, (GNode)value)))
-            : Fin.Fail<Seq<(ProgramLocus, GNode)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:cycle-repeats").ToError()),
+            : Fin.Fail<Seq<(ProgramLocus, GNode)>>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:cycle-repeats")),
         coordinateFrame: static (at, value) => Fin.Succ(Seq((at.Locus, (GNode)value))),
         macro: static (at, value) => Flatten(value.Body.ToSeq(), at.Locus.Path, at.Policy),
         subprogram: static (at, value) => value.Repeats > 0
-            ? Range(0, value.Repeats)
+            ? Range(0, value.Repeats).ToSeq()
                 .Map(index => Flatten(value.Body.ToSeq(), at.Locus.Path.Init.Add(new ProgramPathStep(at.Locus.Block, Some(index))), at.Policy))
                 .TraverseM(identity).As()
                 .Map(static groups => groups.Fold(Seq<(ProgramLocus, GNode)>(), static (all, group) => all.Concat(group)))
-            : Fin.Fail<Seq<(ProgramLocus, GNode)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:subprogram-repeats").ToError()),
+            : Fin.Fail<Seq<(ProgramLocus, GNode)>>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:subprogram-repeats")),
         additiveLayer: static (at, value) => Fin.Succ(Seq((at.Locus, (GNode)value))),
-        nc1: static (_, _) => Fin.Fail<Seq<(ProgramLocus, GNode)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:nc1-clock-owner-required").ToError()),
+        nc1: static (_, _) => Fin.Fail<Seq<(ProgramLocus, GNode)>>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:nc1-clock-owner-required")),
         directive: static (at, value) => Fin.Succ(Seq((at.Locus, (GNode)value))));
 
     private static Fin<SimulationFold> ExecuteStep(SimulationFold fold, (ProgramLocus Locus, GNode Node) step, SimulatePolicy policy) =>
         fold.State.Stopped
-            ? Fin.Fail<SimulationFold>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:after-stop").ToError())
+            ? Fin.Fail<SimulationFold>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:after-stop"))
             : step.Node.Switch(
                 state: (Fold: fold, Locus: step.Locus, Policy: policy),
-                block: static (_, _) => Fin.Fail<SimulationFold>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:unflattened-block").ToError()),
+                block: static (_, _) => Fin.Fail<SimulationFold>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:unflattened-block")),
                 word: static (context, value) => ExecuteWord(context.Fold, context.Locus, value, context.Policy),
                 cannedCycle: static (context, value) => ExecuteCycle(context.Fold, context.Locus, value, context.Policy),
                 coordinateFrame: static (context, value) => Fin.Succ(new SimulationFold(
                     context.Fold.State with { Offsets = context.Fold.State.Offsets.AddOrUpdate(
                         value.Assignment.Setup, Transform.PlaneToPlane(Plane.WorldXY, value.Frame)) },
                     context.Fold.Ledger.Add(new SimulationSlice.State(context.Locus, value)))),
-                macro: static (_, _) => Fin.Fail<SimulationFold>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:unflattened-macro").ToError()),
-                subprogram: static (_, _) => Fin.Fail<SimulationFold>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:unflattened-subprogram").ToError()),
+                macro: static (_, _) => Fin.Fail<SimulationFold>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:unflattened-macro")),
+                subprogram: static (_, _) => Fin.Fail<SimulationFold>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:unflattened-subprogram")),
                 additiveLayer: static (context, value) => ExecuteAdditive(context.Fold, context.Locus, value, context.Policy),
-                nc1: static (_, _) => Fin.Fail<SimulationFold>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:nc1-clock-owner-required").ToError()),
+                nc1: static (_, _) => Fin.Fail<SimulationFold>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:nc1-clock-owner-required")),
                 directive: static (context, value) => ExecuteDirective(context.Fold, context.Locus, value.Value, context.Policy));
 
     private static Fin<SimulationFold> ExecuteDirective(
@@ -584,7 +639,7 @@ public static class Simulate {
             : cycle.ExpandedMoves.FoldM<Fin, SimulationFold>(state, (nested, move) =>
                 GNode.Move(move, nested.State.ProgramAt) is GNode.Word word
                     ? ExecuteWord(nested, locus, word with { Mode = cycle.Mode }, policy)
-                    : Fin.Fail<SimulationFold>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:cycle-move").ToError())).As()).As();
+                    : Fin.Fail<SimulationFold>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:cycle-move"))).As()).As();
 
     private static Fin<SimulationFold> ExecuteWord(SimulationFold fold, ProgramLocus locus, GNode.Word word, SimulatePolicy policy) =>
         from instruction in AdmitInstruction(new WordContext(locus, fold.State, word, policy))
@@ -596,17 +651,20 @@ public static class Simulate {
             ? CommandEffect.Motion
             : Effects.Find(context.Word.Command).IfNone(CommandEffect.Modal)).Admit(context);
 
+    // Every dimensioned address arrives CANONICAL: `ParseParam` (`Posting/program.md:1686-1689`) folds the active
+    // `ModalGroup.Units` row through `ProgramUnits.Canonical`, so X/Y/Z, U/V/W, I/J/K, an arc or cycle R, and a
+    // per-minute F are millimetres before simulation reads them. A unit scale re-applied here would double-convert
+    // an inch program; unit truth belongs at the parse seam, and this fold carries none.
     internal static Fin<Instruction.Motion> AdmitMotion(WordContext context) {
         (ControllerState state, GNode.Word word, SimulatePolicy policy) = (context.State, context.Word, context.Policy);
         Map<ModalGroup, GCommand> active = Stamp(state.Active, word);
-        double scale = 1.0;
         bool relative = active.Find(ModalGroup.Distance).Exists(static command => command == GCommand.Relative);
-        Point3d programTo = Target(state.ProgramAt, word, scale, relative);
+        Point3d programTo = Target(state.ProgramAt, word, relative);
         FeedMode mode = word.Command == GCommand.Rapid ? FeedMode.UnitsPerMinute
             : word.Mode.IfNone(active.Find(ModalGroup.Feed).Exists(static command => command == GCommand.FeedInverseTime)
                 ? FeedMode.InverseTime : FeedMode.UnitsPerMinute);
         Option<double> feed = word.Command == GCommand.Rapid ? Some(policy.Dynamics.RapidFeed)
-            : mode == FeedMode.InverseTime ? word.P('F') : word.P('F').Map(value => value * scale).OrElse(Some(state.FeedMmMinute));
+            : mode == FeedMode.InverseTime ? word.P('F') : word.P('F').OrElse(Some(state.FeedMmMinute));
         return from offset in state.Offsets.Find(state.Wcs).ToFin(new GeometryFault.DegenerateInput(
                        Kind.Mesh, context.Locus.Block, $"simulate:wcs-reference:{state.Wcs}").ToError())
                from length in state.LengthOffset.Traverse(value => policy.ToolLengthsMm.Find(value)
@@ -615,28 +673,28 @@ public static class Simulate {
                let toolLength = length.IfNone(0.0)
                let machineTo = offset * (state.Frame.Combined * programTo) + toolLength * (offset * Vector3d.ZAxis)
                from band in ClockBand.Of(word.Command.Role)
-                   .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:motion-band").ToError())
+                   .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:motion-band"))
                from admittedFeed in feed.Filter(static value => double.IsFinite(value) && value > 0.0)
-                   .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:motion-feed").ToError())
-               from geometry in Geometry(state.ProgramAt, programTo, word, active, scale)
+                   .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:motion-feed"))
+               from geometry in Geometry(state.ProgramAt, programTo, word, active)
                from rotary in RotarySeconds(context.Locus, state, word, relative, policy)
                from _ in Gate(context.Locus, machineTo, geometry, offset * state.Frame.Combined, toolLength, word, policy)
                select new Instruction.Motion(word.Command, geometry, programTo, machineTo,
                    rotary.A, rotary.B, rotary.C, admittedFeed, mode, rotary.Seconds, band);
     }
 
-    private static Fin<MotionGeometry> Geometry(Point3d from, Point3d to, GNode.Word word, Map<ModalGroup, GCommand> active, double scale) =>
+    private static Fin<MotionGeometry> Geometry(Point3d from, Point3d to, GNode.Word word, Map<ModalGroup, GCommand> active) =>
         word.Command == GCommand.ArcCw || word.Command == GCommand.ArcCcw
-            ? Arc(from, to, word, active, scale).Map(static value => (MotionGeometry)new MotionGeometry.Arc(value))
+            ? Arc(from, to, word, active).Map(static value => (MotionGeometry)new MotionGeometry.Arc(value))
             : Fin.Succ<MotionGeometry>(new MotionGeometry.Linear(from.DistanceTo(to)));
 
-    private static Fin<ArcEvidence> Arc(Point3d from, Point3d to, GNode.Word word, Map<ModalGroup, GCommand> active, double scale) {
+    private static Fin<ArcEvidence> Arc(Point3d from, Point3d to, GNode.Word word, Map<ModalGroup, GCommand> active) {
         GCommand planeCommand = active.Find(ModalGroup.Plane).IfNone(GCommand.PlaneXy);
         Plane plane = planeCommand == GCommand.PlaneZx ? new Plane(from, Vector3d.ZAxis, Vector3d.XAxis)
             : planeCommand == GCommand.PlaneYz ? new Plane(from, Vector3d.YAxis, Vector3d.ZAxis)
             : new Plane(from, Vector3d.XAxis, Vector3d.YAxis);
         RotationSense sense = word.Command == GCommand.ArcCw ? RotationSense.Clockwise : RotationSense.Counterclockwise;
-        double i = scale * word.P('I').IfNone(0.0), j = scale * word.P('J').IfNone(0.0), k = scale * word.P('K').IfNone(0.0);
+        double i = word.P('I').IfNone(0.0), j = word.P('J').IfNone(0.0), k = word.P('K').IfNone(0.0);
         bool absoluteCenter = active.Find(ModalGroup.ArcDistance).Exists(static command => command == GCommand.ArcAbsolute);
         Vector3d offset = planeCommand == GCommand.PlaneZx ? new Vector3d(i, 0.0, k)
             : planeCommand == GCommand.PlaneYz ? new Vector3d(0.0, j, k) : new Vector3d(i, j, 0.0);
@@ -646,20 +704,20 @@ public static class Simulate {
             planeCommand == GCommand.PlaneYz ? from.X : i,
             planeCommand == GCommand.PlaneZx ? from.Y : j,
             planeCommand == GCommand.PlaneXy ? from.Z : k);
-        Option<double> radiusWord = word.P('R').Map(value => value * scale);
+        Option<double> radiusWord = word.P('R');
         bool carriesOffset = word.P('I').IsSome || word.P('J').IsSome || word.P('K').IsSome;
         Fin<Point3d> definition = radiusWord.Match(
             None: () => carriesOffset
                 ? Fin.Succ(absoluteCenter ? absolute : from + offset)
-                : Fin.Fail<Point3d>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:arc-center").ToError()),
+                : Fin.Fail<Point3d>(new GeometryFault.DegenerateInput(Kind.Arc, None, "simulate:arc-center").ToError()),
             Some: radius => carriesOffset
-                ? Fin.Fail<Point3d>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:arc-definition-conflict").ToError())
+                ? Fin.Fail<Point3d>(new GeometryFault.DegenerateInput(Kind.Arc, None, "simulate:arc-definition-conflict").ToError())
                 : RadiusDefinition(radius, from, to, plane, sense));
         return definition.Bind(center => {
             ValidationError? error = ArcEvidence.Validate(plane, from, to, center, sense, out ArcEvidence? evidence);
             return error is null && evidence is not null
                 ? Fin.Succ(evidence)
-                : Fin.Fail<ArcEvidence>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:arc-geometry").ToError());
+                : Fin.Fail<ArcEvidence>(new GeometryFault.DegenerateInput(Kind.Arc, None, "simulate:arc-geometry").ToError());
         });
     }
 
@@ -672,7 +730,7 @@ public static class Simulate {
         Vector3d chord = plane.ClosestPoint(to) - plane.ClosestPoint(from);
         double length = chord.Length, radius = Math.Abs(signedRadius);
         if (!double.IsFinite(radius) || radius <= 0.0 || length <= 1e-9 || length > 2.0 * radius)
-            return Fin.Fail<Point3d>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:arc-radius").ToError());
+            return Fin.Fail<Point3d>(new GeometryFault.DegenerateInput(Kind.Arc, None, "simulate:arc-radius").ToError());
         Point3d midpoint = plane.ClosestPoint(from) + plane.DistanceTo(from) * plane.ZAxis + 0.5 * chord;
         Vector3d normal = Vector3d.CrossProduct(plane.ZAxis, chord) / length;
         double height = Math.Sqrt(Math.Max(0.0, radius * radius - 0.25 * length * length));
@@ -681,12 +739,12 @@ public static class Simulate {
             .Find(center => major
                 ? ArcEvidence.SweepFor(plane, center, from, to, sense) >= Math.PI
                 : ArcEvidence.SweepFor(plane, center, from, to, sense) <= Math.PI)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:arc-radius-branch").ToError());
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Arc, None, "simulate:arc-radius-branch").ToError());
     }
 
     internal static Fin<double> PositiveSeconds(Option<double> seconds, string locus) =>
         seconds.Filter(static value => double.IsFinite(value) && value >= 0.0)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError());
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, locus));
 
     internal static Fin<Option<int>> Identifier(Option<double> raw, string locus, Func<int, bool> admitted) =>
         raw.Match(
@@ -697,7 +755,7 @@ public static class Simulate {
                 && value == Math.Truncate(value)
                 && admitted((int)value)
                     ? Fin.Succ<Option<int>>(Some((int)value))
-                    : Fin.Fail<Option<int>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError()));
+                    : Fin.Fail<Option<int>>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, locus)));
 
     private static Fin<(double Seconds, double A, double B, double C)> RotarySeconds(
         ProgramLocus locus, ControllerState state, GNode.Word word, bool relative, SimulatePolicy policy) {
@@ -925,7 +983,7 @@ public static class Simulate {
               select new SimulationFold(bed.State, bed.Ledger.Add(new SimulationSlice.Deposition(
                   locus, elapsed, layer.Extrusion.Amount, layer.Extrusion.Feed,
                   EnergyKwh(power * policy.ActivePowerFactor, elapsed))))
-            : Fin.Fail<SimulationFold>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:additive-layer").ToError());
+            : Fin.Fail<SimulationFold>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "simulate:additive-layer"));
 
     private static double EnergyKwh(double powerKw, NodaTime.Duration elapsed) =>
         (UnitsNet.Power.FromKilowatts(powerKw) * UnitsNet.Duration.FromSeconds(elapsed.TotalSeconds)).KilowattHours;
@@ -937,11 +995,11 @@ public static class Simulate {
     private static Map<ModalGroup, GCommand> Stamp(Map<ModalGroup, GCommand> active, GCommand command) =>
         command.Group == ModalGroup.NonModal ? active : active.AddOrUpdate(command.Group, command);
 
-    private static Point3d Target(Point3d from, GNode.Word word, double scale, bool relative) => new(
-        Axis(from.X, word.P('X'), scale, relative), Axis(from.Y, word.P('Y'), scale, relative), Axis(from.Z, word.P('Z'), scale, relative));
+    private static Point3d Target(Point3d from, GNode.Word word, bool relative) => new(
+        Axis(from.X, word.P('X'), relative), Axis(from.Y, word.P('Y'), relative), Axis(from.Z, word.P('Z'), relative));
 
-    private static double Axis(double held, Option<double> value, double scale, bool relative) =>
-        value.Map(raw => relative ? held + scale * raw : scale * raw).IfNone(held);
+    private static double Axis(double held, Option<double> value, bool relative) =>
+        value.Map(raw => relative ? held + raw : raw).IfNone(held);
 
     private static double CssRpm(double surfaceMetersMinute, double maximumRpm, double diameterMm) =>
         Math.Min(maximumRpm, surfaceMetersMinute * 1000.0 / (Math.PI * Math.Max(Math.Abs(diameterMm), 1e-9)));

@@ -2,7 +2,7 @@
 
 `SampleKind` owns point sampling: every draw is one closed `[Union]` case admitted at its factory, and `SampleKernel.Sample` folds all cases through one domain dispatch total over admitted kinds. Grouped `PowerCcvtPolicy.Default` presets the BNOT tuning surface one `with` mutation overrides.
 
-A rebuild composes settled owners: `extract.md` `ExtractionDomain` carries the domain axis, `intent.md` the consumer rail, `evaluation.md` `SamplePoints` the support-space candidate draw, `matrix.md` `SparseMatrix.SingularSolveDetailed` the gauge-fixed solve, `segment.md` `SegmentKernel.ValidateSamplingSpectrum` the blue-noise witness, and `mesh.md` `RestrictedPowerDiagram` the restricted power cells this page reads one-directionally.
+Rebuild work composes settled owners: `extract.md` `ExtractionDomain` carries the domain axis, `intent.md` the consumer rail, `evaluation.md` `SamplePoints` the support-space candidate draw, `matrix.md` `SparseMatrix.SingularSolveDetailed` the gauge-fixed solve, `segment.md` `SegmentKernel.ValidateSamplingSpectrum` the blue-noise witness, and `mesh.md` `RestrictedPowerDiagram` the restricted power cells this page reads one-directionally.
 
 ## [01]-[INDEX]
 
@@ -116,8 +116,10 @@ public abstract partial record SampleKind {
     public sealed record LloydCase(Dimension Count, Dimension Iterations) : SampleKind;
     public sealed record CapacityCase(Dimension Count, Dimension Limit, Dimension Iterations, PositiveMagnitude Tolerance) : SampleKind;
     public sealed record WeightedCase(Seq<(Point3d Point, double Mass)> Points) : SampleKind;
-    public sealed record ScalarDensityCase(ScalarField Density, Dimension Count) : SampleKind;
-    public sealed record AdaptiveCase(ScalarField Density, Dimension Count, PositiveMagnitude MinSpacing) : SampleKind;
+    // Both density rows carry the run SEED their Poisson, elimination, and Dwork siblings already carry — the
+    // weighted-race draw inside their selection is a stochastic step, so a seedless row cannot replay.
+    public sealed record ScalarDensityCase(ScalarField Density, Dimension Count, int Seed) : SampleKind;
+    public sealed record AdaptiveCase(ScalarField Density, Dimension Count, PositiveMagnitude MinSpacing, int Seed) : SampleKind;
     public sealed record SampleEliminationCase(Dimension Count, Dimension OversampleFactor, PositiveMagnitude Alpha, PositiveMagnitude Beta, PositiveMagnitude Gamma, int Seed) : SampleKind;
     public sealed record DworkVariableDensityCase(ScalarField Radius, Dimension Count, PositiveMagnitude MinRadius, Dimension Attempts, int Seed) : SampleKind;
     public sealed record PowerCcvtCase(Dimension Count, PowerCcvtPolicy Policy) : SampleKind;
@@ -151,15 +153,15 @@ public abstract partial record SampleKind {
     }
     public static Fin<SampleKind> Weighted(Seq<(Point3d Point, double Mass)> points, Op? key = null) =>
         new WeightedCase(Points: points).Admit(key: key.OrDefault());
-    public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, Op? key = null) {
+    public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, int seed, Op? key = null) {
         Op op = key.OrDefault();
-        return op.AcceptValidated<Dimension>(candidate: count).Bind(c => new ScalarDensityCase(Density: density, Count: c).Admit(key: op));
+        return op.AcceptValidated<Dimension>(candidate: count).Bind(c => new ScalarDensityCase(Density: density, Count: c, Seed: seed).Admit(key: op));
     }
-    public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, Op? key = null) {
+    public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, int seed, Op? key = null) {
         Op op = key.OrDefault();
         return from c in op.AcceptValidated<Dimension>(candidate: count)
                from spacing in op.AcceptValidated<PositiveMagnitude>(candidate: minSpacing)
-               from admitted in new AdaptiveCase(Density: density, Count: c, MinSpacing: spacing).Admit(key: op)
+               from admitted in new AdaptiveCase(Density: density, Count: c, MinSpacing: spacing, Seed: seed).Admit(key: op)
                select admitted;
     }
     public static Fin<SampleKind> SampleElimination(int count, int oversampleFactor, double alpha, double beta, double gamma, int seed, Op? key = null) {
@@ -428,8 +430,24 @@ internal static class SampleKernel {
                         kind: state.Kind,
                         candidates: cluster.Vertices.Map((point, index) => new SampleCandidate(Point: point, Mass: Some(mass[index: index]))),
                         admitsPoisson: false, domainMeasure: Option<(int Dimensions, double Measure)>.None, context: state.Context, key: state.Key))
-                    : Fin.Fail<SampleResult>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(SampleResult)))),
+                    : Fin.Fail<SampleResult>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(SampleResult))),
+                // Texel-grid draws: cell centres are the candidate pool — ceiling-bounded by the lattice admission —
+                // and the domain measure is the lattice's own, so the whole blue-noise/Poisson/CCVT family reaches
+                // a rank-2 plane and a rank-3 voxel sweep through one arm.
+                latticeCase: static (state, d) => SampleOnCandidates(
+                    kind: state.Kind, candidates: LatticeCandidates(grid: d.Value), admitsPoisson: true,
+                    domainMeasure: Some((Dimensions: d.Value.Rank, Measure: d.Value.CellCount * d.Value.CellMeasure)),
+                    context: state.Context, key: state.Key)),
         };
+
+    private static Seq<SampleCandidate> LatticeCandidates(CellLattice grid) {
+        Seq<SampleCandidate> candidates = [];
+        for (long linear = 0; linear < grid.CellCount; linear++) {
+            (int column, int row, int layer) = grid.Coordinate(linear: linear);
+            candidates = candidates.Add(new SampleCandidate(Point: grid.Center(column: column, row: row, layer: layer), Mass: Option<double>.None));
+        }
+        return candidates;
+    }
 
     // Supplied points project onto the domain, never accepted raw.
     private static Fin<SampleResult> SampleAdmitted(Seq<SampleCandidate> points, ExtractionDomain domain, SampleAlgorithmKind algorithm, Context context, Op key) =>
@@ -458,7 +476,19 @@ internal static class SampleKernel {
             cloudCase: static (state, d) => d.Value is VectorCloud.ClusterCase cluster
                 ? cluster.Vertices.Find(vertex => vertex.DistanceToSquared(other: state.Point) <= state.Context.Absolute.Value * state.Context.Absolute.Value)
                     .ToFin(state.Key.InvalidInput())
-                : Fin.Fail<Point3d>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(Point3d)))));
+                : Fin.Fail<Point3d>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(Point3d))),
+            // Supplied points project to their containing cell centre; a point outside the lattice extent rejects
+            // rather than clamping, so the sparsification the caller sees is honest.
+            latticeCase: static (state, d) => {
+                Point3d local = d.Value.Locate(sample: state.Point);
+                bool inside = local.X >= 0.0 && local.X <= d.Value.Columns.Value
+                    && local.Y >= 0.0 && local.Y <= d.Value.Rows.Value
+                    && (d.Value.Rank is 2 || (local.Z >= 0.0 && local.Z <= d.Value.Layers.Value));
+                (int column, int row, int layer) = d.Value.Nearest(sample: state.Point);
+                return inside
+                    ? state.Key.AcceptValue(value: d.Value.Center(column: column, row: row, layer: layer))
+                    : Fin.Fail<Point3d>(state.Key.InvalidInput());
+            }));
 
     private static Fin<SampleResult> SampleGeneratedSupport(SampleKind kind, SupportSpace space, Context context, Op key) =>
         kind.Facts.Count.ToFin(Fail: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))).Bind(count =>
@@ -591,7 +621,7 @@ internal static class SampleKernel {
                 Displacement: PairwiseShift(from: currentSites, to: gradientSites),
                 PositionGradientNorm: Math.Sqrt(d: AscentDirection(sitesAt: gradientSites, diagram: gradientDiagram).Sum(static d => d.SquareLength)));
         }
-        // A rebuild failure freezes the last admissible partition rather than failing the rail.
+        // Rebuild failures freeze the last admissible partition rather than failing the rail.
         private (Seq<Point3d> Sites, int Sweeps, RestrictedPowerDiagram Diagram) LloydPhase(Seq<Point3d> currentSites, RestrictedPowerDiagram diagram, Arr<double> weights) =>
             toSeq(Enumerable.Range(start: 0, count: policy.Motion.LloydSweeps.Value)).Fold(
                 initialState: (Sites: currentSites, Sweeps: 0, Diagram: diagram),
@@ -817,8 +847,8 @@ internal static class SampleKernel {
             SampleKind.CapacityCase ccvt => CapacityCvtSelection(candidates: candidates, count: ccvt.Count.Value, limit: ccvt.Limit.Value, iterations: ccvt.Iterations.Value, tolerance: ccvt.Tolerance.Value, key: key),
             SampleKind.ScalarDensityCase density => DensitySelection(candidates: candidates, density: density.Density, count: density.Count.Value,
                 minSpacing: 0.5 * (BoundingMeasure(candidates: candidates) switch { (3, double m) => Math.Pow(x: m / Math.Max(val1: 1, val2: density.Count.Value), y: 1.0 / 3.0), (_, double m) => Math.Sqrt(d: m / Math.Max(val1: 1, val2: density.Count.Value)) }),
-                context: context, key: key),
-            SampleKind.AdaptiveCase adaptive => DensitySelection(candidates: candidates, density: adaptive.Density, count: adaptive.Count.Value, minSpacing: adaptive.MinSpacing.Value, context: context, key: key),
+                context: context, seed: density.Seed, key: key),
+            SampleKind.AdaptiveCase adaptive => DensitySelection(candidates: candidates, density: adaptive.Density, count: adaptive.Count.Value, minSpacing: adaptive.MinSpacing.Value, context: context, seed: adaptive.Seed, key: key),
             SampleKind.SampleEliminationCase elimination => SampleElimination(candidates: candidates, count: elimination.Count.Value, alpha: elimination.Alpha.Value, beta: elimination.Beta.Value, gamma: elimination.Gamma.Value, seed: elimination.Seed, domainMeasure: domainMeasure, key: key)
                 .Bind(result => SelectionOf(candidates: candidates, indices: result.Indices, algorithm: Some(result.Algorithm), key: key)),
             SampleKind.DworkVariableDensityCase dwork => DworkCandidateSelection(candidates: candidates, radius: dwork.Radius, count: dwork.Count.Value, minRadius: dwork.MinRadius.Value, attempts: dwork.Attempts.Value, seed: dwork.Seed, context: context, key: key),
@@ -862,7 +892,7 @@ internal static class SampleKernel {
         };
     private static Fin<Arr<double>> NormalizeMass(Seq<double> mass, Op key) =>
         CloudKernel.MassOf(mass: new Arr<double>([.. mass.AsIterable()]), count: mass.Count, key: key);
-    private static Fin<SampleSelection> DensitySelection(Seq<SampleCandidate> candidates, ScalarField density, int count, double minSpacing, Context context, Op key) {
+    private static Fin<SampleSelection> DensitySelection(Seq<SampleCandidate> candidates, ScalarField density, int count, double minSpacing, Context context, int seed, Op key) {
         double[] weights = new double[candidates.Count];
         return toSeq(Enumerable.Range(start: 0, count: candidates.Count)).Fold(
             initialState: Fin.Succ((Accepted: 0, Rejected: 0, MinWeight: double.PositiveInfinity, MaxWeight: 0.0)),
@@ -871,15 +901,17 @@ internal static class SampleKernel {
                     ? key.AcceptValue(value: value * candidates[index: i].Mass.IfNone(1.0)).Map(valid => { weights[i] = valid; return (current.Accepted + 1, current.Rejected, Math.Min(val1: current.MinWeight, val2: valid), Math.Max(val1: current.MaxWeight, val2: valid)); })
                     : Fin.Succ((current.Accepted, current.Rejected + 1, current.MinWeight, current.MaxWeight)))))
             .Bind(stats => stats.Accepted > 0
-                ? PrioritySelection(candidates: candidates, weights: weights, count: count, minSpacing: minSpacing, minWeight: stats.MinWeight, maxWeight: stats.MaxWeight, accepted: stats.Accepted, rejected: stats.Rejected, key: key)
+                ? PrioritySelection(candidates: candidates, weights: weights, count: count, minSpacing: minSpacing, minWeight: stats.MinWeight, maxWeight: stats.MaxWeight, accepted: stats.Accepted, rejected: stats.Rejected, seed: seed, key: key)
                 : Fin.Fail<SampleSelection>(key.InvalidResult()));
     }
-    private static Fin<SampleSelection> PrioritySelection(Seq<SampleCandidate> candidates, double[] weights, int count, double minSpacing, double minWeight, double maxWeight, int accepted, int rejected, Op key) {
+    // The run's seed threads into the exponential-race key exactly as the density-weighted sibling threads it:
+    // a hardcoded zero replays ONE distribution for every seed, which the page's determinism law forbids.
+    private static Fin<SampleSelection> PrioritySelection(Seq<SampleCandidate> candidates, double[] weights, int count, double minSpacing, double minWeight, double maxWeight, int accepted, int rejected, int seed, Op key) {
         List<(Point3d Point, double Radius)> chosen = []; List<double> mass = [];
         (double localMin, double localMax) = (double.PositiveInfinity, 0.0);
         using IEnumerator<int> ordered = Enumerable.Range(start: 0, count: candidates.Count)
             .Where(i => weights[i] > 0.0)
-            .OrderBy(i => -Math.Log(d: Deterministic.UnitInterval(point: candidates[index: i].Point, salt: 0, seed: 0)) / weights[i])
+            .OrderBy(i => -Math.Log(d: Deterministic.UnitInterval(point: candidates[index: i].Point, salt: 0, seed: seed)) / weights[i])
             .GetEnumerator();
         while (chosen.Count < count && ordered.MoveNext()) {
             int index = ordered.Current;

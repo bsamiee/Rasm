@@ -15,10 +15,10 @@ Validation composes `normalization.md`'s `Kind`/`KindOf` coercion and exhaustive
 ## [02]-[READINESS_ALGEBRA]
 
 - Owner: `Requirement` folds a delegate-backed `Check` matrix into readiness rows — readiness is data, a requirement is a set of check rows, never a method family.
-- Entry: `Apply<T>` is the ONE readiness gate; an empty requirement admits straight through the oracle as input, so a readiness rejection is `Fault.InvalidInput`, never a result fault. `ForKind` dispatches topology to requirement through the exhaustive generated `Topology.Map`, so a new `Topology` row breaks dispatch loudly at compile time and no caller hand-picks rows.
+- Entry: `Apply<T>` is the ONE readiness gate; an empty requirement admits straight through the oracle as input, so a readiness rejection is `Fault.InvalidInput`, never a result fault. `ForKind` dispatches topology to requirement through the exhaustive generated `Topology.Map`, so a new `Topology` row breaks dispatch loudly at compile time and no caller hand-picks rows, and `Continuous` widens any dispatched requirement with the derivative-grade continuity row.
 - Auto: `RunChecks` folds every row applicatively over one `Validation` rail, so independent failures accumulate into one verdict and each row self-skips through its `Applies` column. `UsableBounds` passes any box computing short of full invalidity (`IsDegenerate < 4`), so flat and point geometry clears the readiness floor. A non-`GeometryBase` value runs lease-aware: `normalization.md`'s `Capability` rows and `Lease`-returning recoveries lift it to native geometry, the checks run inside the lease, and owned conversions dispose on exit.
 - Law: every check failure carries the value's `Type`, never the live reference (`rails.md` evidence law), and cancellation pre-empts every row as `Fault.Cancelled`. `Demand` is the one verdict constructor, `MeshReport`'s lazy guard the named exemption where its `TextLog` materializes only on failure.
-- Law: `Check` rows are a closed, row-owned matrix — a new readiness concern is one row and its membership in the requirements that need it, never a call-site validator.
+- Law: `Check` rows are a closed, row-owned matrix — a new readiness concern is one row and its membership in the requirements that need it, never a call-site validator and never a whole-matrix requirement standing in for the memberships a row is owed, which enrols every later row silently and leaves the concern reachable only through a constant nothing dispatches to.
 - Packages: Thinktecture.Runtime.Extensions and LanguageExt.Core drive the smart-enum delegate rows and the applicative fold; RhinoCommon carries the check-matrix members.
 - Boundary: `MeshReport` and `CurveSelfIntersectionReport` are the `[BoundaryAdapter]` statement seams; `Analysis/inspect.md` composes `MeshReport` for its defect surface.
 
@@ -37,19 +37,24 @@ public sealed partial record Requirement {
     private static Requirement Single(Check check) => new(checks: Seq(check));
     public static readonly Requirement None = new(checks: Seq<Check>());
     public static readonly Requirement Basic = new(checks: Seq(Check.Validity, Check.UsableBounds));
-    public static readonly Requirement CurveLength = Basic + Single(check: Check.CurveLengthReadiness);
-    public static readonly Requirement AreaMass = Basic + Single(check: Check.CurveAreaReadiness) + Single(check: Check.CurveSelfIntersection);
+    // A gapped polycurve reports the summed length of disjoint pieces and reads as closed while enclosing nothing,
+    // so structure is standing membership on both curve lanes rather than a row only a catch-all reaches.
+    public static readonly Requirement CurveLength = Basic + Single(check: Check.CurveLengthReadiness) + Single(check: Check.PolycurveStructure);
+    public static readonly Requirement AreaMass = Basic + Single(check: Check.CurveAreaReadiness) + Single(check: Check.CurveSelfIntersection) + Single(check: Check.PolycurveStructure);
     public static readonly Requirement MeshCheck = Basic + Single(check: Check.MeshRhinoCheck);
     public static readonly Requirement SolidTopology = Basic + Single(check: Check.BrepIntegrity) + Single(check: Check.MeshManifoldReadiness) + Single(check: Check.BrepSolidReadiness) + Single(check: Check.MeshRhinoCheck);
     public static readonly Requirement VolumeMass = SolidTopology + Single(check: Check.SurfaceSolidReadiness);
     public static readonly Requirement SurfaceEvaluation = Basic + Single(check: Check.SurfaceDomainReadiness);
-    public static readonly Requirement Strict = new(checks: toSeq(Check.Items));
     public static Requirement operator +(Requirement left, Requirement right) => Add(left: left, right: right);
     public static Requirement Add(Requirement left, Requirement right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
         return new(checks: left.checks.Concat(right.checks).Distinct().ToSeq());
     }
+    // Derivative-driven consumers — frames, curvature, offsets — refuse a C1 break the length, area, and domain
+    // gates all admit, so continuity widens whichever requirement the caller already holds (`ForKind(kind).Continuous`)
+    // instead of standing as a row nothing dispatches to.
+    public Requirement Continuous => this + Single(check: Check.ContinuityReadiness);
     public Validation<Error, T> Apply<T>(Context? context, T? value, CancellationToken cancel = default) where T : notnull =>
         (value, context, this) switch {
             (null, _, _) => Fin.Fail<T>(error: new Fault.MissingGeometry()).ToValidation(),
@@ -232,7 +237,7 @@ internal static partial class OpAcceptance {
             MeshPoint m => Some(m.Point.IsValid && m.FaceIndex >= 0 && m.ComponentIndex is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 } && m.T.All(static t => RhinoMath.IsValidDouble(t))),
             ComponentIndex c => Some(c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0),
             ValueTuple<double, double> t => Some(t is (double x, double y) && RhinoMath.IsValidDouble(x) && RhinoMath.IsValidDouble(y)),
-            ValueTuple<double, Vector3d> t => Some(t is (double m, Vector3d a) && RhinoMath.IsValidDouble(m) && m >= 0.0 && a.IsValid && a.Length > RhinoMath.ZeroTolerance),
+            ValueTuple<double, Vector3d> t => Some(t is (double m, Vector3d a) && RhinoMath.IsValidDouble(m) && m >= 0.0 && a.IsValid && a.Length > EpsilonPolicy.ZeroTolerance),
             IValidityEvidence evidence => Some(evidence.IsValid),
             _ => ValueValidity.GetValueOrDefault(source.GetType()) is Func<object, bool> fn ? Some(fn(source)) : Option<bool>.None,
         };
@@ -460,7 +465,7 @@ internal static class Admit {
             if (!ValidityClaim.Finite(value: entry.Real) || !ValidityClaim.Finite(value: entry.Imaginary)) { return false; }
             scale = Math.Max(val1: scale, val2: Math.Abs(value: entry.Real));
         }
-        double tolerance = Math.Max(val1: RhinoMath.SqrtEpsilon, val2: scale * RhinoMath.SqrtEpsilon);
+        double tolerance = Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: scale * EpsilonPolicy.SqrtEpsilon);
         foreach (Complex entry in diagonal) {
             if (Math.Abs(value: entry.Imaginary) > tolerance) { return false; }
         }
@@ -500,9 +505,9 @@ internal static class Admit {
     internal static Fin<Unit> AllFiniteComplex(ReadOnlySpan<Complex> values, Op key) => FiniteComplexSpan(values) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<Unit> HermitianDiagonalReal(ReadOnlySpan<Complex> diagonal, Op key) => HermitianDiagonalRealSpan(diagonal) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<TResult> WithDivisor<TResult>(double divisor, Func<double, TResult> make, Op key) =>
-        Math.Abs(value: divisor) > RhinoMath.ZeroTolerance ? Fin.Succ(make(arg: 1.0 / divisor)) : Fin.Fail<TResult>(key.InvalidInput());
+        Math.Abs(value: divisor) > EpsilonPolicy.ZeroTolerance ? Fin.Succ(make(arg: 1.0 / divisor)) : Fin.Fail<TResult>(key.InvalidInput());
     internal static Fin<Unit> KernelInput(double distance, double radius, Op key) =>
-        guard(ValidityClaim.Nonnegative(value: distance) && ValidityClaim.Finite(value: radius) && radius > RhinoMath.ZeroTolerance, key.InvalidInput()).ToFin();
+        guard(ValidityClaim.Nonnegative(value: distance) && ValidityClaim.Finite(value: radius) && radius > EpsilonPolicy.ZeroTolerance, key.InvalidInput()).ToFin();
     internal static Fin<Unit> FalloffInput(double distance, double distanceSquared, double tolerance, Op key) =>
         guard(ValidityClaim.Nonnegative(value: distance) && ValidityClaim.Nonnegative(value: distanceSquared) && ValidityClaim.Nonnegative(value: tolerance), key.InvalidInput()).ToFin();
     internal static Fin<Unit> NoiseInput(int octaves, double persistence, double lacunarity, double frequency, Op key) =>
@@ -527,11 +532,11 @@ internal static class Admit {
         Finite(vector: value) && value.Length > tolerance ? Fin.Succ(value) : Fin.Fail<Vector3d>(key.InvalidInput());
     internal static Fin<Unit> Cone(Point3d apex, Vector3d axis, double halfAngle, Op key) =>
         from _ in Finite(point: apex, key: key)
-        from direction in Directional(value: axis, tolerance: RhinoMath.ZeroTolerance, key: key)
+        from direction in Directional(value: axis, tolerance: EpsilonPolicy.ZeroTolerance, key: key)
         from angle in guard(ValidityClaim.Positive(value: halfAngle) && halfAngle <= Math.PI, key.InvalidInput()).ToFin()
         select unit;
     internal static Fin<Vector3d> Period(Vector3d period, Op key) =>
-        Finite(vector: period) && Math.Abs(value: period.X) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Y) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Z) > RhinoMath.ZeroTolerance ? Fin.Succ(period) : Fin.Fail<Vector3d>(key.InvalidInput());
+        Finite(vector: period) && Math.Abs(value: period.X) > EpsilonPolicy.ZeroTolerance && Math.Abs(value: period.Y) > EpsilonPolicy.ZeroTolerance && Math.Abs(value: period.Z) > EpsilonPolicy.ZeroTolerance ? Fin.Succ(period) : Fin.Fail<Vector3d>(key.InvalidInput());
 }
 ```
 

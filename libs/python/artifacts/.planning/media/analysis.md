@@ -12,7 +12,7 @@ It composes the container decode/fault surface, audio `_decode_audio`, filter ca
 
 - Owner: `Analysis` discriminates modality over the closed `AnalysisOp` family, each case carrying its typed payload (a source `blob` plus its op knobs), never a shared erased `params` bag, a per-measurement subclass, or a parallel `waveform`/`loudness`/`scenes` trio; `AnalysisArm` is the closed `NATIVE`/`SUBSTITUTE` route vocabulary — a `StrEnum`, token identity with no payload — whose `of` derivation routes native only when the op's `_NATIVE` row is non-empty AND present in the probe, so a limited wheel routes to the substitute, a full build to the native filter with the same evidence shape, and a substitute-only row can never route native; `AnalysisEvidence` the frozen carrier this page owns (the artifact `container` tag, the route `codec`, source `duration`, `byte_count`, `count`, and the measured `facts` band) projecting onto `ArtifactReceipt.Media` at `_keyed`; `MediaFault` the container cause vocabulary threaded unchanged.
 - Cases: `Waveform`/`Spectrogram` render native filter output or NumPy envelope/STFT images while both routes derive the same peak/RMS or centroid facts from normalized PCM. `Loudness` returns exact R128 facts from `loudnorm.stats` or explicitly named unweighted fallback facts. `Silence`/`BlackDetect` fold threshold flags through `_flag_spans`; `SceneDetect` uses native `select` or normalized mean-absolute frame delta; `Thumbnail` uses native `thumbnail` or variance picks and refuses an empty video before `_sheet`. `Metrics(blob, selected)` generates any subset of peak/RMS/crest/DC/zero-crossing/centroid/rolloff/bandwidth/flatness/dynamic-range facts from one `AudioMetric` vocabulary and one FFT correspondence.
-- Entry: `emit()` threads `parents` into `ArtifactWork`; `_key` derives the pre-run key through `_CANON` plus `ContentIdentity.key` and `_keyed` threads it as the receipt slot with the product address on the `address` band fact; `_dispatch` offloads `_analyze`, which derives `AnalysisArm.of(op.tag, media_filters())` on the process side so `av` stays worker-scope, and maps the lane's outer `BoundaryFault` through `_lapsed` before flattening the worker `Result`. `_worker` maps `BeartypeCallHintViolation` to `MediaFault.contract` at definition time.
+- Entry: `emit()` threads `parents` into `ArtifactWork`; `_key` derives the pre-run key through `CANON` and `ContentIdentity.key` and `_keyed` threads it as the receipt slot with the product address on the `address` band fact; `_dispatch` offloads `_analyze`, which derives `AnalysisArm.of(op.tag, media_filters())` on the process side so `av` stays worker-scope, and maps the lane's outer `BoundaryFault` through `_lapsed` before flattening the worker `Result`. `_worker` maps `BeartypeCallHintViolation` to `MediaFault.contract` at definition time.
 - Auto: the route is `AnalysisArm.of(op.tag, media_filters())`, so a producer never passes a `use_native` flag, a new native dependency is one `_NATIVE` row, and a substitute-only op is the empty row read as data; a `Waveform`/`Spectrogram`/`Thumbnail` produces a PNG and a `Loudness`/`Silence`/`BlackDetect`/`SceneDetect` a `msgspec.json` facts blob, both keyed and both carrying the measured band.
 - Receipt: each analysis contributes one `ArtifactReceipt.Media` whose slot threads the PRE-RUN node key — the `core/receipt#RECEIPT` elision law — with the produced-bytes content address on the `address` band fact. Route identity rides `codec`, numeric output rides `facts`, and `AnalysisEvidence` keeps provider handles out of the receipt owner. Exact R128 facts exist only on the native route; substitute fact names expose their weaker measurement.
 - Growth: a structurally distinct measurement is one `AnalysisOp` case, `_NATIVE` row, admission arm, and `_analyzed` arm; another audio scalar is one `AudioMetric` member plus one `measured` row; a native dependency is one requirement-set edit; a substitute replaces one route body behind the same `AnalysisArm` value.
@@ -27,7 +27,7 @@ from heapq import nlargest
 from itertools import groupby, islice
 from math import isfinite
 from operator import itemgetter
-from typing import TYPE_CHECKING, Literal, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 import msgspec
 import numpy as np
@@ -45,7 +45,7 @@ from rasm.runtime.workers import Kernel, KernelTrait
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.media.container import MediaFault, _CANON, _lapsed
+from rasm.artifacts.media.container import CANON, MediaFault, _lapsed
 
 lazy import av
 lazy import av.error
@@ -206,7 +206,7 @@ class Analysis(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        return ContentIdentity.key(f"media.analysis-{self.op.tag}", _CANON.encode(self.op))
+        return ContentIdentity.key(f"media.analysis-{self.op.tag}", CANON.encode(self.op))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
         # member MediaFault folds into the boundary fault (Work[ArtifactReceipt] forbids an inner Result).
@@ -309,7 +309,9 @@ def _pull_frames(graph: object, /) -> Iterator[object]:
     while True:  # each emitted frame is one graph output; the sink drains until EAGAIN/EOF
         try:
             yield graph.pull()
-        except BlockingIOError, EOFError:
+        except av.error.BlockingIOError, av.error.EOFError:
+            # the av leaves, never the builtins they subclass: a bare `BlockingIOError` also swallows a genuine
+            # non-blocking OSError from an unrelated handle and reads the drain as complete.
             return
 
 
@@ -379,6 +381,21 @@ def _spectral_facts(mono: "NDArray[np.float64]", rate: int, /) -> frozendict[str
 _SPECTRAL_FAMILY: frozenset[AudioMetric] = frozenset({
     AudioMetric.CENTROID_HZ, AudioMetric.ROLLOFF_HZ, AudioMetric.BANDWIDTH_HZ, AudioMetric.FLATNESS,
 })
+# the time family is the DERIVED complement, one primary correspondence and no hand-kept parallel roster: the two
+# families partition `AudioMetric` by construction, so `_metrics`'s dependency-aware evaluation can never leave a
+# member unevaluated and its `values[metric]` read stays total.
+_TIME_FAMILY: frozenset[AudioMetric] = frozenset(AudioMetric) - _SPECTRAL_FAMILY
+
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form: `AnalysisArm.of` indexes `_NATIVE` by op tag, so an unruled `AnalysisTag` is a runtime `KeyError` before
+# any route resolves, and the family pair proves the partition `_metrics` folds over. The EMPTY `_NATIVE` row is
+# the substitute-only declaration and is covered by presence, never by non-emptiness.
+_COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = (
+    (frozenset(_NATIVE), frozenset(get_args(AnalysisTag))),
+    (_TIME_FAMILY | _SPECTRAL_FAMILY, frozenset(AudioMetric)),
+)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("analysis tables do not cover their vocabularies")
 
 
 def _time_family(mono: "NDArray[np.float64]", /) -> frozendict[AudioMetric, float]:
@@ -415,7 +432,7 @@ def _metrics(decoded: "tuple[tuple[Pcm, ...], int, str]", selected: tuple[AudioM
     _blocks, rate, _layout = decoded
     mono = _mono(decoded)
     wanted = frozenset(selected)
-    values: frozendict[AudioMetric, float] = (_time_family(mono) if wanted - _SPECTRAL_FAMILY else frozendict()) | (
+    values: frozendict[AudioMetric, float] = (_time_family(mono) if wanted & _TIME_FAMILY else frozendict()) | (
         _spectral_family(mono, rate) if wanted & _SPECTRAL_FAMILY else frozendict()
     )
     facts = frozendict({metric.value: values[metric] for metric in selected})

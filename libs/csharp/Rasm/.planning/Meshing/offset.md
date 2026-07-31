@@ -2,7 +2,7 @@
 
 `OffsetOp` owns exact wavefront offsetting in `Rasm.Meshing`: straight-skeleton, offset, medial axis, Minkowski sum, and clearance are peer modality cases on one `[Union]` folded by one `Offsetting.Apply` entry over an Aichholzer-Aurenhammer wavefront. Exactness lives where a sign decides structure — reflex classification, split admission, ring simplicity, and convolution compatibility read exact `Predicate.Orient2D` turn signs over INPUT geometry — while event times stay analytic schedule data validated at fire by liveness, ring adjacency, and the collapse band.
 
-A rebuild composes ring simplicity and convolution crossings from `Meshing/intersect` `Intersection.Apply`, self-overlap resolution from `Meshing/arrangement` `Arrangement.Apply` `PlanarOverlay` under the nonzero winding rule, and the medial locus from `Meshing/delaunay` `VoronoiDual`. It mints `ClearanceNode`, the `SkeletonGraph`/`SkeletonArc` carriers, the `JoinType`/`EndType` generators, the `WavefrontStore` arena under the `Meshing/edit` arena law, and the `OffsetEvent` and `OffsetOp`/`OffsetResult` unions; every failure returns over the `Fin` rail.
+Rebuilding composes ring simplicity and convolution crossings from `Meshing/intersect` `Intersection.Apply`, self-overlap resolution from `Meshing/arrangement` `Arrangement.Apply` `PlanarOverlay` under the nonzero winding rule, and the medial locus from `Meshing/delaunay` `VoronoiDual`. It mints `ClearanceNode`, the `SkeletonGraph`/`SkeletonArc` carriers, the `JoinType`/`EndType` generators, the `WavefrontStore` arena under the `Meshing/edit` arena law, and the `OffsetEvent` and `OffsetOp`/`OffsetResult` unions; every failure returns over the `Fin` rail.
 
 ## [01]-[INDEX]
 
@@ -19,7 +19,7 @@ A rebuild composes ring simplicity and convolution crossings from `Meshing/inter
 - Growth: a new offsetting modality is one `OffsetOp` case over the same propagation; a new corner strategy one `JoinType` row carrying its emission delegate; a new cap one `EndType` row; a new event shape one `OffsetEvent` case and one drain arm. Clearance family widens by zero new types; variable-speed demands ride `EdgeSpeed`.
 - Boundary: `OffsetOp` is the sole offsetting `[Union]`; exact turn signs decide reflex classification, split admission, ring simplicity, and convolution compatibility over input geometry, while event ordering stays analytic schedule data validated at fire. Ring simplicity and convolution crossings route `Intersection.Apply`; loop resolution routes `Arrangement.Apply` `PlanarOverlay` ring-direct; the medial composes the delaunay `VoronoiDual`. `Apply` is total over the `Fin` rail, so a degenerate ring or stalled queue returns a fault rather than throwing, and a `Split` divides the ring rather than dropping a reflex chain to satisfy a budget.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -91,15 +91,20 @@ public sealed partial class JoinType {
     }
 }
 
-// Cap rows for open-path offsets; `closed` is the ring row emitting nothing.
+// Cap rows for open-path offsets; `closed` is the ring row emitting nothing. ClosesRibbon is the
+// assembly column: a closing row fuses the ribbon's two sides into ONE loop through the path ends —
+// `joined` is the open-ribbon closure Clipper2-style rosters spell as a separate lane, here one row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EndType {
-    public static readonly EndType Closed = new("closed", static (_, _, _, _) => Seq<Point3d>());
-    public static readonly EndType Butt   = new("butt", static (_, _, _, _) => Seq<Point3d>());
-    public static readonly EndType Square = new("square", SquareCap);
-    public static readonly EndType Round  = new("round", RoundCap);
+    public static readonly EndType Closed = new("closed", static (_, _, _, _) => Seq<Point3d>(), closesRibbon: true);
+    public static readonly EndType Joined = new("joined", static (_, _, _, _) => Seq<Point3d>(), closesRibbon: true);
+    public static readonly EndType Butt   = new("butt", static (_, _, _, _) => Seq<Point3d>(), closesRibbon: false);
+    public static readonly EndType Square = new("square", SquareCap, closesRibbon: false);
+    public static readonly EndType Round  = new("round", RoundCap, closesRibbon: false);
+
+    public bool ClosesRibbon { get; }
 
     [UseDelegateFromConstructor]
     public partial Seq<Point3d> Cap(Point3d end, Vector3d tangent, double distance, OffsetPolicy policy);
@@ -336,7 +341,7 @@ public static class Offsetting {
 
     static double Speed(Arr<double> speeds, int edge) => speeds.Count > 0 ? speeds[edge] : 1.0;
 
-    // A CW input re-orients CCW at admission; reversed-ring edge k is caller edge n-1-k, so the
+    // CW inputs re-orient CCW at admission; reversed-ring edge k is caller edge n-1-k, so the
     // per-ORIGINAL-edge speed table re-indexes with the ring.
     static Arr<double> ReversedSpeeds(Arr<double> speeds) {
         double[] flipped = new double[speeds.Count];
@@ -500,8 +505,9 @@ public static class Offsetting {
         return dressed;
     }
 
-    // Direct ribbon: per-edge translates with the row's fan at each convex turn; open paths close through
-    // its EndType caps and the mirrored return side.
+    // Direct ribbon: per-edge translates with the row's fan at each convex turn; an open path closes
+    // through its EndType caps and the mirrored return side, and a ClosesRibbon row (joined) skips the
+    // caps entirely — the two sides fuse end-to-end into one closed loop around the path.
     static Seq<Polyline> Ribbon(OffsetOp.Offset op) {
         Polyline path = op.Path;
         bool closed = path.IsClosed;
@@ -708,6 +714,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Offset wavefront flow
+    accDescr: Rings flow through admission, the wavefront event queue, and join and cap generators into offset curves, skeleton, medial, and clearance results.
     OffsetOp -->|admit: simplicity via Intersection.Apply| Intersection
     OffsetOp -->|Seed bisectors, EdgeSpeed rows| WavefrontStore
     WavefrontStore -->|exact Orient2D reflex/turn signs| Predicate
@@ -729,7 +737,7 @@ Each `[RAIL]` cell names the one return rail its owner exposes; the per-axis kin
 | :-----: | :--------------- | :--------------- | :------------------------------------- | :-----: |
 |  [01]   | Offsetting       | `OffsetOp`       | `Offsetting.Apply → Fin<OffsetResult>` |    6    |
 |  [02]   | Corner generator | `JoinType`       | policy rows (the next join is a row)   |    4    |
-|  [03]   | Cap generator    | `EndType`        | policy rows                            |    4    |
+|  [03]   | Cap generator    | `EndType`        | policy rows (ClosesRibbon column)      |    5    |
 |  [04]   | Clearance family | `ClearanceNode`  | result rows                            |    —    |
 |  [05]   | Skeleton graph   | `SkeletonGraph`  | result carrier (`Graph`/`Axis` cases)  |    —    |
 |  [06]   | Wavefront arena  | `WavefrontStore` | arena (trace projections)              |    —    |

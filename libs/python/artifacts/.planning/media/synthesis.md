@@ -2,7 +2,7 @@
 
 `Synthesis` owns media generation through one closed `SynthOp`: harmonic oscillators, duty-cycle pulse, periodic wavetable, spectral-color noise, additive/FM/AM, sweep, unit impulse, and calibration video. Video cases cover SMPTE-style `75%` bars with PLUGE bands, ramp, grid, countdown, checker, standalone PLUGE, and radial zone plate. Audio produces `float32` mono `Pcm` blocks through `_encode_audio`, video produces `rgb24` frames through `_encode_video`, tone-bearing bars compose both through `_mux_av`, and `MediaProfile`, `MediaEvidence`, and `MediaFault` keep encode policy and evidence.
 
-`_admitted` validates only the selected mode's profile and payload fields — each arm carries its own bounds. `_phase` gives every periodic generator one zero-origin cumulative phase, `_TINT` derives noise colors from one spectral-exponent table, `_framed` paints test patterns from typed per-mode payloads, and ADSR shapes continuous audio while `Impulse` preserves its unit sample. Every generation projects its full mode parameters into `ArtifactReceipt.Media.facts` and enters `ArtifactPipeline` as one root `ArtifactWork` keyed by `SynthOp` with only its relevant `SynthProfile` policy.
+`_admitted` validates only the selected mode's profile and payload fields — each arm carries its own bounds. `_phase` gives every periodic generator one zero-origin cumulative phase, `_TINT` derives noise colors from one spectral-exponent table, `_patterned` paints test patterns from typed per-mode payloads, and ADSR shapes continuous audio while `Impulse` preserves its unit sample. Every generation projects its full mode parameters into `ArtifactReceipt.Media.facts` and enters `ArtifactPipeline` as one root `ArtifactWork` keyed by `SynthOp` with only its relevant `SynthProfile` policy.
 
 ## [01]-[INDEX]
 
@@ -13,8 +13,8 @@
 - Owner: `Synthesis` discriminates modality over `SynthOp`; every case carries its typed payload, `domain` derives audio versus video, and `SynthProfile` carries audio policy, video policy, envelope, deterministic noise seed, and harmonic ceiling. `Waveform`, `_HARMONICS`, `NoiseColor`, and `_TINT` keep roster growth in data over shared kernels.
 - Cases: `_phase` is polymorphic over scalar or per-sample frequency and starts at zero. `_oscillator` sums only Nyquist-safe harmonics and normalizes the band-limited series; `_wavetable` interpolates a periodic table; `Pulse` derives duty from phase; `Sweep` selects linear or geometric frequency data. Video painters cover bars/PLUGE, ramp, grid, countdown, checker, and zone-plate calibration families.
 - Entry: `Synthesis.of` binds one `SynthOp` and `SynthProfile` under the composition-root `lane`, so every factory-built owner is fully initialized. `_synthesize` admits once, `_encoded` dispatches by derived `domain`, and the container `_worker` aspect maps call-contract violations to `MediaFault.contract`. `LanePolicy.offload` maps outer `BoundaryFault` through `_lapsed` and flattens the worker `Result`.
-- Auto: `_HARMONICS[waveform]`, `_TINT[color]`, scalar-or-track `_phase`, and `_framed` per-mode payloads drive generation. `_blocks` reflects the current eager `tuple[Pcm, ...]` audio contract; still-video tuples share one frame array, while countdown frames retain their distinct raster payloads.
-- Receipt: pre-run identity hashes `SynthOp` with `_identity_policy`, so irrelevant audio, video, seed, envelope, and harmonic fields never perturb another mode. `_keyed` threads that pre-run key as the receipt slot — the `core/receipt#RECEIPT` elision law — and lands the `ContentIdentity.key(container, bytes)` product address as the `address` band fact. `_audio_band` carries only active shaping/rate/duration facts with each mode's payload, while `_framed` carries pattern geometry and policy values.
+- Auto: `_HARMONICS[waveform]`, `_TINT[color]`, scalar-or-track `_phase`, and `_patterned` per-mode payloads drive generation. `_blocks` reflects the current eager `tuple[Pcm, ...]` audio contract; still-video tuples share one frame array, while countdown frames retain their distinct raster payloads.
+- Receipt: pre-run identity hashes `SynthOp` with `_identity_policy`, so irrelevant audio, video, seed, envelope, and harmonic fields never perturb another mode. `_keyed` threads that pre-run key as the receipt slot — the `core/receipt#RECEIPT` elision law — and lands the `ContentIdentity.key(container, bytes)` product address as the `address` band fact. `_audio_band` carries only active shaping/rate/duration facts with each mode's payload, while `_patterned` carries pattern geometry and policy values.
 - Packages: `numpy` owns oscillator, noise FFT, interpolation, and test-pattern kernels; `_encode_audio`, `_encode_video`, and `_mux_av` own egress.
 - Growth: a harmonic waveform is one `Waveform` and `_HARMONICS` row; a noise color is one `NoiseColor` and `_TINT` row; a distinct payload modality is one `SynthOp` case with admission, kernel, and evidence arms.
 
@@ -38,7 +38,7 @@ from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.media.audio import Master, Pcm, _encode_audio  # float32 blocks admit through the audio _INGEST["flt"] row
-from rasm.artifacts.media.container import ContainerFormat, MediaFault, MediaProfile, Produced, _CANON, _lapsed, _worker
+from rasm.artifacts.media.container import CANON, ContainerFormat, MediaFault, MediaProfile, Produced, _lapsed, _worker
 
 lazy from rasm.artifacts.media.container import _encode_video, _mux_av
 
@@ -120,6 +120,20 @@ _SEVEN_SEG: frozendict[str, frozenset[int]] = frozendict({
     "8": frozenset({0, 1, 2, 3, 4, 5, 6}),
     "9": frozenset({0, 1, 2, 3, 5, 6}),
 })
+
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form: `_oscillator` indexes `_HARMONICS`, `_noise` indexes `_TINT`, and `_digit_mask` indexes `_SEVEN_SEG` by the
+# decimal digits `str(int)` yields — each an unruled-member `KeyError` inside a worker otherwise. The fourth pair is
+# the SEGMENT-INDEX bound: every lit index `_SEVEN_SEG` names must address a real `_SEG_BOX` row, so a typo'd
+# segment is a load-time refusal rather than an `IndexError` mid-paint on whichever digit first carries it.
+_COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = (
+    (frozenset(_HARMONICS), frozenset(Waveform)),
+    (frozenset(_TINT), frozenset(NoiseColor)),
+    (frozenset(_SEVEN_SEG), frozenset("0123456789")),
+    (frozenset(segment for lit in _SEVEN_SEG.values() for segment in lit), frozenset(range(len(_SEG_BOX)))),
+)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("synthesis tables do not cover their vocabularies")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -273,7 +287,7 @@ class Synthesis(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        return ContentIdentity.key(f"media.synthesis-{self.op.tag}", _CANON.encode((self.op, _identity_policy(self.op, self.profile))))
+        return ContentIdentity.key(f"media.synthesis-{self.op.tag}", CANON.encode((self.op, _identity_policy(self.op, self.profile))))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
         # member MediaFault folds into the boundary fault (Work[ArtifactReceipt] forbids an inner Result).
@@ -550,7 +564,7 @@ def _countdown_frames(seconds: float, size: tuple[int, int], rate: int, /) -> "F
     return tuple(painted(index) for index in range(int(seconds * rate)))
 
 
-def _framed(op: SynthOp, rate: int, /) -> tuple["Frames", frozendict[str, float | str]]:
+def _patterned(op: SynthOp, rate: int, /) -> tuple["Frames", frozendict[str, float | str]]:
     # video test-signal painters: one still tiled per tick, or the per-tick countdown paint.
     match op:
         case SynthOp(tag="bars", bars=(seconds, size, _)):
@@ -593,7 +607,7 @@ def _encoded(op: SynthOp, profile: SynthProfile, /) -> Result[Produced, MediaFau
 
 def _screened(op: SynthOp, profile: SynthProfile, /) -> Result[Produced, MediaFault]:
     # a tone-carrying bars case muxes frames + sync tone (_mux_av); every other pattern encodes video-only.
-    frames, band = _framed(op, profile.video.rate)
+    frames, band = _patterned(op, profile.video.rate)
     match op:
         case SynthOp(tag="bars", bars=(seconds, _, tone_hz)) if tone_hz > 0.0:
             arate = profile.media.rate

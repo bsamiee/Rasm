@@ -161,10 +161,10 @@ public sealed class ShellRoot(
 - Owner: `DockableRow` registration row; `ShellDockFactory` boundary capsule over the Dock model graph; `ShellPolicy` policy anchor; `LayoutCheckpoint` versioned blob record; `LayoutPersistence` port-delegate record; `LayoutLedger` checkpoint, restore, telemetry, and registration fold surface.
 - Entry: `public static IO<Option<LayoutCheckpoint>> Flush(ClockPolicy clocks, LayoutPersistence port, Atom<Option<string>> last)` — `IO` carries the capture-hash-persist effect over BOTH workspace rails, the dock payload and the router route-stack; the unchanged-hash skip rides `Option<T>` and its content key folds payload plus stack, so a navigation-only change still checkpoints.
 - Auto: the cadence, drain, support, and telemetry rows register once at composition — flush fires on the `Every` cadence and again on the drain row inside `DrainBand.Interaction` at `ShellPolicy.DrainRank`, the support capture reads the latest blob, the telemetry row contributes the layout-flush instruments inward, and boot restore runs once from the fault-spine probe consequence, re-materializing the dock graph and setting the router stack through `ShellRoot.Restore` in one pass — an unresolvable saved route key folds to the fallback row with a `RouteRestoreFact` receipt, so first-run, restore, and upgrade are one total fold; zero UI timers.
-- Receipt: `Flush` yields `Option<LayoutCheckpoint>` — Some on a persisted blob, None on the unchanged-hash skip; the checkpoint record is the restore evidence and the support artifact body; `RouteRestoreFact` rows are the per-key restore evidence.
+- Receipt: `Flush` yields `Option<LayoutCheckpoint>` — Some on a persisted blob, None on the unchanged-hash skip; the checkpoint record is the restore evidence and the support artifact body; `RouteRestoreFact` rows are the per-key restore evidence; the flush and restore instruments write off those two outcomes through the port's own `Count` column, so a skipped flush and a declined crash offer count nothing.
 - Packages: Dock.Avalonia, Dock.Model.ReactiveUI, Dock.Serializer.SystemTextJson, NodaTime, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
 - Growth: a new dockable is one `DockableRow` row registered from the screen catalog with its title resolving through the catalog title cell, a new cadence, rank, retention, proportion, drop-selector, or external-surface bound is one policy value on `ShellPolicy`, and a new layout instrument is one `InstrumentSpec` row on `LayoutLedger.TelemetryRow`; zero new surface.
-- Boundary: `ShellDockFactory` is the named boundary capsule for the statement carve-out — the Dock model graph is mutable host-owned state assembled only through `Factory` create entrypoints, and view-layer mutation of dock structure is the rejected form; `DockControl` binds `Build`'s root through `Layout` with `InitializeLayout` and `InitializeFactory` false so the factory owns initialization, the dock chrome variant resolves through the `IDockThemeManager` bound at composition from the theme-token variant subscription so dock-owned brushes flip with the one theme resolution and a per-dock brush literal is the deleted form, floating hosts ride `HostWindowFactory` with `EnableManagedWindowLayer` under the `FloatingWindows` gate, and rows where `ShellPolicy.ExternalSurface` holds register the embedded host root through `DockControl.RegisterExternalDockSurface(IExternalDockSurface)` (the surface exposes `DockControl? DockControl { get; set; }` and `Control SurfaceControl { get; }`, paired with `bool UnregisterExternalDockSurface(IExternalDockSurface)` at teardown) so a docked panel drags across the host boundary while `GlobalDockTarget` and the `DockSelectorMode`-typed selector drive the `DockControl.ShowSelector(DockSelectorMode mode)`/`HideSelector()` drop overlay under the `ShellPolicy.DropSelector` gate — `DockSelectorMode` is the three-member `Documents | Tools | All` domain, and a per-host drag-handler fork is the rejected form; dockable `Context` resolves through the same `ShellRoot.Resolve` admission as navigation — `Build` traverses the rows on the `Fin` rail so a stale `DockableRow.RouteKey` yields the identical `NavFault.UnknownRoute` evidence, a direct route-index access is the deleted form, a dockable is a screen, and a second viewmodel system is the deleted pattern; the `Serialize` and `Restore` delegates bind the concrete `DockSerializer` from `Dock.Serializer.SystemTextJson` at composition — `DockSerializer()` constructs the default `ObservableCollection<>`-list reflection resolver, or `DockSerializer(IJsonTypeInfoResolver)` takes the source-generated `DockSystemTextJsonContext` the `[assembly: DockJsonSourceGenerationAttribute]` analyzer emits for AOT-safe metadata; its `IDockSerializer` contract `Serialize<T>(T)->string`, `Deserialize<T>(string)->T?`, `Load<T>(Stream)->T?`, `Save<T>(Stream, T)` carries the package-owned `JsonSerializerOptions` (`ReferenceHandler.Preserve`, `WhenWritingNull`, `AllowNamedFloatingPointLiterals`, the `JsonConverterFactoryList` `IList<T>` factory) and the `DockModelPolymorphicTypeResolver` that resolves `IDockable`/`IDock`/`IRootDock`/`IDockWindow`/`IDocumentTemplate`/`IToolTemplate` by `$type`, so a hand-rolled `IDockSerializer` or a replacement `JsonSerializerOptions` set is the rejected form; the payload crosses the Persistence port as an opaque versioned blob — the serializer round-trips dockable identity by `Id` so structure survives restore, file I/O is caller-side `Load<T>(Stream)`/`Save<T>(Stream, T)` construction since no file-path overload ships, AppUi issues no store queries, the `ContentHash` delegate carries the Persistence snapshot hash vocabulary, and the persist route prunes to `RetainedCheckpoints` generations; crash offer consumes the fault-spine crashes — a `HostCrashMarker` case gates the confirm route while a clean boot restores the warm blob silently; multi-window coordination and session restore ride the same blob; the dashboard-board snapshot is `Charts/dashboards#STREAM_BINDING`'s `BoardState`, which round-trips through the same concrete `DockSerializer` bound here — the dock graph and the board arrangement-plus-brush are two independent blobs over one serializer; the checkpoint row shares the health-probe deadline bound, so a flush past it is the dispatcher-starvation signal; the drain row ranks after the screens teardown row inside `DrainBand.Interaction`, so the flushed layout captures post-suspension state; pin, auto-hide, float, and close states are `DockableRow` policy values rendered through `PinnedDockControl`/`ToolPinnedControl`, never control state.
+- Boundary: `ShellDockFactory` is the named boundary capsule for the statement carve-out — the Dock model graph is mutable host-owned state assembled only through `Factory` create entrypoints, and view-layer mutation of dock structure is the rejected form; `DockControl` binds `Build`'s root through `Layout` with `InitializeLayout` and `InitializeFactory` false so the factory owns initialization, the dock chrome variant resolves through the `IDockThemeManager` bound at composition from the theme-token variant subscription so dock-owned brushes flip with the one theme resolution and a per-dock brush literal is the deleted form, floating hosts ride `HostWindowFactory` with `EnableManagedWindowLayer` under the `FloatingWindows` gate, and rows where `ShellPolicy.ExternalSurface` holds register the embedded host root through `DockControl.RegisterExternalDockSurface(IExternalDockSurface)` (the surface exposes `DockControl? DockControl { get; set; }` and `Control SurfaceControl { get; }`, paired with `bool UnregisterExternalDockSurface(IExternalDockSurface)` at teardown) so a docked panel drags across the host boundary while `GlobalDockTarget` and the `DockSelectorMode`-typed selector drive the `DockControl.ShowSelector(DockSelectorMode mode)`/`HideSelector()` drop overlay under the `ShellPolicy.DropSelector` gate — `DockSelectorMode` is the three-member `Documents | Tools | All` domain, and a per-host drag-handler fork is the rejected form; dockable `Context` resolves through the same `ShellRoot.Resolve` admission as navigation — `Build` traverses the rows on the `Fin` rail so a stale `DockableRow.RouteKey` yields the identical `NavFault.UnknownRoute` evidence, a direct route-index access is the deleted form, a dockable is a screen, and a second viewmodel system is the deleted pattern; the `Serialize` and `Restore` delegates bind the concrete `DockSerializer` from `Dock.Serializer.SystemTextJson` at composition — `DockSerializer()` constructs the default `ObservableCollection<>`-list reflection resolver, or `DockSerializer(IJsonTypeInfoResolver)` takes the source-generated `DockSystemTextJsonContext` the `[assembly: DockJsonSourceGenerationAttribute]` analyzer emits for AOT-safe metadata; its `IDockSerializer` contract `Serialize<T>(T)->string`, `Deserialize<T>(string)->T?`, `Load<T>(Stream)->T?`, `Save<T>(Stream, T)` carries the package-owned `JsonSerializerOptions` (`ReferenceHandler.Preserve`, `WhenWritingNull`, `AllowNamedFloatingPointLiterals`, the `JsonConverterFactoryList` `IList<T>` factory) and the `DockModelPolymorphicTypeResolver` that resolves `IDockable`/`IDock`/`IRootDock`/`IDockWindow`/`IDocumentTemplate`/`IToolTemplate` by `$type`, so a hand-rolled `IDockSerializer` or a replacement `JsonSerializerOptions` set is the rejected form; the payload crosses the Persistence port as an opaque versioned blob — the serializer round-trips dockable identity by `Id` so structure survives restore, file I/O is caller-side `Load<T>(Stream)`/`Save<T>(Stream, T)` construction since no file-path overload ships, AppUi issues no store queries, the `ContentHash` delegate carries the Persistence snapshot hash vocabulary, and the persist route prunes to `RetainedCheckpoints` generations; crash offer consumes the fault-spine crashes — a `HostCrashMarker` case gates the confirm route while a clean boot restores the warm blob silently; multi-window coordination and session restore ride the same blob; the dashboard-board snapshot is `Charts/dashboards#STREAM_BINDING`'s `BoardState`, which round-trips through the same concrete `DockSerializer` bound here — the dock graph and the board arrangement-plus-brush are two independent blobs over one serializer; the checkpoint row shares the health-probe deadline bound, so a flush past it is the dispatcher-starvation signal; the drain row ranks after the screens teardown row inside `DrainBand.Interaction`, so the flushed layout captures post-suspension state; the support artifact reports the REDACTOR'S OWN count — `Support` widens to the AppHost `SupportArtifact.Produce` pair and binds at composition to the same `Redactor` every other bundle column masks through, because the payload carries route keys and catalog-resolved dockable titles and a literal `0` beside them asserts a measurement nothing on the path took; pin, auto-hide, float, and close states are `DockableRow` policy values rendered through `PinnedDockControl`/`ToolPinnedControl`, never control state.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -254,21 +254,28 @@ public sealed record LayoutContent(string Payload, Seq<string> RouteStack);
 
 public sealed record LayoutCheckpoint(int Version, string ContentHash, LayoutContent Content, Instant At);
 
+// Support returns the AppHost SupportArtifact.Produce pair — bytes AND the redaction count — because a
+// literal 0 beside a payload nothing examined asserts a measurement no redactor took. Composition binds
+// it to the same `Redactor` every other bundle column masks through, and the count rises on each value
+// the redactor CHANGED, so a length-preserving mask still reports its work. The payload is the serialized
+// dock graph plus the route stack, which carries route keys and catalog-resolved dockable titles.
+// Count is the ONE meter reach the ledger has, an instrument name beside the composition-bound write.
 public sealed record LayoutPersistence(
     Func<string> Serialize,
     Func<Seq<string>> RouteStack,
     Func<LayoutCheckpoint, Fin<Seq<RouteRestoreFact>>> Restore,
     Func<LayoutContent, string> ContentHash,
-    Func<LayoutCheckpoint, ReadOnlyMemory<byte>> Support,
+    Func<LayoutCheckpoint, (ReadOnlyMemory<byte> Bytes, int Redactions)> Support,
     Func<LayoutCheckpoint, IO<Unit>> Persist,
+    Func<string, Unit> Count,
     IO<Option<LayoutCheckpoint>> Latest) {
     // The one serializer binding: the generated DockSystemTextJsonContext resolver keeps layout
     // round-trips AOT-safe, restore re-inits through the factory so InitializeLayout stays false, and
     // the SAME checkpoint restores the router stack through ShellRoot.Restore — one blob, two rails.
     public static LayoutPersistence Bind(
         DockControl control, ShellDockFactory factory, ShellRoot shell, string fallbackRoute,
-        Func<LayoutContent, string> contentHash, Func<LayoutCheckpoint, ReadOnlyMemory<byte>> support,
-        Func<LayoutCheckpoint, IO<Unit>> persist, IO<Option<LayoutCheckpoint>> latest) {
+        Func<LayoutContent, string> contentHash, Func<LayoutCheckpoint, (ReadOnlyMemory<byte> Bytes, int Redactions)> support,
+        Func<LayoutCheckpoint, IO<Unit>> persist, Func<string, Unit> count, IO<Option<LayoutCheckpoint>> latest) {
         DockSerializer serializer = new(new DockSystemTextJsonContext());
         return new(
             Serialize: () => serializer.Serialize(control.Layout),
@@ -288,6 +295,7 @@ public sealed record LayoutPersistence(
             ContentHash: contentHash,
             Support: support,
             Persist: persist,
+            Count: count,
             Latest: latest);
     }
 }
@@ -301,20 +309,29 @@ public static class LayoutLedger {
             .Map(content => new LayoutCheckpoint(ShellPolicy.LayoutVersion, port.ContentHash(content), content, clocks.Now))
             .Bind(next => last.Value == Some(next.ContentHash)
                 ? IO.pure(Option<LayoutCheckpoint>.None)
-                : port.Persist(next).Map(done => (last.Swap(prior => Some(next.ContentHash)), Some(next)).Item2));
+                : port.Persist(next).Map(done => (
+                    last.Swap(prior => Some(next.ContentHash)),
+                    port.Count(ShellPolicy.FlushInstrument),
+                    Some(next)).Item3));
 
     public static Option<LayoutCheckpoint> Offer(Seq<FaultSource> crashes, Option<LayoutCheckpoint> latest) =>
         crashes.Exists(static fault => fault is FaultSource.HostCrashMarker) ? latest : None;
 
+    // Counted returns the same outcome it observes, so the restore count fires on an ACCEPTED restore
+    // alone — a declined crash offer and a first-run empty latest are not restores, and a rejected
+    // checkpoint (version or content-hash) never counts one either.
     public static IO<Fin<Seq<RouteRestoreFact>>> Restore(LayoutPersistence port, Seq<FaultSource> crashes, Func<LayoutCheckpoint, IO<bool>> confirm) =>
         port.Latest.Bind(latest =>
             Offer(crashes, latest) is { IsSome: true, Case: LayoutCheckpoint offered }
                 ? confirm(offered).Bind(accepted => accepted
-                    ? IO.lift(fun(() => port.Restore(offered)))
+                    ? IO.lift(fun(() => Counted(port, port.Restore(offered))))
                     : IO.pure(Fin.Succ(Seq<RouteRestoreFact>())))
                 : latest is { IsSome: true, Case: LayoutCheckpoint warm }
-                    ? IO.lift(fun(() => port.Restore(warm)))
+                    ? IO.lift(fun(() => Counted(port, port.Restore(warm))))
                     : IO.pure(Fin.Succ(Seq<RouteRestoreFact>())));
+
+    private static Fin<Seq<RouteRestoreFact>> Counted(LayoutPersistence port, Fin<Seq<RouteRestoreFact>> outcome) =>
+        outcome.Map(facts => (port.Count(ShellPolicy.RestoreInstrument), facts).Item2);
 
     public static ScheduleEntry CheckpointRow(ClockPolicy clocks, LayoutPersistence port, Atom<Option<string>> last) =>
         new(
@@ -338,8 +355,11 @@ public static class LayoutLedger {
                 Name: "dock-layout",
                 Classification: DataClassification.Operational,
                 EstimatedBytes: ShellPolicy.LayoutArtifactBytes,
+                // The redaction count is the redactor's own measurement, never a literal: an absent
+                // checkpoint contributes zero bytes and zero redactions because nothing was examined,
+                // while a present one reports what the bound redactor actually changed.
                 Produce: window => port.Latest.Map(latest =>
-                    (latest.Map(port.Support).IfNone(ReadOnlyMemory<byte>.Empty), 0)))));
+                    latest.Map(port.Support).IfNone((ReadOnlyMemory<byte>.Empty, 0))))));
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
@@ -357,6 +377,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Layout ledger checkpoint and restore
+    accDescr: Cadence entries, drain-row flushes, and fault offers folding into one layout ledger whose flush seals a checkpoint, persistence writing it, and restore rebuilding the dock factory and the shell route stack.
     ScheduleEntry -->|"Every cadence"| LayoutLedger
     DrainParticipantPort -->|"drain-row flush"| LayoutLedger
     FaultSource -->|"Offer"| LayoutLedger
@@ -412,10 +434,10 @@ Visibility matrix — the value source for every `Visible` predicate and for `Fl
 ## [05]-[ADAPTIVE_LAYOUT]
 
 - Owner: `BreakpointRow` responsive tier row; `AdaptiveLayout` resolve fold over the ascending table.
-- Entry: `public static BreakpointRow Resolve(double width)` — pure fold; the widest admitted row wins.
+- Entry: `public static BreakpointRow Resolve(BreakpointRow prior, double width, Func<string, string, Unit> count)` — the widest admitted row wins, and the prior row makes the fold a transition so only a flip counts.
 - Packages: Xaml.Behaviors.Avalonia, LanguageExt.Core, BCL inbox
 - Growth: a new responsive tier is one `BreakpointRow` row; a new adaptive instrument is one `InstrumentSpec` row on `AdaptiveLayout.TelemetryRow`; zero new surface.
-- Boundary: `AdaptiveBehavior` and `AspectRatioBehavior` attach the resolved row key at each surface root, so per-view width literals are the deleted pattern; a resolved-tier flip folds one observation into the `AdaptiveLayout.BreakpointInstrument` count keyed by the row `Key` through the one `AppUiTelemetry.Contribute` spine, so responsive-tier transitions are attributable and a layout-local meter is the deleted form; density-aware spacing arrives from the theme token resolve as settled vocabulary and composes orthogonally to breakpoints; the row keys are serializable strings, so the designed-only WebBrowser growth case consumes the same vocabulary with zero live surface.
+- Boundary: `AdaptiveBehavior` and `AspectRatioBehavior` attach the resolved row key at each surface root, so per-view width literals are the deleted pattern; a resolved-tier flip folds one observation into the `AdaptiveLayout.BreakpointInstrument` count keyed by the row `Key` on the instrument's declared outcome dimension through the one `AppUiTelemetry.Contribute` spine — `Resolve` takes the prior row so the flip is structural rather than re-derived by a caller, a within-tier resize sweep counts nothing, and a layout-local meter is the deleted form; density-aware spacing arrives from the theme token resolve as settled vocabulary and composes orthogonally to breakpoints; the row keys are serializable strings, so the designed-only WebBrowser growth case consumes the same vocabulary with zero live surface.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -429,19 +451,27 @@ public sealed partial class BreakpointRow {
 }
 
 public static class AdaptiveLayout {
-    public static Seq<BreakpointRow> Rows => toSeq(BreakpointRow.Items).OrderBy(static row => row.MinWidth).ToSeq();
+    public static Seq<BreakpointRow> Rows => toSeq(toSeq(BreakpointRow.Items).OrderBy(static row => row.MinWidth));
 
-    public static BreakpointRow Resolve(double width) =>
-        Rows.Fold(Rows[0], (best, row) => row.MinWidth <= width ? row : best);
+    // Resolve is a TRANSITION, not a lookup: the prior row is the input a flip is defined against, so the
+    // count fires once per genuine tier change and a resize sweep inside one tier counts nothing. `count`
+    // is the composition-bound meter reach — a layout-local meter is the deleted form, and the resolved
+    // tier is the transition's outcome value the instrument's declared dimension carries.
+    public static BreakpointRow Resolve(BreakpointRow prior, double width, Func<string, string, Unit> count) =>
+        Rows.Fold(Rows[0], (best, row) => row.MinWidth <= width ? row : best) switch {
+            var next when next == prior => next,
+            var next => (count(BreakpointInstrument, next.Key), next).Item2,
+        };
 
     public const string BreakpointInstrument = "rasm.appui.layout.breakpoint";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(BreakpointInstrument, "{transition}", "responsive-tier transitions by row key", MeasureForm.Whole));
+            InstrumentSpec.Count(BreakpointInstrument, "{transition}", "responsive-tier transitions by row key", MeasureForm.Whole,
+                AppUiTelemetry.OutcomeSlot));
 }
 ```
 
 ## [06]-[RESEARCH]
 
-- [EXTERNAL_DOCK_HOST]: the embedded external-dock drop overlay registers against the live Rhino panel root; `RegisterExternalDockSurface(IExternalDockSurface)`, `ShowSelector(DockSelectorMode)`/`HideSelector()`, and `GlobalDockTarget` member shapes are decompile-confirmed, the in-host cross-boundary drag confirmation rides the surface-hosts EMBED_SPIKE.
+- [EXTERNAL_DOCK_HOST]-[OPEN]: does `DockControl.RegisterExternalDockSurface` on the embedded rhino-panel root raise the `GlobalDockTarget` drop overlay and accept a dockable drop; route: register the panel surface in a live RhinoWIP mount and drag a dockable onto it.

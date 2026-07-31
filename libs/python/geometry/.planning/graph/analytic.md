@@ -94,13 +94,25 @@ class AnalyticValue:
                 assert_never(unreachable)
 
 
+# --- [ERRORS] ---------------------------------------------------------------------------
+
+
+@tagged_union(frozen=True)
+class GraphFault(Exception):
+    # the graph band's ONE structured refusal, seated at the substrate both producers already import: raised INTO the
+    # converting fence of whichever producer folded this reducer, so the offending value survives as a kwarg the
+    # boundary fault lifts whole rather than as an f-string a reader re-parses.
+    tag: Literal["negative_cap"] = tag()
+    negative_cap: int = case()  # the board cap a caller supplied below zero
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def ranked(scores: Mapping[int, float] | Sequence[float], cap: int) -> AnalyticValue:
     # Node-score mapping (networkx dict) and vertex-ordered score list (topologicpy) both rank through one sort — input shape is the discriminant.
     if cap < 0:
-        raise ValueError(f"<negative-cap:{cap}>")  # a negative cap slices tail rows off silently instead of bounding the board; cap=0 stays the empty board
+        raise GraphFault(negative_cap=cap)  # a negative cap slices tail rows off silently instead of bounding the board; cap=0 stays the empty board
     pairs = scores.items() if isinstance(scores, Mapping) else enumerate(scores)
     board = sorted(pairs, key=lambda pair: pair[1], reverse=True)[:cap]
     return AnalyticValue.Leaderboard(tuple((int(node), float(score)) for node, score in board))

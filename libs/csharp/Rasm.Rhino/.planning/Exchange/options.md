@@ -210,32 +210,18 @@ public sealed record VdaHeader(
 - Owner: `FormatDial` `[Union]` — one case per format direction with an option surface beyond the scale lens, closed under the private-protected root constructor. Every field is an explicit override — `Option<T>` for value members, `Option<FieldOverride<T>>` for enable-plus-value pairs, or an admitted cluster value — and `None`/`Keep` means the baseline, never a second host default. Each case's `Mint` constructs the host option object in one object initializer naming every content-shaping host member with its baseline, then applies its clusters; the fence is the roster.
 - Law: baselines are two-tier — where the codec matrix previously derived a member from `CodecTune` (fidelity, grouping, ordering, materials, resources), that derivation IS the baseline; every other member's baseline is the verified host default, so a dial-free call is byte-identical to the pre-dial matrix.
 - Law: host dialog and plumbing members (`UseSimpleDialog`, `ActualFilePathOnMac`, `IsDefault`, `Name`) never enter a case — they carry host UI state, not content policy — and immutable host members (`FileObjWriteOptions.AngleTolRadians`) are unreachable by construction.
-- Law: `DialSeat` admits the codec-phase product once and rejects any phase whose demanded ability the codec lacks. Every case constructor declares its seat beside its option body, and `Codecs.Apply` reads the generated value without another case roster.
+- Law: `DialSeat` is an inert `(codec, phase)` pair each case constructor declares beside its option body — every pair is a compile-time constant no call site can vary, so the seat carries no admission of its own and `Codecs.Apply`'s live gate (dispatched codec equals seat codec, dispatched phase equals seat phase, dispatched codec has that phase's demanded ability) is the whole contract, proved against the runtime request rather than a second time at declaration.
 - Law: host redundancies collapse at `Mint` — `FileObjWriteOptions.CreateNgons` derives from `ObjNgonDial.Mode`, each `FileDwgWriteOptions` curve-fit gate derives from its adjacent `Option<FieldOverride<double>>`, and `FileStpReadOptions.LimitFaces` derives from `FaceCap`, so no consumer supplies a second gate.
 - Boundary: `FileObjWriteOptions`/`FileObjReadOptions`/`FilePlyWriteOptions` construct over the host `FileWriteOptions`/`FileReadOptions` carrier, so their `Mint` takes the carrier the engine column already holds; `FileXamlWriteOptions` projects through `ToDictionary()` into `RhinoDoc.Export` inside its codec row, and the dial never learns the transport.
 - Growth: a new host knob is one override field with its baseline line in `Mint`; a new format direction is one case and one codec engine expression.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
-[ComplexValueObject]
-[StructLayout(LayoutKind.Auto)]
-public readonly partial struct DialSeat {
-    public FileCodec Codec { get; }
-    public CodecPhase Phase { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref FileCodec codec,
-        ref CodecPhase phase) =>
-        validationError = codec is not null && phase is not null && codec.Has(phase.Demands)
-            ? null
-            : new ValidationError("Codec phase is not supported by the selected codec.");
-}
+public readonly record struct DialSeat(FileCodec Codec, CodecPhase Phase);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FormatDial {
-    private protected FormatDial(FileCodec codec, CodecPhase phase) => Seat = DialSeat.Create(codec: codec, phase: phase);
+    private protected FormatDial(FileCodec codec, CodecPhase phase) => Seat = new DialSeat(Codec: codec, Phase: phase);
 
     internal DialSeat Seat { get; }
 
@@ -957,17 +943,14 @@ public abstract partial record FormatDial {
         Option<bool> Layers = default,
         Option<FieldOverride<DracoDial>> Draco = default) : FormatDial(FileCodec.Gltf, CodecPhase.Export) {
         internal FileGltfWriteOptions Mint(CodecTune tune) {
-            (bool Use, Option<DracoDial> Value) baseline = (
-                Use: tune.Fidelity == CodecFidelity.Small,
-                Value: Option<DracoDial>.None);
-            (bool Use, Option<DracoDial> Value) draco = Draco
+            Option<DracoDial> draco = Draco
                 .Map(field => field.Switch(
-                    baseline,
-                    keepCase: static (state, _) => state,
-                    setCase: static (_, setting) => (Use: true, Value: Some(setting.Value)),
-                    clearCase: static (_, _) => (Use: false, Value: Option<DracoDial>.None)))
-                .IfNone(baseline);
-            return new() {
+                    tune.Fidelity.Draco,
+                    keepCase: static (baseline, _) => baseline,
+                    setCase: static (_, setting) => Some(setting.Value),
+                    clearCase: static (_, _) => Option<DracoDial>.None))
+                .IfNone(tune.Fidelity.Draco);
+            FileGltfWriteOptions host = new() {
                 MapZToY = MapZtoY.IfNone(true),
                 ExportMaterials = Materials.IfNone(tune.Materials),
                 CullBackfaces = CullBackfaces.IfNone(true),
@@ -979,12 +962,15 @@ public abstract partial record FormatDial {
                 ExportOpenMeshes = OpenMeshes.IfNone(true),
                 ExportVertexColors = VertexColors.IfNone(false),
                 ExportLayers = Layers.IfNone(tune.Group == CodecAxis.Layer),
-                UseDracoCompression = draco.Use,
-                DracoCompressionLevel = draco.Value.Map(static dial => dial.Level.Value).IfNone(int.Max(tune.Fidelity.Draco.Compression, 1)),
-                DracoQuantizationBitsPosition = draco.Value.Map(static dial => dial.PositionBits.Value).IfNone(tune.Fidelity.Draco.BitsPos),
-                DracoQuantizationBitsNormal = draco.Value.Map(static dial => dial.NormalBits.Value).IfNone(tune.Fidelity.Draco.BitsNormal),
-                DracoQuantizationBitsTextureCoordinate = draco.Value.Map(static dial => dial.TextureBits.Value).IfNone(tune.Fidelity.Draco.BitsTexCoord),
+                UseDracoCompression = draco.IsSome,
             };
+            _ = draco.Iter(dial => {
+                host.DracoCompressionLevel = dial.Level.Value;
+                host.DracoQuantizationBitsPosition = dial.PositionBits.Value;
+                host.DracoQuantizationBitsNormal = dial.NormalBits.Value;
+                host.DracoQuantizationBitsTextureCoordinate = dial.TextureBits.Value;
+            });
+            return host;
         }
     }
 
@@ -1037,7 +1023,7 @@ public abstract partial record FormatDial {
 ## [04]-[DIAL_BINDING]
 
 - Owner: `Dials.Resolve` extracts one requested case or constructs its baseline, then threads one caller state through the supplied case projection. `Dials.Scale` composes vector scale after option minting.
-- Law: `Codecs.Apply` refuses a `Some` dial whose `DialSeat` differs from the dispatched codec and request phase before host or filesystem contact. `None` selects the supplied baseline case.
+- Law: `Codecs.Apply` refuses a `Some` dial whose `DialSeat` differs from the dispatched codec and request phase before host or filesystem contact, and refuses a `Some` scale against a codec lacking `CodecAbility.Vector` at the same gate. `None` selects the supplied baseline case.
 - Law: `AiRead` and `EpsRead` are lens-only rows — their host surfaces carry nothing beyond the scale axes, so they mint directly with the `PreserveModelScale` fidelity baseline and no case exists to misconfigure.
 - Boundary: `Dials` returns bare host option objects only into the codec engine columns — the one internal seam already holding the raw `RhinoDoc` — and nothing above the matrix ever sees a host options type.
 

@@ -10,9 +10,9 @@
 
 ## [02]-[ADMISSION]
 
-`SubDCreationSpec` and `SubDBrepLaw` validate policy before native carriers exist, and each consuming seam rejects a zero-initialized smart-enum slot before native projection. Smart-enum rows project closure, corner, crease, symmetry, packing, interpolation, and edge-clamping choices onto native booleans only inside a consuming arm; `MeshShell` owns the shared open-or-solid offset policy. Primitive topologies remain direct `SubDOp` cases. `SubDEdgeSelection` separates edge location from edge character, so contradictory native flag combinations cannot cross admission. Component-addressed edits admit nonnegative indices at the value boundary and bind them to the live vertex, edge, or face roster before mutation.
+`SubDCreationSpec` and `SubDBrepLaw` validate policy before native carriers exist, and each consuming seam rejects a zero-initialized smart-enum slot before native projection. Smart-enum rows project closure, corner, crease, symmetry, packing, interpolation, and edge-clamping choices onto native booleans only inside a consuming arm; `MeshShell` owns the shared open-or-solid offset policy. Primitive topologies remain direct `SubDOp` cases. `SubDEdgeSelection` separates edge location from edge character, so contradictory native flag combinations cannot cross admission, and an all-absent selection refuses because six `false` flags let `DuplicateEdgeCurves` answer nothing but an empty spread. Component-addressed edits admit nonnegative indices at the value boundary and bind them to the live vertex, edge, or face roster before mutation.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CreasePreset {
@@ -242,11 +242,14 @@ public readonly partial struct SubDEdgeSelection {
         }
     }
 
+    // Both axes absent selects nothing: the host reads six `false` flags and returns an empty spread, so an
+    // all-`None` selection is refused here rather than crossing as a native call that can only answer nothing.
     private static bool Admits(
         Option<SubDEdgeLocation> location,
         Option<SubDEdgeCharacter> character,
         SubDEdgeClamp? ends) =>
         ends is not null
+        && (location.IsSome || character.IsSome)
         && location.ForAll(static row => row is not null)
         && character.ForAll(static row => row is not null);
 }
@@ -254,12 +257,16 @@ public readonly partial struct SubDEdgeSelection {
 
 ## [03]-[ALGEBRA]
 
-`SubDOp` is the sole construction algebra. `SubDEditVerb` duplicates one borrowed target; whole-surface and indexed interpolation are direct cases because their admission, identity, timing, and consumer coincide. One- and two-rail sweeps are direct `SubDOp` cases for the same reason. Tag, interpolation, subdivision, and transform edits refresh tags, sector coefficients, and the surface cache before ownership crosses `ModelGate`.
+`SubDOp` is the sole construction algebra. `SubDEditVerb` duplicates one borrowed target; interpolation is ONE case discriminated by `SubDVertexScope`, never a whole-surface and an indexed sibling. One- and two-rail sweeps are direct `SubDOp` cases because their admission, identity, timing, and consumer coincide. Tag, interpolation, subdivision, and transform edits refresh tags, sector coefficients, and the surface cache before ownership crosses `ModelGate`.
 
 - Law: quad-remesh composition feeds the meshing rail's `QuadRemesh` product to `FromMesh`; no second remesh entry exists here.
-- Growth: a new subd constructor or edit verb is one case with its arm; the spine and every consumer read it with zero new surface.
+- Law: interpolation is ONE `SubDEditVerb.Interpolate(SubDVertexScope, Seq<Point3d>)` case over `SubDSurfaceInterpolator`, not a whole-surface and an indexed sibling — `SubDVertexScope` is the discriminant selecting which host factory mints the solver (`CreateFromSubD` for every free vertex, `CreateFromMarkedVertices` for the mark polarity, `CreateFromSelectedVertices` for the document selection, `CreateFromVertexIdList` for an explicit id set), so a new scope is one row and the arm never grows. `SubD.InterpolateSurfacePoints` covers only the first and last scopes and exposes no free-vertex census, so the solver family strictly subsumes both prior cases and they leave with it.
+- Law: point-array arity proves in two places for two reasons — `Admits` gates statically off the scope's own payload (an id list must match its point count) and the arm gates dynamically against the minted solver's `InterpolatedVertexCount`, because only the mint knows how many vertices the host left free; a mismatch refuses before the native solve rather than returning a `false` verdict with no cause, `MaximumRecommendedInterpolatedVertexCount` bounds the system above that, and the arm reads `FixedVertexCount()`/`ContextId`/`VertexIdList()` off the still-open lease into the `Built<SubDSlot>` evidence before the solver closes. `InterpolatedVertexCount` and `FixedVertexCount` are METHODS on the host solver while `ContextId` and `MaximumRecommendedInterpolatedVertexCount` are properties, so the call parentheses are load-bearing.
+- Law: the interpolator is `IDisposable` and rides a `Lease<SubDSurfaceInterpolator>` inside the arm exactly as `MeshExtruder` is held in the sibling meshing page; `Clear` and `Transform` are scope-internal and no handle crosses the arm's edge.
+- Law: a measured edit answers on its OWN slot — the interpolation solve's fixed-vertex tally, context id, and vertex-id list land on `SubDSlot.Fitted`, face packing on `SubDSlot.Packed`, and component transport on `SubDSlot.Moved`, leaving `SubDSlot.Edited` to carry the product tally alone; three counts sharing one slot make `Project<int>(Edited, Tally)` an unorderable mixture of product count, packed faces, and moved components.
+- Growth: a new subd constructor or edit verb is one case with its arm; a new measured edit is one slot row with its producing arm; the spine and every consumer read it with zero new surface.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SubDSlot {
@@ -272,6 +279,41 @@ public sealed partial class SubDSlot {
     public static readonly SubDSlot Edited = new(key: 6);
     public static readonly SubDSlot Brepped = new(key: 7);
     public static readonly SubDSlot EdgeCurves = new(key: 8);
+    public static readonly SubDSlot Packed = new(key: 9);
+    public static readonly SubDSlot Moved = new(key: 10);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SubDVertexScope {
+    private SubDVertexScope() { }
+    public sealed record Free : SubDVertexScope;
+    public sealed record Marked(bool Mark) : SubDVertexScope;
+    public sealed record Selected : SubDVertexScope;
+    public sealed record VertexIds(Seq<uint> Indices) : SubDVertexScope;
+
+    internal bool Admits(int count) => count > 0 && Switch(
+        state: count,
+        free:      static (_, _) => true,
+        marked:    static (_, _) => true,
+        selected:  static (_, _) => true,
+        vertexIds: static (held, row) => !row.Indices.IsEmpty && row.Indices.Count == held);
+
+    internal Fin<Lease<SubDSurfaceInterpolator>> Open(SubD working, Op key) {
+        SubDSurfaceInterpolator? minted = Switch(
+            state: working,
+            free:       static (subd, _) => SubDSurfaceInterpolator.CreateFromSubD(subd, out uint _),
+            marked:     static (subd, row) => SubDSurfaceInterpolator.CreateFromMarkedVertices(subd, row.Mark, out uint _),
+            selected:   static (subd, _) => SubDSurfaceInterpolator.CreateFromSelectedVertices(subd, out uint _),
+            vertexIds:  static (subd, row) => SubDSurfaceInterpolator.CreateFromVertexIdList(subd, row.Indices, out uint _));
+        // The lease takes custody the instant the mint succeeds: a refused census must dispose the solver it just examined,
+        // so the census runs INSIDE the lease and its failure releases, never after a bare handle has already been dropped.
+        return Optional(minted).ToFin(key.InvalidResult())
+            .Map(static solver => (Lease<SubDSurfaceInterpolator>)new Lease<SubDSurfaceInterpolator>.Owned(Value: solver))
+            .Bind(held => guard(
+                held.Value.InterpolatedVertexCount() <= SubDSurfaceInterpolator.MaximumRecommendedInterpolatedVertexCount,
+                key.Unsupported(geometryType: typeof(SubD), outputType: typeof(SubDSurfaceInterpolator))).ToFin()
+                .Match(Succ: _ => Fin.Succ(held), Fail: fault => { held.Dispose(); return Fin.Fail<Lease<SubDSurfaceInterpolator>>(fault); }));
+    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -279,8 +321,7 @@ public abstract partial record SubDEditVerb {
     private SubDEditVerb() { }
     public sealed record SubdivideAll(int Count = 1) : SubDEditVerb;
     public sealed record SubdivideFaces(Seq<int> Faces) : SubDEditVerb;
-    public sealed record InterpolateSurface(Seq<Point3d> Points) : SubDEditVerb;
-    public sealed record InterpolateVertices(Seq<uint> Indices, Seq<Point3d> Points) : SubDEditVerb;
+    public sealed record Interpolate(SubDVertexScope Scope, Seq<Point3d> SurfacePoints) : SubDEditVerb;
     public sealed record SetVertexPoint(uint Vertex, Point3d SurfacePoint) : SubDEditVerb;
     public sealed record Shell(double Distance, MeshShell Kind) : SubDEditVerb;
     public sealed record MergeCoplanar : SubDEditVerb;
@@ -337,11 +378,10 @@ public abstract partial record SubDOp {
     private static bool EditAdmissible(SubDEditVerb? verb) => verb switch {
         SubDEditVerb.SubdivideAll { Count: > 0 } => true,
         SubDEditVerb.SubdivideFaces edit => !edit.Faces.IsEmpty && edit.Faces.ForAll(static face => face >= 0),
-        SubDEditVerb.InterpolateSurface edit => !edit.Points.IsEmpty && edit.Points.ForAll(static point => point.IsValid),
-        SubDEditVerb.InterpolateVertices edit => !edit.Indices.IsEmpty && edit.Indices.Count == edit.Points.Count
-            && edit.Indices.ForAll(static index => index >= 0)
-            && edit.Points.ForAll(static point => point.IsValid),
-        SubDEditVerb.SetVertexPoint edit => edit.Vertex >= 0 && edit.SurfacePoint.IsValid,
+        SubDEditVerb.Interpolate edit => !edit.SurfacePoints.IsEmpty
+            && edit.SurfacePoints.ForAll(static point => point.IsValid)
+            && edit.Scope.Admits(count: edit.SurfacePoints.Count),
+        SubDEditVerb.SetVertexPoint edit => edit.SurfacePoint.IsValid,
         SubDEditVerb.Shell edit => double.IsFinite(edit.Distance) && edit.Distance != 0.0 && edit.Kind is not null,
         SubDEditVerb.TagVertices edit => !edit.Vertices.IsEmpty && edit.Vertices.ForAll(static vertex => vertex >= 0),
         SubDEditVerb.TagEdges edit => !edit.Edges.IsEmpty && edit.Edges.ForAll(static edge => edge >= 0),
@@ -474,15 +514,24 @@ public abstract partial record SubDOp {
                 from __ in ctx.Op.Confirm(success: ctx.Working.Subdivide(faceIndices: edit.Faces.AsIterable()))
                 from built in Refreshed(ctx.Op, ctx.Working)
                 select built,
-            interpolateSurface: static (ctx, edit) =>
-                from _ in ctx.Op.Confirm(ctx.Working.InterpolateSurfacePoints(edit.Points.ToArray()))
+            interpolate: static (ctx, edit) =>
+                from solver in edit.Scope.Open(ctx.Working, ctx.Op)
+                from _ in guard(
+                    edit.SurfacePoints.Count == (int)solver.Resource.InterpolatedVertexCount(), ctx.Op.InvalidInput()).ToFin()
+                from __ in ctx.Op.Confirm(solver.Use(
+                    state: edit.SurfacePoints,
+                    project: static (points, held) => held.Solve(points.ToArray())))
+                from evidence in ctx.Op.Catch(() => Fin.Succ(value: solver.Use(
+                    state: unit,
+                    project: static (_, held) => BuildReceipt<SubDSlot>.Of(
+                            slot: SubDSlot.Fitted, body: new BuildBody.Tally(Count: (int)held.FixedVertexCount()))
+                        + BuildReceipt<SubDSlot>.Of(
+                            slot: SubDSlot.Fitted, body: new BuildBody.Text(Value: held.ContextId.ToString()))
+                        + BuildReceipt<SubDSlot>.Of(
+                            slot: SubDSlot.Fitted,
+                            body: new BuildBody.Components(Indices: toSeq(held.VertexIdList()).Map(static id => (int)id))))))
                 from built in Refreshed(ctx.Op, ctx.Working)
-                select built,
-            interpolateVertices: static (ctx, edit) =>
-                from _ in guard(edit.Indices.ForAll(index => index < ctx.Working.Vertices.Count), ctx.Op.InvalidInput()).ToFin()
-                from __ in ctx.Op.Confirm(ctx.Working.InterpolateSurfacePoints(edit.Indices.ToArray(), edit.Points.ToArray()))
-                from built in Refreshed(ctx.Op, ctx.Working)
-                select built,
+                select built.Witnessed(extra: evidence),
             setVertexPoint: static (ctx, edit) =>
                 from _ in guard(edit.Vertex < ctx.Working.Vertices.Count, ctx.Op.InvalidInput()).ToFin()
                 from __ in ctx.Op.Confirm(success: ctx.Working.SetVertexSurfacePoint(
@@ -496,7 +545,7 @@ public abstract partial record SubDOp {
                 .Bind(_ => Refreshed(ctx.Op, ctx.Working)),
             pack: static ctx => ctx.Op.Catch(() => {
                 uint packed = ctx.Working.PackFaces();
-                return ModelGate.Kept(ctx.Op, SubDSlot.Edited, ctx.Working, extra: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Edited, body: new BuildBody.Tally(Count: (int)packed)));
+                return ModelGate.Kept(ctx.Op, SubDSlot.Edited, ctx.Working, extra: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Packed, body: new BuildBody.Tally(Count: (int)packed)));
             }),
             flip: static ctx => ctx.Op.Confirm(success: ctx.Working.Flip()).Bind(_ => Refreshed(ctx.Op, ctx.Working)),
             tagVertices: static (ctx, edit) =>
@@ -517,9 +566,8 @@ public abstract partial record SubDOp {
                 uint moved = ctx.Working.TransformComponents(
                     components: edit.Components.AsIterable(), xform: edit.Motion, componentLocation: edit.Location);
                 return moved > 0
-                    ? Refreshed(ctx.Op, ctx.Working).Map(built => built with {
-                        Evidence = built.Evidence + BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Edited, body: new BuildBody.Tally(Count: (int)moved)),
-                    })
+                    ? Refreshed(ctx.Op, ctx.Working).Map(built => built.Witnessed(
+                        extra: BuildReceipt<SubDSlot>.Of(slot: SubDSlot.Moved, body: new BuildBody.Tally(Count: (int)moved))))
                     : Fin.Fail<Built<SubDSlot>>(error: ctx.Op.InvalidResult());
             }));
 
@@ -545,7 +593,7 @@ public static class SubDs {
 
 ## [04]-[EXECUTION]
 
-`SubDs.Build` admits every operation before `ModelGate.Folded`. Construction arms own fresh geometry, edit arms duplicate exactly once, and extraction arms detach edge curves. Native `SubDCreationOptions` and `SubDToBrepOptions` live only inside their consuming arm.
+`SubDs.Build` is `ModelGate.Entry`, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the folder spine's. Construction arms own fresh geometry, edit arms duplicate exactly once, and extraction arms detach edge curves. Native `SubDCreationOptions` and `SubDToBrepOptions` live only inside their consuming arm.
 
 ## [05]-[RESEARCH]
 

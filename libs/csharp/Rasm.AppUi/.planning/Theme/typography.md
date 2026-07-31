@@ -105,7 +105,7 @@ public sealed partial class FontChain {
             Some: rune => (mono ? Mono : Sans)
                 .Choose(family => Optional(manager.MatchCharacter(
                     family, SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright, null, rune.Value)))
-                .HeadOrNone()
+                .Head
                 .Match(
                     Some: Fin.Succ,
                     None: () => Optional(manager.MatchCharacter(
@@ -113,7 +113,7 @@ public sealed partial class FontChain {
                         .ToFin(new TypographyFault.FaceUnresolved($"{Key}/{rune}"))),
             None: () => (mono ? Mono : Sans)
                 .Choose(family => Optional(manager.MatchFamily(family)))
-                .HeadOrNone()
+                .Head
                 .Match(
                     Some: Fin.Succ,
                     None: () => Optional(manager.MatchFamily(Symbols)).ToFin(new TypographyFault.FaceUnresolved(Key))));
@@ -138,7 +138,7 @@ public static class FontAdmission {
 ## [04]-[SHAPING_RAIL]
 
 - Owner: `RunSpec` — the pinned segment-property row; `FaceHandle` — the once-per-face HarfBuzz admission capsule; `ShapedRun` — the shaped product and single measurement authority; `ShapingSurface` — the one shape-then-draw rail.
-- Entry: `public static Fin<ShapedRun> Shape(string text, RunSpec spec, FaceHandle face, SKFont raster, Seq<string> featureTags, Func<string, Fin<Feature>> admitFeature)` — the one shaping fold; feature tags traverse one composition-bound admission delegate before native shaping, and `DrawLabel` returns `Fin<Unit>` after drawing an admitted shaped run onto a caller-leased canvas.
+- Entry: `public static Fin<ShapedRun> Shape(string text, RunSpec spec, FaceHandle face, SKFont raster, Seq<string> featureTags, Func<string, Fin<Feature>> admitFeature)` — the one shaping fold; feature tags traverse one composition-bound admission delegate before native shaping — the delegate parses the four-character OpenType tag through `Tag.TryParse` and mints the `Feature` over its `Tag`/`Value`/`Start`/`End` slots, so a malformed tag fails on the rail instead of reaching the native call — and `DrawLabel` returns `Fin<Unit>` after drawing an admitted shaped run onto a caller-leased canvas.
 - Receipt: the composition prerequisite is the `Shell/hosts.md` `NativeAssets.Identity` probe for libHarfBuzzSharp — version, path, RID — sealed as `NativeAssetFact`; shaping consumes the admitted runtime and mints no duplicate identity receipt.
 - Packages: SkiaSharp.HarfBuzz, SkiaSharp, HarfBuzzSharp.NativeAssets.macOS, HarfBuzzSharp.NativeAssets.Linux, LanguageExt.Core
 - Growth: a new script or feature requirement is one policy value on the role row riding the same shaping call; zero new surface.
@@ -406,7 +406,7 @@ public static class MarkdownProjection {
             ? Some<LinkTarget>(link.IsImage
                 ? new LinkTarget.Image(link.Url ?? "", Optional(link.Title))
                 : new LinkTarget.Hyperlink(link.Url ?? "", Optional(link.Title)))
-            : None).HeadOrNone();
+            : None).Head;
 
     private static Seq<Inline> Ancestry(Inline node) =>
         Optional(node.Parent)
@@ -464,13 +464,9 @@ public sealed record TextMetricsPolicy {
     public double LineBox(SKFontMetrics metrics) => Snap(metrics.Descent - metrics.Ascent + metrics.Leading);
 
     public double CapCenter(SKFontMetrics metrics, double box) => (box + metrics.CapHeight) / 2d;
-
-    public static SKPoint Advance(ShapedRun run) => run.Advance;
 }
 ```
 
 ## [07]-[RESEARCH]
 
-- [FRONT_MATTER_AST]: the front-matter and footnote AST node types and member accessors — the front-matter block and its line text, the footnote group and footnote label, and the typed descendant traversal that populates the `FrontMatter` and `Footnotes` fields from the parsed document, against the Markdig extension block families beyond the catalogued `UseYamlFrontMatter`/`UseFootnotes` builder rows.
-- [EXTENSION_AST]: the extension AST node spellings the catalogued builder rows admit but the catalog's roster omits — `Markdig.Extensions.Alerts.AlertBlock` and its `Kind` slice, the `Markdig.Extensions.DefinitionLists.DefinitionList`/`DefinitionItem`/`DefinitionTerm` family, the `Markdig.Extensions.Mathematics.MathBlock`/`MathInline` pair and its `Content` slice, `AutolinkInline.Url`, and `HtmlEntityInline.Transcoded` — decompile-verified against the pinned Markdig assembly.
-- [FEATURE_TAG_CTOR]: the exact `HarfBuzzSharp.Feature`/`Tag` construction spelling minting a `Feature` from a role's four-character OpenType tag string — the one tag-mint delegate the composition root binds for the shaping rail.
+- [FEATURE_TAG_CTOR]-[BLOCKED]: which `HarfBuzzSharp.Feature` constructor arity the tag-mint delegate calls, given the assembly declares `Feature.Tag`/`Value`/`Start`/`End` and `Tag.TryParse`; route: `tools.assay api query --key HarfBuzzSharp --symbol Feature` once `HarfBuzzSharp` registers as an assay source — only its `NativeAssets` packages resolve today.

@@ -18,7 +18,8 @@ The statechart owner: a closed transition system is data — one `Transition.Spe
 - Law: the internal-versus-external distinction is one row flag — `internal: true` shrinks the transition domain from the LCCA to the source (SCXML `type="internal"`), the whole semantic difference; external is the default posture.
 - Law: `Machine.serializable.add` is the pipeable dual — data-last `(schema, handler) => (self) => self` — with `Machine.serializable.addPrivate` its interior twin whose request never reaches `sendUnknown`; `Machine.procedures.add` is a differently-shaped curried type application, and the two namespaces never substitute.
 - Growth: a new state, transition, deadline, or child activity is one row in the owning table; a new machine is one spec value; dynamic child registries beyond node-scoped invoke ride the context's id-addressed `forkOne` — or its state-returning `forkOneWith` twin when the registration itself must advance state — under the same arming law.
-- Packages: `@effect/experimental` (`Machine`); `effect` (`Array`, `Duration`, `Effect`, `Either`, `HashSet`, `Option`, `Order`, `ParseResult`, `PubSub`, `Schedule`, `Schema`, `Scope`, `Stream`, `Struct`, `Subscribable`, `Tracer`).
+- Packages: `@effect/experimental` (`Machine`); `effect` (`Array`, `Duration`, `Effect`, `Either`, `HashSet`, `Option`, `Order`, `ParseResult`, `PubSub`, `Schedule`, `Schema`, `Scope`, `Stream`, `Struct`, `Subscribable`, `Tracer`); `../value/fault.ts` (`FaultClass`).
+- Law: both fault classes close their reasons through the core `FaultClass.family` mint and answer `class` off it — the spent-fuel rail carries the torn termination invariant, the definition rail folds the dominant kind across every retained topology issue — so a driver's recovery and the serving edge's exposure fold read the one severity lattice and no local rank or retry column exists here to disagree with it.
 
 ```typescript signature
 import { Machine } from "@effect/experimental"
@@ -26,6 +27,7 @@ import {
   Array, type Duration, Effect, Either, HashSet, Option, Order, type ParseResult, pipe, PubSub, type Schedule, Schema,
   type Scope, Stream, Struct, Subscribable, type Tracer,
 } from "effect"
+import { FaultClass } from "../value/fault.ts"
 
 declare namespace Transition {
   type Depth = "shallow" | "deep"
@@ -132,24 +134,51 @@ declare namespace Transition {
   }
 }
 
+// Two routing classes, two mints, each row carrying the core kind alone: a spent fuel budget is a livelocking table
+// whose termination invariant tore, and every topology refusal is caller-authored material the compile quarantines
+// into its repair report — so retryability, blame, and quarantine read off the core row table and no local rank,
+// retry, or status column rides beside `class` to fork the taxonomy inside this owner.
+const _spent = FaultClass.family(["fuel"] as const, { fuel: { class: "breached" } })
+
 class Spent extends Schema.TaggedError<Spent>()("Spent", {
+  reason: _spent.schema,
   signal: Schema.String,
   fuel: Schema.Int.pipe(Schema.nonNegative()),
 }) {
+  get class(): FaultClass.Kind {
+    return _spent.classOf(this.reason)
+  }
   override get message(): string {
     return `<spent@${this.fuel}> ${this.signal}`
   }
 }
 
-const _DEFINITION_ISSUES = ["root", "cycle", "initial", "history", "parallel", "service", "fuel", "lag"] as const
+const _definition = FaultClass.family(["root", "cycle", "initial", "history", "parallel", "service", "fuel", "lag"] as const, {
+  cycle: { class: "invalid" },
+  fuel: { class: "invalid" },
+  history: { class: "invalid" },
+  initial: { class: "invalid" },
+  lag: { class: "invalid" },
+  parallel: { class: "invalid" },
+  root: { class: "invalid" },
+  service: { class: "invalid" },
+})
+
 const _DefinitionIssue = Schema.Struct({
-  reason: Schema.Literal(..._DEFINITION_ISSUES),
+  reason: _definition.schema,
   node: Schema.optionalWith(Schema.String, { as: "Option" }),
 })
 
 class DefinitionFault extends Schema.TaggedError<DefinitionFault>()("DefinitionFault", {
   issues: Schema.NonEmptyArray(_DefinitionIssue),
-}) {}
+}) {
+  get class(): FaultClass.Kind {
+    return FaultClass.dominant(Array.map(this.issues, (issue) => _definition.classOf(issue.reason)))
+  }
+  override get message(): string {
+    return `<statechart:refused> ${Array.join(Array.map(this.issues, (issue) => issue.reason), ",")}`
+  }
+}
 
 const _validated = <Id extends string, S extends string, V extends string, X>(
   spec: Transition.Spec<Id, S, V, X>,
@@ -407,8 +436,9 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
   return settled
     ? Either.right([held, { program, entered: enteredAll, exited: exitedAll }] as const)
     : Either.left(new Spent({
-        signal: Option.match(signal, { onNone: () => "<eventless>", onSome: (held) => held }),
         fuel: spec.fuel,
+        reason: "fuel",
+        signal: Option.match(signal, { onNone: () => "<eventless>", onSome: (held) => held }),
       }))
 }
 ```

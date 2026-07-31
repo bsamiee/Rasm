@@ -610,9 +610,9 @@ public static class Sequence {
         select candidates;
 
     private static Fin<WeldSchedule> Select(Seq<SequenceCandidate> candidates) =>
-        candidates.Filter(static candidate => candidate.Rejections.IsEmpty)
-            .OrderBy(static candidate => candidate.Score)
-            .HeadOrNone()
+        toSeq(candidates.Filter(static candidate => candidate.Rejections.IsEmpty)
+                .OrderBy(static candidate => candidate.Score))
+            .Head
             .ToFin(Infeasible(candidates))
             .Map(selected => new WeldSchedule(
                 selected.Work,
@@ -625,9 +625,9 @@ public static class Sequence {
 
     // Nearest-miss candidate's typed rejections are the only evidence a caller can act on when nothing is feasible.
     private static Error Infeasible(Seq<SequenceCandidate> candidates) =>
-        candidates.OrderBy(static candidate => candidate.Rejections.Count)
-            .ThenBy(static candidate => candidate.Score)
-            .HeadOrNone()
+        toSeq(candidates.OrderBy(static candidate => candidate.Rejections.Count)
+                .ThenBy(static candidate => candidate.Score))
+            .Head
             .Map(static nearest => nearest.Rejections.Fold(
                 Error.New("weld-sequence:no-feasible-candidate"),
                 static (combined, rejection) => combined + Error.New(rejection.Detail)))
@@ -761,9 +761,9 @@ public static class Sequence {
             .Bind(timing => timing.Segments.Find((segment.Pass.Joint, segment.Pass.Ordinal, segment.SourceSpan))
                     .Map(span => span * (segment.Length / segment.SourceLength)).ToSeq()
                 + timing.Cycles.Find((segment.Pass.Joint, segment.Pass.Ordinal))
-                    .Map(cycle => cycle * (segment.Length / Length.FromMillimeters(
-                        segment.Pass.Frames.Last.StationMm - segment.Pass.Frames.Head.StationMm))).ToSeq())
-            .HeadOrNone()
+                    .Bind(cycle => StationSpan(segment.Pass.Frames)
+                        .Map(span => cycle * (segment.Length / Length.FromMillimeters(span)))).ToSeq())
+            .Head
             .IfNone(nominal);
         Duration at = state.Clock;
         Duration end = at + wait + reheat + run;
@@ -788,6 +788,13 @@ public static class Sequence {
             state.Work.Add(work),
             state.Rank + 1);
     }
+
+    // `Seq.Head`/`Seq.Last` are `Option`, and a pass carrying fewer than two frames has no station span at all: the
+    // row drops out of the fold so the nominal travel time answers, never a cycle divided by a fabricated zero.
+    private static Option<double> StationSpan(Seq<TorchFrame> frames) =>
+        from last in frames.Last
+        from head in frames.Head
+        select last.StationMm - head.StationMm;
 
     private static Duration Cooling(WeldPass pass, Temperature ceiling, ThermalLaw law) {
         double numerator = law.Peak.DegreesCelsius - law.Ambient.DegreesCelsius;
@@ -918,7 +925,7 @@ public static class Sequence {
 
     private static Seq<WorkSeed> Opening(SequenceRequest request, Seq<WeldSegment> arranged, int joint) {
         Seq<WeldSegment> deposits = arranged.Filter(segment => segment.Pass.Joint == joint);
-        TackBand band = deposits.HeadOrNone().Map(segment => TackFor(request.Policy, segment.Pass))
+        TackBand band = deposits.Head.Map(segment => TackFor(request.Policy, segment.Pass))
             .IfNone(request.Policy.TackBands.Head);
         return request.Plan.Actions
                 .Filter(action => action.Joint == joint

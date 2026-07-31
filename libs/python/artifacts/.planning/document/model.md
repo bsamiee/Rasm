@@ -616,6 +616,10 @@ def _own_bytes(node: DocumentNode, /) -> bytes:
 
 
 def node_digest(node: DocumentNode) -> ContentKey:
+    # depth-safe post-order fold: `results` is a cons stack, so pushing the kids REVERSED makes them pop in reverse
+    # and land back head-first in DOCUMENT order — `take(n)` is therefore already the natural child sequence and
+    # feeds the parent preimage as-is. Re-reversing it here would compound the two reversals into one net flip,
+    # keying a tree against a child order no independent implementation of this digest would reproduce.
     frontier: Block[tuple[bool, DocumentNode]] = Block.singleton((False, node))
     results: Block[ContentKey] = Block.empty()
     while not frontier.is_empty():
@@ -625,7 +629,7 @@ def node_digest(node: DocumentNode) -> ContentKey:
             results = results.cons(ContentIdentity.key(current.meta.key.fmt, _JSON_ENCODER.encode(_keyable(current))))
         elif combine:
             own = ContentIdentity.key(current.meta.key.fmt, _own_bytes(current))
-            results = results.skip(len(kids)).cons(ContentIdentity.key(current.meta.key.fmt, (own, *tuple(results.take(len(kids)))[::-1])))
+            results = results.skip(len(kids)).cons(ContentIdentity.key(current.meta.key.fmt, (own, *results.take(len(kids)))))
         else:
             frontier = Block.of_seq((False, kid) for kid in reversed(kids)).append(frontier.cons((True, current)))
     return results.head()

@@ -12,7 +12,7 @@ Frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys
 
 - Owner: `TablePlan` discriminates export format over the closed `TableFormat` (`HTML`/`LATEX`/`PDF`); `Reshape` and `TableOp` are `expression.tagged_union` families each carrying one typed payload per case — `Reshape` folded `pl.DataFrame -> pl.DataFrame` before `.style`, `TableOp` folded onto the great-tables `GT` builder — dispatched by one total `match`, never a parallel `dict[str, Callable]` catalogue or a per-feature `reduce`. `Theme` is the closed `opt_*` stylize vocabulary carried as the table's named publication identity, its `FootnoteMarks` axis selecting numeric, alphabetic, or symbol mark sequences.
 - Cases: `Reshape` rows land the display cross-tab a raw QTO/schedule frame is not yet in — `Select`/`Filter`/`Sort`/`Rename`/`Cast`/`Head`/`Slice`/`With`, `GroupAgg` quantity rollup, `Pivot` (the door/window/room-finish cross-tab), `Unpivot`, `TopK`, and `Derive` (a display column the frame did not carry) — each a `pl.Expr`-carrying case folded by one total `_shape` match, so a schedule rollup is one row and never a Python loop over cells. `TableOp` folds the full publication surface — structure, column control, spanners, `Fmt` value format over the `FmtKind` table, `Nanoplot`, column merges, substitutions, cell transforms, aggregation, data-driven `Color`, and raw `Css` — each arm composing the verified `GT` member directly. One `Fmt` case carrying a `FmtKind` discriminant collapses every `fmt_*` verb plus the arbitrary `fmt(fns, is_substitution)` custom verb onto one fold over `FMT_TABLE`, since every member shares the `(columns, rows, FmtOptions)` boundary shape and `FmtOptions` is the closed union of every verb's admitted keywords, `_frozen` sealing each payload to an immutable band at storage.
-- Law: ONE primary correspondence keys the render: `_seed` emits length-framed canonical chunks for every render-affecting input — the frame schema plus `hash_rows` digest, each `Reshape` and `TableOp` through the `_sealed` per-value canon (a `pl.Expr` through `Expr.meta.serialize(format="binary")`, a callable through its `module:qualname`, marshalled code, defaults, keyword defaults, closure cells, bound-instance state, and one-hop referenced-global facets — an opaque `__call__` instance refuses), the format, theme, seam knobs, and emit knobs — and `_key = ContentIdentity.key(...)` over those chunks feeds the `ArtifactWork` node, the receipt (`receipt.slot == node.key`), and the derived CSS id, so no second identity mint exists and equal keys imply equal render behavior.
+- Law: ONE primary correspondence keys the render: `_seed` emits the canonical FIELD SET for every render-affecting input, framed by the runtime `IdentitySource.parts` fold at its one owner — the frame schema plus `hash_rows` digest, each `Reshape` and `TableOp` through the `_sealed` per-value canon (a `pl.Expr` through `Expr.meta.serialize(format="binary")`, a callable through its `module:qualname`, marshalled code, defaults, keyword defaults, closure cells, bound-instance state, and one-hop referenced-global facets — an opaque `__call__` instance refuses), the format, theme, seam knobs, and emit knobs — and `_key = ContentIdentity.key(...)` over those chunks feeds the `ArtifactWork` node, the receipt (`receipt.slot == node.key`), and the derived CSS id, so no second identity mint exists and equal keys imply equal render behavior.
 - Entry: `TablePlan.of` admits raw material exactly once — a settled `pl.DataFrame` passes through, an Arrow-C-stream / interchange capsule (the C# `Rasm.Bim` QTO/schedule egress over `data/tabular`, or any `data` producer) normalizes through `pl.from_dataframe` zero-copy where the layout permits — so the interior sees only a settled frame, never re-validated inward, and one parameterized `[WIRE]` edge sources across providers without touching the interior. `emit()` returns the `ArtifactWork` node with a PRE-RUN input key; `build()` is the synchronous bytes seam a composing AEC owner renders through directly, so `drawing/schedule#SCHEDULE` mints its own receipt off the same single render with no private-method reach.
 - Auto: `build` is one `pl.Config` scope over an ordered fold — `_shape` reshapes the frame to its cross-tab, `Theme.apply` seeds the `opt_*` identity, each `TableOp` case folds its one `GT` member; `_bridged` detects a group-scoped `summary` op and enters the `GT` through `shaped.to_pandas()` because great-tables' group resolver faults on a polars frame (`IndexError`), the one verified provider gap the bridge closes. `maintain_order=True`/`sort_columns=True` on the group/pivot rows fix row/column order and the fold runs inside the render scope, so a float-to-display `Derive` renders at fixed precision and the display frame is byte-reproducible for the content key. CSS-scope ids derive from the content key — great-tables mints `random_id()` when `id` is `None`, drifting the rendered bytes every render, so `build` stamps `gt{key:032x}` unless the caller pinned `table_id`. `_place` is one `LOC_TABLE` projection from `StubLoc` to the verified per-selector arg-arity through the `LocArity` discriminant, never a branch on which location admits `columns`/`rows`/`ids`/`groups`; `_font` discriminates the closed `FontFace` payloads and passes the bounded `FontStackName` straight to `opt_table_font(stack=)`; the `Color` arm derives text color from background luminance via `autocolor_text=True`; `NanoSpec.fold` owns `fmt_nanoplot`, while standalone value formatting and unit grammar use `vals.fmt_*` and `define_units` directly.
 - Receipt: each render contributes the shared `core/receipt#RECEIPT` `ArtifactReceipt.Table(key, format, bytes)` — the node's own content key, `TableFormat` value, and byte count off the one `build()` render — through the runtime `ReceiptContributor` port, the LEAF-producer pattern where the receipt IS the return, mirroring the sibling chart and raster producers rather than the `composition/compose#COMPOSE` placement-owner's `of()` plus separate `contribute()`. `drawing/schedule#SCHEDULE` composes the same `build` bytes fact to mint its own `ArtifactReceipt.Schedule` (single-fact: one render, one content key).
@@ -25,7 +25,7 @@ Frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys
 import marshal
 from collections.abc import Callable, Iterable
 from enum import Enum, StrEnum, auto
-from functools import reduce
+from functools import partial, reduce
 from types import BuiltinFunctionType, MethodDescriptorType, ModuleType, WrapperDescriptorType
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -45,7 +45,7 @@ from polars.exceptions import PolarsError
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -800,11 +800,14 @@ class TablePlan(Struct, frozen=True):
         )
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
+        # ONE mint per node, threaded to the receipt AND into `build`: `_seed` hashes the WHOLE frame
+        # (`hash_rows` over every row) and `_key` opens a `content.derive` span, so an unthreaded key pays both
+        # three times — once here, once at the receipt, and once more inside the render itself for the table id.
+        key = self._key
+        return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _seed(self) -> tuple[bytes, ...]:
-        framed = lambda chunk: len(chunk).to_bytes(8, "little") + chunk
         knobs = _CANON.encode((
             self.fmt.value,
             self.theme,
@@ -821,28 +824,33 @@ class TablePlan(Struct, frozen=True):
             self.tbl_pos,
             self.pdf_scale,
         ))
+        # RAW semantic fields — the framing is `IdentitySource.parts`' own, never re-spelled here.
         return (
-            framed(_sealed(tuple(self.frame.schema.items()))),
-            framed(self.frame.hash_rows(seed=0).to_numpy().tobytes()),
-            *(framed(_sealed(op)) for op in self.shape),
-            *(framed(_sealed(op)) for op in self.ops),
-            framed(knobs),
+            _sealed(tuple(self.frame.schema.items())),
+            self.frame.hash_rows(seed=0).to_numpy().tobytes(),
+            *(_sealed(op) for op in self.shape),
+            *(_sealed(op) for op in self.ops),
+            knobs,
         )
 
     @property
     def _key(self) -> ContentKey:
-        return ContentIdentity.key(f"table-{self.fmt}", self._seed)
+        # `parts`, never a bare tuple: an `Iterable[bytes]` lifts to `stream`, which concatenates chunk bytes with no
+        # delimiter — correct for buffer chunks of ONE payload, wrong for N semantic fields whose boundary IS meaning.
+        return ContentIdentity.key(f"table-{self.fmt}", IdentitySource(parts=self._seed))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        return (await self.lane.offload(Kernel.of(self._railed, KernelTrait.RELEASING))).bind(lambda inner: inner)
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        return (await self.lane.offload(Kernel.of(partial(self._railed, key), KernelTrait.RELEASING))).bind(lambda inner: inner)
 
-    def _railed(self) -> RuntimeRail[ArtifactReceipt]:
+    def _railed(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         # WebDriverException's tree joins the catch set only on the gated PDF arm, so the lazy selenium import stays cold elsewhere
-        return boundary(f"table.{self.fmt}", self._rendered, catch=(*_FAULTS, WebDriverException) if self.fmt is TableFormat.PDF else _FAULTS)
+        return boundary(
+            f"table.{self.fmt}", partial(self._rendered, key), catch=(*_FAULTS, WebDriverException) if self.fmt is TableFormat.PDF else _FAULTS
+        )
 
-    def _rendered(self) -> ArtifactReceipt:
-        data = self.build()
-        return ArtifactReceipt.Table(self._key, self.fmt.value, len(data))
+    def _rendered(self, key: ContentKey, /) -> ArtifactReceipt:
+        data = self.build(key)
+        return ArtifactReceipt.Table(key, self.fmt.value, len(data))
 
     @property
     def _seam(self) -> bool:
@@ -853,10 +861,12 @@ class TablePlan(Struct, frozen=True):
         # great-tables' group resolver faults on a polars frame (IndexError), so a group-scoped summary forces the pandas bridge.
         return any(op.tag == "summary" for op in self.ops)
 
-    def build(self) -> bytes:
+    def build(self, key: ContentKey | None = None, /) -> bytes:
+        # the node path threads its already-minted key; a standalone caller passes none and pays the one derivation
+        # here rather than re-hashing the frame a second time inside a render the plan already keyed.
         with pl.Config(**self.config):
             shaped = reduce(_shape, self.shape, self.frame)
-            ident = self.table_id if self.table_id is not None else f"gt{self._key.value:032x}"
+            ident = self.table_id if self.table_id is not None else f"gt{(key if key is not None else self._key).value:032x}"
             base = (
                 GT(
                     shaped.to_pandas(),
@@ -963,6 +973,16 @@ VALS_TABLE: frozendict[FmtKind, Callable[[pl.Series, frozendict[str, object]], l
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _framed(chunk: bytes, /) -> bytes:
+    # `_sealed`'s OWN recursive byte framing, not the preimage framing `IdentitySource.parts` owns: `_sealed`
+    # returns BYTES a parent case concatenates into a larger canonical projection, where `parts` folds a field
+    # tuple straight to a digest. Two different concerns that happen to share an expression — the key preimage
+    # rides `parts` at the one owner, and this stays the nested-projection delimiter.
+    return len(chunk).to_bytes(8, "little") + chunk
+
+
 def _global_facet(target: object) -> object:
     # one-hop projection of a referenced module global: a module pins by name, a callable by its own code identity
     # (cycle-free — mutual recursion never re-enters `_sealed`), and plain data seals whole.
@@ -988,11 +1008,9 @@ def _sealed(value: object) -> bytes:
             fields = (value.plot_type, value.plot_height, value.missing_vals, value.autoscale, value.reference_line)
             return b"nanospec:" + _sealed((*fields, value.reference_area, value.expand_x, value.expand_y, value.options))
         case tuple() | list():
-            return b"seq:" + b"".join(len(part := _sealed(item)).to_bytes(8, "little") + part for item in value)
+            return b"seq:" + b"".join(_framed(_sealed(item)) for item in value)
         case dict() | frozendict():
-            return b"map:" + b"".join(
-                len(part := _sealed((key, value[key]))).to_bytes(8, "little") + part for key in sorted(value, key=repr)
-            )
+            return b"map:" + b"".join(_framed(_sealed((key, value[key]))) for key in sorted(value, key=repr))
         case _ if callable(value):
             # content identity must determine the table bytes: code + defaults + closure + bound-instance state +
             # the one-hop facet of every referenced module global. A C callable carries no code but is runtime-

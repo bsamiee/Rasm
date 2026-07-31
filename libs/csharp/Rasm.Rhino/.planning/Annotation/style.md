@@ -7,7 +7,7 @@ Document spine component address `ResourceRef` resolves every Annotation table t
 ## [01]-[INDEX]
 
 - [02]-[ADDRESS_AND_VOCAB]: the `TableGrip<T>` revision law over the Document-owned `ResourceRef`/`ResourceLens<T>` address, plus explicit-value length-display rows.
-- [03]-[FIELD_SCHEMA]: `StyleAxis`, `StyleValue`, exact-family `StyleField` rows, and the `StylePatch` fold.
+- [03]-[FIELD_SCHEMA]: `StyleAxis`, `StyleValue`, exact-family `StyleField` rows with flags-aware pick admission, and the `StylePatch` fold that re-derives an override child from its construction parent.
 - [04]-[STYLE_RAIL]: `StyleOp`, `DraftPlan<StyleOp>`, and the `Styles.Commit` entry over the shared spine.
 - [05]-[ASK_FAMILY]: `StyleAsk`/`StyleAnswer` — snapshot, built-in census, swatch lease, and name minting.
 - [06]-[SPINE_AND_RECEIPTS]: `DraftSpine`, `DraftSlot`, `DraftBody`, and the `DraftReceipt` monoid shared by every Annotation rail.
@@ -18,13 +18,16 @@ Document spine component address `ResourceRef` resolves every Annotation table t
 - Owner: `TableGrip<TComponent>` extends the Document spine's `ResourceRef`/`ResourceLens<TComponent>` component address (tables.md) with the table's index, duplicate, and modify rows and owns the one duplicate-then-`Modify` revision law every component table walks; the address family, its `ResourceId`/`ResourceName`/`ResourceIndex` scalars, and the sentinel projectors live on the Document spine, never re-declared here.
 - Law: each Annotation table contributes one `ResourceLens<T>` row — style, linetype, hatch, and section each declare exactly one — and no rail mints a second address family.
 - Law: the kernel `Op.AcceptValidated` receiver rows are the one host-enum admission bridge — every `[SmartEnum]` keyed on a host value admits through its generated `Validate` via the owning raw-shape row, so no vocabulary mints a private `Of`/`TryGet` wrapper and no folder carries a local bridge.
-- Law: `ColorBoundary` owns the `PerceptualColor`↔`System.Drawing.Color` round trip; `TagBag` owns preflighted replacement, owner-derived snapshots, and compensating replay over the per-table user-string method groups; `TargetResolution.Only<TNative>` owns exactly-one object resolution with the typed cast probe.
+- Law: `DraftCustody` is the namespace's ONE native-release fold — `Release` accumulates every disposer fault and `Failed` folds a primary fault with its cleanup — so no rail declares a second copy and every mint-then-write path in Annotation releases through it.
+- Law: `TableGrip.Revised` releases its duplicate on all three paths — revise refusal, `Modify` refusal, and success — because `Modify` copies settings into the table row and leaves the duplicate the caller's; the released-on-refusal-only shape leaks one native per successful amendment.
+- Law: `ColorBoundary` owns the `PerceptualColor`↔`System.Drawing.Color` round trip; `TagSurface` binds one tagged component's three re-published user-string members and `TagBag` owns preflighted replacement and compensating replay over it — the host keeps that surface `internal` on `CommonObject`, so the seam is the argument and never a reflected delegate receiver; `TargetResolution.Only<TNative>` owns exactly-one object resolution with the typed cast probe.
 - Law: `LengthDisplayRow` keys each host value explicitly, including the host spelling `Millmeters`.
 - Boundary: resolution reads live per call inside the owning operation — tables mutate under commands, so no resolved component is cached on a value.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Specialized;
+using System.Globalization;
 using Rasm.Domain;
 using Rhino;
 using Rhino.DocObjects;
@@ -35,19 +38,36 @@ using Rasm.Rhino.Document;
 namespace Rasm.Rhino.Annotation;
 
 // --- [TYPES] --------------------------------------------------------------------------------
+public static class DraftCustody {
+    internal static Fin<Unit> Release<T>(Seq<T> values, Op op) where T : class, IDisposable =>
+        values.Traverse(value => op.Catch(() => Fin.Succ(value: Op.Side(value.Dispose))).ToValidation())
+            .As().ToFin().Map(static _ => unit);
+
+    internal static Fin<TValue> Failed<TValue, TResource>(Error primary, Seq<TResource> values, Op op)
+        where TResource : class, IDisposable =>
+        Release(values: values, op: op).Match(
+            Succ: _ => Fin.Fail<TValue>(error: primary),
+            Fail: cleanup => Fin.Fail<TValue>(error: primary + cleanup));
+}
+
 public sealed record TableGrip<TComponent>(
     ResourceLens<TComponent> Lens,
     DraftComponentKind Kind,
     Func<RhinoDoc, TComponent, int> Index,
     Func<TComponent, TComponent> Duplicate,
-    Func<RhinoDoc, TComponent, int, bool, bool> Modify) where TComponent : class {
+    Func<RhinoDoc, TComponent, int, bool, bool> Modify) where TComponent : class, IDisposable {
+    // `Modify` copies the duplicate's settings into the table row and leaves the native this rail's own, so success
+    // releases it exactly as both refusal legs do.
     internal Fin<DraftReceipt> Revised(
         ResourceRef target, RhinoDoc document, DraftSlot slot, WriteMode mode, Op op, Func<TComponent, Op, Fin<Unit>> revise) =>
         from live in target.Resolve(document: document, lens: Lens, key: op)
         let index = Index(document, live)
         from copy in op.Catch(() => Fin.Succ(value: Duplicate(live)))
         from _ in revise(copy, op)
+            .BindFail(primary => DraftCustody.Failed<Unit, TComponent>(primary: primary, values: Seq(copy), op: op))
         from __ in op.Confirm(success: Modify(document, copy, index, mode.QuietWrite))
+            .BindFail(primary => DraftCustody.Failed<Unit, TComponent>(primary: primary, values: Seq(copy), op: op))
+        from ___ in DraftCustody.Release(values: Seq(copy), op: op)
         from receipt in DraftReceipt.Component(slot: slot, componentKind: Kind, index: ResourceIndex.Create(index))
         select receipt;
 }
@@ -66,18 +86,26 @@ public static class ColorBoundary {
     }
 }
 
+// `CommonObject` keeps the user-string surface `internal` and every tagged component re-publishes it, so no base
+// member and no interface spans the family. `TagSurface` is that missing seam: the OWNER binds its own three
+// members once at the call site, and the snapshot reader is an argument rather than a reflected delegate `Target`
+// — a static method group has a null `Target`, and a type-test roster silently strands a fourth tagged component.
+public readonly record struct TagSurface(
+    Func<NameValueCollection> Read,
+    Func<string, string, bool> Set,
+    Action Clear);
+
 public static class TagBag {
-    internal static Fin<Unit> Apply(HashMap<string, string> tags, Func<string, string, bool> set, Action clear, Op key) =>
+    internal static Fin<Unit> Apply(HashMap<string, string> tags, TagSurface owner, Op key) =>
         from admitted in toSeq(tags).TraverseM(pair =>
             from name in key.AcceptText(value: pair.Key)
             from value in key.AcceptText(value: pair.Value)
             select (Name: name, Value: value)).As()
-        from original in Snapshot(set: set, key: key)
-        from _ in Replay(tags: admitted, set: set, clear: clear, key: key).BindFail(primary =>
+        from original in key.Catch(() => Fin.Succ(value: Read(owner.Read())))
+        from _ in Replay(tags: admitted, owner: owner, key: key).BindFail(primary =>
             Replay(
                 tags: toSeq(original).Map(static pair => (Name: pair.Key, Value: pair.Value)),
-                set: set,
-                clear: clear,
+                owner: owner,
                 key: key).Match(
                     Succ: _ => Fin.Fail<Unit>(error: primary),
                     Fail: rollback => Fin.Fail<Unit>(error: primary + rollback)))
@@ -88,20 +116,9 @@ public static class TagBag {
             .Choose(name => Optional(name).Bind(tag => Optional(native[tag]).Map(value => (Key: tag, Value: value))))
             .Fold(HashMap<string, string>(), static (state, pair) => state.AddOrUpdate(key: pair.Key, value: pair.Value));
 
-    private static Fin<HashMap<string, string>> Snapshot(Func<string, string, bool> set, Op key) => set.Target switch {
-        DimensionStyle style => key.Catch(() => Fin.Succ(value: Read(style.GetUserStrings()))),
-        HatchPattern pattern => key.Catch(() => Fin.Succ(value: Read(pattern.GetUserStrings()))),
-        Linetype linetype => key.Catch(() => Fin.Succ(value: Read(linetype.GetUserStrings()))),
-        _ => Fin.Fail<HashMap<string, string>>(error: key.MissingContext()),
-    };
-
-    private static Fin<Unit> Replay(
-        Seq<(string Name, string Value)> tags,
-        Func<string, string, bool> set,
-        Action clear,
-        Op key) =>
-        from _ in key.Catch(clear)
-        from __ in tags.Traverse(pair => key.Confirm(success: set(pair.Name, pair.Value)).ToValidation()).As().ToFin()
+    private static Fin<Unit> Replay(Seq<(string Name, string Value)> tags, TagSurface owner, Op key) =>
+        from _ in key.Catch(owner.Clear)
+        from __ in tags.Traverse(pair => key.Confirm(success: owner.Set(pair.Name, pair.Value)).ToValidation()).As().ToFin()
         select unit;
 }
 
@@ -137,10 +154,10 @@ public sealed partial class LengthDisplayRow {
 
 ## [03]-[FIELD_SCHEMA]
 
-- Owner: `StyleField` is the keyed schema; each row carries its axis plus exact read, admission, and write delegates, while `StyleEdit` is the sole admitted field/payload pair.
+- Owner: `StyleField` is the keyed schema; each row carries its axis with exact read, admission, and write delegates, while `StyleEdit` is the sole admitted field/payload pair.
 - Law: enum payloads carry their CLR enum family beside the value; each `Pick<TEnum>` row accepts only its exact family and a declared member before any host cast.
 - Law: `StylePatch` applies pre-admitted edits in order, stops on the first refused host write, and mints annotation overrides through `Overlay`.
-- Law: color/plot-source `Field` cases from `ExtLineColorSource` through `DimLinePlotWeight_mm`, plus `MaskFlags`, `SignedOrdinate`, and `UnitSystem`, carry no CLR property on `DimensionStyle`; `Name` and `Index` cannot inherit from a parent. `StyleField` excludes every non-property case, and the override census reports schema rows alone.
+- Law: color/plot-source `Field` cases from `ExtLineColorSource` through `DimLinePlotWeight_mm`, with `MaskFlags`, `SignedOrdinate`, and `UnitSystem`, carry no CLR property on `DimensionStyle`; `Name` and `Index` cannot inherit from a parent. `StyleField` excludes every non-property case, and the override census reports schema rows alone.
 - Law: each host setter marks its own override field, while `MaskOffset` binds `Field.MaskBorder`.
 - Law: `Field.LeaderContentAngle` is a shared slot — `LeaderContentAngleType` reads it as `GetInt` and `LeaderTextRotationRadians`/`LeaderTextRotationDegrees` as `GetDouble`, while `Field.LeaderContentAngleStyle` binds no accessor — so the schema carries exactly one row for the field, the angle-style enum, and the rotation double stays off-schema; a second row keyed on the same field value is a duplicate-key fault at vocabulary materialization.
 - Law: `ToleranceZeroSuppress` is an inert host stub — its getter returns the constant `ZeroSuppression.None`, its setter body is empty, and no `Field` case backs it — so the tolerance axis excludes it and no patch can claim tolerance zero suppression.
@@ -308,8 +325,21 @@ public sealed partial class StyleField {
         Of(field, axis, get, set,
             static (value, _) => Fin.Succ<StyleValue>(value: StyleValue.Of(value)),
             static value => (TEnum)((StyleValue.Choice)value).Value,
-            static value => value is StyleValue.Choice { Value: TEnum member }
-                && Enum.IsDefined(member));
+            static value => value is StyleValue.Choice { Value: TEnum member } && Admits(member));
+
+    // `DimensionStyle.ZeroSuppression` and every other `[Flags]` host row admit composites `Enum.IsDefined` refuses,
+    // so the gate runs a mask-subset test on flag-typed rows and stays exact-membership on the closed ones.
+    private static bool Admits<TEnum>(TEnum member) where TEnum : struct, Enum =>
+        typeof(TEnum).IsDefined(typeof(FlagsAttribute), inherit: false)
+            ? Enum.GetValues<TEnum>().Aggregate(default(TEnum), Or) is var mask
+                && (ToBits(member) & ~ToBits(mask)) is 0UL
+            : Enum.IsDefined(member);
+
+    private static TEnum Or<TEnum>(TEnum left, TEnum right) where TEnum : struct, Enum =>
+        (TEnum)Enum.ToObject(typeof(TEnum), ToBits(left) | ToBits(right));
+
+    private static ulong ToBits<TEnum>(TEnum member) where TEnum : struct, Enum =>
+        Convert.ToUInt64(member, CultureInfo.InvariantCulture);
 
     private static StyleField Flag(DimensionStyle.Field field, StyleAxis axis, Func<DimensionStyle, bool> get, Action<DimensionStyle, bool> set) =>
         Of(field, axis, get, set,
@@ -402,17 +432,19 @@ public sealed record StylePatch {
                select new StylePatch(edits: admitted);
     }
 
-    public Seq<StyleField> Marked => Edits.Map(static edit => edit.Field).Distinct();
-
     internal Fin<Unit> Apply(DimensionStyle style, Op key) =>
         Edits.TraverseM(edit => key.Catch(() => edit.Field.Write(style: style, value: edit.Value))).As().Map(static _ => unit);
 
+    // `DimensionStyle` is the EFFECTIVE style — already carrying any prior override — so seeding the child from it
+    // compounds each successive `Restyle`; the construction base is `ParentDimensionStyle`, which re-derives clean.
     internal Fin<DimensionStyle> Overlay(AnnotationBase annotation, Op key) =>
-        from effective in Optional(annotation.DimensionStyle).ToFin(Fail: key.MissingContext())
-        from child in key.Catch(() => Fin.Succ(value: effective.Duplicate(
+        from parent in Optional(annotation.ParentDimensionStyle).ToFin(Fail: key.MissingContext())
+        from child in key.Catch(() => Fin.Succ(value: parent.Duplicate(
             newName: string.Empty, newId: Guid.Empty, newParentId: annotation.DimensionStyleId)))
         from _ in Apply(style: child, key: key)
+            .BindFail(primary => DraftCustody.Failed<Unit, DimensionStyle>(primary: primary, values: Seq(child), op: key))
         from attached in key.Confirm(success: annotation.SetOverrideDimStyle(overrideStyle: child))
+            .BindFail(primary => DraftCustody.Failed<Unit, DimensionStyle>(primary: primary, values: Seq(child), op: key))
         select child;
 }
 ```
@@ -421,7 +453,7 @@ public sealed record StylePatch {
 
 - Owner: `StyleOp` `[Union]` — the mutation verbs over the `DimStyleTable`: authoring, patch amendment, whole-setting copy, override clearing, reverse absorption, reparenting, current selection, deletion, length scaling, the paper/model scale faces, and the user-string bag; `DraftPlan<StyleOp>` — the admitted commit plan; `Styles` — the `Commit`/`Ask` entry pair.
 - Law: an amendment never mutates the resolved live component — every write duplicates it, applies its change to the copy, and lands through `DimStyleTable.Modify` by index inside the shared undo bracket.
-- Law: `Author` refuses an existing name, shapes the detached style completely, and performs one terminal `Add`; a parent payload makes the authored style a child whose patch-marked fields alone override the parent through `ParentId`.
+- Law: `Author` refuses an existing name, shapes the detached style, and performs one terminal `Add`; a parent payload makes the authored style a child whose patch-marked fields alone override the parent through `ParentId`.
 - Law: `DraftPlan<TOp>.Of` admits its mode and every operation before the shared commit spine can enter a document grant.
 - Law: `Absorb` is the one reverse projection — `DimStyleTable.Modify(style, annotation)` folds a live annotation's per-instance overrides back onto the style, its `ModifyType` outcome inspected before the write counts: `Modify` and `Override` land as receipt facts, `NotSaved` is a typed refusal.
 - Law: `Copy` projects every source setting through `DimensionStyle.CopyFrom` while preserving the target name, id, and index; `StyleTagEdit` closes set, delete, and clear under one mutation case without a sentinel key.
@@ -490,11 +522,14 @@ public abstract partial record StyleOp {
             author: static (context, edit) =>
                 from _ in guard(context.Document.DimStyles.FindName(name: edit.Name.Value) is null, context.Op.InvalidInput()).ToFin()
                 from shaped in context.Op.Catch(() => Fin.Succ(value: new DimensionStyle { Name = edit.Name.Value }))
-                from __ in edit.Parent.Traverse(parent => context.Op.Catch(() => shaped.ParentId = parent.Value)).As()
-                from ___ in edit.Patch.Apply(style: shaped, key: context.Op)
-                from index in context.Op.Catch(() => ResourceIndex.Admit(
-                    context.Document.DimStyles.Add(dimstyle: shaped, reference: false), context.Op))
-                from receipt in DraftReceipt.Component(slot: DraftSlot.Authored, componentKind: DraftComponentKind.Style, index: index)
+                from receipt in new Lease<DimensionStyle>.Owned(Value: shaped).Use(owned =>
+                    from __ in edit.Parent.Traverse(parent => context.Op.Catch(() => owned.ParentId = parent.Value)).As()
+                    from ___ in edit.Patch.Apply(style: owned, key: context.Op)
+                    from index in context.Op.Catch(() => ResourceIndex.Admit(
+                        context.Document.DimStyles.Add(dimstyle: owned, reference: false), context.Op))
+                    from authored in DraftReceipt.Component(
+                        slot: DraftSlot.Authored, componentKind: DraftComponentKind.Style, index: index)
+                    select authored)
                 select receipt,
             amend: static (context, edit) =>
                 Grip.Revised(target: edit.Target, document: context.Document, slot: DraftSlot.Amended, mode: edit.Mode, op: context.Op,
@@ -605,6 +640,7 @@ public static class Styles {
 - Owner: `StyleAsk` `[Union]` — the catalog-backed read requests: whole-state snapshot, built-in-style census, swatch render, and default-or-rooted name minting; `StyleAnswer` `[Union]` — one typed result case per request; `StyleSetting` — one `(field, value)` read fact; `StyleTag` — one admitted user-string fact; `StyleSnapshot` — the one-pass definition read: identity, parentage, override census over schema rows, config projection, current-selection state, rendered length units, and user strings.
 - Law: the snapshot's config projection is the schema fold — every verified `StyleField` row's `Read` delegate answers one `StyleSetting`, so a consumer never re-reads those host properties.
 - Law: the swatch crosses as an owned lease — `CreatePreviewBitmap` acquires a native bitmap, the answer wraps it in `Lease<Bitmap>.Owned`, and the caller's disposal is the only release; a bare bitmap field is the deleted form.
+- Boundary: `CreatePreviewBitmap` renders through the host and reaches this page only inside `Styles.Ask`'s `DocumentSession.Demand`, which resolves every body on the command thread — so the preview needs no second crossing and none is spelled, exactly as the block-preview rail is bound. A preview reached outside a demand has no affinity at all, and this page publishes no such route.
 - Law: `PreviewBudget` bounds each dimension and their overflow-safe pixel product before bitmap allocation.
 - Law: the override census reads `IsFieldOverriden` (host single-`d` spelling) per schema row; `HasFieldOverrides` answers presence before the per-row sweep so an unoverridden style costs one probe.
 
@@ -729,8 +765,8 @@ public sealed record StyleSnapshot(
     int TagCount,
     bool Current,
     double ScaleValue,
-    UnitSystem LengthUnit,
-    UnitSystem AlternateLengthUnit) : IDetachedDocumentResult {
+    ModelUnit LengthUnit,
+    ModelUnit AlternateLengthUnit) : IDetachedDocumentResult {
     public static Fin<StyleSnapshot> Of(DimensionStyle style, RhinoDoc document, Op key) =>
         from active in Optional(style).ToFin(Fail: key.InvalidInput())
         from settings in toSeq(StyleField.Items)
@@ -739,6 +775,10 @@ public sealed record StyleSnapshot(
             .As()
         from root in key.Catch(() => Optional(document.DimStyles.FindRoot(styleId: active.Id, ignoreDeleted: true))
             .ToFin(Fail: key.InvalidResult()))
+        from lengthUnit in ModelUnit.Of(
+            value: active.DimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber), key: key)
+        from alternateLengthUnit in ModelUnit.Of(
+            value: active.AlternateDimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber), key: key)
         from snapshot in key.Catch(() => Fin.Succ(value: new StyleSnapshot(
             Key: ResourceId.Create(active.Id),
             Index: ResourceIndex.Create(active.Index),
@@ -756,8 +796,8 @@ public sealed record StyleSnapshot(
             TagCount: active.UserStringCount,
             Current: document.DimStyles.CurrentId == active.Id,
             ScaleValue: active.DimensionScaleValue,
-            LengthUnit: active.DimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber),
-            AlternateLengthUnit: active.AlternateDimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber))))
+            LengthUnit: lengthUnit,
+            AlternateLengthUnit: alternateLengthUnit)))
         select snapshot;
 }
 ```

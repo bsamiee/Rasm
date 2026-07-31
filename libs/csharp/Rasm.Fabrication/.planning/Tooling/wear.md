@@ -582,7 +582,7 @@ public static class ToolWear {
 
     private static Fin<WearReceipt> Assess(WearAssessment request) =>
         from applicability in request.Registry.For(request.Process)
-            .ToFin(FabricationFault.WearEstimateUnfit(request.Assembly.Tool, request.Samples.Count))
+            .ToFin(new FabricationFault.WearEstimateUnfit(request.Assembly.Tool, request.Samples.Count))
         from _ in InputFits(applicability, request)
         from toolStates in ToolStates(applicability, request)
         from consumableStates in ConsumableStates(applicability, request)
@@ -590,10 +590,10 @@ public static class ToolWear {
         let critical = Critical(states)
         let action = critical.Map(row => Action(row, request, consumableStates))
             .IfNone(() => states.Choose(static state => state is WearState.Status row ? Some(row) : None)
-                .HeadOrNone().Map<MaintenanceAction>(static row => new MaintenanceAction.Monitor(row))
+                .Head.Map<MaintenanceAction>(static row => new MaintenanceAction.Monitor(row))
                 .IfNone(() => new MaintenanceAction.NotApplicable(request.Process,
                     states.Choose(static state => state is WearState.Unconsumed row ? Some(row.Reason) : None)
-                        .HeadOrNone().IfNone("no-terminal-consumption"))))
+                        .Head.IfNone("no-terminal-consumption"))))
         from life in Project(states, request.Policy, request.AssessedAt)
         select new WearReceipt(states, consumableStates.Choose(static row => row.Row), critical, action,
             toolStates.Choose(static state => state is WearState.Tool tool && tool.Evidence is WearEvidence.Measured measured
@@ -621,7 +621,7 @@ public static class ToolWear {
                 .Map(criterion => (Target: target, Criterion: criterion))).ToSeq();
         return targets.IsEmpty || criteria.Exists(criterion => !targets.Exists(Scope(criterion).Admits))
             || targets.Exists(target => !criteria.Exists(criterion => Scope(criterion).Admits(target)))
-            ? Fin.Fail<Seq<WearState>>(FabricationFault.WearEstimateUnfit(request.Assembly.Tool, 0))
+            ? Fin.Fail<Seq<WearState>>(new FabricationFault.WearEstimateUnfit(request.Assembly.Tool, 0))
             : pairs.Traverse(pair => Forecast(pair.Target, pair.Criterion, request)).As();
     }
 
@@ -629,11 +629,11 @@ public static class ToolWear {
         threshold: static row => row.Scope, terminalStatus: static row => row.Scope);
 
     private static Fin<WearState> Forecast(ToolTarget target, WearCriterion criterion, WearAssessment request) {
-        Seq<WearSample> samples = request.Samples.Filter(sample => sample.Target == target)
-            .OrderBy(static sample => sample.At).ToSeq();
+        Seq<WearSample> samples = toSeq(request.Samples.Filter(sample => sample.Target == target)
+            .OrderBy(static sample => sample.At));
         if (samples.Count < request.Policy.MinimumSamples && criterion is not WearCriterion.TerminalStatus)
             return request.Taylor.Filter(condition => condition.Target == target)
-                .ToFin(FabricationFault.WearEstimateUnfit(request.Assembly.Tool, samples.Count))
+                .ToFin(new FabricationFault.WearEstimateUnfit(request.Assembly.Tool, samples.Count))
                 .Bind(condition => TaylorForecast(target, criterion, condition, request.Policy));
         return criterion.Switch(
             state: (target, request, samples),
@@ -696,7 +696,7 @@ public static class ToolWear {
         Seq<WearSample> samples, WearAssessment request) =>
         samples.Bind(static sample => sample.Signals)
             .Choose(static signal => signal is ConditionSignal.Status row ? Some(row) : None).Last
-            .ToFin(FabricationFault.WearEstimateUnfit(request.Assembly.Tool, samples.Count))
+            .ToFin(new FabricationFault.WearEstimateUnfit(request.Assembly.Tool, samples.Count))
             .Map(row => (WearState)new WearState.Status(target, row.States,
                 row.States.Exists(criterion.States.Contains), new WearEvidence.Terminal(row.States, request.AssessedAt)));
 
@@ -718,7 +718,7 @@ public static class ToolWear {
 
     private static Fin<ConsumableAssessment> Consumable(ConsumableSpec spec, WearAssessment request) =>
         from reading in request.Consumables.Find(row => row.Key == spec.Key && row.Basis == spec.Basis)
-            .ToFin(FabricationFault.WearEstimateUnfit(request.Assembly.Tool, request.Consumables.Count))
+            .ToFin(new FabricationFault.WearEstimateUnfit(request.Assembly.Tool, request.Consumables.Count))
         let remaining = Math.Max(0.0, spec.Limit - reading.Used)
         let forecast = ForecastBand.Of(reading.Used, spec.Warning, spec.Limit, remaining, 0.0,
             request.Policy.ConfidenceMultiplier, spec.Basis,
@@ -733,7 +733,7 @@ public static class ToolWear {
         WearChannel channel, ToolLifeBasis basis, Seq<WearSample> samples) =>
         samples.Choose(sample => sample.Exposure.Find(basis).Bind(exposure =>
                 sample.Signals.Choose(signal => channel.Project(signal).Map(value => (exposure, value, sample.At)))
-                    .HeadOrNone())).ToSeq()
+                    .Head)).ToSeq()
             is { IsEmpty: false } values
             ? Fin.Succ(values)
             : Fin.Fail<Seq<(double Exposure, double Value, Instant At)>>(
@@ -786,7 +786,7 @@ public static class ToolWear {
             Phase(limit <= 0.0 ? 0.0 : fit.LastValue / limit, Some(fit.Curvature), policy));
     }
 
-    private static Option<CriticalWear> Critical(Seq<WearState> states) => states.Choose(static state => state switch {
+    private static Option<CriticalWear> Critical(Seq<WearState> states) => toSeq(states.Choose(static state => state switch {
         WearState.Tool row => Some(new CriticalWear(row, row.Remaining.Basis, row.Remaining.Conservative,
             row.Remaining.LimitAt <= 0.0 ? 0.0
                 : Math.Clamp(row.Remaining.Conservative / row.Remaining.LimitAt, 0.0, 1.0))),
@@ -795,7 +795,7 @@ public static class ToolWear {
                 : Math.Clamp(row.Remaining.Conservative / row.Remaining.LimitAt, 0.0, 1.0))),
         WearState.Status row when row.Terminal => Some(new CriticalWear(row, ToolLifeBasis.Wear, 0.0, 0.0)),
         _ => None
-    }).OrderBy(static row => row.FractionRemaining).HeadOrNone();
+    }).OrderBy(static row => row.FractionRemaining)).Head;
 
     private static MaintenanceAction Action(CriticalWear critical, WearAssessment request,
         Seq<ConsumableAssessment> consumables) =>

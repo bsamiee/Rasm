@@ -13,7 +13,7 @@ Wire visuals for the Grasshopper boundary fold through one owner set — route g
 ## [02]-[ROUTES]
 
 - Owner: `WireRoute` `readonly record struct` `[BoundaryAdapter]` — the admitted route capsule holding one host `WireShape`. Admission is ONE polymorphic `Of` discriminating on input shape: an endpoint pair (`PointF`, `PointF`) routes raw points, and a pin-attribute pair (`IParameterAttributes`, `IParameterAttributes`) routes outlet-to-inlet — the host `Create` throws on a source without an outlet or a target without an inlet, so both arms run under `Op.Catch` and a refused pin surfaces as the typed fault. Capsule queries are the full geometry contract renamed to canonical verbs: `Nearest(PointF)` (`Project` — closest point on the route), `Gap(PointF)` (`DistanceTo`), `Crosses(RectangleF)` (`Intersects`), `Touches(PointF, float)` (`IsCoincident`), `Extent` (`Bounds`), and `Endpoints` (`Source`/`Target`).
-- Owner: `RouteStyle` — the custom-route seam over `WireShape.ShapeType`. `Install(Type, Op?)` admits one closed, concrete `WireShape` subtype with a public two-`PointF` constructor before assignment; this precludes abstract, open-generic, and constructor-late failures before the host reaches `Activator.CreateInstance`. `Reset` clears the slot and restores `WireShapeDefault`; `Current` reads the installed type as `Option<Type>`. `WireShapeDefault` is the public cubic-spline fallback and `CreateSpline(PointF, PointF)` mints its `BezierF`; the internal linear and biarc implementations are not extension surfaces. An elbow, orthogonal, or bundled route is a public plugin-owned `WireShape` subclass installed through this seam.
+- Owner: `RouteStyle` — the custom-route seam over `WireShape.ShapeType`. `Install(Type, Op?)` admits one closed, concrete `WireShape` subtype with a public two-`PointF` constructor before assignment; this precludes abstract, open-generic, and constructor-late failures before the host reaches `Activator.CreateInstance`. `Reset` clears the slot and restores `WireShapeDefault`; `Current` reads the installed type as `Option<Type>`. `WireShapeDefault` is the public cubic-spline fallback and `CreateSpline(PointF, PointF)` mints its `BezierF`; the internal linear and biarc implementations are not extension surfaces. Every elbow, orthogonal, or bundled route lands as a public plugin-owned `WireShape` subclass installed through this seam.
 - Owner: `Traced` — the route-set producer: `Traced.Of(Seq<(WireEnds Ends, IParameterAttributes Source, IParameterAttributes Target)> pins, Op key)` folds pin rows into `TracedRoutes` through the attribute admission arm — every routed pin lands in `Routes`, every refused pin lands in `Refused` as typed evidence beside its `WireEnds`, so a single detached pin never voids the pass: the draw fold strokes what routed and a diagnostics consumer folds what refused. Pin resolution — `Guid` to `IParameterAttributes` — is graph territory; the rows arrive resolved.
 - Law: a route is rebuilt when its endpoints move, never cached across layout — construction is two points and a spline mint, and the host repaints wires per frame anyway;
 - Boundary: wire creation, deletion, endpoint rewiring, and the split into `Shout`/`Listen` are `Document/graph.md`'s `GraphScope.Mutate`; the straighten NUDGE candidate (`SnappingAction.CreateStraightenWireAction`) is `Canvas/layout.md`'s row; this page owns route geometry and its rendering only.
@@ -89,7 +89,7 @@ public static class Traced {
 
 ## [03]-[PICKING]
 
-- Owner: `WirePick` — the two pick modalities over public host contracts. `At(PointF, Op?)` submits `CanvasQuery.PickCase(at, PickGates.WiresOnly)` to `CanvasOperator.Read`, admits only `CanvasProjection.PickCase`, and totally projects its `PickHit`: wire becomes `Some(WireEnds)`, every known non-wire case becomes `None`, and any non-pick projection is a typed invalid-result fault. An unknown future host `Pick` never degrades to `None`: `Canvas/canvas.md`'s `PickHit.Of` fails before a projection exists. `Windowed(WindowSelection, Seq<(WireEnds, WireRoute)>, float)` folds the host `WindowSelection.Selects(WireShape, float)` overload, retaining the host's crossing-versus-containing law.
+- Owner: `WirePick` — the two pick modalities over public host contracts. `At(PointF, Op?)` submits `CanvasQuery.PickCase(at, PickGates.Wiring, None)` to `CanvasOperator.Read`; wire picking carries no drag grain, so its receipt reports none, admits only `CanvasProjection.PickCase`, and totally projects its `PickHit`: wire becomes `Some(WireEnds)`, every known non-wire case becomes `None`, and any non-pick projection is a typed invalid-result fault. Any unknown future host `Pick` refuses rather than degrading to `None`: `Canvas/canvas.md`'s `PickHit.Of` fails before a projection exists. `Windowed(WindowSelection, Seq<(WireEnds, WireRoute)>, float)` folds the host `WindowSelection.Selects(WireShape, float)` overload, retaining the host's crossing-versus-containing law.
 - Law: pick admission is gate policy — whether wires participate in a marquee at all is `Canvas/canvas.md`'s `SelectGates`, and whether a pick verb is allowed at all is its `ActionGate` rows (`WireSelect`, `MakeWire`, `DeleteWire`, `ModifyWire`); this owner resolves geometry and never consults policy.
 - Law: hover proximity is route geometry — `route.Touches(point, tolerance)` with the caller's tolerance value; the tolerance is the consumer's policy datum, never a folder constant.
 - Packages: Grasshopper2 (`WindowSelection.Selects(WireShape, float)`/`IsCrossing`/`Box`, `SelectionResult`, `Pick`, `WireEnds`), `Canvas/canvas.md` (`CanvasOperator.Read(CanvasQuery)`, `CanvasQuery.PickCase`, `CanvasProjection.PickCase`, `PickGates`, `PickHit`), LanguageExt.Core, `Rasm.Domain`.
@@ -107,7 +107,7 @@ public static class WirePick {
     public static Fin<Option<WireEnds>> At(PointF at, Op? key = null) {
         Op op = key.OrDefault();
         return CanvasOperator.Read(
-            query: new CanvasQuery.PickCase(At: at, Gates: PickGates.WiresOnly),
+            query: new CanvasQuery.PickCase(At: at, Gates: PickGates.Wiring, Chord: None),
             key: op).Bind(projection => projection.Switch(
                 state: op,
                 pointCase: static (active, _) => Unexpected(key: active),
@@ -216,7 +216,7 @@ flowchart LR
     Trace --> Route["WireRoute over host WireShape family"]
     Plugin["custom route subclass"] -->|"Install(Type)"| Style["RouteStyle over WireShape.ShapeType"]
     Style --> Route
-    PickRequest["WirePick.At"] -->|"CanvasQuery.PickCase · WiresOnly"| CanvasPage["CanvasOperator.Read"]
+    PickRequest["WirePick.At"] -->|"CanvasQuery.PickCase · Wiring"| CanvasPage["CanvasOperator.Read"]
     CanvasPage -->|"CanvasProjection.PickCase"| PickResult["Fin&lt;Option&lt;WireEnds&gt;&gt;"]
     Marquee["WirePick.Windowed"] -->|"Selects(WireShape, fuzz)"| Host["host WindowSelection algebra"]
     Pass["WirePass.Draw"] -->|"pen pair per selection state"| SkinLens["WireSkinLens over WireSkin"]

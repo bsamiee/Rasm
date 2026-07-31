@@ -10,8 +10,8 @@ Envelope bytes are the terminal product: `sealed` lowers the checked event throu
 
 ## [02]-[NOTICE]
 
-- Owner: `TransmittalNotice` holds the checked `CloudEvent` beside its transmittal `ContentKey` and event id — `CloudEvent.create(attributes, data)` is the one admission gate, and `GenericException` converts at that seam, so a held notice is well-formed by construction and `sealed` never fails. `NoticeWire` is the frozen wire value — `headers: frozendict[str, str]`, `body: bytes` — projected from the conversion's header/body tuple, and each `NoticeBinding` member carries its own `to_structured` or `to_binary` lowering callable.
-- Law: the vocabulary is derivation, never invention — `id` mints through `uuid7().hex` (time-ordered event identity, distinct from the content key so replay identity and event identity never collide), `source` is the caller's issuing-app URI, `type` is `ArtifactHook.TRANSMITTAL_ISSUED.value`, `specversion` is `SPECVERSION_V1_0`, `subject` is the receipt `slot` hex, `time` is the aware emission instant, and `datacontenttype` is `application/json`. Extension attributes obey the spec's lowercase-alphanumeric grammar: the receipt case scalars land as `transmittalid`/`sheets`/`suitability`/`containerkey`/`validationstate`, the transmittal evidence scalars arrive as the caller's `extensions` mapping (`purpose`/`revision`/`issuedat`/`recordstate`/`padeslevel`/`lineage` from the transmittal fold), and the carrier lands by spreading `propagate.inject` output — an active trace contributes `traceparent` and optional `tracestate`, active tenant baggage contributes `baggage`, and absent context contributes no invented field; binary conversion lowers present fields to `ce-` headers and structured conversion carries them inline.
+- Owner: `TransmittalNotice` holds the checked `CloudEvent` beside its transmittal `ContentKey` and event id — `CloudEvent.create(attributes, data)` is the one admission gate, and `GenericException` converts at that seam, so a held notice is well-formed by construction and `sealed` never fails. `NoticeWire` is the frozen wire value — `headers: frozendict[str, str]`, `body: bytes` — projected from the conversion's header/body tuple with every value rendered to its canonical string: `to_binary` passes a non-string attribute (an `int` extension such as `sheets` or `lineage`) into the header map verbatim, and the HTTP binary binding admits header values as strings alone, so the render is what makes the declared `frozendict[str, str]` true on both bindings rather than a type the structured arm happens to satisfy. Each `NoticeBinding` member carries its own `to_structured` or `to_binary` lowering callable.
+- Law: the vocabulary is derivation, never invention — `id` mints through `uuid7().hex` (time-ordered event identity replacing the SDK's random default, and distinct from the content key so replay identity and event identity never collide), `source` is the caller's issuing-app URI, `type` is `ArtifactHook.TRANSMITTAL_ISSUED.value`, `specversion` is `SPECVERSION_V1_0`, `subject` is the receipt `slot` hex, and `datacontenttype` is `application/json`. `time` is the SDK's own mint: `create` stamps the absent attribute with the aware emission instant already in RFC-3339 spelling, so a key here would re-derive it, and a `datetime` OBJECT there is the deleted form — the structured lowering `json.dumps` the whole attribute map and raises `TypeError` on a live `datetime` outside the `create` seam this page fences. Extension attributes obey the spec's lowercase-alphanumeric grammar: the receipt case scalars land as `transmittalid`/`sheets`/`suitability`/`containerkey`/`validationstate`, the transmittal evidence scalars arrive as the caller's `extensions` mapping (`purpose`/`revision`/`issuedat`/`recordstate`/`padeslevel`/`lineage` from the transmittal fold), and the carrier lands by spreading `propagate.inject` output — an active trace contributes `traceparent` and optional `tracestate`, active tenant baggage contributes `baggage`, and absent context contributes no invented field; binary conversion lowers present fields to `ce-` headers and structured conversion carries them inline.
 - Law: the payload answers what the archive holds — `register` the issued-register pre-run key hex and `rows` one entry per `Register.latest()` container (`reference`, `key`, `suitability` code, `revision` render, `title`) — so an ingesting system routes on rows without the workbook; heavy material never rides the notice, because the envelope references content-keyed artifacts rather than carrying them.
 - Entry: `of(receipt, register)` is the one mint — it matches the `transmittal` receipt case, refuses any other kind through `BoundaryFault.config`, builds the attribute map, and converts the `GenericException` construction raise at the seam. `sealed(binding)` is total over a held notice; `issued(receipt, register, binding, scope)` composes both under the fire seam — the Ok arm runs `Production.fired(ArtifactHook.NOTICE_ISSUED, NoticeIssued(...), scope=scope)` carrying the stored event id, content type, bounded body length, and the `scoped` issue-baggage correlation id before returning the wire; either the mint or fire error arm emits the original fault through `Signals.emit` and returns that same failure, so every refused notice is stream evidence without a raise into the close.
 - Packages: `cloudevents` (`cloudevents.v1.http.CloudEvent.create` the checked envelope, `cloudevents.v1.exceptions.GenericException` the boundary fault, `cloudevents.v1.conversion.to_structured`/`to_binary` the header/body tuple rows, `SPECVERSION_V1_0` the admitted protocol value); `opentelemetry-api` (`propagate.inject` the W3C carrier write, `context.get_current` the live context); `msgspec` (`Struct` the wire value); `expression` (the rail); the builtin `frozendict` (headers and extension rows); `uuid.uuid7` (event identity); core hooks (`ArtifactHook`/`NoticeIssued`/`Production`/`scoped`); `delivery/register#REGISTER` (`Register.latest`/`Register.key` the row projection); `core/receipt#RECEIPT` (`ArtifactReceipt` the projected case); runtime (`faults.BoundaryFault`/`RuntimeRail`, `identity.ContentKey`, `receipts.Signals`/`Receipt`/`OPEN` the fault evidence row).
@@ -21,7 +21,6 @@ Envelope bytes are the terminal product: `sealed` lowers the checked event throu
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Final, Self, assert_never
 from uuid import uuid7
@@ -104,7 +103,8 @@ class TransmittalNotice(Struct, frozen=True):
                     "type": ArtifactHook.TRANSMITTAL_ISSUED.value,
                     "specversion": SPECVERSION_V1_0,
                     "subject": key.hex,
-                    "time": datetime.now(UTC),
+                    # `time` is deliberately absent: `create` stamps it with the aware emission instant already
+                    # RFC-3339-spelled, and a `datetime` object here raises inside `to_structured`'s `json.dumps`.
                     "datacontenttype": "application/json",
                     "transmittalid": transmittal_id,
                     "sheets": sheets,
@@ -133,8 +133,11 @@ class TransmittalNotice(Struct, frozen=True):
                 assert_never(unreachable)
 
     def sealed(self, binding: NoticeBinding = NoticeBinding.STRUCTURED, /) -> NoticeWire:
+        # `to_binary` copies each attribute value into the header map untouched, so an `int` extension (`sheets`,
+        # `lineage`) arrives as an `int`; the HTTP binary binding carries header values as strings alone, so the
+        # canonical render happens here — one projection serving both bindings, never a per-binding header type.
         headers, body = binding.lower(self.event)
-        return NoticeWire(headers=frozendict(headers), body=body)
+        return NoticeWire(headers=frozendict({name: str(value) for name, value in headers.items()}), body=body)
 
     @classmethod
     def issued(

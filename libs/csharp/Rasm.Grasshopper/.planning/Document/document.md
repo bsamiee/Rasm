@@ -1,29 +1,35 @@
 # [RASM_GRASSHOPPER_DOCUMENT_DOCUMENT]
 
-`DocumentScope` is the document spine of the GH2 graph boundary — ONE scope operator owning document minting across the inert/inactive/active tiers, lifecycle and persistence settlement, typed keyed-value shelves, marshalled facet reads, and THE one graph transaction gate absorbing the whole `DocumentMethods` verb surface.
+`DocumentScope` is the document spine of the GH2 graph boundary — ONE scope operator owning document minting across the inert/inactive/active tiers, lifecycle and persistence settlement, the document's one typed keyed-value shelf, the closed inert-facet read, and THE one graph transaction gate absorbing the whole `DocumentMethods` verb surface. It also declares `GateReceipt` — the settlement evidence every gate in this folder mints.
 
-Every mutation verb is a case of one `GraphTransact` union settled by one `Transact` gate pairing the host verb with its `Document/history.md` undo seal; the transaction window observes the document's own `Shell/events.md` rows, so every receipt carries the causal `UiEvent` deltas the mutation raised. Whole-graph selection state is a `SelectionSweep` row family, clipboard and compose intent are case payloads, and the delete family is one case discriminating selection-versus-explicit on the shape of its payload. Graph query and wire mutation are `Document/graph.md`'s operator, undo branching is `Document/history.md`'s ledger, and solution execution is `Document/solution.md`'s controller.
+Every mutation verb is a case of one `GraphTransact` union settled by one `Transact` gate pairing the host verb with its `Document/history.md` undo seal; the transaction window observes the document's own `Shell/events.md` rows, so every receipt wraps the host verb's own answer in the causal `UiEvent` deltas the mutation raised. Whole-graph selection state and per-selection posture are row families, clipboard and compose intent are case payloads, and the delete family is one case discriminating selection-versus-explicit on the shape of its payload. Graph query and wire mutation are `Document/graph.md`'s operator, undo branching is `Document/history.md`'s ledger, and solution execution is `Document/solution.md`'s controller.
 
 ## [01]-[INDEX]
 
-- [02]-[LIFECYCLE]: `DocumentTier` + `ValueShelf` + `DocumentGate` + `DocumentScope` lifecycle gates — mint rows, the lifecycle/persistence/keyed-state command union, the generic facet read, and the open-document roster.
-- [03]-[TRANSACT]: `SelectionSweep` + `GraphTransact` + `TransactReceipt` — the one graph transaction union over the `DocumentMethods` verb surface, the seal law, and the causal-delta receipt.
+- [02]-[LIFECYCLE]: `DocumentTier` + `MarkPosture` + `DocumentFacet` + `DocumentAnswer` + `DocumentGate` + `GateOutcome` + `GateReceipt` + `DocumentScope` lifecycle gates — mint and archive-load rows, the lifecycle/persistence/keyed-state command union, the probe-gated archive read, the closed facet read, the folder's ONE settlement receipt, and the open-document roster.
+- [03]-[TRANSACT]: `SelectionSweep` + `SelectionPosture` + `IsolationReach` + `GraphTransact` — the one graph transaction union over the `DocumentMethods` verb surface, the seal law, and the causal-delta outcome.
 
 ## [02]-[LIFECYCLE]
 
-- Owner: `DocumentTier` `[SmartEnum<int>]` — 3 mint rows over one `[UseDelegateFromConstructor]` `Mint()` column: `Inert` (key 0, `Document.NewInertDocument`), `Inactive` (key 1, `Document.NewInactiveDocument`), `Active` (key 2, `Document.NewActiveDocument`). Tier is data, so headless pipelines, background parsing, and canvas-bound editing mint through one gate. `ValueShelf` `[SmartEnum<int>]` — the keyed-value facet vocabulary over one `Select(HostDocument)` column onto `KeyedValues`: `Custom` (key 0, `Document.CustomValues`). `DocumentGate` `[Union]` `[GenerateUnionOps]` closes the lifecycle command family: `CloseCase` (`Document.Close`), `StoreCase(IWriter, FileContents)` (`Document.Store` through the `GrasshopperIO` writer), `MarkCase(bool)` (`Modify`/`Unmodify` as one polarity case), `StashCase(ValueShelf, string, IStorable)` (`KeyedValues.Set`), `ForgetCase(ValueShelf, string)` (`KeyedValues.Delete`).
-- Entry: `DocumentScope.Mint(DocumentTier tier, Op? key = null)` → `Fin<HostDocument>` — the value gate for new documents; `DocumentScope.Apply(DocumentGate op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<DocumentReceipt>` — the command gate; `DocumentScope.Read<TOut>(Func<HostDocument, TOut> facet, Option<HostDocument> graph = default, Op? key = null)` → `Fin<TOut>` — the marshalled facet projection over `File`, `Display`, `Dependencies`, `Notes`, `Hash`, `NamedViews`, `Parent`, `Modified`, and `Objects`; `DocumentScope.Recall<T>(ValueShelf shelf, string name, T fallback, ...)` → `Fin<T>` — the typed keyed read over `KeyedValues.Get<T>`; `DocumentScope.Roster(Op? key = null)` → `Fin<Seq<HostDocument>>` — the live `Document.AllDocuments` sweep.
+- Owner: `DocumentTier` `[SmartEnum<int>]` — 3 mint rows over one `[UseDelegateFromConstructor]` `Mint()` column: `Inert` (key 0, `Document.NewInertDocument`), `Inactive` (key 1, `Document.NewInactiveDocument`), `Active` (key 2, `Document.NewActiveDocument`). Tier is data, so headless pipelines, background parsing, and canvas-bound editing mint through one gate. `MarkPosture` `[SmartEnum<int>]` carries the dirty flag as two rows over one `Stamp(HostDocument)` column — `Dirty` (`Modify`), `Clean` (`Unmodify`) — so the polarity is a named row, never a boolean payload the gate re-branches on. `DocumentGate` `[Union]` `[GenerateUnionOps]` closes the lifecycle command family: `CloseCase` (`Document.Close`), `StoreCase(IWriter, FileContents)` (`Document.Store` through the `GrasshopperIO` writer), `MarkCase(MarkPosture)`, `StashCase(string, IStorable)` (`KeyedValues.Set`), `ForgetCase(string)` (`KeyedValues.Delete`).
+- Owner: `DocumentFacet` `[SmartEnum<int>]` — the closed inert-read vocabulary over one `Project(HostDocument) -> DocumentAnswer` column: `Identity`/`Hash` (both `Guid`), `Notes`, `Condition` (`DocumentState` + `Modifications` + `IsEmpty`, with `Modified` deriving from the count the host itself derives it from), `File` (`FileUtility`), `Display` (`DocumentDisplay`), `Dependencies` (`DocumentDependencies`), `NamedViews`, `Parent` (`Option<IDocumentParent>`), `Globals` (`GlobalServer`), `Projection` (the host's `(PointF centre, float zoom)` pair). `DocumentAnswer` `[Union]` is the closed result, one case per evidence shape.
+- Owner: `GateReceipt` — the folder's ONE settlement evidence: the raising `Op`, the settled case name, the `Option<VerbNoun>` seal (present exactly when the act minted an undo record), the `GateOutcome` the host verb answered, and ordered entry/settlement stamps with elapsed latency from one `MonotonicTimeline`. `GateOutcome` `[Union]` closes what a host verb hands back — `SettledCase` (the verb answers nothing past the spine), `CountCase` (every `int`-returning selection, display, and delete verb), `ChangedCase` (the `bool`-returning drop and clipboard verbs), `MintedCase` (the instance id of a group, chain, cluster, or dependency the verb created), `RemapCase` (an id correspondence), `WirelessCase`, `RepairCase`, `RunCase`, and `ObservedCase` wrapping any of them with the causal window that watched it. `DocumentScope.Apply`/`Transact`, `GraphScope.Mutate`, `HistoryLedger.Commit`/`Seal`, and `SolutionControl.Drive` all settle into this one shape, so a claim fix lands once.
+- Entry: `DocumentScope.Mint(DocumentTier tier, Op? key = null)` → `Fin<HostDocument>` — the value gate for new documents; `DocumentScope.Load(IReader reader, Op? key = null)` → `Fin<HostDocument>` — the archive mint over `Document(IReader)`, and `DocumentScope.ReadProbe<T>(IReader reader, string name, Op? key = null)` → `Fin<Option<T>>` — the probe-gated typed archive read; `DocumentScope.Apply(DocumentGate op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GateReceipt>` — the command gate; `DocumentScope.Read(DocumentFacet facet, Option<HostDocument> graph = default, Op? key = null)` → `Fin<DocumentAnswer>` — the marshalled facet read; `DocumentScope.Recall<T>(string name, T fallback, ...)` → `Fin<T>` — the typed keyed read over `KeyedValues.Get<T>`; `DocumentScope.Roster(Op? key = null)` → `Fin<Seq<HostDocument>>` — the live `Document.AllDocuments` sweep.
 - Law: absence of a target document is a modality, never an overload — `Option<HostDocument>` discriminates the supplied graph (a nested `Parent` child, an inactive mint) from the session-active document, and the absent branch resolves through `GhSession.Run(ScopeTarget.DocumentHost, ...)` so scope acquisition, marshalling, and null-gating stay the session page's one law.
-- Law: every gate settles inside one UI marshal — a supplied document rides `EtoDispatch.Run`, an acquired one rides the session gate; a `HostDocument` reference never crosses back out of `Apply`, and `Read` hands the caller the projected value only, so a facet whose host type the catalog leaves unstated stays typed by the consumer's own projection instead of an asserted spelling.
-- Law: keyed state is shelf-addressed — a consumer names a `ValueShelf` row with a string key, and the same three verbs (`Recall`/`StashCase`/`ForgetCase`) serve every shelf; a second keyed-storage entry family per facet is the deleted form.
-- RESEARCH: the `Document.Globals` facet is catalog-verified as a property but its member shape is unstated — the `Global` shelf row lands as one `ValueShelf` row when the decompile confirms `KeyedValues`; `Document.State`'s type vocabulary and `Document.AllDocuments`' element carrier re-verify at the same pass; the document-load spelling (a `GrasshopperIO` reader seam versus a `Document` static) is catalog-unstated — the load posture lands as one `DocumentGate` case or `Mint` axis when the decompile fixes it, closing the store/load asymmetry.
+- Law: every gate settles inside one UI marshal — a supplied document rides `EtoDispatch.Run`, an acquired one rides the session gate; the live `HostDocument` never crosses back out of a gate, because `Read` takes a `DocumentFacet` ROW and returns the row's own `DocumentAnswer` case. A caller lambda over the live document hands the graph itself to arbitrary code and voids that law from the signature down, so the facet space is a closed vocabulary rather than an open projection.
+- Law: `Read` owns the INERT facets alone — the live sub-object properties are their own scopes (`Objects` is `Document/graph.md`'s `GraphScope`, `Undo` is `Document/history.md`'s ledger, `Solution` is `Document/solution.md`'s controller, `Methods` is `[03]`'s transaction gate), so a facet row handing one out forks four owners into a read.
+- Law: keyed state is one shelf — `Document.CustomValues` is the host's only `KeyedValues` facet, so `Recall`/`StashCase`/`ForgetCase` name a string key and nothing else; a shelf selector over a one-inhabitant vocabulary carries no information the value cannot reconstruct.
+- Law: the archive is symmetric on ONE axis — `Document.Store(IWriter[, FileContents])` writes and the deserialization constructor `Document(IReader)` reads, so the load posture is a MINT axis beside `DocumentTier`, never a `DocumentGate` case: a gate command mutates an existing document while a load MAKES one, and `DocumentScope.Load(IReader, Op?)` therefore sits beside `Mint` under the same value gate. `ReadProbe<T>` folds the catalog's own probe-gates-accessor law — `IReader.HasItemOrNode(name)` before `Storable<T>(name)` — so a missing archive entry is `None` and a malformed one is a typed fault, and every catalogued special object's `(IReader)` constructor becomes reachable through the same seam.
+- Boundary: the shelf selector re-enters as a `[SmartEnum]` row family the moment the host publishes a second `KeyedValues` facet beside `CustomValues`; until then `Document.Globals` is a `GlobalServer` read through the `Globals` facet, not a second shelf.
 - Boundary: autosave requests are per-object (`IDocumentObject.RequestAutoSave`) and ride `Document/history.md`'s ledger commands; document file-compare and editor reveal are `Shell/editor.md`'s shell surface; document-scoped caching keys off `Shell/session.md`'s `SessionCache` and evicts on the `Shell/events.md` close row.
-- Packages: Grasshopper2 (`Document.New*Document`, `Close`, `Store`, `Modify`, `Unmodify`, `CustomValues`, `AllDocuments`, `KeyedValues.Get<T>`/`Set`/`Delete`), GrasshopperIO (`IWriter`, `IStorable`), LanguageExt.Core, `Rasm.Domain`, `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`).
-- Growth: a new mint posture is one `DocumentTier` row; a new keyed facet is one `ValueShelf` row; a new lifecycle verb is one `DocumentGate` case breaking the gate's total `Switch` loudly — zero new entrypoints on any axis.
+- Packages: Grasshopper2 (`Document.New*Document`, `Close`, `Store`, `Modify`, `Unmodify`, `Identity`, `Hash`, `Notes`, `State`, `Modifications`, `IsEmpty`, `Projection`, `File`, `Display`, `Dependencies`, `NamedViews`, `Parent`, `Globals`, `CustomValues`, `AllDocuments`, `KeyedValues.Get<T>`/`Set`/`Delete`), GrasshopperIO (`IWriter`, `IReader.HasItemOrNode`/`Storable<T>`, `IStorable`), Eto (`PointF`), LanguageExt.Core, `Rasm.Domain`, `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`).
+- Growth: a new mint posture is one `DocumentTier` row and the archive mint stays the one `Load` entry; a new inert read is one `DocumentFacet` row with its `DocumentAnswer` case; a new host answer shape is one `GateOutcome` case; a new lifecycle verb is one `DocumentGate` case breaking the gate's total `Switch` loudly — zero new entrypoints on any axis.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Eto.Drawing;
 using Grasshopper2.Doc;
+using Grasshopper2.Undo;
 using GrasshopperIO;
 using Rasm.Csp;
 using Rasm.Grasshopper.Eto;
@@ -43,9 +49,56 @@ public sealed partial class DocumentTier {
 }
 
 [SmartEnum<int>]
-public sealed partial class ValueShelf {
-    public static readonly ValueShelf Custom = new(key: 0, select: static document => document.CustomValues);
-    [UseDelegateFromConstructor] internal partial KeyedValues Select(HostDocument document);
+public sealed partial class MarkPosture {
+    public static readonly MarkPosture Dirty = new(key: 0, stamp: static document => Op.Side(action: document.Modify));
+    public static readonly MarkPosture Clean = new(key: 1, stamp: static document => Op.Side(action: document.Unmodify));
+    [UseDelegateFromConstructor] internal partial Unit Stamp(HostDocument document);
+}
+
+[SmartEnum<int>]
+public sealed partial class DocumentFacet {
+    public static readonly DocumentFacet Identity = new(key: 0,
+        project: static document => new DocumentAnswer.IdentityCase(Value: document.Identity));
+    public static readonly DocumentFacet Hash = new(key: 1,
+        project: static document => new DocumentAnswer.IdentityCase(Value: document.Hash));
+    public static readonly DocumentFacet Notes = new(key: 2,
+        project: static document => new DocumentAnswer.NotesCase(Value: document.Notes));
+    public static readonly DocumentFacet Condition = new(key: 3,
+        project: static document => new DocumentAnswer.ConditionCase(
+            State: document.State, Modifications: document.Modifications, Empty: document.IsEmpty));
+    public static readonly DocumentFacet File = new(key: 4,
+        project: static document => new DocumentAnswer.FileCase(Accessor: document.File));
+    public static readonly DocumentFacet Display = new(key: 5,
+        project: static document => new DocumentAnswer.DisplayCase(Chrome: document.Display));
+    public static readonly DocumentFacet Dependencies = new(key: 6,
+        project: static document => new DocumentAnswer.DependenciesCase(Graph: document.Dependencies));
+    public static readonly DocumentFacet NamedViews = new(key: 7,
+        project: static document => new DocumentAnswer.ViewsCase(Views: document.NamedViews));
+    public static readonly DocumentFacet Parent = new(key: 8,
+        project: static document => new DocumentAnswer.ParentCase(Host: Optional(document.Parent)));
+    public static readonly DocumentFacet Globals = new(key: 9,
+        project: static document => new DocumentAnswer.GlobalsCase(Server: document.Globals));
+    public static readonly DocumentFacet Projection = new(key: 10,
+        project: static document => new DocumentAnswer.ProjectionCase(
+            Centre: document.Projection.centre, Zoom: document.Projection.zoom));
+    [UseDelegateFromConstructor] internal partial DocumentAnswer Project(HostDocument document);
+}
+
+[Union]
+public abstract partial record DocumentAnswer {
+    private DocumentAnswer() { }
+    public sealed record IdentityCase(Guid Value) : DocumentAnswer;
+    public sealed record NotesCase(string Value) : DocumentAnswer;
+    public sealed record ConditionCase(DocumentState State, int Modifications, bool Empty) : DocumentAnswer {
+        public bool Modified => Modifications > 0;
+    }
+    public sealed record FileCase(FileUtility Accessor) : DocumentAnswer;
+    public sealed record DisplayCase(DocumentDisplay Chrome) : DocumentAnswer;
+    public sealed record DependenciesCase(DocumentDependencies Graph) : DocumentAnswer;
+    public sealed record ViewsCase(NamedViews Views) : DocumentAnswer;
+    public sealed record ParentCase(Option<IDocumentParent> Host) : DocumentAnswer;
+    public sealed record GlobalsCase(GlobalServer Server) : DocumentAnswer;
+    public sealed record ProjectionCase(PointF Centre, float Zoom) : DocumentAnswer;
 }
 
 [Union]
@@ -54,15 +107,30 @@ public abstract partial record DocumentGate {
     private DocumentGate() { }
     public sealed record CloseCase : DocumentGate;
     public sealed record StoreCase(IWriter Writer, FileContents Contents) : DocumentGate;
-    public sealed record MarkCase(bool Modified) : DocumentGate;
-    public sealed record StashCase(ValueShelf Shelf, string Name, IStorable Value) : DocumentGate;
-    public sealed record ForgetCase(ValueShelf Shelf, string Name) : DocumentGate;
+    public sealed record MarkCase(MarkPosture Posture) : DocumentGate;
+    public sealed record StashCase(string Name, IStorable Value) : DocumentGate;
+    public sealed record ForgetCase(string Name) : DocumentGate;
+}
+
+[Union]
+public abstract partial record GateOutcome {
+    private GateOutcome() { }
+    public sealed record SettledCase : GateOutcome;
+    public sealed record CountCase(int Touched) : GateOutcome;
+    public sealed record ChangedCase(bool Changed) : GateOutcome;
+    public sealed record MintedCase(Guid Instance) : GateOutcome;
+    public sealed record RemapCase(HashMap<Guid, Guid> Correspondence) : GateOutcome;
+    public sealed record WirelessCase(WirelessPair Pair) : GateOutcome;
+    public sealed record RepairCase(Seq<PinRepairRow> Rows) : GateOutcome;
+    public sealed record RunCase(RunPulse Pulse) : GateOutcome;
+    public sealed record ObservedCase(Seq<UiEvent> Deltas, GateOutcome Verb) : GateOutcome;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentReceipt(
-    Op Operation, string Verb, MonotonicStamp Entered, MonotonicStamp Settled, TimeSpan Latency) : IValidityEvidence {
+public readonly record struct GateReceipt(
+    Op Operation, string Verb, Option<VerbNoun> Seal, GateOutcome Outcome,
+    MonotonicStamp Entered, MonotonicStamp Settled, TimeSpan Latency) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: Verb)),
         ValidityClaim.Evidence(evidence: Entered),
@@ -79,18 +147,35 @@ public static partial class DocumentScope {
             .Bind(row => EtoDispatch.Run(body: () => active.Catch(body: () => Fin.Succ(row.Mint())), key: active));
     }
 
-    public static Fin<TOut> Read<TOut>(Func<HostDocument, TOut> facet, Option<HostDocument> graph = default, Op? key = null) {
+    public static Fin<HostDocument> Load(IReader reader, Op? key = null) {
         Op active = key.OrDefault();
-        return Optional(facet).ToFin(active.InvalidInput())
-            .Bind(valid => Resolve(graph: graph, key: active, body: document => active.Catch(body: () => Fin.Succ(valid(arg: document)))));
+        return Optional(reader).ToFin(active.InvalidInput())
+            .Bind(archive => EtoDispatch.Run(body: () => active.Catch(body: () => Fin.Succ(new HostDocument(archive))), key: active));
     }
 
-    public static Fin<T> Recall<T>(ValueShelf shelf, string name, T fallback, Option<HostDocument> graph = default, Op? key = null) {
+    public static Fin<Option<T>> ReadProbe<T>(IReader reader, string name, Op? key = null) where T : IStorable {
         Op active = key.OrDefault();
-        return from row in Optional(shelf).ToFin(active.InvalidInput())
-               from label in active.AcceptText(value: name)
+        return from archive in Optional(reader).ToFin(active.InvalidInput())
+               from entry in Optional(name).Filter(static row => !string.IsNullOrWhiteSpace(row)).ToFin(active.InvalidInput())
+               from held in active.Catch(body: () => Fin.Succ(archive.HasItemOrNode(entry)))
+               from value in held
+                   ? active.Catch(body: () => Fin.Succ(Optional(archive.Storable<T>(entry))))
+                   : Fin.Succ(Option<T>.None)
+               select value;
+    }
+
+    public static Fin<DocumentAnswer> Read(DocumentFacet facet, Option<HostDocument> graph = default, Op? key = null) {
+        Op active = key.OrDefault();
+        return Optional(facet).ToFin(active.InvalidInput())
+            .Bind(row => Resolve(graph: graph, key: active, body: document =>
+                active.Catch(body: () => Fin.Succ(row.Project(document: document)))));
+    }
+
+    public static Fin<T> Recall<T>(string name, T fallback, Option<HostDocument> graph = default, Op? key = null) {
+        Op active = key.OrDefault();
+        return from label in active.AcceptText(value: name)
                from value in Resolve(graph: graph, key: active, body: document =>
-                   active.Catch(body: () => Fin.Succ(row.Select(document: document).Get(label, fallback))))
+                   active.Catch(body: () => Fin.Succ(document.CustomValues.Get(label, fallback))))
                select value;
     }
 
@@ -99,32 +184,32 @@ public static partial class DocumentScope {
         return EtoDispatch.Run(body: () => active.Catch(body: () => Fin.Succ(toSeq(HostDocument.AllDocuments))), key: active);
     }
 
-    public static Fin<DocumentReceipt> Apply(DocumentGate op, Option<HostDocument> graph = default, Op? key = null) {
+    public static Fin<GateReceipt> Apply(DocumentGate op, Option<HostDocument> graph = default, Op? key = null) {
         Op active = key.OrDefault();
         return from valid in Optional(op).ToFin(active.InvalidInput())
                from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: active)
                from entered in timeline.Capture(key: active)
-               from verb in Resolve(graph: graph, key: active, body: document => valid.Switch(
+               from answer in Resolve(graph: graph, key: active, body: document => valid.Switch(
                 state: (Key: active, Graph: document),
-                closeCase: static (frame, _) => frame.Key.Catch(body: () =>
-                    Fin.Succ((Op.Side(action: frame.Graph.Close), nameof(DocumentGate.CloseCase)).Item2)),
-                storeCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((Op.Side(action: () => frame.Graph.Store(c.Writer, c.Contents)), nameof(DocumentGate.StoreCase)).Item2)),
-                markCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((Op.SideWhen(condition: c.Modified, action: frame.Graph.Modify),
-                              Op.SideWhen(condition: !c.Modified, action: frame.Graph.Unmodify),
-                              nameof(DocumentGate.MarkCase)).Item3)),
-                stashCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((Op.Side(action: () => c.Shelf.Select(document: frame.Graph).Set(c.Name, c.Value)),
-                              nameof(DocumentGate.StashCase)).Item2)),
-                forgetCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((Op.Side(action: () => c.Shelf.Select(document: frame.Graph).Delete(c.Name)),
-                              nameof(DocumentGate.ForgetCase)).Item2))))
+                closeCase: static (frame, _) => Answered(frame.Key, nameof(DocumentGate.CloseCase), () =>
+                    (Op.Side(action: frame.Graph.Close), (GateOutcome)new GateOutcome.SettledCase()).Item2),
+                storeCase: static (frame, c) => Answered(frame.Key, nameof(DocumentGate.StoreCase), () =>
+                    (Op.Side(action: () => frame.Graph.Store(c.Writer, c.Contents)), (GateOutcome)new GateOutcome.SettledCase()).Item2),
+                markCase: static (frame, c) => Answered(frame.Key, nameof(DocumentGate.MarkCase), () =>
+                    (c.Posture.Stamp(document: frame.Graph), (GateOutcome)new GateOutcome.SettledCase()).Item2),
+                stashCase: static (frame, c) => Answered(frame.Key, nameof(DocumentGate.StashCase), () =>
+                    (Op.Side(action: () => frame.Graph.CustomValues.Set(c.Name, c.Value)), (GateOutcome)new GateOutcome.SettledCase()).Item2),
+                forgetCase: static (frame, c) => Answered(frame.Key, nameof(DocumentGate.ForgetCase), () =>
+                    (Op.Side(action: () => frame.Graph.CustomValues.Delete(c.Name)), (GateOutcome)new GateOutcome.SettledCase()).Item2)))
                from settled in timeline.Capture(key: active)
                from latency in timeline.Elapsed(start: entered, end: settled, key: active)
-               select new DocumentReceipt(
-                   Operation: active, Verb: verb, Entered: entered, Settled: settled, Latency: latency);
+               select new GateReceipt(
+                   Operation: active, Verb: answer.Verb, Seal: Option<VerbNoun>.None, Outcome: answer.Outcome,
+                   Entered: entered, Settled: settled, Latency: latency);
     }
+
+    internal static Fin<(string Verb, GateOutcome Outcome)> Answered(Op key, string verb, Func<GateOutcome> settle) =>
+        key.Catch(body: () => Fin.Succ((Verb: verb, Outcome: settle())));
 
     internal static Fin<TOut> Resolve<TOut>(Option<HostDocument> graph, Op key, Func<HostDocument, Fin<TOut>> body) =>
         graph.Match(
@@ -138,15 +223,16 @@ public static partial class DocumentScope {
 
 ## [03]-[TRANSACT]
 
-- Owner: `GraphTransact` `[Union]` `[GenerateUnionOps]` — THE one graph mutation vocabulary over the `DocumentMethods` verb surface. `SweepCase(SelectionSweep)` carries whole-graph selection state through a 3-row `[SmartEnum<int>]` (`All` → `SelectAll`, `None` → `DeselectAll`, `Invert` → `InvertSelection`); `CopyCase(ClipboardKind)`/`CutCase(ClipboardKind)`/`PasteCase(ClipboardKind, PasteBehaviour)`/`PasteLegacyCase` own the clipboard round-trip including the GH1 XML ingest; `GroupCase(string, Option<OpenColor.Family>)`/`ChainCase`/`ClusterCase` compose the selection into its three wrapper species; `DeleteCase(Seq<IDocumentObject>, Seq<WireEnds>)` discriminates on payload shape — both spans empty is `DeleteSelection`, anything explicit is `DeleteObjects` — so parallel delete verbs collapse to one case; `DropCase(IDocumentObject, PointF)`/`SnippetCase(Snippet, PointF)` place new material; `ActivityCase(bool)`/`DisplayCase(bool)`/`DressCase(Colour)` flip enablement, visibility, and the colour override on the selection as polarity payloads; `IsolateCase(IDocumentObject, bool, bool, bool)` isolates one object's reach; `MigrateCase(Seq<IDocumentObject>, PointF)` relocates a transferred set; `DependencyCase(PointF)`/`RevealDependenciesCase` add and reveal document dependencies. Host discriminants — `ClipboardKind`, `PasteBehaviour`, `Colour`, `OpenColor.Family` — ride case payloads unchanged because this package IS the seam; a wrapper vocabulary per host enum is the parallel-owner defect re-minted.
-- Entry: `DocumentScope.Transact(VerbNoun label, GraphTransact op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<TransactReceipt>` — the one mutation gate. One verb and eighteen are the same call shape; the case is the discriminant, never a mode flag or a sibling method.
-- Law: mutation and undo are one act — every mutating arm mints one `ActionList`, runs its host verb into it, and seals through `Document/history.md`'s `HistoryLedger.Seal(History, ActionList, VerbNoun, Op)` under the caller's `VerbNoun`; the non-mutating arms (`SweepCase`, `CopyCase`, `RevealDependenciesCase`) settle without a seal and stamp `Sealed: false`. A `DocumentMethods` call outside this gate is the deleted form.
-- Law: the receipt is causal — the transaction window attaches the document's own event rows (`UiSource.GraphObjectAdded`, `GraphObjectRemoved`, `GraphSelection`, `DocumentModified`) through `UiEvents.Observe` before the verb runs and folds every published `UiEvent` into `TransactReceipt.Deltas`, so a consumer reads what the mutation actually did — objects added, removed, reselected, the modified flip — as typed evidence, never by re-diffing the graph. Its subscription lease dies inside the window; deltas are `UiEvent` values, and a second delta vocabulary re-projecting `UiFact` is the deleted form.
+- Owner: `GraphTransact` `[Union]` `[GenerateUnionOps]` — THE one graph mutation vocabulary over the `DocumentMethods` verb surface. `SweepCase(SelectionSweep)` carries whole-graph selection state through an 8-row `[SmartEnum<int>]` — `All`/`None`/`Invert` over `SelectAll`/`DeselectAll`/`InvertSelection`, `ShiftUp`/`ShiftDown` over `ShiftSelection(upstream)`, and `GrowUp`/`GrowDown`/`GrowBoth` over `GrowSelection(upstream, downstream)` — each row returning the host's own touched count; `CopyCase(ClipboardKind)`/`CutCase(ClipboardKind)`/`PasteCase(ClipboardKind, PasteBehaviour)`/`PasteLegacyCase` own the clipboard round-trip including the GH1 XML ingest; `GroupCase(string, Option<OpenColor.Family>)`/`ChainCase`/`ClusterCase` compose the selection into its three wrapper species, each surfacing the minted wrapper's instance id; `DeleteCase(Seq<IDocumentObject>, Seq<WireEnds>)` discriminates on payload shape — both spans empty is `DeleteSelection`, anything explicit is `DeleteObjects` — so parallel delete verbs collapse to one case; `DropCase(IDocumentObject, PointF)`/`SnippetCase(Snippet, PointF)` place new material; `PostureCase(SelectionPosture)` folds NINE host posture verbs — enablement, display, display toggle, and the four pin-side reveals — onto one 9-row column, so enablement and visibility are named rows rather than two cases each carrying a boolean; `DressCase(Colour)` applies the colour override; `IsolateCase(IDocumentObject, IsolationReach)` isolates one object over a named flag set; `MigrateCase(Seq<IDocumentObject>, PointF)` relocates a transferred set and returns the host's id correspondence; `DependencyCase(PointF)`/`RevealDependenciesCase` add and reveal document dependencies. Host discriminants — `ClipboardKind`, `PasteBehaviour`, `Colour`, `OpenColor.Family` — ride case payloads unchanged because this package IS the seam; a wrapper vocabulary per host enum is the parallel-owner defect re-minted.
+- Entry: `DocumentScope.Transact(VerbNoun label, GraphTransact op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GateReceipt>` — the one mutation gate. One verb and seventeen are the same call shape; the case is the discriminant, never a mode flag or a sibling method.
+- Law: mutation and undo are one act — every mutating arm mints one `ActionList`, runs its host verb into it, and seals through `Document/history.md`'s `HistoryLedger.Seal(History, ActionList, VerbNoun, Op)` under the caller's `VerbNoun`, which the receipt then carries as `Seal: Some(label)`; the non-mutating arms (`SweepCase`, `CopyCase`, `RevealDependenciesCase`) settle with `Seal: None`. A `DocumentMethods` call outside this gate is the deleted form.
+- Law: the receipt reports what the HOST answered — every `DocumentMethods` verb hands back a touched count, a changed flag, a minted wrapper, or an id map, and discarding it into a void side effect publishes a settled receipt over an unmeasured act. Each arm folds the host's own return into its `GateOutcome` case, so `Sealed: true` beside a zero-touch sweep is unrepresentable.
+- Law: the outcome is causal — the transaction window attaches the document's own event rows (`UiSource.GraphObjectAdded`, `GraphObjectRemoved`, `GraphSelection`, `DocumentModified`) through `UiEvents.Observe` before the verb runs and wraps the verb's own outcome in `GateOutcome.ObservedCase` with every published `UiEvent`, so a consumer reads what the mutation did — objects added, removed, reselected, the modified flip — as typed evidence, never by re-diffing the graph. Its subscription lease dies inside the window; deltas are `UiEvent` values, and a second delta vocabulary re-projecting `UiFact` is the deleted form.
 - Law: the window is atomic on the UI thread — observation attach, verb, seal, and delta fold share one marshal, so no delta from a concurrent mutation can interleave into this receipt.
-- RESEARCH: `ActionList`'s mint spelling (parameterless construction assumed), `IsolateObject`'s three flag semantics, and `CopySelection`'s trailing shape (bare `ClipboardKind` versus a trailing `ActionList` — the copy arm stays unsealed either way because copying mutates nothing) re-verify at decompile; `VerbNoun` minting is unowned here — the gate accepts an already-minted label, and the factory question rides `Document/history.md`'s card.
-- Boundary: wire mutation (`Connections`), object transfer, id remapping, pins, and window selection are `Document/graph.md`'s operator — `SplitWire` rides there with the wire family it belongs to; repaint intent after a transaction is `Shell/session.md`'s `RepaintCase`, composed by the consumer, never auto-fired here.
-- Packages: Grasshopper2 (`DocumentMethods` verb surface, `ClipboardKind`, `PasteBehaviour`, `Snippet`, `WireEnds`, `Colour`, `OpenColor.Family`), Eto (`PointF`), LanguageExt.Core, `Rasm.Domain`, `Shell/events.md` (`UiEvents`, `UiSource`, `EventAnchor`, `UiEvent`), `Document/history.md` (`HistoryLedger.Seal`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`).
-- Growth: a new document verb is one `GraphTransact` case whose `Switch` arm breaks the gate loudly; a new sweep posture is one `SelectionSweep` row; a new causal stream on the receipt is one `UiSource` row added to the observation set.
+- Boundary: the explicit-set twins the host publishes beside every selection verb (`GroupObjects`, `ChainObjects`, `ClusterObjects`, `EnableObjects`, `ShowObjects`, `SetColourOverrideObjects`, `DeleteObjectData`) enter as a payload-shape discriminant on their owning case the moment a consumer names one, exactly as `DeleteCase` already discriminates; `CanCreateChain`/`CanCreateCluster` are the host's own why-not preflight the chain and cluster arms admit through once a selection roster reaches the gate.
+- Boundary: wire mutation (`Connections`), id remapping, pins, and window selection are `Document/graph.md`'s operator — `SplitWire` rides there with the wire family it belongs to; canvas room-making (`MakeRoom`) is `Canvas/layout.md`'s arrangement solver; repaint intent after a transaction is `Shell/session.md`'s `RepaintCase`, composed by the consumer, never auto-fired here.
+- Packages: Grasshopper2 (`DocumentMethods` verb surface, `ClipboardKind`, `PasteBehaviour`, `Snippet`, `WireEnds`, `Colour`, `OpenColor.Family`, `ActionList`), Eto (`PointF`), LanguageExt.Core, `Rasm.Domain`, `Shell/events.md` (`UiEvents`, `UiSource`, `EventAnchor`, `UiEvent`), `Document/history.md` (`HistoryLedger.Seal`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`).
+- Growth: a new document verb is one `GraphTransact` case whose `Switch` arm breaks the gate loudly; a new sweep or posture verb is one row on its owning family; a new causal stream on the receipt is one `UiSource` row added to the observation set.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -166,10 +252,41 @@ namespace Rasm.Grasshopper.Document;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SelectionSweep {
-    public static readonly SelectionSweep All = new(key: 0, sweep: static verbs => Op.Side(action: verbs.SelectAll));
-    public static readonly SelectionSweep None = new(key: 1, sweep: static verbs => Op.Side(action: verbs.DeselectAll));
-    public static readonly SelectionSweep Invert = new(key: 2, sweep: static verbs => Op.Side(action: verbs.InvertSelection));
-    [UseDelegateFromConstructor] internal partial Unit Sweep(DocumentMethods verbs);
+    public static readonly SelectionSweep All = new(key: 0, sweep: static verbs => verbs.SelectAll());
+    public static readonly SelectionSweep None = new(key: 1, sweep: static verbs => verbs.DeselectAll());
+    public static readonly SelectionSweep Invert = new(key: 2, sweep: static verbs => verbs.InvertSelection());
+    public static readonly SelectionSweep ShiftUp = new(key: 3, sweep: static verbs => verbs.ShiftSelection(upstream: true));
+    public static readonly SelectionSweep ShiftDown = new(key: 4, sweep: static verbs => verbs.ShiftSelection(upstream: false));
+    public static readonly SelectionSweep GrowUp = new(key: 5, sweep: static verbs => verbs.GrowSelection(upstream: true, downstream: false));
+    public static readonly SelectionSweep GrowDown = new(key: 6, sweep: static verbs => verbs.GrowSelection(upstream: false, downstream: true));
+    public static readonly SelectionSweep GrowBoth = new(key: 7, sweep: static verbs => verbs.GrowSelection(upstream: true, downstream: true));
+    [UseDelegateFromConstructor] internal partial int Sweep(DocumentMethods verbs);
+}
+
+[SmartEnum<int>]
+public sealed partial class SelectionPosture {
+    public static readonly SelectionPosture Enabled = new(key: 0, apply: static (verbs, actions) => verbs.EnableSelected(actions));
+    public static readonly SelectionPosture Disabled = new(key: 1, apply: static (verbs, actions) => verbs.DisableSelected(actions));
+    public static readonly SelectionPosture Shown = new(key: 2, apply: static (verbs, actions) => verbs.ShowSelected(actions));
+    public static readonly SelectionPosture Hidden = new(key: 3, apply: static (verbs, actions) => verbs.HideSelected(actions));
+    public static readonly SelectionPosture Toggled = new(key: 4, apply: static (verbs, actions) => verbs.ToggleDisplaySelected(actions));
+    public static readonly SelectionPosture InputsShown = new(key: 5, apply: static (verbs, actions) => verbs.ShowSelectedInputs(actions));
+    public static readonly SelectionPosture InputsHidden = new(key: 6, apply: static (verbs, actions) => verbs.HideSelectedInputs(actions));
+    public static readonly SelectionPosture OutputsShown = new(key: 7, apply: static (verbs, actions) => verbs.ShowSelectedOutputs(actions));
+    public static readonly SelectionPosture OutputsHidden = new(key: 8, apply: static (verbs, actions) => verbs.HideSelectedOutputs(actions));
+    [UseDelegateFromConstructor] internal partial int Apply(DocumentMethods verbs, ActionList actions);
+}
+
+// The host names the three isolation axes by what each KEEPS reachable — `pins`, `inputs`, `outputs` — and forwards
+// them positionally. Three bare bools at the call site carry neither the axis nor its order, and a drift between the
+// spelling and the host's parameter list reads as correct at every review, so the flag set names both once.
+[Flags]
+public enum IsolationReach {
+    None = 0,
+    Pins = 1,
+    Inputs = 2,
+    Outputs = 4,
+    All = Pins | Inputs | Outputs,
 }
 
 [Union]
@@ -187,43 +304,31 @@ public abstract partial record GraphTransact {
     public sealed record DeleteCase(Seq<IDocumentObject> Objects, Seq<WireEnds> Wires) : GraphTransact;
     public sealed record DropCase(IDocumentObject Subject, PointF At) : GraphTransact;
     public sealed record SnippetCase(Snippet Payload, PointF At) : GraphTransact;
-    public sealed record ActivityCase(bool Enabled) : GraphTransact;
-    public sealed record DisplayCase(bool Shown) : GraphTransact;
+    public sealed record PostureCase(SelectionPosture Posture) : GraphTransact;
     public sealed record DressCase(Colour Override) : GraphTransact;
-    public sealed record IsolateCase(IDocumentObject Subject, bool Upstream, bool Downstream, bool Remainder) : GraphTransact;
+    public sealed record IsolateCase(IDocumentObject Subject, IsolationReach Reach) : GraphTransact;
     public sealed record MigrateCase(Seq<IDocumentObject> Objects, PointF At) : GraphTransact;
     public sealed record DependencyCase(PointF At) : GraphTransact;
     public sealed record RevealDependenciesCase : GraphTransact;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TransactReceipt(
-    Op Operation, string Verb, bool Sealed, Seq<UiEvent> Deltas,
-    MonotonicStamp Entered, MonotonicStamp Settled, TimeSpan Latency) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: Verb)),
-        ValidityClaim.Evidence(evidence: Entered),
-        ValidityClaim.Evidence(evidence: Settled),
-        ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
-}
-
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static partial class DocumentScope {
-    public static Fin<TransactReceipt> Transact(VerbNoun label, GraphTransact op, Option<HostDocument> graph = default, Op? key = null) {
+    public static Fin<GateReceipt> Transact(VerbNoun label, GraphTransact op, Option<HostDocument> graph = default, Op? key = null) {
         Op active = key.OrDefault();
         return from valid in Optional(op).ToFin(active.InvalidInput())
                from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: active)
                from entered in timeline.Capture(key: active)
-               from outcome in Resolve(graph: graph, key: active, body: document => Settle(document: document, op: valid, label: label, key: active))
+               from answer in Resolve(graph: graph, key: active, body: document => Settle(document: document, op: valid, label: label, key: active))
                from settled in timeline.Capture(key: active)
                from latency in timeline.Elapsed(start: entered, end: settled, key: active)
-               select new TransactReceipt(
-                   Operation: active, Verb: outcome.Verb, Sealed: outcome.Sealed, Deltas: outcome.Deltas,
+               select new GateReceipt(
+                   Operation: active, Verb: answer.Verb, Seal: answer.Seal, Outcome: answer.Outcome,
                    Entered: entered, Settled: settled, Latency: latency);
     }
 
-    private static Fin<(string Verb, bool Sealed, Seq<UiEvent> Deltas)> Settle(HostDocument document, GraphTransact op, VerbNoun label, Op key) {
+    private static Fin<(string Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Settle(
+        HostDocument document, GraphTransact op, VerbNoun label, Op key) {
         Atom<Seq<UiEvent>> observed = Atom(Seq<UiEvent>());
         return UiEvents.Observe(
                 anchor: new EventAnchor.DocumentCase(Graph: document),
@@ -231,48 +336,68 @@ public static partial class DocumentScope {
                 key: key,
                 rows: [UiSource.GraphObjectAdded, UiSource.GraphObjectRemoved, UiSource.GraphSelection, UiSource.DocumentModified])
             .Bind(watch => watch.Use(project: _ => Dispatch(document: document, op: op, label: label, key: key)))
-            .Map(settled => (settled.Verb, settled.Sealed, observed.Value));
+            .Map(settled => (settled.Verb, settled.Seal,
+                (GateOutcome)new GateOutcome.ObservedCase(Deltas: observed.Value, Verb: settled.Outcome)));
     }
 
-    private static Fin<(string Verb, bool Sealed)> Dispatch(HostDocument document, GraphTransact op, VerbNoun label, Op key) =>
+    private static Fin<(string Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Dispatch(
+        HostDocument document, GraphTransact op, VerbNoun label, Op key) =>
         op.Switch(
             state: (Key: key, Verbs: document.Methods, Ledger: document.Undo, Label: label),
-            sweepCase: static (frame, c) => Free(frame.Key, nameof(GraphTransact.SweepCase), () => ignore(c.Sweep.Sweep(verbs: frame.Verbs))),
-            copyCase: static (frame, c) => Free(frame.Key, nameof(GraphTransact.CopyCase), () => frame.Verbs.CopySelection(c.Kind)),
-            cutCase: static (frame, c) => Bind(frame, nameof(GraphTransact.CutCase), (verbs, actions) => verbs.CutSelection(c.Kind, actions)),
-            pasteCase: static (frame, c) => Bind(frame, nameof(GraphTransact.PasteCase), (verbs, actions) => verbs.PasteFromClipboard(c.Kind, c.Behaviour, actions)),
-            pasteLegacyCase: static (frame, _) => Bind(frame, nameof(GraphTransact.PasteLegacyCase), static (verbs, actions) => verbs.PasteGrasshopper1XmlFromClipboard(actions)),
-            groupCase: static (frame, c) => Bind(frame, nameof(GraphTransact.GroupCase), (verbs, actions) => verbs.GroupSelection(c.Name, c.Colour.ToNullable(), actions)),
-            chainCase: static (frame, _) => Bind(frame, nameof(GraphTransact.ChainCase), static (verbs, actions) => verbs.ChainSelection(actions)),
-            clusterCase: static (frame, _) => Bind(frame, nameof(GraphTransact.ClusterCase), static (verbs, actions) => verbs.ClusterSelection(actions)),
-            deleteCase: static (frame, c) => Bind(frame, nameof(GraphTransact.DeleteCase), (verbs, actions) => {
-                if (c.Objects.IsEmpty && c.Wires.IsEmpty) { verbs.DeleteSelection(actions); }
-                else { verbs.DeleteObjects(c.Objects.ToArray(), c.Wires.ToArray(), actions); }
-            }),
-            dropCase: static (frame, c) => Bind(frame, nameof(GraphTransact.DropCase), (verbs, actions) => verbs.DropObject(c.Subject, c.At, actions)),
-            snippetCase: static (frame, c) => Bind(frame, nameof(GraphTransact.SnippetCase), (verbs, actions) => verbs.DropSnippet(c.Payload, c.At, actions)),
-            activityCase: static (frame, c) => Bind(frame, nameof(GraphTransact.ActivityCase), (verbs, actions) => ignore((
-                Op.SideWhen(condition: c.Enabled, action: () => verbs.EnableSelected(actions)),
-                Op.SideWhen(condition: !c.Enabled, action: () => verbs.DisableSelected(actions))))),
-            displayCase: static (frame, c) => Bind(frame, nameof(GraphTransact.DisplayCase), (verbs, actions) => ignore((
-                Op.SideWhen(condition: c.Shown, action: () => verbs.ShowSelected(actions)),
-                Op.SideWhen(condition: !c.Shown, action: () => verbs.HideSelected(actions))))),
-            dressCase: static (frame, c) => Bind(frame, nameof(GraphTransact.DressCase), (verbs, actions) => verbs.SetColourOverrideSelected(c.Override, actions)),
-            isolateCase: static (frame, c) => Bind(frame, nameof(GraphTransact.IsolateCase), (verbs, actions) => verbs.IsolateObject(c.Subject, c.Upstream, c.Downstream, c.Remainder, actions)),
-            migrateCase: static (frame, c) => Bind(frame, nameof(GraphTransact.MigrateCase), (verbs, actions) => verbs.MigrateObjects(c.Objects, c.At, actions)),
-            dependencyCase: static (frame, c) => Bind(frame, nameof(GraphTransact.DependencyCase), (verbs, actions) => verbs.AddDependency(c.At, actions)),
-            revealDependenciesCase: static (frame, _) => Free(frame.Key, nameof(GraphTransact.RevealDependenciesCase), () => frame.Verbs.ShowDependencyGraph()));
+            sweepCase: static (frame, c) => Free(frame.Key, nameof(GraphTransact.SweepCase),
+                () => new GateOutcome.CountCase(Touched: c.Sweep.Sweep(verbs: frame.Verbs))),
+            copyCase: static (frame, c) => Free(frame.Key, nameof(GraphTransact.CopyCase),
+                () => new GateOutcome.ChangedCase(Changed: frame.Verbs.CopySelection(c.Kind))),
+            cutCase: static (frame, c) => Bind(frame, nameof(GraphTransact.CutCase),
+                (verbs, actions) => new GateOutcome.ChangedCase(Changed: verbs.CutSelection(c.Kind, actions))),
+            pasteCase: static (frame, c) => Bind(frame, nameof(GraphTransact.PasteCase),
+                (verbs, actions) => new GateOutcome.ChangedCase(Changed: verbs.PasteFromClipboard(c.Kind, c.Behaviour, actions))),
+            pasteLegacyCase: static (frame, _) => Bind(frame, nameof(GraphTransact.PasteLegacyCase),
+                static (verbs, actions) => new GateOutcome.ChangedCase(Changed: verbs.PasteGrasshopper1XmlFromClipboard(actions))),
+            groupCase: static (frame, c) => Bind(frame, nameof(GraphTransact.GroupCase),
+                (verbs, actions) => new GateOutcome.MintedCase(Instance: verbs.GroupSelection(c.Name, c.Colour.ToNullable(), actions).InstanceId)),
+            chainCase: static (frame, _) => Bind(frame, nameof(GraphTransact.ChainCase),
+                static (verbs, actions) => new GateOutcome.MintedCase(Instance: verbs.ChainSelection(actions).InstanceId)),
+            clusterCase: static (frame, _) => Bind(frame, nameof(GraphTransact.ClusterCase),
+                static (verbs, actions) => new GateOutcome.MintedCase(Instance: verbs.ClusterSelection(actions).InstanceId)),
+            deleteCase: static (frame, c) => Bind(frame, nameof(GraphTransact.DeleteCase),
+                (verbs, actions) => new GateOutcome.CountCase(Touched: c.Objects.IsEmpty && c.Wires.IsEmpty
+                    ? verbs.DeleteSelection(actions)
+                    : verbs.DeleteObjects(c.Objects.ToArray(), c.Wires.ToArray(), actions))),
+            dropCase: static (frame, c) => Bind(frame, nameof(GraphTransact.DropCase),
+                (verbs, actions) => new GateOutcome.ChangedCase(Changed: verbs.DropObject(c.Subject, c.At, actions))),
+            snippetCase: static (frame, c) => Bind(frame, nameof(GraphTransact.SnippetCase),
+                (verbs, actions) => new GateOutcome.ChangedCase(Changed: verbs.DropSnippet(c.Payload, c.At, actions))),
+            postureCase: static (frame, c) => Bind(frame, nameof(GraphTransact.PostureCase),
+                (verbs, actions) => new GateOutcome.CountCase(Touched: c.Posture.Apply(verbs: verbs, actions: actions))),
+            dressCase: static (frame, c) => Bind(frame, nameof(GraphTransact.DressCase),
+                (verbs, actions) => new GateOutcome.CountCase(Touched: verbs.SetColourOverrideSelected(c.Override, actions))),
+            isolateCase: static (frame, c) => Bind(frame, nameof(GraphTransact.IsolateCase),
+                (verbs, actions) => (Op.Side(action: () => verbs.IsolateObject(
+                    c.Subject,
+                    c.Reach.HasFlag(IsolationReach.Pins),
+                    c.Reach.HasFlag(IsolationReach.Inputs),
+                    c.Reach.HasFlag(IsolationReach.Outputs),
+                    actions)), (GateOutcome)new GateOutcome.SettledCase()).Item2),
+            migrateCase: static (frame, c) => Bind(frame, nameof(GraphTransact.MigrateCase),
+                (verbs, actions) => new GateOutcome.RemapCase(Correspondence: toHashMap(
+                    verbs.MigrateObjects(c.Objects, c.At, actions).Select(static row => (row.Key, row.Value))))),
+            dependencyCase: static (frame, c) => Bind(frame, nameof(GraphTransact.DependencyCase),
+                (verbs, actions) => new GateOutcome.MintedCase(Instance: verbs.AddDependency(c.At, actions).InstanceId)),
+            revealDependenciesCase: static (frame, _) => Free(frame.Key, nameof(GraphTransact.RevealDependenciesCase),
+                () => (Op.Side(action: frame.Verbs.ShowDependencyGraph), (GateOutcome)new GateOutcome.SettledCase()).Item2));
 
-    private static Fin<(string Verb, bool Sealed)> Free(Op key, string verb, Action act) =>
-        key.Catch(body: () => Fin.Succ((Op.Side(action: act), (Verb: verb, Sealed: false)).Item2));
+    private static Fin<(string Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Free(Op key, string verb, Func<GateOutcome> settle) =>
+        key.Catch(body: () => Fin.Succ((Verb: verb, Seal: Option<VerbNoun>.None, Outcome: settle())));
 
-    private static Fin<(string Verb, bool Sealed)> Bind(
-        (Op Key, DocumentMethods Verbs, History Ledger, VerbNoun Label) frame, string verb, Action<DocumentMethods, ActionList> act) =>
+    private static Fin<(string Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Bind(
+        (Op Key, DocumentMethods Verbs, History Ledger, VerbNoun Label) frame, string verb,
+        Func<DocumentMethods, ActionList, GateOutcome> act) =>
         frame.Key.Catch(body: () => {
             ActionList actions = new();
-            act(arg1: frame.Verbs, arg2: actions);
+            GateOutcome outcome = act(arg1: frame.Verbs, arg2: actions);
             return HistoryLedger.Seal(ledger: frame.Ledger, actions: actions, label: frame.Label, key: frame.Key)
-                .Map(_ => (Verb: verb, Sealed: true));
+                .Map(_ => (Verb: verb, Seal: Some(frame.Label), Outcome: outcome));
         });
 }
 ```
@@ -287,33 +412,39 @@ config:
 ---
 flowchart LR
     accTitle: One transaction gate pairs verb, seal, and causal deltas
-    accDescr: Boundary consumers enter DocumentScope through the Transact and Apply gates; Transact attaches document event observation, runs the host verb into an ActionList, seals through the history ledger, and folds published UiEvent deltas into the receipt.
-    Consumer["boundary consumers"] -->|"VerbNoun + GraphTransact case"| Gate["DocumentScope.Transact → Fin&lt;TransactReceipt&gt;"]
-    Consumer -->|DocumentGate cases| Apply["DocumentScope.Apply → Fin&lt;DocumentReceipt&gt;"]
+    accDescr: Boundary consumers enter DocumentScope through the Transact, Apply, and Read gates; Transact attaches document event observation, runs the host verb into an ActionList, seals through the history ledger, and wraps the host's own answer with the published UiEvent deltas in one GateReceipt.
+    Consumer["boundary consumers"] -->|"VerbNoun + GraphTransact case"| Gate["DocumentScope.Transact → Fin&lt;GateReceipt&gt;"]
+    Consumer -->|DocumentGate cases| Apply["DocumentScope.Apply → Fin&lt;GateReceipt&gt;"]
+    Consumer -->|DocumentFacet rows| Read["DocumentScope.Read → Fin&lt;DocumentAnswer&gt;"]
     Gate -->|one marshal window| Observe["UiEvents.Observe document rows"]
     Gate -->|"host verb into ActionList"| Verbs["DocumentMethods"]
     Gate -->|"HistoryLedger.Seal(History, ActionList, VerbNoun)"| Ledger["Document/history ledger"]
-    Observe -->|"Seq&lt;UiEvent&gt; deltas"| Receipt["TransactReceipt"]
-    Apply --> Facets["Close · Store · Mark · KeyedValues shelves"]
+    Verbs -->|"count · changed · minted · remap"| Receipt["GateReceipt — Seal + GateOutcome"]
+    Observe -->|"ObservedCase wraps the verb outcome"| Receipt
+    Apply --> Facets["Close · Store · Mark · CustomValues"]
 ```
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]          | [OWNER]                             | [RAIL]                            | [CASES] |
-| :-----: | :----------------- | :---------------------------------- | :-------------------------------- | :-----: |
-|  [01]   | document minting   | `DocumentTier`                      | `Mint → Fin<HostDocument>`        |    3    |
-|  [02]   | keyed state        | `ValueShelf`                        | `Recall<T> → Fin<T>`              |    1    |
-|  [03]   | lifecycle commands | `DocumentGate` + `DocumentReceipt`  | `Apply → Fin<DocumentReceipt>`    |    5    |
-|  [04]   | facet projection   | `DocumentScope.Read<TOut>`          | `Read<TOut> → Fin<TOut>`          |    1    |
-|  [05]   | selection sweep    | `SelectionSweep`                    | `Sweep → Unit` (internal)         |    3    |
-|  [06]   | graph transaction  | `GraphTransact` + `TransactReceipt` | `Transact → Fin<TransactReceipt>` |   18    |
+| [INDEX] | [CONCERN]           | [OWNER]                          | [RAIL]                          | [CASES] |
+| :-----: | :------------------ | :------------------------------- | :------------------------------ | :-----: |
+|  [01]   | document minting    | `DocumentTier`                   | `Mint → Fin<HostDocument>`      |    3    |
+|  [02]   | dirty polarity      | `MarkPosture`                    | `Stamp → Unit` (internal)       |    2    |
+|  [03]   | lifecycle commands  | `DocumentGate`                   | `Apply → Fin<GateReceipt>`      |    5    |
+|  [04]   | inert facet read    | `DocumentFacet` + `DocumentAnswer` | `Read → Fin<DocumentAnswer>`  | 11 + 10 |
+|  [05]   | settlement evidence | `GateReceipt` + `GateOutcome`    | folder-wide receipt             |    9    |
+|  [06]   | selection sweep     | `SelectionSweep`                 | `Sweep → int` (internal)        |    8    |
+|  [07]   | selection posture   | `SelectionPosture`               | `Apply → int` (internal)        |    9    |
+|  [08]   | graph transaction   | `GraphTransact`                  | `Transact → Fin<GateReceipt>`   |   17    |
 
 - [01]-[DOCUMENT_MINTING]: `[SmartEnum<int>]` mint rows.
-- [02]-[KEYED_STATE]: `[SmartEnum<int>]` facet rows over `KeyedValues`.
-- [03]-[LIFECYCLE_COMMANDS]: `[GenerateUnionOps]` `[Union]` + evidence receipt.
-- [04]-[FACET_PROJECTION]: one generic marshalled gate.
-- [05]-[SELECTION_SWEEP]: `[SmartEnum<int>]` delegate rows.
-- [06]-[GRAPH_TRANSACTION]: `[GenerateUnionOps]` `[Union]` + causal-delta receipt.
+- [02]-[DIRTY_POLARITY]: `[SmartEnum<int>]` rows over the host's flag pair.
+- [03]-[LIFECYCLE_COMMANDS]: `[GenerateUnionOps]` `[Union]` over one keyed shelf.
+- [04]-[INERT_FACET_READ]: closed row family → closed answer union, no caller lambda.
+- [05]-[SETTLEMENT_EVIDENCE]: one spine, one seal option, one outcome union — every gate in the folder.
+- [06]-[SELECTION_SWEEP]: `[SmartEnum<int>]` delegate rows returning the host count.
+- [07]-[SELECTION_POSTURE]: `[SmartEnum<int>]` rows over nine host posture verbs.
+- [08]-[GRAPH_TRANSACTION]: `[GenerateUnionOps]` `[Union]` + causal-delta outcome.
 
 `GhSession`, `EtoDispatch`, `UiEvents`, `HistoryLedger.Seal`, `Op`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners; every retired verb-roster capability lands as the cases and rows above.
 

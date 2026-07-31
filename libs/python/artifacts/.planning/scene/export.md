@@ -14,7 +14,7 @@
 - Cases: plotter rows route through `plotted`, whose `try`/`finally` closes the live render window after the row's `write` closure runs. `PNG` selects `screenshot`; `SVG`/`PDF`/`EPS`/`PS`/`TEX` select the direct `vtkGL2PSExporter` write over `Plotter.render_window` — BSP depth sort, uncompressed output — because a painter-sorted raster hybrid loses the linework; `GLTF`/`VRML`/`OBJ`/`HTML` select their verified exporter. `Prepass.SURFACE` makes the `GLTF` row's `prepared` projection append `FieldFilter.Surface()`, and `Capture.BUNDLE` makes the `OBJ` row capture the `.obj`/`.mtl` pair. USD rows route through `authored`, which always authors one root group containing the dressed geometry plus every `PrimKind.Sun`; `ExportRow.usdz_package` then selects `PackageOp.Package` and `PackageOp.Verify` with its own `UsdzProfile`.
 - Entry: consumers read `ROW[kind]` and match `ExportRow` directly — no wrapper narrows the correspondence. An ingest round-trip refuses a USD target with `<unsupported-target>` because an imported render window carries no admitted mesh graph. `captured` matches `Capture.SINGLE` or `Capture.BUNDLE`; returned `bytes` key once through the `SceneTarget` format tag.
 - Auto: `ExportRow.prepared` folds `Prepass.SURFACE` into `RenderSpec.staged`. `Capture.BUNDLE` streams each sorted member through bounded chunks into one `stream_zip` at fixed timestamp and compression policy; `Capture.SINGLE` reads the one output. `USD`/`USDZ` author the surface buffers through the numpy stage path without a render window.
-- Receipt: each export contributes `core/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target, bytes, facts)`, minted once at the `scene/render#SCENE` `Export` arm; this owner contributes the serialized payload and, for the USD sinks, the `scene/stage#STAGE` stats band (prim/layer counts, extent diagonal, the USDZ `compliant` verdict) the worker entry threads back through `authored`. Never a parallel per-format rail.
+- Receipt: each export contributes `core/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target, bytes, facts)`, minted once at the `scene/render#SCENE` `Export` arm; this owner contributes the serialized payload and, for the USD sinks, the `scene/stage#STAGE` stats band (prim/layer counts, extent diagonal, and for a USDZ sink the packaged dependency rosters plus the rule and warning counts its compliance close measured) the worker entry threads back through `authored`. A passing compliance verdict is the ABSENCE of the `<usd-failed>` raise, never a band constant restating it. Never a parallel per-format rail.
 - Growth: a new scene-file export is one `SceneTarget` member plus one `ROW` entry; the coverage gate rejects an unruled member. A new plotter variant changes `write`, `Prepass`, `Capture`, or `options` inside that row. A new strategy is one `ExportRow` case plus its total projections and worker fold arm. A new USD metadata field threads once through `authored`, a new fault is one `ExportFault` member, and a new round-trip source is one `SceneSource` member plus one `scene/render_worker#WORKER` `_IMPORTER` row. `ROW` remains the single target correspondence.
 
 ```python signature
@@ -34,8 +34,8 @@ from numpy.typing import NDArray
 from stream_zip import ZIP_AUTO, ZipError, stream_zip
 from vtkmodules.vtkIOExportGL2PS import vtkGL2PSExporter
 
-from rasm.artifacts.scene.spec import FieldFilter, RenderSpec, SceneTarget, Style, SurfaceBand
-from rasm.artifacts.scene.stage import ColorSource, Material, MeshScene, PackageFacts, PackageOp, PrimKind, PrimNode, UpAxis, UsdzProfile, author_mesh, packaged
+from rasm.artifacts.scene.spec import FieldFilter, RenderSpec, SceneTarget, Style, SurfaceBand, TextureMap, TextureSlot, TextureSpace
+from rasm.artifacts.scene.stage import ColorSpace, InputSource, Material, MeshScene, OutputPort, PackageFacts, PackageOp, PrimKind, PrimNode, SurfaceInput, Texture, UpAxis, UsdzProfile, author_mesh, packaged
 
 if TYPE_CHECKING:
     import pyvista as pv
@@ -207,23 +207,34 @@ def authored(surface: Surface, row: ExportRow, spec: RenderSpec, out: Path, /) -
         case ExportRow(tag="usdz_package", usdz_package=profile):
             layer = out.with_suffix(f".{SceneTarget.USD.value}")
             facts = author_mesh(scene, str(layer))[1]
-            # `_closed` already raises `<usd-failed>` on a failed package or compliance close, so a reached
-            # projection IS the witnessed verdict; the PackageFacts the Verify close returns carry the package
-            # evidence onto the band rather than a hard-coded literal beside a discarded result.
+            # `_closed` raises `<usd-failed>` on a failed package or a compliance error, so reaching this projection
+            # IS the passing verdict — a `compliant` constant restating the raise carries no information and is the
+            # deleted form. The band instead publishes what the closes MEASURED: the delivered package's own
+            # dependency rosters and the rule and warning counts its compliance run exercised.
             packaged_facts = _closed(PackageOp.Package(str(layer), str(out), profile), PackageOp.Verify(str(out), profile))
             return frozendict({
                 **facts,
-                "compliant": "true",
                 "profile": profile.value,
+                "package_layers": float(packaged_facts.layers),
                 "references": float(packaged_facts.references),
                 "assets": float(packaged_facts.assets),
+                "compliance_checks": float(packaged_facts.checks),
+                "compliance_warnings": float(packaged_facts.warnings),
             })
         case _ as unreachable:
             assert_never(unreachable)
 
 
 def _closed(*ops: PackageOp) -> PackageFacts:
-    match reduce(lambda railed, op: railed.bind(lambda _facts: packaged(op)), ops, Ok(PackageFacts())):
+    # the seed is the monoid IDENTITY, never a measurement, and each close's own facts accrue through
+    # `PackageFacts.combined` — a last-wins fold discards every earlier arm's evidence, so the package close's
+    # dependency rosters and the compliance close's rule counts both survive onto one band.
+    folded = reduce(
+        lambda railed, op: railed.bind(lambda held: packaged(op).map(lambda measured: PackageFacts.combined(held, measured))),
+        ops,
+        Ok(PackageFacts()),
+    )
+    match folded:
         case Result(tag="ok", ok=facts):
             return facts
         case Result(tag="error"):
@@ -268,14 +279,62 @@ def _streamed(member: Path, /) -> Iterator[bytes]:
         yield from iter(partial(source.read, _CHUNK), b"")
 
 
+_USD_SLOT: Final[frozendict[TextureSlot, tuple[SurfaceInput, OutputPort]]] = frozendict({
+    TextureSlot.BASE_COLOR: (SurfaceInput.DIFFUSE_COLOR, OutputPort.RGB),
+    TextureSlot.EMISSIVE: (SurfaceInput.EMISSIVE_COLOR, OutputPort.RGB),
+    TextureSlot.NORMAL: (SurfaceInput.NORMAL, OutputPort.RGB),
+})
+# ^ total and LOSSY BY DECLARATION over the render-slot roster: `ANISOTROPY` and `COAT_NORMAL` get NO row because
+#   `UsdPreviewSurface` carries neither input, and the packed `MATERIAL` sheet fans through `_PACKED_PORTS` —
+#   three surface inputs off ONE sampler; the value-derived identity keying in `stage#STAGE` collapses the three
+#   `PbrMap`s onto one `UsdUVTexture` reader prim.
+_PACKED_PORTS: Final[tuple[tuple[SurfaceInput, OutputPort], ...]] = (
+    (SurfaceInput.OCCLUSION, OutputPort.R),
+    (SurfaceInput.ROUGHNESS, OutputPort.G),
+    (SurfaceInput.METALLIC, OutputPort.B),
+)
+_USD_SPACE: Final[frozendict[TextureSpace, ColorSpace]] = frozendict(
+    {TextureSpace.SRGB: ColorSpace.SRGB, TextureSpace.LINEAR: ColorSpace.RAW, TextureSpace.RAW: ColorSpace.RAW}
+)  # the plane's DECLARED transfer lowers onto the sampler's sourceColorSpace; AUTO never lands — an undeclared
+#    sniff on a raw normal map is the silent sRGB decode the transfer roster exists to prevent
+_NORMAL_SCALE: Final[tuple[float, float, float, float]] = (2.0, 2.0, 2.0, 2.0)
+_NORMAL_BIAS: Final[tuple[float, float, float, float]] = (-1.0, -1.0, -1.0, -1.0)
+# ^ the render-path companion stores normals unsigned (only sampled containers reach this floor), so the sampler
+#   decodes `value * 2 - 1`; a float EXR normal never reaches here — the reader roster refuses upstream
+
+
+def _textured(slot: TextureSlot, mapped: TextureMap, /) -> tuple[tuple[SurfaceInput, InputSource], ...]:
+    texture = (
+        Texture(file=mapped.file, color_space=_USD_SPACE[mapped.color_space], scale=_NORMAL_SCALE, bias=_NORMAL_BIAS)
+        if slot is TextureSlot.NORMAL
+        else Texture(file=mapped.file, color_space=_USD_SPACE[mapped.color_space])
+    )
+    fan = _PACKED_PORTS if slot is TextureSlot.MATERIAL else ((_USD_SLOT[slot],) if slot in _USD_SLOT else ())
+    return tuple((surface, InputSource.Texture(texture, port)) for surface, port in fan)
+
+
 def _material(spec: RenderSpec, colors: NDArray[np.float32] | None, /) -> Material | None:
     match spec.style:
-        case Style(tag="surface", surface=SurfaceBand(pbr=True) as band):
-            return Material(
-                source=ColorSource.Primvar("displayColor") if colors is not None else ColorSource.Flat(),
-                metallic=band.metallic or 0.0,
-                roughness=band.roughness if band.roughness is not None else 0.5,
+        case Style(tag="surface", surface=band) if band.shaded:
+            # the gate is `SurfaceBand.shaded`, the SAME derived predicate `scene/spec#SPEC`'s `added` forces the
+            # plotter interpolation on — a `pbr=True`-only test authors no material for a maps-bearing band the
+            # render leg textures, so every bound sampler vanishes from the USD egress alone.
+            # Later pairs win in the dict fold, so a bound map overrides its scalar constant slot-for-slot and a
+            # BASE_COLOR map overrides the vertex-colour primvar. A scalar the band did NOT declare authors
+            # NOTHING: `UsdPreviewSurface` already resolves an unauthored input to its own fallback, and a
+            # re-asserted copy of that fallback drifts the first time the schema moves — the absent/zero split the
+            # `Option`-shaped band carries dies the moment a truthiness fold reads `None` as the default.
+            scalars = (
+                *(((SurfaceInput.METALLIC, InputSource.Constant(band.metallic)),) if band.metallic is not None else ()),
+                *(((SurfaceInput.ROUGHNESS, InputSource.Constant(band.roughness)),) if band.roughness is not None else ()),
+                *(((SurfaceInput.DIFFUSE_COLOR, InputSource.Primvar("displayColor")),) if colors is not None else ()),
             )
+            textured = tuple(
+                entry
+                for slot, mapped in sorted(band.maps.items(), key=lambda item: item[0].value)
+                for entry in _textured(slot, mapped)
+            )
+            return Material(inputs=frozendict(dict((*scalars, *textured))))
         case (
             Style(tag="surface")
             | Style(tag="volume")

@@ -80,7 +80,8 @@ const Refined: {
 - Owner: `Ingress`, the untrusted-ingress ceiling vocabulary — `floor` is the default budget row, and `bounded(schema, budget?)` composes the depth gate in front of any schema, so a JSON-bomb fails decode as a typed `ParseError` before it exhausts the runtime and the budget is recoverable from the seam declaration.
 - Law: `Ingress` prices decode admission only — the resilience retry vocabulary is `fault#RETRY_BUDGET`'s `Budget`, and the two names never share a concept: one bounds what a seam admits, the other bounds how a rail re-drives.
 - Law: `bounded` is a schema combinator, never a decode wrapper — `Schema.compose` over a `Schema.transformOrFail` gate keeps the result a first-class schema that joins unions, feeds `Schema.decodeUnknown`, and derives like any owner; the configured decode built from it is a module-scope value at the consuming seam, one admission policy per seam.
-- Law: the three ceilings split by enforcement site — `maxDepth` is enforced here by the gate; `maxFrames` and `maxAssembledBytes` are stream ceilings the interchange frame rail enforces with `Stream.take` and a running-byte filter, consuming these rows as values so the whole ingress budget has one declaration; per-dialect breadth and length ceilings (array, map, string, ext sizes) are the byte-engine configuration rows at the interchange format owner — dialect structure the shape-agnostic gate cannot see — priced beside these rows, never a second budget concept.
+- Law: the four ceilings split by enforcement site — `maxDepth` is enforced here by the gate; `maxFrames`, `maxAssembledBytes`, and `maxRendezvous` are stream ceilings the interchange frame rail enforces as ARMS of its own reassembly fold, each surplus arrival emitting typed `overrun` evidence rather than being discarded, and consuming these rows as values so the whole ingress budget has one declaration; per-dialect breadth and length ceilings (array, map, string, ext sizes) are the byte-engine configuration rows at the interchange format owner — dialect structure the shape-agnostic gate cannot see — priced beside these rows, never a second budget concept.
+- Law: frame count and rendezvous depth are two ceilings, never one — `maxFrames` bounds the frames one feed admits and `maxRendezvous` bounds the keys a two-plane join holds unmatched, and the two are sized independently because a feed's frame budget says nothing about how many envelopes may await their octets; one field serving both prices a join against a number chosen for a different question.
 - Law: depth counts object nesting with the root at `0` and its children at `1`, and the probe short-circuits at first breach — the gate answers "too deep", never "how deep", so a wide shallow payload costs one sweep and a deep bomb costs `maxDepth + 1` admitted object levels.
 - Law: the walk is bounded by the identity graph, never the unfolding tree — a repeat sighting on the live path is a self-referential value no wire dialect can spell, refused as the same typed `ParseError` (`cycle`); a repeat sighting off the path is sharing already priced at first sighting, so a DAG-shaped payload never multiplies the sweep and no input shape can hold the gate open.
 - Law: budgets gate untrusted ingress only — a same-origin trusted lane composes its schema bare, and a budget re-applied to an already-admitted value is the interior re-validation defect.
@@ -95,11 +96,12 @@ declare namespace Ingress {
     readonly maxDepth: number
     readonly maxFrames: number
     readonly maxAssembledBytes: number
+    readonly maxRendezvous: number // the unmatched-key ceiling a two-plane join holds; sized against envelopes in flight, never against the frame budget
   }
   type Verdict = "clear" | "cycle" | "depth"
 }
 
-const _FLOOR: Ingress.Shape = { maxDepth: 64, maxFrames: 4096, maxAssembledBytes: 268435456 }
+const _FLOOR: Ingress.Shape = { maxDepth: 64, maxFrames: 4096, maxAssembledBytes: 268435456, maxRendezvous: 1024 }
 
 const _probe = (root: unknown, ceiling: number): Ingress.Verdict => {
   // BOUNDARY ADAPTER: iterative identity-graph walk — the live-path set names cycles, the visited set prices sharing once; no mutable reference escapes

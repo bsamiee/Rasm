@@ -303,7 +303,7 @@ public static class TextRtf {
 ## [03]-[FIELD_FORMULAS]
 
 - Owner: `FieldKind` is the evaluator table; each row names one exact `TextFields` member and declares every admitted argument signature. `FieldExpr` pairs one row with validated typed values.
-- Law: `FieldProgram.Compose` derives evaluator name and argument positions from row data; adding an evaluator is one row, never a union case plus a mirrored switch arm.
+- Law: `FieldProgram.Compose` derives evaluator name and argument positions from row data; adding an evaluator is one row, never a union case with a mirrored switch arm.
 - Law: optional positions remain explicit `FieldValue.Absent` values until trailing omissions trim, preserving host positional grammar.
 
 ```csharp signature
@@ -560,22 +560,32 @@ public readonly record struct GeometryEvidence<TGeometry>(TGeometry Geometry, ui
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OutlineProduct : IDetachedDocumentResult, IDisposable {
+    private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
+
     private OutlineProduct() { }
+
     public sealed record Curves(Seq<Seq<GeometryEvidence<Curve>>> Glyphs) : OutlineProduct;
     public sealed record Faces(Seq<Seq<GeometryEvidence<Brep>>> Glyphs) : OutlineProduct;
     public sealed record Solids(Seq<Seq<GeometryEvidence<Brep>>> Glyphs) : OutlineProduct;
     public sealed record Shells(Seq<Seq<GeometryEvidence<Extrusion>>> Glyphs) : OutlineProduct;
 
-    public void Dispose() => Switch(
-        curves: static product => GeometryEvidence<Curve>.Release(
-            geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: Op.Of()),
-        faces: static product => GeometryEvidence<Brep>.Release(
-            geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: Op.Of()),
-        solids: static product => GeometryEvidence<Brep>.Release(
-            geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: Op.Of()),
-        shells: static product => GeometryEvidence<Extrusion>.Release(
-            geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: Op.Of()))
-        .ThrowIfFail();
+    public Seq<Error> Faults => faults.Value;
+
+    // Disposal carries no rail outward, so a release refusal parks here: throwing mid-`using`-unwind replaces the
+    // primary exception with the cleanup's and loses the fault the scope exists to report.
+    public void Dispose() {
+        Op key = Op.Of(name: nameof(OutlineProduct));
+        _ = Switch(
+            curves: product => GeometryEvidence<Curve>.Release(
+                geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: key),
+            faces: product => GeometryEvidence<Brep>.Release(
+                geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: key),
+            solids: product => GeometryEvidence<Brep>.Release(
+                geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: key),
+            shells: product => GeometryEvidence<Extrusion>.Release(
+                geometry: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), key: key))
+            .IfFail(fault => ignore(faults.Swap(rows => rows.Add(fault))));
+    }
 }
 
 [ComplexValueObject]
@@ -676,8 +686,10 @@ public sealed partial class OutlineSpec {
 ## [05]-[TEXT_RAIL]
 
 - Owner: `AnnotationSeed` closes text and leader placement; `TextOp` owns placement, run amendment, formula assignment, leader repointing, and per-object style overrides; `TextAsk` owns detached content, frame, bounds, style, override, leader, and geometry evidence; native-bearing answer cases own their leases and disposal.
+- Law: every host enum crossing a snapshot boundary lands on a bounded owner — `DimensionKind` for the annotation kind, `MaskSource`/`TextMaskFrame` for the mask pair, `LeaderArrow`/`LeaderCurve`/`LeaderContentAngle`/`TextAlignAcross`/`TextAlignDown` for the leader vocabulary — each admitted through `AcceptValidated`, so a raw `AnnotationType`, `MaskType`, `MaskFrame`, `ArrowType`, or alignment value never reaches a consumer.
+- Law: a disposer parks its release refusal on the owner's own `Faults` cell; throwing from `Dispose` replaces the primary exception during a `using` unwind and loses the fault the scope exists to report.
 - Law: placement and duplicate-then-replace amendments hold native geometry in one owned lease through override, add, edit, and replace failure.
-- Law: formula assignment uses `SetRichText(rtfText, dimstyle)`; snapshot evidence includes first-character underline, style and parent identity, the schema-keyed override census, mirrored annotation-style values, natural bounds, and both leader text alignments.
+- Law: formula assignment uses `SetRichText(rtfText, dimstyle)`; snapshot evidence reads first-character decoration off `FirstCharFont` — the host publishes bold, italic, and underline on the resolved font and exposes no per-annotation decoration member — beside style and parent identity, the schema-keyed override census, mirrored annotation-style values, natural bounds, and both leader text alignments.
 - Law: the dimension-scale probe carries the Document-owned `ViewportTarget` address and resolves it to one native viewport through `ResolveViewport` inside the session demand immediately before `GetDimensionScale`, so no live `RhinoViewport` handle rides the detached request.
 
 ```csharp signature
@@ -842,9 +854,78 @@ public sealed record TextFormatState(
     double Height, double RotationRadians,
     bool Wrapped, double FormatWidth, double ModelWidth);
 
+[SmartEnum<int>]
+public sealed partial class MaskSource {
+    public static readonly MaskSource BackgroundColor = new(key: (int)DimensionStyle.MaskType.BackgroundColor);
+    public static readonly MaskSource MaskColor = new(key: (int)DimensionStyle.MaskType.MaskColor);
+}
+
+[SmartEnum<int>]
+public sealed partial class TextMaskFrame {
+    public static readonly TextMaskFrame None = new(key: (int)DimensionStyle.MaskFrame.NoFrame);
+    public static readonly TextMaskFrame Rectangle = new(key: (int)DimensionStyle.MaskFrame.RectFrame);
+    public static readonly TextMaskFrame Capsule = new(key: (int)DimensionStyle.MaskFrame.CapsuleFrame);
+    public static readonly TextMaskFrame Circle = new(key: (int)DimensionStyle.MaskFrame.CircleFrame);
+    public static readonly TextMaskFrame Square = new(key: (int)DimensionStyle.MaskFrame.SquareFrame);
+    public static readonly TextMaskFrame Diamond = new(key: (int)DimensionStyle.MaskFrame.DiamondFrame);
+    public static readonly TextMaskFrame Triangle = new(key: (int)DimensionStyle.MaskFrame.TriangleFrame);
+    public static readonly TextMaskFrame Hexagon = new(key: (int)DimensionStyle.MaskFrame.HexagonFrame);
+    public static readonly TextMaskFrame HexagonCapsule = new(key: (int)DimensionStyle.MaskFrame.HexagonCapsuleFrame);
+    public static readonly TextMaskFrame RoundRectangle = new(key: (int)DimensionStyle.MaskFrame.RoundRectFrame);
+}
+
+[SmartEnum<int>]
+public sealed partial class LeaderArrow {
+    public static readonly LeaderArrow None = new(key: (int)DimensionStyle.ArrowType.None);
+    public static readonly LeaderArrow UserBlock = new(key: (int)DimensionStyle.ArrowType.UserBlock);
+    public static readonly LeaderArrow SolidTriangle = new(key: (int)DimensionStyle.ArrowType.SolidTriangle);
+    public static readonly LeaderArrow Dot = new(key: (int)DimensionStyle.ArrowType.Dot);
+    public static readonly LeaderArrow Tick = new(key: (int)DimensionStyle.ArrowType.Tick);
+    public static readonly LeaderArrow ShortTriangle = new(key: (int)DimensionStyle.ArrowType.ShortTriangle);
+    public static readonly LeaderArrow OpenArrow = new(key: (int)DimensionStyle.ArrowType.OpenArrow);
+    public static readonly LeaderArrow Rectangle = new(key: (int)DimensionStyle.ArrowType.Rectangle);
+    public static readonly LeaderArrow LongTriangle = new(key: (int)DimensionStyle.ArrowType.LongTriangle);
+    public static readonly LeaderArrow LongerTriangle = new(key: (int)DimensionStyle.ArrowType.LongerTriangle);
+    public static readonly LeaderArrow SolidDatumTriangle = new(key: (int)DimensionStyle.ArrowType.SolidDatumTriangle);
+}
+
+[SmartEnum<int>]
+public sealed partial class LeaderCurve {
+    public static readonly LeaderCurve None = new(key: (int)DimensionStyle.LeaderCurveStyle.None);
+    public static readonly LeaderCurve Polyline = new(key: (int)DimensionStyle.LeaderCurveStyle.Polyline);
+    public static readonly LeaderCurve Spline = new(key: (int)DimensionStyle.LeaderCurveStyle.Spline);
+}
+
+[SmartEnum<int>]
+public sealed partial class LeaderContentAngle {
+    public static readonly LeaderContentAngle Horizontal = new(key: (int)DimensionStyle.LeaderContentAngleStyle.Horizontal);
+    public static readonly LeaderContentAngle Aligned = new(key: (int)DimensionStyle.LeaderContentAngleStyle.Aligned);
+    public static readonly LeaderContentAngle Rotated = new(key: (int)DimensionStyle.LeaderContentAngleStyle.Rotated);
+}
+
+[SmartEnum<int>]
+public sealed partial class TextAlignAcross {
+    public static readonly TextAlignAcross Left = new(key: (int)TextHorizontalAlignment.Left);
+    public static readonly TextAlignAcross Center = new(key: (int)TextHorizontalAlignment.Center);
+    public static readonly TextAlignAcross Right = new(key: (int)TextHorizontalAlignment.Right);
+    public static readonly TextAlignAcross Auto = new(key: (int)TextHorizontalAlignment.Auto);
+    public static readonly TextAlignAcross Justify = new(key: (int)TextHorizontalAlignment.Justify);
+}
+
+[SmartEnum<int>]
+public sealed partial class TextAlignDown {
+    public static readonly TextAlignDown Top = new(key: (int)TextVerticalAlignment.Top);
+    public static readonly TextAlignDown MiddleOfTop = new(key: (int)TextVerticalAlignment.MiddleOfTop);
+    public static readonly TextAlignDown BottomOfTop = new(key: (int)TextVerticalAlignment.BottomOfTop);
+    public static readonly TextAlignDown Middle = new(key: (int)TextVerticalAlignment.Middle);
+    public static readonly TextAlignDown MiddleOfBottom = new(key: (int)TextVerticalAlignment.MiddleOfBottom);
+    public static readonly TextAlignDown Bottom = new(key: (int)TextVerticalAlignment.Bottom);
+    public static readonly TextAlignDown BottomOfBoundingBox = new(key: (int)TextVerticalAlignment.BottomOfBoundingBox);
+}
+
 public sealed record TextMaskState(
     bool Enabled, PerceptualColor Color,
-    DimensionStyle.MaskType Source, DimensionStyle.MaskFrame Frame,
+    MaskSource Source, TextMaskFrame Frame,
     double Offset, bool UsesViewportColor, bool DrawFrame);
 
 public sealed record TextStyleState(
@@ -860,18 +941,21 @@ public sealed record TextStyleState(
     LengthDisplayRow AlternateLengthDisplay);
 
 public sealed record TextState(
-    ResourceId Key, AnnotationType Kind,
+    ResourceId Key, DimensionKind Kind,
     Plane Frame, BoundingBox Bounds,
     TextContentState Content, TextFormatState Format, TextMaskState Mask,
     TextStyleState Style, bool HasPropertyOverrides) : IDetachedDocumentResult {
     internal static Fin<TextState> Of(AnnotationObjectBase native, Op key) => key.Catch(() =>
         from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: key.InvalidResult())
         from mask in annotation.MaskColor.Admitted(key)
+        from kind in key.AcceptValidated<DimensionKind>(candidate: (int)annotation.AnnotationType)
+        from maskSource in key.AcceptValidated<MaskSource>(candidate: (int)annotation.MaskColorSource)
+        from maskFrame in key.AcceptValidated<TextMaskFrame>(candidate: (int)annotation.MaskFrame)
         from lengthDisplay in key.AcceptValidated<LengthDisplayRow>(candidate: (int)annotation.DimensionLengthDisplay)
         from alternateLengthDisplay in key.AcceptValidated<LengthDisplayRow>(candidate: (int)annotation.AlternateDimensionLengthDisplay)
         select new TextState(
             Key: ResourceId.Create(native.Id),
-            Kind: annotation.AnnotationType,
+            Kind: kind,
             Frame: annotation.Plane,
             Bounds: annotation.GetBoundingBox(xform: Transform.Identity),
             Content: new TextContentState(
@@ -882,7 +966,7 @@ public sealed record TextState(
                 annotation.FirstCharFont.FaceName,
                 annotation.FirstCharFont.Bold,
                 annotation.FirstCharFont.Italic,
-                annotation.FirstCharUnderlined,
+                annotation.FirstCharFont.Underlined,
                 annotation.IsAllBold(),
                 annotation.IsAllItalic(),
                 annotation.IsAllUnderlined(),
@@ -892,7 +976,7 @@ public sealed record TextState(
                 annotation.FormatWidth,
                 annotation.TextModelWidth),
             Mask: new TextMaskState(
-                annotation.MaskEnabled, mask, annotation.MaskColorSource, annotation.MaskFrame,
+                annotation.MaskEnabled, mask, maskSource, maskFrame,
                 annotation.MaskOffset, annotation.MaskUsesViewportColor, annotation.DrawTextFrame),
             Style: new TextStyleState(
                 Style: ResourceId.Create(annotation.DimensionStyleId),
@@ -913,11 +997,11 @@ public sealed record TextState(
 
 public sealed record LeaderFacts(
     ResourceId Key, Seq<Point2d> Points2D, Seq<Point3d> Points3D, Option<Lease<NurbsCurve>> Spline,
-    DimensionStyle.ArrowType ArrowType, double ArrowSize, Option<ResourceId> ArrowBlock,
-    DimensionStyle.LeaderCurveStyle CurveStyle,
-    DimensionStyle.LeaderContentAngleStyle ContentAngleStyle,
-    TextHorizontalAlignment HorizontalAlignment,
-    TextVerticalAlignment VerticalAlignment,
+    LeaderArrow ArrowType, double ArrowSize, Option<ResourceId> ArrowBlock,
+    LeaderCurve CurveStyle,
+    LeaderContentAngle ContentAngleStyle,
+    TextAlignAcross HorizontalAlignment,
+    TextAlignDown VerticalAlignment,
     bool HasLanding, double LandingLength) : IDetachedDocumentResult, IDisposable {
     public void Dispose() {
         _ = Spline.Iter(static spline => spline.Dispose());
@@ -970,17 +1054,22 @@ public abstract partial record TextAsk {
             from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
             from facts in ctx.Op.Catch(() =>
                 from leader in Optional(native.AnnotationGeometry as Leader).ToFin(Fail: ctx.Op.InvalidInput())
+                from arrow in ctx.Op.AcceptValidated<LeaderArrow>(candidate: (int)leader.LeaderArrowType)
+                from curve in ctx.Op.AcceptValidated<LeaderCurve>(candidate: (int)leader.LeaderCurveStyle)
+                from angle in ctx.Op.AcceptValidated<LeaderContentAngle>(candidate: (int)leader.LeaderContentAngleStyle)
+                from across in ctx.Op.AcceptValidated<TextAlignAcross>(candidate: (int)leader.LeaderTextHorizontalAlignment)
+                from down in ctx.Op.AcceptValidated<TextAlignDown>(candidate: (int)leader.LeaderTextVerticalAlignment)
                 select new LeaderFacts(
                     Key: ResourceId.Create(native.Id),
                     Points2D: toSeq(leader.Points2D),
                     Points3D: toSeq(leader.Points3D),
-                    ArrowType: leader.LeaderArrowType,
+                    ArrowType: arrow,
                     ArrowSize: leader.LeaderArrowSize,
                     ArrowBlock: ResourceId.Maybe(leader.LeaderArrowBlockId),
-                    CurveStyle: leader.LeaderCurveStyle,
-                    ContentAngleStyle: leader.LeaderContentAngleStyle,
-                    HorizontalAlignment: leader.LeaderTextHorizontalAlignment,
-                    VerticalAlignment: leader.LeaderTextVerticalAlignment,
+                    CurveStyle: curve,
+                    ContentAngleStyle: angle,
+                    HorizontalAlignment: across,
+                    VerticalAlignment: down,
                     HasLanding: leader.LeaderHasLanding,
                     LandingLength: leader.LeaderLandingLength,
                     Spline: Optional(leader.Curve).Map(static value =>
@@ -1050,6 +1139,8 @@ public abstract partial record TextAnswer : IDetachedDocumentResult {
         public void Dispose() => Product.Dispose();
     }
     public sealed record Pieces : TextAnswer, IDisposable {
+        private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
+
         private Pieces(Seq<Lease<GeometryBase>> products) => Products = products;
 
         public Seq<Lease<GeometryBase>> Products { get; }
@@ -1065,9 +1156,12 @@ public abstract partial record TextAnswer : IDetachedDocumentResult {
                     Fail: cleanup => Fin.Fail<TextAnswer>(error: primary + cleanup)));
         }
 
+        public Seq<Error> Faults => faults.Value;
+
         public void Dispose() {
-            Op key = Op.Of();
-            Products.Traverse(product => key.Catch(product.Dispose).ToValidation()).As().ToFin().ThrowIfFail();
+            Op key = Op.Of(name: nameof(Pieces));
+            _ = Products.Traverse(product => key.Catch(product.Dispose).ToValidation()).As().ToFin()
+                .IfFail(fault => ignore(faults.Swap(rows => rows.Add(fault))));
         }
     }
     public sealed record Scaled(double Factor) : TextAnswer;

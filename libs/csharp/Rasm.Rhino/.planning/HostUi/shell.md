@@ -20,6 +20,7 @@
 - Entry: `HostThread.Run<T>(HostWork<T>, Op?)` admits the operation once and returns `Fin<T>`.
 - Law: `Session` carries every `SessionNeed` in the request value; a consumer never opens a second document demand beside the host operation.
 - Law: provenance is a case, never a caller flag — `Guarded` marshals exactly like `Execute` and adds only the `RiskyAction` bracket around the body.
+- Law: the posted state cell is the terminal probe, not a marker — the expiry CAS separates a body that never started from one already running, and a `Settled` read after a lapsed wait answers with the late result rather than discarding a completed crossing.
 - Law: marshal-seam latency is a mounted ledger, never a second clock — `MarshalLatency` seats one `ILatencyContextProvider` first-mount-wins, the app root registers the checkpoint and tag names through `RegisterCheckpointNames`/`RegisterTagNames` and the tokens resolve once at mount, every off-thread crossing records queued and settled checkpoints with work and outcome tags on one frozen `ILatencyContext`, and an empty seat is the zero-cost pass-through; the `rhino.marshal` instrument row on `Objects/authoring.md` projects this ledger at the app root under the `DurationInstrument` label `rasm.rhino.hostui.marshal.duration`.
 - Boundary: `HostThread` owns Rhino command-thread affinity, while `UiThread` owns Eto control-tree affinity.
 
@@ -136,7 +137,6 @@ public abstract partial record HostWork<T> {
 public static class HostThread {
     private enum PostedState { Pending, Running, Expired, Settled }
 
-    public static bool Affine => RhinoApp.IsOnMainThread;
 
     public static Fin<T> Run<T>(HostWork<T> work, Op? key = null) {
         ArgumentNullException.ThrowIfNull(work);
@@ -202,11 +202,16 @@ public static class HostThread {
                 },
                 args: []);
             if (completed.Task.Wait(request.Wait.ToValue())) return completed.Task.Result;
-            _ = Interlocked.CompareExchange(
-                location1: ref state,
-                value: (int)PostedState.Expired,
-                comparand: (int)PostedState.Pending);
-            return Fin.Fail<T>(error: new UiFault.Unavailable(Key: op, Capability: nameof(RhinoApp.InvokeOnUiThread)));
+            // Only a body that never started loses the expiry CAS; a lost CAS proves the body was already running
+            // when the wait lapsed, so `Settled` is the reader that recovers a result the timeout otherwise discards
+            // — a posted body that finished late still answers rather than faulting.
+            return Interlocked.CompareExchange(
+                    location1: ref state,
+                    value: (int)PostedState.Expired,
+                    comparand: (int)PostedState.Pending) is (int)PostedState.Pending
+                || Volatile.Read(location: ref state) is not (int)PostedState.Settled
+                ? Fin.Fail<T>(error: new UiFault.Unavailable(Key: op, Capability: nameof(RhinoApp.InvokeOnUiThread)))
+                : completed.Task.Result;
         }));
 
     private static Fin<T> Session<T>(HostWork<T>.Session work, Op op) {
@@ -421,6 +426,7 @@ public static class PromptWatch {
 - Law: only `MeterGrant.Owned` writes or hides the host meter; `MeterGrant.Foreign` returns unchanged witnessed receipts.
 - Law: the taskbar pulse is best-effort projection — a refused pulse lands as `TaskbarFault` evidence on the receipt, never a failed advance, so position and receipt always mirror the committed host meter.
 - Boundary: `Progress.Use` demands `SessionNeed.Redraw`; release clears every owned projection, returns cleanup failure through the use rail, and retains failed attempts for explicit retry.
+- Law: the lease locks in ONE direction — every operation crosses `HostThread` first and takes the state lock inside the marshalled body, never the reverse; a release holding the lock across a blocking marshal inverts the order against a concurrent advance and deadlocks the host thread against its own caller, so the marshal is always outside and the lock always inside.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -544,33 +550,41 @@ public sealed class ProgressLease : IDisposable {
             key: op);
     }
 
-    public Fin<Unit> Release() {
-        lock (sync) {
-            if (state.Released) return Fin.Succ(value: unit);
-            Fin<Unit> cleanup = HostThread.Release(
-                releases: grant.Switch(
-                    this,
-                    owned: static (self, owner) => Seq<Func<Fin<Unit>>>(
-                        () => {
-                            StatusBar.HideProgressMeter(docSerialNumber: owner.Document);
-                            return Fin.Succ(value: unit);
-                        },
-                        () => self.policy.Features.Contains(ProgressFeature.Taskbar)
-                            ? TaskbarPulse.Apply(state: PulseState.Idle)
-                            : Fin.Succ(value: unit)),
-                    foreign: static (_, _) => Seq<Func<Fin<Unit>>>()),
-                key: op);
-            return cleanup.Match(
-                Succ: _ => {
-                    state = state with { Released = true };
+    // Lock order is one direction everywhere on this lease: cross to the host thread FIRST, take `sync` SECOND.
+    // Holding `sync` across a blocking marshal inverts that order against `Advance` and deadlocks the pair — a caller
+    // waiting on the host thread while the host thread executes an `Advance` body waiting on the lock it already holds.
+    public Fin<Unit> Release() => HostThread.Run(
+        work: new HostWork<Unit>.Execute(Body: () => {
+            lock (sync) {
+                if (state.Released) return Fin.Succ(value: unit);
+                Fin<Unit> cleanup = Cleanup();
+                return cleanup.Match(
+                    Succ: _ => {
+                        state = state with { Released = true };
+                        return Fin.Succ(value: unit);
+                    },
+                    Fail: failure => {
+                        _ = releaseFaults.Swap(rows => rows.Add(failure));
+                        return Fin.Fail<Unit>(error: failure);
+                    });
+            }
+        }),
+        key: op);
+
+    // Already on the host thread and already under `sync`: the release fold runs its rows in order and drains every fault.
+    private Fin<Unit> Cleanup() => HostThread.Release(
+        releases: grant.Switch(
+            this,
+            owned: static (self, owner) => Seq<Func<Fin<Unit>>>(
+                () => {
+                    StatusBar.HideProgressMeter(docSerialNumber: owner.Document);
                     return Fin.Succ(value: unit);
                 },
-                Fail: failure => {
-                    _ = releaseFaults.Swap(rows => rows.Add(failure));
-                    return Fin.Fail<Unit>(error: failure);
-                });
-        }
-    }
+                () => self.policy.Features.Contains(ProgressFeature.Taskbar)
+                    ? TaskbarPulse.Apply(state: PulseState.Idle)
+                    : Fin.Succ(value: unit)),
+            foreign: static (_, _) => Seq<Func<Fin<Unit>>>()),
+        key: op);
 
     public void Dispose() => _ = Release();
 
@@ -855,7 +869,7 @@ public static class ShellTheme {
 - Owner: `SkinProgram` carries the icon, product name, and one `SkinPhase` hook; `ShellSkin` adapts the complete `Skin` load-phase surface onto it.
 - Law: every `ShellSkin` override chains the base member first, then routes its `SkinPhase` case; hook faults accumulate in `Faults` and never re-enter the host load sequence.
 - Law: `ShellHooks.Mount` registers `rasm.rhino.hostui.skin` on the `MountRegistry` — the ask is the `Func<SkinPhase, Fin<Unit>>` phase hook, the grant is a `SkinProgram` carrying it, so a skin observer binds by point name and hands the granted program to its `ShellSkin` constructor with no second phase-delivery path.
-- Law: platform capability resolves through `HostUtils.GetPlatformService<T>` and stays behind `HostFacts`; a probe is a `HostProbe` case, so a new capability read is one case and one arm.
+- Law: platform capability stays behind `HostFacts` and enters through the two host locators by shape — `HostUtils.GetPlatformService<T>` resolves a typed service contract, `Rhino.UI.Runtime.PlatformServiceProvider` answers the fixed process facts it publishes directly (`ProcessArchitecture`) — and a probe is a `HostProbe` case, so a new capability read is one case and one arm.
 - Law: engine presence is a probed host fact, never an assumption — `HostProbe.Scripting` answers with the `ScriptEngineSnapshot` search-path and runtime-assembly census, and every `HostScripts` entry refuses typed when `PythonScript.Create()` answers null.
 - Law: script execution admits the complete `ScriptRun` text family and every binding name before engine creation or host dispatch, then rides `HostThread.Run`; an execute returning `false` projects onto the rail, expression absence rides `Option<object>`, and scripting-runtime exceptions convert inside the guarded window.
 - Boundary: process facts include runtime architecture, Mono presence, and system references; assembly paths admit through `Op.AcceptText` before any resolver mutation.
@@ -1623,15 +1637,19 @@ public static class NodeFunctions {
 
 ## [08]-[NOTICES]
 
-- Owner: `NoticeSpec` admits title, message, severity, captions, metadata, and assembly guards once; `Notices.Post` mints the host notification and returns a `NoticeLease`.
+- Owner: `NoticeSpec` admits title, message, severity, captions, metadata, and assembly guards once; `Notices.Use` brackets one host notification behind a `NoticeLease` for the body's extent.
+- Owner: `RunOutcome` closes the completion vocabulary every long-running rail projects into, and `NoticeSpec.OfRun` is the one completion-notice row — severity derives from the outcome case, the metadata bag carries the run's own scale and duration facts, and `NoticeReply` is the three-button decision the consumer reads back.
+- Entry: `Notices.Announce` is the completion fire site — it takes an `Option<RunOutcome>`, so a rail whose receipt folds to `None` mid-run announces nothing and a settled rail announces once, and it folds the reply into `Option<NoticeReply>`; a bare-`RunOutcome` rail lifts through `Some` at its own edge, so one entry serves both receipt shapes.
+- Law: a long run reports through `RunOutcome`, never through its own receipt type — the render and capture rails each project their receipt into that neutral carrier at their own edge, so no `RenderReceipt`, `CaptureArtifact`, or host render type crosses into this page and the notice row grows one case, never one overload per rail.
+- Law: `RunOutcome.Failed` carries the rail's own `Error`, so a refused run announces at `NoticeSeverity.Serious` with the fault text as its metadata row; `Debug` and `Critical` stay caller-selected rows of the host's own five-value severity roster, reached through `NoticeSpec.Create` rather than the run projection.
 - Owner: `NoticeReply` and `NoticeSeverity` key the host button and severity vocabularies; `NoticeFact` closes reply and property-change evidence.
 - Owner: `CallbackObserver<NoticeFact>` guards both notice callback families and retains consumer failures as lease evidence.
 - Entry: `NoticeLease` presents, withdraws, annotates, and detaches metadata through one crossing.
-- Law: `NoticeLease` serializes callback delivery, host operations, and release; disposal detaches both callback families before withdrawal through one failure-accumulating host-thread release.
+- Law: `NoticeLease` serializes callback delivery, host operations, and release; disposal detaches both callback families, withdraws, and retracts the centre membership through one failure-accumulating host-thread release.
 - Law: reply and change facts stamp through the injected `MonotonicTimeline` — provider-branded monotonic evidence, never an ambient clock or a local counter.
-- Law: metadata mutation runs inside `Notification.ExecuteAssemblyProtectedCode`; an unguarded write against a guarded notice is unrepresentable from this surface.
-- Law: reply and change delivery crosses `CallbackObserver.Guard` whole, so projection and consumer faults never escape the host dispatcher.
-- Boundary: `NotificationCenter.Notifications` renders host-side and its backing set stays unbound — the lease observes only its own notice through the verified `ButtonClicked` and `PropertyChanged` members.
+- Law: EVERY notification write runs inside `Notification.ExecuteAssemblyProtectedCode` — the host guards each field setter, the metadata indexer, `RemoveMetadata`, `HideModal`, and the centre's own `Remove`, so an unwrapped write against a restricted notice throws; only `ShowModal` is unguarded and it is the one write this page spells bare.
+- Law: the guard admits by the WRITING assembly, so `Notices` unions its own assembly into a non-empty `NoticeSpec.Guards` set before construction — a caller-supplied roster omitting the boundary leaves the lease unable to administer the notice it owns, and an empty roster stays empty because empty means unrestricted.
+- Law: membership in `NotificationCenter.Notifications` IS rendering — a notification never added shows nowhere and its `ShowModal` queues against nothing — so the mint adds and the release retracts; the set is otherwise unbound and the lease observes only its own notice through `ButtonClicked` and `PropertyChanged`.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -1662,6 +1680,30 @@ public sealed partial class NoticeSpec {
     public Option<HostText> AlternateCaption { get; }
     public FrozenDictionary<string, string> Metadata { get; }
     public Seq<Assembly> Guards { get; }
+
+    public static Fin<NoticeSpec> OfRun(
+        RunOutcome outcome, HostText message, Seq<Assembly> guards = default,
+        Option<HostText> confirmCaption = default, Option<HostText> alternateCaption = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(outcome).ToFin(Fail: op.InvalidInput())
+               from body in Optional(message).ToFin(Fail: op.InvalidInput())
+               let facts = active.Switch(
+                   completed: static row => row.Scale,
+                   cancelled: static _ => FrozenDictionary<string, string>.Empty,
+                   failed: static row => new Dictionary<string, string>(StringComparer.Ordinal) {
+                       [nameof(Error)] = row.Reason.Message,
+                   }.ToFrozenDictionary(StringComparer.Ordinal))
+               from spec in Validate(
+                   active.Switch(
+                       completed: static row => row.Label,
+                       cancelled: static row => row.Label,
+                       failed: static row => row.Label),
+                   body, Option<HostText>.None, active.Severity, confirmCaption, Option<HostText>.None,
+                   alternateCaption, facts, guards, out NoticeSpec? admitted) is null && admitted is not null
+                   ? Fin.Succ(value: admitted)
+                   : Fin.Fail<NoticeSpec>(error: op.InvalidInput())
+               select spec;
+    }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -1696,118 +1738,199 @@ public abstract partial record NoticeFact {
     public sealed record ChangedCase(string Property, Option<MonotonicStamp> At) : NoticeFact;
 }
 
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RunOutcome {
+    private RunOutcome() { }
+    public sealed record Completed(HostText Label, FrozenDictionary<string, string> Scale) : RunOutcome;
+    public sealed record Cancelled(HostText Label) : RunOutcome;
+    public sealed record Failed(HostText Label, Error Reason) : RunOutcome;
+
+    internal NoticeSeverity Severity => Switch(
+        completed: static _ => NoticeSeverity.Info,
+        cancelled: static _ => NoticeSeverity.Warning,
+        failed: static _ => NoticeSeverity.Serious);
+}
+
 // --- [SERVICES] -----------------------------------------------------------------------------
+// `NoticeGate` outlives the constructor: the host callbacks close over IT, never over a half-built lease, so the
+// subscription set attaches BEFORE the lease value exists and an attach refusal folds onto the mint's own rail.
+internal sealed class NoticeGate(CallbackObserver<NoticeFact> observer, Op op) {
+    private readonly CallbackObserver<NoticeFact> observer = observer;
+    private readonly Op op = op;
+    private int released;
+
+    internal object Sync { get; } = new();
+
+    internal Seq<Error> Faults => observer.Faults;
+
+    internal bool Claim() {
+        lock (Sync) {
+            if (released is not 0) return false;
+            released = 1;
+            return true;
+        }
+    }
+
+    internal Unit Deliver(Func<Fin<NoticeFact>> project) {
+        lock (Sync) return released is 0 ? observer.Guard(project: project, op: op) : unit;
+    }
+
+    internal Fin<T> Within<T>(Func<Fin<T>> body, Op key) {
+        lock (Sync) {
+            return from _ in guard(flag: released is 0, False: key.MissingContext()).ToFin()
+                   from done in body()
+                   select done;
+        }
+    }
+}
+
 public sealed class NoticeLease : IDisposable {
     private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
     private readonly HostNotice notice;
-    private readonly CallbackObserver<NoticeFact> observer;
+    private readonly NoticeGate gate;
     private readonly Subscription observation;
     private readonly Op op;
-    private readonly MonotonicTimeline timeline;
-    private readonly object sync = new();
-    private int released;
 
-    internal NoticeLease(HostNotice notice, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline, Op op) {
+    private NoticeLease(HostNotice notice, NoticeGate gate, Subscription observation, Op op) {
         this.notice = notice;
-        this.observer = observer.Fork();
-        this.timeline = timeline;
+        this.gate = gate;
+        this.observation = observation;
         this.op = op;
-        PropertyChangedEventHandler handler = (_, args) => Deliver(() => Fin.Succ<NoticeFact>(
-            value: new NoticeFact.ChangedCase(
-                Property: args.PropertyName ?? string.Empty,
-                At: timeline.Capture(key: op).ToOption())));
-        observation = Subscription.AttachAll(Seq<Func<Fin<Subscription>>>(
-            () => Subscription.Acquire(
-                acquire: () => HostNotice.ExecuteAssemblyProtectedCode(action: () => notice.ButtonClicked = button => Deliver(() =>
-                    NoticeReply.TryGet(button, out NoticeReply? reply) && reply is { } admitted
-                        ? Fin.Succ<NoticeFact>(value: new NoticeFact.ReplyCase(
-                            Reply: admitted,
-                            At: timeline.Capture(key: op).ToOption()))
-                        : Fin.Fail<NoticeFact>(error: op.InvalidResult()))),
-                release: () => HostNotice.ExecuteAssemblyProtectedCode(action: () => notice.ButtonClicked = null)),
-            () => Subscription.Attach(
-                subscribe: callback => notice.PropertyChanged += callback,
-                unsubscribe: callback => notice.PropertyChanged -= callback,
-                handler: handler)))
-            .Match(
-                Succ: static attached => attached,
-                Fail: static fault => throw fault.ToException());
     }
 
-    public Seq<Error> Faults => faults.Value + observer.Faults;
+    internal static Fin<NoticeLease> Of(
+        HostNotice notice, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline, Op op) {
+        NoticeGate gate = new(observer: observer.Fork(), op: op);
+        PropertyChangedEventHandler changed = (_, args) => ignore(gate.Deliver(() => Fin.Succ<NoticeFact>(
+            value: new NoticeFact.ChangedCase(
+                Property: args.PropertyName ?? string.Empty,
+                At: timeline.Capture(key: op).ToOption()))));
+        return Subscription.AttachAll(Seq<Func<Fin<Subscription>>>(
+                () => Subscription.Acquire(
+                    acquire: () => HostNotice.ExecuteAssemblyProtectedCode(action: () => notice.ButtonClicked = button =>
+                        ignore(gate.Deliver(() => NoticeReply.TryGet(button, out NoticeReply? reply) && reply is { } admitted
+                            ? Fin.Succ<NoticeFact>(value: new NoticeFact.ReplyCase(
+                                Reply: admitted,
+                                At: timeline.Capture(key: op).ToOption()))
+                            : Fin.Fail<NoticeFact>(error: op.InvalidResult())))),
+                    release: () => HostNotice.ExecuteAssemblyProtectedCode(action: () => notice.ButtonClicked = null)),
+                () => Subscription.Attach(
+                    subscribe: callback => notice.PropertyChanged += callback,
+                    unsubscribe: callback => notice.PropertyChanged -= callback,
+                    handler: changed)))
+            .Map(attached => new NoticeLease(notice: notice, gate: gate, observation: attached, op: op));
+    }
 
-    public Fin<Unit> Present(Op? key = null) => Crossing(body: () => Op.Side(notice.ShowModal), key: key);
+    public Seq<Error> Faults => faults.Value + gate.Faults;
 
-    public Fin<Unit> Withdraw(Op? key = null) => Crossing(body: () => Op.Side(notice.HideModal), key: key);
+    // `ShowModal` is the ONE host write the assembly guard does not check, so it alone crosses bare.
+    public Fin<Unit> Present(Op? key = null) => Crossing(body: static held => Op.Side(held.ShowModal), key: key);
+
+    public Fin<Unit> Withdraw(Op? key = null) => Crossing(
+        body: static held => Op.Side(() => HostNotice.ExecuteAssemblyProtectedCode(action: held.HideModal)),
+        key: key);
 
     public Fin<FrozenDictionary<string, string>> Metadata(Op? key = null) => Crossing(
-        body: () => notice.MetadataCopy.ToFrozenDictionary(StringComparer.Ordinal),
+        body: static held => held.MetadataCopy.ToFrozenDictionary(StringComparer.Ordinal),
         key: key);
 
     public Fin<Unit> Annotate(string field, Option<string> value, Op? key = null) {
         Op admitted = key.OrDefault();
         return admitted.AcceptText(value: field).Bind(named => Crossing(
-            body: () => Op.Side(() => HostNotice.ExecuteAssemblyProtectedCode(action: () => ignore(value.Match(
-                Some: text => Op.Side(() => notice[named] = text),
-                None: () => Op.Side(() => ignore(notice.RemoveMetadata(key: named))))))),
+            body: held => Op.Side(() => HostNotice.ExecuteAssemblyProtectedCode(action: () => ignore(value.Match(
+                Some: text => Op.Side(() => held[named] = text),
+                None: () => Op.Side(() => ignore(held.RemoveMetadata(key: named))))))),
             key: admitted));
     }
 
-    public void Dispose() {
-        lock (sync) {
-            if (released is not 0) return;
-            released = 1;
-        }
-        _ = HostThread.Release(
+    public Fin<Unit> Release(Op? key = null) {
+        Op admitted = key.OrDefault();
+        if (!gate.Claim()) return Fin.Succ(value: unit);
+        HostNotice held = notice;
+        Subscription attached = observation;
+        return HostThread.Release(
             releases: Seq<Func<Fin<Unit>>>(
                 () => {
-                    observation.Dispose();
+                    attached.Dispose();
                     return Fin.Succ(value: unit);
                 },
-                () => {
-                    notice.HideModal();
-                    return Fin.Succ(value: unit);
-                }),
-            key: op).IfFail(failure => {
-                _ = faults.Swap(rows => rows.Add(failure));
-                return unit;
-            });
+                () => admitted.Catch(() => Fin.Succ(value: Op.Side(() =>
+                    HostNotice.ExecuteAssemblyProtectedCode(action: () => {
+                        held.HideModal();
+                        _ = NotificationCenter.Notifications.Remove(held);
+                    }))))),
+            key: admitted).BindFail(failure =>
+                (faults.Swap(rows => rows.Add(failure)), Fin.Fail<Unit>(error: failure)).Item2);
     }
 
-    private Fin<T> Crossing<T>(Func<T> body, Op? key = null) {
+    public void Dispose() => _ = Release();
+
+    private Fin<T> Crossing<T>(Func<HostNotice, T> body, Op? key = null) {
         Op admitted = key.OrDefault();
+        HostNotice held = notice;
         return HostThread.Run(
-            work: new HostWork<T>.Execute(Body: () => {
-                lock (sync) {
-                    return from _ in guard(flag: released is 0, False: admitted.MissingContext()).ToFin()
-                           from done in admitted.Catch(() => Fin.Succ(value: body()))
-                           select done;
-                }
-            }),
+            work: new HostWork<T>.Execute(Body: () => gate.Within(
+                body: () => admitted.Catch(() => Fin.Succ(value: body(held))),
+                key: admitted)),
             key: admitted);
-    }
-
-    private void Deliver(Func<Fin<NoticeFact>> project) {
-        lock (sync) {
-            if (released is 0) _ = observer.Guard(project: project, op: op);
-        }
     }
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Notices {
-    public static Fin<NoticeLease> Post(
+    public static Fin<T> Use<T>(
         NoticeSpec spec,
         CallbackObserver<NoticeFact> observer,
         MonotonicTimeline timeline,
+        Func<NoticeLease, Fin<T>> body,
         Op? key = null) {
         ArgumentNullException.ThrowIfNull(spec);
         ArgumentNullException.ThrowIfNull(observer);
         ArgumentNullException.ThrowIfNull(timeline);
+        ArgumentNullException.ThrowIfNull(body);
         Op op = key.OrDefault();
         return HostThread.Run(
-            work: new HostWork<NoticeLease>.Execute(Body: () => op.Catch(() => {
-                HostNotice notice = spec.Guards.IsEmpty ? new HostNotice() : new HostNotice(allowedAssemblies: spec.Guards);
+            work: new HostWork<T>.Execute(Body: () =>
+                Mint(spec: spec, observer: observer, timeline: timeline, op: op)
+                    .Bind(lease => Bracketed(lease: lease, body: body, op: op))),
+            key: op);
+    }
+
+    // `None` is a run that has not settled — a mid-run receipt announces nothing rather than posting a false terminal.
+    public static Fin<Option<T>> Announce<T>(
+        Option<RunOutcome> outcome,
+        HostText message,
+        CallbackObserver<NoticeFact> observer,
+        MonotonicTimeline timeline,
+        Func<NoticeLease, Fin<T>> body,
+        Seq<Assembly> guards = default,
+        Option<HostText> confirmCaption = default,
+        Option<HostText> alternateCaption = default,
+        Op? key = null) {
+        ArgumentNullException.ThrowIfNull(body);
+        Op op = key.OrDefault();
+        return outcome.Match(
+            Some: settled =>
+                from spec in NoticeSpec.OfRun(
+                    outcome: settled, message: message, guards: guards,
+                    confirmCaption: confirmCaption, alternateCaption: alternateCaption, key: op)
+                from answered in Use(
+                    spec: spec, observer: observer, timeline: timeline,
+                    body: lease => lease.Present(key: op).Bind(_ => body(lease)), key: op)
+                select Some(answered),
+            None: static () => Fin.Succ(value: Option<T>.None));
+    }
+
+    // `ExecuteAssemblyProtectedCode` admits by the WRITING assembly, so a restricted roster gains this boundary
+    // before its first field write, while an empty roster stays empty because empty already means unrestricted.
+    private static Fin<NoticeLease> Mint(
+        NoticeSpec spec, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline, Op op) =>
+        op.Catch(() => {
+            Seq<Assembly> allowed = spec.Guards.IsEmpty
+                ? spec.Guards
+                : (spec.Guards + Seq(typeof(Notices).Assembly)).Distinct().Strict();
+            HostNotice notice = allowed.IsEmpty ? new HostNotice() : new HostNotice(allowedAssemblies: allowed);
+            HostNotice.ExecuteAssemblyProtectedCode(action: () => {
                 notice.Title = spec.Title.Resolve();
                 notice.Message = spec.Message.Resolve();
                 notice.SeverityLevel = spec.Severity.Key;
@@ -1815,15 +1938,24 @@ public static class Notices {
                 _ = spec.ConfirmCaption.Iter(text => notice.ConfirmButtonTitle = text.Resolve());
                 _ = spec.CancelCaption.Iter(text => notice.CancelButtonTitle = text.Resolve());
                 _ = spec.AlternateCaption.Iter(text => notice.AlternateButtonTitle = text.Resolve());
-                HostNotice.ExecuteAssemblyProtectedCode(action: () =>
-                    ignore(toSeq(spec.Metadata.AsEnumerable()).Iter(row => Op.Side(() => notice[row.Key] = row.Value))));
-                return Fin.Succ(value: new NoticeLease(
-                    notice: notice,
-                    observer: observer,
-                    timeline: timeline,
-                    op: op));
-            })),
-            key: op);
+                _ = toSeq(spec.Metadata.AsEnumerable()).Iter(row => Op.Side(() => notice[row.Key] = row.Value));
+            });
+            // Membership is rendering: the centre `Add` publishes the notice, and a refused publish releases the lease
+            // that already holds the host callbacks.
+            return NoticeLease.Of(notice: notice, observer: observer, timeline: timeline, op: op)
+                .Bind(lease => op.Catch(() => Fin.Succ(value: Op.Side(() => NotificationCenter.Notifications.Add(notice))))
+                    .Match(
+                        Succ: _ => Fin.Succ(value: lease),
+                        Fail: fault => (fun(lease.Dispose)(), Fin.Fail<NoticeLease>(error: fault)).Item2));
+        });
+
+    private static Fin<T> Bracketed<T>(NoticeLease lease, Func<NoticeLease, Fin<T>> body, Op op) {
+        Fin<T> result = op.Catch(() => body(lease));
+        return lease.Release(key: op).Match(
+            Succ: _ => result,
+            Fail: cleanup => result.Match(
+                Succ: _ => Fin.Fail<T>(error: cleanup),
+                Fail: primary => Fin.Fail<T>(error: primary + cleanup)));
     }
 }
 ```

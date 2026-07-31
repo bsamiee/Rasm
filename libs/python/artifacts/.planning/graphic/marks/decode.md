@@ -29,7 +29,8 @@ from typing import Self, assert_never
 
 import msgspec
 import numpy as np
-from beartype import BeartypeConf, beartype
+from beartype import beartype
+from rasm.runtime.faults import FAULT_CONF
 from builtins import frozendict
 from expression import Error, Ok, Result
 
@@ -39,7 +40,6 @@ from rasm.artifacts.graphic.raster.process import RasterFact
 lazy import zxingcpp
 lazy from PIL import Image
 
-_CONTRACT = BeartypeConf(is_pep484_tower=True)
 
 # --- [TYPES] ----------------------------------------------------------------------------
 class SymbolError(StrEnum):  # per-symbol EVIDENCE return_errors=True keeps — never a rail fault
@@ -133,7 +133,7 @@ class DecodedSymbol(msgspec.Struct, frozen=True, omit_defaults=True):
     error_message: str = ""
 
     @classmethod
-    @beartype(conf=_CONTRACT)
+    @beartype(conf=FAULT_CONF)
     def of(cls, barcode: "zxingcpp.Barcode", /) -> Self:
         box = barcode.position
         return cls(
@@ -372,6 +372,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Mark decode scan admission
+    accDescr: Decode and verify operations entering one scan whose reader arguments derive from the taxonomy scope and whose opened source resolves the raster or pixel case, the reader returning barcodes that admit as typed evidence and project into a scored raster fact recoverable as typed symbols.
     Rail["encode Mark.of: MarkOp.Decode / MarkOp.Verify (lane dispatch by source case)"] --> Scan["DecodeScope.scan(source) -> Result[RasterFact, MarkFault]"]
     Scan --> Args["_reader_args: TAXONOMY-derived scope | unscannable + getattr provider rows"]
     Scan --> Open["_opened: Raster via Pillow -> unreadable | Pixels via ImageView(strides) -> malformed"]

@@ -395,7 +395,7 @@ public sealed record IssueBoard(Map<BcfStatus, Seq<BcfTopic>> Lanes) {
     public static IssueBoard Of(Seq<BcfTopic> topics) =>
         new(topics
             .GroupBy(static t => t.Status)
-            .Select(static g => (g.Key, g.OrderBy(static t => PriorityRank.Of(t.Priority)).ToSeq()))
+            .Select(static g => (g.Key, toSeq(g.OrderBy(static t => PriorityRank.Of(t.Priority)))))
             .ToMap());
 
     // Land clash proposals on the board: every proposal's minted BcfTopic folds into its status lane through ONE Of

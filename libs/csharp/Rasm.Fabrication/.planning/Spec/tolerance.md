@@ -1228,18 +1228,19 @@ public abstract partial record Tolerance {
             .MapFail(error => Invalid("project:encode", error.Message)).Bind(static result => result)
         select (ToleranceReceipt)new ToleranceReceipt.Projected(demand.Value, bytes);
 
-    // Only a rotationally swept cutter leaves a cusp, and its radius is the family's own, never the shank's.
+    // Only a rotationally swept corner leaves a cusp, and the sweep radius is the family's own `CornerRule` — the
+    // same behavior column `CutterFamily.Fits` admits against. Dispatching the sixteen-row family arm by arm strands
+    // every row the roster gains; the four-row corner rule is total over all sixteen and stays total as they grow.
     private static Fin<ToleranceReceipt> Scallop(RaTarget target, CutterForm cutter) =>
         from admittedTarget in Optional(target).ToFin(Invalid("scallop:target"))
         from admittedCutter in Optional(cutter).ToFin(Invalid("scallop:cutter"))
-        from radius in admittedCutter.Family.Switch(
-            flat: static () => Fin.Fail<double>(Invalid("scallop:family", "a cusp-forming cutter family")),
-            ball: () => Fin.Succ(admittedCutter.Diameter * 0.5),
-            bull: () => Fin.Succ(admittedCutter.CornerRadius),
-            taper: () => Fin.Succ(admittedCutter.CornerRadius),
-            drill: static () => Fin.Fail<double>(Invalid("scallop:family", "a cusp-forming cutter family")),
-            chamfer: static () => Fin.Fail<double>(Invalid("scallop:family", "a cusp-forming cutter family")),
-            threadMill: static () => Fin.Fail<double>(Invalid("scallop:family", "a cusp-forming cutter family")))
+        from radius in admittedCutter.Family.Corner.Switch(
+                state: (Half: admittedCutter.Diameter * 0.5, Corner: admittedCutter.CornerRadius),
+                sharp: static _ => Option<double>.None,
+                full: static state => Some(state.Half),
+                partial: static state => Some(state.Corner),
+                any: static state => Some(state.Corner))
+            .ToFin(Invalid("scallop:family", $"a cusp-forming cutter family, not {admittedCutter.Family.Key}"))
         let height = admittedTarget.ScallopHeightMm
         let radicand = (2.0 * radius * height) - (height * height)
         from _1 in guard(double.IsFinite(radius) && radius > 0.0,

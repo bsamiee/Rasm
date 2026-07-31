@@ -115,7 +115,7 @@ public static class TableSurface {
 - Law: `LoadingRowGroup` stamps group-header state from theme tokens onto each materialized group header, the one materialization edge for grouped projections, so a per-group-header style fork is the deleted form; the group key threads from the snapshot's `Groups` field through the collection view's `GroupDescriptions`, so header expansion state survives restore on the same field.
 - Law: `CurrentKey` resolves against the keyed live-data cache on the screen; `Apply` receives the resolved item as the `current` value.
 - Entry: `Fin<Unit> Apply<TRow>(TableViewState state, Seq<TableColumnRow<TRow>> columns, Option<object> current = default)` admits sort, group, page, expansion, and realized-window state against the column vocabulary before one batched mutation.
-- Auto: `DeferRefresh` collapses every multi-descriptor write into one refresh; apply-on-activate and capture-on-deactivate ride the screen-state snapshot rows; the live-data `Page` and `Virtualise` operators emit `IPagedChangeSet<TRow, TKey>` and `IVirtualChangeSet<TRow, TKey>`, whose `Response` bounds — `IPageResponse.Page`/`PageSize`/`Pages`/`TotalSize` and `IVirtualResponse.StartIndex`/`Size`/`TotalSize` — construct the `WindowState` window field so restore re-requests the same window with zero re-query.
+- Auto: `DeferRefresh` collapses every multi-descriptor write into one refresh; apply-on-activate and capture-on-deactivate ride the screen-state snapshot rows; the window field is PRODUCED by `ProjectionFold.Project`, which returns its bounds stream beside its row stream — the paged arm off `IPagedChangeSet.Response.Page`/`PageSize` and the virtualized arm off the realized ordinals `VirtualWindow.Realize` derives from `IVirtualResponse` — so restore re-requests the same window with zero re-query and no snapshot carries a position no projection measured.
 - Packages: Avalonia.Controls.DataGrid; DynamicData; LanguageExt.Core; BCL inbox.
 - Growth: one snapshot field per view-state axis; a page-size, window, or group change is one policy value; zero new surface.
 - Boundary: boundary capsule (statement carve-out) — `DataGridCollectionView` is package-owned mutable state, so `Apply` carries language-owned statement forms writing filter, sort, group, page, and current-row descriptors inside one `DeferRefresh` scope; the snapshot is built from screen control state and never read back from the view; the `Paged` window rides the live-data `Page` operator and constructs `WindowState.Paged`, while the virtualized window rides `Virtualise` and constructs `WindowState.Virtualized`, so one modality never carries zero/default fields belonging to the other, and `Admit` rejects a `Paged` window whose size disagrees with the snapshot's `PageSize`; a second collection-view state holder is the deleted form.
@@ -194,19 +194,19 @@ public static class ViewStateSurface {
 ## [04]-[TREE_FLATTEN]
 
 - Owner: `TableProjection<TRow, TKey>` `[Union]` with `TreeRow<TRow>` as the flat indent row and `ExpansionState<TKey>` as the expansion cell; `ProjectionFold` dispatches the union to one flat row stream.
-- Cases: `Flat`, `TreeFlattened(Func<TRow, TKey> ParentKey, Option<IComparer<TRow>> Order, Option<Func<TKey, IObservable<IChangeSet<TRow, TKey>>>> LoadChildren)`, `Grouped(string GroupColumnKey)`, `Paged(IObservable<PageRequest> Pages)`, `Virtualized(VirtualWindow Owner, IObservable<ViewportRange> Viewport, Func<Seq<TKey>> Order)`.
+- Cases: `Flat`, `TreeFlattened(Func<TRow, TKey> ParentKey, Option<IComparer<TRow>> Order, Option<Func<TKey, IObservable<IChangeSet<TRow, TKey>>>> LoadChildren)`, `Grouped(string GroupColumnKey)`, `Paged(IObservable<PageRequest> Pages)`, `Virtualized(VirtualWindow<TRow, TKey> Owner, IObservable<ViewportRange> Viewport, Func<Seq<TKey>> Order)`.
 - Law: every case lands as `IChangeSet<TreeRow<TRow>, TKey>`; the grid binds one flat collection, so the one `VirtualWindow` fabric windows every projection.
 - Law: the `TreeFlattened` recursion is the `Shell/virtualization` `HierarchyFlatten` bridge, not a tables-local fold — the column-metadata family stays tables-owned, the sibling-order comparer threads as the bridge's optional order argument, and windowing delegates to the one fabric.
-- Law: the cross-tab is a snapshot projection over the materialized item set — quantity-takeoff and status matrices are `PivotSpec` values whose cell fold reuses the aggregation vocabulary, exported through the same `Delimited` shaping and `ExportDelivery.Deliver` fold.
+- Law: the cross-tab is a snapshot projection over the materialized item set — quantity-takeoff and status matrices are `PivotSpec` values whose cell fold reuses the aggregation vocabulary and answers `Option<double>`, so a vacant cross renders as absence rather than a fabricated zero and the finiteness gate reads only measured cells; the matrix exports through the same `Delimited` shaping and `ExportDelivery.Deliver` fold.
 - Law: view sort descriptors stay empty on a tree projection; sibling order is the case's `Order` comparer threaded into `HierarchyFlatten.Flatten` — sorting flat indent rows is the deleted form.
 - Law: `LoadChildren` materializes a child stream on first expansion through the `FirstExpansion` fold — each key entering the expansion set subscribes its stream exactly once, and loaded children merge into the upstream keyed spine the shared flatten reads, never a side collection.
 - Law: `DiffTableFold.Classify` projects the SAME `(ElementId, DiffClass)` classification `Render/pipeline.md` `VersionGhost.Project` renders in the viewport into a per-class summary and classified element rows, exported through the same `Delimited` shaping and `ExportDelivery.Deliver` fold — a grid-local diff classification is the deleted form.
 - Law: a grouped projection folds identity at the change-set altitude; its `GroupColumnKey` lands on the snapshot's group field so the collection view owns group materialization.
-- Entry: `IObservable<IChangeSet<TreeRow<TRow>, TKey>> Project(TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key)`.
-- Auto: an expansion toggle re-emits the flattened stream through the change-set diff; the `TreeFlattened` arm delegates the flatten to the one `Shell/virtualization` `HierarchyFlatten.Flatten` bridge, and the `Virtualized` arm consumes the caller-owned `VirtualWindow`, current `ViewportRange` stream, and row-order projection to build `OrderedChangeSet<TRow,TKey>` for `VirtualWindow.Realize`; expansion keys persist on the `Expanded` snapshot field through the row key's string projection, and restore mints the expansion cell before the first projection subscription.
+- Entry: `(IObservable<IChangeSet<TreeRow<TRow>, TKey>> Rows, IObservable<WindowState> Window) Project(TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key)` — the window rides BESIDE the rows off one shared subscription, so the `[03]` snapshot field has the producer its `Admit` already validates and an unwindowed case emits an empty window stream rather than a fabricated position.
+- Auto: an expansion toggle re-emits the flattened stream through the change-set diff; the `TreeFlattened` arm delegates the flatten to the one `Shell/virtualization` `HierarchyFlatten.Flatten` bridge, and the `Virtualized` arm consumes the caller-owned `VirtualWindow`, current `ViewportRange` stream, and row-order projection to build `OrderedChangeSet<TRow,TKey>` for `VirtualWindow.Realize`; the two windowed arms share one published subscription and project rows and `WindowState` bounds off it, so the snapshot's window and the grid's rows can never disagree about the position they were measured at; expansion keys persist on the `Expanded` snapshot field through the row key's string projection, and restore mints the expansion cell before the first projection subscription.
 - Packages: DynamicData; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core; Rasm.AppUi/Shell/virtualization.
 - Growth: one projection case; an ordering or depth change is one policy value; zero new surface — the closed five-case family is the axis.
-- Boundary: `TreeDataGrid` stays rejected — every hierarchy renders as `TreeRow` indent rows on the flat virtualized `DataGrid`, which is the absorbing fold; windowing routes through the one `VirtualWindow` owner — the `TreeFlattened` case folds through `HierarchyFlatten.Flatten` and the `Virtualized` case folds through `VirtualWindow.Realize`, so a tables-local virtualizer is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form and `Editing/tables` delegates windowing to the one fabric while conserving its `TableColumnRow` column-metadata family and its sibling-order comparer; the tables-side fold contributes its `parentKey`, sibling-order comparer, and expansion cell to `HierarchyFlatten`, which owns the `TransformToTree`-plus-recursion the `ProjectionFold.Rows` previously held in-folder, so the flatten algebra moves to the shared owner with zero capability lost — the column metadata, the lazy `LoadChildren`, and the grouped/paged arms stay tables-owned; `TransformToTree` emits root nodes only (its default predicate is `IsRoot`), so the shared flatten fold owns child materialization and never double-counts; grouped virtualization stability rides the live-data immutable-group projection-policy row; the expansion cell disposes inside the activation scope with its `DisposalReceipt`; the `VirtualWindow.Realize` realized bounds construct the `WindowState` snapshot field (`[03]-[VIEW_STATE]`) so restore re-requests the exact viewport with zero re-query.
+- Boundary: `TreeDataGrid` stays rejected — every hierarchy renders as `TreeRow` indent rows on the flat virtualized `DataGrid`, which is the absorbing fold; windowing routes through the one `VirtualWindow` owner — the `TreeFlattened` case folds through `HierarchyFlatten.Flatten` and the `Virtualized` case folds through `VirtualWindow.Realize`, so a tables-local virtualizer is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form and `Editing/tables` delegates windowing to the one fabric while conserving its `TableColumnRow` column-metadata family and its sibling-order comparer; the tables-side fold contributes its `parentKey`, sibling-order comparer, and expansion cell to `HierarchyFlatten`, which owns the `TransformToTree`-plus-recursion the `ProjectionFold.Rows` previously held in-folder, so the flatten algebra moves to the shared owner with zero capability lost — the column metadata, the lazy `LoadChildren`, and the grouped/paged arms stay tables-owned; `TransformToTree` emits root nodes only (its default predicate is `IsRoot`), so the shared flatten fold owns child materialization and never double-counts; grouped virtualization stability rides the live-data immutable-group projection-policy row; the expansion cell disposes inside the activation scope with its `DisposalReceipt`; the `VirtualWindow.Realize` realized ordinals construct the `WindowState.Virtualized` snapshot field (`[03]-[VIEW_STATE]`) so restore re-requests the exact viewport with zero re-query, and a `TreeRow` carries no offset or extent because the fixed density-token row height makes both derivable from the index the window already reports.
 
 ```csharp signature
 public readonly record struct TreeRow<TRow>(TRow Item, int Level, bool HasChildren, bool IsExpanded) {
@@ -246,20 +246,41 @@ public abstract partial record TableProjection<TRow, TKey> where TRow : notnull 
 
 public static class ProjectionFold {
     extension<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> source) where TRow : notnull where TKey : notnull {
-        public IObservable<IChangeSet<TreeRow<TRow>, TKey>> Project(TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key) =>
+        // The windowed arms publish ONE shared subscription and project twice off it: rows for the grid and
+        // bounds for the snapshot. Transforming straight to TreeRow discards the IPagedChangeSet Response
+        // and the RealizedItem ordinals, which is the whole evidence the restore law re-requests a window
+        // from — a second Page or Realize subscription to recover them would window the source twice.
+        public (IObservable<IChangeSet<TreeRow<TRow>, TKey>> Rows, IObservable<WindowState> Window) Project(
+            TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key) =>
             projection.Switch(
                 state: (source, expansion, key),
-                flat: static (s, _) => s.source.Transform(TreeRow<TRow>.Leaf),
-                treeFlattened: static (s, tree) => tree.LoadChildren
+                flat: static (s, _) => (s.source.Transform(TreeRow<TRow>.Leaf), Observable.Empty<WindowState>()),
+                treeFlattened: static (s, tree) => (tree.LoadChildren
                     .Map(load => s.source.Merge(FirstExpansion(s.expansion.Cell, load)))
                     .IfNone(s.source)
                     .Flatten(tree.ParentKey, s.expansion.Cell, s.key, tree.Order)
                     .Transform(static node => new TreeRow<TRow>(node.Item, node.Depth, node.HasChildren, node.Expanded)),
-                grouped: static (s, _) => s.source.Transform(TreeRow<TRow>.Leaf),
-                paged: static (s, paged) => s.source.Page(paged.Pages).Transform(TreeRow<TRow>.Leaf),
+                    Observable.Empty<WindowState>()),
+                grouped: static (s, _) => (s.source.Transform(TreeRow<TRow>.Leaf), Observable.Empty<WindowState>()),
+                paged: static (s, paged) => s.source.Page(paged.Pages).Publish().RefCount() switch {
+                    var shared => (
+                        shared.Transform(TreeRow<TRow>.Leaf),
+                        shared.Select(static changes => (WindowState)new WindowState.Paged(changes.Response.Page, changes.Response.PageSize))
+                            .DistinctUntilChanged()),
+                },
+                // The realized ordinals ARE the virtual bounds: the window's start is the least live index it
+                // realized and its size the realized count, both read off the same stream the grid binds.
                 virtualized: static (s, virtualized) => virtualized.Owner
-                    .Realize(new OrderedChangeSet<TRow, TKey>(s.source, virtualized.Order), virtualized.Viewport, s.key)
-                    .Transform(static realized => TreeRow<TRow>.Leaf(realized.Item)));
+                    .Realize(new OrderedChangeSet<TRow, TKey>(s.source, virtualized.Order), virtualized.Viewport)
+                    .Publish().RefCount() switch {
+                        var realized => (
+                            realized.Transform(static item => TreeRow<TRow>.Leaf(item.Item)),
+                            realized.ToCollection()
+                                .Where(static window => window.Count > 0)
+                                .Select(static window => (WindowState)new WindowState.Virtualized(
+                                    window.Min(static item => item.Index), window.Count))
+                                .DistinctUntilChanged()),
+                    });
     }
 
     // First-expansion loading: a key ENTERING the expansion set subscribes its child stream exactly once,
@@ -282,24 +303,35 @@ public static class ProjectionFold {
 // aggregate cell matrix whose column roster derives from the data, feeding dynamic TableColumnRow
 // generation and the same one delivery fold; a spreadsheet round-trip to pivot elsewhere is the deleted
 // form. Live cases stay on the TableProjection union; the pivot re-folds per snapshot by construction.
+// A sparse cross is the NORMAL case for a takeoff or status matrix, so the cell projects Option: a Sum fold
+// over no rows would answer a measured-looking zero, an Avg fold NaN, and the finiteness gate would then fail
+// the entire pivot on one vacant cross. Absence has two owners and one spelling — the fold owns an empty
+// cross, the spec's delegate owns a cross carrying no admitted measure.
 public sealed record PivotSpec<TRow>(
     Func<TRow, string> RowAxis,
     Func<TRow, string> ColumnAxis,
-    Func<Seq<TRow>, double> Cell);
+    Func<Seq<TRow>, Option<double>> Cell);
 
 public static class PivotFold {
-    public static Fin<(Seq<string> Columns, Seq<(string RowKey, Seq<double> Cells)> Rows)> Cross<TRow>(
+    public static Fin<(Seq<string> Columns, Seq<(string RowKey, Seq<Option<double>> Cells)> Rows)> Cross<TRow>(
         PivotSpec<TRow> spec, Seq<TRow> items) {
-        Seq<string> columns = items.Map(spec.ColumnAxis).Distinct().OrderBy(identity, StringComparer.Ordinal).ToSeq();
-        Seq<(string RowKey, Seq<double> Cells)> rows = toSeq(items.GroupBy(spec.RowAxis).OrderBy(static group => group.Key, StringComparer.Ordinal)
-            .Select(group => (
-                RowKey: group.Key,
-                Cells: columns.Map(column => spec.Cell(toSeq(group).Filter(row => spec.ColumnAxis(row) == column))))));
+        Seq<string> columns = toSeq(items.Map(spec.ColumnAxis).Distinct().OrderBy(identity, StringComparer.Ordinal));
+        // The grouping materializes ONCE per row axis; re-running toSeq(group) inside the column map prices
+        // the cross at O(rows x columns x |group|) where one pass over the group suffices.
+        Seq<(string RowKey, Seq<Option<double>> Cells)> rows = toSeq(items.GroupBy(spec.RowAxis).OrderBy(static group => group.Key, StringComparer.Ordinal)
+            .Select(group => toSeq(group) switch {
+                var members => (
+                    RowKey: group.Key,
+                    Cells: columns.Map(column => members.Filter(row => spec.ColumnAxis(row) == column) switch {
+                        { IsEmpty: true } => Option<double>.None,
+                        var cross => spec.Cell(cross),
+                    })),
+            }));
         return !items.IsEmpty
             && columns.ForAll(static key => !string.IsNullOrWhiteSpace(key))
-            && rows.ForAll(static row => !string.IsNullOrWhiteSpace(row.RowKey) && row.Cells.ForAll(double.IsFinite))
+            && rows.ForAll(static row => !string.IsNullOrWhiteSpace(row.RowKey) && row.Cells.ForAll(static cell => cell.ForAll(double.IsFinite)))
             ? Fin.Succ((columns, rows))
-            : Fin.Fail<(Seq<string>, Seq<(string, Seq<double>)>)>(new EditFault.Invariant("table/pivot", "axes and aggregate cells must be non-empty and finite"));
+            : Fin.Fail<(Seq<string>, Seq<(string, Seq<Option<double>>)>)>(new EditFault.Invariant("table/pivot", "axes must be non-empty and every measured cell finite"));
     }
 }
 
@@ -323,9 +355,9 @@ public static class DiffTableFold {
 - Law: `Admitted` traverses a non-empty `ColumnKeys` sequence in requested order, rejects quote or line-break delimiters and duplicate, unknown, invisible, or classified keys, and the delimited projection is the single text-shaping fold for clipboard and delivered destinations alike.
 - Entry: `IDisposable Attach(DataGrid grid, Action<string, TRow> invoke, Action<Error> fault)`; `IO<Fin<string>> Export(VisualRuntime runtime, TableExportSpec spec, Seq<TRow> items, VisualDestination destination)`.
 - Auto: every commit and export executes as a CommandIntent, so availability gating, re-entrancy suppression, and `CommandReceipt` emission arrive with zero local receipt code; a delivery-case change breaks the one `VisualDestination` dispatch at compile time, never a table-local sibling family.
-- Receipt: the CommandReceipt rail carries intent key, surface, elapsed, outcome, and `CorrelationId`; host-routed commits project the `DocumentTransaction` receipt into the same rail; `TelemetryRow` contributes the commit-outcome and export-volume instruments inward through the AppHost `TelemetryContributorPort`.
+- Receipt: the CommandReceipt rail carries intent key, surface, elapsed, outcome, and `CorrelationId`; host-routed commits project the `DocumentTransaction` receipt into the same rail; `TelemetryRow` contributes the commit-outcome and export-outcome instruments inward through the AppHost `TelemetryContributorPort`, each bound by its own `Observe` projection at the fold that already holds the disposition.
 - Packages: Avalonia.Controls.DataGrid; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core.
-- Growth: one export policy value on the spec; a new delivery case is one `VisualDestination` case landed at the export.md owner; a new commit target is one `Persist` delegate binding; one grid instrument is one `InstrumentSpec` row on `CommitSurface.TelemetryRow`; zero new surface.
+- Growth: one export policy value on the spec; a new delivery case is one `VisualDestination` case landed at the export.md owner; a new commit target is one `Persist` delegate binding; one grid instrument is one `InstrumentSpec` row on `CommitSurface.TelemetryRow` with its projection beside it; zero new surface.
 - Boundary: store rows bind `Persist` to `StoreOp.Upsert` through the Persistence port; host-object rows bind the same column to the abstract `DocumentTransaction` commit surface-host port the app root binds to the host; delivery is the `Document/export.md` `VisualDestination` union through `ExportDelivery.Deliver` — the `FilePath` value arrives from the storage-pick DialogIntent row and the `BlobLane` arm rides the Persistence Sep lane — so a table-local delivery union is the `SHAPE_BUDGET` deleted form; the clipboard path is a transport, never a destination: `TableExportSpec.Tsv` fixes tab-plus-header shaping and the folded text hands to the input rail's typed clipboard row — a bespoke CSV writer is the deleted form.
 
 ```csharp signature
@@ -344,8 +376,22 @@ public static class CommitSurface {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(CommitInstrument, "{commit}", "grid commits by outcome", MeasureForm.Whole),
-            InstrumentSpec.Count(ExportInstrument, "{export}", "tabular exports by destination", MeasureForm.Whole));
+            InstrumentSpec.Count(CommitInstrument, "{commit}", "grid commits by intent and outcome", MeasureForm.Whole,
+                AppUiTelemetry.IntentSlot, AppUiTelemetry.OutcomeSlot),
+            InstrumentSpec.Count(ExportInstrument, "{export}", "tabular exports by destination and outcome", MeasureForm.Whole,
+                AppUiTelemetry.SlotSlot, AppUiTelemetry.OutcomeSlot));
+
+    // Both projections bind where the typed disposition is already in hand — the gate outcome at the edit
+    // hook, the delivery outcome at the export fold — so each contributed row above has exactly one writer
+    // and neither stands declared-but-unrecorded. The returned rail parks at the composition's evidence cell.
+    public static Fin<Unit> Observe(InstrumentSet set, string intentKey, Fin<Unit> commit) =>
+        set.Write(CommitInstrument, 1L, InstrumentSet.Tags(
+            (AppUiTelemetry.IntentSlot, intentKey), (AppUiTelemetry.OutcomeSlot, commit.IsSucc ? "committed" : "rejected")));
+
+    public static Fin<Unit> Observe(InstrumentSet set, VisualDestination destination, Fin<string> export) =>
+        set.Write(ExportInstrument, 1L, InstrumentSet.Tags(
+            (AppUiTelemetry.SlotSlot, destination.Key),
+            (AppUiTelemetry.OutcomeSlot, export.IsSucc ? "delivered" : "rejected")));
 
     extension<TRow>(TableCommit<TRow> commit) {
         public Func<TRow, CancellationToken, ValueTask<Fin<Unit>>> Execution =>
@@ -379,13 +425,15 @@ public static class CommitSurface {
                 : Fin.Fail<Seq<TableColumnRow<TRow>>>(new EditFault.Invariant("table/export", "columns or delimiter are invalid"));
 
         // RFC-4180: a field containing the delimiter, a quote, CR, or LF wraps in quotes with interior
-        // quotes doubled — a bare string.Join over raw cell values is the deleted form.
+        // quotes doubled — a bare string.Join over raw cell values is the deleted form. The row projection is
+        // POSITIONALLY TOTAL: one field per admitted column, an unprojected cell emitting empty rather than
+        // dropping, since a dropped cell shifts every field after the hole one column left against a header
+        // this same fold wrote — silent corruption where the whole contract is positional.
         public Fin<string> Delimited(TableExportSpec spec, Seq<TRow> items) => rows.Admitted(spec).Map(columns =>
             string.Join("\r\n",
                 (spec.HeaderRow ? string.Join(spec.Delimiter, columns.Map(row => Quote(row.Header, spec.Delimiter))).Cons(Seq<string>()) : Seq<string>())
                 + items.Map(item => string.Join(spec.Delimiter, columns
-                    .Map(row => row.Project(item).Map(value => Quote(value, spec.Delimiter)))
-                    .Somes()))));
+                    .Map(row => row.Project(item).Map(value => Quote(value, spec.Delimiter)).IfNone(string.Empty))))));
 
         public IO<Fin<string>> Export(VisualRuntime runtime, TableExportSpec spec, Seq<TRow> items, VisualDestination destination) =>
             rows.Delimited(spec, items).Match(

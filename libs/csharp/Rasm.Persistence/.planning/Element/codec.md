@@ -93,7 +93,7 @@ public sealed partial class SnapshotCodec {
     public bool Serves(WireSurface surface) => Membership.Contains(surface);
 
     public static Fin<SnapshotCodec> Negotiate(WireSurface surface, Type shape, Seq<string> accepted) =>
-        toSeq(Items).Filter(c => c.Serves(surface) && c.Admits(shape)).OrderByDescending(static c => c.NegotiationRank).ToSeq()
+        toSeq(toSeq(Items).Filter(c => c.Serves(surface) && c.Admits(shape)).OrderByDescending(static c => c.NegotiationRank))
             .Find(c => accepted.Contains(c.Key))
             .Match(Some: Fin.Succ, None: () => Fin.Fail<SnapshotCodec>(new CodecFault.NoMutualCodec(surface.Key)));
 
@@ -166,26 +166,26 @@ public sealed record GeoJsonProjection(GeometryFactory Geometry, bool WriteBound
 
 - Owner: `ContentAddress` the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `[ValueObject<UInt128>]` content key every snapshot identity, dedup probe, diff, and AS-OF cut reads, COMPOSED here directly — Persistence mints NO node/graph hash owner of its own: the node content key is the seam `ContentAddress.Of(node.ToCanonicalBytes(tolerance).Span)` a `Version/merge#STRUCTURAL_DIFF` `GraphNode` composes inline, the graph address the seam `ContentAddress.OfGraph(graph)` a `Query/topology` memo key reads inline, and a precomputed framing/chunk/snapshot digest the seam `ContentAddress.Of(UInt128)` wraps without re-hashing — so a Persistence-local `NodeHash`/`GraphHash` forwarding owner over those one-hop seam entries is the deleted form (the ONE byte projection and the ONE order-independent fold already live on the seam, never re-spelled).
 - Cases: a graph content address IS the seam `Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph` (the semantic header folded first, then sorted node addresses, then sorted edge canonical bytes); a node content address is the seam `ContentAddress.Of` over the node's `Projection/address#CANONICAL_WRITER` `ToCanonicalBytes()` projection (fixed IEEE-754 LE bits with `-0.0→0.0` and `NaN→canonical`, measure quantization to the header tolerance, explicit attribute-order canon); a precomputed framing/chunk/snapshot digest wraps through the seam `ContentAddress.Of(UInt128)` carrier (no re-hash); delta keying rides the `Version/commits#CRDT_WIRE` `CrdtWire.ContentKey`, never a second delta hasher.
-- Entry: the seam owns every minting entry — `ContentAddress.Of(ReadOnlySpan<byte>)` hashes the framing/chunk preimage, `ContentAddress.Of(UInt128)` wraps a precomputed snapshot/chunk digest, `ContentAddress.Of(Node, tolerance)` is the id-INCLUSIVE graph-dedup key, `ContentAddress.OfGraph(ElementGraph)` the order-independent snapshot identity, and `ContentAddress.Verify(...)` the re-hash gate; this page composes those entries at the snapshot catalog (`Snapshots.Write` wraps the sealed `SnapshotHeader.ContentHash` `UInt128` through `Of(UInt128)` into the `SnapshotCatalogRow`) and the chunk fold (`ContentChunker.Chunk` wraps the whole-payload digest through `Of(UInt128)`), never a Persistence-local re-derivation.
+- Entry: the seam owns every minting entry — `ContentAddress.Of(ReadOnlySpan<byte>)` hashes the framing/chunk preimage, `ContentAddress.Of(UInt128)` wraps a precomputed snapshot/chunk digest, `ContentAddress.Of(Node, tolerance)` is the id-INCLUSIVE graph-dedup key, `ContentAddress.OfGraph(ElementGraph)` the order-independent snapshot identity, and `ContentAddress.Verify(...)` the re-hash gate; the kernel `ContentHash.Of<TState>(TState, Action<TState, XxHash128>)` streaming leg is the entry a payload no `ReadOnlySpan<byte>` spans folds through, seed-zero and CHUNK-ORDER-canonical so it addresses into the same identity space the one-shot does; this page composes those entries at the snapshot catalog (`Snapshots.Write` wraps the sealed `SnapshotHeader.ContentHash` `UInt128` through `Of(UInt128)` into the `SnapshotCatalogRow`), the chunk fold (`ContentChunker.Chunk` folds its cut spans through the streaming leg and wraps through `Of(UInt128)`), and the reassembly verify, never a Persistence-local re-derivation.
 - Auto: the content address is the kernel's ONE algorithm — the `Rasm.Domain` `ContentHash.Of` seed-zero `XxHash128` entry, the same digest the seam's `ContentAddress` value-object wraps and the `Rasm` kernel mints for geometry by content-hash — so a snapshot, a chunk, a diff, and a federation key all read one 128-bit address and a second hasher is the deleted form; this page's opaque framing and chunk preimages (the sealed-bytes digest in `SnapshotHeader.Seal`, the per-chunk and whole-payload digests in `ContentChunker`) compose `ContentHash.Of` DIRECTLY — a per-call-site `XxHash128.HashToUInt128` invocation is the deleted spelling (value-identical, so the re-anchor is pure call-path collapse, never an identity migration) — and wrap every result through the seam `ContentAddress.Of(UInt128)` carrier, while the node/graph content keys compose the seam's `ToCanonicalBytes`-backed entries verbatim so the float-bearing parity corpus (`Version/commits#CRDT_WIRE`) pins the layout cross-runtime; measure quantization to `Header.Tolerance` happens once inside the seam `CanonicalWriter` before hashing so two geometrically-equal nodes within tolerance share one address.
 - Receipt: content addressing rides no standalone receipt (it folds into the snapshot/diff/dedup receipts that carry the address).
 - Packages: Rasm (`Rasm.Domain` `ContentHash.Of` — the ONE hasher entry every digest mint composes), Rasm.Element (`Projection/address#CONTENT_ADDRESS` `ContentAddress.Of`/`ContentAddress.OfGraph`/`ContentAddress.Verify` + `Projection/address#CANONICAL_WRITER` `Node.ToCanonicalBytes` + `ElementGraph`), BCL inbox.
-- Growth: TWO consumer contracts are recorded on this section, both provided by the seam owner on landing. INCREMENTAL `OfGraph(prior, delta)` — the delta-composable graph address (`Version/timetravel` `Scrub`/`Bisect` re-shape onto it) is `Rasm.Element/Projection/address`'s member; until it lands the documented interim is the whole-graph `OfGraph` recompute, and the parametric-form digest is a COMPONENT of `ToCanonicalBytes(tolerance)` (the `ParametricStream` clause), NEVER a standalone `Of(UInt128)` sibling key — a sibling key would leave `OfGraph` blind to a parametric-body edit. STREAMING identity — the kernel `ContentHash` Growth row's incremental lifecycle (`XxHash128` `Append` + `GetCurrentHashAsUInt128`, seed zero) lands as one kernel member when a consumer demands it, and Persistence IS that demanding consumer for the blobstore multipart and chunk folds whose payloads outgrow a one-shot span; until it lands the documented interim is the one-shot `ContentHash.Of` over the in-memory payload plus the `ContentAddress.Of(UInt128)` wrap of a precomputed digest. A wider content address is one `HashPolicy` row plus an epoch-gated identity migration; a new canonical-byte rule is one clause on the seam `CanonicalWriter`; zero new surface — a second hasher, a `GetHashCode`-based address, a Persistence-local `NodeHash`/`GraphHash` forwarding owner, or a per-surface key respelling is the deleted form.
+- Growth: ONE consumer contract is recorded on this section, provided by the seam owner on landing. INCREMENTAL `OfGraph(prior, delta)` — the delta-composable graph address (`Version/timetravel` `Scrub`/`Bisect` re-shape onto it) is `Rasm.Element/Projection/address`'s member; until it lands the documented interim is the whole-graph `OfGraph` recompute, and the parametric-form digest is a COMPONENT of `ToCanonicalBytes(tolerance)` (the `ParametricStream` clause), NEVER a standalone `Of(UInt128)` sibling key — a sibling key would leave `OfGraph` blind to a parametric-body edit. A wider content address is one `HashPolicy` row plus an epoch-gated identity migration; a new canonical-byte rule is one clause on the seam `CanonicalWriter`; zero new surface — a second hasher, a `GetHashCode`-based address, a Persistence-local `NodeHash`/`GraphHash` forwarding owner, or a per-surface key respelling is the deleted form.
 - Boundary: the `ContentAddress` is non-cryptographic identity — a tamper or security claim on it is the named defect (the `Version/provenance#ATTESTED_LEDGER` `AttestedEntry` owns tamper-evidence); the canonical byte projection is the ONE seam `Projection/address#CANONICAL_WRITER` codec shared between the `NodeId` content hash and the diff `ContentBytes` so a node that did not change is byte-identical and the structural diff prunes it; the kernel seed convention (seed-zero content, `ContentHash.Of` the verbatim contract) is ground truth and the literal digest values stamp on the host-validation pass, never an un-run asserted value; the graph address IS the seam `ContentAddress.OfGraph` order-independent fold, composed once so the topology memo key (`Query/topology`) and the snapshot graph identity never fork into two Persistence-local orderings, and the snapshot/chunk identities wrap their precomputed digest through `ContentAddress.Of(UInt128)` rather than the bare Thinktecture `Create`, so the seam's wrap verb is the one Persistence reads.
 
-| [INDEX] | [POLICY]            | [VALUE]                                            | [BINDING]                                                   |
-| :-----: | :------------------ | :------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | content algorithm   | kernel `ContentHash.Of` (seed-zero)                | one hasher entry; a direct `XxHash128` call site is deleted |
-|  [02]   | node/graph key      | seam `ContentAddress.Of`/`OfGraph`                 | composed in one hop; no Persistence-local hash owner        |
-|  [03]   | precomputed wrap    | seam `ContentAddress.Of(UInt128)`                  | snapshot/chunk digest wrapped, never raw `Create`           |
-|  [04]   | incremental address | `OfGraph(prior, delta)` seam contract              | whole-graph recompute is the documented interim             |
-|  [05]   | streaming identity  | kernel `Append`/`GetCurrentHashAsUInt128` contract | one-shot `ContentHash.Of` is the documented interim         |
-|  [06]   | identity claim      | non-cryptographic                                  | tamper-evidence is `Version/provenance#ATTESTED_LEDGER`     |
+| [INDEX] | [POLICY]            | [VALUE]                                        | [BINDING]                                                     |
+| :-----: | :------------------ | :--------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | content algorithm   | kernel `ContentHash.Of` (seed-zero)            | one hasher entry; a direct `XxHash128` call site is deleted   |
+|  [02]   | node/graph key      | seam `ContentAddress.Of`/`OfGraph`             | composed in one hop; no Persistence-local hash owner          |
+|  [03]   | precomputed wrap    | seam `ContentAddress.Of(UInt128)`              | snapshot/chunk digest wrapped, never raw `Create`             |
+|  [04]   | incremental address | `OfGraph(prior, delta)` seam contract          | whole-graph recompute is the documented interim               |
+|  [05]   | streaming identity  | kernel `ContentHash.Of<TState>(state, chunks)` | chunk order IS canonical; the one-shot spans one `int` window |
+|  [06]   | identity claim      | non-cryptographic                              | tamper-evidence is `Version/provenance#ATTESTED_LEDGER`       |
 
 ## [04]-[COMPRESSION_HASHING]
 
 - Owner: `CompressionPolicy` and `HashPolicy` `[SmartEnum<string>]` row families under the `ComparerAccessors.StringOrdinal` accessor.
-- Cases: 5 compression rows — `none`, `lz4-fast`, `lz4-high`, `zstd`, `zstd-high`; 2 hash rows — `Identity` (the kernel `ContentHash.Of` 128-bit content address) and `Content` (the `XxHash3` 64-bit short tag).
+- Cases: 6 compression rows — `none`, `lz4-fast`, `lz4-high`, `zstd`, `zstd-high`, `zstd-dict` (the trained-dictionary regime whose decode resolves the blob by the frame's own dict id); 2 hash rows — `Identity` (the kernel `ContentHash.Of` 128-bit content address) and `Content` (the `XxHash3` 64-bit short tag).
 - Entry: `public partial byte[] Pack(ReadOnlyMemory<byte> payload)` is the pure byte transform; `public partial UInt128 Compute(ReadOnlyMemory<byte> payload)` is the row's hash.
 - Packages: K4os.Compression.LZ4, ZstdSharp.Port, System.IO.Hashing (`XxHash3` short tag + the `Crc32` frame checksum — direct structural calls, never policy rows), Rasm (`ContentHash.Of`), Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: one compression level is one row carrying its own `HeaderId` so every prior archive stays readable across the swap; a trained-dictionary row carries its dict blob, never a per-call branch; a WIDER content address is one `HashPolicy` row with a fresh `DomainId` plus an epoch-gated identity migration — the `HashDomain` header byte is the forward-compatibility law that makes the row addition non-breaking; zero new surface.
@@ -207,6 +207,10 @@ public sealed partial class CompressionPolicy {
     public static readonly CompressionPolicy Lz4High = new("lz4-high", headerId: 2, pack: static p => LZ4Pickler.Pickle(p.Span, LZ4Level.L09_HC), unpack: static f => LZ4Pickler.Unpickle(f.Span));
     public static readonly CompressionPolicy Zstd = new("zstd", headerId: 3, pack: static p => ZstdFrame.Pack(p.Span, level: 3, archival: false), unpack: static f => ZstdFrame.Unpack(f.Span));
     public static readonly CompressionPolicy ZstdHigh = new("zstd-high", headerId: 4, pack: static p => ZstdFrame.Pack(p.Span, level: 19, archival: true), unpack: static f => ZstdFrame.Unpack(f.Span));
+    // Trained-dictionary regime for the content-defined chunk store: a 2-32KB chunk stored independently pays its
+    // whole window ramp per chunk with no cross-chunk history — the exact case dictionaries exist for. The header
+    // byte stays the one codec discriminant: decode resolves the blob by the dict id the frame itself carries.
+    public static readonly CompressionPolicy ZstdDict = new("zstd-dict", headerId: 5, pack: static p => ZstdFrame.PackDict(p.Span), unpack: static f => ZstdFrame.UnpackDict(f.Span));
 
     public int HeaderId { get; }
     public static bool Known(int headerId) => Items.Any(r => r.HeaderId == headerId);
@@ -216,30 +220,76 @@ public sealed partial class CompressionPolicy {
 }
 
 public static class ZstdFrame {
-    public static byte[] Pack(ReadOnlySpan<byte> payload, int level, bool archival) {
-        using Compressor compressor = new(level);
+    // ONE tuned context both legs build, so the frame facts the boundary law declares mandatory — the decoded size
+    // in the header and the frame integrity word — are a property of the CODEC rather than of which entry a caller
+    // reached. The level-and-archival pair is the whole parameterization; a per-leg parameter fold is what let the
+    // streaming leg frame differently from the one-shot on the same policy row.
+    static Compressor Tuned(int level, bool archival) {
+        Compressor compressor = new(level);
         compressor.SetParameter(ZSTD_cParameter.ZSTD_c_contentSizeFlag, 1);
         compressor.SetParameter(ZSTD_cParameter.ZSTD_c_checksumFlag, 1);
         if (archival) {
             compressor.SetParameter(ZSTD_cParameter.ZSTD_c_enableLongDistanceMatching, 1);
             compressor.SetParameter(ZSTD_cParameter.ZSTD_c_strategy, (int)ZSTD_strategy.ZSTD_btultra2);
         }
+        return compressor;
+    }
+
+    public static byte[] Pack(ReadOnlySpan<byte> payload, int level, bool archival) {
+        using Compressor compressor = Tuned(level, archival);
         return compressor.Wrap(payload).ToArray();
     }
     public static byte[] Unpack(ReadOnlySpan<byte> framed) { using Decompressor decompressor = new(); return decompressor.Unwrap(framed).ToArray(); }
 
-    // The streaming pair for payloads outgrowing the one-shot span (the partitioned-upstream folds): the
-    // `CompressionStream`/`DecompressionStream` adapters carry the same frame semantics as `Wrap`/`Unwrap`,
-    // so a large artifact zstd-frames without whole-payload materialization — the zstd rows are the ONE
+    // Dictionary residence for the `zstd-dict` row: the blob mints ONCE from a chunk sample and registers under
+    // whatever id zstd embeds in the dictionary itself, the SAME id every frame built against it carries — decode
+    // reads the frame's own dict id and resolves the blob with no header field added; an unresolvable id refuses
+    // typed at the Verify ladder, never a silent bare-frame retry decoding garbage.
+    static readonly ConcurrentDictionary<uint, byte[]> Trained = new();
+    static volatile uint Active;
+    public static unsafe uint Train(IEnumerable<byte[]> samples, int capacity = DictBuilder.DefaultDictCapacity) {
+        byte[] dictionary = DictBuilder.TrainFromBuffer(samples, capacity);
+        fixed (byte* blob = dictionary) {
+            uint id = Methods.ZSTD_getDictID_fromDict(blob, (nuint)dictionary.Length);
+            Trained[id] = dictionary;
+            Active = id;
+            return id;
+        }
+    }
+    // Encode always writes the ACTIVE era's dictionary; decode resolves ANY era through the registry, so a
+    // re-train never orphans an archived chunk.
+    public static byte[] PackDict(ReadOnlySpan<byte> payload) {
+        using Compressor compressor = Tuned(level: 3, archival: false);
+        compressor.LoadDictionary(Trained[Active]);
+        return compressor.Wrap(payload).ToArray();
+    }
+    public static unsafe byte[] UnpackDict(ReadOnlySpan<byte> framed) {
+        uint id;
+        fixed (byte* frame = framed) { id = Methods.ZSTD_getDictID_fromFrame(frame, (nuint)framed.Length); }
+        using Decompressor decompressor = new();
+        decompressor.LoadDictionary(Trained.TryGetValue(id, out byte[]? dictionary)
+            ? dictionary
+            : throw new InvalidOperationException($"<zstd-dict:{id}>"));
+        return decompressor.Unwrap(framed).ToArray();
+    }
+
+    // The streaming pair for payloads outgrowing the one-shot span (the partitioned-upstream folds): the adapters
+    // take the SAME tuned context the one-shot leg builds, so a streamed artifact carries the decoded size and the
+    // integrity word its policy row declares and `Decompressor.GetDecompressedSize` answers for it — the bare
+    // `CompressionStream(sink, level)` ctor sets neither, which made one `CompressionPolicy` row frame two ways by
+    // payload size, the exact per-call branch the row family exists to delete. `pledged` is the source length where
+    // the caller knows it, written into the frame header before the first chunk. The zstd rows are the ONE
     // streaming residence (an LZ4-row streaming sibling is the deleted parallel; the lz4 rows stay the
-    // low-latency small-payload pickle).
-    public static long PackStream(Stream source, Stream sink, int level) {
-        using CompressionStream stream = new(sink, level);
+    // low-latency small-payload pickle). `preserveCompressor: false` hands the adapter the context's disposal, so
+    // one tuned context serves one frame and never outlives it.
+    public static long PackStream(Stream source, Stream sink, int level, bool archival, Option<long> pledged) {
+        using CompressionStream stream = new(sink, Tuned(level, archival), bufferSize: 0, leaveOpen: true, preserveCompressor: false);
+        pledged.Iter(length => stream.SetPledgedSrcSize((ulong)length));
         source.CopyTo(stream);
         return sink.Length;
     }
     public static long UnpackStream(Stream framed, Stream sink) {
-        using DecompressionStream stream = new(framed);
+        using DecompressionStream stream = new(framed, new Decompressor(), bufferSize: 0, leaveOpen: true, preserveDecompressor: false);
         stream.CopyTo(sink);
         return sink.Length;
     }
@@ -470,11 +520,12 @@ public static class Snapshots {
 ## [06]-[CONTENT_CHUNKING]
 
 - Owner: `ChunkPolicy` the FastCDC min/avg/max size axis; `ContentChunk` the content-keyed chunk record carrying its 128-bit content address, source offset, length, and the `XxHash3` short tag; `ChunkManifest` the per-payload ordered chunk-key sequence; `ContentChunker` the static surface owning the FastCDC cut, the per-chunk content-key derivation, the manifest fold, and the cross-payload dedup projection.
-- Entry: `Chunk` cuts and addresses bytes; `Novel` probes local or peer chunk indexes only; `Reassemble` first proves bounded total length, contiguous offsets, positive chunk lengths, fetched length, and each chunk address, then proves the whole-artifact address.
-- Auto: the content-defined boundary is the FastCDC normalized gear-hash cut so an insertion that shifts every fixed-window boundary leaves the content-defined boundaries stable past the edit and a small change to a large geometry blob re-stores only the changed chunks; each chunk's content key is the kernel `ContentHash.Of` (the `HashPolicy.Identity` row) so an identical chunk across two snapshots or two peers dedups; the short tag is `HashPolicy.Content` (`XxHash3`) so `Novel` probes `mayHold(ShortTag)` before `holds(ContentKey)` on a hot re-store path.
-- Receipt: a chunked store rides `store.chunk.split` carrying chunk and novel-chunk counts; a dedup hit rides `store.chunk.dedup` carrying reused-chunk and reused-byte counts.
-- Packages: FastCDC.Net, Rasm (`ContentHash.Of`), System.IO.Hashing (`XxHash3` short tag), LanguageExt.Core, BCL inbox.
-- Growth: a new chunk-size profile is one `ChunkPolicy` row; a payload that outgrows the one-shot in-memory span composes the kernel streaming-identity member (`XxHash128` `Append` + `GetCurrentHashAsUInt128`, seed zero — the `#CONTENT_ADDRESS` consumer contract) the moment it lands, replacing only the whole-payload digest line; zero new surface — a fixed-window framing, a per-edit full re-store, or a second content-defined chunker is the deleted form.
+- Entry: `Chunk` cuts and addresses a segmented window; `Novel` probes local or peer chunk indexes only; `Reassemble` proves contiguous offsets, positive chunk lengths, fetched length, and each chunk address as it drains into the caller's sink, then proves the whole-artifact address from the accumulator it folded on the way.
+- Law: the artifact ceiling is LIFTED — the window is `ReadOnlySequence<byte>` and the identity folds through the kernel streaming leg, so the `> int.MaxValue` reassembly refusal that stood as the estate's hard 2 GiB artifact bound was never a policy and deletes with the contiguity demand that produced it; a payload larger than one `byte[]` is now representable end to end and the FastCDC per-segment `byte[]` bound is a chunker fact the segment walk absorbs, never a payload bound.
+- Auto: the content-defined boundary is the FastCDC normalized gear-hash cut so an insertion that shifts every fixed-window boundary leaves the content-defined boundaries stable past the edit and a small change to a large artifact re-stores only the changed chunks; each chunk's content key is the kernel `ContentHash.Of` (the `HashPolicy.Identity` row) so an identical chunk across two snapshots or two peers dedups; the short tag is `HashPolicy.Content` (`XxHash3`) so `Novel` probes `mayHold(ShortTag)` before `holds(ContentKey)` on a hot re-store path; a multi-segment payload cuts segment by segment with the sub-minimum tail carried forward, so the cut set is the one contiguous bytes would produce and no manifest depends on how the caller happened to buffer.
+- Receipt: a chunked store rides `store.chunk.split` carrying chunk and novel-chunk counts; a dedup hit rides `store.chunk.dedup` carrying reused-chunk and reused-byte counts; a reassembly returns the `ChunkAssembly` receipt carrying the verified address, the drained length, and the chunk tally.
+- Packages: FastCDC.Net, Rasm (`ContentHash.Of` — both the span and the streaming legs), System.IO.Hashing (`XxHash3` short tag, `XxHash128.Append` under the kernel entry), LanguageExt.Core, BCL inbox (`ReadOnlySequence<byte>`, `IBufferWriter<byte>`).
+- Growth: a new chunk-size profile is one `ChunkPolicy` row; zero new surface — a fixed-window framing, a per-edit full re-store, a second content-defined chunker, a whole-payload materialization ahead of the cut, or a length refusal standing in for a capability bound is the deleted form.
 - Boundary: chunk membership proves only local or peer chunk residence. Remote object-store residence is the provider's exact-object conditional seal; no chunk index can skip or synthesize provider objects. Multipart windows may preserve whole FastCDC cuts as part boundaries without treating their membership as object evidence.
 
 ```csharp signature
@@ -493,56 +544,120 @@ public sealed partial class ChunkPolicy {
     public uint Max { get; }
     private ChunkPolicy(string key, uint min, uint avg, uint max) : this(key) => (Min, Avg, Max) = (min, avg, max);
 
-    // The one chunker mint: a FastCdc instance is stateful one-shot, so every (re-)chunk mints fresh HERE —
-    // the policy row owns the ctor spelling and a call-site `new FastCdc(...)` is the deleted scatter.
-    public FastCdc Over(byte[] source) => new(source, Min, Avg, Max, eof: true);
+    // The one chunker mint: a FastCdc instance is stateful one-shot over a held `byte[]`, so every segment mints
+    // fresh HERE — the policy row owns the ctor spelling and a call-site `new FastCdc(...)` is the deleted scatter.
+    // `eof` is the segment's TERMINALITY: a non-terminal segment withholds its sub-minimum remainder so the tail
+    // carries into the next segment's head rather than sealing a short cut at an arbitrary buffer edge, and only
+    // the terminal segment emits it — the `api-fastcdc` streamed-source law made a parameter.
+    public FastCdc Over(byte[] segment, bool eof) => new(segment, Min, Avg, Max, eof);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct ContentChunk(UInt128 ContentKey, ulong ShortTag, uint Offset, int Length);
+// `Offset` is `long` because the manifest addresses a payload no `ReadOnlySpan<byte>` spans; `Length` stays `int`
+// because one cut caps at `ChunkPolicy.Max` and FastCDC's own `MaximumMax` ceiling is 1 GiB, so the width is a
+// proven bound rather than an inherited assumption.
+public readonly record struct ContentChunk(UInt128 ContentKey, ulong ShortTag, long Offset, int Length);
 
 public readonly record struct ChunkManifest(ContentAddress WholeArtifact, long Length, Seq<ContentChunk> Chunks);
 
+// The reassembly receipt: the verified whole-artifact address re-derived from the fetched chunks, the byte count
+// drained, and the chunk tally — evidence a caller reads WITHOUT holding the payload, which is what makes an
+// artifact past `int` range representable where a `ReadOnlyMemory<byte>` return structurally could not.
+public readonly record struct ChunkAssembly(ContentAddress WholeArtifact, long Length, int Chunks);
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class ContentChunker {
-    public static ChunkManifest Chunk(ChunkPolicy policy, ReadOnlyMemory<byte> payload) {
-        byte[] source = payload.ToArray();
-        // FastCdc `Chunk` exposes `Offset`/`Length` as `uint`; the span slice and the `int`-shaped `ContentChunk.Length`
-        // take the explicit `int` cast (a >2-GiB payload partitions upstream, so the narrowing never truncates a live chunk).
-        Seq<ContentChunk> chunks = toSeq(policy.Over(source).GetChunks()
-            .Select(cut => {
-                ReadOnlySpan<byte> span = source.AsSpan((int)cut.Offset, (int)cut.Length);
-                return new ContentChunk(ContentHash.Of(span), XxHash3.HashToUInt64(span), cut.Offset, (int)cut.Length);
-            }));
-        return new ChunkManifest(ContentAddress.Of(ContentHash.Of(source)), source.LongLength, chunks);
+    // ONE cut over a segmented window. `ReadOnlySequence<byte>` is the BCL's own segmented payload and its
+    // single-segment case IS the ordinary in-memory artifact, so one ingress serves both and the former
+    // `payload.ToArray()` materialization — which existed only to hand the one-shot hash a contiguous span —
+    // deletes with the one-shot. Each segment mints its own chunker under the policy row; the withheld remainder
+    // of a non-terminal segment prepends to the next, so a buffer edge never manufactures a cut the same bytes
+    // would not produce contiguously. The whole-artifact key folds the cut spans IN CUT ORDER through the kernel
+    // streaming leg, whose canonical projection IS that order, so it equals the one-shot key over the same bytes.
+    public static ChunkManifest Chunk(ChunkPolicy policy, ReadOnlySequence<byte> payload) {
+        (Seq<(ContentChunk Chunk, ReadOnlyMemory<byte> Span)> Cuts, ReadOnlyMemory<byte> Carry, long Base) walk =
+            Segments(payload).Fold(
+                (Cuts: Seq<(ContentChunk, ReadOnlyMemory<byte>)>(), Carry: ReadOnlyMemory<byte>.Empty, Base: 0L),
+                (state, segment) => Cut(policy, state, segment.Bytes, segment.Terminal));
+        return new ChunkManifest(
+            ContentAddress.Of(ContentHash.Of(walk.Cuts, static (cuts, hash) => cuts.Iter(cut => hash.Append(cut.Span.Span)))),
+            payload.Length,
+            walk.Cuts.Map(static cut => cut.Chunk));
     }
 
     public static Seq<ContentChunk> Novel(ChunkManifest manifest, Func<ulong, bool> mayHold, Func<UInt128, bool> holds) =>
         manifest.Chunks.Filter(chunk => !mayHold(chunk.ShortTag) || !holds(chunk.ContentKey));
 
-    public static Fin<ReadOnlyMemory<byte>> Reassemble(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch) {
-        if (manifest.Length is < 0 or > int.MaxValue) { return Fin.Fail<ReadOnlyMemory<byte>>(new CodecFault.ChunkManifestRejected($"length:{manifest.Length}")); }
-        ArrayBufferWriter<byte> buffer = new((int)manifest.Length);
-        Fin<long> filled = manifest.Chunks.Fold(
-            Fin.Succ(0L),
-            (state, chunk) => state.Bind(offset => {
-                if (chunk.Offset != offset || chunk.Length <= 0 || offset + chunk.Length > manifest.Length) {
-                    return Fin.Fail<long>(new CodecFault.ChunkManifestRejected($"span:{chunk.Offset}+{chunk.Length}@{offset}/{manifest.Length}"));
-                }
-                ReadOnlyMemory<byte> payload = fetch(chunk.ContentKey);
-                if (payload.Length != chunk.Length || ContentHash.Of(payload.Span) != chunk.ContentKey) {
-                    return Fin.Fail<long>(new CodecFault.ChunkManifestRejected($"chunk:{chunk.ContentKey:X32}/{payload.Length}"));
-                }
-                buffer.Write(payload.Span);
-                return Fin.Succ(offset + chunk.Length);
+    // Reassembly drains into a caller-supplied sink and returns the verified receipt, so an artifact past `int`
+    // range is representable: the `> int.MaxValue` refusal and the `ArrayBufferWriter<byte>` staging were the
+    // one-shot hash's contiguity demand wearing a policy's clothes, and both delete with it. Each fetched chunk
+    // verifies against its own key BEFORE it reaches the sink — so a corrupt fetch is localized to the chunk that
+    // carried it and never lands — and appends into the ONE seed-zero accumulator the kernel entry mints, whose
+    // terminal digest proves the assembled whole against the manifest's declared address.
+    public static Fin<ChunkAssembly> Reassemble(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch, IBufferWriter<byte> sink) {
+        ChunkDrain drain = new(manifest, fetch, sink);
+        UInt128 whole = ContentHash.Of(drain, static (state, hash) => state.Take(hash));
+        return drain.Refusal.Match(
+            Some: Fin<ChunkAssembly>.Fail,
+            None: () => drain.Offset != manifest.Length
+                ? Fin<ChunkAssembly>.Fail(new CodecFault.ChunkManifestRejected($"terminal:{drain.Offset}!={manifest.Length}"))
+                : whole == manifest.WholeArtifact.Value
+                    ? Fin<ChunkAssembly>.Succ(new ChunkAssembly(manifest.WholeArtifact, drain.Offset, manifest.Chunks.Count))
+                    : Fin<ChunkAssembly>.Fail(new CodecFault.ReassemblyDrift(manifest.WholeArtifact.Value, whole)));
+    }
+
+    // The segment walk as (bytes, terminal) pairs. `ReadOnlySequence<byte>` advances a by-ref `SequencePosition`
+    // cursor no trait carrier holds, so this is the platform-forced statement seam; the seam-local list freezes
+    // once through `toSeq` and repeated `Seq.Add` forcing is the rejected form.
+    static Seq<(ReadOnlyMemory<byte> Bytes, bool Terminal)> Segments(ReadOnlySequence<byte> payload) {
+        SequencePosition position = payload.Start;
+        List<ReadOnlyMemory<byte>> held = [];
+        while (payload.TryGet(ref position, out ReadOnlyMemory<byte> segment)) { held.Add(segment); }
+        return toSeq(held).Map((bytes, index) => (bytes, index == held.Count - 1));
+    }
+
+    // One segment's cut pass: the carry tail prepends so a cut spanning the buffer edge is the cut the contiguous
+    // bytes produce, the FastCDC offsets rebase onto the running absolute `Base`, and a non-terminal segment
+    // withholds its trailing sub-minimum run as the next segment's carry.
+    static (Seq<(ContentChunk, ReadOnlyMemory<byte>)> Cuts, ReadOnlyMemory<byte> Carry, long Base) Cut(
+        ChunkPolicy policy,
+        (Seq<(ContentChunk, ReadOnlyMemory<byte>)> Cuts, ReadOnlyMemory<byte> Carry, long Base) state,
+        ReadOnlyMemory<byte> segment,
+        bool terminal) {
+        byte[] source = state.Carry.IsEmpty ? segment.ToArray() : [.. state.Carry.Span, .. segment.Span];
+        Seq<(ContentChunk, ReadOnlyMemory<byte>)> cuts = toSeq(policy.Over(source, terminal).GetChunks()
+            .Select(cut => {
+                ReadOnlyMemory<byte> span = source.AsMemory((int)cut.Offset, (int)cut.Length);
+                return (new ContentChunk(ContentHash.Of(span.Span), XxHash3.HashToUInt64(span.Span), state.Base + cut.Offset, (int)cut.Length), span);
             }));
-        return filled.Bind(length => {
-            if (length != manifest.Length) { return Fin.Fail<ReadOnlyMemory<byte>>(new CodecFault.ChunkManifestRejected($"terminal:{length}!={manifest.Length}")); }
-            UInt128 actual = ContentHash.Of(buffer.WrittenSpan);
-            return actual == manifest.WholeArtifact.Value
-                ? Fin.Succ((ReadOnlyMemory<byte>)buffer.WrittenMemory)
-                : Fin.Fail<ReadOnlyMemory<byte>>(new CodecFault.ReassemblyDrift(manifest.WholeArtifact.Value, actual));
-        });
+        long consumed = cuts.Fold(0L, static (sum, cut) => sum + cut.Item1.Length);
+        return (state.Cuts + cuts, source.AsMemory((int)consumed), state.Base + consumed);
+    }
+}
+
+// The drain carrier the kernel streaming entry's callback threads. Exemption: that entry takes a `void` chunk
+// callback by contract, so the per-chunk verdict LATCHES on this seam-local carrier and freezes into a rail the
+// instant the entry returns; the carrier never escapes `Reassemble` and the first refusal short-circuits the walk.
+file sealed class ChunkDrain(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch, IBufferWriter<byte> sink) {
+    public long Offset { get; private set; }
+    public Option<CodecFault> Refusal { get; private set; }
+
+    public void Take(XxHash128 hash) {
+        foreach (ContentChunk chunk in manifest.Chunks) {
+            if (Refusal.IsSome) { return; }
+            if (chunk.Offset != Offset || chunk.Length <= 0 || Offset + chunk.Length > manifest.Length) {
+                Refusal = Some<CodecFault>(new CodecFault.ChunkManifestRejected($"span:{chunk.Offset}+{chunk.Length}@{Offset}/{manifest.Length}"));
+                return;
+            }
+            ReadOnlyMemory<byte> payload = fetch(chunk.ContentKey);
+            if (payload.Length != chunk.Length || ContentHash.Of(payload.Span) != chunk.ContentKey) {
+                Refusal = Some<CodecFault>(new CodecFault.ChunkManifestRejected($"chunk:{chunk.ContentKey:X32}/{payload.Length}"));
+                return;
+            }
+            hash.Append(payload.Span);
+            sink.Write(payload.Span);
+            Offset += chunk.Length;
+        }
     }
 }
 ```

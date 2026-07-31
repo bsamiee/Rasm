@@ -2,7 +2,7 @@
 
 `StageOp` owns USD/USDZ stage authoring as one closed Pixar OpenUSD source family over `RenderExport` and `MeshAuthor`. `RenderExport` writes a rendered scene through the `vtkIOUSD`-gated `vtkUSDExporter`; `MeshAuthor` authors a `pxr.Usd.Stage` from admitted numpy buffers over `UsdGeom`, `Vt`, and `Gf`; and both fold to a serialized layer through one total `apply` match. `PackageOp` owns package, extraction, compliance, and relocation closes, while `packaged` returns one `Result[PackageFacts, PackageFault]` rail. `MeshScene` owns the recursive `PrimKind` graph, stage metadata, appearance, semantics, model kind, and eager-reference or deferred-payload `AssetArc` composition. Offscreen rendering stays at `scene/render#SCENE`, and raw mesh interchange stays at `geometry/mesh`.
 
-`pxr` imports eagerly at module scope — this module loads only on the worker floor — and every annotation remains parse-floor-safe. One guarded `_usd_exporter` resolver owns the optional `vtkmodules.vtkIOUSD` import. `scene/export#EXPORT` delegates `USD` and `USDZ` to the numpy authoring path, and its terminal adapter maps `PackageFault` onto `ExportFault`; no false provider return or failed compliance result can masquerade as a successful receipt.
+`pxr` imports eagerly at module scope — this module loads only on the worker floor — and every annotation remains parse-floor-safe; the package resolves from the Forge python-overlay `.pth` seated on the venv path tail rather than from a venv distribution, so an absent `pxr` diagnoses at the overlay and never at the lockfile, and every `pxr` member this page names is reachable ungated. One guarded `_usd_exporter` resolver owns the optional `vtkmodules.vtkIOUSD` import. `scene/export#EXPORT` delegates `USD` and `USDZ` to the numpy authoring path, and its terminal adapter maps `PackageFault` onto `ExportFault`; no false provider return or failed compliance result can masquerade as a successful receipt.
 
 ## [01]-[INDEX]
 
@@ -10,13 +10,13 @@
 
 ## [02]-[STAGE]
 
-- Cases: `RenderExport` writes a `.usdc` or `.usda` layer through `SetRenderWindow`, `SetFileName`, and `Write`. `MeshAuthor` folds every admitted `PrimKind` into its schema, then `MeshScene.author` binds metadata, appearance, labels, model kind, and `AssetArc` composition. `InputSource` splits three ways over EVERY connectable `SurfaceInput` — `constant` sets the value, `texture` connects one `UsdUVTexture` output port, `primvar` connects an arity-selected `UsdPrimvarReader_*` — so a primvar-driven occlusion and a packed-sheet roughness are the same case set a diffuse colour takes, and no input carries a modality another lacks. `PackageOp.Package`, `Extract`, `Verify`, and `Relocate` fold through `packaged`; success carries `PackageFacts`, and every provider false return, unavailable layer, or compliance issue carries a closed `PackageFault` case.
+- Cases: `RenderExport` writes a `.usdc` or `.usda` layer through `SetRenderWindow`, `SetFileName`, and `Write`. `MeshAuthor` folds every admitted `PrimKind` into its schema, then `MeshScene.author` binds metadata, appearance, labels, model kind, and `AssetArc` composition. `InputSource` splits three ways over EVERY connectable `SurfaceInput` — `constant` sets the value, `texture` connects one `UsdUVTexture` output port, `primvar` connects an arity-selected `UsdPrimvarReader_*` — so a primvar-driven occlusion and a packed-sheet roughness are the same case set a diffuse colour takes, and no input carries a modality another lacks. `PackageOp.Package`, `Extract`, `Verify`, and `Relocate` fold through `packaged`; every arm MEASURES its own close — `_dependencies` reads the settled artifact's layer, reference, and asset rosters and the compliance run adds the rule and warning counts it exercised — so `PackageFacts` carries evidence at every arm and `PackageFacts.combined` accrues a multi-op close instead of keeping the terminal arm's alone. Every provider false return, unavailable layer, error, or failed check carries a closed `PackageFault` case, while a warning passes and rides the band.
 - Auto: `MeshAuthor` folds numpy buffers through `Vt.<Type>Array.FromNumpy`, never per-element append or `.tolist()` copies; orientation buffers carry the page-wide `(w, x, y, z)` convention and roll into Gf quaternion memory order once at `_instancer`. `PrimKind` admits point, face, normal, curve, instancing, camera, and light invariants — sibling and subset names unique, so no two prims silently merge onto one path — before authoring. `CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)` preserves an exported triangulation. Each boundable schema authors its extent, while `UsdGeom.BBoxCache` derives the composed world diagonal. `instancer` authors a prototype roster with range-checked indices beside its placement arrays; `FaceSubset` binds material regions; `camera` selects perspective or orthographic projection through `Lens.projection`; and `sun` aims a `UsdLux.DistantLight` from solar azimuth and elevation. `ComputeUsdStageStats` rejects an empty stage, and `UsdSemantics.LabelsQuery.ComputeUniqueInheritedLabels` adds resolved taxonomies to the facts band.
 - Auto: `Material` carries the whole preview-surface vector as one `SurfaceInput`-keyed map and `_SURFACE` is the ONE law row a lowering reads — value type, arity, primvar-reader id, and unit window — so `bind` folds the map with no per-input arm and an unauthored input resolves to the schema's own fallback rather than a re-asserted copy. Admission runs over every entry BEFORE the material prim is defined, so a refused value leaves no half-authored shader graph; port legality DERIVES from arity (the `rgb` port carries float3, every single port float) rather than a per-input legal-port list.
 - Auto: prim identity is VALUE-derived at every seam, so the graph a material authors is a function of what it declares and never of how a caller spelled it. Every `st` reader keys by primvar NAME, so a twelve-map set authors one reader and a second uv set is one more name; the sampler and its placement key by the `Texture` value's own digest, so a packed sheet feeding three inputs authors ONE `UsdUVTexture` the three read on three ports — the reason the port is a required column rather than a defaulted one — where a slot-derived path authors that file once per input and pays a decode for each. `bind` folds SLOT-SORTED and `_dress` taxonomy-sorted because authoring order is serialization order: an insertion-ordered fold exports two byte streams for one appearance and forks its content key. `Texture` carries the sampler's whole surface — per-axis wrap, source colour space, the `value * scale + bias` decode an 8-bit tangent-space normal needs, the unresolved-file fallback, and an optional `UsdTransform2d` placement whose absence leaves the reader as the st stream rather than an identity node.
 - Receipt: each USD/USDZ export contributes `core/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target, bytes, facts)` at `scene/render#SCENE`. `ComputeUsdStageStats` counts, up-axis, scale, `BBoxCache` diagonal, and `labels:*` sets return through `apply`; each new fact remains one band key.
-- Growth: a new USD schema is one `PrimKind` case with one `define` arm; placement is one `XformOp` case; a new surface input is one `SurfaceInput` member with its `_SURFACE` row, which `admitted` and `wire` both pick up unedited; a new binding modality is one `InputSource` case with one `wire` arm; a new sampler knob is one `Texture` field, which joins the identity digest with no `_sampler` edit and correctly splits two bindings that now differ on it; semantics enrich `PrimNode`; composition is one `AssetArc` case; layer format is one `LayerFormat` row; packaging is one `PackageOp` and `PackageFault` case pair; and receipt evidence is one facts-band key. Source, graph, and package axes retain one owner each.
-- Boundary: USD token vocabularies stay foreign spellings held at this seam — `Wrap`, `ColorSpace`, `OutputPort`, and `SurfaceInput` carry the schema's own strings verbatim so the shader graph needs no translation column, and the cross-branch channel roster the texture sub-domain transcribes never reaches these members. Texture BYTES, their egress leaf names, and the lowering that binds a canonical channel role onto a preview-surface slot are `graphic/texture/set#TEXTURE_SET`'s; this page consumes a resolved asset path with the slot and port a caller already chose, and authors the graph that reads it.
+- Growth: a new USD schema is one `PrimKind` case with one `define` arm; placement is one `XformOp` case; a new surface input is one `SurfaceInput` member with its `_SURFACE` row, which `admitted` and `wire` both pick up unedited; a new binding modality is one `InputSource` case with one `wire` arm; a new sampler knob is one `Texture` field, which joins the identity digest with no `_sampler` edit and correctly splits two bindings that now differ on it; semantics enrich `PrimNode`; composition is one `AssetArc` case; layer format is one `LayerFormat` row; packaging is one `PackageOp` and `PackageFault` case pair plus its measure inside `packaged`; a new package measure is one `PackageFacts` field with its `combined` join; and receipt evidence is one facts-band key. Source, graph, and package axes retain one owner each.
+- Boundary: USD token vocabularies stay foreign spellings held at this seam — `Wrap`, `ColorSpace`, `OutputPort`, and `SurfaceInput` carry the schema's own strings verbatim so the shader graph needs no translation column, and the cross-branch channel roster the texture sub-domain transcribes never reaches these members. Texture BYTES, their egress leaf names, and the lowering that binds a canonical channel role onto a preview-surface slot are `graphic/texture/set#TEXTURE_SET`'s; this page consumes a resolved asset path with the slot, the port, and the source colour space a caller already chose, and authors the graph that reads it. The caller states that space from the plane's own declared transfer, never from the `AUTO` default, because `AUTO` defers to the renderer's file sniff and a raw parameter plane in an eight- or sixteen-bit container sniffs as display-encoded — the one silent decode the whole transfer roster exists to foreclose.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -269,6 +269,17 @@ _SURFACE: Final[frozendict[SurfaceInput, SurfaceLaw]] = frozendict({
     SurfaceInput.DISPLACEMENT: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1, bounded=False),
     SurfaceInput.NORMAL: SurfaceLaw(Sdf.ValueTypeNames.Normal3f, "UsdPrimvarReader_float3", 3, bounded=False),
 })
+
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form: `InputSource.admitted` and `InputSource.wire` BOTH index `_SURFACE[slot]` — the first before any prim is
+# defined, the second while the shader graph authors — so an unruled `SurfaceInput` is a runtime `KeyError` that
+# leaves a half-authored material behind, the exact state `Material.bind`'s admit-everything-first order exists to
+# foreclose. The enum vocabularies (`Wrap`, `ColorSpace`, `OutputPort`, `Projection`, `UpAxis`, `SubdivScheme`,
+# `ModelKind`) take no pair: each carries the schema's own token as its `.value` or resolves one through a `token`
+# property, so there is no parallel row a member could miss.
+_COVERED: Final[tuple[tuple[frozenset[object], frozenset[object]], ...]] = ((frozenset(_SURFACE), frozenset(SurfaceInput)),)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("stage tables do not cover their vocabularies")
 
 
 class UvTransform(Struct, frozen=True, gc=False, kw_only=True):
@@ -615,8 +626,27 @@ class MeshScene(Struct, frozen=True, kw_only=True):
 
 
 class PackageFacts(Struct, frozen=True, gc=False):
+    # every field is a MEASURE some close took, never a slot a default stands in for: `_dependencies` reads the
+    # layer, reference, and asset rosters off the artifact the close just settled, and the compliance run counts the
+    # rules it exercised beside the warnings they raised — a clean verdict over ten rules and a clean verdict over
+    # none are different evidence, and only the counted form separates them. `combined` is the evidence-side
+    # instance of the associative law the fault vocabulary carries: the dependency rosters are one artifact's own
+    # property so they JOIN idempotently, while the rule and warning counts accrue per close.
+    layers: int = 0
     references: int = 0
     assets: int = 0
+    checks: int = 0
+    warnings: int = 0
+
+    @staticmethod
+    def combined(left: "PackageFacts", right: "PackageFacts", /) -> "PackageFacts":
+        return PackageFacts(
+            layers=max(left.layers, right.layers),
+            references=max(left.references, right.references),
+            assets=max(left.assets, right.assets),
+            checks=left.checks + right.checks,
+            warnings=left.warnings + right.warnings,
+        )
 
 
 @tagged_union(frozen=True)
@@ -849,19 +879,32 @@ def author_mesh(scene: MeshScene, path: str) -> tuple[bytes, frozendict[str, flo
     return StageOp.MeshAuthor(scene).apply(path)
 
 
+def _dependencies(asset: str, /) -> PackageFacts:
+    # the DELIVERED artifact's own rosters: `ComputeAllDependencies` walks a `.usdc` layer and a `.usdz` package
+    # alike, so every close measures the three counts off the asset it just settled instead of returning a default
+    # the receipt band would read as evidence. Measuring the SINK — never the source the caller handed in — is the
+    # folder's receipts-measure-the-product law applied to the one artifact that leaves this seam.
+    layers, references, assets = UsdUtils.ComputeAllDependencies(Sdf.AssetPath(asset))
+    return PackageFacts(layers=len(layers), references=len(references), assets=len(assets))
+
+
 def packaged(op: PackageOp) -> Result[PackageFacts, PackageFault]:
     match op:
-        case PackageOp(tag="package", package=(source, sink, UsdzProfile.STANDARD)):
-            return Ok(PackageFacts()) if UsdUtils.CreateNewUsdzPackage(Sdf.AssetPath(source), sink) else Error(PackageFault(package=sink))
-        case PackageOp(tag="package", package=(source, sink, UsdzProfile.ARKIT)):
-            return Ok(PackageFacts()) if UsdUtils.CreateNewARKitUsdzPackage(Sdf.AssetPath(source), sink) else Error(PackageFault(package=sink))
+        case PackageOp(tag="package", package=(source, sink, profile)):
+            # the ARKit and standard writers differ only in which constructor runs, so the profile selects the
+            # member and one arm carries the measure — never two arms whose bodies differ by a single name.
+            built = UsdUtils.CreateNewARKitUsdzPackage if profile.arkit else UsdUtils.CreateNewUsdzPackage
+            return Ok(_dependencies(sink)) if built(Sdf.AssetPath(source), sink) else Error(PackageFault(package=sink))
         case PackageOp(tag="extract", extract=(package, into)):
-            return Ok(PackageFacts()) if UsdUtils.ExtractUsdzPackage(package, into, True, False, True) else Error(PackageFault(extract=package))
+            return Ok(_dependencies(package)) if UsdUtils.ExtractUsdzPackage(package, into, True, False, True) else Error(PackageFault(extract=package))
         case PackageOp(tag="verify", verify=(package, profile)):
             checker = UsdUtils.ComplianceChecker(arkit=profile.arkit)
             checker.CheckCompliance(package)
             issues = tuple((*checker.GetErrors(), *checker.GetFailedChecks()))
-            return Ok(PackageFacts()) if not issues else Error(PackageFault(verify=(package, issues)))
+            # errors and failed checks REFUSE; warnings pass and ride the band, so a compliant package that raised
+            # advisories stays distinguishable from one that raised none without inventing a second verdict field.
+            measured = msgspec.structs.replace(_dependencies(package), checks=len(checker.GetRules()), warnings=len(checker.GetWarnings()))
+            return Ok(measured) if not issues else Error(PackageFault(verify=(package, issues)))
         case PackageOp(tag="relocate", relocate=(layer_path, rewrite)):
             layer = Sdf.Layer.FindOrOpen(layer_path)
             if layer is None:
@@ -870,8 +913,7 @@ def packaged(op: PackageOp) -> Result[PackageFacts, PackageFault]:
             if not layer.Save():
                 # ModifyAssetPaths rewrites in memory only until the layer persists; an unsaved relocate never mints facts
                 return Error(PackageFault(relocate=layer_path))
-            _layers, references, assets = UsdUtils.ComputeAllDependencies(Sdf.AssetPath(layer_path))
-            return Ok(PackageFacts(references=len(references), assets=len(assets)))
+            return Ok(_dependencies(layer_path))
         case _:
             assert_never(op)
 ```

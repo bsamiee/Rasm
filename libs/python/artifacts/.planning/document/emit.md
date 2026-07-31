@@ -23,6 +23,7 @@ from collections.abc import Callable, Iterable, Iterator
 from copy import replace
 from datetime import date, datetime
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Final, Literal, Never, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
@@ -541,7 +542,10 @@ class DocumentPlan(Struct, frozen=True):
         return Compiler(to_typst_source(self.node, title=title).encode(), font_paths=[], sys_inputs=dict(self.spec.sys_inputs))
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=self.spec.parents, admission=Admission(keyed=None), cost=1.0)
+        # ONE mint per node, captured into the closure: `_key` folds the whole node tree's merkle digest beside the
+        # scoped spec and opens two `content.derive` spans per read.
+        key = self._key
+        return ArtifactWork(key=key, work=partial(self._emit, key), parents=self.spec.parents, admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
@@ -553,9 +557,9 @@ class DocumentPlan(Struct, frozen=True):
     def _scoped(self) -> EmitSpec:
         return EmitSpec(**{name: getattr(self.spec, name) for name in _admissible(self.mode)})
 
-    async def _emit(self, /) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         crossed = await async_boundary(f"emit.{self.mode}", self._stepped)
-        return crossed.map(lambda live: _RECEIPT[BACKENDS[self.mode].kind](self._key, live.fact))
+        return crossed.map(lambda live: _RECEIPT[BACKENDS[self.mode].kind](key, live.fact))
 
     @receipted(OPEN)
     async def _stepped(self, /) -> Self:

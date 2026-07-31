@@ -22,7 +22,7 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from io import BytesIO
-from typing import Final
+from typing import Final, get_args
 
 import xxhash
 import zstandard
@@ -85,6 +85,19 @@ _ZSTD_STRATEGY: Final[Map[ZstdStrategy, int]] = Map.of_seq([
     ("btultra", zstandard.STRATEGY_BTULTRA),
     ("btultra2", zstandard.STRATEGY_BTULTRA2),
 ])
+
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form: `pack` and `recover` index `_ZSTD_DICT[k.dict_mode]` and `pack` indexes `_ZSTD_STRATEGY[k.strategy]`, so an
+# unruled token is a runtime `KeyError` inside the worker — after the profile already passed `Bundle.of`'s range
+# admission, which proves VALUES and not table membership. `"auto"` is carved from the strategy pair BY DECLARATION
+# (it withholds the `from_level` override rather than naming a `STRATEGY_*` constant, and the arm tests
+# `k.strategy != "auto"` before the lookup), so the gate names the carve rather than hiding it.
+_COVERED: Final[tuple[tuple[frozenset[object], frozenset[object]], ...]] = (
+    (frozenset(mode for mode, _id in _ZSTD_DICT.to_seq()), frozenset(get_args(ZstdDictMode))),
+    (frozenset(name for name, _id in _ZSTD_STRATEGY.to_seq()), frozenset(get_args(ZstdStrategy)) - {"auto"}),
+)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("codec tables do not cover their vocabularies")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

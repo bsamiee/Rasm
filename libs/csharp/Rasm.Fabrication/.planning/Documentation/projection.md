@@ -1,16 +1,16 @@
 # [RASM_FABRICATION_PROJECTION]
 
-`projection.md` owns the host-local adapter from an admitted fabrication model, boolean source policy, view convention, drafting convention, and characteristic loci to one evidence-complete `ProjectionReceipt`. `Rasm.Drawing.View` retains visibility and silhouette computation; `Rasm.Meshing.Arrangement` retains solid composition; APP composition receives `FabricationResult.HiddenLineResult` without creating a direct library dependency on a UI package.
+`projection.md` owns the host-local adapter from an admitted fabrication model, boolean source policy, view convention, drafting convention, and characteristic loci to one evidence-complete `ProjectionReceipt`. `Rasm.Drawing.View` retains visibility and silhouette computation; `Rasm.Drawing.Hatching` retains pattern fill, so a hatch-rowed view carries its exactly-clipped `HatchResult` with no host hatch round-trip; `Rasm.Meshing.Arrangement` retains solid composition; APP composition receives `FabricationResult.HiddenLineResult` without creating a direct library dependency on a UI package.
 
 `Fabrication.Run` remains the sole public package entry. `Hlr.Solve` is internal, receives parameterized ingress and egress, and preserves every `ProjectedSegment` field of every requested view through the kernel `DrawingProjection` carrier.
 
 ## [01]-[INDEX]
 
-- [02]-[PROJECTION]: `ProjectionPolicy` admits source, view roster, drafting convention, exactness, spatial, and characteristic policy once; `ProjectionSource` generates model and boolean modalities; `ProjectionView` carries authored view identity, direction, and kernel operation; `ProjectionReceipt` carries per-view runs, poses, sheet convention, anchors, composition, and source identity; `Hlr.Solve` lowers the policy through one flat `Fin` rail over an accumulating view traversal.
+- [02]-[PROJECTION]: `ProjectionPolicy` admits source, view roster, drafting convention, exactness, spatial, hatch, and characteristic policy once; `ProjectionSource` generates model and boolean modalities; `ProjectionView` carries authored view identity, direction, and kernel operation; `ProjectionReceipt` carries per-view runs with their hatch wires, poses, sheet convention, anchors, composition, and source identity; `Hlr.Solve` lowers the policy through one flat `Fin` rail over an accumulating view traversal.
 
 ## [02]-[PROJECTION]
 
-`ProjectionPolicy` is the canonical admission owner. `Length FacetTolerance`, `CreaseDihedralRadians`, `BetaSquared`, `SpatialLeaf`, and `Ratio Scale` validate before any kernel operation; `ProjectionSource.Boolean` requires at least one identified operand; `ProjectionView` rows admit one run per authored key with an independent direction and a valid cut plane on every section; `ProjectionCharacteristic` binds each `FeatureFrameReceipt` to its model locus and optional source-edge provenance. `FabricationPolicy.HiddenLine` carries one `ProjectionPolicy`, so raw scalars and optional boolean rows never enter the operation late.
+`ProjectionPolicy` is the canonical admission owner. `Length FacetTolerance`, `CreaseDihedralRadians`, `BetaSquared`, `SpatialLeaf`, and `Ratio Scale` validate before any kernel operation; `ProjectionSource.Boolean` requires at least one identified operand; `ProjectionView` rows admit one run per authored key with an independent direction and a valid cut plane on every section; `Hatching` rows pair an authored view key with one valid `HatchPlan`, each key resolving to a declared view exactly once; `ProjectionCharacteristic` binds each `FeatureFrameReceipt` to its model locus and optional source-edge provenance. `FabricationPolicy.HiddenLine` carries one `ProjectionPolicy`, so raw scalars and optional boolean rows never enter the operation late.
 
 `ProjectionView` is the author-time view roster and `ViewOp` the solve-time kernel request; the two stay distinct on payload timing, because a policy-authored key and direction carry neither the `Camera` the pose derives nor the `MeshSpace` the boolean fold produces. `Projected` composes silhouette, hidden-line, or outline operation with an authored orientation; `Section` adds its cut plane, so multiple cuts coexist under distinct keys without reminting a kernel operation vocabulary.
 
@@ -18,7 +18,7 @@
 
 `ViewConvention.Pose` and `ViewPose.ToCamera` derive each view's camera from its own `ProjectionDir.Forward`, model bounds, and `Context`; anchors project once per authored view and retain that view key. `ViewPolicy` receives the admitted crease, winding, intersection-inflation, and leaf values. Requested views enter one `Validation<Error>` traversal, so an unprojectable view reports beside every other failed view rather than masking them.
 
-`ProjectionReceipt` retains one keyed `ProjectionRun` per requested view — each carrying its `ViewPose`, kernel operation, and complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, and `EdgeHistogram` — plus every boolean-composition receipt. `ProjectionAngle` and `Ratio Scale` carry the drafting convention the sheet consumer places against, so first-angle and third-angle layouts derive from receipt-carried poses. `ProjectionAnchor` projects every characteristic locus through its run's camera and records the run key and depth beside the admitted `ProjectionCharacteristic`; drawing layout places characteristic callouts without re-opening model geometry or reconstructing specification identity.
+`ProjectionReceipt` retains one keyed `ProjectionRun` per requested view — each carrying its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, and `EdgeHistogram`, and the `Option<HatchResult>` wire its hatch row produced over the run's own fill loops — and every boolean-composition receipt. `ProjectionAngle` and `Ratio Scale` carry the drafting convention the sheet consumer places against, so first-angle and third-angle layouts derive from receipt-carried poses. `ProjectionAnchor` projects every characteristic locus through its run's camera and records the run key and depth beside the admitted `ProjectionCharacteristic`; drawing layout places characteristic callouts without re-opening model geometry or reconstructing specification identity.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -124,6 +124,7 @@ public sealed partial class ProjectionPolicy {
     public double CreaseDihedralRadians { get; }
     public double BetaSquared { get; }
     public int SpatialLeaf { get; }
+    public Seq<(string View, HatchPlan Plan)> Hatching { get; }
     public Seq<ProjectionCharacteristic> Characteristics { get; }
 
     static partial void ValidateFactoryArguments(
@@ -137,6 +138,7 @@ public sealed partial class ProjectionPolicy {
         ref double creaseDihedralRadians,
         ref double betaSquared,
         ref int spatialLeaf,
+        ref Seq<(string View, HatchPlan Plan)> hatching,
         ref Seq<ProjectionCharacteristic> characteristics) {
         bool scalarsValid = facetTolerance > Length.Zero
             && double.IsFinite(scale.DecimalFractions)
@@ -161,20 +163,24 @@ public sealed partial class ProjectionPolicy {
                 section: static view => !string.IsNullOrWhiteSpace(view.Key)
                     && view.Direction.Forward.IsValid && view.Cut.IsValid))
             && views.Map(static value => value.Key).Distinct().Count == views.Count;
+        Seq<ProjectionView> roster = views;   // ref parameters cannot enter a lambda; the local carries the roster
+        bool hatchingValid = hatching.ForAll(static row => !string.IsNullOrWhiteSpace(row.View) && row.Plan is { IsValid: true })
+            && hatching.Map(static row => row.View).Distinct().Count == hatching.Count
+            && hatching.ForAll(row => roster.Exists(view => string.Equals(view.Key, row.View, StringComparison.Ordinal)));
         bool characteristicsValid = characteristics.ForAll(static value => value is not null);
         bool anchorsUnique = characteristicsValid && characteristics
             .Map(static value => value.Id)
             .Distinct()
             .Count == characteristics.Count;
         if (!scalarsValid || !sourceValid || !viewsValid || convention is null || angle is null
-            || !characteristicsValid || !anchorsUnique)
+            || !hatchingValid || !characteristicsValid || !anchorsUnique)
             validationError = new ValidationError("projection:policy");
     }
 }
 
 public sealed record ProjectionAnchor(string View, ProjectionCharacteristic Characteristic, Point3d ScreenLocus, double Depth);
 
-public sealed record ProjectionRun(string Key, ViewPose Pose, ViewKind Operation, DrawingProjection Projection);
+public sealed record ProjectionRun(string Key, ViewPose Pose, ViewKind Operation, DrawingProjection Projection, Option<HatchResult> Hatch = default);
 
 public sealed record ProjectionReceipt(
     ProjectionAngle Angle,
@@ -223,7 +229,9 @@ internal static class Hlr {
         source.Switch(
             state: model,
             model: static (state, _) => Fin.Succ(new Sourced(state, Seq<BooleanComposition>())),
-            boolean: static (state, request) => request.Operands.FoldM(
+            // `FoldM` returns the erased `K<M, S>`; the carrier is named at the call and re-anchored by `.As()`,
+            // so the arm answers the `Fin<Sourced>` its sibling arm does.
+            boolean: static (state, request) => request.Operands.FoldM<Fin, Sourced>(
                 new Sourced(state, Seq<BooleanComposition>()),
                 (current, operand) =>
                     from result in Arrangement.Apply(
@@ -235,7 +243,7 @@ internal static class Hlr {
                         complex: static _ => Fin.Fail<ArrangementResult.Boolean>(HlrOp.InvalidResult()))
                     select new Sourced(
                         kept.Solid,
-                        current.Composition.Add(new BooleanComposition(operand.Source, kept.Receipt)))));
+                        current.Composition.Add(new BooleanComposition(operand.Source, kept.Receipt)))).As());
 
     static Fin<(ViewPose Pose, Camera Camera, ViewPolicy View)> Lower(
         MeshSpace model,
@@ -245,7 +253,7 @@ internal static class Hlr {
         // seat the standoff, so an accurate walk buys no framing precision at a full-mesh cost.
         from bounds in Try.lift<BoundingBox>(() => model.Native.GetBoundingBox(accurate: false))
             .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, error.Message).ToError())
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, error.Message).ToError())
         from _ in guard(bounds.IsValid, HlrOp.InvalidInput()).ToFin()
         from forward in Direction.Of(direction.Forward, model.Tolerance, HlrOp)
         from pose in policy.Convention.Pose(bounds, Some(forward), model.Tolerance, HlrOp)
@@ -266,8 +274,21 @@ internal static class Hlr {
         ProjectionPolicy policy) =>
         (from lowered in Lower(model, view.Direction, policy)
          from projection in View.Apply(view.Lower(model, lowered.Camera, lowered.View), HlrOp)
-         select (new ProjectionRun(view.Key, lowered.Pose, view.Kind, projection), lowered.Camera))
+         from hatch in policy.Hatching
+             .Find(row => string.Equals(row.View, view.Key, StringComparison.Ordinal))
+             .Match(
+                 Some: row => Hatching.Apply(new HatchOp.Projection(projection, row.Plan, HatchLane(policy)), HlrOp)
+                     .Map(static wire => Optional(wire)),
+                 None: static () => Fin.Succ(Option<HatchResult>.None))
+         select (new ProjectionRun(view.Key, lowered.Pose, view.Kind, projection, hatch), lowered.Camera))
         .ToValidation();
+
+    // Hatch lanes ride the SAME admitted exactness rows Lower binds for the view solve.
+    static HatchPolicy HatchLane(ProjectionPolicy policy) =>
+        HatchPolicy.Canonical with {
+            Narrow = IntersectPolicy.Canonical with { BroadPhaseInflation = policy.FacetTolerance.Millimeters },
+            Broad = BuildPolicy.Canonical with { LeafSize = policy.SpatialLeaf },
+        };
 }
 ```
 

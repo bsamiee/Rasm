@@ -16,21 +16,20 @@
 - Auto: Candidate generation spans the admitted tool catalog and physical bend-axis alignments; each bend resolves the tooling its `SheetForm` demands over the policy default; independent gauge, support, sweep-station, and candidate failures accumulate before one accepted transition rotates every descendant panel and enters the best-first frontier; `Brent.TryFindRoot` inverts the cubic elastic-recovery law over the loaded radius; blank weight and descendant closures resolve once for the whole search.
 - Receipt: `BendSequenceReceipt` carries the frozen `Seq<BendStep>` line, angle, radius, `K`, overbend, tonnage, and orientation wire beside the settled expansion and rejection census the `FabricationFact.Engine.Of` form rows read on the run spine; the search path retains tool, gauge, setup, support, transformed-panel, and clearance evidence until projection; frontier exhaustion alone returns `BendSequenceInfeasible`, and budget exhaustion returns a distinct fault carrying the unfinished frontier.
 - Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `MathNet.Numerics`, `UnitsNet`, `RhinoCommon`, the `Geometry2D` owner, and BCL `PriorityQueue<TElement, TPriority>` compose the surface.
-- Growth: A method or punch family is one smart-enum row carrying its own force or nose law, a physical tool is catalog data, a setup derives from the live bend axis, and a feasibility dimension is one `BrakeRejection` case with one evidence column.
+- Growth: each method or punch family is one smart-enum row carrying its own force or nose law, a physical tool is catalog data, a setup derives from the live bend axis, and a feasibility dimension is one `BrakeRejection` case with one evidence column.
 - Boundary: Forming owns sequence feasibility and evolving part geometry; flat development, machine capacity, polygon topology, process physics, posting text, and artifact identity remain at their canonical owners; punch body profile is `BrakeTool.ForbiddenSections` geometry, so `PunchKind` states only the turn window and nose-radius floor a section cannot. `PriorityQueue<TElement, TPriority>`, its canonical composite priority, structural dominance map, and frontier loop are the statement-kernel exemptions.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Buffers.Binary;
-using System.Text;
-using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
+using Rasm.Meshing;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
@@ -253,14 +252,14 @@ public abstract partial record BrakeRejection {
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// The receipt carries the search census beside the frozen step wire, so the engine fact rows read settled
+// Receipts carry the search census beside the frozen step wire, so the engine fact rows read settled
 // evidence and no per-expansion write leaves the kernel.
 public sealed record BendSequenceReceipt(Seq<BendStep> Steps, int Expansions, int Rejected);
 
 public static class BendSequence {
     public static Fin<BendSequenceReceipt> Plan(UnfoldResult unfold, FormPolicy policy, ProcessEnvelope.Brake envelope) =>
         unfold is null || policy is null || envelope is null || unfold.Flat.IsEmpty || unfold.Bends.IsEmpty
-            ? Fin.Fail<BendSequenceReceipt>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:input").ToError())
+            ? Fin.Fail<BendSequenceReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "bend-sequence:input"))
             : from _ in ValidEnvelope(envelope)
               from context in Prepare(unfold, policy.Brake)
               from result in Search(context, unfold, policy, envelope)
@@ -320,7 +319,7 @@ public static class BendSequence {
             .Traverse(node => node.Boundary.Apply(new ProfileOp.Measure())
                 .Bind(static result => result is ProfileResult.Measure measure
                     ? Fin.Succ(Math.Abs(measure.SignedArea.SquareMillimeters))
-                    : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:mass-result").ToError()))
+                    : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "bend-sequence:mass-result")))
                 .ToValidation()).As().ToFin()
         let netArea = unfold.Evidence.Topology.Nodes.Zip(measures)
             .Fold(0.0, static (area, row) => area + (row.First.IsHole ? -row.Second : row.Second))
@@ -417,7 +416,7 @@ public static class BendSequence {
             .Apply(static (gauge, mode) => (Gauge: gauge, Mode: mode))
             .As()
         from accepted in rejections.IsEmpty
-            ? from row in ready.ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:accepted-evidence").ToError())
+            ? from row in ready.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "bend-sequence:accepted-evidence"))
               from next in Advance(state, bend, tool, pose, row.Gauge, row.Mode, overbend, tonnage, sweep, context, unfold, policy, envelope)
               select Some(next)
             : Fin.Succ(Option<BrakeState>.None)
@@ -443,7 +442,9 @@ public static class BendSequence {
         let axis = (active.B - active.A) / active.A.DistanceTo(active.B)
         let rotation = Transform.Rotation(
             Angle.FromDegrees(bend.AngleDeg + Math.CopySign(overbend, bend.AngleDeg)).Radians, axis, active.A)
-        let transforms = state.PanelTransforms.Fold(
+        // `HashMap<K,V>` declares no fold of its own — the carrier-generic `Fold` reaches it through `K<HashMap<K>, V>`,
+        // whose element is `V` alone. A key-bearing fold runs over `AsIterable()`, which yields the pair.
+        let transforms = state.PanelTransforms.AsIterable().Fold(
             HashMap<int, Transform>(),
             (held, row) => held.Add(row.Key, descendants.Contains(row.Key) ? rotation * row.Value : row.Value))
         let length = bend.Line.A.DistanceTo(bend.Line.B)
@@ -489,15 +490,15 @@ public static class BendSequence {
         let reach = Vector3d.CrossProduct(axis, Vector3d.ZAxis)
         from _ in axis.Unitize() && reach.Unitize() && !resolved.IsEmpty
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:gauge").ToError())
-        select resolved.Map(point => (
-                Point: point,
-                X: (point - active.A) * reach,
-                R: (point - active.A) * axis,
-                Z: point.Z))
-            .Filter(static row => row.X >= 0.0)
-            .OrderByDescending(static row => row.X)
-            .HeadOrNone()
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Line, None, "bend-sequence:gauge").ToError())
+        select toSeq(resolved.Map(point => (
+                    Point: point,
+                    X: (point - active.A) * reach,
+                    R: (point - active.A) * axis,
+                    Z: point.Z))
+                .Filter(static row => row.X >= 0.0)
+                .OrderByDescending(static row => row.X))
+            .Head
             .Map(static row => new GaugeStop(row.X, row.R, row.Z, row.Point));
     }
 
@@ -515,11 +516,11 @@ public static class BendSequence {
                from active in Active(state, bend, pose)
                let overhang = points.Map(point => point.DistanceTo(Closest(active, point))).Fold(0.0, Math.Max)
                let moment = context.WeightNewtons * overhang
-               let evidence = policy.Supports
-            .Filter(row => overhang <= row.MaximumOverhangMm && moment <= row.MaximumMomentNmm)
-            .OrderBy(static row => row.Mode.HandlingFactor)
-            .ThenBy(static row => row.Mode.Key, StringComparer.Ordinal)
-            .HeadOrNone()
+               let evidence = toSeq(policy.Supports
+                   .Filter(row => overhang <= row.MaximumOverhangMm && moment <= row.MaximumMomentNmm)
+                   .OrderBy(static row => row.Mode.HandlingFactor)
+                   .ThenBy(static row => row.Mode.Key, StringComparer.Ordinal))
+            .Head
             .Map<SupportEvidence>(row => new SupportEvidence.Supported(row.Mode, overhang, moment))
             .IfNone(new SupportEvidence.Unsupported(overhang, moment))
                select evidence;
@@ -554,8 +555,8 @@ public static class BendSequence {
                         clearances.Head.Map(low => clearances.Fold(low, Math.Min)),
                         witnesses.Map(static row => row.MaximumHeightMm).Fold(seed, Math.Max)))
                     .As()
-                    .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:sweep-stations").ToError()))
-            : Fin.Fail<SweepWitness>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:sweep-axis").ToError())
+                    .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "bend-sequence:sweep-stations")))
+            : Fin.Fail<SweepWitness>(new GeometryFault.DegenerateInput(Kind.Line, None, "bend-sequence:sweep-axis").ToError())
         select witness;
     }
 
@@ -592,7 +593,7 @@ public static class BendSequence {
     private static Fin<Loop> SectionBar(Point3d a, Point3d b, double thicknessMm, Context tolerance) {
         Vector3d along = b - a;
         if (!along.Unitize())
-            return Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:section-edge").ToError());
+            return Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Line, None, "bend-sequence:section-edge").ToError());
         Vector3d normal = new(-along.Y, along.X, 0.0);
         Vector3d half = normal * thicknessMm / 2.0;
         return Loop.Admit(Arr(a - half, b - half, b + half, a + half), closed: true, Arr<double>(), tolerance);
@@ -601,7 +602,7 @@ public static class BendSequence {
     private static Fin<Option<double>> Clearance(Seq<Loop> material, Seq<Loop> forbidden) =>
         forbidden.IsEmpty
             ? Fin.Succ(Option<double>.None)
-            : from trace in PolygonAlgebra.Apply(new PolygonOp.Boolean(material, forbidden, PolygonBoolean.Intersection, PolygonFill.NonZero))
+            : from trace in PolygonAlgebra.Apply(new PolygonOp.Boolean(material, forbidden, BooleanOp.Intersection, PolygonFill.NonZero))
               from clear in trace is PolygonTrace.Regions regions && regions.Result.Nodes.IsEmpty
                 ? from materialToForbidden in BoundaryClearance(material, forbidden)
                   from forbiddenToMaterial in BoundaryClearance(forbidden, material)
@@ -614,14 +615,14 @@ public static class BendSequence {
             .Traverse(point => target.Traverse(loop => loop.Apply(new ProfileOp.Closest(point))
                     .Bind(static result => result is ProfileResult.Closest closest
                         ? Fin.Succ(closest.Value.Distance)
-                        : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:clearance-result").ToError()))
+                        : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "bend-sequence:clearance-result")))
                     .ToValidation()).As()
                 .Map(static distances => distances.Head.Map(low => distances.Fold(low, Math.Min)))).As()
             .ToFin()
             .Map(static rows => rows.Choose(identity).ToSeq())
             .Bind(static nearest => nearest.Head
                 .Map(low => nearest.Fold(low, Math.Min))
-                .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:clearance-empty").ToError()));
+                .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "bend-sequence:clearance-empty").ToError()));
 
     // Elastic recovery follows loaded radius, not commanded angle: with the neutral-fibre arc conserved,
     // Loaded radius falls as the command opens, so the recovered angle is `command * (4r^3 - 3r + 1)` over the
@@ -651,7 +652,7 @@ public static class BendSequence {
         }
     }
 
-    // A line form whose geometry demands dedicated tooling overrides the policy default, so one part mixes hemmed,
+    // Line forms whose geometry demands dedicated tooling override the policy default, so one part mixes hemmed,
     // curled, and ordinary bends without a second policy.
     private static (BendMethod Method, PunchKind Punch) Tooling(BendLine bend, FormPolicy policy) =>
         bend.Form.Tooling.IfNone((policy.Method, policy.Punch));
@@ -704,7 +705,7 @@ public static class BendSequence {
         let z = rows.Bind(static row => row)
         from height in z.Head
             .Map(seed => z.Fold(seed, Math.Max) - z.Fold(seed, Math.Min))
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:height").ToError())
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "bend-sequence:height").ToError())
         select height;
     }
 
@@ -713,7 +714,7 @@ public static class BendSequence {
         Vector3d radial = Vector3d.CrossProduct(axis, Vector3d.ZAxis);
         return axis.Unitize() && radial.Unitize()
             ? Fin.Succ(new SectionFrame(bend.A, radial))
-            : Fin.Fail<SectionFrame>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:section-frame").ToError());
+            : Fin.Fail<SectionFrame>(new GeometryFault.DegenerateInput(Kind.Line, None, "bend-sequence:section-frame").ToError());
     }
 
     private static Fin<Point3d> World(BrakeState state, int panel, PartPose pose, Point3d point) =>
@@ -732,7 +733,7 @@ public static class BendSequence {
     private static Fin<Point3d> Model(BrakeState state, int panel, Point3d point) =>
         state.PanelTransforms.Find(panel)
             .Map(transform => transform * point)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"bend-sequence:panel-transform:{panel}").ToError());
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"bend-sequence:panel-transform:{panel}"));
 
     private static Fin<Edge3> Model(BrakeState state, int panel, Edge3 edge) =>
         (Model(state, panel, edge.A), Model(state, panel, edge.B))
@@ -753,7 +754,7 @@ public static class BendSequence {
         Vector3d turn = Vector3d.CrossProduct(axis, Vector3d.XAxis);
         double angle = Vector3d.VectorAngle(axis, Vector3d.XAxis);
         if (!axis.Unitize() || !double.IsFinite(angle))
-            return Fin.Fail<Seq<PartPose>>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:pose-axis").ToError());
+            return Fin.Fail<Seq<PartPose>>(new GeometryFault.DegenerateInput(Kind.Line, None, "bend-sequence:pose-axis").ToError());
         Transform alignment = angle <= Math.Sqrt(double.BitIncrement(1.0) - 1.0)
             ? Transform.Identity
             : turn.Unitize()
@@ -768,7 +769,7 @@ public static class BendSequence {
 
     private static Fin<PartPose> Pose(Transform placement, BendOrientation orientation) =>
         PartPose.Validate(placement, orientation, out PartPose pose) is { } error
-            ? Fin.Fail<PartPose>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<PartPose>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, error.Message))
             : Fin.Succ(pose);
 
     private static Point3d Closest(Edge3 edge, Point3d point) =>
@@ -818,82 +819,60 @@ public static class BendSequence {
 
     private static FrontierPriority Priority(BrakeState state, BrakePolicy policy) {
         double angularResolution = Math.Sin(Angle.FromDegrees(policy.RootAccuracyDeg).Radians);
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Write(writer, state.Done.Count);
-        state.Done.Order().Iter(value => Write(writer, value));
-        Write(writer, state.Setup.Orientation.Key);
+        // The frontier tie-break is a canonical preimage like every other on the branch, so it composes the ONE
+        // `Rasm.Element` `CanonicalWriter`: a page-local `double` framing would make two states that differ only in
+        // the sign of a zero ordinate rank as distinct search nodes.
+        CanonicalWriter writer = new(policy.GaugeResolutionMm);
+        _ = writer.Ordinal(state.Done.Count);
+        state.Done.Order().Iter(value => writer.Ordinal(value));
+        _ = writer.String(state.Setup.Orientation.Key);
         Write(writer, Quantized(-1, state.Setup.Placement, policy.GaugeResolutionMm, angularResolution));
-        Write(writer, state.ToolKey);
-        Write(writer, (long)Math.Round(state.GaugeX / policy.GaugeResolutionMm));
+        _ = writer.String(state.ToolKey).I64((long)Math.Round(state.GaugeX / policy.GaugeResolutionMm));
         Seq<QuantizedTransform> geometry = state.PanelTransforms
             .OrderBy(static row => row.Key)
             .Map(row => Quantized(row.Key, row.Value, policy.GaugeResolutionMm, angularResolution))
             .ToSeq();
-        Write(writer, geometry.Count);
+        _ = writer.Ordinal(geometry.Count);
         geometry.Iter(row => Write(writer, row));
-        Write(writer, state.Path.Count);
+        _ = writer.Ordinal(state.Path.Count);
         state.Path.Iter(row => {
-            Write(writer, row.BendIndex);
-            Write(writer, row.ToolKey);
-            Write(writer, row.Gauge.XMm); Write(writer, row.Gauge.RMm); Write(writer, row.Gauge.ZMm); Write(writer, row.Gauge.Contact);
-            Write(writer, row.Setup.Orientation.Key);
+            _ = writer.Ordinal(row.BendIndex).String(row.ToolKey)
+                .Double(row.Gauge.XMm).Double(row.Gauge.RMm).Double(row.Gauge.ZMm).Bool(row.Gauge.Contact)
+                .String(row.Setup.Orientation.Key);
             Write(writer, Quantized(-1, row.Setup.Placement, policy.GaugeResolutionMm, angularResolution));
-            Write(writer, row.Support.Key);
-            Write(writer, row.Witness.TonnageMarginKn); Write(writer, row.Witness.ToolLengthMarginMm);
-            Write(writer, row.Witness.GaugeMarginMm); Write(writer, row.Witness.HeightMarginMm);
-            Write(writer, row.Witness.MinimumClearanceMm.IsSome ? 1 : 0);
-            row.Witness.MinimumClearanceMm.Iter(value => Write(writer, value));
-            Write(writer, row.Witness.PanelTransforms.Count);
+            _ = writer.String(row.Support.Key)
+                .Double(row.Witness.TonnageMarginKn).Double(row.Witness.ToolLengthMarginMm)
+                .Double(row.Witness.GaugeMarginMm).Double(row.Witness.HeightMarginMm)
+                .Bool(row.Witness.MinimumClearanceMm.IsSome);
+            row.Witness.MinimumClearanceMm.Iter(value => writer.Double(value));
+            _ = writer.Ordinal(row.Witness.PanelTransforms.Count);
             toSeq(Enumerable.Range(0, row.Witness.PanelTransforms.Count)).Iter(index => Write(
                 writer,
                 Quantized(index, row.Witness.PanelTransforms[index], policy.GaugeResolutionMm, angularResolution)));
-            Write(writer, row.Step.Order); Write(writer, row.Step.Line.A); Write(writer, row.Step.Line.B);
-            Write(writer, row.Step.AngleDeg); Write(writer, row.Step.RadiusMm); Write(writer, row.Step.KFactor);
-            Write(writer, row.Step.OverbendDeg); Write(writer, row.Step.TonnageKn); Write(writer, row.Step.Orientation.Key);
+            _ = writer.Ordinal(row.Step.Order);
+            Write(writer, row.Step.Line.A); Write(writer, row.Step.Line.B);
+            _ = writer.Double(row.Step.AngleDeg).Double(row.Step.RadiusMm).Double(row.Step.KFactor)
+                .Double(row.Step.OverbendDeg).Double(row.Step.TonnageKn).String(row.Step.Orientation.Key);
         });
-        return new FrontierPriority(state.Cost, writer.WrittenSpan.ToArray());
+        return new FrontierPriority(state.Cost, writer.ToBytes().ToArray());
     }
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, QuantizedTransform value) {
-        Write(writer, value.Panel);
+    private static void Write(CanonicalWriter writer, QuantizedTransform value) {
+        _ = writer.Ordinal(value.Panel);
         Write(writer, value.X); Write(writer, value.Y); Write(writer, value.Z); Write(writer, value.Origin);
     }
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, QuantizedVector value) {
-        Write(writer, value.X); Write(writer, value.Y); Write(writer, value.Z);
-    }
+    private static void Write(CanonicalWriter writer, QuantizedVector value) =>
+        _ = writer.I64(value.X).I64(value.Y).I64(value.Z);
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Point3d value) {
-        Write(writer, value.X); Write(writer, value.Y); Write(writer, value.Z);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(sizeof(int)), value);
-        writer.Advance(sizeof(int));
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, long value) {
-        BinaryPrimitives.WriteInt64LittleEndian(writer.GetSpan(sizeof(long)), value);
-        writer.Advance(sizeof(long));
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, double value) {
-        BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(sizeof(double)), value);
-        writer.Advance(sizeof(double));
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, string value) {
-        int count = Encoding.UTF8.GetByteCount(value);
-        Write(writer, count);
-        Span<byte> target = writer.GetSpan(count);
-        writer.Advance(Encoding.UTF8.GetBytes(value, target));
-    }
+    private static void Write(CanonicalWriter writer, Point3d value) =>
+        _ = writer.Double(value.X).Double(value.Y).Double(value.Z);
 
     private static Fin<Unit> ValidEnvelope(ProcessEnvelope.Brake envelope) =>
         Seq(envelope.CapacityKn, envelope.GaugeTravelMm, envelope.OpenHeightMm, envelope.BedLengthMm)
             .ForAll(static value => double.IsFinite(value) && value > 0.0)
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:envelope").ToError());
+                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "bend-sequence:envelope"));
 
     [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
     private abstract partial record BrakeCandidate {

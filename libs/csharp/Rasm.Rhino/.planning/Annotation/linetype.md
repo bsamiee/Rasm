@@ -16,6 +16,15 @@
 - Law: `StrokeDef.Apply` consumes an already admitted aggregate and mutates only a detached `DuplicateLinetype`; live rows change through `LinetypeTable.Modify`.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.DocObjects;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Annotation;
+
 // --- [TYPES] --------------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class SegmentRow {
@@ -29,9 +38,10 @@ public sealed partial class SegmentRow {
             : new ValidationError(message: "Linetype segment is invalid.");
 
     public static Fin<SegmentRow> Of(double length, bool solid, Op? key = null) =>
-        Validate(length, solid, out SegmentRow? admitted) is null && admitted is not null
-            ? Fin.Succ(value: admitted)
-            : Fin.Fail<SegmentRow>(error: key.OrDefault().InvalidInput());
+        Admission.Admitted(
+            fault: Validate(length, solid, out SegmentRow? admitted),
+            value: admitted,
+            refusal: key.OrDefault().InvalidInput());
 
     internal double Signed => Solid ? Length : -Length;
 }
@@ -113,9 +123,10 @@ public sealed partial class TaperRow {
             : new ValidationError(message: "Linetype taper is invalid.");
 
     public static Fin<TaperRow> Of(double startWidth, double endWidth, Option<Point2d> mid = default, Op? key = null) =>
-        Validate(startWidth, mid, endWidth, out TaperRow? admitted) is null && admitted is not null
-            ? Fin.Succ(value: admitted)
-            : Fin.Fail<TaperRow>(error: key.OrDefault().InvalidInput());
+        Admission.Admitted(
+            fault: Validate(startWidth, mid, endWidth, out TaperRow? admitted),
+            value: admitted,
+            refusal: key.OrDefault().InvalidInput());
 
     internal Fin<Unit> Apply(Linetype linetype, Op key) => Mid.Match(
         Some: point => key.Catch(() => linetype.SetTaper(startWidth: StartWidth, taperPoint: point, endWidth: EndWidth)),
@@ -185,10 +196,10 @@ public sealed partial class StrokeDef {
         ResourceName name, Seq<SegmentRow> segments, Seq<ShapeRow> shapes, Option<TaperRow> taper,
         LinetypeCap cap, LinetypeJoin join, double width, ModelUnit widthUnits, PatternDistance distances,
         PatternLock @lock, HashMap<string, string> tags = default, Op? key = null) =>
-        Validate(name, segments, shapes, taper, cap, join, width, widthUnits, distances, @lock, tags, out StrokeDef? admitted) is null
-            && admitted is not null
-            ? Fin.Succ(value: admitted)
-            : Fin.Fail<StrokeDef>(error: key.OrDefault().InvalidInput());
+        Admission.Admitted(
+            fault: Validate(name, segments, shapes, taper, cap, join, width, widthUnits, distances, @lock, tags, out StrokeDef? admitted),
+            value: admitted,
+            refusal: key.OrDefault().InvalidInput());
 
     internal Seq<double> SignedRun => Segments.Map(static row => row.Signed);
 
@@ -209,7 +220,7 @@ public sealed partial class StrokeDef {
             linetype.AlwaysModelDistances = Distances.Key;
             linetype.IsPatternLocked = Lock.Key;
         })
-        from tags in TagBag.Apply(Tags, linetype.SetUserString, linetype.DeleteAllUserStrings, key)
+        from tags in TagBag.Apply(Tags, new TagSurface(linetype.GetUserStrings, linetype.SetUserString, linetype.DeleteAllUserStrings), key)
         select unit;
 }
 ```
@@ -224,6 +235,13 @@ public sealed partial class StrokeDef {
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<ObjectLinetypeSource>]
+public sealed partial class LinetypeSource {
+    public static readonly LinetypeSource ByLayer = new(key: ObjectLinetypeSource.LinetypeFromLayer);
+    public static readonly LinetypeSource ByObject = new(key: ObjectLinetypeSource.LinetypeFromObject);
+    public static readonly LinetypeSource ByParent = new(key: ObjectLinetypeSource.LinetypeFromParent);
+}
+
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LinetypeOp {
     private LinetypeOp() { }
@@ -233,7 +251,7 @@ public abstract partial record LinetypeOp {
         string Pattern,
         PatternMeasure Measure,
         HashMap<string, string> Tags = default) : LinetypeOp;
-    public sealed record AuthorReference(Linetype Definition) : LinetypeOp;
+    public sealed record AuthorReference(ResourceRef Source) : LinetypeOp;
     public sealed record Amend(ResourceRef Target, StrokeDef Def, WriteMode Mode) : LinetypeOp;
     public sealed record Resegment(ResourceRef Target, Seq<SegmentEdit> Edits, WriteMode Mode) : LinetypeOp;
     public sealed record Rename(ResourceRef Target, ResourceName Name, WriteMode Mode) : LinetypeOp;
@@ -245,6 +263,12 @@ public abstract partial record LinetypeOp {
     public sealed record LoadDefaults(DeletedRows Policy) : LinetypeOp;
     public sealed record SetCurrent(ResourceRef Target, WriteMode Mode) : LinetypeOp;
     public sealed record Import(DraftPath Path) : LinetypeOp;
+
+    // `GetSegment` answers a `bool` beside two `out` values; discarding it publishes an unread pair as a segment row.
+    internal static Fin<SegmentRow> Segment(Linetype linetype, int index, Op key) =>
+        key.Catch(() => linetype.GetSegment(index: index, length: out double length, isSolid: out bool solid)
+            ? SegmentRow.Of(length: double.Abs(length), solid: solid, key: key)
+            : Fin.Fail<SegmentRow>(error: key.InvalidResult(detail: $"{nameof(Linetype.GetSegment)}[{index}]")));
 
     internal static readonly ResourceLens<Linetype> Lens = WithPolicy(DeletedRows.Ignore);
 
@@ -298,13 +322,22 @@ public abstract partial record LinetypeOp {
             from built in context.Op.Catch(() => Optional(Linetype.CreateFromPatternString(
                     patternString: pattern, millimeters: edit.Measure.Key))
                 .ToFin(Fail: context.Op.InvalidResult()))
-            from __ in context.Op.Catch(() => built.Name = edit.Name.Value)
-            from ___ in TagBag.Apply(edit.Tags, built.SetUserString, built.DeleteAllUserStrings, context.Op)
-            from index in context.Op.Catch(() => ResourceIndex.Admit(context.Document.Linetypes.Add(linetype: built), context.Op))
-            from receipt in DraftReceipt.Component(slot: DraftSlot.Authored, componentKind: DraftComponentKind.Linetype, index: index)
+            from receipt in new Lease<Linetype>.Owned(Value: built).Use(owned =>
+                from __ in context.Op.Catch(() => owned.Name = edit.Name.Value)
+                from ___ in TagBag.Apply(
+                    edit.Tags,
+                    new TagSurface(owned.GetUserStrings, owned.SetUserString, owned.DeleteAllUserStrings),
+                    context.Op)
+                from index in context.Op.Catch(() => ResourceIndex.Admit(
+                    context.Document.Linetypes.Add(linetype: owned), context.Op))
+                from authored in DraftReceipt.Component(
+                    slot: DraftSlot.Authored, componentKind: DraftComponentKind.Linetype, index: index)
+                select authored)
             select receipt,
+        // `ResourceRef` keeps the source inside the document grant: the address resolves live here rather than a
+        // live `Linetype` crossing the op boundary as a public payload.
         authorReference: static (context, edit) =>
-            from definition in context.Op.AcceptInput(value: edit.Definition)
+            from definition in edit.Source.Resolve(document: context.Document, lens: Lens, key: context.Op)
             from name in context.Op.AcceptText(value: definition.Name)
             from _ in guard(context.Document.Linetypes.FindName(name: name) is null, context.Op.InvalidInput()).ToFin()
             from index in context.Op.Catch(() =>
@@ -333,7 +366,7 @@ public abstract partial record LinetypeOp {
                 revise: (copy, key) => key.Catch(() => copy.Name = edit.Name.Value)),
         retag: static (context, edit) =>
             Grip.Revised(target: edit.Target, document: context.Document, slot: DraftSlot.Amended, mode: edit.Mode, op: context.Op,
-                revise: (copy, key) => TagBag.Apply(edit.Tags, copy.SetUserString, copy.DeleteAllUserStrings, key)),
+                revise: (copy, key) => TagBag.Apply(edit.Tags, new TagSurface(copy.GetUserStrings, copy.SetUserString, copy.DeleteAllUserStrings), key)),
         revert: static (context, edit) =>
             from linetype in edit.Target.Resolve(document: context.Document, lens: Lens, key: context.Op)
             from _ in context.Op.Confirm(success: context.Document.Linetypes.UndoModify(index: linetype.LinetypeIndex))
@@ -384,7 +417,8 @@ public abstract partial record LinetypeOp {
                 land: definition => context.Op.Catch(() =>
                     ResourceIndex.Admit(context.Document.Linetypes.Add(linetype: definition), context.Op)),
                 rollback: landed => context.Op.Confirm(success: context.Document.Linetypes.Delete(
-                    indices: landed.Map(static index => index.Value).AsIterable(), quiet: true)))
+                    indices: landed.Map(static index => index.Value).AsIterable(), quiet: true)),
+                release: sources => DraftCustody.Release(values: sources, op: context.Op))
             from pathReceipt in DraftReceipt.Path(slot: DraftSlot.Imported, path: edit.Path)
             from components in indices.TraverseM(index => DraftReceipt.Component(
                 slot: DraftSlot.Imported, componentKind: DraftComponentKind.Linetype, index: index)).As()
@@ -412,7 +446,9 @@ public static class Linetypes {
 - Owner: `StrokeSnapshot` preserves identity, segment run, pattern length, aggregate shape evidence, taper points, display policies, distance policy, lifecycle state, tags, and `.lin` pattern text.
 - Boundary: `Linetype` exposes no embedded-shape getter, so projection records host aggregate shape evidence and never fabricates a reconstructable `ShapeRow` roster.
 - Law: `PatternMeasure` names the unit regime consumed by both `CreateFromPatternString` and `PatternString`; a raw `bool` never escapes the edge.
-- Law: unused-name minting carries no deleted-row policy because the live host overload ignores that discriminant; `DeletedRows` remains the `LoadDefaults` policy.
+- Law: `GetSegment` answers a `bool` beside its two `out` values, so the read folds all three into `Fin<SegmentRow>` and a refused index fails rather than publishing an unread length-and-solid pair.
+- Law: the table state crosses `LinetypeSource`, never raw `ObjectLinetypeSource`, and `AuthorReference` addresses its source through `ResourceRef` — a live `Linetype` stays inside the document grant.
+- Law: unused-name minting carries no deleted-row policy — the host's `GetUnusedLinetypeName(bool)` overload is `[Obsolete]` and delegates straight to the parameterless form, so the fence spells the live one; `DeletedRows` remains the `LoadDefaults` policy.
 - Law: `ForObject` delegates layer and parent inheritance to `LinetypeIndexForObject` and returns the canonical `ResourceRef` address.
 
 ```csharp signature
@@ -446,7 +482,7 @@ public sealed record StrokeSnapshot(
 public sealed record LinetypeTableState(
     DraftCount Active,
     ResourceIndex Current,
-    ObjectLinetypeSource CurrentSource,
+    LinetypeSource CurrentSource,
     double Scale,
     ResourceName Continuous,
     ResourceName ByLayer,
@@ -466,10 +502,7 @@ public abstract partial record LinetypeAsk {
         state: static (context, ask) => context.Op.Catch(() =>
             from linetype in ask.Target.Resolve(document: context.Document, lens: LinetypeOp.Lens, key: context.Op)
             from segments in toSeq(Enumerable.Range(start: 0, count: linetype.SegmentCount))
-                .TraverseM(index => {
-                    linetype.GetSegment(index: index, length: out double length, isSolid: out bool solid);
-                    return SegmentRow.Of(length: double.Abs(length), solid: solid, key: context.Op);
-                }).As()
+                .TraverseM(index => LinetypeOp.Segment(linetype: linetype, index: index, key: context.Op)).As()
             from cap in context.Op.AcceptValidated<LinetypeCap>(candidate: (int)linetype.LineCapStyle)
             from join in context.Op.AcceptValidated<LinetypeJoin>(candidate: (int)linetype.LineJoinStyle)
             from widthUnits in ModelUnit.Of(value: linetype.WidthUnits, key: context.Op)
@@ -500,16 +533,20 @@ public abstract partial record LinetypeAsk {
                 linetype.IsModified,
                 tags,
                 text))),
-        tableState: static (context, _) => context.Op.Catch(() => Fin.Succ<LinetypeAnswer>(
+        tableState: static (context, _) =>
+            from source in context.Op.AcceptValidated<LinetypeSource>(
+                candidate: context.Document.Linetypes.CurrentLinetypeSource)
+            from answer in context.Op.Catch(() => Fin.Succ<LinetypeAnswer>(
             value: new LinetypeAnswer.Rows(
                 new LinetypeTableState(
                     DraftCount.Create(context.Document.Linetypes.ActiveCount),
                     ResourceIndex.Create(context.Document.Linetypes.CurrentLinetypeIndex),
-                    context.Document.Linetypes.CurrentLinetypeSource,
+                    source,
                     context.Document.Linetypes.LinetypeScale,
                     ResourceName.Create(context.Document.Linetypes.ContinuousLinetypeName),
                     ResourceName.Create(context.Document.Linetypes.ByLayerLinetypeName),
-                    ResourceName.Create(context.Document.Linetypes.ByParentLinetypeName))))),
+                    ResourceName.Create(context.Document.Linetypes.ByParentLinetypeName))))
+            select answer,
         forObject: static (context, ask) =>
             from row in ask.Target.Only<RhinoObject>(document: context.Document, key: context.Op)
             from index in context.Op.Catch(() => Fin.Succ(value: context.Document.Linetypes.LinetypeIndexForObject(

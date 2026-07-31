@@ -109,6 +109,8 @@ public static class CloudTransport {
             for (int j = 0; j < n; j++)
                 logK[(i * n) + j] = -source[i].DistanceToSquared(other: target[j]) / eps;
         double[] logU = new double[m]; double[] logV = new double[n];
+        double[] gather = new double[Math.Max(val1: m, val2: n)];      // strided column pull
+        double[] fold = new double[Math.Max(val1: m, val2: n)];        // vectorized LSE destination
         double[] logA = [.. sourceMass.AsIterable().Select(Math.Log)]; double[] logB = [.. targetMass.AsIterable().Select(Math.Log)];
         double exponent = policy.MassRelaxation.Match(Some: l => l.Value / (l.Value + eps), None: () => 1.0);
         bool balanced = policy.MassRelaxation.IsNone;
@@ -116,11 +118,11 @@ public static class CloudTransport {
         for (int iter = 0; iter < policy.MaxIterations.Value && Math.Max(resS, resT) > policy.ConvergenceTolerance.Value; iter++) {
             iterations = iter + 1;
             (double[] prevU, double[] prevV) = ([.. logU], [.. logV]);
-            for (int i = 0; i < m; i++) logU[i] = exponent * (logA[i] - LogSumExp(row: logK.AsSpan(i * n, n), shift: logV));
-            for (int j = 0; j < n; j++) logV[j] = exponent * (logB[j] - LogSumExpColumn(logK: logK, column: j, rows: m, stride: n, shift: logU));
+            for (int i = 0; i < m; i++) logU[i] = exponent * (logA[i] - LogSumExp(row: logK.AsSpan(i * n, n), shift: logV, scratch: fold.AsSpan(0, n)));
+            for (int j = 0; j < n; j++) logV[j] = exponent * (logB[j] - LogSumExpColumn(logK: logK, column: j, rows: m, stride: n, shift: logU, gather: gather.AsSpan(0, m), fold: fold.AsSpan(0, m)));
             (resS, resT) = balanced
-                ? MarginalResiduals(logK: logK, logU: logU, logV: logV, a: sourceMass, b: targetMass, m: m, n: n)
-                : (MaxDelta(prevU, logU), MaxDelta(prevV, logV));
+                ? MarginalResiduals(logK: logK, logU: logU, logV: logV, a: sourceMass, b: targetMass, m: m, n: n, gather: gather, fold: fold)
+                : (MaxDelta(prev: prevU, next: logU, scratch: fold.AsSpan(0, m)), MaxDelta(prev: prevV, next: logV, scratch: fold.AsSpan(0, n)));
         }
         bool floored = false;
         double[] coupling = new double[m * n];
@@ -146,8 +148,49 @@ public static class CloudTransport {
             : Fin.Fail<SinkhornPlan>(key.InvalidResult());
     }
 
-    private static double LogSumExp(ReadOnlySpan<double> row, double[] shift) { /* max-shifted LSE over row[j]+shift[j] */ return default; }
-    // Private statics: LogSumExpColumn strided column LSE, MaxDelta worst |prev−next| scaling delta, MarginalResiduals row/column error vs a and b.
+    // Max-shifted LSE over row[j] + shift[j]. Every shifted exponent is <= 0, so no overflow exists and an underflow
+    // to zero is the correct contribution; an all-negative-infinity row answers -inf, the graceful degradation the
+    // page's Auto line promises. The fold is TensorPrimitives end to end — the Packages claim's one realization.
+    private static double LogSumExp(ReadOnlySpan<double> row, ReadOnlySpan<double> shift, Span<double> scratch) {
+        TensorPrimitives.Add(x: row, y: shift, destination: scratch);
+        double max = TensorPrimitives.Max<double>(x: scratch);
+        if (double.IsNegativeInfinity(d: max)) return double.NegativeInfinity;
+        TensorPrimitives.Subtract(x: scratch, y: max, destination: scratch);
+        TensorPrimitives.Exp<double>(x: scratch, destination: scratch);
+        return max + Math.Log(d: TensorPrimitives.Sum<double>(x: scratch));
+    }
+
+    // Column form is the load-bearing one — a strided read over the row-major buffer. The gather is the only
+    // scalar sweep; the fold that follows is the same vectorized row body, so one LSE spelling serves both axes.
+    private static double LogSumExpColumn(double[] logK, int column, int rows, int stride, ReadOnlySpan<double> shift, Span<double> gather, Span<double> fold) {
+        for (int i = 0; i < rows; i++) gather[i] = logK[(i * stride) + column];
+        return LogSumExp(row: gather, shift: shift, scratch: fold);
+    }
+
+    // Worst |prev - next| over the scaling vector. MaxMagnitude returns the largest-magnitude SIGNED element, so one
+    // absolute value closes it; a NaN scaling propagates here and the finiteness gate at the solve's exit catches it.
+    private static double MaxDelta(ReadOnlySpan<double> prev, ReadOnlySpan<double> next, Span<double> scratch) {
+        TensorPrimitives.Subtract(x: next, y: prev, destination: scratch);
+        return Math.Abs(value: TensorPrimitives.MaxMagnitude<double>(x: scratch));
+    }
+
+    // Balanced-mode marginal error: row mass exp(logU[i] + LSE(logK[i,:] + logV)) against a, column mass likewise
+    // against b, each reduced to its worst absolute deviation. The mass exponent passes the SAME LogUnderflowFloor
+    // that the coupling emission uses, so residual and coupling agree on what is zero — an unfloored Math.Exp here
+    // re-introduces exactly the silent-zero defect the page's Boundary names.
+    private static (double Source, double Target) MarginalResiduals(
+        double[] logK, double[] logU, double[] logV, Arr<double> a, Arr<double> b, int m, int n, double[] gather, double[] fold) {
+        double resS = 0.0, resT = 0.0;
+        for (int i = 0; i < m; i++) {
+            double log = logU[i] + LogSumExp(row: logK.AsSpan(i * n, n), shift: logV, scratch: fold.AsSpan(0, n));
+            resS = Math.Max(val1: resS, val2: Math.Abs(value: (log < LogUnderflowFloor ? 0.0 : Math.Exp(d: log)) - a[i]));
+        }
+        for (int j = 0; j < n; j++) {
+            double log = logV[j] + LogSumExpColumn(logK: logK, column: j, rows: m, stride: n, shift: logU, gather: gather.AsSpan(0, m), fold: fold.AsSpan(0, m));
+            resT = Math.Max(val1: resT, val2: Math.Abs(value: (log < LogUnderflowFloor ? 0.0 : Math.Exp(d: log)) - b[j]));
+        }
+        return (Source: resS, Target: resT);
+    }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -168,7 +211,47 @@ internal sealed record SinkhornPlan(
                 entries: new Arr<double>([.. self.Coupling]), key: key)),
             ProjectionRow.Of<VectorCloud>(() => self.BarycentricImage(source: source, target: target, key: key)));
     }
-    // BarycentricImage: row i → (Σ_j π[i,j]·t_j)/rowMass, positive-rowMass gated; VectorCloud.Cluster re-admits it at target.Tolerance as a measure.
+
+    // One pass over the coupling fills every census column the receipt's own claim fold reads back; RawDistance
+    // carries the undebiased cost, so a debiased divergence keeps its nonnegativity evidence on the raw term alone.
+    internal Fin<SinkhornReceipt> ReceiptOf(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance,
+        Option<double> sourceBias, Option<double> targetBias, CloudTransportPolicy policy, Op key) {
+        (double mass, int nonZero, double min, double max) = (0.0, 0, double.PositiveInfinity, 0.0);
+        foreach (double entry in Coupling) {
+            if (entry <= 0.0) continue;
+            (mass, nonZero) = (mass + entry, nonZero + 1);
+            (min, max) = (Math.Min(val1: min, val2: entry), Math.Max(val1: max, val2: entry));
+        }
+        return from pairs in Correspondences.OfCoupling(source: source, target: target, coupling: Coupling,
+                   rows: Rows, columns: Columns, cutoff: CouplingCutoff, key: key)
+               from receipt in key.AcceptValue(value: new SinkhornReceipt(
+                   Distance: distance, RawDistance: policy.Debiased ? Some(Distance) : Option<double>.None,
+                   SourceBiasDistance: sourceBias, TargetBiasDistance: targetBias,
+                   Regularization: policy.Regularization.Value, MassRelaxation: policy.MassRelaxation.Map(static l => l.Value),
+                   ConvergenceTolerance: ConvergenceTolerance, CouplingCutoff: CouplingCutoff, Debiased: policy.Debiased,
+                   ResidualKind: policy.ResidualKind,
+                   NumericStatus: UnderflowFloored ? SinkhornNumericStatus.UnderflowFloored : SinkhornNumericStatus.FiniteAccepted,
+                   SourceConvergenceResidual: SourceConvergenceResidual, TargetConvergenceResidual: TargetConvergenceResidual,
+                   Iterations: Iterations, Stop: Stop, CouplingMass: mass, NonZeroCouplings: nonZero,
+                   MinPositiveCoupling: nonZero > 0 ? Some(min) : Option<double>.None,
+                   MaxCoupling: nonZero > 0 ? Some(max) : Option<double>.None, Correspondences: pairs))
+               select receipt;
+    }
+
+    // Row i maps to the mass-weighted target barycentre; a vanishing row mass carries no image, so the row drops
+    // rather than collapsing onto the origin, and VectorCloud.Cluster re-admits the survivors as a measure.
+    internal Fin<VectorCloud> BarycentricImage(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, Op key) {
+        Seq<Point3d> image = default;
+        for (int i = 0; i < Rows; i++) {
+            (double mass, Vector3d weighted) = (0.0, Vector3d.Zero);
+            for (int j = 0; j < Columns; j++) {
+                double pi = Coupling[(i * Columns) + j];
+                (mass, weighted) = (mass + pi, weighted + (pi * (Vector3d)target.Vertices[j]));
+            }
+            if (mass > EpsilonPolicy.ZeroTolerance) image = image.Add(new Point3d(weighted / mass));
+        }
+        return VectorCloud.Cluster(points: image, context: target.Tolerance, key: key);
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -233,6 +316,63 @@ public readonly record struct CloudCorrespondenceSet(
         ValidityClaim.Ordered(lower: Quantile95, upper: MaxDistance),
         ValidityClaim.Nonnegative(RetainedSourceMass),
         ValidityClaim.Nonnegative(RetainedTargetMass));
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+// THE one coupling-to-pairing fold. Every statistic accumulates in the single walk above the cutoff, and the
+// quantile set reads ONE sort of the collected distances — a second sort per quantile is the deleted form.
+internal static class Correspondences {
+    internal static Fin<CloudCorrespondenceSet> OfCoupling(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target,
+        double[] coupling, int rows, int columns, double cutoff, Op key) =>
+        from sourceMass in CloudKernel.MassOf(cluster: source, key: key)
+        from targetMass in CloudKernel.MassOf(cluster: target, key: key)
+        from set in key.AcceptValue(value: Fold(source: source, target: target, coupling: coupling, rows: rows,
+            columns: columns, cutoff: cutoff, a: sourceMass, b: targetMass))
+        select set;
+
+    private static CloudCorrespondenceSet Fold(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target,
+        double[] coupling, int rows, int columns, double cutoff, Arr<double> a, Arr<double> b) {
+        Seq<CloudCorrespondence> items = default;
+        (double total, double weightedSquared, double maxDistance) = (0.0, 0.0, 0.0);
+        (double retainedSource, double retainedTarget) = (0.0, 0.0);
+        bool[] coveredSource = new bool[rows]; bool[] coveredTarget = new bool[columns];
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < columns; j++) {
+                double pi = coupling[(i * columns) + j];
+                if (pi <= cutoff) continue;
+                (Point3d sp, Point3d tp) = (source.Vertices[i], target.Vertices[j]);
+                double squared = sp.DistanceToSquared(other: tp), distance = Math.Sqrt(d: squared);
+                double denominator = Math.Max(val1: a[i], val2: b[j]);
+                items = items.Add(new CloudCorrespondence(SourceIndex: i, TargetIndex: j, SourcePoint: sp, TargetPoint: tp,
+                    Residual: tp - sp, Distance: distance, SquaredDistance: squared,
+                    SourceMass: Some(a[i]), TargetMass: Some(b[j]), CouplingMass: Some(pi),
+                    Confidence: denominator > EpsilonPolicy.ZeroTolerance ? Some(Math.Min(val1: 1.0, val2: pi / denominator)) : Option<double>.None));
+                (total, weightedSquared) = (total + pi, weightedSquared + (pi * squared));
+                maxDistance = Math.Max(val1: maxDistance, val2: distance);
+                if (!coveredSource[i]) { coveredSource[i] = true; retainedSource += a[i]; }
+                if (!coveredTarget[j]) { coveredTarget[j] = true; retainedTarget += b[j]; }
+            }
+        }
+        // ONE sort serves median and both tail quantiles; R-7 matches Domain/stats Distribution.Of so a transport
+        // quantile and a statistics quantile never disagree on the same sample set.
+        double[] sorted = [.. items.Map(static item => item.Distance).OrderBy(static d => d)];
+        double rmse = total > EpsilonPolicy.ZeroTolerance
+            ? Math.Sqrt(d: weightedSquared / total)
+            : sorted.Length > 0 ? Math.Sqrt(d: sorted.Sum(static d => d * d) / sorted.Length) : 0.0;
+        return new CloudCorrespondenceSet(Items: items, SourceCount: rows, TargetCount: columns, NonZeroCount: items.Count,
+            TotalMass: total, Rmse: rmse, MedianDistance: Quantile(sorted: sorted, p: 0.50),
+            MaxDistance: maxDistance, Quantile90: Quantile(sorted: sorted, p: 0.90), Quantile95: Quantile(sorted: sorted, p: 0.95),
+            CoveredSourceCount: coveredSource.Count(static c => c), CoveredTargetCount: coveredTarget.Count(static c => c),
+            RetainedSourceMass: retainedSource, RetainedTargetMass: retainedTarget);
+    }
+
+    // R-7 linear interpolation on the ALREADY-sorted array — the Domain/stats Distribution.Of convention verbatim.
+    private static double Quantile(double[] sorted, double p) {
+        if (sorted.Length == 0) return 0.0;
+        double h = (sorted.Length - 1) * p;
+        int lo = (int)Math.Floor(d: h);
+        return lo + 1 < sorted.Length ? sorted[lo] + ((h - lo) * (sorted[lo + 1] - sorted[lo])) : sorted[^1];
+    }
 }
 ```
 

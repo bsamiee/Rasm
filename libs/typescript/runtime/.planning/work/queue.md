@@ -19,13 +19,13 @@ Decomposition is ruled: `@effect/cluster` and `@effect/workflow` natively own pe
 - Law: a job body is `Step.run` material — the worker's handle composes the flow mint for its deadline geometry, so queue workers and workflow activities carry identical budget shapes and evidence; the family's declared `success` threads the handle's result through the step's persisted exit to the suspended `submit` caller, and the declared `error` unions the spec's fault schema with `StepFault` so a budget trip persists beside domain failure under one wire family — a family whose result is fire-and-forget declares `Schema.Void` as its `success` row, never a second void-only mint.
 - Law: fire-and-forget is a modality of the same family — a scoped caller may supervise `process` with `Effect.forkScoped`, while a request that must acknowledge durable admission keeps awaiting the declared success; an unscoped daemon fiber or a second "unawaited" queue declaration is unspellable.
 - Growth: a new job kind is one `DurableQueue.make` value with one worker Layer row at the composition root; a family outgrowing single-item settlement into multi-step orchestration promotes to a `flow` definition, re-homing the payload schema unchanged.
-- Boundary: the queue's persistence rides the engine's `MessageStorage` from `entity#MAILBOX`; no queue table, poll loop, or storage row exists on this page.
+- Boundary: the queue's item store is the `PersistedQueueFactory` arm of the `entity#MAILBOX` tier row — a distinct store from the cluster envelope `MessageStorage` beside it, which `DurableQueue.worker`'s own requirement names by type and which `MessageStorage` cannot satisfy; the tier selection at the root is what makes every worker Layer composable, and no queue table, poll loop, or storage row exists on this page.
 - Packages: `@effect/workflow` (`DurableQueue`); `effect` (`Effect`, `Schema`); `@rasm/ts/core` (`Budget`); `./entity.ts` (`WorkClass`).
 
 ```typescript
 import { DurableQueue, DurableRateLimiter } from "@effect/workflow"
 import type { SqlClient } from "@effect/sql"
-import { Data, Duration, Effect, Match, Option, Schema, Stream } from "effect"
+import { Array, Data, Duration, Effect, Match, Option, Schema, Stream } from "effect"
 import { type AuditFact, Fact, Journal } from "@rasm/ts/data"
 import { Budget, FaultClass } from "@rasm/ts/core"
 import { Pulse } from "../otel/meter.ts"
@@ -79,6 +79,7 @@ const Job = { of: _job }
 [THROTTLE]:
 - Owner: `Throttle` — durable keyed quotas: `DurableRateLimiter.rateLimit({ name, algorithm, window, limit, key, tokens })` runs as an activity whose consumption survives replay, so a retried step never double-spends its quota. Each generic row carries its scope, algorithm, window, limit, compound-key projection, and cost projection; `Throttle.spend(row, subject)` is the one entry, so consumers cannot pass a key or token count inconsistent with the selected quota.
 - Law: cost is a parameter — a heavyweight item spends `tokens > 1` against the same row; a parallel "heavy" quota row for the same scope is the rejected form.
+- Law: a row states its FAN AXIS, never its projections — every quota keys tenant-then-axis and costs the subject's own weight, so one generator mints both closures from the axis name and a row carries scope, algorithm, window, limit, and that one word. Hand-written projections re-spell the subject shape once per closure and let a row drift its key grammar silently; the table closes against `Row<never>`, whose contravariant subject admits every row while still refusing a bad algorithm, a missing projection, or a mistyped cost.
 - Law: exhaustion delays, never refuses — the durable limiter's exceeded posture is a `DurableClock` sleep sized to the window turn, so a step that overdraws its quota parks durably and resumes past process death with the spend already consumed; the fault channel carries only `RateLimitStoreError` (`_tag: "RateLimiterError"` — the quota STORE failed), which classifies `unavailable` so a lane judge defers it on the lease. A hand-written wait-for-window loop, or a page modeling exhaustion as a refusal fault, contradicts the shipped posture and is unspellable.
 - Law: process-plane admission pressure (request shedding, connection caps) is the serving gate's concern; a `Throttle` row prices durable work, and one concern appearing in both tables is the split the row's `scope` name makes visible at review.
 - Growth: a new quota is one table row; a new pacing shape is an `algorithm` value the shipped surface names.
@@ -86,6 +87,7 @@ const Job = { of: _job }
 
 ```typescript
 declare namespace Throttle {
+  type Subject<Axis extends string> = { readonly tenant: string; readonly weight: number } & { readonly [K in Axis]: string }
   type Row<A> = {
     readonly scope: string
     readonly algorithm: "fixed-window" | "token-bucket"
@@ -96,23 +98,20 @@ declare namespace Throttle {
   }
 }
 
+// Both projections derive from the ONE axis a row fans on: the compound key is always tenant-then-axis and the cost is
+// always the subject's own weight, so a row states its axis and never re-spells the arithmetic or its subject shape.
+const _keyed = <const Axis extends string>(axis: Axis) => ({
+  key: (subject: Throttle.Subject<Axis>) => `${subject.tenant}:${subject[axis]}`,
+  tokens: (subject: Throttle.Subject<Axis>) => subject.weight,
+})
+
 const _rows = {
-  tenantEgress: {
-    scope: "tenant-egress", algorithm: "token-bucket", window: Duration.minutes(1), limit: 600,
-    key: (subject: { readonly tenant: string; readonly channel: string; readonly weight: number }) => `${subject.tenant}:${subject.channel}`,
-    tokens: (subject: { readonly tenant: string; readonly channel: string; readonly weight: number }) => subject.weight,
-  },
-  providerCall: {
-    scope: "provider-call", algorithm: "fixed-window", window: Duration.minutes(1), limit: 240,
-    key: (subject: { readonly tenant: string; readonly provider: string; readonly weight: number }) => `${subject.tenant}:${subject.provider}`,
-    tokens: (subject: { readonly tenant: string; readonly provider: string; readonly weight: number }) => subject.weight,
-  },
-  reportRender: {
-    scope: "report-render", algorithm: "token-bucket", window: Duration.minutes(5), limit: 50,
-    key: (subject: { readonly tenant: string; readonly format: string; readonly weight: number }) => `${subject.tenant}:${subject.format}`,
-    tokens: (subject: { readonly tenant: string; readonly format: string; readonly weight: number }) => subject.weight,
-  },
-} as const
+  tenantEgress: { scope: "tenant-egress", algorithm: "token-bucket", window: Duration.minutes(1), limit: 600, ..._keyed("channel") },
+  providerCall: { scope: "provider-call", algorithm: "fixed-window", window: Duration.minutes(1), limit: 240, ..._keyed("provider") },
+  reportRender: { scope: "report-render", algorithm: "token-bucket", window: Duration.minutes(5), limit: 50, ..._keyed("format") },
+  // contravariance makes `Row<never>` the shape check that admits every subject: scope, algorithm, window, limit, and
+  // both projections refuse at the table instead of at the one `spend` call that happened to name a broken row
+} as const satisfies { readonly [Name: string]: Throttle.Row<never> }
 
 const _spend = <A>(row: Throttle.Row<A>, subject: A) =>
   DurableRateLimiter.rateLimit({
@@ -134,6 +133,8 @@ const Throttle = { ..._rows, spend: _spend }
 - Law: admission happens at the lane seam, exactly once — `Lane.row(payload, drain)` is the one admission mint: it fuses a payload `Schema` with a domain drain so the data-owned raw claim `payload` decodes before any domain code runs, a decode failure folds to an `invalid`-classed park through the poison short-circuit, and the drain receives the admitted payload with the claim meta (`id`, `sequence`, `tag`, `attempts`) — a raw `payload: unknown` reaching a domain drain, or a drain-local decoder, is the consumer-local-admission defect this mint forecloses, and payload shape authority is always recoverable from the row that routed the tag.
 - Law: the verdict vocabulary is closed — `Settled` (the effect landed: `Journal.complete`), `Deferred` (transient fault: the row stays claimed and the lease expiry re-delivers it, attempts already incremented), `Parked` (the ceiling, a non-retryable class, a failed admission, or an unrouted stream: `[5]`'s evidence fold) — and every drain in the branch folds claims through `Lane.settle`, so retry-with-redelivery is spelled once and a drain-local retry loop is unspellable. `Lane.settle` answers the batch's verdict roster, so a relay meters its pass from the returned values instead of a second count.
 - Law: defer is passive — no un-claim write, no backoff column; the lease IS the backoff, and its width is the class row's per-attempt budget, so redelivery pacing derives from the same geometry as in-process retry.
+- Law: the pass discharges ONCE — every terminal verdict yields its claim id and the pass issues one `Journal.complete` roster write, so a `take`-sized batch closes in one statement exactly as the claim that opened it read in one; a per-claim mark inside the fold pays a round trip per row to spell a set the statement already takes.
+- Law: a drain's `never` channel leaves the defect as its one remaining failure, so this seam is where the poison list's `defect` row is PRODUCED — the admitted drain folds through `Effect.catchAllDefect` into a `defect`-classed park carrying the residue, because an escaped defect kills the pass and strands every peer claim in the batch on a lease nothing will re-drive until it lapses. Interrupts pass through untouched: a shutdown is not a verdict.
 - Law: wake is the journal's NOTIFY pulse — the drain sleeps on the data wave's wake stream and claims on pulse or lease-width tick, whichever fires; a tight poll loop is the rejected form.
 - Growth: a new lane dimension (deliver-at scheduling, a channel filter) is a deliverable column with a claim predicate on the data statement; a new drain family is one `Lane.row` handed to the route — the verdict fold never widens.
 - Packages: `@rasm/ts/data` (`Journal`); `effect` (`Match`, `Effect`, `Option`, `Schema`); `./entity.ts` (`WorkClass`).
@@ -171,13 +172,35 @@ const _row = <A, I, R>(
   Schema.decodeUnknown(payload)(claim.payload).pipe(
     Effect.matchEffect({
       onFailure: (fault) => Effect.succeed(LaneVerdict.Parked({ class: "invalid", detail: `<${claim.tag}:${fault.message}>` })),
-      onSuccess: (value) => drain(value, {
-        id: claim.id,
-        sequence: claim.sequence,
-        tag: claim.tag,
-        attempts: claim.attempts,
-      }),
+      onSuccess: (value) =>
+        drain(value, {
+          id: claim.id,
+          sequence: claim.sequence,
+          tag: claim.tag,
+          attempts: claim.attempts,
+        }).pipe(
+          // the drain's `never` channel means its ONLY remaining failure is a defect, and this is the producer that
+          // gives the poison list its `defect` row: uncaught it would kill the pass and strand every peer claim on a
+          // lease. Interrupts pass through untouched — a shutdown is not a poison verdict.
+          Effect.catchAllDefect((residue) =>
+            Effect.succeed(LaneVerdict.Parked({ class: "defect", detail: `<${claim.tag}:${String(residue)}>` }))
+          ),
+        ),
     }),
+  )
+
+// A claim discharges the outbox row on both terminal verdicts and on neither transient one; `Deferred` writes nothing
+// at all, because the lease IS the backoff and an un-claim write would race the claimant the lease predicate protects.
+const _landed = <R2>(
+  park: (claim: Lane.Claim, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) => Effect.Effect<void, never, R2>,
+  claim: Lane.Claim,
+  verdict: LaneVerdict,
+): Effect.Effect<Option.Option<bigint>, never, R2> =>
+  Match.value(verdict).pipe(
+    Match.tag("Settled", () => Effect.succeedSome(claim.id)),
+    Match.tag("Deferred", () => Effect.succeedNone),
+    Match.tag("Parked", (parked) => Effect.as(park(claim, parked), Option.some(claim.id))),
+    Match.exhaustive,
   )
 
 const _settle = <R, R2>(
@@ -186,20 +209,23 @@ const _settle = <R, R2>(
   route: (tag: string) => Option.Option<Lane.Admit<R>>,
   park: (claim: Lane.Claim, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) => Effect.Effect<void, never, R2>,
 ) =>
-(claims: ReadonlyArray<Lane.Claim>): Effect.Effect<ReadonlyArray<LaneVerdict>, never, R | R2> => {
-  const landed = (claim: Lane.Claim) => (verdict: LaneVerdict) =>
-    Match.value(verdict).pipe(
-      Match.tag("Settled", () => Journal.complete(sql, [claim.id])),
-      Match.tag("Deferred", () => Effect.void),
-      Match.tag("Parked", (parked) => park(claim, parked).pipe(Effect.zipRight(Journal.complete(sql, [claim.id])))),
-      Match.exhaustive,
-    ).pipe(Effect.as(verdict))
-  return Effect.forEach(claims, (claim) =>
-    Option.match(route(claim.tag), {
-      onNone: () => landed(claim)(LaneVerdict.Parked({ class: "malformed", detail: `<unrouted:${claim.tag}>` })),
-      onSome: (admit) => Effect.flatMap(admit(claim), landed(claim)),
-    }), { concurrency: WorkClass[clazz].concurrency })
-}
+(claims: ReadonlyArray<Lane.Claim>): Effect.Effect<ReadonlyArray<LaneVerdict>, never, R | R2> =>
+  Effect.gen(function* () {
+    const judged = yield* Effect.forEach(
+      claims,
+      (claim) =>
+        Option.match(route(claim.tag), {
+          onNone: () => Effect.succeed(LaneVerdict.Parked({ class: "malformed", detail: `<unrouted:${claim.tag}>` })),
+          onSome: (admit) => admit(claim),
+        }).pipe(Effect.flatMap((verdict) => Effect.map(_landed(park, claim, verdict), (id) => [verdict, id] as const))),
+      { concurrency: WorkClass[clazz].concurrency },
+    )
+    // ONE discharge statement per pass: `Journal.complete` is a roster write fed by a batched claim read, so a
+    // per-claim mark pays `take` round trips to close one claim set the statement was shaped to close in one.
+    const discharged = Array.getSomes(Array.map(judged, ([, id]) => id))
+    yield* Array.isNonEmptyReadonlyArray(discharged) ? Journal.complete(sql, discharged) : Effect.void
+    return Array.map(judged, ([verdict]) => verdict)
+  })
 ```
 
 ## [05]-[PARK_REPLAY]

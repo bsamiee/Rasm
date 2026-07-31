@@ -45,34 +45,37 @@ lazy from rasm.compute.graduation.observability import ADMITTED, REJECTED, Gradu
 
 
 class EvidenceScope(StrEnum):
-    # scope seed table: one member per compute module leaf, value `compute.<leaf>`, owning BOTH the tracer scope and the receipt
-    # `source_package` spelling — producers compose `EvidenceScope.<X>.value`, never a bare literal, so a drifted spelling has no owner.
-    ARRAY = "compute.array"
-    CODEGEN = "compute.codegen"
-    CONVEX = "compute.convex"
-    DESIGN = "compute.design"
-    DIFFERENTIAL = "compute.differential"
-    FIELD = "compute.field"
-    HANDOFF = "compute.handoff"
-    HISTORY = "compute.history"
-    INFERENCE = "compute.inference"
-    INTERVAL = "compute.interval"
-    JIT = "compute.jit"
-    LINEAR = "compute.linear"
-    MESH = "compute.mesh"
-    MODEL = "compute.model"
-    NONLINEAR = "compute.nonlinear"
-    PROGRAM = "compute.program"
-    QUADRATURE = "compute.quadrature"
-    QUANTITY = "compute.quantity"
-    RECEIPT = "compute.receipt"
-    SENSITIVITY = "compute.sensitivity"
-    SIGNAL = "compute.signal"
-    SPATIAL = "compute.spatial"
-    STATISTICS = "compute.statistics"
-    STUDY = "compute.study"
-    SYMBOLIC = "compute.symbolic"
-    TRANSFORM = "compute.transform"
+    # scope seed table: one member per compute module leaf, value `rasm.compute.<leaf>`, owning BOTH the tracer scope and the
+    # receipt `source_package` spelling — producers compose `EvidenceScope.<X>.value`, never a bare literal, so a drifted
+    # spelling has no owner. The `rasm.`-rooted spelling is the branch grammar the runtime `SCOPES` vocabulary and the
+    # geometry peer's own scope enum hold, and it is the same root the observability point ids and instrument names carry, so
+    # a backend joining a compute span to its metric and its receipt reads one namespace rather than three.
+    ARRAY = "rasm.compute.array"
+    CODEGEN = "rasm.compute.codegen"
+    CONVEX = "rasm.compute.convex"
+    DESIGN = "rasm.compute.design"
+    DIFFERENTIAL = "rasm.compute.differential"
+    FIELD = "rasm.compute.field"
+    HANDOFF = "rasm.compute.handoff"
+    HISTORY = "rasm.compute.history"
+    INFERENCE = "rasm.compute.inference"
+    INTERVAL = "rasm.compute.interval"
+    JIT = "rasm.compute.jit"
+    LINEAR = "rasm.compute.linear"
+    MESH = "rasm.compute.mesh"
+    MODEL = "rasm.compute.model"
+    NONLINEAR = "rasm.compute.nonlinear"
+    PROGRAM = "rasm.compute.program"
+    QUADRATURE = "rasm.compute.quadrature"
+    QUANTITY = "rasm.compute.quantity"
+    RECEIPT = "rasm.compute.receipt"
+    SENSITIVITY = "rasm.compute.sensitivity"
+    SIGNAL = "rasm.compute.signal"
+    SPATIAL = "rasm.compute.spatial"
+    STATISTICS = "rasm.compute.statistics"
+    STUDY = "rasm.compute.study"
+    SYMBOLIC = "rasm.compute.symbolic"
+    TRANSFORM = "rasm.compute.transform"
 
 
 # finiteness-only input refinement the `@beartype(conf=FAULT_CONF)` fence on `_admit` checks; sign
@@ -308,6 +311,7 @@ def evidence_run[T](
 ## [03]-[EVIDENCE_WEAVE]
 
 - Owner: `evidence_run` binds the runtime `measured` weave to compute policy — the `EvidenceScope` seed table names the span scope, `REDACTION` the emit policy — and every producer composes this binding, so a page-local tracer mint, a page-local redaction declaration, or an inline span open beside it has no owner. Span, fence, rail flatten, fenced harvest, and OK close are the `runtime/observability/receipts#RECEIPT` owner's mechanics, composed here, never re-authored.
+- Spelling: every member's value is `rasm.compute.<leaf>` and the member NAME is the only handle a producer spells, so a scope reaches a producer as `EvidenceScope.<X>` and its value only where the weave stamps the tracer or the receipt `source_package`. A reverse `EvidenceScope(f"...{tag}")` value lookup reconstructs a spelling the enum already owns and re-breaks on the next root change, so a tag-keyed consumer carries a `Map[str, EvidenceScope]` row instead. The estate root is not decoration: an unrooted value puts every compute span and receipt outside the namespace its sibling branches, the observability point ids, and the instrument roster all share, so a backend cannot join one crossing's three signals.
 - Cases: every `EvidenceScope` member holds at least one composed consumer — a span emitter through this weave, a receipt `source_package` spelling through `.value`, or both; a member with neither is deleted, so the seed table can never carry dead vocabulary.
 - Entry: one entry discriminating modality on the dispatch shape, never an `evidence_run_async` sibling; `facts` threads each producer's call-time discriminants — problem size, route, backend, precision — onto the recording span, so a trace filters on the same evidence the receipt carries; emission binds through its own fence at the runtime owner — the no-escape guarantee the hub's admission rail demands, granted to every producer.
 - Ledger: the binding weaves the `graduation/observability.md` `ledgered` leg around every dispatch — enter fact, resource band off the runtime `Cost` bracket, exit fact on both the settled and raised arms — so the point rail and the resource ledger reach every producer through the one binding; point rows, payload family, measure mapping, and taps are that page's, composed here, never re-authored. `composition` threads from the caller through this binding into `ledgered` and through `graduates` into both admission fires, so an embedded second composition's lifecycle and admission facts reach the points IT registered; the key defaults `DEFAULT_SCOPE`, so the root call shape stays scope-free.

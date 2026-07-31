@@ -285,7 +285,8 @@ public abstract partial record MeshBatch {
 - Owner: `MaterialAsk` `[Union]` closes material resolution, component bindings, mapping identity and transform, cache census, cached-mesh custody, per-object meshing policy, meshability, the `MeshBatch` harvest family, and provider parameters. `MaterialAnswer` `[Union]` carries object identity on every plural row and owns every detached mesh until disposal.
 - Law: cache reads never build — `MeshCount` and `GetMeshes` answer the existing cache and `IsMeshable` answers capability, so a read inside a paused command allocates nothing; construction is the edit family's `BuildCache`, and `Harvest` alone runs the batch mesher.
 - Law: cached meshes cross under custody — `GetMeshes` returns non-owning const wrappers parented to the live object, so each result detaches through `GeometryCrossing.Cross` onto its own handle before the grant closes; a consumer holding a parented cache mesh across a regen dereferences freed memory, and mutating one silently fails to persist.
-- Law: meshing policy crosses encoded — `MeshPolicy` captures `ToEncodedString()` while each caller-owned `MeshingParameters` is still scoped and reconstructs it with `FromEncodedString()` only for one host call; `ObjectSignal` selects document fallback without exporting a boolean policy.
+- Law: meshing policy crosses encoded — `MeshPolicy` captures `ToEncodedString()` while each `MeshingParameters` carrier is still scoped and reconstructs it with `FromEncodedString()` only for one host call; `ObjectSignal` selects document fallback without exporting a boolean policy, and both `GetRenderMeshParameters` arguments are spelled because the parameterless call IS the document-fallback arm — a knob whose two arms reach one host behaviour selects nothing.
+- Law: meshing-carrier ownership splits by the host ARGUMENT, never by the member — `GetRenderMeshParameters(true)` fills a freshly minted carrier this rail leases and disposes, `GetRenderMeshParameters(false)` and `ObjectAttributes.CustomMeshingParameters` hand back a wrapper over stored host memory whose unconditional `Dispose` would free state the owner still holds, so those two reads encode inside the borrow and never bracket it.
 - Law: `Harvest` is the batch lane — `MeshBatch` closes worker-thread, mutable simple-dialog, and mutable UI-style-plus-transform modalities over one resolved roster; ref-updated policy and interaction state return beside identity-bearing products, the host verdict folds through `CommandVerdict.OfNative`, and every failure before detachment releases both host arrays.
 - Law: provider evidence is `ProviderValue` — bool, signed, unsigned, real, decimal, and text values remain distinct generated cases in both directions, and every constructed case re-enters the one `Admit` fold so a non-finite provider readback refuses exactly as a non-finite write does; arbitrary `IConvertible` values fail instead of type-erasing into text.
 - Boundary: `MappingRoster` returns channel identity, mapping identity, and the object transform from `GetTextureMapping(channel, out Transform)`; construction, profile, inverse recovery, and evaluation remain `MappingSpec`/`Mappings.Run` responsibilities on the render mapping owner.
@@ -388,7 +389,11 @@ public abstract partial record MaterialEdit {
         Switch(
             op,
             setMapping: static (key, edit) =>
-                from _ in guard(edit.Channel >= 0, key.InvalidInput()).ToFin()
+                // `OCSMappingChannelId` is the host's reserved channel addressing an object's OCS mapping, so the
+                // ordinary mapping write refuses it rather than rewriting OCS state through this path.
+                from _ in guard(
+                    edit.Channel >= 0 && edit.Channel != ObjectAttributes.OCSMappingChannelId,
+                    key.InvalidInput()).ToFin()
                 from spec in key.Need(edit.Spec)
                 from profile in key.Need(edit.Profile)
                 from motion in edit.Motion.Traverse(value => key.AcceptInput(value: value)).As()
@@ -506,15 +511,19 @@ public static class Materials {
                                    kind: ask.Kind,
                                    key: ctx.Op)
                                .Map(static rows => (MaterialAnswer)new MaterialAnswer.Pieces(Rows: rows)),
+                           // Ownership splits by ARGUMENT, not by member: the `true` overload fills a freshly
+                           // minted caller-owned carrier, while the `false` overload hands back a wrapper over the
+                           // object's own stored parameters — disposing that one frees host-owned memory, so the
+                           // per-object read encodes inside the borrow and never brackets it.
                            cachePolicy: static (ctx, ask) => ctx.Natives
-                               .TraverseM(native => ctx.Op.Catch(() => {
-                                   using MeshingParameters? policy = ask.DocumentFallback.On
-                                       ? native.GetRenderMeshParameters(returnDocumentParametersIfUnset: true)
-                                       : native.GetRenderMeshParameters();
-                                   return Optional(policy)
-                                       .Traverse(value => MeshPolicy.Capture(value, ctx.Op)).As()
-                                       .Map(value => (native.Id, value));
-                               })).As()
+                               .TraverseM(native => ctx.Op.Catch(() => ask.DocumentFallback.On
+                                   ? Fresh(
+                                       policy: native.GetRenderMeshParameters(returnDocumentParametersIfUnset: true),
+                                       key: ctx.Op)
+                                   : Stored(
+                                       policy: native.GetRenderMeshParameters(returnDocumentParametersIfUnset: false),
+                                       key: ctx.Op))
+                                   .Map(value => (native.Id, value))).As()
                                .Map(static rows => (MaterialAnswer)new MaterialAnswer.Policy(Rows: rows)),
                            meshable: static (ctx, ask) => ctx.Natives
                                .TraverseM(native => ctx.Op.Catch(() =>
@@ -548,12 +557,12 @@ public static class Materials {
         DocumentSession session, TableTarget target, RedrawPolicy redraw, params ReadOnlySpan<MaterialEdit> edits) {
         Op op = Op.Of();
         return from policy in op.Need(redraw)
-               from requested in toSeq(edits.ToArray())
+               from requested in LanguageExt.Iterable<MaterialEdit>.FromSpan(edits).ToSeq()
                    .TraverseM(edit => op.Need(edit)).As()
                from _ in guard(!requested.IsEmpty, op.InvalidInput()).ToFin()
                from plan in requested.TraverseM(edit => edit.Admit(op: op)).As()
                let recording = plan.Exists(static edit => edit.RecordsUndo)
-               from traits in guard(
+               from __ in guard(
                    plan.ForAll(edit => edit.RecordsUndo == recording)
                    && (recording || plan.Count is 1),
                    op.InvalidInput()).ToFin()
@@ -570,6 +579,15 @@ public static class Materials {
                select receipt;
     }
 
+    private static Fin<Option<MeshPolicy>> Fresh(MeshingParameters? policy, Op key) =>
+        Optional(policy).Match(
+            Some: value => new Lease<MeshingParameters>.Owned(Value: value)
+                .Use(held => MeshPolicy.Capture(held, key).Map(Some)),
+            None: static () => Fin.Succ(value: Option<MeshPolicy>.None));
+
+    private static Fin<Option<MeshPolicy>> Stored(MeshingParameters? policy, Op key) =>
+        Optional(policy).Traverse(value => MeshPolicy.Capture(value, key)).As();
+
     private static Fin<Seq<(Guid Id, ObjectPiece Product)>> Detach(
         Mesh[]? meshes,
         ObjectAttributes[]? attributes,
@@ -581,7 +599,9 @@ public static class Materials {
             from pieces in ObjectPiece.DetachAll(
                 rows: shapes.Map((shape, index) => ((GeometryBase)shape, Some(paired[index]))),
                 key: key)
-            select pieces.Map((piece, index) => (paired[index].ObjectId, piece));
+            // `.Strict()` forces the identity projection INSIDE the window: `Release` disposes every source
+            // attribute set on the next line, so a lazy map would read `ObjectId` off freed native memory.
+            select pieces.Map((piece, index) => (paired[index].ObjectId, piece)).Strict();
         _ = ObjectPiece.Release(geometry: meshes, attributes: attributes);
         return result;
     }

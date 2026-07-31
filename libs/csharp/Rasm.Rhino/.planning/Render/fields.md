@@ -6,7 +6,7 @@
 
 - [02]-[VALUE]: `FieldValue` — the one polymorphic payload owner with write, recovery, and boxing dispatch.
 - [03]-[DECLARATION]: `FieldPresentation` and `FieldSpec` — field declaration rows; `DynamicFieldSpec` — the dynamic-field bracket fold.
-- [04]-[BINDING_AND_PARAMS]: `FieldBinding`, `ParamScope`, and the `FieldPortrait` census.
+- [04]-[BINDING_AND_PARAMS]: `FieldBinding`, the `PbrChannel`/`ContentParameter` name vocabularies, `ParamScope`, and the `FieldPortrait` census.
 - [05]-[SURFACE_LEDGER]: page owner table.
 
 ## [02]-[VALUE]
@@ -23,6 +23,7 @@ using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.Display;
+using Rhino.DocObjects;
 using Rhino.Geometry;
 using Rhino.Render;
 using Rhino.Render.Fields;
@@ -271,8 +272,8 @@ public sealed record FieldSpec(
     internal Fin<Unit> Declare(FieldDictionary fields, Op key) {
         FieldSpec self = this;
         return from name in key.AcceptText(value: self.Name)
-               from value in Optional(self.Value).ToFin(Fail: key.InvalidInput(detail: "<field-value>"))
-               from presentation in Optional(self.Presentation).ToFin(Fail: key.InvalidInput(detail: "<field-presentation>"))
+               from value in key.Need(self.Value)
+               from presentation in key.Need(self.Presentation)
                from _ in value.Declare(
                    declaration: new FieldDeclaration(
                        Fields: fields,
@@ -345,16 +346,22 @@ public static class DynamicFields {
         key.Catch(() => {
             content.BeginCreateDynamicFields(automatic: automatic);
             try {
-                return rows.TraverseM(row => Optional(row)
-                    .ToFin(Fail: key.InvalidInput(detail: "<dynamic-field-row>"))
-                    .Bind(admitted => key.Catch(() => key.Confirm(success: content.CreateDynamicField(
+                // One projection over the optional range fills both host slots; two pattern reads of one option collide on
+                // the bound name in the enclosing scope, and an absent range is the host's own unbounded pair.
+                return rows.TraverseM(row =>
+                    from admitted in key.Need(row)
+                    let bounds = admitted.Bounds
+                        .Map(static range => (Min: (object?)range.Min.Boxed(), Max: (object?)range.Max.Boxed()))
+                        .IfNone((Min: null, Max: null))
+                    from created in key.Catch(() => key.Confirm(success: content.CreateDynamicField(
                         internalName: admitted.InternalName,
                         localName: admitted.LocalName,
                         englishName: admitted.EnglishName,
                         value: admitted.Value.Boxed(),
-                        minValue: admitted.Bounds.Case is FieldRange range ? range.Min.Boxed() : null,
-                        maxValue: admitted.Bounds.Case is FieldRange range ? range.Max.Boxed() : null,
-                        sectionId: admitted.SectionId))))).As().Map(static _ => unit);
+                        minValue: bounds.Min,
+                        maxValue: bounds.Max,
+                        sectionId: admitted.SectionId)))
+                    select created).As().Map(static _ => unit);
             } finally {
                 content.EndCreateDynamicFields();
             }
@@ -367,6 +374,9 @@ public static class DynamicFields {
 - Owner: `FieldBinding` admits direct and child-slot field bindings through one optional-slot factory. `ParamScope` admits named, child-slot extra-requirement, and direct extra-requirement routes. `FieldPortrait` and `FieldCensus` detach the dictionary in one pass.
 - Law: each `ParamScope` case reaches its corresponding host endpoint; child-slot and direct extra-requirement semantics remain distinct cases.
 - Law: name resolution stays host-owned — `ChildSlotNameFromParamName`/`ParamNameFromChildSlotName` answer the correspondence at the consulting site, and no local table mirrors it.
+- Law: a parameter or child-slot name never enters as a literal — `PbrChannel` and `ContentParameter` are the two admitted name vocabularies and `ParamScope` takes one of them, so the only `string` a caller supplies is the extra-requirement key the host itself leaves open.
+- Law: `PbrChannel` keys on the host texture type because the PBR name space is DERIVED, not rostered — every child-slot name resolves through `ChildSlotNames.PhysicallyBased.FromTextureType` and every PBR parameter name but `pbr-brdf` forwards to that same child-slot name, so one key column answers both axes and a second parallel roster is the deleted form; `ContentParameter` reads `ParameterNames.PhysicallyBased.BRDF` — the one PBR property that answers a literal instead of forwarding — beside the basic-material `const` names, the only genuinely enumerated parameters the host declares, so no row hand-copies a name the host itself publishes.
+- Law: `Child(RenderMaterial.StandardChildSlots)` composes `TextureTypeFromSlot` then the same resolver, so the slot enum stays the vocabulary `Render/kinds.md` `[02]` rules it and this page mints no slot wrapper; the resolver answers an unmapped type with an empty string, and that sentinel projects to a typed fault at the one read site rather than reaching the host as a blank slot name.
 - Law: reads recover typed — a `ParamScope` read boxes through the host and immediately classifies into `FieldValue` by runtime payload type, so `object` dies at this seam.
 - Law: `FieldCensus.Of` traverses `FieldDictionary` once and projects value, texture bounds, usage grants, and visibility per field.
 
@@ -401,6 +411,58 @@ public abstract partial record FieldBinding {
             })));
 }
 
+// `ChildSlotNames.PhysicallyBased.FromTextureType` derives every child-slot name and all but one PBR parameter name, so this
+// owner keys on the host texture type and reads each name once rather than mirroring the derived roster.
+[SmartEnum<TextureType>]
+public sealed partial class PbrChannel {
+    public static readonly PbrChannel BaseColor = new(key: TextureType.Bitmap);
+    public static readonly PbrChannel Subsurface = new(key: TextureType.PBR_Subsurface);
+    public static readonly PbrChannel SubsurfaceScatteringColor = new(key: TextureType.PBR_SubsurfaceScattering);
+    public static readonly PbrChannel SubsurfaceScatteringRadius = new(key: TextureType.PBR_SubsurfaceScatteringRadius);
+    public static readonly PbrChannel Specular = new(key: TextureType.PBR_Specular);
+    public static readonly PbrChannel SpecularTint = new(key: TextureType.PBR_SpecularTint);
+    public static readonly PbrChannel Metallic = new(key: TextureType.PBR_Metallic);
+    public static readonly PbrChannel Roughness = new(key: TextureType.PBR_Roughness);
+    public static readonly PbrChannel Anisotropic = new(key: TextureType.PBR_Anisotropic);
+    public static readonly PbrChannel AnisotropicRotation = new(key: TextureType.PBR_Anisotropic_Rotation);
+    public static readonly PbrChannel Sheen = new(key: TextureType.PBR_Sheen);
+    public static readonly PbrChannel SheenTint = new(key: TextureType.PBR_SheenTint);
+    public static readonly PbrChannel Clearcoat = new(key: TextureType.PBR_Clearcoat);
+    public static readonly PbrChannel ClearcoatRoughness = new(key: TextureType.PBR_ClearcoatRoughness);
+    public static readonly PbrChannel ClearcoatBump = new(key: TextureType.PBR_ClearcoatBump);
+    public static readonly PbrChannel OpacityIor = new(key: TextureType.PBR_OpacityIor);
+    public static readonly PbrChannel Opacity = new(key: TextureType.Transparency);
+    public static readonly PbrChannel OpacityRoughness = new(key: TextureType.PBR_OpacityRoughness);
+    public static readonly PbrChannel Emission = new(key: TextureType.PBR_Emission);
+    public static readonly PbrChannel Displacement = new(key: TextureType.PBR_Displacement);
+    public static readonly PbrChannel Bump = new(key: TextureType.Bump);
+    public static readonly PbrChannel AmbientOcclusion = new(key: TextureType.PBR_AmbientOcclusion);
+    public static readonly PbrChannel Alpha = new(key: TextureType.PBR_Alpha);
+
+    // Host truth: the resolver answers an unmapped type with an empty string, so the sentinel projects at this one read site.
+    internal Fin<string> Name(Op key) => key.Catch(() =>
+        Optional(global::Rhino.Render.ChildSlotNames.PhysicallyBased.FromTextureType(textureType: Key))
+            .Filter(static name => !string.IsNullOrWhiteSpace(name))
+            .ToFin(Fail: key.InvalidResult(detail: Key.ToString())));
+}
+
+[SmartEnum<string>]
+public sealed partial class ContentParameter {
+    public static readonly ContentParameter Brdf = new(global::Rhino.Render.ParameterNames.PhysicallyBased.BRDF);
+    public static readonly ContentParameter Ambient = new(RenderMaterial.BasicMaterialParameterNames.Ambient);
+    public static readonly ContentParameter Emission = new(RenderMaterial.BasicMaterialParameterNames.Emission);
+    public static readonly ContentParameter FlamingoLibrary = new(RenderMaterial.BasicMaterialParameterNames.FlamingoLibrary);
+    public static readonly ContentParameter DisableLighting = new(RenderMaterial.BasicMaterialParameterNames.DisableLighting);
+    public static readonly ContentParameter Diffuse = new(RenderMaterial.BasicMaterialParameterNames.Diffuse);
+    public static readonly ContentParameter Specular = new(RenderMaterial.BasicMaterialParameterNames.Specular);
+    public static readonly ContentParameter TransparencyColor = new(RenderMaterial.BasicMaterialParameterNames.TransparencyColor);
+    public static readonly ContentParameter ReflectivityColor = new(RenderMaterial.BasicMaterialParameterNames.ReflectivityColor);
+    public static readonly ContentParameter Shine = new(RenderMaterial.BasicMaterialParameterNames.Shine);
+    public static readonly ContentParameter Transparency = new(RenderMaterial.BasicMaterialParameterNames.Transparency);
+    public static readonly ContentParameter Reflectivity = new(RenderMaterial.BasicMaterialParameterNames.Reflectivity);
+    public static readonly ContentParameter Ior = new(RenderMaterial.BasicMaterialParameterNames.Ior);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ParamScope {
     private ParamScope() { }
@@ -408,15 +470,35 @@ public abstract partial record ParamScope {
     private sealed record ChildCase(string ChildSlot, string Requirement) : ParamScope;
     private sealed record ExtraCase(string Parameter, string Requirement) : ParamScope;
 
-    public static Fin<ParamScope> Named(string parameter) =>
-        Op.Of(name: nameof(ParamScope)).AcceptText(value: parameter)
-            .Map(static admitted => (ParamScope)new NamedCase(Parameter: admitted));
-
-    public static Fin<ParamScope> Child(string childSlot, string requirement) {
+    public static Fin<ParamScope> Named(ContentParameter parameter) {
         Op op = Op.Of(name: nameof(ParamScope));
-        return from admittedSlot in op.AcceptText(value: childSlot)
+        return Optional(parameter).ToFin(Fail: op.InvalidInput())
+            .Map(static admitted => (ParamScope)new NamedCase(Parameter: admitted.Key));
+    }
+
+    public static Fin<ParamScope> Named(PbrChannel channel) {
+        Op op = Op.Of(name: nameof(ParamScope));
+        return from active in Optional(channel).ToFin(Fail: op.InvalidInput())
+               from name in active.Name(key: op)
+               select (ParamScope)new NamedCase(Parameter: name);
+    }
+
+    public static Fin<ParamScope> Child(PbrChannel channel, string requirement) {
+        Op op = Op.Of(name: nameof(ParamScope));
+        return from active in Optional(channel).ToFin(Fail: op.InvalidInput())
+               from slot in active.Name(key: op)
                from admittedRequirement in op.AcceptText(value: requirement)
-               select (ParamScope)new ChildCase(ChildSlot: admittedSlot, Requirement: admittedRequirement);
+               select (ParamScope)new ChildCase(ChildSlot: slot, Requirement: admittedRequirement);
+    }
+
+    public static Fin<ParamScope> Child(RenderMaterial.StandardChildSlots slot, string requirement) {
+        Op op = Op.Of(name: nameof(ParamScope));
+        return from name in op.Catch(() => Optional(global::Rhino.Render.ChildSlotNames.PhysicallyBased.FromTextureType(
+                       textureType: RenderMaterial.TextureTypeFromSlot(slot: slot)))
+                   .Filter(static value => !string.IsNullOrWhiteSpace(value))
+                   .ToFin(Fail: op.InvalidResult(detail: slot.ToString())))
+               from admittedRequirement in op.AcceptText(value: requirement)
+               select (ParamScope)new ChildCase(ChildSlot: name, Requirement: admittedRequirement);
     }
 
     public static Fin<ParamScope> Extra(string parameter, string requirement) {
@@ -491,6 +573,8 @@ public sealed record FieldCensus(Arr<FieldPortrait> Rows) : IDetachedDocumentRes
 |  [04]   | parameter binding | `FieldBinding`     | admitted direct and child-slot cases                      | `Of` / `Bind`                  |
 |  [05]   | parameter routes  | `ParamScope`       | named, child-slot, and direct-extra cases                 | `Named` / `Child` / `Extra`    |
 |  [06]   | field census      | `FieldCensus`      | one-pass dictionary walk to detached `FieldPortrait` rows | `Of(fields, key)`              |
+|  [07]   | pbr name space    | `PbrChannel`       | texture-type keyed, host-resolved slot and param names    | `Name(key)`                    |
+|  [08]   | basic param names | `ContentParameter` | host `BRDF` plus the basic-material name constants        | `ParamScope.Named`             |
 
 ## [06]-[RESEARCH]
 

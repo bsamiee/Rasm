@@ -6,7 +6,7 @@ Camera ownership (`Rasm.Rhino.Viewport`) separates kernel pose and intent, sessi
 
 - [02]-[SCOPE_LEASE]: `ViewportBorrowMode` the broadcast redraw-suppression gate and `ViewportLease` the session-gated borrow over the Document-owned `ViewportTarget` address.
 - [03]-[POSE_MODEL]: `CameraPose` over the kernel `VectorFrame`, `LensAngle`, `ProjectionKind` classification, and the pose read/write pair on one owner.
-- [04]-[HOST_ROWS]: `CameraFrustum`, `DepthProbe`, `VisibilityProbe`, `CameraDof`, `CPlaneGrid`, `DetailLength`, and `ViewMapping`.
+- [04]-[HOST_ROWS]: `CameraFrustum`, `DepthProbe`, `VisibilityProbe`, `CameraDof`, `CPlaneState`, `DetailLength`, and `ViewMapping`.
 - [05]-[SNAPSHOT]: `CameraSnapshot` — the `ViewportInfo` value adapter with staleness evidence and the restore seam.
 
 ## [02]-[SCOPE_LEASE]
@@ -31,8 +31,13 @@ namespace Rasm.Rhino.Viewport;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 internal sealed partial class ViewportBorrowMode {
+    // One anchor decides both halves of the broadcast decision: below the floor each touched view redraws itself,
+    // at or above it the per-view redraws are suppressed and one document-wide redraw lands instead. `Viewport/operations.md`
+    // reads this same member for its terminal row, so suppression and terminal broadcast can never disagree.
+    internal const int BroadcastFloor = 3;
+
     internal static readonly ViewportBorrowMode Observe = new(key: 0, suppress: static _ => false);
-    internal static readonly ViewportBorrowMode Mutate = new(key: 1, suppress: static count => count >= 3);
+    internal static readonly ViewportBorrowMode Mutate = new(key: 1, suppress: static count => count >= BroadcastFloor);
 
     [UseDelegateFromConstructor]
     internal partial bool Suppress(int count);
@@ -253,10 +258,11 @@ public readonly record struct CameraPose(VectorFrame Frame, Point3d Target, Lens
 
 ## [04]-[HOST_ROWS]
 
-- Owner: `CameraFrustum` owns six planes, aspect, and bounds; `DepthProbe` and `VisibilityProbe` own polymorphic spatial evidence; `CameraDof` owns focal-blur state and `CameraDofField` the ordered setter vocabulary; `CPlaneGrid` owns plane, spacing, visibility, depth, frequency, and axis/line colors; `DetailLength` owns paper/model conversion through `TryGetPaperLength` and `TryGetModelLength`; `ViewMapping` owns the coordinate-transform rows projected by `ViewportInfo.GetXform`.
-- Law: every row is a value projection through the lease — `DepthExtent`, `CameraFrustum`, and `CPlaneGrid` carry doubles, `Plane`, and `BoundingBox` values; the killed forms are the census screen carriers (`System.Drawing.Point`/`Rectangle` as camera state) and depth reads scattered per call site.
+- Owner: `CameraFrustum` owns six planes, aspect, and bounds; `DepthProbe` and `VisibilityProbe` own polymorphic spatial evidence; `CameraDof` owns focal-blur state and `CameraDofField` the ordered setter vocabulary; `CPlaneState` owns the live construction plane whole — name, plane, spacing, visibility, depth, frequency, and the five-ink palette; `DetailLength` owns paper/model conversion through `TryGetPaperLength` and `TryGetModelLength`; `ViewMapping` owns the coordinate-transform rows projected by `ViewportInfo.GetXform`.
+- Law: every row is an ADMITTED value projection through the lease — `DepthExtent`, `CameraFrustum`, and `CPlaneState` each carry `ValidateFactoryArguments` and reach the caller on `Fin`, so no host read escapes as an unvalidated product; the killed forms are the census screen carriers as camera state (`System.Drawing.Point`/`Rectangle` extents, and `System.Drawing.Color` as palette state where `PerceptualColor` is the kernel contract) and depth reads scattered per call site.
+- Law: `CPlaneState` names the LIVE viewport read and `Rasm.Rhino.Persistence`'s `CPlaneModel` family names the STORED preset; the two never share a spelling, because both namespaces resolve inside one assembly and a shared name reads as a seating failure rather than a coincidence.
 - Law: `ViewMapping` is the ONE world/screen/clip/camera correspondence — one admitted `(Source, Destination)` pair generates the complete directional space, and a consumer needing pixels-per-unit reads `GetWorldToScreenScale` through `PixelScale`, never a re-derived projection ratio; the transform reads through a `ViewportInfo.GetXform` snapshot because that member returns `Transform.Unset` on failure where the live `RhinoViewport.GetTransform` returns `Identity` and makes refusal invisible to `IsValid`.
-- Boundary: depth-of-field lives on `ViewInfo` (named-view state), not the live viewport — `CameraDof.Read`/`Write` take the `ViewInfo` the render and named-view rails hold, and the write is host mutation gated by the operations rail. `Write` captures all focal-blur fields before mutation, applies the ordered field rows fail-fast, and restores the complete prior state through one compensation path when any setter fails.
+- Boundary: depth-of-field lives on `ViewInfo` (named-view state), not the live viewport — `CameraDof.Read`/`Write` take the `ViewInfo` the render and named-view rails hold, and the write is host mutation gated by the operations rail. `Write` captures all focal-blur fields before mutation, applies the ordered field rows fail-fast, and restores the complete prior state through one compensation path when any setter fails; the sample-count invariant is mode-conditional so an unconfigured view (`ViewInfoFocalBlurModes.None`, zero samples) reads back cleanly and that capture stays reachable on the first write.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -423,7 +429,11 @@ public sealed partial class CameraDof {
         ref double aperture,
         ref double jitter,
         ref uint sampleCount) {
-        validationError = Enum.IsDefined(value: mode) && sampleCount >= 1u
+        // Sample count means something only under a configured blur mode: a view that never had focal blur reads
+        // `None` with a zero count, and demanding one there refuses the READ of a legitimate host state — which also
+        // refuses the prior-state capture the compensation path opens with, exactly on views a first write targets.
+        validationError = Enum.IsDefined(value: mode)
+            && (mode is ViewInfoFocalBlurModes.None || sampleCount >= 1u)
             && new[] { distance, aperture, jitter }.All(static value => double.IsFinite(value) && value >= 0.0)
                 ? validationError
                 : new ValidationError(message: "camera depth of field is invalid");
@@ -484,44 +494,93 @@ public sealed partial class CameraDof {
         });
 }
 
-public readonly record struct CPlaneGrid(
-    Option<string> Name,
-    Plane Plane,
-    double GridSpacing,
-    double SnapSpacing,
-    int GridLineCount,
-    int ThickLineFrequency,
-    bool ShowGrid,
-    bool ShowAxes,
-    bool ShowZAxis,
-    bool DepthBuffered,
-    System.Drawing.Color ThinLineColor,
-    System.Drawing.Color ThickLineColor,
-    System.Drawing.Color GridXColor,
-    System.Drawing.Color GridYColor,
-    System.Drawing.Color GridZColor) {
-    public static Fin<CPlaneGrid> Read(ViewportLease lease, Op? key = null) {
-        Op op = key.OrDefault();
-        return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(borrow: row => op.Catch(() => {
-            DocObjects.ConstructionPlane cplane = row.Viewport.GetConstructionPlane();
-            return Fin.Succ(new CPlaneGrid(
-                Name: Optional(cplane.Name).Filter(static value => value.Length > 0),
-                Plane: cplane.Plane,
-                GridSpacing: cplane.GridSpacing,
-                SnapSpacing: cplane.SnapSpacing,
-                GridLineCount: cplane.GridLineCount,
-                ThickLineFrequency: cplane.ThickLineFrequency,
-                ShowGrid: cplane.ShowGrid,
-                ShowAxes: cplane.ShowAxes,
-                ShowZAxis: cplane.ShowZAxis,
-                DepthBuffered: cplane.DepthBuffered,
-                ThinLineColor: cplane.ThinLineColor,
-                ThickLineColor: cplane.ThickLineColor,
-                GridXColor: cplane.GridXColor,
-                GridYColor: cplane.GridYColor,
-                GridZColor: cplane.GridZColor));
-        }), key: op));
+[ComplexValueObject]
+public sealed partial class CPlaneState {
+    public Option<string> Name { get; }
+    public Plane Plane { get; }
+    public double GridSpacing { get; }
+    public double SnapSpacing { get; }
+    public int GridLineCount { get; }
+    public int ThickLineFrequency { get; }
+    public bool ShowGrid { get; }
+    public bool ShowAxes { get; }
+    public bool ShowZAxis { get; }
+    public bool DepthBuffered { get; }
+    public PerceptualColor ThinLineColor { get; }
+    public PerceptualColor ThickLineColor { get; }
+    public PerceptualColor GridXColor { get; }
+    public PerceptualColor GridYColor { get; }
+    public PerceptualColor GridZColor { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Option<string> name,
+        ref Plane plane,
+        ref double gridSpacing,
+        ref double snapSpacing,
+        ref int gridLineCount,
+        ref int thickLineFrequency,
+        ref bool showGrid,
+        ref bool showAxes,
+        ref bool showZAxis,
+        ref bool depthBuffered,
+        ref PerceptualColor thinLineColor,
+        ref PerceptualColor thickLineColor,
+        ref PerceptualColor gridXColor,
+        ref PerceptualColor gridYColor,
+        ref PerceptualColor gridZColor) {
+        validationError = plane.IsValid
+            && new[] { gridSpacing, snapSpacing }.All(static value => double.IsFinite(value) && value > 0.0)
+            && gridLineCount >= 0 && thickLineFrequency >= 0
+            && new[] { thinLineColor, thickLineColor, gridXColor, gridYColor, gridZColor }.All(static ink => ink is not null)
+                ? validationError
+                : new ValidationError(message: "construction-plane state is invalid");
     }
+
+    public static Fin<CPlaneState> Read(ViewportLease lease, Op? key = null) {
+        Op op = key.OrDefault();
+        return ViewportLease.Admit(lease: lease, key: op).Bind(owner => owner.Use(
+            borrow: row => op.Catch(() => Fin.Succ(row.Viewport.GetConstructionPlane()))
+                .Bind(cplane => Admitted(cplane: cplane, key: op)),
+            key: op));
+    }
+
+    // Five host screen colours cross into the kernel contract at this one read, so no `System.Drawing` carrier leaves
+    // this sub-domain; admissions accumulate, so one refusal names every rejected channel at once.
+    private static Fin<CPlaneState> Admitted(DocObjects.ConstructionPlane cplane, Op key) =>
+        (Ink(colour: cplane.ThinLineColor, key: key),
+         Ink(colour: cplane.ThickLineColor, key: key),
+         Ink(colour: cplane.GridXColor, key: key),
+         Ink(colour: cplane.GridYColor, key: key),
+         Ink(colour: cplane.GridZColor, key: key))
+            .Apply(static (thin, thick, x, y, z) => (Thin: thin, Thick: thick, X: x, Y: y, Z: z))
+            .As()
+            .ToFin()
+            .Bind(ink => key.Catch(() => Fin.Succ(Create(
+                name: Optional(cplane.Name).Filter(static value => value.Length > 0),
+                plane: cplane.Plane,
+                gridSpacing: cplane.GridSpacing,
+                snapSpacing: cplane.SnapSpacing,
+                gridLineCount: cplane.GridLineCount,
+                thickLineFrequency: cplane.ThickLineFrequency,
+                showGrid: cplane.ShowGrid,
+                showAxes: cplane.ShowAxes,
+                showZAxis: cplane.ShowZAxis,
+                depthBuffered: cplane.DepthBuffered,
+                thinLineColor: ink.Thin,
+                thickLineColor: ink.Thick,
+                gridXColor: ink.X,
+                gridYColor: ink.Y,
+                gridZColor: ink.Z))));
+
+    private static K<Validation<Error>, PerceptualColor> Ink(System.Drawing.Color colour, Op key) =>
+        PerceptualColor.OfRgb(
+            red: colour.R,
+            green: colour.G,
+            blue: colour.B,
+            alpha: colour.A / (double)byte.MaxValue,
+            key: key).ToValidation();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

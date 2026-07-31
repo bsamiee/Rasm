@@ -4,7 +4,7 @@
 
 ## [01]-[INDEX]
 
-- [02]-[SNAPSHOT]: raw selection evidence, `HighlightState`, and the one-pass `ObjectSnapshot` read product.
+- [02]-[SNAPSHOT]: `SelectionGrade` and `HighlightGrade` closing the two host state contracts, `HighlightState`, and the one-pass `ObjectSnapshot` read product.
 - [03]-[FRAMES]: `FrameAsk`/`FramePose` — object frame, gumball frame, and drag-transform reads.
 - [04]-[REACH_AND_TOUCH]: `Reach`, `Touch`, and the immediate component selection and highlight rail.
 - [05]-[CUTS_AND_PIECES]: `SectionCut`, `ObjectPiece`, and the detached extraction custody.
@@ -13,9 +13,10 @@
 
 ## [02]-[SNAPSHOT]
 
-- Owner: `SelectionGrade` owns the verified unselected, selected, and persistent `IsSelected(checkSubObjects: true)` grades; `HighlightState.Of` is the one native projection preserving the undocumented highlight integer beside the highlighted-component roster for snapshots, touch capture, and touch results; `ObjectSnapshot` closes identity, lifecycle, source-model, description, closed-status, frame, grip, memory, and history-link evidence in one detached value.
+- Owner: `SelectionGrade` owns the verified unselected, selected, and persistent `IsSelected(checkSubObjects: true)` grades; `HighlightGrade` owns the host's own three-value `IsHighlighted(checkSubObjects: true)` contract and `HighlightState.Of` pairs it with the highlighted-component roster for snapshots, touch capture, and touch results; `ObjectSnapshot` closes identity, lifecycle, source-model, description, closed-status, frame, grip, memory, and history-link evidence in one detached value.
 - Law: the snapshot reads once per object inside the session grant — every field lands in one pass over the resolved handle, so a consumer never re-enters the document to complete a partial read, and the product is detached the moment `Ask` returns.
-- Law: selection and highlight never share a vocabulary. `SelectionGrade` maps the verified `0`/`1`/`2` contract, while highlight preserves its raw host integer and assigns no meaning to it.
+- Law: selection and highlight never share a vocabulary — two host contracts, two closed grades. `SelectionGrade` maps the verified `0`/`1`/`2` selection contract; `HighlightGrade` maps the host's documented `0` unhighlighted, `1` whole-object, `3` proper-sub-objects highlight contract, so rollback restores a captured grade rather than re-deriving meaning from a raw integer, and an unmapped host value is a typed refusal instead of a silent third state.
+- Law: both whole-object grade writes answer the RESULTING state, not a change flag — the host returns "the object is now highlighted", so a highlight guard compares the return against the requested signal directly, while `SelectSubObject` returns a count the selection path discards before re-reading `IsSubObjectSelected`. The asymmetry is the host's and each path reads its own member's contract.
 - Law: `CommitChanges` never appears — the host member answers `true` only when a staged working copy actually flushed, and this package stages nothing on the live object: attribute writes travel `TableOp.Amend`, mode and visibility travel `TableOp.State`, geometry travels `TableOp.Replace`; the snapshot is the read face of that one-write-path law.
 - Law: history linkage is one snapshot bool — `HistoryBound` carries `HasHistoryRecord()` as presence evidence, and every linkage read or mutation lives on the history page's `Chronicle`.
 - Growth: a new host object fact is one snapshot field read in the same pass; a named native grade enters only after its values verify.
@@ -35,17 +36,31 @@ using Rhino.UI.Gumball;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record HighlightState {
-    private HighlightState(int native, Seq<ComponentIndex> components) =>
-        (Native, Components) = (native, components);
+[SmartEnum<int>]
+public sealed partial class HighlightGrade {
+    public static readonly HighlightGrade None = new(key: 0);
+    public static readonly HighlightGrade Whole = new(key: 1);
+    public static readonly HighlightGrade Parts = new(key: 3);
 
-    public int Native { get; }
+    internal static Fin<HighlightGrade> Of(int native, Op key) =>
+        TryGet(native, out HighlightGrade? grade) && grade is not null
+            ? Fin.Succ(grade)
+            : Fin.Fail<HighlightGrade>(key.InvalidResult(detail: native.ToString()));
+}
+
+public sealed record HighlightState {
+    private HighlightState(HighlightGrade grade, Seq<ComponentIndex> components) =>
+        (Grade, Components) = (grade, components);
+
+    public HighlightGrade Grade { get; }
     public Seq<ComponentIndex> Components { get; }
 
-    internal static HighlightState Of(RhinoObject native) => new(
-        native: native.IsHighlighted(checkSubObjects: false),
-        components: Optional(native.GetHighlightedSubObjects())
-            .Map(static rows => toSeq(rows)).IfNone(Seq<ComponentIndex>()));
+    internal static Fin<HighlightState> Of(RhinoObject native, Op key) =>
+        HighlightGrade.Of(native.IsHighlighted(checkSubObjects: true), key)
+            .Map(grade => new HighlightState(
+                grade: grade,
+                components: Optional(native.GetHighlightedSubObjects())
+                    .Map(static rows => toSeq(rows)).IfNone(Seq<ComponentIndex>())));
 }
 
 [SmartEnum<int>]
@@ -99,6 +114,7 @@ public sealed record ObjectSnapshot(
         from closed in key.Catch(() => Fin.Succ(value: (
             Text: native.ShortDescriptionWithClosedStatus(prepend: false, plural: false, status: out int status),
             Status: status)))
+        from highlight in key.Catch(() => HighlightState.Of(native: native, key: key))
         from snapshot in key.Catch(() => Fin.Succ(value: new ObjectSnapshot(
             Id: native.Id,
             Serial: native.RuntimeSerialNumber,
@@ -122,7 +138,7 @@ public sealed record ObjectSnapshot(
             ReferenceModel: native.ReferenceModelSerialNumber,
             DefinitionModel: native.InstanceDefinitionModelSerialNumber,
             Selection: grade,
-            Highlight: HighlightState.Of(native),
+            Highlight: highlight,
             Selectable: native.IsSelectable(),
             GripsOn: native.GripsOn,
             GripsSelected: native.GripsSelected,
@@ -140,7 +156,7 @@ public sealed record ObjectSnapshot(
 ## [03]-[FRAMES]
 
 - Owner: `FrameAsk` `[Union]` closes anchor, gumball, and drag questions; `GumballAlignment` owns each standard/current probe as row behavior; `FramePose` `[Union]` owns one typed pose per question.
-- Law: frame reads are object-side only — `RhinoObject.ObjectFrame` reads and the obsolete `RhinoObject.SetObjectFrame` overloads are dead, so every frame write is the attributes page's `Anchor` edit committed through the table rail's `Amend`, and this page never mutates a frame.
+- Law: frame reads are object-side only — `RhinoObject.ObjectFrame` reads, while both `RhinoObject.SetObjectFrame` overloads carry the host's own `[Obsolete("Use Attributes.SetObjectFrame instead")]` marking and forward to that member before committing changes, so every frame write is the attributes page's `Anchor` edit committed through the table rail's `Amend` and this page never mutates a frame.
 - Law: an unset frame is absence — the anchor read always forces `RhinoObject.ObjectFrameFlags.ReturnUnset`, so an object carrying no explicit frame yields an invalid plane the fold projects to `None`; the request exposes only the `ObjectSignal Scale` axis toggling `IncludeScaleTransforms`, never the raw host `[Flags]`. A failed gumball probe projects to `None`, a drag probe answers `None` outside an active drag, and no consumer branches on `Plane.Unset`.
 - Law: the gumball pose crosses detached — `GumballFrame` is a host struct whose `Plane`, `ScaleGripDistance`, and `ScaleMode` copy into the pose value, and `GumballScaleMode` rides the pose as a seam discriminant.
 
@@ -283,12 +299,13 @@ public abstract partial record Touch {
                     .As()
                     .Map(static _ => unit),
                 highlightCase: static (_, _) => Fin.Succ(value: unit))
+            from highlight in HighlightState.Of(native: native, key: key)
             select new TouchState(
                 Native: native,
                 Selection: selection,
                 Selected: Optional(native.GetSelectedSubObjects())
                     .Map(static rows => toSeq(rows)).IfNone(Seq<ComponentIndex>()),
-                Highlight: HighlightState.Of(native)));
+                Highlight: highlight));
     }
 
     private Fin<Seq<TouchResult>> ApplyCaptured(Seq<TouchState> states, Op key) {
@@ -327,22 +344,19 @@ public abstract partial record Touch {
                 Reach.Whole => context.Op.Catch(() => guard(
                         context.Native.Highlight(enable: touch.Signal.On) == touch.Signal.On,
                         context.Op.InvalidResult()).ToFin())
-                    .Map(_ => (TouchResult)new TouchResult.Highlighted(
-                        Id: context.Native.Id,
-                        State: HighlightState.Of(context.Native))),
-                Reach.EveryPart => context.Op.Catch(() => {
-                    _ = context.Native.UnhighlightAllSubObjects();
-                    return Fin.Succ<TouchResult>(value: new TouchResult.Highlighted(
-                        Id: context.Native.Id,
-                        State: HighlightState.Of(context.Native)));
-                }),
+                    .Bind(_ => Highlighted(native: context.Native, key: context.Op)),
+                Reach.EveryPart => context.Op
+                    .Catch(() => Fin.Succ(value: context.Native.UnhighlightAllSubObjects()))
+                    .Bind(_ => Highlighted(native: context.Native, key: context.Op)),
                 var scoped => scoped.Roster.TraverseM(component => context.Op.Catch(() => guard(
                         context.Native.HighlightSubObject(componentIndex: component, highlight: touch.Signal.On) == touch.Signal.On,
                         context.Op.InvalidResult()).ToFin())).As()
-                    .Map(_ => (TouchResult)new TouchResult.Highlighted(
-                        Id: context.Native.Id,
-                        State: HighlightState.Of(context.Native))),
+                    .Bind(_ => Highlighted(native: context.Native, key: context.Op)),
             });
+
+    private static Fin<TouchResult> Highlighted(RhinoObject native, Op key) =>
+        HighlightState.Of(native: native, key: key)
+            .Map(state => (TouchResult)new TouchResult.Highlighted(Id: native.Id, State: state));
 
     private static Fin<Unit> Restore(Seq<TouchState> states, Op key) =>
         states.Traverse(state => Restore(state: state, key: key).ToValidation()).As()
@@ -375,7 +389,8 @@ public abstract partial record Touch {
                     key.InvalidResult()).ToFin()
             )),
             () => guard(
-                state.Native.Highlight(enable: state.Highlight.Native != 0) == (state.Highlight.Native != 0),
+                state.Native.Highlight(enable: state.Highlight.Grade == HighlightGrade.Whole)
+                    == (state.Highlight.Grade == HighlightGrade.Whole),
                 key.InvalidResult()).ToFin(),
         ];
         return steps.Traverse(step => key.Catch(step).ToValidation())
@@ -570,7 +585,7 @@ public sealed class ObjectPiece : IDisposable {
 - Law: answers embed identity — every per-object row carries the object guid beside its payload, and `ComponentState` also carries its `ComponentIndex`; component eligibility records both current-state and ignore-selection answers, so `IsSubObjectSelectable(ComponentIndex, bool)` keeps its host boolean at the boundary instead of exporting a request knob.
 - Boundary: visual-analysis attachment — `EnableVisualAnalysisMode`, its active-mode queries, and the `AnalysisModeChanged` static event — is the display page's analysis-mode extension; this window carries no analysis case and composes that seam's receipts where an ask needs the fact.
 - Owner: `DocumentCensus` is the one analytics-ready document receipt — object counts by kind and space, lifecycle and annotation tallies, memory total, layer-tree shape from `Layers.Ask`, per-layer and per-material usage histograms with material-source distribution from the attribute anchors, block-closure metrics from `BlockGraph.Ask` (definition count, placement count with completeness evidence, cycle groups), and on-disk archive size from the document path — every dimension detached, so the analytics egress lands one stable shape into the data plane and no consumer walks live tables.
-- Law: the census composes owners, never re-measures — one outer `DocumentSession.Demand` retains the session gate and host stack from the first `Objects.Ask` through `Layers.Ask` and every `BlockGraph.Ask`, so all nested owner reads re-enter the same pinned document grant and no sibling session operation can interleave; object rows come from the canonical snapshot window, the layer dimension is the `LayerTree` the layers page already mints, the block dimension is three `BlockGraphAsk` questions over `GraphSource.Live`, and usage histograms fold through the one-pass `CountBy` keyed reduction. Archive extent opens the candidate once and reads length from that handle; an unsaved or concurrently removed path projects absence, while directory and access refusals stay failures. `Objects/authoring.md` projects the receipt through the `rhino.census` instrument rows at the app root.
+- Law: the census composes owners, never re-measures — one outer `DocumentSession.Demand` retains the session gate and host stack from the first `Objects.Ask` through `Layers.Ask` and every `BlockGraph.Ask`. Re-entrancy is the session owner's declared contract, not this page's assumption: `Demand` is re-entrant on the demanding thread through its reentrant lock plus demand-depth counter, each nesting proving its own grants against its own fresh snapshot, so every nested owner read re-enters the same pinned document grant and no sibling session operation can interleave. Object rows come from the canonical snapshot window, the layer dimension is the `LayerTree` the layers page already mints, the block dimension is three `BlockGraphAsk` questions over `GraphSource.Live`, and usage histograms fold through the one-pass `CountBy` keyed reduction. Archive extent opens the candidate once and reads length from that handle; an unsaved or concurrently removed path projects absence, while directory and access refusals stay failures. `Objects/authoring.md` projects the receipt through the `rhino.census` instrument rows at the app root.
 - Growth: a new read is one ask case with its answer case; a new census dimension is one `DocumentCensus` field folded from an existing owner; the dispatch, the entries, and every consumer read it with zero new surface.
 
 ```csharp signature
@@ -660,7 +675,8 @@ public readonly record struct ObjectReceipt<TFact>(Seq<TFact> Facts, Seq<uint> U
         new(Facts: Facts + contribution.Facts, UndoSerials: UndoSerials + contribution.UndoSerials);
 
     public static ObjectReceipt<TFact> Collect(params ReadOnlySpan<ObjectReceipt<TFact>> receipts) =>
-        toSeq(receipts.ToArray()).Fold(Empty, static (held, receipt) => held.Contribute(receipt));
+        LanguageExt.Iterable<ObjectReceipt<TFact>>.FromSpan(receipts).ToSeq()
+            .Fold(Empty, static (held, receipt) => held.Contribute(receipt));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -780,7 +796,7 @@ public static class Objects {
                        ? Fin.Succ(value: condensed.Components.Filter(static component => component.Count > 1).Count)
                        : Fin.Fail<int>(error: op.InvalidResult()))
                from archive in path.Match(
-                   Some: value => OpenArchive(path: value),
+                   Some: value => OpenArchive(path: value, op: op),
                    None: static () => Fin.Succ(Option<ArchiveExtent>.None))
                select new DocumentCensus(
                    Kinds: toSeq(usage.AsEnumerable().CountBy(static row => row.Kind)
@@ -805,13 +821,14 @@ public static class Objects {
                    BlockCycleGroups: cycles,
                    Archive: archive);
 
-    private static Fin<Option<ArchiveExtent>> OpenArchive(string path) =>
-        Try.lift(() => {
+    private static Fin<Option<ArchiveExtent>> OpenArchive(string path, Op op) =>
+        op.Catch(() => {
             using Microsoft.Win32.SafeHandles.SafeFileHandle handle = System.IO.File.OpenHandle(path: path);
-            return new ArchiveExtent(Path: path, Bytes: System.IO.RandomAccess.GetLength(handle: handle));
-        }).Run().BiBind(
-            Succ: static extent => Fin.Succ(Some(extent)),
-            Fail: static error => error.Exception.Case is System.IO.FileNotFoundException or System.IO.DirectoryNotFoundException
+            return Fin.Succ(value: Some(new ArchiveExtent(
+                Path: path,
+                Bytes: System.IO.RandomAccess.GetLength(handle: handle))));
+        }).BindFail(static error =>
+            error.Exception.Case is System.IO.FileNotFoundException or System.IO.DirectoryNotFoundException
                 ? Fin.Succ(Option<ArchiveExtent>.None)
                 : Fin.Fail<Option<ArchiveExtent>>(error));
 

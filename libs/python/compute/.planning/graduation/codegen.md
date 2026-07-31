@@ -35,7 +35,7 @@ from msgspec import Struct
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -242,7 +242,7 @@ def _fold[T](node: FieldNode, alg: FieldAlgebra[T]) -> T:
 
 class StubCodegen:
     @staticmethod
-    def emit(raw: bytes, *, wire: WireFormat = "json", target: EmitTarget = "both") -> RuntimeRail[GeneratedModule]:
+    def emit(raw: bytes, *, wire: WireFormat = "json", target: EmitTarget = "both", composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GeneratedModule]:
         # weave owns span, fence, and the contributor harvest on the clean exit.
         def rail() -> RuntimeRail[GeneratedModule]:
             return (
@@ -251,7 +251,7 @@ class StubCodegen:
                 .bind(lambda bundle: boundary("codegen.render", lambda: StubCodegen._render(bundle, target)))
             )
 
-        return evidence_run(EvidenceScope.CODEGEN, f"emit.{wire}.{target}", rail, facts={"wire": wire, "target": target, "byte_count": len(raw)})
+        return evidence_run(EvidenceScope.CODEGEN, f"emit.{wire}.{target}", rail, facts={"wire": wire, "target": target, "byte_count": len(raw)}, composition=composition)
 
     @staticmethod
     def drift(golden: bytes, expected: GeneratedModule, *, wire: WireFormat = "json") -> RuntimeRail[GeneratedModule]:

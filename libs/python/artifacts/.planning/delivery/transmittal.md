@@ -997,6 +997,28 @@ def _base_evidence(deliverable: Deliverable, audit: RegisterEvidence, stage: Tra
         register_complete=audit.complete,
         unregistered=len(deliverable.unregistered),
     )
+
+# --- [EXPORTS] ----------------------------------------------------------------------------
+
+__all__ = (
+    "AssembleSpec",
+    "CoverCredential",
+    "Deliverable",
+    "IssueSpec",
+    "ManifestSpec",
+    "Purpose",
+    "RecordBytes",
+    "RecordDefect",
+    "RecordValidationState",
+    "SealSpec",
+    "SheetRef",
+    "Transmittal",
+    "TransmittalEvidence",
+    "TransmittalPayload",
+    "TransmittalRecord",
+    "TransmittalStage",
+    "ValidationState",
+)
 ```
 
 ## [03]-[RESEARCH]

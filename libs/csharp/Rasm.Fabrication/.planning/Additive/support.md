@@ -46,20 +46,18 @@ Wire posture: HOST-LOCAL. `SliceStack` enters once; `Audit.Preflight` gates grow
 - Law: common ancestry reads `ComputeTransitiveClosure` through `InEdges` per sink and intersects the resulting sets; no edge sequence is rescanned per query pair.
 - Law: `GraphEvidence.MaximumLoadPath` is the longest root-to-sink route, taken by negating the DAG relaxation weights, because a multi-parent junction's governing load path is its most slender chain.
 - Law: demand accumulation folds one keyed `HashMap` in descending identity — reverse topological order for a strictly layered parent edge — so no node is rescanned per parent link.
-- Boundary: `VoronoiPlane.SetSites`, `Tessellate`, `Relax`, `MergeSites`, and `GetNearestSiteTo(..., KDTree)` distribute tips and attract parents deterministically.
+- Boundary: one `PolygonOp.Cells` request distributes tips and one attracts parents; the tip field draws off the ONE `Deterministic` owner through a `SiteDistribution` row, and `CellReceipt.Locate` answers the nearest parent. Tessellation is never minted here — a page-local diagram, relaxation loop, merge callback, or draw stream is the deleted form.
 - Boundary: `BidirectionalGraph<int, SEquatableEdge<int>>` validates global identifiers before topological order, roots, sinks, components, closure intersection, reduction, breadth-first reachability, and DAG paths project evidence.
 
 ## [06]-[IDENTITY]
 
 - Owner: `SupportCodec.Write` is the sole canonical octet projection over the admitted projection; the receipt never re-enters the payload it seals.
-- Law: every width writes little-endian explicitly through `BinaryPrimitives` into one pooled `ArrayPoolBufferWriter<byte>`, so the key reproduces bit-identically wherever the wire lands.
+- Law: every scalar rides the `Rasm.Element` `CanonicalWriter` primitives — little-endian widths, length-framed strings, `-0.0`/NaN double canon — so the key reproduces bit-identically wherever the wire lands and never forks framing against a sibling page.
 - Law: every `SliceRegion` writes sorted outer and hole loops from their least cyclic station with closure, tolerance, points, and aligned bulges; winding remains material identity. Every node writes sorted parents beside global identity, role, radius, load, heat, area, and avoidance state.
 - Law: offset, program, family, contact, growth, structural, thermal, removal, drainage, and every realized geometry value enter the canonical payload under canonical row, node, bridge, and loop order.
 - Output: `ContentKey.Of(EgressKind.Plan, bytes)` mints once over stored bytes and `SupportReceipt.CanonicalBytes` records the same payload.
 
 ```csharp signature
-extern alias Voronoi;
-
 using System.Buffers.Binary;
 using System.Text;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -68,11 +66,14 @@ using LanguageExt.Common;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Domain;
+using Rasm.Element.Projection;
+using Rasm.Fabrication.Geometry2D;
+using Rasm.Fabrication.Process;
+using Rasm.Fabrication.Toolpath;
 using Rasm.Geometry;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
-using Voronoi::SharpVoronoiLib;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Additive;
@@ -307,7 +308,7 @@ public static class Support {
         from audit in Audit.Preflight(stack, policy.Audit)
         from _clean in audit.Clean
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:audit:{audit.Defects.Count}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"support:audit:{audit.Defects.Count}"))
         from demand in Demand(stack, policy)
         let context = new SupportContext(stack, demand, policy)
         from projected in Project(context)
@@ -361,7 +362,7 @@ public static class Support {
         .ToFin();
 
     internal static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
-        (valid ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError())).ToValidation();
+        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus));
 
     private static Fin<Seq<SupportDemand>> Demand(SliceStack stack, SupportPolicy policy) =>
         toSeq(Enumerable.Range(1, Math.Max(0, stack.LayerCount - 1))).Traverse(layer =>
@@ -410,7 +411,7 @@ public static class Support {
             .Run()
             .MapFail(error => new GeometryFault.DegenerateInput(
                 Kind.Mesh,
-                -1,
+                None,
                 $"support:generated:{error.Message}").ToError())
             .Bind(static projection => projection));
 
@@ -482,10 +483,9 @@ public static class Support {
             && bridge.Load >= Force.Zero);
         return valid
             ? Fin.Succ(projection)
-            : Fin.Fail<SupportProjection>(new GeometryFault.DegenerateInput(
-                Kind.Mesh,
-                -1,
-                missing.IsEmpty ? "support:projection" : $"support:projection-coverage:{string.Join(',', missing)}").ToError());
+            : Fin.Fail<SupportProjection>(new FabricationFault.PolicyInadmissible(
+                FabConcern.Additive,
+                missing.IsEmpty ? "support:projection" : $"support:projection-coverage:{string.Join(',', missing)}"));
     }
 
     private static bool TreeComplete(SupportDemand demand, SupportCoverage coverage) {
@@ -547,13 +547,13 @@ public static class Support {
         from tips in SupportSites.Tips(context.Demand, context.Policy.Growth)
         from _tips in tips.Count <= context.Policy.Growth.MaximumTips
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:tip-cap:{tips.Count}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"support:tip-cap:{tips.Count}"))
         from slices in toSeq(Enumerable.Range(0, context.Stack.LayerCount)).Traverse(layer => SliceRegion.Of(context.Stack, layer)).As()
         from seeds in tips.Traverse(tip => Descend(tip, slices, context)).As()
             .Bind(rows => Merge(rows.Bind(static row => row), context.Policy.Growth.MergeDistance))
         from _nodes in seeds.Count <= context.Policy.Growth.MaximumNodes
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:node-cap:{seeds.Count}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"support:node-cap:{seeds.Count}"))
         from nodes in SupportSites.Connect(seeds, context.Policy)
         select nodes;
 
@@ -564,7 +564,7 @@ public static class Support {
             AvoidanceState state = depth == 0 ? AvoidanceState.Clear : Avoidance(model, tip.At, context.Policy);
             return from _path in state.CanDescend
                        ? Fin.Succ(unit)
-                       : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:blocked:{tip.Layer}:{tip.At}").ToError())
+                       : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"support:blocked:{tip.Layer}:{tip.At}"))
                    let z = context.Stack.Elevations[layer]
                    let layerDrop = tip.At.Z - context.Stack.Elevations[layer]
                    let lateral = Math.Min(
@@ -574,7 +574,7 @@ public static class Support {
                    let at = new Point3d(tip.At.X + (lateral * escape.X), tip.At.Y + (lateral * escape.Y), z)
                    from _clear in depth == 0 || !model.Covers(new Point3d(at.X, at.Y, z))
                        ? Fin.Succ(unit)
-                       : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:detour-collision:{layer}:{at}").ToError())
+                       : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"support:detour-collision:{layer}:{at}"))
                    let role = (layer == 0, depth == 0, state == AvoidanceState.Bridge, depth > tip.Layer / 2) switch {
                        (true, _, _, _) => TreeRole.Root,
                        (_, true, _, _) => TreeRole.Contact,
@@ -658,7 +658,7 @@ public static class Support {
             .ThenBy(static node => node.At.X)
             .ThenBy(static node => node.At.Y)
             .ToSeq();
-    }).Run().MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:merge:{error.Message}").ToError());
+    }).Run().MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "support:merge").ToError() + error);
 
     private static Fin<Seq<SliceRegion>> Drainage(SliceRegion region, DrainPolicy policy, OffsetPolicy offset) =>
         region.IsEmpty ? Fin.Succ(Seq<SliceRegion>())
@@ -708,7 +708,7 @@ public static class Support {
         let trapped = trappedAreas.Fold(Area.Zero, static (sum, area) => sum + area)
         from _trapped in trapped <= policy.Drain.MaximumTrappedArea
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:trapped-area:{trapped.SquareMillimeters}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"support:trapped-area:{trapped.SquareMillimeters}"))
         let planarMaterial = projection.PlanarRows.Zip(planarAreas).Map(pair => Volume.FromCubicMillimeters(
                 pair.First.Height.Millimeters * (
                     (pair.First.Density.DecimalFractions * pair.Second.Sparse.SquareMillimeters)
@@ -761,10 +761,10 @@ internal static class SupportSites {
         demand.Traverse(row => row.Region.IsEmpty
             ? Fin.Succ(Seq<TreeSeed>())
             : Sites(row, policy).Bind(admitted => admitted.IsEmpty
-                ? Fin.Fail<Seq<TreeSeed>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:no-admitted-sites:{row.Layer}").ToError())
-                : Fin.Succ(admitted.Map(site => new TreeSeed(
+                ? Fin.Fail<Seq<TreeSeed>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, $"support:no-admitted-sites:{row.Layer}").ToError())
+                : Fin.Succ(admitted.Map(centroid => new TreeSeed(
                     row.Layer,
-                    new Point3d(site.Centroid.X, site.Centroid.Y, row.Elevation.Millimeters),
+                    new Point3d(centroid.X, centroid.Y, row.Elevation.Millimeters),
                     policy.TipRadius,
                     TreeRole.Contact,
                     AvoidanceState.Clear,
@@ -773,20 +773,44 @@ internal static class SupportSites {
                     row.Heat / admitted.Count))))).As()
             .Map(static rows => rows.Bind(static row => row));
 
-    private static Fin<Seq<VoronoiSite>> Sites(SupportDemand row, GrowthPolicy policy) => Try.lift(() => {
-        BoundingBox bound = row.Region.Bound();
-        VoronoiPlane plane = new(bound.Min.X, bound.Min.Y, bound.Max.X, bound.Max.Y);
-        int count = Math.Min(policy.MaximumTips, Math.Max(1, (int)Math.Ceiling(
-            row.TributaryArea.SquareMillimeters / Math.Pow(policy.TipPitch.Millimeters, 2.0))));
-        plane.GenerateRandomSites(count, PointGenerationMethod.Uniform, new SeededRandomNumberGenerator(unchecked(policy.Seed + row.Layer)));
-        plane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
-        plane.Relax(policy.Relaxations, (float)policy.RelaxationStrength.DecimalFractions, reTessellate: true);
-        plane.MergeSites((left, right) => left.Centroid.DistanceTo(right.Centroid) < policy.MergeDistance.Millimeters
-            ? VoronoiSiteMergeDecision.MergeIntoSite1
-            : VoronoiSiteMergeDecision.DontMerge);
-        return toSeq(plane.Sites).Filter(site => site.Closed
-            && row.Region.Covers(new Point3d(site.Centroid.X, site.Centroid.Y, row.Elevation.Millimeters)));
-    }).Run().MapFail(error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:sites:{row.Layer}:{error.Message}").ToError());
+    // Tip candidates are lane-addressed off the ONE draw owner: candidate i is a pure function of (seed, layer, i)
+    // and the demand box, so a re-plan reproduces the same field and a rejected candidate never shifts the ones after
+    // it. Merge distance is DATA on the request, so a tip crowding one already kept falls into it inside the same
+    // tessellation rather than through a caller-supplied decision callback.
+    private static Fin<Seq<Point3d>> Sites(SupportDemand row, GrowthPolicy policy) =>
+        from boundary in Rectangle(row.Region.Bound())
+        let count = Math.Min(policy.MaximumTips, Math.Max(1, (int)Math.Ceiling(
+            row.TributaryArea.SquareMillimeters / Math.Pow(policy.TipPitch.Millimeters, 2.0))))
+        let seed = unchecked(policy.Seed + row.Layer)
+        from trace in PolygonAlgebra.Apply(
+            new PolygonOp.Cells(
+                toSeq(Enumerable.Range(0, count))
+                    .Map(index => SiteDistribution.Uniform.Draw(row.Region.Bound(), seed, index)).ToArr(),
+                boundary,
+                SitePolicy.Create(
+                    policy.Relaxations,
+                    policy.RelaxationStrength.DecimalFractions,
+                    Some(SiteMerge.Create(minimumArea: 0.0, policy.MergeDistance.Millimeters)))),
+            Op.Of(name: nameof(Sites)))
+        from diagram in trace is PolygonTrace.Celled celled
+            ? Fin.Succ(celled.Result)
+            : Fin.Fail<CellReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"support:cell-trace:{row.Layer}"))
+        select diagram.Cells.ToSeq()
+            .Map(static cell => cell.Centroid)
+            .Filter(centroid => row.Region.Covers(new Point3d(centroid.X, centroid.Y, row.Elevation.Millimeters)));
+
+    // Every bounded-cell request in this page shares one clip rectangle.
+    private static Fin<Loop> Rectangle(BoundingBox box) =>
+        from tolerance in Context.Millimeters().ToFin()
+        from boundary in Loop.Admit(
+            Arr(new Point3d(box.Min.X, box.Min.Y, box.Min.Z),
+                new Point3d(box.Max.X, box.Min.Y, box.Min.Z),
+                new Point3d(box.Max.X, box.Max.Y, box.Min.Z),
+                new Point3d(box.Min.X, box.Max.Y, box.Min.Z)),
+            closed: true,
+            Arr<double>(),
+            tolerance)
+        select boundary;
 
     public static Fin<Seq<TreeNode>> Connect(Seq<TreeSeed> seeds, SupportPolicy policy) {
         Seq<(TreeSeed Seed, int Id)> indexed = seeds.Map((seed, id) => (seed, id));
@@ -822,36 +846,47 @@ internal static class SupportSites {
         Seq<(TreeSeed Seed, int Id)> lower = indexed.Filter(slot => slot.Seed.Layer == layer - 1);
         double margin = policy.Growth.MergeDistance.Millimeters;
         return lower.IsEmpty
-            ? Fin.Fail<Seq<(int Child, Seq<int> Parents)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:orphan-layer:{layer}").ToError())
+            ? Fin.Fail<Seq<(int Child, Seq<int> Parents)>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, $"support:orphan-layer:{layer}").ToError())
             : lower.Map(static slot => (slot.Seed.At.X, slot.Seed.At.Y)).Distinct().Count != lower.Count
-            ? Fin.Fail<Seq<(int Child, Seq<int> Parents)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:duplicate-parent-sites:{layer}").ToError())
-            : Try.lift(() => {
-                BoundingBox bound = new(lower.Map(static slot => slot.Seed.At));
-                VoronoiPlane plane = new(bound.Min.X - margin, bound.Min.Y - margin, bound.Max.X + margin, bound.Max.Y + margin);
-                plane.SetSites(lower.Map(static slot => new VoronoiSite(slot.Seed.At.X, slot.Seed.At.Y)).ToList());
-                plane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
-                // Site-to-ordinal correspondence retires the per-child IndexOf scan, and merge-distance buckets retire
-                // Per-child whole-layer sweeps also disappear; both scans were linear in the layer for every child.
-                Dictionary<VoronoiSite, int> ordinal = plane.Sites
-                    .Select(static (site, index) => (site, index))
-                    .ToDictionary(static row => row.site, static row => row.index);
-                HashMap<(long X, long Y), Seq<(TreeSeed Seed, int Id)>> buckets = lower.Fold(
-                    HashMap<(long X, long Y), Seq<(TreeSeed Seed, int Id)>>(),
-                    (index, slot) => {
-                        (long X, long Y) cell = Bucket(slot.Seed.At, margin);
-                        return index.AddOrUpdate(cell, index.Find(cell).IfNone(Seq<(TreeSeed Seed, int Id)>()).Add(slot));
-                    });
-                return children.Map(child => {
-                    Point3d at = child.Seed.At;
-                    Seq<int> adjacent = Neighbourhood(Bucket(at, margin))
-                        .Bind(cell => buckets.Find(cell).IfNone(Seq<(TreeSeed Seed, int Id)>()))
-                        .Filter(candidate => candidate.Seed.At.DistanceTo(new Point3d(at.X, at.Y, candidate.Seed.At.Z)) <= margin)
-                        .Map(static candidate => candidate.Id);
-                    VoronoiSite nearest = plane.GetNearestSiteTo(at.X, at.Y, NearestSiteLookupMethod.KDTree);
-                    return (Child: child.Id, Parents: adjacent.IsEmpty ? Seq(lower[ordinal[nearest]].Id) : adjacent);
-                });
-            }).Run().MapFail(error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:parent-layer:{layer}:{error.Message}").ToError());
+            ? Fin.Fail<Seq<(int Child, Seq<int> Parents)>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, $"support:duplicate-parent-sites:{layer}").ToError())
+            // `SiteCell.Site` indexes the seed set the request tessellated, and an unrelaxed unmerged request keeps
+            // that index, so `CellReceipt.Locate` answers the nearest parent as a lower-layer ordinal directly and the
+            // site-to-ordinal dictionary the provider forced retires. Merge-distance buckets keep the common case
+            // off the diagram entirely: both scans ran linear in the layer for every child.
+            : from boundary in Rectangle(Inflated(new BoundingBox(lower.Map(static slot => slot.Seed.At)), margin))
+              from trace in PolygonAlgebra.Apply(
+                  new PolygonOp.Cells(lower.Map(static slot => slot.Seed.At).ToArr(), boundary, SitePolicy.Canonical),
+                  Op.Of(name: nameof(ParentsAt)))
+              from diagram in trace is PolygonTrace.Celled celled
+                  ? Fin.Succ(celled.Result)
+                  : Fin.Fail<CellReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"support:parent-layer:{layer}"))
+              let buckets = lower.Fold(
+                  HashMap<(long X, long Y), Seq<(TreeSeed Seed, int Id)>>(),
+                  (index, slot) => index.AddOrUpdate(
+                      Bucket(slot.Seed.At, margin),
+                      index.Find(Bucket(slot.Seed.At, margin)).IfNone(Seq<(TreeSeed Seed, int Id)>()).Add(slot)))
+              from rows in children.TraverseM(child => Parents(diagram, lower, buckets, child, margin)).As()
+              select rows;
     }
+
+    private static Fin<(int Child, Seq<int> Parents)> Parents(
+        CellReceipt diagram,
+        Seq<(TreeSeed Seed, int Id)> lower,
+        HashMap<(long X, long Y), Seq<(TreeSeed Seed, int Id)>> buckets,
+        (TreeSeed Seed, int Id) child,
+        double margin) =>
+        Neighbourhood(Bucket(child.Seed.At, margin))
+            .Bind(cell => buckets.Find(cell).IfNone(Seq<(TreeSeed Seed, int Id)>()))
+            .Filter(candidate => candidate.Seed.At.DistanceTo(
+                new Point3d(child.Seed.At.X, child.Seed.At.Y, candidate.Seed.At.Z)) <= margin)
+            .Map(static candidate => candidate.Id) is var adjacent && !adjacent.IsEmpty
+            ? Fin.Succ((child.Id, adjacent))
+            : diagram.Locate(child.Seed.At, Op.Of(name: nameof(Parents)))
+                .Map(site => (child.Id, Seq(lower[site].Id)));
+
+    private static BoundingBox Inflated(BoundingBox box, double margin) => new(
+        new Point3d(box.Min.X - margin, box.Min.Y - margin, box.Min.Z),
+        new Point3d(box.Max.X + margin, box.Max.Y + margin, box.Max.Z));
 
     private static (long X, long Y) Bucket(Point3d at, double pitch) =>
         ((long)Math.Floor(at.X / Math.Max(pitch, double.Epsilon)), (long)Math.Floor(at.Y / Math.Max(pitch, double.Epsilon)));
@@ -888,7 +923,7 @@ internal static class SupportSites {
                 * policy.Family.LoadFactor.DecimalFractions
                 * node.Role.LoadShare.DecimalFractions
                 / (Math.PI * policy.Structural.AllowableStress.Pascals));
-        double minimumMeters = Math.Min(node.Radius.Meters, policy.Growth.RootRadius.Meters);
+        double minimumMeters = Math.Min(node.PhysicalRadius.Meters, policy.Growth.RootRadius.Meters);
         return Length.FromMeters(Math.Clamp(
             requiredMeters,
             minimumMeters,
@@ -923,7 +958,7 @@ public static class SupportGraph {
         graph.AddVertexRange(nodes.Map(static node => node.Id));
         graph.AddEdgeRange(nodes.Bind(node => node.Parents.Map(parent => new SEquatableEdge<int>(parent, node.Id))));
         return graph;
-    }).Run().MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:graph-build:{error.Message}").ToError());
+    }).Run().MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "support:graph-build").ToError() + error);
 
     private static Fin<GraphEvidence> Measured(Seq<TreeNode> nodes, BidirectionalGraph<int, SEquatableEdge<int>> graph) =>
         from facts in Algorithms(nodes, graph)
@@ -944,8 +979,8 @@ public static class SupportGraph {
             toSeq(graph.SourceFirstTopologicalSort()),
             graph.WeaklyConnectedComponents(components),
             graph.ComputeTransitiveClosure(static (source, target) => new SEquatableEdge<int>(source, target)),
-            graph.ComputeTransitiveReduction(static (source, target) => new SEquatableEdge<int>(source, target)));
-    }).Run().MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"support:graph-algorithm:{error.Message}").ToError());
+            graph.ComputeTransitiveReduction());
+    }).Run().MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "support:graph-algorithm").ToError() + error);
 
     private static GraphEvidence Projected(
         Seq<TreeNode> nodes,
@@ -996,63 +1031,63 @@ public static class SupportGraph {
 
 // --- [CANONICAL_EGRESS] ----------------------------------------------------------------------------------------------------------------------------
 public static class SupportCodec {
-    // Exemption: pooled span framing is a measured byte kernel. Every width is written little-endian explicitly so
-    // Digest bytes reproduce bit-identically across runtimes, and no host writer's platform default enters the key.
+    // The Element codec owns every scalar frame, so Digest bytes reproduce bit-identically across runtimes and
+    // no host writer's platform default enters the key.
     public static byte[] Write(SupportPolicy policy, SupportProjection projection) {
-        using ArrayPoolBufferWriter<byte> writer = new();
+        using CanonicalWriter writer = new();
         Family(policy.Family, writer);
         Program(policy.Program, writer);
-        Text(policy.Offset.Join.Key, writer);
-        Text(policy.Offset.End.Key, writer);
-        Float64(policy.Offset.MiterLimit, writer);
-        Float64(policy.Offset.ArcTolerance, writer);
-        Byte(policy.Offset.PreserveCollinear ? (byte)1 : (byte)0, writer);
-        Byte(policy.Offset.ReverseSolution ? (byte)1 : (byte)0, writer);
-        Byte(policy.Offset.MergeGroups ? (byte)1 : (byte)0, writer);
-        Float64(policy.Overhang.Radians, writer);
-        Float64(policy.Contact.Gap.Millimeters, writer);
-        Float64(policy.Contact.ToothWidth.Millimeters, writer);
-        Float64(policy.Contact.ToothPitch.Millimeters, writer);
-        Float64(policy.Contact.Penetration.Millimeters, writer);
-        Int32(policy.Contact.RoofLayers, writer);
-        Float64(policy.Contact.BreakupFraction.DecimalFractions, writer);
-        Float64(policy.Growth.TipPitch.Millimeters, writer);
-        Float64(policy.Growth.TipRadius.Millimeters, writer);
-        Float64(policy.Growth.RootRadius.Millimeters, writer);
-        Float64(policy.Growth.RadiusGain.Millimeters, writer);
-        Float64(policy.Growth.MergeDistance.Millimeters, writer);
-        Float64(policy.Growth.LateralStep.Millimeters, writer);
-        Float64(policy.Growth.BranchPhase.Radians, writer);
-        Float64(policy.Growth.MaximumBranchAngle.Radians, writer);
-        Int32(policy.Growth.Relaxations, writer);
-        Float64(policy.Growth.RelaxationStrength.DecimalFractions, writer);
-        Int32(policy.Growth.MaximumTips, writer);
-        Int32(policy.Growth.MaximumNodes, writer);
-        Int32(policy.Growth.Seed, writer);
-        Float64(policy.Structural.AllowableStress.NewtonsPerSquareMillimeter, writer);
-        Float64(policy.Structural.SafetyFactor.DecimalFractions, writer);
-        Float64(policy.Structural.MaterialDensity.KilogramsPerCubicMeter, writer);
-        Float64(policy.Structural.Gravity.MetersPerSecondSquared, writer);
-        Float64(policy.Structural.LoadShare.DecimalFractions, writer);
-        Float64(policy.Structural.MaximumBridge.Millimeters, writer);
-        Float64(policy.Thermal.SurfaceHeat.Watts, writer);
-        Float64(policy.Thermal.Conductance.DecimalFractions, writer);
-        Float64(policy.Thermal.ConductionDistance.Millimeters, writer);
-        Int32(policy.Thermal.InterfaceLayers, writer);
-        Text(policy.Removal.Class.Key, writer);
-        Float64(policy.Removal.AccessClearance.Millimeters, writer);
-        Float64(policy.Removal.ToolReach.Millimeters, writer);
-        Float64(policy.Removal.MaximumFragment.CubicMillimeters, writer);
-        Float64(policy.Removal.MaximumUndercut.Radians, writer);
-        Float64(policy.Drain.MinimumEscapeArea.SquareMillimeters, writer);
-        Float64(policy.Drain.MaximumEscapeDistance.Millimeters, writer);
-        Float64(policy.Drain.MaximumTrappedArea.SquareMillimeters, writer);
-        Float64(policy.Drain.ChannelFraction.DecimalFractions, writer);
-        Int32(projection.PlanarRows.Count, writer);
+        writer.String(policy.Offset.Join.Key);
+        writer.String(policy.Offset.End.Key);
+        writer.Double(policy.Offset.MiterLimit);
+        writer.Double(policy.Offset.ArcTolerance);
+        writer.Ordinal(policy.Offset.PreserveCollinear ? (byte)1 : (byte)0);
+        writer.Ordinal(policy.Offset.ReverseSolution ? (byte)1 : (byte)0);
+        writer.Ordinal(policy.Offset.MergeGroups ? (byte)1 : (byte)0);
+        writer.Double(policy.Overhang.Radians);
+        writer.Double(policy.Contact.Gap.Millimeters);
+        writer.Double(policy.Contact.ToothWidth.Millimeters);
+        writer.Double(policy.Contact.ToothPitch.Millimeters);
+        writer.Double(policy.Contact.Penetration.Millimeters);
+        writer.Ordinal(policy.Contact.RoofLayers);
+        writer.Double(policy.Contact.BreakupFraction.DecimalFractions);
+        writer.Double(policy.Growth.TipPitch.Millimeters);
+        writer.Double(policy.Growth.TipRadius.Millimeters);
+        writer.Double(policy.Growth.RootRadius.Millimeters);
+        writer.Double(policy.Growth.RadiusGain.Millimeters);
+        writer.Double(policy.Growth.MergeDistance.Millimeters);
+        writer.Double(policy.Growth.LateralStep.Millimeters);
+        writer.Double(policy.Growth.BranchPhase.Radians);
+        writer.Double(policy.Growth.MaximumBranchAngle.Radians);
+        writer.Ordinal(policy.Growth.Relaxations);
+        writer.Double(policy.Growth.RelaxationStrength.DecimalFractions);
+        writer.Ordinal(policy.Growth.MaximumTips);
+        writer.Ordinal(policy.Growth.MaximumNodes);
+        writer.Ordinal(policy.Growth.Seed);
+        writer.Double(policy.Structural.AllowableStress.NewtonsPerSquareMillimeter);
+        writer.Double(policy.Structural.SafetyFactor.DecimalFractions);
+        writer.Double(policy.Structural.MaterialDensity.KilogramsPerCubicMeter);
+        writer.Double(policy.Structural.Gravity.MetersPerSecondSquared);
+        writer.Double(policy.Structural.LoadShare.DecimalFractions);
+        writer.Double(policy.Structural.MaximumBridge.Millimeters);
+        writer.Double(policy.Thermal.SurfaceHeat.Watts);
+        writer.Double(policy.Thermal.Conductance.DecimalFractions);
+        writer.Double(policy.Thermal.ConductionDistance.Millimeters);
+        writer.Ordinal(policy.Thermal.InterfaceLayers);
+        writer.String(policy.Removal.Class.Key);
+        writer.Double(policy.Removal.AccessClearance.Millimeters);
+        writer.Double(policy.Removal.ToolReach.Millimeters);
+        writer.Double(policy.Removal.MaximumFragment.CubicMillimeters);
+        writer.Double(policy.Removal.MaximumUndercut.Radians);
+        writer.Double(policy.Drain.MinimumEscapeArea.SquareMillimeters);
+        writer.Double(policy.Drain.MaximumEscapeDistance.Millimeters);
+        writer.Double(policy.Drain.MaximumTrappedArea.SquareMillimeters);
+        writer.Double(policy.Drain.ChannelFraction.DecimalFractions);
+        writer.Ordinal(projection.PlanarRows.Count);
         projection.PlanarRows.OrderBy(static row => row.Layer).Iter(row => Layer(row, writer));
-        Int32(projection.TreeNodes.Count, writer);
+        writer.Ordinal(projection.TreeNodes.Count);
         projection.TreeNodes.OrderBy(static node => node.Id).Iter(node => Node(node, writer));
-        Int32(projection.Bridges.Count, writer);
+        writer.Ordinal(projection.Bridges.Count);
         projection.Bridges
             .OrderBy(static bridge => bridge.Layer)
             .ThenBy(static bridge => bridge.From.X)
@@ -1064,72 +1099,61 @@ public static class SupportCodec {
             .ThenBy(static bridge => bridge.Length.Millimeters)
             .ThenBy(static bridge => bridge.Load.Newtons)
             .Iter(bridge => {
-            Int32(bridge.Layer, writer); Point(bridge.From, writer); Point(bridge.To, writer);
-            Float64(bridge.Length.Millimeters, writer); Float64(bridge.Load.Newtons, writer);
+            writer.Ordinal(bridge.Layer); Point(bridge.From, writer); Point(bridge.To, writer);
+            writer.Double(bridge.Length.Millimeters); writer.Double(bridge.Load.Newtons);
         });
-        return writer.WrittenSpan.ToArray();
+        return writer.ToBytes().ToArray();
     }
 
-    private static void Layer(SupportLayer row, ArrayPoolBufferWriter<byte> writer) {
-        Int32(row.Layer, writer); Float64(row.Elevation.Millimeters, writer); Float64(row.Height.Millimeters, writer);
+    private static void Layer(SupportLayer row, CanonicalWriter writer) {
+        writer.Ordinal(row.Layer); writer.Double(row.Elevation.Millimeters); writer.Double(row.Height.Millimeters);
         Region(row.Sparse, writer); Region(row.Interface, writer); Region(row.Contact, writer);
-        Float64(row.Density.DecimalFractions, writer); Float64(row.ContactDuty.DecimalFractions, writer); Float64(row.TrappedArea.SquareMillimeters, writer);
-        Int32(row.EscapeChannels.Count, writer);
+        writer.Double(row.Density.DecimalFractions); writer.Double(row.ContactDuty.DecimalFractions); writer.Double(row.TrappedArea.SquareMillimeters);
+        writer.Ordinal(row.EscapeChannels.Count);
         row.EscapeChannels.OrderBy(static region => region, RegionComparer.Instance).Iter(region => Region(region, writer));
     }
 
-    private static Unit Program(SupportProgram program, ArrayPoolBufferWriter<byte> writer) => program.Switch(
+    private static Unit Program(SupportProgram program, CanonicalWriter writer) => program.Switch(
         state: writer,
-        planar: static (sink, _) => { Byte(1, sink); return unit; },
-        tree: static (sink, _) => { Byte(2, sink); return unit; },
-        hybrid: static (sink, value) => { Byte(3, sink); Float64(value.PlanarShare.DecimalFractions, sink); return unit; },
-        generated: static (sink, value) => { Byte(4, sink); Digest(value.Identity.Digest, sink); return unit; });
+        planar: static (sink, _) => { sink.Ordinal(1); return unit; },
+        tree: static (sink, _) => { sink.Ordinal(2); return unit; },
+        hybrid: static (sink, value) => { sink.Ordinal(3); sink.Double(value.PlanarShare.DecimalFractions); return unit; },
+        generated: static (sink, value) => { sink.Ordinal(4); sink.U128(value.Identity.Digest); return unit; });
 
-    private static void Family(SupportFamily family, ArrayPoolBufferWriter<byte> writer) {
-        Text(family.Key, writer);
-        Float64(family.SparseDensity.DecimalFractions, writer);
-        Int32(family.InterfaceLayers, writer);
-        Byte(family.Branching ? (byte)1 : (byte)0, writer);
-        Float64(family.LoadFactor.DecimalFractions, writer);
-        Float64(family.RemovalFactor.DecimalFractions, writer);
+    private static void Family(SupportFamily family, CanonicalWriter writer) {
+        writer.String(family.Key);
+        writer.Double(family.SparseDensity.DecimalFractions);
+        writer.Ordinal(family.InterfaceLayers);
+        writer.Ordinal(family.Branching ? (byte)1 : (byte)0);
+        writer.Double(family.LoadFactor.DecimalFractions);
+        writer.Double(family.RemovalFactor.DecimalFractions);
     }
 
-    private static void Region(SliceRegion region, ArrayPoolBufferWriter<byte> writer) {
-        Int32(region.Outers.Count, writer);
+    private static void Region(SliceRegion region, CanonicalWriter writer) {
+        writer.Ordinal(region.Outers.Count);
         region.Outers.OrderBy(static loop => loop, LoopComparer.Instance).Iter(loop => Loop(loop, writer));
-        Int32(region.Holes.Count, writer);
+        writer.Ordinal(region.Holes.Count);
         region.Holes.OrderBy(static loop => loop, LoopComparer.Instance).Iter(loop => Loop(loop, writer));
     }
 
-    private static void Loop(Loop loop, ArrayPoolBufferWriter<byte> writer) {
+    private static void Loop(Loop loop, CanonicalWriter writer) {
         int start = CanonicalStart(loop);
-        Int32(loop.Count, writer);
-        Byte(loop.Closed ? (byte)1 : (byte)0, writer);
-        Float64(loop.Tolerance.Absolute.Value, writer);
+        writer.Ordinal(loop.Count);
+        writer.Ordinal(loop.Closed ? (byte)1 : (byte)0);
+        writer.Double(loop.Tolerance.Absolute.Value);
         toSeq(Enumerable.Range(0, loop.Count)).Iter(offset => Point(loop.At(Index(loop, start, offset)), writer));
-        Int32(loop.Bulges.Count, writer);
+        writer.Ordinal(loop.Bulges.Count);
         toSeq(Enumerable.Range(0, loop.Bulges.Count))
-            .Iter(offset => Float64(loop.BulgeAt(Index(loop, start, offset)), writer));
+            .Iter(offset => writer.Double(loop.BulgeAt(Index(loop, start, offset))));
     }
 
-    private static void Node(TreeNode node, ArrayPoolBufferWriter<byte> writer) {
-        Int32(node.Id, writer); Int32(node.Parents.Count, writer); node.Parents.Order().Iter(parent => Int32(parent, writer));
-        Point(node.At, writer); Float64(node.PhysicalRadius.Millimeters, writer); Text(node.Role.Key, writer); Text(node.Avoidance.Key, writer);
-        Float64(node.TributaryArea.SquareMillimeters, writer); Float64(node.Load.Newtons, writer); Float64(node.Heat.Watts, writer);
+    private static void Node(TreeNode node, CanonicalWriter writer) {
+        writer.Ordinal(node.Id); writer.Ordinal(node.Parents.Count); node.Parents.Order().Iter(parent => writer.Ordinal(parent));
+        Point(node.At, writer); writer.Double(node.PhysicalRadius.Millimeters); writer.String(node.Role.Key); writer.String(node.Avoidance.Key);
+        writer.Double(node.TributaryArea.SquareMillimeters); writer.Double(node.Load.Newtons); writer.Double(node.Heat.Watts);
     }
 
-    private static void Point(Point3d point, ArrayPoolBufferWriter<byte> writer) { Float64(point.X, writer); Float64(point.Y, writer); Float64(point.Z, writer); }
-    private static void Byte(byte value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(1); span[0] = value; writer.Advance(1); }
-    private static void Int32(int value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(sizeof(int)); BinaryPrimitives.WriteInt32LittleEndian(span, value); writer.Advance(sizeof(int)); }
-    private static void Float64(double value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(sizeof(double)); BinaryPrimitives.WriteInt64LittleEndian(span, BitConverter.DoubleToInt64Bits(value)); writer.Advance(sizeof(double)); }
-    private static void Digest(UInt128 value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(16); BinaryPrimitives.WriteUInt128LittleEndian(span, value); writer.Advance(16); }
-    private static void Text(string value, ArrayPoolBufferWriter<byte> writer) {
-        int length = Encoding.UTF8.GetByteCount(value);
-        Int32(length, writer);
-        Span<byte> target = writer.GetSpan(length);
-        writer.Advance(Encoding.UTF8.GetBytes(value, target));
-    }
-
+    private static void Point(Point3d point, CanonicalWriter writer) { writer.Double(point.X); writer.Double(point.Y); writer.Double(point.Z); }
     private sealed class LoopComparer : IComparer<Loop> {
         public static readonly LoopComparer Instance = new();
 
@@ -1210,8 +1234,8 @@ public static class SupportCodec {
         }
 
         private static int Compare(Seq<Loop> left, Seq<Loop> right) {
-            Seq<Loop> orderedLeft = left.OrderBy(static loop => loop, LoopComparer.Instance).ToSeq();
-            Seq<Loop> orderedRight = right.OrderBy(static loop => loop, LoopComparer.Instance).ToSeq();
+            Seq<Loop> orderedLeft = toSeq(left.OrderBy(static loop => loop, LoopComparer.Instance));
+            Seq<Loop> orderedRight = toSeq(right.OrderBy(static loop => loop, LoopComparer.Instance));
             int order = orderedLeft.Count.CompareTo(orderedRight.Count);
             if (order != 0) return order;
             for (int index = 0; index < orderedLeft.Count; index++) {
@@ -1233,6 +1257,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Additive support program derivation
+    accDescr: A slice stack preflighting into overhang, bridge, load, and heat demand, one support program branching into planar layers and relaxed point sites, the site tree resolving order, ancestry, reduction, and paths, and both legs encoding through one codec into the content-keyed plan and receipt.
     Stack["SliceStack"] --> Audit["Audit.Preflight"]
     Audit --> Demand["overhang · bridge · load · heat demand"]
     Demand --> Program["SupportProgram"]

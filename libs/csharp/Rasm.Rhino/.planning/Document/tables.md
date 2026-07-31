@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[TABLE_VOCABULARY]: `TableKind` — document-table identity, component correspondence, and reclamation behavior.
-- [03]-[TARGET_ALGEBRA]: `ObjectRuntime`, `BoundsMatch`, `TablePredicate`, `TableTarget`, and `ViewportTarget` — immutable object addressing, viewport addressing, and query composition.
+- [03]-[TARGET_ALGEBRA]: `ObjectKind`/`ObjectKinds`, `ActiveSpaceUse`, `ObjectRuntime`, `BoundsMatch`, `TablePredicate`, `TableTarget`, and `ViewportTarget` — object-type vocabulary, immutable object addressing, viewport addressing, and query composition.
 - [04]-[TRANSACTION_RAIL]: mutation policy rows, `NamedRestore`, `HistoryRoll`, `TableOp`, `TableTransaction`, `GeometryIntake`, and `Tables`.
 - [05]-[RECEIPTS]: `TableSlot`, `TableFact`, and `TableReceipt` — one runtime-addressable consequence stream.
 - [06]-[SURFACE_LEDGER]: the page owner map.
@@ -15,6 +15,7 @@
 - Owner: `TableKind` `[SmartEnum<int>]` binds each admitted document table to its `ModelComponentType` and table-owned reclamation delegate.
 - Entry: `ForComponentType(ModelComponentType) : Fin<Seq<TableKind>>` returns every mapped row, expands `ModelComponentType.Mixed` across every explicit correspondence, treats `ModelComponentType.Unset` as absent correspondence, and rejects an undefined foreign ordinal. `Reclaim(RhinoDoc, Op) : Fin<int>` invokes the row delegate and rejects a table with no host reclamation member.
 - Law: table behavior resides on the row. A table extension declares component correspondence and reclamation behavior at construction, so no external dictionary or accessibility flag can drift from the vocabulary.
+- Law: `ModelComponentType.Unset` is the ONE row-side sentinel for absent correspondence, so the expansion arm reads as "every row that has one" and a lookup never manufactures a row it cannot also expand; `Mixed` is a QUERY argument alone and never a row value, because a row carrying it would be excluded by name from its own expansion and unreachable by lookup — an inert correspondence column no input returns.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -33,7 +34,7 @@ namespace Rasm.Rhino.Document;
 [SmartEnum<int>]
 public sealed partial class TableKind {
     public static readonly TableKind Objects = new(key: 0, componentType: ModelComponentType.ModelGeometry, reclaim: NoReclaim);
-    public static readonly TableKind Manifest = new(key: 1, componentType: ModelComponentType.Mixed, reclaim: NoReclaim);
+    public static readonly TableKind Manifest = new(key: 1, componentType: ModelComponentType.Unset, reclaim: NoReclaim);
     public static readonly TableKind Bitmaps = new(key: 2, componentType: ModelComponentType.Image, reclaim: NoReclaim);
     public static readonly TableKind Materials = new(key: 3, componentType: ModelComponentType.Material, reclaim: NoReclaim);
     public static readonly TableKind Linetypes = new(key: 4, componentType: ModelComponentType.LinePattern, reclaim: static (document, op) => Count(document.Linetypes.PurgeUnused(), op));
@@ -67,7 +68,7 @@ public sealed partial class TableKind {
             ? Fin.Succ(value: type switch {
                 ModelComponentType.Unset => Seq<TableKind>(),
                 ModelComponentType.Mixed => Items.AsIterable()
-                    .Filter(static kind => kind.ComponentType is not ModelComponentType.Unset and not ModelComponentType.Mixed)
+                    .Filter(static kind => kind.ComponentType is not ModelComponentType.Unset)
                     .ToSeq(),
                 _ => Items.AsIterable().Filter(kind => kind.ComponentType == type).ToSeq(),
             })
@@ -83,6 +84,9 @@ public sealed partial class TableKind {
 
 ## [03]-[TARGET_ALGEBRA]
 
+- Owner: `ObjectKind` `[SmartEnum<ObjectType>]` is the corpus-wide OBJECT-TYPE vocabulary and `ObjectKinds` its admitted set, seated here because the concept has consumers at S1 (`Commands` modal object asks) and S2 (`HostUi` properties-page scope) and this spine is the lowest stratum both reach; `Mask` is the one OR-fold, `Any` the host's own catch-all row, and no folder mints a second type table.
+- Law: a raw `ObjectType` never crosses a public signature — every filter is `ObjectKinds`, every host member taking the flag reads `Mask` at its own call, and a page needing "every type" composes `ObjectKinds.Any` rather than spelling `ObjectType.AnyObject`.
+- Owner: `ActiveSpaceUse` `[SmartEnum<ActiveSpace>]` is the space partition, seated here beside the enumerator's own `SpaceFilter` because an attribute set carries it at S2 and a conduit criterion and a gumball seat read it at S4; the roster mirrors the host enum completely, so `Get` is total over any value a host read returns and the row's `Key` is the one write.
 - Owner: `ObjectRuntime` `[ComplexValueObject]` admits the durable `(Guid, runtime serial)` pair required after an object leaves the active-id index. `ObjectQuery` freezes the complete `ObjectEnumeratorSettings` product and replaces its live `ViewportFilter` slot with the stable `ViewportTarget` owner. `TableTarget` `[Union]` closes nonempty explicit ids, nonempty runtime pairs, and admitted queries. `TablePredicate` `[Union]` adds composable tag, draw-color, and kernel-bounds predicates; `BoundsMatch` owns containment versus intersection behavior as rows.
 - Owner: `ViewportTarget` `[Union]` is the corpus-wide VIEWPORT address — active, named, id, page, detail, and census cases closed as one owner beside `TableKind` (which table), `TableTarget` (which objects), and `ResourceRef` (which component). `ViewportScope` `[SmartEnum<int>]` carries the model, page, and detail census generators and `EveryCase` freezes their set; `ViewportRef` is the ephemeral resolved row pairing `RhinoView`, `RhinoViewport`, and an optional `DetailViewObject`. `Active`/`Named`/`Id`/`Page`/`Detail`/`Every` construct, and `Resolve`, `ResolveOne`, and `ResolveViewport` fold one address to every row, exactly one row, or one native viewport inside the caller's document callback.
 - Law: viewport resolution names `RhinoDoc.Views.ActiveView`, `.Find`, `.GetViewList`, `.GetPageViews`, `RhinoPageView.GetDetailViews`, and `DetailViewObject.Viewport` exactly once; a detail address matches either `DetailViewObject.Id` or `DetailViewObject.Viewport.Id`, and a resolution yielding no row refuses before any consumer projects it.
@@ -97,6 +101,79 @@ public sealed partial class TableKind {
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<ObjectType>]
+public sealed partial class ObjectKind {
+    public static readonly ObjectKind Point = new(key: ObjectType.Point);
+    public static readonly ObjectKind PointSet = new(key: ObjectType.PointSet);
+    public static readonly ObjectKind Curve = new(key: ObjectType.Curve);
+    public static readonly ObjectKind Surface = new(key: ObjectType.Surface);
+    public static readonly ObjectKind Brep = new(key: ObjectType.Brep);
+    public static readonly ObjectKind Mesh = new(key: ObjectType.Mesh);
+    public static readonly ObjectKind Light = new(key: ObjectType.Light);
+    public static readonly ObjectKind Annotation = new(key: ObjectType.Annotation);
+    public static readonly ObjectKind InstanceDefinition = new(key: ObjectType.InstanceDefinition);
+    public static readonly ObjectKind InstanceReference = new(key: ObjectType.InstanceReference);
+    public static readonly ObjectKind TextDot = new(key: ObjectType.TextDot);
+    public static readonly ObjectKind Grip = new(key: ObjectType.Grip);
+    public static readonly ObjectKind Detail = new(key: ObjectType.Detail);
+    public static readonly ObjectKind Hatch = new(key: ObjectType.Hatch);
+    public static readonly ObjectKind MorphControl = new(key: ObjectType.MorphControl);
+    public static readonly ObjectKind SubD = new(key: ObjectType.SubD);
+    public static readonly ObjectKind BrepLoop = new(key: ObjectType.BrepLoop);
+    public static readonly ObjectKind BrepVertex = new(key: ObjectType.BrepVertex);
+    public static readonly ObjectKind Polysurface = new(key: ObjectType.PolysrfFilter);
+    public static readonly ObjectKind Edge = new(key: ObjectType.EdgeFilter);
+    public static readonly ObjectKind Polyedge = new(key: ObjectType.PolyedgeFilter);
+    public static readonly ObjectKind MeshVertex = new(key: ObjectType.MeshVertex);
+    public static readonly ObjectKind MeshEdge = new(key: ObjectType.MeshEdge);
+    public static readonly ObjectKind MeshFace = new(key: ObjectType.MeshFace);
+    public static readonly ObjectKind Cage = new(key: ObjectType.Cage);
+    public static readonly ObjectKind Phantom = new(key: ObjectType.Phantom);
+    public static readonly ObjectKind ClipPlane = new(key: ObjectType.ClipPlane);
+    public static readonly ObjectKind Extrusion = new(key: ObjectType.Extrusion);
+    // The host's own catch-all bit, not the OR of the rows above: a filter meaning "every type" reads this row, so no
+    // caller re-derives an all-mask that silently omits a type the roster has not yet named.
+    public static readonly ObjectKind AnyObject = new(key: ObjectType.AnyObject);
+}
+
+[ComplexValueObject]
+public sealed partial class ObjectKinds {
+    public FrozenSet<ObjectKind> Values { get; }
+
+    // `ObjectType` is a flag enum, so a kind set IS its OR-fold; the mask never leaves this owner as a raw host value
+    // except at a host member that takes one, and no caller re-derives the fold.
+    internal ObjectType Mask => toSeq(Values).Fold(ObjectType.None, static (mask, kind) => mask | kind.Key);
+
+    public static ObjectKinds Any { get; } = Create(values: FrozenSet.ToFrozenSet([ObjectKind.AnyObject]));
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref FrozenSet<ObjectKind> values) =>
+        validationError = values is null || values.Count is 0 || values.Any(static kind => kind is null)
+            ? new ValidationError(message: "Object kind set is empty.")
+            : null;
+
+    public static Fin<ObjectKinds> Of(Op? key, params ReadOnlySpan<ObjectKind> values) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<ObjectKinds>(
+            fault: Validate(toSeq(values.ToArray()).ToFrozenSet(), out ObjectKinds? admitted),
+            admitted: admitted);
+    }
+}
+
+// `ActiveSpace` is the document's own space partition — `ObjectEnumeratorSettings.SpaceFilter` takes it here, an
+// object attribute set carries it at S2, and a conduit criterion and a gumball seat read it at S4 — so the keyed
+// vocabulary seats on this spine and no folder mints a second one.
+[SmartEnum<ActiveSpace>]
+public sealed partial class ActiveSpaceUse {
+    public static readonly ActiveSpaceUse None = new(key: ActiveSpace.None);
+    public static readonly ActiveSpaceUse Model = new(key: ActiveSpace.ModelSpace);
+    public static readonly ActiveSpaceUse Page = new(key: ActiveSpace.PageSpace);
+    public static readonly ActiveSpaceUse UvEditor = new(key: ActiveSpace.UVEditorSpace);
+    public static readonly ActiveSpaceUse BlockEditor = new(key: ActiveSpace.BlockEditorSpace);
+}
+
 [ComplexValueObject]
 public sealed partial class ObjectRuntime {
     public Guid Id { get; }
@@ -353,8 +430,8 @@ public sealed partial class ViewportScope {
             .Bind(static page => toSeq(page.GetDetailViews())
                 .Map(detail => ViewportRef.OfDetail(view: page, detail: detail))));
 
-    private Func<RhinoDoc, Seq<ViewportRef>> Select { get; }
-    internal Seq<ViewportRef> Resolve(RhinoDoc document) => Select(document).Strict();
+    [UseDelegateFromConstructor]
+    internal partial Seq<ViewportRef> Select(RhinoDoc document);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -415,7 +492,7 @@ public abstract partial record ViewportTarget {
             everyCase: static (ctx, target) => Fin.Succ(
                 toSeq(target.Scopes)
                     .OrderBy(static scope => scope.Key)
-                    .Bind(scope => scope.Resolve(document: ctx.Document))
+                    .Bind(scope => scope.Select(document: ctx.Document))
                     .Strict()));
 
     internal Fin<ViewportRef> ResolveOne(RhinoDoc document, Op key) =>
@@ -517,6 +594,7 @@ public abstract partial record ResourceRef : IDetachedDocumentResult {
 - Law: named-view restore closes direct, proportional, constant-speed, and constant-time host modalities as `NamedRestore` cases. Delay and speed enter as admitted values, so no boolean or overload discriminator crosses the transaction boundary.
 - Law: `Tables.Commit` keeps the document handle inside one `DocumentSession.Demand`, proving mutation, undo, and redraw needs against one snapshot before the first edit and refreshing the kernel context inside that window. Outside a command it owns the undo record, closes it on every exit, rolls a failed program back, clears the failed record from redo, and appends close, rollback, or redraw-restoration faults to the primary fault. Inside a command it enlists in `CurrentUndoRecordSerialNumber`, never closes or undoes the command-owned record, and returns the operation fault for the command boundary to propagate. `UndoBracket.Stamper` stamps only a required positive serial the admission guard already proved; an immediate program bypasses stamping, and invalid undo evidence fails before receipt construction. An active non-command record is rejected before mutation, and redraw occurs only after success.
 - Law: `DocumentCommit.Sealed` and `Tables.Commit` carry a generic railed receipt projection executed inside the bracket after the undo-serial stamp and before sealing — a consumer fold that must observe the committed receipt (a command stage folding state) enters as `project`, its refusal rolls the owned record back like any operation fault, and a wrapper folding state outside the bracket is the deleted form; the identity projection is the default modality, so receipt-shaped rails commit unchanged.
+- Boundary: `AddCustomUndoEvent` has no host remove counterpart, so the document retains a `TableCustomUndo` handler, its whole captured object graph, and its arbitrary `object` tag until the undo record clears — a retention no `Subscription` can shorten, unlike every other host attachment in the slice. A handler therefore captures DETACHED evidence only: runtime pairs, stamps, admitted values. A captured live `RhinoObject`, `ObjectAttributes`, session, or lease outlives the commit that minted it and is the leak this law forecloses; the events page's process-global custody census carries the matching row.
 - Law: `DocumentCommit.Compensated` owns the whole compensation algebra: land each element, roll back every landed key on the first refusal, and settle source custody through its release policy — every source releases once the fold's fate is decided, a release refusal after success rolls the landed keys back, and rollback then release faults append in that order onto the initiating fault; a suffix-only cleanup inside a rollback lambda or a `.Match` ladder re-spelling release beside the fold is the deleted form, and the identity release is the default modality for sources carrying no custody.
 
 ```csharp signature
@@ -920,6 +998,7 @@ public abstract partial record TableOp {
                 Optional(custody).ToFin(Fail: op.InvalidInput()).ToValidation(),
                 guard(
                     box.Count is 8
+                    && x != default && y != default && z != default
                     && x.Value <= int.MaxValue / y.Value / z.Value,
                     op.InvalidInput()).ToFin().ToValidation(),
                 box.AsIterable().ToSeq()
@@ -1782,6 +1861,8 @@ public readonly record struct TableReceipt : IDetachedDocumentResult {
 |  [10]   | component addressing   | `ResourceRef` / `ResourceLens`   | id/name/index over a lens  | `Of` / `Resolve(document, lens, key)` |
 |  [11]   | redraw bracket         | `RedrawScope`                    | suppress/restore/flush     | `Within(document, redraw, body, key)` |
 |  [12]   | viewport addressing    | `ViewportTarget`                 | address & census union     | `Active` / `ResolveViewport`          |
+|  [13]   | object-type vocabulary | `ObjectKind` / `ObjectKinds`     | keyed rows over a set      | `Of` / `Any` / `Mask`                 |
+|  [14]   | space partition        | `ActiveSpaceUse`                 | host-keyed rows            | `Get` / `Key`                         |
 
 ## [07]-[RESEARCH]
 

@@ -5,7 +5,7 @@ Tenancy contract: the ambient reference the request's active `TenantContext` rid
 ## [01]-[INDEX]
 
 - [02]-[SCOPE_BINDING]: the ambient tenancy reference, its request-scope provision, the metric tag aspect; `TenantScope`.
-- [03]-[RLS_CONTRACT]: the session-coordinate GUC vocabulary and the per-row projection; `SessionCoordinate`, `TENANT_GUC`.
+- [03]-[RLS_CONTRACT]: the session-coordinate GUC vocabulary and the per-row projection; `SessionCoordinate`.
 
 ## [02]-[SCOPE_BINDING]
 
@@ -51,7 +51,7 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
 ## [03]-[RLS_CONTRACT]
 
 [RLS_CONTRACT]:
-- Owner: `SessionCoordinate` — the session-GUC vocabulary the data wave pins per transaction: one row per coordinate carrying the GUC name and the projection over a bound `Principal`, so `tenant` (`rasm.tenant`, the RLS predicate key), `scope` (`rasm.scope`, the store-map partition), and `subject` (`rasm.subject`, the audit attribution) travel one write path the data wave owns and a new coordinate is one row, never a second contract. `TENANT_GUC` derives from the tenant row — the single anchor the RLS `CREATE POLICY` predicate reads through `current_setting`.
+- Owner: `SessionCoordinate` — the session-GUC vocabulary the data wave pins per transaction: one row per coordinate carrying the GUC name and the projection over a bound `Principal`, so `tenant` (`rasm.tenant`, the RLS predicate key), `scope` (`rasm.scope`, the store-map partition), and `subject` (`rasm.subject`, the audit attribution) travel one write path the data wave owns and a new coordinate is one row, never a second contract. The tenant row's `guc` is the single anchor the RLS `CREATE POLICY` predicate reads through `current_setting` — consumers read `SessionCoordinate.tenant.guc` directly, one hop, no promotion alias.
 - Law: every projection reads the core `TenantContext` getters — the branded spelling computed from fields already proven by their own patterns — so the one scope spelling can never disagree with its parts, and an unauthenticated principal projects `none` on every row, the fail-closed default RLS reads zero rows under.
 - Law: the contract is transport-free — this page never composes `@effect/sql` and never spells `SET LOCAL`; the data wave's transaction transformer folds the coordinate table over the bound principal, pinning each `Some` projection, so search-path, tenant, and audit subject travel one write path.
 - Growth: a new session coordinate the data wave pins (a shard key, a search-path override, a region) is one `SessionCoordinate` row; a GUC rename lands once in its row.
@@ -82,11 +82,9 @@ declare namespace SessionCoordinate {
   type _Rows<T extends Record<string, { readonly guc: string; readonly read: (principal: Principal) => Option.Option<string> }> = typeof SessionCoordinate> = T
 }
 
-const TENANT_GUC: typeof SessionCoordinate.tenant.guc = SessionCoordinate.tenant.guc
-
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { SessionCoordinate, TenantScope, TENANT_GUC }
+export { SessionCoordinate, TenantScope }
 export type { Principal }
 ```
 

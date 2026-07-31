@@ -51,16 +51,18 @@ const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle 
 ## [04]-[CONTINUOUS_OWNER]
 
 [CONTINUOUS_OWNER]:
-- Owner: `Gesture.useCanvas(options)` — the continuous recognizer factory: composes ONE tree-shaken `useGesture` variant (`createUseGesture([dragAction, pinchAction, wheelAction])` — only the engines the viewer uses bundle) bound imperatively to the canvas ref with `eventOptions: { passive: false }` and `preventDefault: true`, the ONLY binding that can block page scroll on wheel/touch; drag pans, pinch zooms-and-rotates around `origin`, wheel zooms with `pinchOnWheel` folding ctrl+wheel into the pinch engine.
+- Owner: `Gesture.useCanvas(options)` — the continuous recognizer factory: composes ONE tree-shaken `useGesture` variant (`createUseGesture([dragAction, pinchAction, wheelAction])` — only the engines the viewer uses bundle) bound imperatively to the canvas ref with `eventOptions: { passive: false }` and `preventDefault: true`, the ONLY binding that can block page scroll on wheel/touch; drag pans, pinch zooms-and-rotates around `origin`, wheel zooms with `pinchOnWheel` folding ctrl+wheel into the pinch engine, and every arm settles through ONE `emit`-then-`write` seam so the owning plane's intent mint is the single egress.
 - Packages: `@use-gesture/react` (`createUseGesture`, `dragAction`/`pinchAction`/`wheelAction`, the config/state algebra); `react` (`startTransition`, `useEffectEvent`).
 - Entry: one `Gesture.useCanvas` per interactive surface — a new gesture on that surface is a handler key or sub-config on the same call, never a second hook on the element.
 - Law: start state rides `memo`, origin rides `from` — the handler captures the origin on `first`, applies `movement` against it, and returns the memo; `from: () => read(camera)` binds the offset origin to the live atom so consecutive gestures accumulate; an external mutable ref for gesture accumulation is the named defect.
 - Law: the wheel arm integrates per-event `delta` — wheel `offset` accumulates for the surface lifetime with no `from`-bound origin, so offset math against the live atom double-integrates every event; `delta` applies each tick exactly once against one read of the current state, scaled by the `_CANVAS.wheel` policy value — never an inline sensitivity literal.
 - Law: the handler stays in domain coordinates — `transform` maps the raw screen `Vector2` into world/canvas space before the handler sees `movement`/`offset`; `bounds` + `rubberband` clamp with elastic overflow; `axis: "lock"` locks the dominant axis past `threshold`.
 - Law: one bounds row clamps every zoom write path structurally — the pinch engine clamps through `scaleBounds: bounds` and the wheel arm clamps through `_clamp(bounds, …)` against the SAME row; a zoom path escaping the row is the named defect.
-- Law: high-frequency writes commit non-urgently and stably — the camera atom write wraps in `startTransition`, and the write callback rides `useEffectEvent` so a changing callback identity never re-binds the recognizer; the write itself is `useAtomSet(camera)` with `"value"` mode.
-- Boundary: the camera state shape and its per-backend adapters are the viewer projection plane's; `Gesture.useCanvas` only recognizes and writes intents.
-- Growth: a new recognizer class (a two-finger rotate row, a keyboard-displacement drag) is one handler key plus its sub-config; a new surface is one `Gesture.useCanvas` call.
+- Law: high-frequency writes commit non-urgently and stably — the intent write wraps in `startTransition`, and the write callback rides `useEffectEvent` so a changing callback identity never re-binds the recognizer; the write itself is `useAtomSet(camera)` with `"value"` mode.
+- Law: `Gesture.Reading` is the recognizer's OWN output vocabulary — the three axes a drag, a pinch, and a wheel can physically produce — and never a camera: the owning plane's `emit` folds a reading over its live camera state and mints the intent, so the camera shape, its extra axes, and its intent family all stay that plane's and this floor holds no rival. A camera record written straight through, or a fourth axis minted here, is the per-surface camera shape the seam exists to foreclose.
+- Law: intents are the only write path — `emit` is the owning plane's intent mint (`viewer/geo#CAMERA`'s `Camera.gestured`, folding a live drag to its already-arrived destination), so a gesture, a viewpoint restore, and a control intent reach one camera driver through one closed family and a replay journal cannot tell them apart.
+- Boundary: the camera state shape, its extra axes, its intent family, and the per-backend adapters are the viewer projection plane's; this owner recognizes axes and hands them to that plane's mint.
+- Growth: a new recognizer class (a two-finger rotate row, a keyboard-displacement drag) is one handler key plus its sub-config; a new camera axis is one field on the owning plane's state, invisible here because a reading folds over it; a new surface is one `Gesture.useCanvas` call.
 
 ```typescript
 import { createUseGesture, dragAction, pinchAction, wheelAction } from "@use-gesture/react"
@@ -84,41 +86,45 @@ declare namespace Gesture {
     readonly disabled?: boolean
   }
   type DiscreteBundle = { readonly props: ReturnType<typeof usePress>["pressProps"]; readonly focusVisible: boolean; readonly pressed: boolean; readonly hovered: boolean }
-  type Camera = { readonly center: Vector2; readonly zoom: number; readonly bearing: number }
-  type CanvasOptions = {
+  // the recognizer's own output vocabulary: exactly the axes a drag, a pinch, and a wheel produce — never a camera
+  type Reading = { readonly center: readonly [number, number]; readonly zoom: number; readonly bearing: number }
+  type CanvasOptions<W> = {
     readonly target: RefObject<HTMLElement | null>
-    readonly read: () => Camera
-    readonly write: (camera: Camera) => void
+    readonly read: () => Gesture.Reading
+    readonly emit: (reading: Gesture.Reading) => W
+    readonly write: (intent: W) => void
     readonly transform?: (screen: Vector2) => Vector2
     readonly zoomBounds?: { readonly min: number; readonly max: number }
   }
   type Shape = Types.Simplify<{
     readonly useDiscrete: typeof _useDiscrete
-    readonly useCanvas: (options: Gesture.CanvasOptions) => void
+    readonly useCanvas: <W>(options: Gesture.CanvasOptions<W>) => void
   }>
 }
 
 const Gesture: Gesture.Shape = {
   useDiscrete: _useDiscrete,
-  useCanvas: (options) => {
+  useCanvas: <W,>(options: Gesture.CanvasOptions<W>) => {
     const bounds = options.zoomBounds ?? _CANVAS.zoom
-    const write = useEffectEvent(options.write)
+    // one seam: every arm hands its reading to the owning plane's intent mint, so no arm writes a camera
+    const commit = useEffectEvent((reading: Gesture.Reading) => options.write(options.emit(reading)))
     _useCanvasGesture(
       {
         onDrag: ({ offset: [x, y] }) =>
-          startTransition(() => write({ ...options.read(), center: [x, y] })),
+          startTransition(() => commit({ ...options.read(), center: [x, y] })),
         onPinch: ({ offset: [scale, angle] }) =>
-          startTransition(() => write({ ...options.read(), zoom: scale, bearing: angle })),
+          startTransition(() => commit({ ...options.read(), zoom: scale, bearing: angle })),
         onWheel: ({ delta: [, dy] }) => {
           const held = options.read()
-          startTransition(() => write({ ...held, zoom: _clamp(bounds, held.zoom - dy / _CANVAS.wheel) }))
+          startTransition(() => commit({ ...held, zoom: _clamp(bounds, held.zoom - dy / _CANVAS.wheel) }))
         },
       },
       {
         target: options.target,
         eventOptions: { passive: false },
         ...(options.transform !== undefined && { transform: options.transform }),
-        drag: { from: () => options.read().center, preventDefault: true, filterTaps: true },
+        // the readonly axis tuple spreads into the mutable Vector2 the engine's origin slot takes
+        drag: { from: () => [...options.read().center], preventDefault: true, filterTaps: true },
         pinch: { from: () => [options.read().zoom, options.read().bearing], scaleBounds: bounds, pinchOnWheel: true },
         wheel: { preventDefault: true },
       },
@@ -135,6 +141,9 @@ const Gesture: Gesture.Shape = {
 - Law: a motion is trigger plus at least one axis setter — a bare `animate-in` animates nothing; the row table makes the pairing structural because every row string carries both.
 - Law: never author a `@keyframes` for an enter/exit effect the six axes express; the named component animations (`animate-accordion-down/up`, `animate-collapsible-down/up`, `animate-caret-blink`) are the only sanctioned self-contained keyframes and ride rows here, not bespoke CSS.
 - Law: the RAC transition phases bind these rows through variants — `entering:` and `exiting:` (the `tailwindcss-react-aria-components` mappings of `data-entering`/`data-exiting`) scope the enter/exit halves, so overlay motion is one `cn(Motion.overlay.enter, Motion.overlay.exit)` class string with zero JS lifecycle code.
+- Law: transition and SUSTAINED state are two row families on one owner — `_rows` pairs an enter with an exit and fires once per presence edge, while `Motion.holds` names the looping attention states a surface holds WHILE a condition stands (`pulse` a refusal awaiting repair, `spin` indeterminate work in flight, `ping` an arrival); a phase table keys a hold by name (`viewer/panel`'s refused row) and a hold spelled as an enter row loops nothing, while an enter row spelled as a hold never ends.
+- Law: the hold roster is the platform's own closed set — Tailwind core ships exactly `animate-pulse`, `animate-spin`, and `animate-ping` as sustained animations, so the roster is read off the engine rather than invented, and a fourth sustained state is upstream or it is a bespoke keyframe this vocabulary refuses.
+- Law: every hold leads with `motion-reduce:animate-none` under the same construction law as the transition rows, and that guard resolves because ONE merge group at `system/token#CLASS_RAIL` owns every `animate-*` trigger — enter, exit, sustained, and the `animate-none` guard together; splitting the sustained triggers into the default group leaves `motion-reduce:animate-none` in a foreign group where it silently loses.
 - Law: the row strings participate in `cn` conflict resolution — the motion class groups are taught to the one merge instance at `system/token#CLASS_RAIL`, so a caller override of `delay-*` or `fade-in-*` wins deterministically.
 - Boundary: floating-ui `useTransitionStyles` phases consume `Theme.Scale.ease` values where an overlay needs style-object motion (`view/overlay`); the sheet's drag physics are `vaul`'s own and take no Motion row.
 - Growth: a new surface motion is one row composing existing setters; a new axis is upstream (`tw-animate-css`), never a local keyframe.
@@ -145,7 +154,15 @@ const _kinds = ["overlay", "sheet", "palette", "toast", "panel"] as const
 declare namespace Motion {
   type Row = { readonly enter: string; readonly exit: string }
   type Kind = (typeof _kinds)[number]
+  type Hold = keyof typeof _holds
 }
+
+// the sustained plane: a hold loops while its condition stands, where a Row fires once per presence edge
+const _holds = {
+  pulse: "motion-reduce:animate-none animate-pulse",
+  spin: "motion-reduce:animate-none animate-spin",
+  ping: "motion-reduce:animate-none animate-ping",
+} as const satisfies Record<string, string>
 
 const _rows = {
   overlay: {

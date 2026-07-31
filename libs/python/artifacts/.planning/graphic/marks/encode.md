@@ -2,7 +2,7 @@
 
 Machine-readable-mark operation owner. `Mark` owns the closed `MarkOp` family across generation, `DecodeScope.scan`, and print-survivability verification. One total dispatch routes segno QR/Micro-QR/structured append, python-barcode linear generation, zxing-cpp matrix generation, decode, and encode-rasterize-decode verification. `TAXONOMY` selects the provider class; factory-specific bands admit every option before a worker runs.
 
-Every provider boundary maps named raises into `MarkFault`. `_QR_BANDS` selects the exact QR factory shape, `_CLASS_BANDS` covers linear and matrix families, and `_admit` rejects `MarkClass.SCAN` through `uncreatable`; admitted bands deep-freeze before entering cached operation payloads. `Mark.of(lane)` fans independent operations through one `anyio.create_task_group`, preserving input order through task handles while each case declares its own `KernelTrait` row.
+Every provider boundary maps named raises into `MarkFault`. `_QR_BANDS` selects the exact QR factory shape, `_CLASS_BANDS` covers the linear, matrix, and writer families; admitted bands deep-freeze before entering cached operation payloads. `Mark.of(lane)` fans independent operations through one `anyio.create_task_group`, preserving input order through task handles while each case declares its own `KernelTrait` row.
 
 ## [01]-[INDEX]
 
@@ -11,8 +11,8 @@ Every provider boundary maps named raises into `MarkFault`. `_QR_BANDS` selects 
 ## [02]-[MARK]
 
 - Owner: `Mark` holds the closed operation tuple. `encode` carries admitted content and options, `decode` carries source and detector scope, and `verify` carries encode input plus the full `RenderPolicy`; `_encode` derives provider dispatch from `TAXONOMY`, and `_QR_ROWS` derives only the forced segno factory.
-- Cases: `MarkOp.of_encode` admits creatable members; scan-only members rail `uncreatable`. `MarkOp.Decode` composes `DecodeScope.scan`. `MarkOp.of_verify` requires `RenderPolicy`, refuses carrier-less symbols through `unscannable`, and records failed recovery as evidence rather than a transport fault.
-- Law: `MarkFault` carries provider, admission, geometry, scan, contract, `unscannable`, and `uncreatable` causes on one rail; `options` accumulates every `ValidationError` location.
+- Cases: `MarkOp.of_encode` admits every member the taxonomy carries — the writer family included, since the zxing writer generates it. `MarkOp.Decode` composes `DecodeScope.scan`. `MarkOp.of_verify` requires `RenderPolicy`, refuses carrier-less symbols through `unscannable`, and records failed recovery as evidence rather than a transport fault.
+- Law: `MarkFault` carries provider, admission, geometry, scan, contract, and `unscannable` causes on one rail; `options` accumulates every `ValidationError` location.
 - Law: `Content.raw` preserves `str | bytes`, so segno and zxing receive binary payloads without a lossy text round trip while the text-only python-barcode arm refuses bytes at ingress. Structured `wifi`/`geo`/`email` and full `vcard`/`mecard` cases fold to canonical QR text once. `Content.epc(EpcPayment)` carries segno's full public EPC helper axis as a frozen per-mode payload; `make_epc_qr` fixes QR error/version policy, and verify refuses EPC because no public canonical-text twin exists for byte-equality evidence.
 - Entry: `Mark.over` normalizes singular and iterable request shapes. `of(lane)` launches each independent request in one task group; `_trait` selects `RELEASING` for encode and pixel scans, `HOSTILE` for raster scans and verify, and deterministic codec work carries no caller retry beyond the trait row.
 - Receipt: each emitted operation folds into `RasterFact` and projects to `ArtifactReceipt.Preview(key, width, height, bytes_, scores)`, threading `len(RasterFact.data)` and `RasterFact.score` onto the shared receipt. Encode arms report zero pixel dimensions for SVG and stamp evidence keyed by `MarkFact`; verify reports raster dimensions and stamps `VERIFIED`/`DPI` beside native numeric scan facts.
@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Literal, NotRequired, ReadOnly, Required, Self
 
 import anyio
 import msgspec
-from beartype import BeartypeConf, beartype
+from beartype import beartype
 from beartype.roar import BeartypeCallHintViolation
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
@@ -58,7 +58,7 @@ from rasm.artifacts.graphic.marks.mark import (
 from rasm.artifacts.graphic.raster.process import RasterFact
 from rasm.artifacts.graphic.vector.path import bounds
 from rasm.artifacts.graphic.vector.region import RegionOp, RenderPolicy, applied
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -191,13 +191,13 @@ _QR_BANDS: frozendict[Symbology, TypeAdapter[OptionBand]] = frozendict({
 _CLASS_BANDS: frozendict[MarkClass, TypeAdapter[OptionBand]] = frozendict({
     MarkClass.LINEAR: TypeAdapter(LinearPayload),
     MarkClass.MATRIX: TypeAdapter(MatrixPayload),
+    MarkClass.WRITER: TypeAdapter(LinearPayload),  # the writer family is 1-D, so it admits the linear band
 })
 _QR_ROWS: frozendict[Symbology, SegnoFactory] = frozendict({
     Symbology.QR: SegnoFactory.MAKE_QR,
     Symbology.MICRO_QR: SegnoFactory.MAKE_MICRO,
     Symbology.QR_SEQUENCE: SegnoFactory.MAKE_SEQUENCE,
 })
-_CONTRACT = BeartypeConf(is_pep484_tower=True)
 
 
 def _canon_hook(value: object, /) -> object:
@@ -224,8 +224,6 @@ def _admit(symbology: Symbology, content: MarkContent, raw: OptionBand, /) -> Re
     # knob fails validation here and a factory-scoped key outside its row's accepts fails by name —
     # every admitted option has an owning arm and stage, never a silently dropped key.
     cls = TAXONOMY[symbology][0]
-    if cls is MarkClass.SCAN:
-        return Error(MarkFault(uncreatable=symbology))
     if cls is MarkClass.LINEAR and isinstance(content, bytes):
         return Error(MarkFault(content="<binary-linear-content>"))
     if isinstance(content, EpcPayment) and symbology is not Symbology.QR:
@@ -308,6 +306,14 @@ def _segno(factory: SegnoFactory, content: MarkContent, symbology: Symbology, ba
         return Error(MarkFault(overflow=symbology))
     except ValueError as fault:
         return Error(MarkFault(content=str(fault)) if isinstance(content, EpcPayment) else MarkFault(parameter=str(fault)))
+    if factory is SegnoFactory.MAKE_SEQUENCE and len(symbol) > 1:
+        # A `RasterFact` carries ONE document, and `QRCodeSequence.save` writes EVERY member into the stream it is
+        # handed. MEASURED: a three-symbol structured-append sequence saved to one buffer yields 7359 bytes
+        # containing three `<svg` roots — bytes no SVG reader accepts, which `_mark_bbox` then raises on and the
+        # rasterizer refuses, so the whole capability was already dead and silently producing corrupt payloads.
+        # The refusal names the arity, so a caller wanting the sequence asks for its members rather than receiving
+        # a document that parses nowhere. A single-symbol sequence is one document and passes through untouched.
+        return Error(MarkFault(parameter=f"<structured-append-is-{len(symbol)}-documents-not-one>"))
     sink = BytesIO()
     style = cast(frozendict[str, object], render.get("svg", frozendict()))
     writer = {key: value for key, value in render.items() if key != "svg"}
@@ -315,7 +321,11 @@ def _segno(factory: SegnoFactory, content: MarkContent, symbology: Symbology, ba
         symbol.save(sink, kind="svg", **writer, **dict(style))
     except ValueError as fault:
         return Error(MarkFault(render=str(fault)))
-    return Ok(RasterFact(sink.getvalue(), score=_segno_score(factory, symbol, render)))
+    # the module and pixel extent the score already computes rides the FACT too: `RasterFact`'s width/height are
+    # the receipt's own `Preview` dimensions, so leaving them at the struct default published every generated mark
+    # as a zero-by-zero raster while the same numbers sat one call away on the score band.
+    width, height = (0, 0) if factory is SegnoFactory.MAKE_SEQUENCE else symbol.symbol_size(scale=render.get("scale", 1), border=render.get("border"))
+    return Ok(RasterFact(sink.getvalue(), width, height, score=_segno_score(factory, symbol, render)))
 
 
 def _segno_score(factory: SegnoFactory, symbol: "QRCode | QRCodeSequence", render: frozendict[str, object], /) -> frozendict[str, str]:
@@ -362,7 +372,19 @@ def _barcode(content: MarkContent, symbology: Symbology, band: frozendict[str, o
         return Error(MarkFault(illegal=str(fault)))
     except (NumberOfDigitsError, WrongCountryCodeError) as fault:
         return Error(MarkFault(arity=str(fault)))
-    return Ok(RasterFact(sink.getvalue(), score=frozendict({MarkFact.FULLCODE: symbol.get_fullcode(), MarkFact.SYMBOLOGY: symbology.value})))
+    # the writer's OWN size fold answers the produced extent in millimetres — `calculate_size(modules, lines)`
+    # reads the module width, height, quiet zone, and text band the render band already set — so the fact carries
+    # the symbol's real dimensions instead of the struct default that published every linear mark as zero-by-zero
+    modules = symbol.build()
+    span, rise = symbol.writer.calculate_size(len(modules[0]), len(modules))
+    return Ok(
+        RasterFact(
+            sink.getvalue(),
+            int(span),
+            int(rise),
+            score=frozendict({MarkFact.FULLCODE: symbol.get_fullcode(), MarkFact.SYMBOLOGY: symbology.value}),
+        )
+    )
 
 
 def _zxing(content: MarkContent, symbology: Symbology, band: frozendict[str, object], /) -> Result[RasterFact, MarkFault]:
@@ -381,9 +403,15 @@ def _zxing(content: MarkContent, symbology: Symbology, band: frozendict[str, obj
     svg = symbol.to_svg(
         scale=int(render.get("scale", 1)), add_hrt=bool(render.get("add_hrt", False)), add_quiet_zones=bool(render.get("add_quiet_zones", True))
     )
+    # `Barcode.position` is the symbol's own module quad, so the extent reads off the produced symbol rather than
+    # a re-measure of the rendered SVG, and the declared render scale lifts modules to pixels exactly as segno's does
+    scale = int(render.get("scale", 1))
+    corner = symbol.position.bottom_right
     return Ok(
         RasterFact(
             svg.encode(),
+            (corner.x + 1) * scale,
+            (corner.y + 1) * scale,
             score=frozendict({
                 MarkFact.FORMAT: str(symbol.format),  # the precise 3.0 display name ('Data Matrix'/'PDF417'/'Aztec')
                 MarkFact.FAMILY: str(symbol.symbology),  # the rolled-up BarcodeFormat.symbology family (MicroPDF417 -> PDF417) distinct from .format
@@ -397,7 +425,7 @@ def _zxing(content: MarkContent, symbology: Symbology, band: frozendict[str, obj
 def _contracted(
     operation: Callable[[MarkContent, Symbology, frozendict[str, object]], Result[RasterFact, MarkFault]], /
 ) -> Callable[[MarkContent, Symbology, frozendict[str, object]], Result[RasterFact, MarkFault]]:
-    guarded = beartype(conf=_CONTRACT)(operation)
+    guarded = beartype(conf=FAULT_CONF)(operation)
 
     @wraps(operation)
     def call(content: MarkContent, symbology: Symbology, band: frozendict[str, object], /) -> Result[RasterFact, MarkFault]:
@@ -418,10 +446,10 @@ def _encode(content: MarkContent, symbology: Symbology, band: frozendict[str, ob
             return _segno(_QR_ROWS[symbology], content, symbology, band)
         case MarkClass.LINEAR:
             return _barcode(content, symbology, band)
-        case MarkClass.MATRIX:
+        case MarkClass.MATRIX | MarkClass.WRITER:
+            # ONE zxing writer arm for both families: the format member is the taxonomy's own carrier column, so a
+            # 1-D `Code 93` and a 2-D `Data Matrix` differ only in the row they select and never in the code path
             return _zxing(content, symbology, band)
-        case MarkClass.SCAN:
-            return Error(MarkFault(uncreatable=symbology))
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -583,6 +611,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Mark encode, decode, and verify dispatch
+    accDescr: The mark lane and work emitter both entering one total operation match whose encode arm dispatches by taxonomy class onto the QR, linear, and matrix writers, whose decode arm composes the scan scope one hop, and whose verify arm rasterizes its own carrier back through the scan for a grade, every arm sealing a raster fact onto the per-member receipt rail.
     Over["Mark.over (MarkOp | Iterable)"] --> Of["Mark.of(lane): task-group fan-out + per-op trait + flattened MarkRail"]
     Over --> Emit["Mark.emit(lane): one ArtifactWork per encode/verify row (pre-run key)"]
     Of --> Perf["_performed: total match over MarkOp"]

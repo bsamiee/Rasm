@@ -22,21 +22,30 @@ Outbound HTTP policy is one lane table, composed once, inherited everywhere: eve
 ## [03]-[BREAK_STATE]
 
 [BREAK_STATE]:
-- Owner: `Breaker` — the one circuit owner of the branch. Each circuit is a keyed cell holding one closed `Data.taggedEnum` state family — `Closed` carrying its generation and fault count, `Open` its generation and reopen instant, `Half` its generation and probe ration, so an invalid field combination is unconstructible — whose transitions are two total `$match` folds: `_admitted` returns the admitted generation and advances `Open→Half` when the cool window lapses, `_settled` accepts only an outcome from that generation, success advances to a fresh closed generation, and failure opens a fresh generation after a half-open fault or trip-count breach. `Breaker.guard(key, policy)` is the transformer any egress effect composes; the dial keys it by lane and request origin — path and query variants share one circuit because they share the remote's fate — and fanout publish and delivery transmit compose the same guard under their own identities.
-- Law: state rides `Ref.modify` — admission and settlement are atomic pure folds over the cell, so concurrent dials race on the ledger, never on a lock, and the machine is replayable from its fold functions alone; a new circuit state is one case row breaking both folds loudly at their `$match` records, never a widened field bag.
+- Owner: `Breaker` — the one circuit owner of the branch. Each circuit is a keyed cell holding one closed `Data.taggedEnum` state family — `Closed` carrying its generation and fault count, `Open` its generation and reopen instant, `Half` its generation and probe ration, so an invalid field combination is unconstructible — whose transitions are two total `$match` folds: `_admitted` returns the admitted generation and advances `Open→Half` when the cool window lapses, `_settled` accepts only a termination from that generation and applies the `_verdicts` row it names. `Breaker.guard(key, policy)` is the transformer any egress effect composes; the dial keys it by lane and request origin — path and query variants share one circuit because they share the remote's fate — and fanout publish and delivery transmit compose the same guard under their own identities.
+- Law: termination is a three-row verdict, never a settled-channel pair — `Effect.onExit` fires once after the outcome settles and `_verdict` folds the `Exit` interrupt-first through `Cause.isInterruptedOnly`, so `passed` advances a fresh closed generation, `faulted` (a typed fault or a defect alike) charges the trip count or reopens off a half-open probe, and `halted` RESTORES the probe `_admitted` consumed. Observing the two settled channels alone strands every interrupted probe: `_gated` composes `Effect.timeoutFail` inside the guard while a caller race, a scope close, an abandoned `ExecutionPlan` step, and an early `Stream` consumer exit all pass through unsettled, so a `probes: 1` lane wedges at `Half { probes: 0 }` — a cell `_admitted` refuses forever, since `Half` carries no `until` escape.
+- Law: state rides `Ref.modify` — admission and settlement are atomic pure folds over the cell, so concurrent dials race on the ledger, never on a lock, and the machine is replayable from its fold functions alone; a new circuit state is one case row breaking every `$match` record loudly, and a new termination class is one `_verdicts` row the `Verdict` union derives.
 - Law: rejection is `Lapse` evidence — `reason: "break"`, class `unavailable`, the policy's `cool` as the spent span — so an open circuit routes through the same budget gate as every transient and no second shed fault exists.
 - Law: the registry is a `Context.Reference` — cells key by guard key in one `MutableHashMap` default bounded by the capacity row: a mint at capacity flushes the ledger to rest, so degradation is a cold circuit, never process-lifetime memory growth; the requirement channel stays clean (`R` never grows), and a root or proof overrides the whole ledger by providing the Reference. Exemption: `_cell` is the one statement kernel — the synchronous mint-or-get, with the capacity flush, against the registry map.
 - Growth: hedging and load-shed stay owned elsewhere (`Effect.raceAll` at the caller, `Gate.shed` at the serving edge); a per-tenant circuit is a key suffix, zero new surface.
-- Packages: `effect` (`Clock`, `Context`, `Data`, `Duration`, `MutableHashMap`, `Option`, `Ref`), `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Cause`, `Clock`, `Context`, `Data`, `Duration`, `Exit`, `MutableHashMap`, `Option`, `Ref`), `@rasm/ts/core` (`FaultClass`).
 
 ```typescript signature
+const _family = FaultClass.family(['budget', 'break'] as const, {
+    budget: { class: 'expired' },
+    break: { class: 'unavailable' },
+});
+
 class Lapse extends Data.TaggedError('Lapse')<{
     readonly lane: string;
     readonly budget: Duration.Duration;
-    readonly reason: 'budget' | 'break';
+    readonly reason: (typeof _family.reasons)[number];
 }> {
     get class(): FaultClass.Kind {
-        return this.reason === 'budget' ? 'expired' : 'unavailable';
+        return _family.classOf(this.reason);
+    }
+    override get message(): string {
+        return `<lapse:${this.reason}> ${this.lane}`;
     }
 }
 
@@ -47,6 +56,8 @@ declare namespace Breaker {
         Half: { readonly generation: number; readonly probes: number };
     }>;
     type Policy = { readonly trip: number; readonly cool: Duration.Duration; readonly probes: number };
+    type Verdict = keyof typeof _verdicts;
+    type Settle = (held: Cell, generation: number, now: number, policy: Policy) => Cell;
 }
 
 const _Cell = Data.taggedEnum<Breaker.Cell>();
@@ -69,19 +80,34 @@ const _admitted = (held: Breaker.Cell, now: number, policy: Breaker.Policy): rea
                 : [Option.none(), half],
     });
 
-const _settled = (held: Breaker.Cell, generation: number, now: number, policy: Breaker.Policy, passed: boolean): Breaker.Cell =>
-    held.generation !== generation
-        ? held
-        : passed
-          ? _Cell.Closed({ generation: generation + 1, faults: 0 })
-          : _Cell.$match(held, {
-                Closed: ({ faults }) =>
-                    faults + 1 >= policy.trip
-                        ? _Cell.Open({ generation: generation + 1, until: now + Duration.toMillis(policy.cool) })
-                        : _Cell.Closed({ generation, faults: faults + 1 }),
-                Open: (open) => open, // a late loser settles against an already-open cell: the cell holds
-                Half: () => _Cell.Open({ generation: generation + 1, until: now + Duration.toMillis(policy.cool) }),
-            });
+const _reopened = (generation: number, now: number, policy: Breaker.Policy): Breaker.Cell =>
+    _Cell.Open({ generation: generation + 1, until: now + Duration.toMillis(policy.cool) });
+
+const _verdicts = {
+    // one row per termination class: a fourth class is a row, and the Verdict union derives off this anchor
+    passed: (_held, generation) => _Cell.Closed({ generation: generation + 1, faults: 0 }),
+    faulted: (held, generation, now, policy) =>
+        _Cell.$match(held, {
+            Closed: ({ faults }) =>
+                faults + 1 >= policy.trip ? _reopened(generation, now, policy) : _Cell.Closed({ generation, faults: faults + 1 }),
+            Open: (open) => open, // a late loser settles against an already-open cell: the cell holds
+            Half: () => _reopened(generation, now, policy),
+        }),
+    halted: (held) =>
+        _Cell.$match(held, {
+            Closed: (closed) => closed, // a closed admission consumed no ration, so an abandoned call charges nothing
+            Open: (open) => open,
+            Half: (half) => _Cell.Half({ generation: half.generation, probes: half.probes + 1 }), // the abandoned probe returns to the ration: an interrupt is not evidence about the remote
+        }),
+} as const satisfies Record<string, Breaker.Settle>;
+
+const _verdict: (exit: Exit.Exit<unknown, unknown>) => Breaker.Verdict = Exit.match({
+    onFailure: (cause) => (Cause.isInterruptedOnly(cause) ? 'halted' : 'faulted'), // interrupt-first: a defect is evidence about the remote, an abandoned wait is not
+    onSuccess: () => 'passed',
+});
+
+const _settled = (held: Breaker.Cell, generation: number, now: number, policy: Breaker.Policy, verdict: Breaker.Verdict): Breaker.Cell =>
+    held.generation === generation ? _verdicts[verdict](held, generation, now, policy) : held;
 
 const _LEDGER = { capacity: 512 } as const;
 
@@ -101,16 +127,11 @@ const _guard =
             const now = yield* Clock.currentTimeMillis;
             const admitted = yield* Ref.modify(cell, (held) => _admitted(held, now, policy));
             return Option.isSome(admitted)
-                ? yield* Effect.tapBoth(self, {
-                      onFailure: () =>
-                          Effect.flatMap(Clock.currentTimeMillis, (at) =>
-                              Ref.update(cell, (held) => _settled(held, admitted.value, at, policy, false)),
-                          ),
-                      onSuccess: () =>
-                          Effect.flatMap(Clock.currentTimeMillis, (at) =>
-                              Ref.update(cell, (held) => _settled(held, admitted.value, at, policy, true)),
-                          ),
-                  })
+                ? yield* Effect.onExit(self, (exit) =>
+                      Effect.flatMap(Clock.currentTimeMillis, (at) =>
+                          Ref.update(cell, (held) => _settled(held, admitted.value, at, policy, _verdict(exit))),
+                      ),
+                  ) // one emission point, fired uninterruptibly after the outcome settles: an interrupted probe never escapes unaccounted
                 : yield* new Lapse({ lane: key, budget: policy.cool, reason: 'break' });
         });
 
@@ -132,11 +153,13 @@ const Breaker = { guard: _guard } as const;
 ```typescript signature
 import { HttpClient, type HttpClientError, type HttpClientRequest, HttpClientResponse, HttpIncomingMessage } from '@effect/platform';
 import {
+    Cause,
     Clock,
     Context,
     Data,
     Duration,
     Effect,
+    Exit,
     Function,
     MutableHashMap,
     Option,
@@ -146,7 +169,7 @@ import {
     type Scope,
     pipe,
 } from 'effect';
-import { Budget, type FaultClass } from '@rasm/ts/core';
+import { Budget, FaultClass } from '@rasm/ts/core';
 
 const _lanes = {
     live: {
@@ -286,16 +309,16 @@ const Client = { dial, resident: _resident, residency: _dispatch } as const;
 [CONNECT_ROW]:
 - Owner: `Rpc` — the outbound Connect/gRPC dispatch row conversing with the C# gRPC host under the branch egress law. `Rpc.transport(spec)` takes one discriminated transport request and dispatches `connect` to `createConnectTransport` or `grpc` to `createGrpcTransport`; both return the same transport shape, so the caller's generated client remains protocol-blind. `Rpc.call(lane, origin, thunk)` lifts the promise-world call and applies the lane's total budget and circuit admission through the same `_gated` fold every HTTP dial rides, keyed by lane and origin.
 - Law: rpc traffic inherits the lane table — budget geometry, circuit trip and cool, and the `Lapse` evidence family are `[02]`/`[03]`'s rows unchanged, so a Connect call and an HTTP call to one origin share the circuit they share fate with, and no bespoke rpc timeout convention exists.
+- Law: the thunk takes the fiber's own `AbortSignal` and threads it into `CallOptions.signal`, so a `Lapse` on the lane budget cancels the HTTP/2 stream as `Code.Canceled` instead of abandoning it — a give-up that leaves the socket in flight holds a pooled connection for the full server-side duration, exactly the residency the `[05]` `connections` ceiling is sized against. `Effect.tryPromise` hands its evaluator that signal directly, so no `AbortController` is threaded through the caller's own flow, and the interrupt this cancellation raises is the one `[03]`'s `halted` verdict refuses to charge.
 - Law: W3C print crosses at the Connect client owner, never this row — `core:interchange/invoke#DIAL_AXIS`'s per-call lift folds `Carrier.current` through `Carrier.inject("connect", ...)` onto the call's own `headers`, so the trace continues with no interceptor onion and no ambient runtime handle; `Rpc.call` stays the lane-budget gate over an opaque promise thunk, and generated service-client construction stays at the consumer seam over the core-admitted contract surface.
 - Law: the promise seam converts at this owner — the thunk's rejection minted through `Effect.tryPromise` rides `Cause.UnknownException` for the caller's triage into its own fault family; Connect's own `ConnectError` code discrimination is the consumer's dispatch material, never re-wrapped here.
 - Boundary: the server half — the Connect router mounted through the foreign-protocol port — is `serve/live#MOUNT_PORT`'s row; this owner is egress only.
-- Entry: `Rpc.transport(spec)` at the root; `Rpc.call(lane, origin, () => client.<member>(payload))` at the consumer seam.
+- Entry: `Rpc.transport(spec)` at the root; `Rpc.call(lane, origin, (signal) => client.<member>(payload, { signal }))` at the consumer seam.
 - Growth: a new dialect (gRPC-Web egress) is one `TransportSpec` case and one total dispatch arm; compression and deadline posture remain factory-option or call-option values.
 - Packages: `@connectrpc/connect-node` (`createConnectTransport`, `createGrpcTransport`), `effect` (`Cause`, `Effect`).
 
 ```typescript signature
 import { type ConnectTransportOptions, createConnectTransport, createGrpcTransport, type GrpcTransportOptions } from '@connectrpc/connect-node';
-import type { Cause } from 'effect';
 
 declare namespace Rpc {
     type Transport = ReturnType<typeof createConnectTransport>;
@@ -316,9 +339,9 @@ const _transport = (spec: Rpc.TransportSpec): Rpc.Transport => {
 const _rpc = <A>(
     lane: Client.Lane,
     origin: string,
-    thunk: () => Promise<A>,
+    thunk: (signal: AbortSignal) => Promise<A>,
 ): Effect.Effect<A, Cause.UnknownException | Lapse> =>
-    _gated(lane, HttpClientRequest.get(origin), Effect.tryPromise(thunk));
+    _gated(lane, HttpClientRequest.get(origin), Effect.tryPromise(thunk)); // the evaluator receives the fiber's interrupt-wired signal: the lane budget becomes real cancellation, not a local give-up
 
 const Rpc = {
     call: _rpc,

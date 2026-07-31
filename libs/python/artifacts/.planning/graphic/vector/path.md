@@ -388,12 +388,11 @@ def compose(steps: tuple[ComposeStep, ...], order: ComposeOrder = ComposeOrder.P
             case ComposeStep(tag="rotate", rotate=angle):
                 getattr(matrix, f"{order.value}_rotate")(angle)
             case ComposeStep(tag="skew", skew=(ax, ay)):
-                # svgelements ships no `{pre,post}_skew`: the axis pair lowers onto the order-specific
-                # skew_x/skew_y legs, x-leg first, a zero component skipped so a single-axis skew is one primitive.
-                if ax:
-                    getattr(matrix, f"{order.value}_skew_x")(ax)
-                if ay:
-                    getattr(matrix, f"{order.value}_skew_y")(ay)
+                # ONE primitive: `Matrix.{pre,post}_skew(angle_a, angle_b)` takes both axes and composes the single
+                # shear the pair names. MEASURED, the x-then-y decomposition is a DIFFERENT matrix — `post_skew(10,
+                # 20)` gives `[1, 2.237161, 0.648361, 1, 0, 0]` while `post_skew_x(10)` then `post_skew_y(20)` gives
+                # `[1, 2.237161, 0.648361, 2.450488, 0, 0]`, because the second leg shears an already-sheared basis.
+                getattr(matrix, f"{order.value}_skew")(ax, ay)
             case ComposeStep(tag="scale", scale=pair) | ComposeStep(tag="translate", translate=pair):
                 getattr(matrix, f"{order.value}_{step.tag}")(*pair)
             case _ as unreachable:
@@ -622,6 +621,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Path operation dispatch and metric core
+    accDescr: One lane dispatch totally matching each path operation onto the bounds, measure, relation, sample, point-at, curvature, decimate, centroid, flatten, subpaths, project, and fit-matrix arms over one memoized ingest and one polyline metric core, every arm closing on the path result rail that folds to a block for the downstream consumers.
     Over["Path.over (PathOp | Iterable)"] --> Of["Path.of(lane) -> offload PROCESS -> flatten to PathRail"]
     Of --> Disp["_dispatch (@beartype FAULT_CONF) match per op"]
     Disp -->|bounds| Bd["bounds(source, BoundsKind) -> extent"]

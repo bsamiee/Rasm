@@ -89,22 +89,29 @@ public sealed record ReviewTour {
 
 - Owner: `TourProjection` — the ONE lowering from a `ReviewTour` onto a `Render/animation.md` `Timeline`; `TourFollow` — the two-sided presenter-follow arm over the projected timeline.
 - Entry: `public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps, PlaybackMode mode)` — projects the stops onto one camera `Track`: each stop contributes a transition-end keyframe (its camera, eased by its transition token) and a dwell-end keyframe (the same camera, hold), so the animation `Timeline.SampleAt` reproduces dwell-hold plus eased fly-through through the ONE bracketing sampler and `TrackInterp.Pose` — a tour-local `Bracket`/`Walk` sampler, a `lerpCam` delegate, or a second pose-interpolation site is the DELETED form; the `PlaybackMode` is playhead policy, so a presentation runs `Once` while a kiosk loop runs `Loop` with zero tour-local replay logic; `public static TourFollow Of(Presence presence, ReviewTour tour, double fps, PlaybackMode mode)` — binds the follow arm to the SAME projected timeline both presenter and follower sample.
-- Auto: scrub, kinematic playback, and reduced-motion selection all ride the animation owners (`ScrubState`, `Scrub.To`, `ReducedMotion.Select` applied at projection so a reduced-motion tour snaps stops without the spring); the narration at a playhead position reads `StopIndexAt` — a pure offset-table index fold, index math, never interpolation; the offline tour render IS `animation.Walkthrough.Render` over the projected timeline with the moved `Document/export.md` `VisualDestination` and the per-frame narration drawn by the frame delegate through the `NARRATION` shaped rail — the former `WalkthroughTour.Render` clone is deleted, and a flythrough clip rides the walkthrough's capture `ClipEncoder` composition; the presenter's `Publish` writes the playhead as one STRUCTURED `LoroValue.Map` value (`tour` key + `frame` index) on the dedicated presence viewport channel — TTL-expiring, broadcast by the presence owner's local-update sink — and a follower's `Follow` applies the remote bytes through `Presence.ApplyRemote`, decodes the playhead, gates on its own tour key so a foreign tour's playhead never drives this viewport, samples the projected timeline at the presenter's frame through the track-owned policy rows, and applies the sampled camera through the caller-bound viewpoint-apply boundary.
+- Auto: scrub, kinematic playback, and reduced-motion selection all ride the animation owners (`ScrubState`, `Scrub.To`, `ReducedMotion.Select` applied at projection so a reduced-motion tour snaps stops without the spring); the narration at a playhead position reads `StopIndexAt` — a pure offset-table index fold, index math, never interpolation; the offline tour render IS `animation.Walkthrough.Render` over the projected timeline with the moved `Document/export.md` `VisualDestination` and the per-frame narration drawn by the frame delegate through the `NARRATION` shaped rail — the former `WalkthroughTour.Render` clone is deleted, and a flythrough clip rides the walkthrough's capture `ClipEncoder` composition; the presenter's `Publish` writes the playhead as one STRUCTURED column-keyed value — `LoroVal.Of((CollabColumn.Tour, …), (CollabColumn.Frame, …))` — on the dedicated presence viewport channel — TTL-expiring, broadcast by the presence owner's local-update sink — and a follower's `Follow` applies the remote bytes through `Presence.ApplyRemote`, decodes the playhead, gates on its own tour key so a foreign tour's playhead never drives this viewport, samples the projected timeline at the presenter's frame through the track-owned policy rows, and applies the sampled camera through the caller-bound viewpoint-apply boundary.
 - Receipt: the offline render seals through the animation walkthrough receipt; tour navigation and follower camera application seal the viewpoint-apply receipt the viewport already mints.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new playback concern is an animation-owner row, never a tour-local engine; a new follow field is one key inside the structured playhead value; zero new surface.
-- Boundary: the tour is structurally ONE camera `Track` played through the animation engine — that identity is literal in the fence; presenter-follow rides `Collab/sync#PRESENCE`'s viewport channel — a follow channel beside the presence owner is the rejected form, and BOTH halves live here: publisher state and follower interpretation, so the advertised capability has an owned receive path and an opaque formatted playhead string is the deleted form (the value is a structured `LoroValue.Map` a follower pattern-matches at the leaf); the follower's camera lands through the viewpoint-apply boundary the viewport owns, never a tour-local camera write; the reduced-motion law applies once at projection (`ReducedMotion.Select` on each transition token), never a tour-local accessibility conditional.
+- Boundary: the tour is structurally ONE camera `Track` played through the animation engine — that identity is literal in the fence; presenter-follow rides `Collab/sync#PRESENCE`'s viewport channel — a follow channel beside the presence owner is the rejected form, and BOTH halves live here: publisher state and follower interpretation, so the advertised capability has an owned receive path and an opaque formatted playhead string is the deleted form (the value is a structured column-keyed map a follower reads back through the same `LoroVal.Field` owner that wrote it); the follower's camera lands through the viewpoint-apply boundary the viewport owns, never a tour-local camera write; the reduced-motion law applies once at projection (`ReducedMotion.Select` on each transition token), never a tour-local accessibility conditional.
 
 ```csharp signature
 public static class TourProjection {
+    // The seed camera reads the indexed head, which `ReviewTour.Of`'s non-empty admission guarantees —
+    // `Seq.Head` answers `Option`. The degrade selects ONCE per stop: three reads of a process-wide switch
+    // inside one fold arm could observe a mid-projection flip and emit a keyframe whose eased duration and
+    // eased token disagree.
     public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps, PlaybackMode mode) =>
         tour.Stops
-            .Fold((Cursor: Duration.Zero, Frames: Seq(new Keyframe<ViewCamera>(Duration.Zero, tour.Stops.Head.View.Camera, MotionToken.Instant))), (state, stop) => (
-                Cursor: state.Cursor + stop.Span,
-                Frames: (ReducedMotion.Select(stop.Transition).Duration > Duration.Zero
-                        ? state.Frames.Add(new Keyframe<ViewCamera>(state.Cursor + ReducedMotion.Select(stop.Transition).Duration, stop.View.Camera, ReducedMotion.Select(stop.Transition)))
-                        : state.Frames)
-                    .Add(new Keyframe<ViewCamera>(state.Cursor + stop.Span, stop.View.Camera, MotionToken.Instant))))
+            .Fold((Cursor: Duration.Zero, Frames: Seq(new Keyframe<ViewCamera>(Duration.Zero, tour.Stops[0].View.Camera, MotionToken.Instant))), (state, stop) =>
+                ReducedMotion.Select(stop.Transition) switch {
+                    var eased => (
+                        Cursor: state.Cursor + stop.Span,
+                        Frames: (eased.Duration > Duration.Zero
+                                ? state.Frames.Add(new Keyframe<ViewCamera>(state.Cursor + eased.Duration, stop.View.Camera, eased))
+                                : state.Frames)
+                            .Add(new Keyframe<ViewCamera>(state.Cursor + stop.Span, stop.View.Camera, MotionToken.Instant))),
+                })
             switch {
                 var projected => Track.OfCamera(tour.Key.Value, projected.Frames)
                     .Bind(track => Timeline.Of(tour.Key.Value, Seq(track), fps, mode)), // the one timeline ingress owns the frame-rate admission
@@ -127,38 +134,37 @@ public static class TourProjection {
 // tour key, samples the SAME projected timeline, and drives the viewport-apply boundary.
 public sealed record TourFollow(Presence Presence, ReviewTour Tour, Timeline Line) {
     public const string PlayheadKey = "tour/playhead";
-    public const string TourField = "tour";
-    public const string FrameField = "frame";
 
     public static Fin<TourFollow> Of(Presence presence, ReviewTour tour, double fps, PlaybackMode mode) =>
         TourProjection.ToTimeline(tour, fps, mode).Map(line => new TourFollow(presence, tour, line));
 
+    // The encoded ephemeral payload is the presence owner's own broadcast concern — the viewport channel's
+    // local-update sink carries it to transport — so the publish verb states the write's outcome alone.
     public Fin<Unit> Publish(long frame) =>
         frame < 0
             ? Fin.Fail<Unit>(new TourFault.StopOutOfRange($"presentation/negative-playhead:{frame}"))
-            : Presence.PublishViewport(PlayheadKey, LoroVal.Of(new Dictionary<string, LoroValue> {
-                [TourField] = new LoroValue.String(Tour.Key.Value),
-                [FrameField] = new LoroValue.I64(frame),
-            })).As();
+            : Presence.PublishViewport(PlayheadKey, LoroVal.Of(
+                (CollabColumn.Tour, LoroVal.Of(Tour.Key.Value)),
+                (CollabColumn.Frame, LoroVal.Of(frame)))).Map(static _ => unit);
 
+    // The remote apply stays DEFERRED inside the effect and its rail is the transformer's carrier, so the
+    // decode, the sample, and the camera drive read as one query instead of a Match ladder over a nested
+    // generic. An absent, expired, or foreign-tour playhead drives nothing and is not a fault.
     public IO<Fin<Unit>> Follow(ReadOnlyMemory<byte> update, TrackInterp interp, Func<ViewCamera, IO<Unit>> applyCamera) =>
-        IO.lift(() => Presence.ApplyRemote(PresenceKind.Viewport, update).Map(_ => Playhead()))
-            .Bind(result => result.Match(
-                Succ: frame => frame
-                    .Bind(at => Line.SampleAt(Line.Playhead().TimeOf(at), interp).Camera)
-                    .Match(
-                        Some: camera => applyCamera(camera).Map(Fin.Succ),
-                        None: () => IO.pure(Fin.Succ(unit))), // absent, expired, or foreign-tour playhead: no drive
-                Fail: static error => IO.pure(Fin.Fail<Unit>(error))));
+        (from frame in new FinT<IO, Option<long>>(
+             IO.lift<Fin<Option<long>>>(() => Presence.ApplyRemote(PresenceKind.Viewport, update).Map(_ => Playhead())))
+         from applied in FinT.liftIO<IO, Unit>(frame
+             .Bind(at => Line.SampleAt(Line.Playhead().TimeOf(at), interp).Camera)
+             .Match(Some: applyCamera, None: static () => IO.pure(unit)))
+         select applied).runFin.As();
 
-    // Structured decode at the leaf: a playhead naming another tour gates to None, never a mis-drive.
+    // Structured decode at the leaf through the one column-keyed owner: the foreign-tour gate stays a Filter
+    // on the tour field, so a playhead naming another tour still reads None, never a mis-drive.
     Option<long> Playhead() =>
-        Optional(Presence.Viewport.Get(PlayheadKey)).Bind(value =>
-            value is LoroValue.Map { Value: var fields }
-                && fields.TryGetValue(TourField, out LoroValue? tour) && tour is LoroValue.String { Value: var key } && key == Tour.Key.Value
-                && fields.TryGetValue(FrameField, out LoroValue? frame) && frame is LoroValue.I64 { Value: var at }
-                ? Some(at)
-                : None);
+        Optional(Presence.Viewport.Get(PlayheadKey)).Map(static leaf => new LoroVal(leaf)).Bind(held =>
+            held.Field(CollabColumn.Tour, static leaf => leaf.Text)
+                .Filter(key => key == Tour.Key.Value)
+                .Bind(_ => held.Field(CollabColumn.Frame, static leaf => leaf.Whole)));
 }
 ```
 
@@ -242,7 +248,7 @@ public abstract partial record TourSource {
                 topic.Topics
                     .Bind(t => t.Viewpoints.Map(viewpoint => (Topic: t, Viewpoint: viewpoint)))
                     .TraverseM(row => NarrationTrack
-                        .Of(row.Topic.Title, row.Topic.Comments.HeadOrNone().Map(static comment => comment.Text).Filter(static text => !string.IsNullOrEmpty(text)))
+                        .Of(row.Topic.Title, row.Topic.Comments.Head.Map(static comment => comment.Text).Filter(static text => !string.IsNullOrEmpty(text)))
                         .Bind(narration => TourStop.Admit(
                             ViewpointCodec.FromBcf(row.Viewpoint.Guid, row.Viewpoint, ctx.Clocks),
                             MotionToken.SpringGentle.Duration,
@@ -262,6 +268,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Review tour composition and presence follow
+    accDescr: Tour sources and BCF topics building one review tour of stops carrying viewpoint, motion token, and narration, the tour projecting onto the render timeline for walkthrough capture, and the follow lane publishing a structured playhead remote presence samples back.
     TourSource -->|Build| ReviewTour
     BcfTopic -->|FromBcf| ReviewTour
     ReviewTour --> TourStop

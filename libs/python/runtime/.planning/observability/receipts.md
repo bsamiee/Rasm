@@ -29,7 +29,7 @@ from typing import Final, Literal, Protocol, assert_never, get_args, runtime_che
 
 import psutil
 import structlog
-from expression import Error, Ok, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.json import Encoder
@@ -117,7 +117,7 @@ class Cost(Struct, frozen=True, gc=False):
     switches: int = 0
 
     @classmethod
-    def sampled(cls, process: psutil.Process) -> "Cost":
+    def sampled(cls, process: psutil.Process) -> "Option[Cost]":
         with suppress(*PROCESS_FAULTS), process.oneshot():
             times = process.cpu_times()
             io_bytes = 0
@@ -126,24 +126,40 @@ class Cost(Struct, frozen=True, gc=False):
                     io = process.io_counters()
                     io_bytes = io.read_bytes + io.write_bytes
             ctx = process.num_ctx_switches()
-            return cls(
-                cpu_ms=(times.user + times.system) * 1000.0,
-                rss_bytes=process.memory_info().rss,
-                io_bytes=io_bytes,
-                switches=ctx.voluntary + ctx.involuntary,
+            return Some(
+                cls(
+                    cpu_ms=(times.user + times.system) * 1000.0,
+                    rss_bytes=process.memory_info().rss,
+                    io_bytes=io_bytes,
+                    switches=ctx.voluntary + ctx.involuntary,
+                )
             )
-        return cls()
+        # a vanished, zombied, or access-denied process MEASURED NOTHING, and this is the one shape that says so —
+        # the same absence `ProcessReading.sample` takes at the gauge owner, held here for the same reason. A zeroed
+        # `Cost` in its place is not a small error: the reads are CUMULATIVE process counters, so a failed OPENING
+        # read makes the closing one's whole process lifetime read as this bracket's spend, and a failed CLOSING read
+        # publishes zero CPU beside a hugely negative RSS delta. Both land on `rasm.cost.*` as measured facts.
+        return Nothing
 
     @classmethod
-    def own(cls) -> "Cost":
+    def own(cls) -> "Option[Cost]":
         return cls.sampled(_PROCESS)
 
-    def delta(self, prior: "Cost") -> "Cost":
-        return Cost(
-            cpu_ms=max(self.cpu_ms - prior.cpu_ms, 0.0),
-            rss_bytes=self.rss_bytes - prior.rss_bytes,
-            io_bytes=max(self.io_bytes - prior.io_bytes, 0),
-            switches=max(self.switches - prior.switches, 0),
+    @staticmethod
+    def spent(closing: "Option[Cost]", opening: "Option[Cost]") -> "Option[Cost]":
+        # a bracket has a spend only when BOTH ends read: absence on either side is what forecloses attributing a
+        # cumulative counter's whole history to one window. RSS stays signed because retained-memory change is
+        # legitimately negative; the three monotonic counters floor at zero, where a negative reading can only mean
+        # the process was replaced between the two reads.
+        return opening.bind(
+            lambda prior: closing.map(
+                lambda now: Cost(
+                    cpu_ms=max(now.cpu_ms - prior.cpu_ms, 0.0),
+                    rss_bytes=now.rss_bytes - prior.rss_bytes,
+                    io_bytes=max(now.io_bytes - prior.io_bytes, 0),
+                    switches=max(now.switches - prior.switches, 0),
+                )
+            )
         )
 
     @staticmethod
@@ -179,7 +195,9 @@ class DrainReceipt[T](Struct, frozen=True):
     cache: Map[ContentKey, T] = Map.empty()
     faults: Block[BoundaryFault] = Block.empty()
     hit: int = 0
-    cost: Cost = Cost()
+    # absent when either end of the drain-window bracket failed to read: a window with no
+    # measurable spend reports none rather than a zero a board reads as a free drain.
+    cost: Option[Cost] = Nothing
 
     @staticmethod
     def of[U](
@@ -188,7 +206,7 @@ class DrainReceipt[T](Struct, frozen=True):
         resolved: Block[tuple[Option[ContentKey], RuntimeRail[U]]],
         replayed: Block[tuple[ContentKey, U]],
         cache: Map[ContentKey, U],
-        cost: Cost = Cost(),
+        cost: Option[Cost] = Nothing,
     ) -> "DrainReceipt[U]":
         merged = resolved.append(replayed.map(lambda pair: (Some(pair[0]), Ok(pair[1]))))
         completed = resolved.choose(lambda pair: pair[1].to_option())
@@ -236,7 +254,7 @@ class Receipt:
             case Receipt(tag="rejected", rejected=(owner, fault)):
                 return "warning", "rejected", {"owner": owner, **fault.facts()}
             case Receipt(tag="drained", drained=(owner, drain)):
-                return "info", "drained", {"owner": owner, **_rss(), **drain.cost.facts(), **{column: getattr(drain, column) for column in DRAIN_COLUMNS}}
+                return "info", "drained", {"owner": owner, **_rss(), **drain.cost.map(Cost.facts).default_value({}), **{column: getattr(drain, column) for column in DRAIN_COLUMNS}}
             case _ as unreachable:
                 assert_never(unreachable)
 

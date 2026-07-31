@@ -1,12 +1,12 @@
 # [RASM_ARRANGEMENT_DELAUNAY]
 
-`Rasm.Meshing` owns exact constrained Delaunay triangulation and tetrahedralization: one `Tessellation` `[Union]` built by one `Tessellation.Build` entry over one `SimplexStore` arena, every vertex carried by its defining entities through the `Implicit` row store so a constructed crossing keeps exact signs and rounds once, at the `ToMesh` emission seam. `TessellationPolicy.Mode` closes the two build regimes — `Delaunay` restores empty-circum by predicate-guarded flips, `Constrained` is the zero-in-circum exact-arrangement regime mandatory for implicit-bearing builds. One union over one store owns the whole insertion algebra, never a per-kind triangulator family.
+`Rasm.Meshing` owns exact constrained Delaunay triangulation and tetrahedralization: one `Tessellation` `[Union]` built by `Tessellation.Build` over one `SimplexStore` arena, every vertex carried by defining entities through the `Implicit` store, so a constructed crossing keeps exact signs and rounds once at the `ToMesh` emission seam. `TessellationPolicy.Mode` closes the two build regimes — `Delaunay` restores empty-circum by predicate-guarded flips, `Constrained` holds zero-in-circum exactness for implicit-bearing builds — one union over one store owning the whole insertion algebra.
 
-`Implicit` rows are the exact vertex carrier, and every walk, cavity, flip, and recovery sign composes the `Predicate` family — both owned at `Numerics`, minted nowhere here. `SimplexStore` obeys the `Meshing/edit` arena contract, and `ToMesh` publishes through that arena's freeze: the one path from live build state to the hashable `MeshSpace` that `Spatial/reconciliation` `Encode` content-addresses. Failures route the band-2400 `GeometryFault` union. `VoronoiDual` and `LowerHull` serve the `Meshing/offset` medial substrate and the Fabrication envelope gate, this page holding the predicate-gated exact tier beside the `Spatial/cloud` host-kind hull rail, one anchor each side.
+`Implicit` rows are the exact vertex carrier, and every walk, cavity, flip, and recovery sign composes the `Predicate` family — both owned at `Numerics`. `SimplexStore` obeys the `Meshing/edit` arena contract, `ToMesh` publishing through that arena's freeze to the hashable `MeshSpace` that `Spatial/reconciliation` `Encode` content-addresses; failures route the band-2400 `GeometryFault` union. `VoronoiDual` and `LowerHull` serve the `Meshing/offset` medial substrate and the Fabrication envelope gate, the predicate-gated exact tier beside the `Spatial/cloud` host-kind hull rail.
 
 ## [01]-[INDEX]
 
-- [02]-[TESSELLATION]: one `Build(TessellationOp, Op?)` entry; `Tessellation` `[Union]` over one `SimplexStore` arena of `Implicit` rows; cavity-flood or split-insert by mode; constraint recovery with defining-entity Steiner re-anchoring; `ToMesh`/`Triangles`/`VoronoiDual`/`LowerHull` projections.
+- [02]-[TESSELLATION]: one `Build(TessellationOp, Op?)` entry; `Tessellation` `[Union]` over one `SimplexStore` arena of `Implicit` rows; cavity-flood or split-insert by mode; constraint recovery with defining-entity Steiner re-anchoring; `ToMesh`/`Triangles`/`VoronoiDual`/`LowerHull` projections, the dual's bounded-cell overload clipping each site's cell to an admitted boundary ring.
 - [03]-[DENSITY_BAR]: one owner per axis-concern, each a case, row, or fold arm over the one store.
 
 ## [02]-[TESSELLATION]
@@ -18,7 +18,7 @@
 - Receipt: none on the build rail — the `Tessellation` value is the result and registers `IValidityEvidence`; the hash-eligible artifact is the frozen `MeshSpace` the `ToMesh` freeze publishes, never the live arena.
 - Packages: `Rasm.Numerics` (the `Predicate` floor and `Implicit` carrier, the band-2400 `GeometryFault` union), `Rasm.Meshing` (the `MeshEdit` arena freeze and `MeshSpace`), `Rasm.Domain` (`Op` threading, `Context`, `ValidityClaim`), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new tessellation modality is one `TessellationKind` or `TessellationMode` row and one fold arm over the same `SimplexStore`; a new constraint shape is one `Constraint` case and one `RecoverOne` arm; a new vertex-row construction is the `Numerics` predicate owner's `Implicit` case, this page widening by zero members.
-- Boundary: the `Implicit` carrier keeps signs exact and rounds coordinates once at the emission seam; the depth-1 seal binds every constructed vertex — an implicit row references input points only, and a recovery split re-expresses over original entities through the `Constraint` carriage. An implicit-bearing `Delaunay` build faults at admission rather than coercing the mode. `Build` and the projections are total over the `Fin` rail; recovery splits a constraint within budget or faults typed with its index, never dropping it. Consumers reach this owner only through `Build` and the projections; `VoronoiDual` and `LowerHull` hold the predicate-gated exact envelope tier while `Spatial/cloud` owns the host and concave hull kinds.
+- Boundary: the `Implicit` carrier keeps signs exact and rounds coordinates once at the emission seam; the depth-1 seal binds every constructed vertex — an implicit row references input points only, and a recovery split re-expresses over original entities through the `Constraint` carriage. Implicit-bearing `Delaunay` builds fault at admission rather than coercing the mode. `Build` and the projections are total over the `Fin` rail; recovery splits a constraint within budget or faults typed with its index, never dropping it. Consumers reach this owner only through `Build` and the projections; `VoronoiDual` and `LowerHull` hold the predicate-gated exact envelope tier while `Spatial/cloud` owns the host and concave hull kinds.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -183,6 +183,9 @@ public abstract partial record Constraint {
 // Voronoi-dual projection carrier: circumcenters + circumradii (the clearance payload), dual
 // edges, and the crossed DT edge per dual edge; node i names the same live triangle Triangles()[i].
 public sealed record DualGraph(Point3d[] Circumcenters, double[] Radius, (int A, int B)[] Edges, (int U, int V)[] Across);
+
+// One bounded Voronoi cell: the site's vertex index and its closed CCW ring clipped to the admitted boundary.
+public sealed record BoundedCell(int Site, Point3d[] Ring);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -437,7 +440,7 @@ public abstract partial record Tessellation : IValidityEvidence {
             for (int f = 0; f < 4; f++) {
                 (Point3d u1, Point3d u2, Point3d u3) = (Store.Row(vs[(f + 1) & 3]).AsExplicit, Store.Row(vs[(f + 2) & 3]).AsExplicit, Store.Row(vs[(f + 3) & 3]).AsExplicit);
                 if (Predicate.Orient3D(u1, u2, u3, q.AsExplicit) == Sign.Zero) {
-                    // A silent 1->4 here mints a zero-volume tet; the 2->6 on-face split is deferred.
+                    // Splitting 1->4 silently here mints a zero-volume tet; the 2->6 on-face split is deferred.
                     return Fin.Fail<int>(new GeometryFault.DegenerateTessellation(at, "on-face 3D split is CDTet-gated growth").ToError());
                 }
             }
@@ -649,7 +652,9 @@ public abstract partial record Tessellation : IValidityEvidence {
     // --- [RESTORE]
     // Delaunay-mode terminal pass: flip non-pinned explicit-cornered edges failing empty-circum,
     // bounded by MaxFlipPasses; the constrained regime returns immediately. 2D only — the 3D
-    // Delaunay property rides the cavity insertion itself.
+    // Delaunay property rides the cavity insertion itself. Budget exhaustion FAULTS on the same law
+    // every other bounded walk on this page takes — a still-flipping set returned as success is a
+    // triangulation the mode promises is Delaunay and is not, indistinguishable from a converged one.
     Fin<Tessellation> Restore() {
         if (!Policy.Mode.Restores || Kind.SimplexArity != 3) { return Fin.Succ(this); }
         for (int pass = 0; pass < Policy.MaxFlipPasses; pass++) {
@@ -668,7 +673,7 @@ public abstract partial record Tessellation : IValidityEvidence {
             }
             if (!flipped) { return Fin.Succ(this); }
         }
-        return Fin.Succ(this);
+        return Fin.Fail<Tessellation>(new GeometryFault.DegenerateTessellation(Store.LastLive(), "empty-circum restoration exhausted MaxFlipPasses").ToError());
     }
 
     // Strip, then the degenerate gate: a set whose every simplex touches the super frame (collinear,
@@ -687,7 +692,7 @@ public abstract partial record Tessellation : IValidityEvidence {
             }
         }
         return Store.LiveCount == 0
-            ? Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, 0, "fully degenerate set: no simplex survives the super strip").ToError())
+            ? Fin.Fail<Tessellation>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, None, "fully degenerate set: no simplex survives the super strip").ToError())
             : Fin.Succ(this);
     }
 
@@ -743,12 +748,21 @@ public abstract partial record Tessellation : IValidityEvidence {
         double[] radius = new double[live.Length];
         for (int i = 0; i < live.Length; i++) {
             ReadOnlySpan<int> vs = Store.SimplexVertices(live[i]);
-            if (!Store.Row(vs[0]).IsExplicit || !Store.Row(vs[1]).IsExplicit || !Store.Row(vs[2]).IsExplicit) {
+            (Implicit r0, Implicit r1, Implicit r2) = (Store.Row(vs[0]), Store.Row(vs[1]), Store.Row(vs[2]));
+            if (!r0.IsExplicit || !r1.IsExplicit || !r2.IsExplicit) {
                 return Fin.Fail<DualGraph>(new GeometryFault.DegenerateTessellation(live[i], "implicit-bearing dual").ToError());
             }
-            (centers[i], radius[i]) = Circumcircle(Store.Row(vs[0]).AsExplicit, Store.Row(vs[1]).AsExplicit, Store.Row(vs[2]).AsExplicit, Projection);
-            if (!ValidityClaim.Finite(point: centers[i])) {  // a collinear live triangle has no circumcircle — a NaN centre would poison the medial
-                return Fin.Fail<DualGraph>(new GeometryFault.DegenerateTessellation(live[i], "degenerate circumcircle").ToError());
+            // Collinearity is decided EXACTLY before the divide, never inferred from the quotient: the
+            // circumcentre's `2·(b×c)` denominator cancels catastrophically on a near-collinear triple and
+            // lands a huge FINITE centre that clears any non-finiteness probe and poisons the medial. The
+            // finiteness gate stays for the disjoint cause it does catch — a coordinate range overflowing
+            // the divide on an exactly non-degenerate triple.
+            if (Predicate.Orient2D(in r0, in r1, in r2, Projection) == Sign.Zero) {
+                return Fin.Fail<DualGraph>(new GeometryFault.DegenerateTessellation(live[i], "collinear live triangle has no circumcircle").ToError());
+            }
+            (centers[i], radius[i]) = Circumcircle(r0.AsExplicit, r1.AsExplicit, r2.AsExplicit, Projection);
+            if (!ValidityClaim.Finite(point: centers[i])) {
+                return Fin.Fail<DualGraph>(new GeometryFault.DegenerateTessellation(live[i], "circumcircle overflowed the coordinate range").ToError());
             }
         }
         List<(int A, int B)> edges = new();
@@ -764,6 +778,94 @@ public abstract partial record Tessellation : IValidityEvidence {
             }
         }
         return Fin.Succ(new DualGraph(centers, radius, [.. edges], [.. across]));
+    }
+
+    // Bounded-cell overload of the SAME dual: each site's Voronoi cell is the intersection of its neighbor
+    // bisector half-planes, and the admitted boundary ring seeds the clip, so a hull site's unbounded cell
+    // closes against the boundary rather than radiating. One closed CCW ring per surviving site, rounded at
+    // this emission seam like every dual coordinate. Retires the foreign bounded Fortune tessellator (and the
+    // third forked RNG it carried) from the Fabrication partition and cut-linking consumers.
+    public Fin<BoundedCell[]> VoronoiDual(Polyline boundary, Op? key = null) {
+        Op op = key.OrDefault();
+        if (Kind != TessellationKind.Triangulation) { return Fin.Fail<BoundedCell[]>(new GeometryFault.DegenerateTessellation(0, "dual is a triangulation projection").ToError()); }
+        return from _ in guard(boundary.IsClosed && boundary.Count >= 4 && boundary.All(static p => p.IsValid), op.InvalidInput()).ToFin()
+               from cells in op.AcceptValue(value: ClipCells(boundary: boundary))
+               select cells;
+    }
+    // Sutherland-Hodgman half-plane fold, one cell per live site: fold the boundary ring through each incident
+    // Delaunay neighbor's perpendicular bisector — the half-plane containing the site, side decided by exact
+    // Orient2D over the bisector frame — and a ring emptied by the fold (a site outside the boundary) drops its
+    // cell. The clipper is always a half-plane, so a non-convex admitted boundary stays legal.
+    BoundedCell[] ClipCells(Polyline boundary) {
+        (int u, int v) = (Projection.U, Projection.V);
+        Point3d[] seed = Wound(boundary, u, v);
+        List<BoundedCell> cells = new();
+        for (int site = 0; site < Store.VertexCount; site++) {
+            if (site >= SuperBase && site < SuperBase + Kind.SimplexArity) { continue; }
+            if (Store.Anchor(site) < 0) { continue; }  // stripped out with its incident simplices
+            Point3d at = Store.Row(site).Round();
+            List<Point3d> ring = new(seed);
+            foreach (int neighbour in Adjacent(site)) {
+                ring = Halfplane(ring, at, Store.Row(neighbour).Round(), u, v);
+                if (ring.Count < 3) { break; }
+            }
+            if (ring.Count >= 3) { cells.Add(new BoundedCell(site, [.. ring, ring[0]])); }
+        }
+        return [.. cells];
+    }
+
+    // Delaunay neighbours of a site — the other corners of its live incident simplices. Every bisector the
+    // cell needs is an incident one: a non-neighbour's bisector never cuts the site's own Voronoi region.
+    // Sorted, because the star flood's visit order is store-layout-dependent and the clip fold's cyclic
+    // start vertex follows it — a content-addressed cell ring cannot inherit that.
+    int[] Adjacent(int site) {
+        IndexSet ring = [];
+        foreach (int s in Star(site)) {
+            foreach (int w in Store.SimplexVertices(s)) {
+                if (w != site && !(w >= SuperBase && w < SuperBase + Kind.SimplexArity)) { ring.Add(w); }
+            }
+        }
+        int[] ordered = [.. ring];
+        Array.Sort(ordered);
+        return ordered;
+    }
+
+    // One half-plane clip in the projection plane: the frame is (mid, mid + perp) on the bisector of
+    // (at, other), and the KEEP side is the exact Orient2D sign the site itself takes — derived, never the
+    // constant the perpendicular's handedness happens to make it. The raw in-plane offsets supply the
+    // crossing parameter alone, so the decision stays exact and only the emitted coordinate rounds; the
+    // crossing lerps the whole Point3d, carrying the out-of-plane ordinate with no per-axis reseating.
+    static List<Point3d> Halfplane(List<Point3d> ring, Point3d at, Point3d other, int u, int v) {
+        (double mx, double my) = ((Axis.Coord(at, u) + Axis.Coord(other, u)) * 0.5, (Axis.Coord(at, v) + Axis.Coord(other, v)) * 0.5);
+        (double px, double py) = (Axis.Coord(at, v) - Axis.Coord(other, v), Axis.Coord(other, u) - Axis.Coord(at, u));
+        Sign keep = Predicate.Orient2D(mx, my, mx + px, my + py, Axis.Coord(at, u), Axis.Coord(at, v));
+        List<Point3d> kept = new(ring.Count + 4);
+        for (int i = 0; i < ring.Count; i++) {
+            (Point3d a, Point3d b) = (ring[i], ring[(i + 1) % ring.Count]);
+            (Sign sa, Sign sb) = (Side(a), Side(b));
+            if (sa != keep.Flip) { kept.Add(a); }  // on-bisector rows stay: a Zero row bounds the cell exactly
+            if (sa.Times(sb) != Sign.Negative) { continue; }
+            (double fa, double fb) = (Offset(a), Offset(b));
+            kept.Add(a + ((b - a) * (fa / (fa - fb))));
+        }
+        return kept;
+
+        Sign Side(Point3d p) => Predicate.Orient2D(mx, my, mx + px, my + py, Axis.Coord(p, u), Axis.Coord(p, v));
+        double Offset(Point3d p) => (px * (Axis.Coord(p, v) - my)) - (py * (Axis.Coord(p, u) - mx));
+    }
+
+    // Seed ring wound CCW in the projection plane: the boundary's own signed area decides, so a CW-admitted
+    // boundary emits the same cells rather than mirrored ones, and the closing duplicate drops here so the
+    // fold's `(i + 1) % Count` wrap is the only closure law.
+    static Point3d[] Wound(Polyline boundary, int u, int v) {
+        Point3d[] open = [.. boundary.Take(boundary.Count - 1)];
+        double twice = 0.0;
+        for (int i = 0; i < open.Length; i++) {
+            (Point3d a, Point3d b) = (open[i], open[(i + 1) % open.Length]);
+            twice += (Axis.Coord(a, u) * Axis.Coord(b, v)) - (Axis.Coord(b, u) * Axis.Coord(a, v));
+        }
+        if (twice < 0.0) { Array.Reverse(open); }
+        return open;
     }
 
     // Paraboloid-lift equivalence: the Delaunay complex IS the lower hull of the lift, so the live
@@ -802,10 +904,13 @@ public abstract partial record Tessellation : IValidityEvidence {
     }
 
     // Face i of [v0,v1,v2] is the edge opposite v[i]. The quad's four OUTWARD neighbours are the
-    // two non-shared faces of each dying triangle; the shared (p,q) face dies with them.
+    // two non-shared faces of each dying triangle; the shared (p,q) face dies with them. IncidentPair
+    // already proved s and t both carry p and q, so IndexOf cannot miss — a miss-arm returning face 0
+    // would rewire a live neighbour onto the wrong face and corrupt the store silently, so the lookup
+    // is total by contract and reads the BCL span lookup with no local re-derivation.
     void RewireFlip(int s, int t, int p, int q, int apexS, int apexT) {
-        (int sOppP, int sOppQ) = (Store.Neighbour(s, IndexOf(s, p)), Store.Neighbour(s, IndexOf(s, q)));
-        (int tOppP, int tOppQ) = (Store.Neighbour(t, IndexOf(t, p)), Store.Neighbour(t, IndexOf(t, q)));
+        (int sOppP, int sOppQ) = (Store.Neighbour(s, Store.SimplexVertices(s).IndexOf(p)), Store.Neighbour(s, Store.SimplexVertices(s).IndexOf(q)));
+        (int tOppP, int tOppQ) = (Store.Neighbour(t, Store.SimplexVertices(t).IndexOf(p)), Store.Neighbour(t, Store.SimplexVertices(t).IndexOf(q)));
         Store.Kill(s);
         Store.Kill(t);
         Span<int> va = [apexS, apexT, q];
@@ -820,14 +925,6 @@ public abstract partial record Tessellation : IValidityEvidence {
         Store.LinkBack(sOppP, s, a);
         Store.LinkBack(sOppQ, s, b);
         Store.LinkBack(tOppQ, t, b);
-
-        int IndexOf(int simplex, int vertex) {
-            ReadOnlySpan<int> vs = Store.SimplexVertices(simplex);
-            for (int i = 0; i < vs.Length; i++) {
-                if (vs[i] == vertex) { return i; }
-            }
-            return 0;
-        }
     }
 
     Fin<Tessellation> RecoverFacet(Constraint.Facet facet, int index) =>
@@ -884,6 +981,7 @@ public abstract partial record Tessellation : IValidityEvidence {
         foreach (int v in Store.SimplexVertices(t)) {
             if (v != face[0] && v != face[1] && v != face[2]) { q = v; break; }
         }
+        if (q < 0) { return false; }  // t does not oppose s across this face — refuse, never index Row(-1) out of the Fin rail
         (Point3d pp, Point3d pq) = (Store.Row(p).AsExplicit, Store.Row(q).AsExplicit);
         (Point3d fu, Point3d fv, Point3d fw) = (Store.Row(face[0]).AsExplicit, Store.Row(face[1]).AsExplicit, Store.Row(face[2]).AsExplicit);
         Sign s1 = Predicate.Orient3D(pp, pq, fu, fv), s2 = Predicate.Orient3D(pp, pq, fv, fw), s3 = Predicate.Orient3D(pp, pq, fw, fu);
@@ -951,7 +1049,7 @@ public abstract partial record Tessellation : IValidityEvidence {
         return true;
     }
 
-    // A face CONTAINING crossing edge (u,v) taken by the 2-3 move drops the edge's incidence by
+    // Faces CONTAINING crossing edge (u,v) taken by the 2-3 move drop the edge's incidence by
     // one — the peel that unlocks a 3-2 on over-populated edges.
     bool Peel(int u, int v) {
         foreach (int s in Star(u)) {
@@ -1088,6 +1186,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Tessellation build flow
+    accDescr: Vertices and constraints flow through the simplex store build, recovery, and the mesh, triangle, dual, and hull projections.
     TessellationOp -->|Morton order over Round| Insert
     Insert -->|projected Orient2D over Implicit rows| Locate
     Insert -->|mode row: Delaunay cavity / constrained split| SimplexStore

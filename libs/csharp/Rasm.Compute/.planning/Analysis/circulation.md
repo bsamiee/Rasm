@@ -15,7 +15,7 @@ Ingress is honest: targets, spaces, and adjacency arrive off the concrete graph,
 - Cases: one exit-rooted path family drives travel, common path, dead end, and RSET; `MaxFlow` derives throughput; `SolveMaxFlowWithMinCost` prices the routable occupant flow without turning an over-capacity design into a solver fault; saturated adjacency arcs identify capacity bottlenecks without claiming an uncomputed cut partition.
 - Entry: `Run(graph, request, geometry, clock)` emits travel, dead-end, common-path, RSET, throughput, feasible distribution cost, width, and saturated-capacity facts; governing includes every acceptance check.
 - Receipt: the shared assessment receipt carries achieved throughput; saturated arcs land as ONE `saturated-capacity-bottlenecks` `List` fact of typed `Reference` values (per-arc facts under a repeated name overwrite in the write-back `Results` bag); no circulation-local receipt exists.
-- Packages: QuikGraph (`AdjacencyGraph<TVertex, TEdge>`, `ShortestPathsDijkstra`/`ShortestPathsAStar` → `TryFunc<TVertex, IEnumerable<TEdge>>` accessors, the SCC census — its first Compute consumer), Google.OrTools (`Google.OrTools.Graph` `MaxFlow`/`MinCostFlow` natives — each `IDisposable`, `int` node/arc indices, `long` capacities/costs; CP-SAT/MILP stay `Solver/optimizer`'s), Rasm.Element (`ElementGraph`, `NodeId`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
+- Packages: QuikGraph (`AdjacencyGraph<TVertex, TEdge>`, `ShortestPathsDijkstra` → `TryFunc<TVertex, IEnumerable<TEdge>>` accessors, the SCC census — its first Compute consumer; `ShortestPathsAStar` is NOT composed and must not be proposed, because the egress question is every-space-to-nearest-exit and one exit-rooted Dijkstra tree per exit answers it whole, where a heuristic single-pair search would re-run per space-exit pair), Google.OrTools (`Google.OrTools.Graph` `MaxFlow`/`MinCostFlow` natives — each `IDisposable`, `int` node/arc indices, `long` capacities/costs; CP-SAT/MILP stay `Solver/optimizer`'s), Rasm.Element (`ElementGraph`, `NodeId`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new occupancy class is one `OccupancyClass` row; a new egress check is one fold over the same view; a new code edition is the route row's `SolverVersion` bump; zero new surface — a `TravelDistanceAnalyzer`/`ExitCapacityAnalyzer` sibling family the collapsed defect, a managed Edmonds-Karp beside the OrTools push-relabel the rejected reinvention. Seeded runners land one row/route/runner when chartered: MEP network-flow (`Discipline.Water`, the Todini global-gradient algebra over the sparse solver + QuikGraph), geometric room-acoustics (image-source over the clash BVH), and the `StronglyConnectedComponents` wayfinding deepening for multi-storey routes.
 - Boundary: flow capacities and costs quantize to `long`; saturated arcs are bottleneck candidates, not a min-cut partition. QuikGraph owns paths, occupancy is mandatory request evidence, and door width/geometry must resolve before either graph algorithm runs.
 
@@ -118,9 +118,9 @@ public static class CirculationAnalysis {
         Seq<(NodeId Exit, TryFunc<NodeId, System.Collections.Generic.IEnumerable<EgressEdge>> Paths)> rooted =
             view.Exits.Map(exit => (exit, view.Adjacency.ShortestPathsDijkstra(static edge => edge.LengthM, exit)));
         return view.Spaces.TraverseM(space => {
-            Seq<(NodeId Exit, Seq<EgressEdge> Path, double LengthM)> routes = rooted
+            Seq<(NodeId Exit, Seq<EgressEdge> Path, double LengthM)> routes = toSeq(rooted
                 .Choose(root => root.Paths(space.Space, out System.Collections.Generic.IEnumerable<EgressEdge> path) ? Some((root.Exit, toSeq(path), toSeq(path).Sum(static e => e.LengthM))) : None)
-                .OrderBy(static r => r.LengthM).ToSeq();
+                .OrderBy(static r => r.LengthM));
             return routes.IsEmpty
                 ? Fin.Fail<EgressFinding>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Input, $"<egress-unreachable:{space.Space.Value}>"))
                 : Finding(view, space, routes, policy);

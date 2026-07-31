@@ -13,10 +13,10 @@ CAM motion closes the admitted `(ProcessModality, CutStrategy)` cross-product un
 - Owner: `EngagementPolicy` is the `[ComplexValueObject]` policy owner; `EntryPolicy` is the per-variant payload family for tangential arc, ramp, plunge, and helical entry; `SeamPolicy` and `HoleCycle` are constructor-bound behavior rows; `HoleLaw` is the admitted hole geometry every cycle reads; `LathePolicy` keys one `TurnStep` program per admitted turning strategy; `Cam` owns `Solve` and `Generate`. `MotionMounts` carries fixture state and holder evidence in both cases; `Mounted` also carries the clearance channel, spatial index, and machine kinematics. `MotionRun` is the admitted execution carrier built from policy, input, and the carried mounts.
 - Cases: every `CutStrategy` row lands in the generated total switch. `HoleCycle` covers spotting, drilling, pecking, chip-breaking, deep-hole, reaming, interpolated boring, counterboring, countersinking, and fine boring. Fine boring emits an `OrientedStop` directive; turning projects spindle, dwell, synchronization, and barrier semantics into `MotionDirective` without falsifying Cartesian moves.
 - Entry: `Solve(FabricationPolicy.Cam, FabricationInput)` is the owner-side fold. `Generate(MotionRun)` derives its `(ProcessModality, CutStrategy)` discriminant from the admitted carrier and dispatches elements. Both return `Fin`; generated `Validate` advice admits every policy axis once, independent profile defects accumulate at the closed-boundary gate, and dependent generation aborts.
-- Auto: `EngagementPolicy.Resolve` folds the budget case against process modality and returns feed, compensation, and step-down only for matching pairs. `EngagementPolicy.Schedule` derives axial-pass rows from total depth, step ceiling, finish step-down, and allowances. `MotionRun.Of` resolves scallop chord and IT-grade allowance once. `Solve` submits link objective, precedence, home, work offset, and lowering; `Commit` conditions the linked program once through `Workholding.Apply`, then `Guard.Check` accumulates every hazard into one verdict. `MotionMounts.Floor` admits guard and workholding evidence but rejects execution without joint evidence; `Mounted` threads `CurveSkeleton`, `SpatialIndex`, and kinematics through `MotionRun`.
-- Receipt: `FabricationResult.Motion` carries atom-safe moves, generated directives, joint rows, seconds, and cell code; reach is asserted only by a machine or cell solve. `CutElement` identity composes `CanonicalWriter` and the single `ContentHash.Of` mint over the counted station stream, so geometrically equal elements at one depth remain distinct.
+- Auto: `ElementVariant.Of` derives every element's rotation, thermal exposure, and pierce count off its own emitted motion, so the link objective sums one measurement across stations and transitions. `EngagementPolicy.Resolve` folds the budget case against process modality and returns feed, compensation, and step-down only for matching pairs. `EngagementPolicy.Schedule` derives axial-pass rows from total depth, step ceiling, finish step-down, and allowances. `MotionRun.Of` resolves scallop chord and IT-grade allowance once. `Solve` submits link objective, precedence, home, work offset, lowering, and the SAME hazard fold `Commit` runs, so a transition the guard refuses never enters the beam; `Commit` conditions the linked program once through `Workholding.Apply`, then `Guard.Check` accumulates every hazard into one verdict. `MotionMounts.Floor` admits guard and workholding evidence but rejects execution without joint evidence; `Mounted` threads `CurveSkeleton`, `SpatialIndex`, and kinematics through `MotionRun`.
+- Receipt: `FabricationResult.Motion` carries atom-safe moves, generated directives, joint rows, seconds, and cell code; reach is asserted only by a machine or cell solve. Every element keys through `CutElement.Identify`, the package's one mint, so the occurrence ordinal separates geometrically equal profiles at one depth and an axial shift re-keys rather than inheriting its source's identity.
 - Packages: `Process/owner.md` atoms, `Process/family.md`, `Process/physics.md`, `Process/faults.md`, `Tooling/cuttingdata.md`, `Spec/tolerance.md`, `Geometry2D/algebra.md`, `Geometry2D/arcs.md`, `Rasm.Meshing`, `Toolpath/partition.md`, `Toolpath/skeleton.md`, `Toolpath/surface.md`, `Toolpath/turning.md`, `Toolpath/link.md`, `Toolpath/guard.md`, `Fixturing/workholding.md`, `Kinematics/machine.md`, `Kinematics/cell.md`, `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `ContentHash.Of`, `RhinoCommon`, BCL inbox.
-- Growth: a new strategy is one family row, one modality admission, and one total-switch arm; a modality-divergent body is one arm on that row's `ProcessModality.Switch`. New hole behavior is one `HoleCycle` row and its `HoleLaw` column; a new turning strategy is one `LathePolicy.Programs` key. A new pass class is one row in the `Schedule` generator, never a caller-authored depth roster.
+- Growth: a new strategy is one family row, one modality admission, and one total-switch arm; a modality-divergent body is one arm on that row's `ProcessModality.Switch`. New hole behavior is one `HoleCycle` row and its `HoleLaw` column; a new turning strategy is one `LathePolicy.Programs` key; each new pass class is one row in the `Schedule` generator, never a caller-authored depth roster.
 - Boundary: `Cam` never uses pass count as an axial-depth surrogate, never feeds between islands, rings, graph components, native paths, or fill strokes, and never chord-samples a revolution a `Move.Circular` arc states exactly. Fabricated physics, Cartesian coordinates relabeled as joints, and automatic guard lifts stay unrepresentable.
 
 ```csharp signature
@@ -25,6 +25,7 @@ using System.Globalization;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
@@ -160,12 +161,12 @@ public sealed partial class HoleCycle {
                 (Move)new Move.Rapid(target.Clear(law)),
                 new Move.Linear(target.At(depth), target.Feed),
                 new Move.Rapid(target.Clear(law))))
-            : Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "hole:countersink:included-angle").ToError());
+            : Fin.Fail<Seq<Move>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "hole:countersink:included-angle"));
 
     // Quarter revolutions ride `Move.Circular` exactly; chord sampling governs linear approximation alone.
     private static Fin<Seq<Move>> Interpolated(HoleTarget target, HoleLaw law, double radius, double depth) =>
         radius <= 0.0 || depth <= 0.0 || target.StepMm <= 0.0 || !double.IsFinite(radius) || !double.IsFinite(depth)
-            ? Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "hole:interpolated-clearance").ToError())
+            ? Fin.Fail<Seq<Move>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "hole:interpolated-clearance"))
             : Count(depth, target.StepMm, (int.MaxValue - 1) / 4, "hole:interpolated-passes").Map(turns => Cam.Helix(
                 target.Top,
                 radius,
@@ -191,7 +192,7 @@ public sealed partial class HoleCycle {
         double count = Math.Ceiling(extent / step);
         return double.IsFinite(count) && count >= 1.0 && count <= ceiling
             ? Fin.Succ(checked((int)count))
-            : Fin.Fail<int>(new GeometryFault.DegenerateInput(Kind.Curve, -1, slot).ToError());
+            : Fin.Fail<int>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, slot));
     }
 
     private static double FullRetract(HoleTarget target, HoleLaw law, double depth) =>
@@ -280,13 +281,11 @@ public sealed partial class LathePolicy {
 
     public Fin<Seq<TurnStep>> Steps(CutStrategy strategy) =>
         Programs.Find(strategy).ToFin(
-            new GeometryFault.DegenerateInput(Kind.Curve, -1, $"lathe-policy:unprogrammed:{strategy.Key}").ToError());
+            new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"lathe-policy:unprogrammed:{strategy.Key}"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MotionMounts(Fixture Fixture, FixtureState State, HolderState Holder) {
-    private MotionMounts() { }
-
     public sealed record Floor(Fixture GuardFixture, FixtureState CuttingState, HolderState GuardHolder)
         : MotionMounts(GuardFixture, CuttingState, GuardHolder);
     public sealed record Mounted(
@@ -322,14 +321,14 @@ public sealed partial class EngagementPolicy {
     public WalkStrategy Walk { get; }
     public double InfillAngleDeg { get; }
     public double InfillAngleAdvanceDeg { get; }
-    public Rasm.Fabrication.Geometry2D.OffsetPolicy PlanarOffset { get; }
+    public OffsetPolicy PlanarOffset { get; }
     public double ThreadPitchMm { get; }
     public double PencilContactAngleDeg { get; }
     public SurfaceSampling Sampling { get; }
     public WaterlineMode Waterline { get; }
     public GuardPolicy Guard { get; }
     public Seq<GuardProbe> Probes { get; }
-    public LinkPolicyRaw Link { get; }
+    public LinkPolicy Link { get; }
     public LinkObjective LinkObjective { get; }
     public Arr<OrderConstraint> LinkPrecedence { get; }
     public Point3d Home { get; }
@@ -363,14 +362,14 @@ public sealed partial class EngagementPolicy {
         ref WalkStrategy walk,
         ref double infillAngleDeg,
         ref double infillAngleAdvanceDeg,
-        ref Rasm.Fabrication.Geometry2D.OffsetPolicy planarOffset,
+        ref OffsetPolicy planarOffset,
         ref double threadPitchMm,
         ref double pencilContactAngleDeg,
         ref SurfaceSampling sampling,
         ref WaterlineMode waterline,
         ref GuardPolicy guard,
         ref Seq<GuardProbe> probes,
-        ref LinkPolicyRaw link,
+        ref LinkPolicy link,
         ref LinkObjective linkObjective,
         ref Arr<OrderConstraint> linkPrecedence,
         ref Point3d home,
@@ -416,7 +415,7 @@ public sealed partial class EngagementPolicy {
     public Seq<AxialPass> Schedule(double stepDown, double allowanceMm) {
         double step = Math.Min(MaxAxialDepth, stepDown > 0.0 ? stepDown : MaxAxialDepth);
         double rough = Math.Max(0.0, AxialDepthMm - FinishStepDownMm);
-        return Range(1, Math.Max(1, (int)Math.Ceiling(rough / step)))
+        return Range(1, Math.Max(1, (int)Math.Ceiling(rough / step))).ToSeq()
             .Map(level => new AxialPass(
                 Math.Min(rough, level * step),
                 allowanceMm + FinishAllowanceMm,
@@ -462,10 +461,10 @@ public sealed partial class EngagementPolicy {
         feed > 0.0 && compensation >= 0.0 && stepDown >= 0.0
         && double.IsFinite(feed) && double.IsFinite(compensation) && double.IsFinite(stepDown)
             ? Fin.Succ((feed, compensation, stepDown))
-            : Fin.Fail<(double, double, double)>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "engagement:resolved-physics").ToError());
+            : Fin.Fail<(double, double, double)>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "engagement:resolved-physics"));
 
     private static Fin<(double Feed, double Compensation, double StepDown)> Mismatch(ProcessModality modality, string budget) =>
-        Fin.Fail<(double, double, double)>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"engagement:{modality.Key}:{budget}").ToError());
+        Fin.Fail<(double, double, double)>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"engagement:{modality.Key}:{budget}"));
 }
 
 public sealed record MotionRun(
@@ -489,28 +488,30 @@ public sealed record MotionRun(
         from scallop in Tolerance.Apply(new ToleranceRequest.Scallop(policy.Engagement.Finish, policy.Cutter))
         from chord in scallop is ToleranceReceipt.Scallop receipt
             ? Fin.Succ(receipt.StepMm)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:scallop-receipt").ToError())
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:scallop-receipt"))
         from tolerance in Tolerance.Apply(new ToleranceRequest.Allowance(policy.Engagement.FinishGrade))
         from allowance in tolerance is ToleranceReceipt.Allowance grade
             ? Fin.Succ(grade.Millimeters)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:allowance-receipt").ToError())
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:allowance-receipt"))
         let mounts = policy.Engagement.Mounts.Switch(
             floor: static row => (row.Fixture, row.State, row.Holder,
                 Channel: Option<CurveSkeleton>.None, Index: Option<SpatialIndex>.None,
                 Kinematics: Option<MachineKinematics>.None),
             mounted: static row => (row.Fixture, row.State, row.Holder, row.Channel, row.Index, row.Kinematics))
+        // Stock carries blank, forbidden, and snapshot geometry only: `Fixture.Zones` is the sole exclusion-zone
+        // owner and reaches `Guard.Check` through `GuardRequest.Fixture`, so passing it here would seat a second
+        // owner for the same ordinal domain.
         from stock in GuardStock.Validate(
             input.Profiles.ToSeq(),
             input.Keepouts.ToSeq(),
-            mounts.Fixture.Zones,
             input.Snapshots,
             policy.Cutter,
             mounts.Holder,
             mounts.Channel,
             mounts.Index,
-            new ProbeRoute.Reference(),
+            policy.Engagement.Guard.Route,
             out GuardStock guardStock) is { } stockError
-                ? Fin.Fail<GuardStock>(new GeometryFault.DegenerateInput(Kind.Curve, -1, stockError.Message).ToError())
+                ? Fin.Fail<GuardStock>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, stockError.Message))
                 : Fin.Succ(guardStock)
         select new MotionRun(
                 policy,
@@ -531,7 +532,7 @@ public static class Cam {
     public static Fin<FabricationResult> Solve(FabricationPolicy.Cam policy, FabricationInput input) =>
         from _ in input.Process.Modality.Admits(policy.Strategy)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(FabricationFault.InadmissiblePair(
+            : Fin.Fail<Unit>(new FabricationFault.InadmissiblePair(
                 new RelationFault.ModalityStrategy(input.Process.Modality, policy.Strategy)).ToError())
         from __ in ClosedGate(policy.Strategy, input)
         from run in MotionRun.Of(policy, input)
@@ -550,14 +551,18 @@ public static class Cam {
                 policy.Engagement.Link,
                 policy.Engagement.LinkObjective,
                 (points, kind) => Lower(run, points, kind),
-                static moves => Fin.Succ(moves)),
+                // The link beam ranks tours by realized transition cost, so a leg it cannot guard must fail BEFORE
+                // it enters the beam; the identity function admitted every transition unprobed and left
+                // `LinkReceipt.GuardedMoves` counting moves nothing checked. The real fold is the same one `Commit`
+                // runs over the linked program, so one hazard verdict governs both legs.
+                moves => Guard(run, moves, policy.Engagement.Home)),
             static route => (route.Moves, route.Directives.Add(route.SpecializedDirective)))
         from solved in Commit(run, linked.Moves, linked.Directives)
         select (FabricationResult)solved;
 
     public static Fin<Seq<CutElement>> Generate(MotionRun run) =>
         !run.Pair.Modality.Admits(run.Pair.Strategy)
-            ? Fin.Fail<Seq<CutElement>>(FabricationFault.InadmissiblePair(
+            ? Fin.Fail<Seq<CutElement>>(new FabricationFault.InadmissiblePair(
                 new RelationFault.ModalityStrategy(run.Pair.Modality, run.Pair.Strategy)).ToError())
             : run.Pair.Strategy.Switch(
             boundaryPass: _ => Contour(run),
@@ -646,7 +651,7 @@ public static class Cam {
             form:         _ => Extend(run));
 
     private static Fin<Seq<CutElement>> Inadmissible(MotionRun run) =>
-        Fin.Fail<Seq<CutElement>>(FabricationFault.InadmissiblePair(
+        Fin.Fail<Seq<CutElement>>(new FabricationFault.InadmissiblePair(
             new RelationFault.ModalityStrategy(run.Pair.Modality, run.Pair.Strategy)).ToError());
 
     private static Fin<Unit> ClosedGate(CutStrategy strategy, FabricationInput input) =>
@@ -656,7 +661,7 @@ public static class Cam {
                 .Map((loop, index) => (Index: index, loop.Closed))
                 .Filter(static row => !row.Closed) is var open && open.IsEmpty
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(Error.Many([.. open.Map(row => FabricationFault.OpenLoop(FabConcern.Toolpath, row.Index).ToError())]));
+                : Fin.Fail<Unit>(Error.Many([.. open.Map(row => new FabricationFault.OpenLoop(FabConcern.Toolpath, row.Index).ToError())]));
 
     private static bool DemandsClosed(CutStrategy strategy) =>
         strategy.Switch(
@@ -703,11 +708,11 @@ public static class Cam {
                 from receipt in RobotProgram.Run(cell, guarded, new CellProgramRequest.Motion(run.Policy.Cell))
                 from motion in receipt is CellProgramReceipt.Motion completed
                     ? Fin.Succ(completed.Result)
-                    : Fin.Fail<FabricationResult.Motion>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:cell-motion-receipt").ToError())
+                    : Fin.Fail<FabricationResult.Motion>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:cell-motion-receipt"))
                 select motion,
             None: () => run.Kinematics.Match(
                 Some: kinematics => MachineTool.Solve(kinematics, guarded).Map(static solution => solution.Motion),
-                None: () => Fin.Fail<FabricationResult.Motion>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:motion-evidence-unavailable").ToError())))
+                None: () => Fin.Fail<FabricationResult.Motion>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:motion-evidence-unavailable"))))
         select solved with {
             Directives = directives,
             Subjects = (run.Input.Sources + run.Input.ParentRuns).Distinct(),
@@ -717,7 +722,7 @@ public static class Cam {
         Workholding.Apply(new WorkholdingOp.Condition(run.Fixture, run.State, moves)).Bind(result =>
             result is WorkholdingResult.Conditioned conditioned
                 ? Fin.Succ(conditioned.Moves)
-                : Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:workholding-receipt").ToError()));
+                : Fin.Fail<Seq<Move>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:workholding-receipt")));
 
     // Every move is guarded so one verdict reports the whole program's hazards; aborting on the first hides the rest.
     private static Fin<Seq<Move>> Guard(MotionRun run, Seq<Move> moves, Point3d home) =>
@@ -730,7 +735,7 @@ public static class Cam {
 
     private static Fin<Seq<Move>> Lower(MotionRun run, Seq<Point3d> points, RetractKind kind) =>
         points.Count < 2
-            ? Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:link-route").ToError())
+            ? Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:link-route").ToError())
             : Fin.Succ(points.Tail.Map((point, index) =>
                 kind == RetractKind.Ramp || kind == RetractKind.ControlledDescent && index == points.Count - 2
                     ? (Move)new Move.Linear(point, run.Policy.Engagement.Link.PlungeMmPerMin)
@@ -738,7 +743,7 @@ public static class Cam {
 
     private static Seq<Error> Guarded(MotionRun run, Point3d cursor, Move move) =>
         (from part in GuardPart.Validate(cursor, run.Input.Profiles.ToSeq(), out GuardPart guardPart) is { } partError
-            ? Fin.Fail<GuardPart>(new GeometryFault.DegenerateInput(Kind.Curve, -1, partError.Message).ToError())
+            ? Fin.Fail<GuardPart>(new GeometryFault.DegenerateInput(Kind.Curve, None, partError.Message).ToError())
             : Fin.Succ(guardPart)
         from request in GuardRequest.Validate(
             move,
@@ -749,25 +754,26 @@ public static class Cam {
             run.Policy.Engagement.Guard,
             run.Policy.Engagement.Probes,
             out GuardRequest guardRequest) is { } requestError
-                ? Fin.Fail<GuardRequest>(new GeometryFault.DegenerateInput(Kind.Curve, -1, requestError.Message).ToError())
+                ? Fin.Fail<GuardRequest>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, requestError.Message))
                 : Fin.Succ(guardRequest)
         from receipt in Guard.Check(request)
-        select receipt.Hazards.Map(hazard => hazard.Switch(
-            gouge: row => FabricationFault.Gouge(row.Surface, run.Policy.Cutter).ToError(),
-            fixed: static row => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"cam:guard:fixed:{row.Obstacle.Operation}:{row.Obstacle.Element}").ToError(),
-            keepout: static row => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"cam:guard:keepout:{row.Surface.X:R}:{row.Surface.Y:R}:{row.Surface.Z:R}").ToError(),
-            stock: static _ => new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:guard:stock").ToError(),
-            channel: static row => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"cam:guard:channel:{row.RequiredMm:R}").ToError(),
-            voxel: static row => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"cam:guard:voxel:{row.Contact.Obstacle.Key}").ToError(),
-            robot: static row => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"cam:guard:robot:{row.Contact.CollisionTarget}").ToError())))
+        select receipt.Hazards.Map(hazard => hazard.Switch<Error>(
+            gouge: row => new FabricationFault.Gouge(row.Surface, run.Policy.Cutter).ToError(),
+            fixed: static row => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"cam:guard:fixed:{row.Obstacle.Operation}:{row.Obstacle.Element}"),
+            keepout: static row => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"cam:guard:keepout:{row.Surface.X:R}:{row.Surface.Y:R}:{row.Surface.Z:R}"),
+            stock: static _ => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:guard:stock"),
+            channel: static row => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"cam:guard:channel:{row.RequiredMm:R}"),
+            voxel: static row => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"cam:guard:voxel:{row.Contact.Obstacle.Key}"),
+            robot: static row => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"cam:guard:robot:{row.Contact.CollisionTarget}"))))
         .Match(Succ: static hazards => hazards, Fail: static error => Seq(error));
 
     private static Fin<Seq<CutElement>> Contour(MotionRun run) =>
-        toSeq(run.Input.Profiles).Traverse(loop =>
-            run.Schedule.Traverse(pass => ContourPass(run, loop, pass)).Map(static passes => passes.Bind(identity)))
+        toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row =>
+            run.Schedule.Traverse(pass => ContourPass(run, row.Loop, row.Occurrence, pass))
+                .Map(static passes => passes.Bind(identity)))
         .Map(static profiles => profiles.Bind(identity));
 
-    private static Fin<Seq<CutElement>> ContourPass(MotionRun run, Loop loop, AxialPass pass) =>
+    private static Fin<Seq<CutElement>> ContourPass(MotionRun run, Loop loop, int occurrence, AxialPass pass) =>
         run.Policy.Engagement.Contour.Signed(run.Compensation, pass.RadialAllowanceMm) is var delta
         && pass.DepthMm - pass.FloorAllowanceMm is var cut
         && run.Feed * pass.FeedScale is var feed
@@ -775,7 +781,7 @@ public static class Cam {
                 ? Fin.Succ(Seq(loop.AsCcw()))
                 : Offset(Seq(loop.AsCcw()), delta, run.Policy.Engagement.PlanarOffset)
               from elements in offsets.IsEmpty
-                ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:contour-inaccessible").ToError())
+                ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, occurrence, "cam:contour-inaccessible").ToError())
                 : offsets.Traverse(ring =>
                     from conditioned in Entry(
                         run.Policy.Engagement.Entry,
@@ -784,12 +790,12 @@ public static class Cam {
                         cut,
                         Math.Max(run.Compensation * 0.5, run.Chord),
                         delta < 0.0 ? MaterialSide.Inside : MaterialSide.Outside)
-                    from element in Element(run, conditioned.Lead
+                    from element in Element(run, occurrence, conditioned.Lead
                         .Concat(AtDepth(Perimeter(run, ring, feed, layer: 0), cut))
                         .Concat(conditioned.Exit))
                     select element)
               select elements
-            : Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:contour-pass").ToError());
+            : Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:contour-pass"));
 
     private static Fin<(Seq<Move> Lead, Seq<Move> Exit)> Entry(
         EntryPolicy policy,
@@ -808,7 +814,7 @@ public static class Cam {
                     side))
                 from motion in trace is ArcTrace.Motion moved
                     ? Fin.Succ(moved.Receipt)
-                    : Fin.Fail<MotionReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:lead-receipt").ToError())
+                    : Fin.Fail<MotionReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:lead-receipt"))
                 select (AtDepth(motion.Moves, depth), Seq<Move>()),
             ramp: row => RampEntry(ring, feed, depth, row),
             plunge: row => Fin.Succ((
@@ -825,7 +831,7 @@ public static class Cam {
         EntryPolicy.Ramp policy) {
         Vector3d tangent = ring.At(1) - ring.At(0);
         if (!tangent.Unitize())
-            return Fin.Fail<(Seq<Move>, Seq<Move>)>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:ramp-entry").ToError());
+            return Fin.Fail<(Seq<Move>, Seq<Move>)>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:ramp-entry").ToError());
         Point3d start = ring.At(0) - (tangent * policy.LengthMm);
         return Fin.Succ((
             Seq<Move>(
@@ -848,7 +854,7 @@ public static class Cam {
             policy.ClearanceMm,
             feed);
         return descent.Exists(move => !ring.Covers(Target(move)))
-            ? Fin.Fail<(Seq<Move>, Seq<Move>)>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:helix-entry-outside").ToError())
+            ? Fin.Fail<(Seq<Move>, Seq<Move>)>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:helix-entry-outside"))
             : Fin.Succ((descent, Seq<Move>()));
     }
 
@@ -860,28 +866,33 @@ public static class Cam {
         int turns,
         double clearanceMm,
         double feed) =>
-        Range(0, (turns * 4) + 1).Map(quarter =>
+        Range(0, (turns * 4) + 1).ToSeq().Map(quarter =>
             new Point3d(
                 center.X + (radius * Math.Cos(quarter * Math.PI * 0.5)),
                 center.Y + (radius * Math.Sin(quarter * Math.PI * 0.5)),
                 center.Z - Math.Min(depth, depth * quarter / (turns * 4.0))))
         .ToSeq() is var stations
-            ? Seq<Move>(new Move.Rapid(AtZ(stations.Head, stations.Head.Z + clearanceMm))).Concat(
-                stations.Tail.Map(station => (Move)new Move.Circular(
-                    station,
-                    feed,
-                    new ArcCenter(new Point3d(center.X, center.Y, station.Z), RotationSense.Counterclockwise))))
+            ? stations.Head
+                .Map(first => Seq<Move>(new Move.Rapid(AtZ(first, first.Z + clearanceMm))).Concat(
+                    // Each station advances one quarter turn by construction of the sampling above, so the
+                    // helix states π/2 per span instead of leaving a consumer to infer it from the endpoints.
+                    stations.Tail.Map(station => (Move)new Move.Circular(
+                        station,
+                        feed,
+                        new ArcCenter(new Point3d(center.X, center.Y, station.Z), RotationSense.Counterclockwise),
+                        Math.PI * 0.5))))
+                .IfNone(Seq<Move>())
             : Seq<Move>();
 
     private static Fin<Seq<CutElement>> Pocket(MotionRun run) =>
         run.Schedule.Traverse(pass =>
-            toSeq(run.Input.Profiles).Traverse(profile =>
+            toSeq(run.Input.Profiles).Map(static (profile, index) => (Profile: profile, Occurrence: index)).Traverse(row =>
                 Offset(
-                    Seq(profile.AsCcw()),
+                    Seq(row.Profile.AsCcw()),
                     -(run.Compensation + pass.RadialAllowanceMm),
                     run.Policy.Engagement.PlanarOffset).Bind(accessible =>
                         accessible.IsEmpty
-                            ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:pocket-inaccessible").ToError())
+                            ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, row.Occurrence, "cam:pocket-inaccessible").ToError())
                             : accessible.Traverse(region => Seed(
                                 PartitionStrategy.PocketRegion,
                                 region,
@@ -890,6 +901,7 @@ public static class Cam {
                                         Rings(cell, run.Policy.Pass.StepOver, run.Policy.Engagement.PlanarOffset)
                                             .Bind(rings => rings.Traverse(ring => Element(
                                                 run,
+                                                row.Occurrence,
                                                 AtDepth(
                                                     Perimeter(run, ring, run.Feed * pass.FeedScale, layer: 0),
                                                     pass.DepthMm - pass.FloorAllowanceMm)))))
@@ -901,9 +913,9 @@ public static class Cam {
     private static Fin<Seq<Loop>> Rings(
         Loop region,
         double stepOver,
-        Rasm.Fabrication.Geometry2D.OffsetPolicy offset) =>
+        OffsetPolicy offset) =>
         stepOver <= 0.0
-            ? Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:pocket-stepover").ToError())
+            ? Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:pocket-stepover"))
             : Range(0, RingCap(region, stepOver)).Fold(
                 Fin.Succ((Rings: Seq(region), Frontier: Seq(region))),
                 (state, _) => state.Bind(current => current.Frontier.IsEmpty
@@ -918,19 +930,20 @@ public static class Cam {
     // Cycle admission spans both directions: the tool must fit the measured bore and the bore must admit the tool.
     private static Fin<Seq<CutElement>> Holes(MotionRun run, HoleCycle cycle) =>
         run.StepDown <= 0.0
-            ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:hole-stepdown").ToError())
-            : Tops(run).Bind(targets => targets.Traverse(target =>
-                !cycle.Fits(run.Policy.Cutter.Diameter, target.DiameterMm)
-                    ? Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, -1,
+            ? Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:hole-stepdown"))
+            : Tops(run).Bind(targets => targets.Map(static (target, index) => (Target: target, Occurrence: index)).Traverse(row =>
+                !cycle.Fits(run.Policy.Cutter.Diameter, row.Target.DiameterMm)
+                    ? Fin.Fail<CutElement>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath,
                         FormattableString.Invariant(
-                            $"cam:hole-fit:{cycle.Key}:{run.Policy.Cutter.Diameter:R}:{target.DiameterMm:R}")).ToError())
-                    : cycle.Expand(target, run.Policy.Engagement.Hole).Bind(moves => Element(
+                            $"cam:hole-fit:{cycle.Key}:{run.Policy.Cutter.Diameter:R}:{row.Target.DiameterMm:R}")))
+                    : cycle.Expand(row.Target, run.Policy.Engagement.Hole).Bind(moves => Element(
                         run,
+                        row.Occurrence,
                         moves,
                         cycle == HoleCycle.FineBore
                             ? Seq<MotionDirective>(new MotionDirective.OrientedStop(
                                 moves.Count - 2,
-                                new Vector3d(target.Radius - target.CutterRadiusMm, 0.0, run.Policy.Engagement.Hole.ClearanceMm)))
+                                new Vector3d(row.Target.Radius - row.Target.CutterRadiusMm, 0.0, run.Policy.Engagement.Hole.ClearanceMm)))
                             : Seq<MotionDirective>()))));
 
     private static Fin<Seq<HoleTarget>> Tops(MotionRun run) =>
@@ -947,7 +960,7 @@ public static class Cam {
                         .Bind(static variant => variant.Moves)
                         .Map(Target) is var tops && tops.Count == measured.Count
                             ? Fin.Succ(tops)
-                            : Fin.Fail<Seq<Point3d>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:hole-drop-census").ToError())
+                            : Fin.Fail<Seq<Point3d>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:hole-drop-census"))
                     select measured.Zip(dropped).Map(static row => row.Item1 with { Top = row.Item2 }),
                 None: () => Fin.Succ(measured)));
 
@@ -964,30 +977,30 @@ public static class Cam {
                 Math.Min(run.Policy.Engagement.MaxAxialDepth, run.StepDown),
                 run.Compensation,
                 run.Feed))
-            : Fin.Fail<HoleTarget>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:hole-profile").ToError());
+            : Fin.Fail<HoleTarget>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:hole-profile").ToError());
     }
 
     private static Fin<Seq<CutElement>> Sink(MotionRun run) =>
-        toSeq(run.Input.Profiles).Traverse(loop =>
+        toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row =>
             HoleCycle.Peck.Expand(
-                new HoleTarget(loop.Bound().Center, run.Compensation * 2.0, run.StepDown, run.Compensation, run.Feed),
+                new HoleTarget(row.Loop.Bound().Center, run.Compensation * 2.0, run.StepDown, run.Compensation, run.Feed),
                 run.Policy.Engagement.Hole)
-            .Bind(moves => Element(run, moves)));
+            .Bind(moves => Element(run, row.Occurrence, moves)));
 
     private static Fin<Seq<CutElement>> Tack(MotionRun run) =>
-        toSeq(run.Input.Profiles).Traverse(loop =>
-            loop.Bound().Center is var station
-                ? Element(run, Seq(
+        toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row =>
+            row.Loop.Bound().Center is var station
+                ? Element(run, row.Occurrence, Seq(
                     (Move)new Move.Rapid(AtZ(station, station.Z + run.Policy.Engagement.Hole.ClearanceMm)),
                     new Move.Linear(station, run.Feed),
                     new Move.Rapid(AtZ(station, station.Z + run.Policy.Engagement.Hole.ClearanceMm))))
-                : Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:tack-station").ToError()));
+                : Fin.Fail<CutElement>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:tack-station")));
 
     private static Fin<Seq<CutElement>> Fill(MotionRun run, int layer) =>
-        toSeq(run.Input.Profiles).Traverse(loop =>
-            from raster in Raster(run, loop, run.Policy.Pass.StepOver, layer)
-            from partition in Seed(run.Policy.Engagement.Infill, loop, new PartitionProjection.Classify(raster))
-            from elements in partition.Inside.Traverse(edge => Element(run, Seq(
+        toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row =>
+            from raster in Raster(run, row.Loop, run.Policy.Pass.StepOver, layer)
+            from partition in Seed(run.Policy.Engagement.Infill, row.Loop, new PartitionProjection.Classify(raster))
+            from elements in partition.Inside.Traverse(edge => Element(run, row.Occurrence, Seq(
                 (Move)new Move.Rapid(edge.A),
                 new Move.Linear(edge.B, run.Feed))))
             select elements)
@@ -1004,8 +1017,9 @@ public static class Cam {
                         run.Policy.Cutter,
                         run.Policy.Engagement,
                         run.Policy.Engagement.Sense,
-                        run.Policy.Engagement.Walk).Bind(Skeleton.Walk)
-                    : Fin.Fail<SkeletonReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:medial-result").ToError())
+                        run.Policy.Engagement.Walk,
+                        run.Pair.Modality).Bind(Skeleton.Walk)
+                    : Fin.Fail<SkeletonReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:medial-result"))
             from elements in run.Schedule
                             .Traverse(pass => receipt.Elements.Traverse(element =>
                                 AtDepth(element, pass.DepthMm - pass.FloorAllowanceMm)))
@@ -1014,14 +1028,14 @@ public static class Cam {
         .Map(static profiles => profiles.Bind(identity));
 
     private static Fin<Seq<CutElement>> Turn(MotionRun run) =>
-        from profile in toSeq(run.Input.Profiles).HeadOrNone().ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:turn-profile").ToError())
-        from cutting in run.Policy.Engagement.Cutting.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:turn-cutting-data").ToError())
+        from profile in toSeq(run.Input.Profiles).Head.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:turn-profile").ToError())
+        from cutting in run.Policy.Engagement.Cutting.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:turn-cutting-data"))
         from _ in cutting.FeedBasis == FeedBasis.PerRevolution
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"cam:turn-feed-basis:{cutting.FeedBasis.Key}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"cam:turn-feed-basis:{cutting.FeedBasis.Key}"))
         from budget in run.Policy.Engagement.Budget is ProcessBudget.Turning turning
             ? Fin.Succ(turning)
-            : Fin.Fail<ProcessBudget.Turning>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:turn-budget").ToError())
+            : Fin.Fail<ProcessBudget.Turning>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:turn-budget"))
         let policy = run.Policy.Engagement.Turning
         from demand in TurnDemand.Validate(
             profile,
@@ -1032,18 +1046,19 @@ public static class Cam {
             budget,
             policy.Motion,
             out TurnDemand turnDemand) is { } demandError
-                ? Fin.Fail<TurnDemand>(new GeometryFault.DegenerateInput(Kind.Curve, -1, demandError.Message).ToError())
+                ? Fin.Fail<TurnDemand>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, demandError.Message))
                 : Fin.Succ(turnDemand)
         from steps in policy.Steps(run.Pair.Strategy)
         from request in TurnRequest.Validate(
             demand,
             steps,
             out TurnRequest turnRequest) is { } requestError
-                ? Fin.Fail<TurnRequest>(new GeometryFault.DegenerateInput(Kind.Curve, -1, requestError.Message).ToError())
+                ? Fin.Fail<TurnRequest>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, requestError.Message))
                 : Fin.Succ(turnRequest)
         from program in Turning.Generate(request)
         from elements in program.Passes.Map((pass, index) => (pass, index)).Traverse(item => Element(
             run,
+            item.index,
             item.pass.Moves,
             Directives(item.pass).Concat(item.index == 0
                 ? program.Barriers.Map(static barrier => (MotionDirective)new MotionDirective.ChannelBarrier(
@@ -1092,41 +1107,42 @@ public static class Cam {
 
     private static Fin<Seq<CutElement>> Helical(MotionRun run, double lead) =>
         lead <= 0.0
-            ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:helix-lead").ToError())
-            : toSeq(run.Input.Profiles).Traverse(loop => {
-                Point3d center = loop.Bound().Center;
-                double radius = loop.Vertices.Min(point => point.DistanceTo(center)) - run.Compensation;
+            ? Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:helix-lead"))
+            : toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row => {
+                Point3d center = row.Loop.Bound().Center;
+                double radius = row.Loop.Vertices.Min(point => point.DistanceTo(center)) - run.Compensation;
                 int turns = Math.Max(1, run.Policy.Pass.Passes);
                 return radius <= 0.0 || !double.IsFinite(radius)
-                    ? Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:helix-radius").ToError())
-                    : Element(run, Helix(center, radius, lead * turns, turns, run.Policy.Engagement.Hole.ClearanceMm, run.Feed));
+                    ? Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, row.Occurrence, "cam:helix-radius").ToError())
+                    : Element(run, row.Occurrence, Helix(center, radius, lead * turns, turns, run.Policy.Engagement.Hole.ClearanceMm, run.Feed));
             });
 
     private static Fin<Seq<CutElement>> Layer(MotionRun run) =>
         run.StepDown <= 0.0 || run.Policy.Pass.StepOver <= 0.0 || !double.IsFinite(run.Policy.Pass.StepOver)
-            ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:layer-geometry").ToError())
+            ? Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:layer-geometry"))
             : Range(0, Math.Max(1, run.Policy.Pass.Passes)).Traverse(layer =>
-              toSeq(run.Input.Profiles).Traverse(loop =>
-                from raster in Raster(run, loop, run.Policy.Pass.StepOver, layer)
+              toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row =>
+                from raster in Raster(run, row.Loop, run.Policy.Pass.StepOver, layer)
                 from partition in Seed(
                     run.Policy.Engagement.Infill,
-                    loop,
+                    row.Loop,
                     new PartitionProjection.Classify(raster))
-                from elements in PartitionElements(run, loop, partition, layer)
+                from elements in PartitionElements(run, row.Loop, row.Occurrence, partition, layer)
                 select elements))
               .Map(static layers => layers.Bind(identity).Bind(identity));
 
     private static Fin<Seq<CutElement>> PartitionElements(
         MotionRun run,
         Loop loop,
+        int occurrence,
         PartitionReceipt partition,
         int layer) {
         int seam = SeamIndex(run, loop, layer);
-        Seq<Move> perimeter = Range(0, loop.Count + 1)
+        Seq<Move> perimeter = Range(0, loop.Count + 1).ToSeq()
             .Map(index => LayerMove(loop.At(seam + index), layer, run.StepDown, run.Feed))
             .ToSeq();
-        return from perimeterElement in Element(run, perimeter)
-               from fill in partition.Inside.Traverse(edge => Element(run, Seq(
+        return from perimeterElement in Element(run, occurrence, perimeter)
+               from fill in partition.Inside.Traverse(edge => Element(run, occurrence, Seq(
                    LayerMove(edge.A, layer, run.StepDown, run.Feed),
                    LayerMove(edge.B, layer, run.StepDown, run.Feed))))
                let contour = run.Pair.Strategy == CutStrategy.LayerInfill
@@ -1144,14 +1160,14 @@ public static class Cam {
     // Per-layer angle advance breaks the inter-layer bond anisotropy a fixed raster direction bakes into the part.
     private static Fin<Seq<Edge3>> Raster(MotionRun run, Loop loop, double spacing, int layer) {
         if (!double.IsFinite(spacing) || spacing <= 0.0)
-            return Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:raster-spacing").ToError());
+            return Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:raster-spacing"));
         BoundingBox box = loop.Bound();
         Point3d pivot = box.Center;
         double angle = (run.Policy.Engagement.InfillAngleDeg
             + (layer * run.Policy.Engagement.InfillAngleAdvanceDeg)) * Math.PI / 180.0;
         double reach = box.Diagonal.Length * 0.5;
         int rows = Math.Max(1, (int)Math.Ceiling(box.Diagonal.Length / spacing)) + 1;
-        Seq<Edge3> drives = Range(0, rows).Map(index => {
+        Seq<Edge3> drives = Range(0, rows).ToSeq().Map(index => {
             double offset = -reach + (index * spacing);
             Point3d origin = new(
                 pivot.X - (offset * Math.Sin(angle)),
@@ -1165,28 +1181,26 @@ public static class Cam {
         return PolygonAlgebra.Apply(new PolygonOp.ClipOpen(Seq(drives), Seq(loop), PolygonFill.NonZero))
             .Bind(trace => trace is PolygonTrace.SplitRuns split
                 ? Fin.Succ(split.Inside.Bind(identity))
-                : Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:raster-trace").ToError()));
+                : Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:raster-trace")));
     }
 
-    private static Fin<Seq<Loop>> Offset(
-        Seq<Loop> paths,
-        double distance,
-        Rasm.Fabrication.Geometry2D.OffsetPolicy policy) =>
-        PolygonAlgebra.Apply(new PolygonOp.Offset(paths, new OffsetField.Uniform(distance), policy))
+    private static Fin<Seq<Loop>> Offset(Seq<Loop> paths, double distance, OffsetPolicy policy) =>
+        PolygonAlgebra.Apply(new PolygonOp.Offset(
+                paths, new OffsetField.Uniform(distance), JoinType.Round, EndType.Closed, policy))
             .Bind(trace => trace is PolygonTrace.Regions regions
                 ? Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary))
-                : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:offset-trace").ToError()));
+                : Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:offset-trace")));
 
     private static Fin<PartitionReceipt> Seed(
         PartitionStrategy strategy,
         Loop boundary,
         PartitionProjection projection) =>
         PartitionRequest.Validate(strategy, boundary, projection, out PartitionRequest request) is { } error
-            ? Fin.Fail<PartitionReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<PartitionReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Partition.Seed(request);
 
     private static Fin<Seq<CutElement>> Rest(MotionRun run) =>
-        run.Input.Residual.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:rest-residual").ToError())
+        run.Input.Residual.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:rest-residual"))
             .Bind(residual => Surface(run, policy => new SurfaceStrategy.Rest(policy, new SurfaceLayoutKind.PlanarRaster(), residual)));
 
     private static Fin<Seq<CutElement>> Kernel(MotionRun run, string key) =>
@@ -1197,16 +1211,16 @@ public static class Cam {
         select elements;
 
     private static Fin<Seq<CutElement>> Trace(MotionRun run) =>
-        toSeq(run.Input.Profiles).Traverse(loop =>
-            Element(run, Perimeter(run, loop, run.Feed, layer: 0)));
+        toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row =>
+            Element(run, row.Occurrence, Perimeter(run, row.Loop, run.Feed, layer: 0)));
 
     private static Fin<Seq<CutElement>> Extend(MotionRun run) =>
         run.Policy.Engagement.Generators.Find(run.Pair.Strategy)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"cam:generator:{run.Pair.Strategy.Key}").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"cam:generator:{run.Pair.Strategy.Key}"))
             .Bind(generator => generator(run));
 
     private static Fin<Seq<CutElement>> Surface(MotionRun run, Func<SurfacePolicy, SurfaceStrategy> strategy) =>
-        from model in run.Input.Model.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:surface-model").ToError())
+        from model in run.Input.Model.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:surface-model"))
         from policy in SurfacePolicy(run)
         from receipt in SurfacePath.Sample(strategy(policy), model, run.Policy.Cutter)
         select receipt.Elements;
@@ -1216,12 +1230,12 @@ public static class Cam {
             run.Policy.Engagement,
             run.Policy.Engagement.Layout,
             out SurfacePolicy policy) is { } error
-                ? Fin.Fail<SurfacePolicy>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                ? Fin.Fail<SurfacePolicy>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
                 : Fin.Succ(policy);
 
     private static Fin<SurfaceLayoutKey> Key(string raw) =>
         SurfaceLayoutKey.Validate(raw, provider: null, out SurfaceLayoutKey key) is { } error
-            ? Fin.Fail<SurfaceLayoutKey>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<SurfaceLayoutKey>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(key);
 
     private static int SeamIndex(MotionRun run, Loop loop, int layer) =>
@@ -1237,7 +1251,7 @@ public static class Cam {
         Loop ccw = ring.AsCcw();
         int seam = SeamIndex(run, ccw, layer);
         int sense = run.Policy.Engagement.Sense == CutSense.Climb ? 1 : -1;
-        return Range(0, ccw.Count + 1)
+        return Range(0, ccw.Count + 1).ToSeq()
             .Map(index => (Move)new Move.Linear(ccw.At(seam + (sense * index)), feed))
             .ToSeq();
     }
@@ -1247,117 +1261,74 @@ public static class Cam {
             state: depth,
             rapid: static (value, row) => (Move)new Move.Rapid(AtZ(row.Target, row.Target.Z - value)),
             linear: static (value, row) => new Move.Linear(AtZ(row.Target, row.Target.Z - value), row.Feed),
+            // A depth shift is a pure Z translation, so the included angle is invariant and threads through.
             circular: static (value, row) => new Move.Circular(
                 AtZ(row.Target, row.Target.Z - value),
                 row.Feed,
-                new ArcCenter(AtZ(row.Arc.Center, row.Arc.Center.Z - value), row.Arc.Sense))));
+                new ArcCenter(AtZ(row.Arc.Center, row.Arc.Center.Z - value), row.Arc.Sense),
+                row.SweepRadians)));
 
+    // A depth shift produces a DIFFERENT element, so it re-keys: inheriting the source key gave every axial pass of
+    // one walk a single identity. Digesting the source key beside the shift through the canonical codec keeps each
+    // pass distinct while leaving the producing page's own discriminants where that page minted them.
     private static Fin<CutElement> AtDepth(CutElement element, double depth) =>
-        CutElement.Admit(
-            element.Key,
-            element.ToolKey,
-            element.WorkOffset,
-            AtDepth(element.Entry, depth));
+        Shifted(element, depth, DepthKey(element.Key, depth));
 
-    private static EntryFamily AtDepth(EntryFamily entry, double depth) =>
+    private static Fin<CutElement> Shifted(CutElement element, double depth, string key) =>
+        CutElement.Admit(key, element.ToolKey, element.WorkOffset, AtDepth(element.Entry, depth, key));
+
+    private static string DepthKey(string key, double depth) =>
+        ContentHash.Of(new CanonicalWriter(0.0).String("depth").String(key).Double(depth).ToBytes().Span)
+            .ToString("x32", CultureInfo.InvariantCulture);
+
+    private static EntryFamily AtDepth(EntryFamily entry, double depth, string key) =>
         entry.Switch<EntryFamily>(
-            fixed: row => new EntryFamily.Fixed(AtDepth(row.Variant, depth)),
+            fixed: row => new EntryFamily.Fixed(AtDepth(row.Variant, depth, key)),
             reversible: row => new EntryFamily.Reversible(
-                AtDepth(row.Forward, depth),
-                AtDepth(row.Reverse, depth)),
+                AtDepth(row.Forward, depth, key),
+                AtDepth(row.Reverse, depth, key)),
             cyclic: row => new EntryFamily.Cyclic(
                 row.Boundary,
                 row.Samples,
-                point => row.AtPoint(point).Map(variant => AtDepth(variant, depth))));
+                point => row.AtPoint(point).Map(variant => AtDepth(variant, depth, key))));
 
-    private static ElementVariant AtDepth(ElementVariant variant, double depth) =>
+    private static ElementVariant AtDepth(ElementVariant variant, double depth, string key) =>
         variant with {
+            Key = key,
             Entry = AtZ(variant.Entry, variant.Entry.Z - depth),
             Exit = AtZ(variant.Exit, variant.Exit.Z - depth),
             Moves = AtDepth(variant.Moves, depth),
         };
 
-    // Endpoint-and-count keys collide across identical rings; the framed digest covers every station the element owns.
-    private static Fin<CutElement> Element(MotionRun run, Seq<Move> moves, Seq<MotionDirective> directives = default) =>
-        moves.IsEmpty
-            ? Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:element-empty").ToError())
-            : moves.Head is var first && moves.Last.IfNone(first) is var last
-            && ElementKey(run.Pair.Strategy, moves) is var key
-            ? CutElement.Admit(
-                key,
-                run.Policy.Cutter.Evidence.Map(static evidence => evidence.ToolId).IfNone(run.Policy.Cutter.Family.Key),
-                run.Policy.Engagement.WorkOffset,
-                new EntryFamily.Fixed(new ElementVariant(
-                    key,
-                    Target(first),
-                    Target(last),
-                    moves,
-                    RotationPenalty: Rotation(moves),
-                    ThermalExposure: ThermalExposure(run.Pair.Modality, moves),
-                    Pierces: Pierces(moves),
-                    Directives: directives)))
-            : Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "cam:element-key").ToError());
+    // Identity is the package mint's, never a page-local digest: the preimage carries the occurrence, the strategy,
+    // the tool and work offset, all four cutter dimensions, and every move INCLUDING its sweep, so two rings that
+    // differ only in arc sense or included angle never key alike. The occurrence is the input geometry's own
+    // ordinal, which is what separates two byte-identical profiles cut at one depth.
+    private static Fin<CutElement> Element(
+        MotionRun run,
+        int occurrence,
+        Seq<Move> moves,
+        Seq<MotionDirective> directives = default) =>
+        from key in CutElement.Identify(new CutElementIdentity.Motion(
+            occurrence,
+            run.Pair.Strategy,
+            ToolKey(run),
+            run.Policy.Engagement.WorkOffset,
+            run.Policy.Cutter.Family.Key,
+            run.Policy.Cutter.Diameter,
+            run.Policy.Cutter.CornerRadius,
+            run.Policy.Cutter.TaperAngle,
+            run.Policy.Cutter.FluteLength,
+            moves))
+        from element in CutElement.Admit(
+            key,
+            ToolKey(run),
+            run.Policy.Engagement.WorkOffset,
+            new EntryFamily.Fixed(ElementVariant.Of(key, moves, run.Pair.Modality, directives)))
+        select element;
 
-    private static string ElementKey(CutStrategy strategy, Seq<Move> moves) {
-        CanonicalWriter writer = new CanonicalWriter(0.0)
-            .Ordinal(moves.Count)
-            .String(strategy.Key);
-        foreach (Move move in moves) {
-            switch (move) {
-                case Move.Rapid row:
-                    Write(writer, 0, row.Target, 0.0, Point3d.Origin, 0.0);
-                    break;
-                case Move.Linear row:
-                    Write(writer, 1, row.Target, row.Feed, Point3d.Origin, 0.0);
-                    break;
-                case Move.Circular row:
-                    Write(writer, 2, row.Target, row.Feed, row.Arc.Center,
-                        row.Arc.Sense == RotationSense.Clockwise ? -1.0 : 1.0);
-                    break;
-            }
-        }
-        return ContentHash.Of(writer.ToBytes().Span).ToString("x32", CultureInfo.InvariantCulture);
-    }
-
-    private static Unit Write(CanonicalWriter writer, int kind, Point3d target, double feed, Point3d center, double sense) {
-        writer.Ordinal(kind)
-            .Double(target.X)
-            .Double(target.Y)
-            .Double(target.Z)
-            .Double(feed)
-            .Double(center.X)
-            .Double(center.Y)
-            .Double(center.Z)
-            .Double(sense);
-        return unit;
-    }
-
-    private static double Rotation(Seq<Move> moves) => moves.Map(Target).Zip(moves.Map(Target).Skip(1))
-        .Zip(moves.Map(Target).Skip(2))
-        .Sum(row => Vector3d.VectorAngle(row.First.Second - row.First.First, row.Second - row.First.Second));
-
-    private static double ThermalExposure(ProcessModality modality, Seq<Move> moves) =>
-        modality == ProcessModality.Thermal
-            ? moves.Zip(moves.Skip(1)).Sum(pair => pair.Second.Switch(
-                rapid: static _ => 0.0,
-                linear: row => pair.First is { } prior ? Target(prior).DistanceTo(row.Target) / row.Feed : 0.0,
-                circular: row => CircularExposure(Target(pair.First), row)))
-            : 0.0;
-
-    private static double CircularExposure(Point3d from, Move.Circular move) {
-        Vector3d start = from - move.Arc.Center;
-        Vector3d end = move.Target - move.Arc.Center;
-        start.Z = 0.0;
-        end.Z = 0.0;
-        double minor = Vector3d.VectorAngle(start, end);
-        double cross = Vector3d.CrossProduct(start, end).Z;
-        bool counterclockwise = move.Arc.Sense == RotationSense.Counterclockwise;
-        double sweep = counterclockwise == cross >= 0.0 ? minor : 2.0 * Math.PI - minor;
-        return end.Length * sweep / move.Feed;
-    }
-
-    private static int Pierces(Seq<Move> moves) => moves.Zip(moves.Skip(1))
-        .Count(static pair => pair.First is Move.Rapid && pair.Second is not Move.Rapid);
+    private static string ToolKey(MotionRun run) =>
+        run.Policy.Cutter.Evidence.Map(static evidence => evidence.ToolId).IfNone(run.Policy.Cutter.Family.Key);
 
     private static Point3d Target(Move move) =>
         move.Switch(

@@ -1,4 +1,4 @@
-# [USER_DATA_CUSTODY]
+# [RASM_RHINO_PERSISTENCE_USERDATA]
 
 `ArchiveIo` owns schema and integrity framing for every `ArchiveMap` crossing. `TypedUserData<TSelf>` seals the Rhino override lifecycle, while `CustodyOperation` closes roster, transfer, and shared-dictionary behavior behind one entrypoint. Every fallible host crossing rides the kernel `Op.Catch` funnel onto typed faults.
 
@@ -7,22 +7,19 @@
 `ArchiveSchema` owns the chunk typecode and readable versions. `ArchiveIo` brackets each payload with the matching host chunk, restores CRC policy, and closes the chunk before detached integrity evidence escapes.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
-
-using LanguageExt;
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rhino.Collections;
 using Rhino.DocObjects.Custom;
 using Rhino.FileIO;
 using Rhino.Runtime;
-using Thinktecture;
-using static LanguageExt.Prelude;
 
-// ───────────────────────────── ARCHIVE FRAME ──────────────────────────────
+namespace Rasm.Rhino.Persistence;
+
+// --- [ARCHIVE_FRAME] ------------------------------------------------------------------------
 
 [ComplexValueObject]
-public readonly partial record struct ArchiveVersion(int Major, int Minor)
-{
+public readonly partial record struct ArchiveVersion(int Major, int Minor) {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int major,
@@ -36,8 +33,7 @@ public readonly partial record struct ArchiveVersion(int Major, int Minor)
 public sealed partial record ArchiveSchema(
     uint TypeCode,
     ArchiveVersion Current,
-    LanguageExt.HashSet<ArchiveVersion> Readable)
-{
+    LanguageExt.HashSet<ArchiveVersion> Readable) {
     public bool Reads(ArchiveVersion observed) => observed == Current || Readable.Contains(observed);
 
     static partial void ValidateFactoryArguments(
@@ -52,9 +48,10 @@ public sealed partial record ArchiveSchema(
                 : null;
 }
 
-[Union]
-public abstract partial record ArchiveIntegrity
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ArchiveIntegrity {
+    private ArchiveIntegrity() { }
+
     public sealed record WrittenCase(
         uint TypeCode,
         int Archive3dmVersion,
@@ -73,9 +70,10 @@ public sealed record ArchiveEnvelope(
     ArchiveMap Payload,
     ArchiveIntegrity.ReadCase Integrity);
 
-[Union]
-public abstract partial record ArchiveExchange
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ArchiveExchange {
+    private ArchiveExchange() { }
+
     public sealed record WriteCase(
         BinaryArchiveWriter Writer,
         ArchiveSchema Schema,
@@ -86,17 +84,16 @@ public abstract partial record ArchiveExchange
         ArchiveSchema Schema) : ArchiveExchange;
 }
 
-[Union]
-public abstract partial record ArchiveExchangeResult
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ArchiveExchangeResult {
+    private ArchiveExchangeResult() { }
+
     public sealed record WrittenCase(ArchiveIntegrity.WrittenCase Integrity) : ArchiveExchangeResult;
     public sealed record ReadCase(ArchiveEnvelope Envelope) : ArchiveExchangeResult;
 }
 
-public static class ArchiveIo
-{
-    public static Fin<ArchiveExchangeResult> Cross(ArchiveExchange exchange, Op? key = null)
-    {
+public static class ArchiveIo {
+    public static Fin<ArchiveExchangeResult> Cross(ArchiveExchange exchange, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(exchange).ToFin(Fail: op.InvalidInput())
             .Bind(active => Admit(active, op))
@@ -120,33 +117,25 @@ public static class ArchiveIo
 
     private static Fin<ArchiveExchangeResult> Write(ArchiveExchange.WriteCase request, Op op) =>
         from native in request.Payload.Mint(op)
-        from integrity in op.Catch(() =>
-        {
+        from integrity in op.Catch(() => {
             bool opened = request.Writer.BeginWrite3dmChunk(
                 request.Schema.TypeCode,
                 request.Schema.Current.Major,
                 request.Schema.Current.Minor);
-            if (!opened)
-            {
+            if (!opened) {
                 return Fin.Fail<ArchiveIntegrity.WrittenCase>(
                     op.InvalidResult(detail: "Binary archive writer refused the chunk frame."));
             }
 
             bool priorCrc = request.Writer.EnableCRCCalculation(true);
             bool closed = false;
-            try
-            {
+            try {
                 request.Writer.WriteDictionary(native);
                 request.Writer.WriteEmptyCheckSum();
-            }
-            finally
-            {
-                try
-                {
+            } finally {
+                try {
                     closed = request.Writer.EndWrite3dmChunk();
-                }
-                finally
-                {
+                } finally {
                     request.Writer.EnableCRCCalculation(priorCrc);
                 }
             }
@@ -166,21 +155,18 @@ public static class ArchiveIo
         select accepted;
 
     private static Fin<ArchiveExchangeResult> Read(ArchiveExchange.ReadCase request, Op op) =>
-        from captured in op.Catch(() =>
-        {
+        from captured in op.Catch(() => {
             bool opened = request.Reader.BeginRead3dmChunk(
                 request.Schema.TypeCode,
                 out int major,
                 out int minor);
-            if (!opened)
-            {
+            if (!opened) {
                 return Fin.Fail<(ArchivableDictionary Native, ArchiveIntegrity.ReadCase Integrity)>(
                     op.InvalidResult(detail: "Binary archive reader refused the chunk frame."));
             }
 
             ArchiveVersion frame = ArchiveVersion.Create(major, minor);
-            if (!request.Schema.Reads(frame))
-            {
+            if (!request.Schema.Reads(frame)) {
                 request.Reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: true);
                 return Fin.Fail<(ArchivableDictionary Native, ArchiveIntegrity.ReadCase Integrity)>(
                     op.InvalidResult(detail: $"Archive schema '{frame.Major}.{frame.Minor}' is not readable."));
@@ -190,19 +176,13 @@ public static class ArchiveIo
             bool closed = false;
             ArchivableDictionary native;
             bool checksum;
-            try
-            {
+            try {
                 native = request.Reader.ReadDictionary();
                 checksum = request.Reader.ReadCheckSum();
-            }
-            finally
-            {
-                try
-                {
+            } finally {
+                try {
                     closed = request.Reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: false);
-                }
-                finally
-                {
+                } finally {
                     request.Reader.EnableCRCCalculation(priorCrc);
                 }
             }
@@ -236,41 +216,52 @@ public static class ArchiveIo
 Rhino's `bool` and `void` override contracts form the platform-forced statement seam. Every override mints its own `Op.Of()`, collapses its rail only after archive, duplicate, or transform work finishes, and lands every failure through one sink. A failed payload transform poisons the detached rail after Rhino's required base call, so no stale payload can write or re-enter transformation.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
-
-using LanguageExt;
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rhino.DocObjects.Custom;
 using Rhino.FileIO;
 using Rhino.Geometry;
-using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino.Persistence;
 
 public abstract class TypedUserData<TSelf> : UserData
-    where TSelf : TypedUserData<TSelf>
-{
-    private Fin<Option<ArchiveMap>> _payload = Fin.Succ<Option<ArchiveMap>>(None);
+    where TSelf : TypedUserData<TSelf> {
+    private Fin<Option<ArchiveMap>> held = Fin.Succ<Option<ArchiveMap>>(None);
 
     protected abstract ArchiveSchema Schema { get; }
     protected abstract Fin<ArchiveMap> Initial { get; }
     protected abstract Fin<ArchiveMap> Upgrade(ArchiveEnvelope envelope);
-    protected virtual Fin<ArchiveMap> TransformPayload(ArchiveMap payload, Transform transform) => Succ(payload);
+    protected virtual Fin<ArchiveMap> TransformPayload(ArchiveMap payload, Transform transform) => Fin.Succ(payload);
     protected abstract void Report(Error error);
 
-    public sealed override bool ShouldWrite => _payload.Match(
+    // Host truth: `UserData.Description` is virtual and defaults to the literal "RhinoCommon UserData", so every
+    // unoverridden participant publishes the framework's own string as its census identity.
+    public sealed override string Description => typeof(TSelf).Name;
+
+    public sealed override bool ShouldWrite => held.Match(
         Succ: state => state.Exists(static payload => payload.Entries.Count > 0),
         Fail: static _ => false);
 
-    public Fin<ArchiveMap> Snapshot() => _payload.Bind(state => state.Match(
+    public Fin<ArchiveMap> Snapshot() => held.Bind(state => state.Match(
         Succ,
         () => Initial.Map(Store)));
 
     public Fin<Unit> Replace(ArchiveMap payload, Op? key = null) =>
         key.OrDefault().Need(payload).Map(Store).Map(static _ => unit);
 
-    protected sealed override bool Write(BinaryArchiveWriter archive)
-    {
+    // Host truth: `ClassIdAttribute(string) : { Id : Guid }` pins a stable resolution key onto a `UserData` subclass so an
+    // archive written under a prior class name keeps resolving it. The schema's whole thesis is archive-version tolerance,
+    // which a class RENAME defeats outright, so the pin proves at the first write instead of orphaning every stored payload.
+    private static Fin<Guid> Pinned(Op op) =>
+        typeof(TSelf).GetCustomAttributes(typeof(ClassIdAttribute), inherit: false) is [ClassIdAttribute pin]
+        && pin.Id != Guid.Empty
+            ? Fin.Succ(value: pin.Id)
+            : Fin.Fail<Guid>(error: op.InvalidResult(detail: $"'{typeof(TSelf).Name}' carries no [ClassId] pin."));
+
+    protected sealed override bool Write(BinaryArchiveWriter archive) {
         Op op = Op.Of();
-        return op.Catch(() => Snapshot()
+        return op.Catch(() => Pinned(op)
+            .Bind(_ => Snapshot())
             .Bind(payload => ArchiveIo.Cross(new ArchiveExchange.WriteCase(archive, Schema, payload), op))
             .Map(static _ => unit))
             .Match(
@@ -278,8 +269,7 @@ public abstract class TypedUserData<TSelf> : UserData
                 Fail: error => (Poison(error, op), false).Item2);
     }
 
-    protected sealed override bool Read(BinaryArchiveReader archive)
-    {
+    protected sealed override bool Read(BinaryArchiveReader archive) {
         Op op = Op.Of();
         return op.Catch(() => ArchiveIo.Cross(new ArchiveExchange.ReadCase(archive, Schema), op)
             .Bind(result => result.Switch<Fin<ArchiveMap>>(
@@ -291,8 +281,7 @@ public abstract class TypedUserData<TSelf> : UserData
                 Fail: error => (Poison(error, op), false).Item2);
     }
 
-    protected sealed override void OnDuplicate(UserData source)
-    {
+    protected sealed override void OnDuplicate(UserData source) {
         Op op = Op.Of();
         op.Catch(() => source is TSelf typed
             ? typed.Snapshot().Map(Store).Map(static _ => unit)
@@ -300,11 +289,9 @@ public abstract class TypedUserData<TSelf> : UserData
             .Match(Succ: static _ => unit, Fail: error => Poison(error, op));
     }
 
-    protected sealed override void OnTransform(Transform transform)
-    {
+    protected sealed override void OnTransform(Transform transform) {
         Op op = Op.Of();
-        op.Catch(() =>
-        {
+        op.Catch(() => {
             base.OnTransform(transform);
             return Snapshot()
                 .Bind(payload => TransformPayload(payload, transform))
@@ -314,14 +301,13 @@ public abstract class TypedUserData<TSelf> : UserData
             Fail: error => Poison(error, op));
     }
 
-    private ArchiveMap Store(ArchiveMap payload)
-    {
-        _payload = Fin.Succ(Some(payload));
+    private ArchiveMap Store(ArchiveMap payload) {
+        held = Fin.Succ(Some(payload));
         return payload;
     }
 
     private Unit Poison(Error error, Op op) =>
-        (_payload = Fin.Fail<Option<ArchiveMap>>(error), Reported(error, op)).Item2;
+        (held = Fin.Fail<Option<ArchiveMap>>(error), Reported(error, op)).Item2;
 
     private Unit Reported(Error error, Op op) => op.Catch(() => Report(error))
         .Match(Succ: static _ => unit, Fail: static _ => unit);
@@ -335,36 +321,33 @@ public abstract class TypedUserData<TSelf> : UserData
 Rhino's mutable roster, transfer, and shared-dictionary calls form the platform-forced statement seam. One `Mutated` fold owns the before/after census around every roster mutation, so attach, remove, purge, copy, and move differ only in their commit arrow.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
-
-using LanguageExt;
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rhino.Collections;
 using Rhino.DocObjects.Custom;
 using Rhino.Geometry;
 using Rhino.Runtime;
-using Thinktecture;
-using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino.Persistence;
 
 [SmartEnum<string>]
-public sealed partial class DisposalPolicy
-{
+public sealed partial class DisposalPolicy {
     public static readonly DisposalPolicy Detach = new("detach", false);
     public static readonly DisposalPolicy Dispose = new("dispose", true);
     public bool Releases { get; }
 }
 
 [SmartEnum<string>]
-public sealed partial class TransferPlacement
-{
+public sealed partial class TransferPlacement {
     public static readonly TransferPlacement Replace = new("replace", false);
     public static readonly TransferPlacement Append = new("append", true);
     public bool Appends { get; }
 }
 
-[Union]
-public abstract partial record CustodyOperation
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CustodyOperation {
+    private CustodyOperation() { }
+
     public sealed record CensusCase(CommonObject Target) : CustodyOperation;
     public sealed record ContainsCase(CommonObject Target, Guid UserDataId) : CustodyOperation;
     public sealed record DescribeCase(CommonObject Target, Type UserDataType) : CustodyOperation;
@@ -395,16 +378,16 @@ public sealed record CustodyReceipt(
     Option<Guid> TransferId,
     CustodySettlement Settlement);
 
-[Union]
-public abstract partial record CustodySettlement
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CustodySettlement {
+    private CustodySettlement() { }
+
     public sealed record CommittedCase : CustodySettlement;
     public sealed record PartialCase(Error Fault) : CustodySettlement;
 }
 
 [SmartEnum<string>]
-public sealed partial class CustodyKind
-{
+public sealed partial class CustodyKind {
     public static readonly CustodyKind Attach = new("attach");
     public static readonly CustodyKind Remove = new("remove");
     public static readonly CustodyKind Purge = new("purge");
@@ -412,9 +395,10 @@ public sealed partial class CustodyKind
     public static readonly CustodyKind Move = new("move");
 }
 
-[Union]
-public abstract partial record CustodyAnswer
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CustodyAnswer {
+    private CustodyAnswer() { }
+
     public sealed record CensusCase(Seq<UserDataFact> Values) : CustodyAnswer;
     public sealed record PresenceCase(bool Present) : CustodyAnswer;
     public sealed record DescriptionCase(Option<UserDataFact> Value) : CustodyAnswer;
@@ -427,10 +411,8 @@ public abstract partial record CustodyAnswer
     public sealed record MutationCase(CustodyReceipt Receipt) : CustodyAnswer;
 }
 
-public static class Custody
-{
-    public static Fin<CustodyAnswer> Commit(CustodyOperation operation, Op? key = null)
-    {
+public static class Custody {
+    public static Fin<CustodyAnswer> Commit(CustodyOperation operation, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(operation)
             .Bind(active => Admit(active, op))
@@ -531,8 +513,10 @@ public static class Custody
                 from _policy in op.Need(merge.Merge)
                 select (CustodyOperation)merge);
 
+    // The host gate is accessibility, not nesting: `Type.IsPublic` is FALSE for a nested public type, so testing it refuses a
+    // participant the host itself accepts. `IsVisible` is the whole gate — public and publicly enclosed at every level.
     private static Fin<UserData> AdmitAttach(UserData value, Op op) => op.Need(value)
-        .Bind(active => active.GetType() is { IsClass: true, IsPublic: true } type
+        .Bind(active => active.GetType() is { IsClass: true, IsVisible: true } type
             && type.GetConstructor(Type.EmptyTypes) is not null
                 ? Fin.Succ(value: active)
                 : Fin.Fail<UserData>(error: op.InvalidInput()));
@@ -560,8 +544,7 @@ public static class Custody
                 committed.TransferId,
                 Partial(committed.Settlement, fault))));
 
-    private static Fin<CustodyAnswer> Purge(CustodyOperation.PurgeCase request, Op op)
-    {
+    private static Fin<CustodyAnswer> Purge(CustodyOperation.PurgeCase request, Op op) {
         return op.Catch(() => Fin.Succ(value: request.Target.UserData.ToSeq())).Bind(captured => Mutated(
             CustodyKind.Purge,
             () => request.Target.UserData.Count,
@@ -628,10 +611,8 @@ public static class Custody
         : op.Catch(opened.Dictionary.Clear)
             .Bind(_ => prior.WriteTo(opened.Dictionary, op));
 
-    private static Fin<(CommonObject Target, ArchivableDictionary Dictionary, bool Created)> Open(CommonObject target, Op op)
-    {
-        return op.Catch(() =>
-        {
+    private static Fin<(CommonObject Target, ArchivableDictionary Dictionary, bool Created)> Open(CommonObject target, Op op) {
+        return op.Catch(() => {
             int before = target.UserData.Count;
             ArchivableDictionary? dictionary = target.UserDictionary;
             return dictionary is null

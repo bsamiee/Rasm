@@ -15,7 +15,7 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 ## [02]-[DOMAIN]
 
 - Owner: `ExposureClass` carries power, speed, spacing, focus, spot, contour, and remelt behavior on generated rows.
-- Owner: `HatchProgram` closes line, cell, contour, and generated candidate modalities while `CellProgram` generates the point-site space from bounded parameters.
+- Owner: `HatchProgram` closes line, cell, contour, and generated candidate modalities while `CellProgram` generates the point-site space from bounded parameters; `CellDiagram.Build` yields the cell RINGS, and each island's hatch clips against its own ring intersected with the region, so a shared edge exposes once and the boundary the island strategy is named for governs the runs.
 - Owner: `LaserSource` carries field envelope, calibrated power, focus, spot, stitch width, drift, and calibration identity.
 - Owner: `ScanEvent` is the executable vocabulary; exposure with dwell, jump, delay, synchronization, and recoating all participate in identity and timing.
 - Owner: `ScanOrder` rows carry their own `Project` key law and `Orient` direction rewrite, so `ScanSort.Order` is one sort over one comparable `ScanSortKey` and no caller re-tests order identity.
@@ -35,7 +35,7 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 - Law: exclusive vectors stay inside one source field; overlap vectors stitch under one policy and retain both adjacent source identities.
 - Law: source scheduling assigns conflict-free thermal waves from whole-segment separation and emits one `ScanEvent.Synchronize` barrier per wave before recoating.
 - Auto: `MemoryOwner<double>` stages the vector-to-source score plane and `SourcePartition.Elect` walks it as one pooled span kernel; `TensorPrimitives.IndexOfMin`, `Average`, `StdDev`, and `SumOfSquares` derive assignment and balance evidence.
-- Boundary: `SourcePartition.Build` uses `VoronoiPlane.SetSites`, `Tessellate`, `Relax`, `ClockwisePoints`, `Neighbours`, and `GetNearestSiteTo(..., KDTree)` once per plan because calibrated source fields are invariant across layers.
+- Boundary: `SourcePartition.Build` issues one `PolygonOp.Cells` request per plan because calibrated source fields are invariant across layers; `SiteCell.Site` addresses the calibrated source directly and `CellReceipt.Adjacency` carries overlap, so no nearest-site probe and no page-local tessellator stand between them.
 
 ## [05]-[SCHEDULING]
 
@@ -53,8 +53,6 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 - Output: `ContentKey.Of(EgressKind.ScanVectors, bytes)` mints exactly once over the canonical stored bytes.
 
 ```csharp signature
-extern alias Voronoi;
-
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -65,13 +63,15 @@ using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
+using Rasm.Element.Projection;
+using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
+using Rasm.Fabrication.Toolpath;
 using Rasm.Geometry;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
 using UnitsNet.Units;
-using Voronoi::SharpVoronoiLib;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Additive;
@@ -266,7 +266,7 @@ public sealed record ScanPolicy(
 // --- [DOMAIN_MODEL] --------------------------------------------------------------------------------------------------------------------------------
 public sealed record ExposureRegion(int Layer, Length Elevation, ExposureClass Class, SliceRegion Region, Ratio Density);
 public sealed record CandidateVector(int Layer, Length Elevation, ExposureClass Class, Edge3 Geometry);
-public sealed record FieldCell(LaserId Source, Seq<Point2d> Boundary, Seq<LaserId> Neighbours, Point2d Centroid, Length Perimeter, bool Closed);
+public sealed record FieldCell(LaserId Source, Seq<Point2d> Boundary, Seq<LaserId> Neighbours, Point2d Centroid, Length Perimeter);
 public sealed record SourceAssignment(CandidateVector Vector, LaserSource Source, Seq<LaserSource> StitchPeers, double Score);
 
 public readonly record struct ScanSortKey(int ThermalClass, int Source, double Bearing, ulong Locality, double Score)
@@ -412,18 +412,18 @@ public static class Scan {
         from audit in Audit.Preflight(stack, policy.Audit)
         from _clean in audit.Clean
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:audit:{audit.Defects.Count}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"scan:audit:{audit.Defects.Count}"))
         from physics in Physics(budget)
         from _physics in physics.Power == policy.Base.Power
                 && physics.Speed == policy.Base.Speed
                 && physics.Spacing == policy.Base.Spacing
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:physics-policy").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:physics-policy"))
         from regions in Regions(stack, support, policy)
         from _regions in regions.ForAll(static region => region.Density > Ratio.Zero
                 && double.IsFinite(region.Density.DecimalFractions))
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:region-density").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:region-density"))
         from fields in SourcePartition.Build(stack, policy.Sources)
         from vectors in Candidates(regions, policy)
         from assigned in SourcePartition.Assign(vectors, fields, policy.Sources, policy.MaximumVectors)
@@ -435,13 +435,15 @@ public static class Scan {
         let receipt = Receipt(audit, fields, ordered, layers, policy, bytes.Length)
         from _plume in receipt.Thermal.PlumeConflicts == 0
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:plume-conflicts:{receipt.Thermal.PlumeConflicts}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"scan:plume-conflicts:{receipt.Thermal.PlumeConflicts}"))
         let _fact = FabricationFact.Engine.Of(receipt).Map((tap ?? FabricationTap.Silent).Fire).Strict()
         select new ScanPlan(layers, bytes, key, receipt));
 
+    // Loci on this page are bounded tokens the whole corpus keys on; trapped foreign text rides beside the locus as
+    // its own accumulated error, so no exception prose enters the key space and no cause is lost.
     internal static Fin<T> Capture<T>(Func<Fin<T>> callback, string locus) =>
         Try.lift(callback).Run()
-            .MapFail(error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"{locus}:{error.Message}").ToError())
+            .MapFail(error => new GeometryFault.DegenerateInput(Kind.Mesh, None, locus).ToError() + error)
             .Bind(identity);
 
     private static bool HatchValid(HatchProgram program) => program.Switch(
@@ -479,7 +481,8 @@ public static class Scan {
             Length.Zero,
             Length.Zero,
             out ExposureProfile? admitted) is { } error || admitted is null
-                ? Fin.Fail<ExposureProfile>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:physics:{error?.ToString() ?? "unadmitted"}").ToError())
+                ? Fin.Fail<ExposureProfile>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:physics")
+                    + Error.New(Optional(error).Map(static value => value.Message).IfNone("unadmitted")))
                 : Fin.Succ(admitted);
 
     private static Fin<Seq<ExposureRegion>> Regions(SliceStack stack, Option<SupportPlan> support, ScanPolicy policy) =>
@@ -534,7 +537,7 @@ public static class Scan {
             : policy.Hatch;
         Length spacing = profile.Spacing * region.Class.SpacingScale.DecimalFractions / region.Density.DecimalFractions;
         return spacing <= Length.Zero || !double.IsFinite(spacing.Millimeters)
-            ? Fin.Fail<Seq<CandidateVector>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:hatch-spacing").ToError())
+            ? Fin.Fail<Seq<CandidateVector>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:hatch-spacing"))
             : program.Switch(
             state: (region, profile, rotation, spacing),
             lines: (state, lines) => state.region.Region.Rays(ScanGeometry.Parallel(state.region.Region.Bound(), lines.Bearing + state.rotation, spacing)),
@@ -558,16 +561,26 @@ public static class Scan {
         Seq<Edge3> bounded = edges.Take(maximum + 1).Strict();
         return bounded.Count <= maximum
             ? Fin.Succ(bounded)
-            : Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:vector-cap:{bounded.Count}").ToError());
+            : Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"scan:vector-cap:{bounded.Count}"));
     }
 
+    // The island boundary IS the strategy, so it is the clip: each cell's candidate rays span that cell's own extent
+    // and clip against the cell intersected with the region. Hatching a cell's bounding BOX instead spills every run
+    // into its neighbours — the shared band exposes twice and no cell boundary ever reaches the scanner.
     private static Fin<Seq<Edge3>> CellHatch(ExposureRegion region, CellProgram cells, Angle bearing, Length spacing) =>
-        CellDiagram.Build(region.Region.Bound(), cells).Bind(diagram => region.Region.Rays(
-            diagram.Bind(cell => ScanGeometry.Parallel(cell, bearing, spacing))));
+        CellDiagram.Build(region.Region.Bound(), cells)
+            .Bind(rings => rings
+                .Traverse(ring =>
+                    from cell in SliceRegion.Of(Seq(ring))
+                    from island in cell.Intersect(region.Region)
+                    from rays in island.Rays(ScanGeometry.Parallel(ring.Bound(), bearing, spacing))
+                    select rays)
+                .As())
+            .Map(static rows => rows.Bind(static row => row));
 
     private static Fin<Seq<Edge3>> ContourHatch(ExposureRegion region, int passes, Length offset, OffsetPolicy policy, Angle phase) =>
         passes <= 0 || offset <= Length.Zero
-            ? Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:contour-program").ToError())
+            ? Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:contour-program"))
             : toSeq(Enumerable.Range(0, passes))
             .Traverse(pass => region.Region.Grow(offset * -(pass + 1), policy))
             .As()
@@ -610,7 +623,7 @@ public static class Scan {
                 return exposure.Traverse(EventCompensated(policy.Compensation)).As()
                     .Map(events => new SourceLane(source.Key, events));
             }).Sequence();
-            Seq<ScanEvent> global = scheduled.Map(static row => row.Wave).Distinct().OrderBy(static wave => wave).ToSeq().Map(wave =>
+            Seq<ScanEvent> global = toSeq(scheduled.Map(static row => row.Wave).Distinct().OrderBy(static wave => wave)).Map(wave =>
                     (ScanEvent)new ScanEvent.Synchronize(
                         policy.Sources.Sources.Map(static source => source.Id).ToSeq(),
                         wave,
@@ -641,7 +654,7 @@ public static class Scan {
                 Set<int> blocked = cells
                     .Bind(cell => Neighbourhood(cell).Bind(probe => state.Index.Find(probe).IfNone(Seq<(SourceAssignment Row, int Wave)>())))
                     .Filter(peer => peer.Row.Source.Id != row.Source.Id
-                        && SegmentGap(peer.Row.Vector.Geometry, row.Vector.Geometry, plane.IntersectionTolerance) < plane.Separation.Millimeters)
+                        && peer.Row.Vector.Geometry.Gap(row.Vector.Geometry, plane.IntersectionTolerance.Millimeters) < plane.Separation.Millimeters)
                     .Map(static peer => peer.Wave)
                     .ToSet();
                 int seed = plane.Wave(row);
@@ -676,49 +689,6 @@ public static class Scan {
 
     private static IEnumerable<long> LongRange(long from, long to) =>
         Enumerable.Range(0, checked((int)(to - from + 1))).Select(offset => from + offset);
-
-    private static double SegmentGap(Edge3 left, Edge3 right, Length tolerance) =>
-        Intersects(left, right, tolerance)
-            ? 0.0
-            : Seq(
-                PointGap(left.A, right),
-                PointGap(left.B, right),
-                PointGap(right.A, left),
-                PointGap(right.B, left)).Min();
-
-    private static bool Intersects(Edge3 left, Edge3 right, Length tolerance) {
-        double leftA = Cross(left.A, left.B, right.A);
-        double leftB = Cross(left.A, left.B, right.B);
-        double rightA = Cross(right.A, right.B, left.A);
-        double rightB = Cross(right.A, right.B, left.B);
-        double linear = tolerance.Millimeters;
-        double scale = Math.Max(1.0, Math.Max(left.A.DistanceTo(left.B), right.A.DistanceTo(right.B)));
-        double area = linear * scale;
-        int leftASign = Sign(leftA, area);
-        int leftBSign = Sign(leftB, area);
-        int rightASign = Sign(rightA, area);
-        int rightBSign = Sign(rightB, area);
-        bool rightAOnLeft = leftASign == 0 && OnSegment(left, right.A, linear);
-        bool rightBOnLeft = leftBSign == 0 && OnSegment(left, right.B, linear);
-        bool leftAOnRight = rightASign == 0 && OnSegment(right, left.A, linear);
-        bool leftBOnRight = rightBSign == 0 && OnSegment(right, left.B, linear);
-        return rightAOnLeft || rightBOnLeft || leftAOnRight || leftBOnRight
-            || (leftASign != leftBSign && rightASign != rightBSign);
-    }
-
-    private static int Sign(double value, double tolerance) => value > tolerance ? 1 : value < -tolerance ? -1 : 0;
-
-    private static bool OnSegment(Edge3 segment, Point3d point, double tolerance) =>
-        point.X >= Math.Min(segment.A.X, segment.B.X) - tolerance
-        && point.X <= Math.Max(segment.A.X, segment.B.X) + tolerance
-        && point.Y >= Math.Min(segment.A.Y, segment.B.Y) - tolerance
-        && point.Y <= Math.Max(segment.A.Y, segment.B.Y) + tolerance;
-
-    private static double Cross(Point3d origin, Point3d along, Point3d point) =>
-        (along.X - origin.X) * (point.Y - origin.Y) - (along.Y - origin.Y) * (point.X - origin.X);
-
-    private static double PointGap(Point3d point, Edge3 segment) =>
-        point.DistanceTo(new Line(segment.A, segment.B).ClosestPoint(point, limitToFiniteSegment: true));
 
     private static Seq<ScanEvent> Exposure(SourceAssignment assignment, ScanPolicy policy, Option<SourceAssignment> prior, int wave) {
         ExposureProfile profile = policy.Profiles.TryGetValue(assignment.Vector.Class, out ExposureProfile? specialized)
@@ -801,7 +771,7 @@ public static class Scan {
             Seq<(int Layer, int Wave, ScanEvent.Expose Event)> wave = toSeq(group);
             return wave.Map((row, index) => wave.Skip(index + 1).Count(peer =>
                 row.Event.Source != peer.Event.Source
-                && SegmentGap(new Edge3(row.Event.From, row.Event.To), new Edge3(peer.Event.From, peer.Event.To), policy.IntersectionTolerance)
+                && new Edge3(row.Event.From, row.Event.To).Gap(new Edge3(peer.Event.From, peer.Event.To), policy.IntersectionTolerance.Millimeters)
                     < policy.Sources.PlumeClearance.Millimeters)).Sum();
         }).Sum();
         ThermalEvidence thermal = samples.Length == 0
@@ -878,42 +848,50 @@ public static class Scan {
         layerDelay: static _ => Option<int>.None);
 
     private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
-        (valid ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError())).ToValidation();
+        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus));
 }
 
 // --- [FIELD_PARTITION] -----------------------------------------------------------------------------------------------------------------------------
 public static class SourcePartition {
     public static Fin<Seq<FieldCell>> Build(SliceStack stack, SourcePolicy policy) =>
         stack.LayerCount == 0 || policy.Sources.IsEmpty || stack.X.Length == 0 || stack.X.Length != stack.Y.Length || stack.X.Length != stack.Z.Length
-            ? Fin.Fail<Seq<FieldCell>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:source-partition").ToError())
+            ? Fin.Fail<Seq<FieldCell>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:source-partition"))
             : policy.Sources.Map(static source => (source.Field.Center.X, source.Field.Center.Y)).Distinct().Count != policy.Sources.Length
-            ? Fin.Fail<Seq<FieldCell>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:duplicate-source-sites").ToError())
-            : Try.lift(() => {
-                BoundingBox bound = new(
-                    new Point3d(stack.X.Min(), stack.Y.Min(), 0.0),
-                    new Point3d(stack.X.Max(), stack.Y.Max(), 0.0));
-                VoronoiPlane plane = new(bound.Min.X, bound.Min.Y, bound.Max.X, bound.Max.Y);
-                plane.SetSites(policy.Sources.Map(static source => new VoronoiSite(source.Field.Center.X, source.Field.Center.Y)).ToList());
-                plane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
-                plane.Relax(policy.FieldRelaxations, (float)policy.FieldRelaxationStrength.DecimalFractions, reTessellate: true);
-                return plane.DuplicateCount != 0 || plane.Sites.Count != policy.Sources.Length
-                    ? Fin.Fail<Seq<FieldCell>>(new GeometryFault.DegenerateInput(
-                        Kind.Mesh,
-                        -1,
-                        $"scan:duplicate-source-sites:{plane.DuplicateCount}").ToError())
-                    : Fin.Succ(toSeq(plane.Sites).Map(site => new FieldCell(
-                        policy.Sources[plane.Sites.IndexOf(plane.GetNearestSiteTo(
-                            site.Centroid.X,
-                            site.Centroid.Y,
-                            NearestSiteLookupMethod.KDTree))].Id,
-                        toSeq(site.ClockwisePoints).Map(static point => new Point2d(point.X, point.Y)),
-                        toSeq(site.Neighbours).Map(neighbour => policy.Sources[plane.Sites.IndexOf(neighbour)].Id),
-                        new Point2d(site.Centroid.X, site.Centroid.Y),
-                        Length.FromMillimeters(toSeq(site.ClockwiseEdges).Map(static edge => edge.Length).Sum()),
-                        site.Closed)));
-            }).Run()
-                .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:voronoi:{error.Message}").ToError())
-                .Bind(identity);
+            ? Fin.Fail<Seq<FieldCell>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:duplicate-source-sites"))
+            // `SiteCell.Site` indexes the seed set the emitting pass tessellated, and relaxation keeps that index, so
+            // a cell addresses its calibrated source directly and no nearest-site probe re-derives the correspondence.
+            : Bound(stack).Bind(boundary => PolygonAlgebra.Apply(
+                    new PolygonOp.Cells(
+                        policy.Sources.Map(static source => new Point3d(source.Field.Center.X, source.Field.Center.Y, 0.0)).ToArr(),
+                        boundary,
+                        SitePolicy.Create(policy.FieldRelaxations, policy.FieldRelaxationStrength.DecimalFractions, merge: None)),
+                    Op.Of(name: nameof(Build)))
+                .Bind(trace => trace is PolygonTrace.Celled celled
+                    ? Fin.Succ(celled.Result)
+                    : Fin.Fail<CellReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:cell-trace")))
+                .Bind(diagram => diagram.Cells.Count == policy.Sources.Length
+                    ? diagram.Cells.ToSeq().TraverseM(cell => Measure(Seq(cell.Ring)).Map(measured => new FieldCell(
+                        policy.Sources[cell.Site].Id,
+                        toSeq(cell.Ring.Vertices).Map(static point => new Point2d(point.X, point.Y)),
+                        diagram.Adjacency
+                            .Filter(edge => edge.A == cell.Site || edge.B == cell.Site)
+                            .Map(edge => policy.Sources[edge.A == cell.Site ? edge.B : edge.A].Id)
+                            .ToSeq()
+                            .Distinct(),
+                        new Point2d(cell.Centroid.X, cell.Centroid.Y),
+                        Length.FromMillimeters(measured.BoundaryLength)))).As()
+                    : Fin.Fail<Seq<FieldCell>>(new FabricationFault.PolicyInadmissible(
+                        FabConcern.Additive, $"scan:source-cell-census:{diagram.Cells.Count}"))));
+
+    private static Fin<Loop> Bound(SliceStack stack) => CellDiagram.Rectangle(new BoundingBox(
+        new Point3d(stack.X.Min(), stack.Y.Min(), 0.0),
+        new Point3d(stack.X.Max(), stack.Y.Max(), 0.0)));
+
+    private static Fin<PolygonMeasure> Measure(Seq<Loop> paths) =>
+        PolygonAlgebra.Apply(new PolygonOp.Measure(paths, PolygonFill.NonZero), Op.Of(name: nameof(Measure)))
+            .Bind(static trace => trace is PolygonTrace.Measured measured
+                ? Fin.Succ(measured.Result)
+                : Fin.Fail<PolygonMeasure>(Op.Of(name: nameof(Measure)).InvalidResult()));
 
     public static Fin<Seq<SourceAssignment>> Assign(
         Seq<CandidateVector> vectors,
@@ -923,24 +901,26 @@ public static class SourcePartition {
         if (vectors.IsEmpty)
             return Fin.Succ(Seq<SourceAssignment>());
         if (vectors.Count > maximumVectors)
-            return Fin.Fail<Seq<SourceAssignment>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:vector-cap:{vectors.Count}").ToError());
+            return Fin.Fail<Seq<SourceAssignment>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"scan:vector-cap:{vectors.Count}"));
         return Try.lift(() => {
             int capacity = checked(vectors.Count * policy.Sources.Count);
             using MemoryOwner<double> scores = MemoryOwner<double>.Allocate(capacity, AllocationMode.Clear);
             ScoreAction action = new(scores.Memory, policy.Sources.Count, vectors.ToArr(), policy.Sources);
             ParallelHelper.For2D(0, vectors.Count, 0, policy.Sources.Count, in action);
             Arr<(int Source, double Score)> elected = Elect(scores.Span, vectors.Count, policy.Sources.Count, policy.BalanceWeight.DecimalFractions);
-            return vectors.Map((vector, row) => (Vector: vector, Election: elected[row]))
+            // The refused vector's ordinal rides the fault's own index slot and the layer is a bounded ordinal;
+            // rendering its endpoint here would stamp a culture-shaped coordinate string into the locus grammar.
+            return vectors.Map((vector, row) => (Vector: vector, Index: row, Election: elected[row]))
                 .Find(static row => row.Election.Source < 0)
                 .Match(
-                    Some: row => Fin.Fail<Seq<SourceAssignment>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1,
-                        $"scan:source-field-miss:{row.Vector.Layer}:{row.Vector.Geometry.A}").ToError()),
+                    Some: row => Fin.Fail<Seq<SourceAssignment>>(new GeometryFault.DegenerateInput(Kind.Mesh, row.Index,
+                        $"scan:source-field-miss:{row.Vector.Layer}").ToError()),
                     None: () => Fin.Succ(vectors.Map((vector, row) => {
                         LaserSource source = policy.Sources[elected[row].Source];
                         return new SourceAssignment(vector, source, Peers(vector, source, fields, policy), elected[row].Score);
                     })));
         }).Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:score-plane:{error.Message}").ToError())
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "scan:score-plane").ToError() + error)
             .Bind(identity);
     }
 
@@ -986,173 +966,177 @@ public static class SourcePartition {
 }
 
 public static class CellDiagram {
-    public static Fin<Seq<BoundingBox>> Build(BoundingBox bound, CellProgram policy) =>
+    // Cells leave as their own rings: the tessellation's whole product is the boundary each island hatches inside,
+    // and a bounding-box projection discards exactly that — neighbouring extents overlap where the cells do not.
+    public static Fin<Seq<Loop>> Build(BoundingBox bound, CellProgram policy) =>
         policy.Pitch <= Length.Zero || policy.Relaxations < 0 || policy.RelaxationStrength < Ratio.Zero || policy.MaximumSites <= 0 || policy.MergeBelowArea < Area.Zero
-            ? Fin.Fail<Seq<BoundingBox>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:cell-program").ToError())
-            : Try.lift(() => {
-                VoronoiPlane plane = new(bound.Min.X, bound.Min.Y, bound.Max.X, bound.Max.Y);
-                int count = Math.Min(policy.MaximumSites, Math.Max(1, (int)Math.Ceiling(
-                    (bound.Diagonal.X * bound.Diagonal.Y) / Math.Pow(policy.Pitch.Millimeters, 2.0))));
-                plane.GenerateRandomSites(count, PointGenerationMethod.Uniform, new SeededRandomNumberGenerator(policy.Seed));
-                plane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
-                plane.Relax(policy.Relaxations, (float)policy.RelaxationStrength.DecimalFractions, reTessellate: true);
-                plane.MergeSites((left, right) => CellArea(left) < policy.MergeBelowArea.SquareMillimeters
-                    ? VoronoiSiteMergeDecision.MergeIntoSite2
-                    : CellArea(right) < policy.MergeBelowArea.SquareMillimeters
-                        ? VoronoiSiteMergeDecision.MergeIntoSite1
-                        : VoronoiSiteMergeDecision.DontMerge);
-                return toSeq(plane.Sites).Filter(static site => site.Closed).Map(site => new BoundingBox(
-                    new Point3d(site.ClockwisePoints.Min(static point => point.X), site.ClockwisePoints.Min(static point => point.Y), bound.Min.Z),
-                    new Point3d(site.ClockwisePoints.Max(static point => point.X), site.ClockwisePoints.Max(static point => point.Y), bound.Max.Z)));
-            }).Run().MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:cells:{error.Message}").ToError());
+            ? Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:cell-program"))
+            // Site count derives from the requested pitch over the admitted area and caps at the policy ceiling; the
+            // merge floor is DATA on the request, so a below-floor cell falls into its strongest neighbour inside the
+            // one tessellation rather than through a caller-supplied decision callback.
+            : from boundary in Rectangle(bound)
+              let count = Math.Min(policy.MaximumSites, Math.Max(1, (int)Math.Ceiling(
+                  (bound.Diagonal.X * bound.Diagonal.Y) / Math.Pow(policy.Pitch.Millimeters, 2.0))))
+              from trace in PolygonAlgebra.Apply(
+                  new PolygonOp.Cells(
+                      toSeq(Enumerable.Range(0, count))
+                          .Map(index => SiteDistribution.Uniform.Draw(bound, policy.Seed, index)).ToArr(),
+                      boundary,
+                      SitePolicy.Create(
+                          policy.Relaxations,
+                          policy.RelaxationStrength.DecimalFractions,
+                          Some(SiteMerge.Create(policy.MergeBelowArea.SquareMillimeters, minimumSeparation: 0.0)))),
+                  Op.Of(name: nameof(Build)))
+              from diagram in trace is PolygonTrace.Celled celled
+                  ? Fin.Succ(celled.Result)
+                  : Fin.Fail<CellReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:cell-trace"))
+              select diagram.Cells.ToSeq().Map(static cell => cell.Ring);
 
-    private static double CellArea(VoronoiSite site) =>
-        Math.Abs(toSeq(site.ClockwisePoints).Zip(toSeq(site.ClockwisePoints).Tail.Add(site.ClockwisePoints[0]))
-            .Map(static pair => pair.First.X * pair.Second.Y - pair.Second.X * pair.First.Y).Sum()) / 2.0;
+    // Every bounded-cell request in this page shares one clip rectangle; the layer band restores its own Z extent.
+    internal static Fin<Loop> Rectangle(BoundingBox box) =>
+        from tolerance in Context.Millimeters().ToFin()
+        from boundary in Loop.Admit(
+            Arr(new Point3d(box.Min.X, box.Min.Y, box.Min.Z),
+                new Point3d(box.Max.X, box.Min.Y, box.Min.Z),
+                new Point3d(box.Max.X, box.Max.Y, box.Min.Z),
+                new Point3d(box.Min.X, box.Max.Y, box.Min.Z)),
+            closed: true,
+            Arr<double>(),
+            tolerance)
+        select boundary;
 }
 
 public static class ScanSort {
     public static Fin<Seq<SourceAssignment>> Order(Seq<SourceAssignment> rows, ScanOrder order, ScanPlane plane) =>
-        Fin.Succ(rows.IsEmpty ? rows : order.Orient(rows.OrderBy(row => order.Project(row, plane)).ToSeq()));
+        Fin.Succ(rows.IsEmpty ? rows : order.Orient(toSeq(rows.OrderBy(row => order.Project(row, plane)))));
 }
 
 // --- [CANONICAL_EGRESS] ----------------------------------------------------------------------------------------------------------------------------
 public static class ScanCodec {
     public static byte[] Write(ScanIdentity identity, Seq<ScanLayer> layers) {
-        using ArrayPoolBufferWriter<byte> writer = new();
+        using CanonicalWriter writer = new();
         Identity(identity, writer);
-        Int32(layers.Count, writer);
+        writer.Ordinal(layers.Count);
         layers.Iter(layer => {
-            Int32(layer.Layer, writer);
-            Float64(layer.Elevation.Millimeters, writer);
-            Int32(layer.Sources.Count, writer);
+            writer.Ordinal(layer.Layer);
+            writer.Double(layer.Elevation.Millimeters);
+            writer.Ordinal(layer.Sources.Count);
             layer.Sources.Iter(source => {
-                Int32(source.Source, writer);
-                Int32(source.Events.Count, writer);
+                writer.Ordinal(source.Source);
+                writer.Ordinal(source.Events.Count);
                 source.Events.Iter(scanEvent => Event(scanEvent, writer));
             });
-            Int32(layer.Events.Count, writer);
+            writer.Ordinal(layer.Events.Count);
             layer.Events.Iter(scanEvent => Event(scanEvent, writer));
         });
-        return writer.WrittenSpan.ToArray();
+        return writer.ToBytes().ToArray();
     }
 
-    private static void Event(ScanEvent scanEvent, ArrayPoolBufferWriter<byte> writer) => scanEvent.Switch(
+    private static void Event(ScanEvent scanEvent, CanonicalWriter writer) => scanEvent.Switch(
         state: writer,
         expose: static (sink, value) => {
-            Byte(1, sink); Int32(value.Source, sink); Utf8(value.Class.Key, sink); Point(value.From, sink); Point(value.To, sink);
-            Float64(value.Power.Watts, sink); Float64(value.Speed.MillimetersPerSecond, sink); Float64(value.Dwell.Seconds, sink);
-            Float64(value.Focus.Millimeters, sink); Float64(value.Spot.Millimeters, sink); Float64(value.PulseOn.Seconds, sink);
-            Float64(value.PulseOff.Seconds, sink); Float64(value.SkywritingLead.Millimeters, sink); Float64(value.SkywritingLag.Millimeters, sink);
-            Int32(value.StitchPeers.Count, sink); value.StitchPeers.Iter(peer => Int32(peer, sink));
-            Int32(value.Wave, sink); Int32(value.Pass, sink); return unit;
+            sink.Ordinal(1); sink.Ordinal(value.Source); sink.String(value.Class.Key); Point(value.From, sink); Point(value.To, sink);
+            sink.Double(value.Power.Watts); sink.Double(value.Speed.MillimetersPerSecond); sink.Double(value.Dwell.Seconds);
+            sink.Double(value.Focus.Millimeters); sink.Double(value.Spot.Millimeters); sink.Double(value.PulseOn.Seconds);
+            sink.Double(value.PulseOff.Seconds); sink.Double(value.SkywritingLead.Millimeters); sink.Double(value.SkywritingLag.Millimeters);
+            sink.Ordinal(value.StitchPeers.Count); value.StitchPeers.Iter(peer => sink.Ordinal(peer));
+            sink.Ordinal(value.Wave); sink.Ordinal(value.Pass); return unit;
         },
-        jump: static (sink, value) => { Byte(2, sink); Int32(value.Source, sink); Point(value.From, sink); Point(value.To, sink); Float64(value.Speed.MillimetersPerSecond, sink); Int32(value.Wave, sink); return unit; },
-        synchronize: static (sink, value) => { Byte(3, sink); Int32(value.Sources.Count, sink); value.Sources.Iter(id => Int32(id, sink)); Int32(value.Wave, sink); Float64(value.Duration.Seconds, sink); Utf8(value.Reason, sink); return unit; },
-        recoat: static (sink, value) => { Byte(4, sink); Int32(value.Layer, sink); Float64(value.Travel.Millimeters, sink); Float64(value.Speed.MillimetersPerSecond, sink); Float64(value.Delay.Seconds, sink); return unit; },
-        layerDelay: static (sink, value) => { Byte(5, sink); Int32(value.Layer, sink); Float64(value.Duration.Seconds, sink); return unit; });
+        jump: static (sink, value) => { sink.Ordinal(2); sink.Ordinal(value.Source); Point(value.From, sink); Point(value.To, sink); sink.Double(value.Speed.MillimetersPerSecond); sink.Ordinal(value.Wave); return unit; },
+        synchronize: static (sink, value) => { sink.Ordinal(3); sink.Ordinal(value.Sources.Count); value.Sources.Iter(id => sink.Ordinal(id)); sink.Ordinal(value.Wave); sink.Double(value.Duration.Seconds); sink.String(value.Reason); return unit; },
+        recoat: static (sink, value) => { sink.Ordinal(4); sink.Ordinal(value.Layer); sink.Double(value.Travel.Millimeters); sink.Double(value.Speed.MillimetersPerSecond); sink.Double(value.Delay.Seconds); return unit; },
+        layerDelay: static (sink, value) => { sink.Ordinal(5); sink.Ordinal(value.Layer); sink.Double(value.Duration.Seconds); return unit; });
 
-    private static void Identity(ScanIdentity identity, ArrayPoolBufferWriter<byte> writer) {
+    private static void Identity(ScanIdentity identity, CanonicalWriter writer) {
         ScanPolicy policy = identity.Policy;
         Profile(policy.Base, writer);
-        Int32(policy.Profiles.Count, writer);
+        writer.Ordinal(policy.Profiles.Count);
         policy.Profiles.OrderBy(static pair => pair.Key.Key).Iter(pair => {
-            Utf8(pair.Key.Key, writer);
+            writer.String(pair.Key.Key);
             Profile(pair.Value, writer);
         });
         Hatch(policy.Hatch, writer);
-        Utf8(policy.Order.Key, writer);
+        writer.String(policy.Order.Key);
         Sources(policy.Sources, writer);
         Timing(policy.Timing, writer);
         Rotation(policy.Rotation, writer);
         Compensation(policy.Compensation, writer);
         Offset(policy.Offset, writer);
-        Float64(policy.ThermalSeparation.Millimeters, writer);
-        Float64(policy.IntersectionTolerance.Millimeters, writer);
-        Int32(policy.ThermalWindow, writer);
-        Int32(policy.MaximumVectors, writer);
-        Int32(policy.DownSkinLayers, writer);
-        Int32(policy.UpSkinLayers, writer);
+        writer.Double(policy.ThermalSeparation.Millimeters);
+        writer.Double(policy.IntersectionTolerance.Millimeters);
+        writer.Ordinal(policy.ThermalWindow);
+        writer.Ordinal(policy.MaximumVectors);
+        writer.Ordinal(policy.DownSkinLayers);
+        writer.Ordinal(policy.UpSkinLayers);
     }
 
-    private static void Profile(ExposureProfile value, ArrayPoolBufferWriter<byte> writer) {
-        Float64(value.Power.Watts, writer); Float64(value.Speed.MillimetersPerSecond, writer);
-        Float64(value.Spacing.Millimeters, writer); Float64(value.Dwell.Seconds, writer);
-        Float64(value.Spot.Millimeters, writer); Float64(value.Focus.Millimeters, writer);
-        Float64(value.PulseOn.Seconds, writer); Float64(value.PulseOff.Seconds, writer);
-        Float64(value.SkywritingLead.Millimeters, writer); Float64(value.SkywritingLag.Millimeters, writer);
+    private static void Profile(ExposureProfile value, CanonicalWriter writer) {
+        writer.Double(value.Power.Watts); writer.Double(value.Speed.MillimetersPerSecond);
+        writer.Double(value.Spacing.Millimeters); writer.Double(value.Dwell.Seconds);
+        writer.Double(value.Spot.Millimeters); writer.Double(value.Focus.Millimeters);
+        writer.Double(value.PulseOn.Seconds); writer.Double(value.PulseOff.Seconds);
+        writer.Double(value.SkywritingLead.Millimeters); writer.Double(value.SkywritingLag.Millimeters);
     }
 
-    private static void Sources(SourcePolicy value, ArrayPoolBufferWriter<byte> writer) {
-        Int32(value.Sources.Length, writer);
+    private static void Sources(SourcePolicy value, CanonicalWriter writer) {
+        writer.Ordinal(value.Sources.Length);
         value.Sources.Iter(source => {
-            Int32(source.Id, writer); Point(source.Field.Min, writer); Point(source.Field.Max, writer);
-            Float64(source.MaximumPower.Watts, writer); Float64(source.SpotDiameter.Millimeters, writer);
-            Float64(source.StitchWidth.Millimeters, writer); Float64(source.FocusMinimum.Millimeters, writer);
-            Float64(source.FocusMaximum.Millimeters, writer); Float64(source.Drift.DecimalFractions, writer);
-            Utf8(source.Calibration.Digest.ToString("x32", CultureInfo.InvariantCulture), writer);
+            writer.Ordinal(source.Id); Point(source.Field.Min, writer); Point(source.Field.Max, writer);
+            writer.Double(source.MaximumPower.Watts); writer.Double(source.SpotDiameter.Millimeters);
+            writer.Double(source.StitchWidth.Millimeters); writer.Double(source.FocusMinimum.Millimeters);
+            writer.Double(source.FocusMaximum.Millimeters); writer.Double(source.Drift.DecimalFractions);
+            writer.String(source.Calibration.Digest.ToString("x32", CultureInfo.InvariantCulture));
         });
-        Float64(value.BalanceWeight.DecimalFractions, writer); Float64(value.PlumeClearance.Millimeters, writer);
-        Float64(value.Overlap.Millimeters, writer); Int32(value.FieldRelaxations, writer);
-        Float64(value.FieldRelaxationStrength.DecimalFractions, writer);
-        Float64(value.GasBearing.X, writer); Float64(value.GasBearing.Y, writer); Float64(value.GasBearing.Z, writer);
+        writer.Double(value.BalanceWeight.DecimalFractions); writer.Double(value.PlumeClearance.Millimeters);
+        writer.Double(value.Overlap.Millimeters); writer.Ordinal(value.FieldRelaxations);
+        writer.Double(value.FieldRelaxationStrength.DecimalFractions);
+        writer.Double(value.GasBearing.X); writer.Double(value.GasBearing.Y); writer.Double(value.GasBearing.Z);
     }
 
-    private static void Timing(TimingPolicy value, ArrayPoolBufferWriter<byte> writer) {
-        Float64(value.JumpSpeed.MillimetersPerSecond, writer); Float64(value.LayerDelay.Seconds, writer);
-        Float64(value.RecoatDelay.Seconds, writer); Float64(value.SourceDelay.Seconds, writer);
-        Float64(value.RecoatSpeed.MillimetersPerSecond, writer); Float64(value.RecoatTravel.Millimeters, writer);
+    private static void Timing(TimingPolicy value, CanonicalWriter writer) {
+        writer.Double(value.JumpSpeed.MillimetersPerSecond); writer.Double(value.LayerDelay.Seconds);
+        writer.Double(value.RecoatDelay.Seconds); writer.Double(value.SourceDelay.Seconds);
+        writer.Double(value.RecoatSpeed.MillimetersPerSecond); writer.Double(value.RecoatTravel.Millimeters);
     }
 
-    private static void Rotation(RotationPolicy value, ArrayPoolBufferWriter<byte> writer) {
-        Float64(value.LayerIncrement.Radians, writer); Int32(value.Cycle, writer); Float64(value.ContourOffset.Radians, writer);
+    private static void Rotation(RotationPolicy value, CanonicalWriter writer) {
+        writer.Double(value.LayerIncrement.Radians); writer.Ordinal(value.Cycle); writer.Double(value.ContourOffset.Radians);
     }
 
-    private static void Offset(OffsetPolicy value, ArrayPoolBufferWriter<byte> writer) {
-        Utf8(value.Join.Key, writer); Utf8(value.End.Key, writer); Float64(value.MiterLimit, writer);
-        Float64(value.ArcTolerance, writer); Byte(value.PreserveCollinear ? (byte)1 : (byte)0, writer);
-        Byte(value.ReverseSolution ? (byte)1 : (byte)0, writer); Byte(value.MergeGroups ? (byte)1 : (byte)0, writer);
+    private static void Offset(OffsetPolicy value, CanonicalWriter writer) {
+        writer.String(value.Join.Key); writer.String(value.End.Key); writer.Double(value.MiterLimit);
+        writer.Double(value.ArcTolerance); writer.Bool(value.PreserveCollinear);
+        writer.Bool(value.ReverseSolution); writer.Bool(value.MergeGroups);
     }
 
-    private static void Hatch(HatchProgram program, ArrayPoolBufferWriter<byte> writer) => program.Switch(
+    private static void Hatch(HatchProgram program, CanonicalWriter writer) => program.Switch(
         state: writer,
-        lines: static (sink, value) => { Byte(1, sink); Float64(value.Bearing.Radians, sink); return unit; },
+        lines: static (sink, value) => { sink.Ordinal(1); sink.Double(value.Bearing.Radians); return unit; },
         cells: static (sink, value) => {
-            Byte(2, sink); Float64(value.Bearing.Radians, sink); Float64(value.Cells.Pitch.Millimeters, sink);
-            Int32(value.Cells.Relaxations, sink); Float64(value.Cells.RelaxationStrength.DecimalFractions, sink);
-            Int32(value.Cells.MaximumSites, sink); Int32(value.Cells.Seed, sink); Float64(value.Cells.MergeBelowArea.SquareMillimeters, sink);
+            sink.Ordinal(2); sink.Double(value.Bearing.Radians); sink.Double(value.Cells.Pitch.Millimeters);
+            sink.Ordinal(value.Cells.Relaxations); sink.Double(value.Cells.RelaxationStrength.DecimalFractions);
+            sink.Ordinal(value.Cells.MaximumSites); sink.Ordinal(value.Cells.Seed); sink.Double(value.Cells.MergeBelowArea.SquareMillimeters);
             return unit;
         },
-        contours: static (sink, value) => { Byte(3, sink); Int32(value.Passes, sink); Float64(value.Offset.Millimeters, sink); return unit; },
-        generated: static (sink, value) => { Byte(4, sink); Utf8(value.Identity.Digest.ToString("x32", CultureInfo.InvariantCulture), sink); return unit; });
+        contours: static (sink, value) => { sink.Ordinal(3); sink.Ordinal(value.Passes); sink.Double(value.Offset.Millimeters); return unit; },
+        generated: static (sink, value) => { sink.Ordinal(4); sink.U128(value.Identity.Digest); return unit; });
 
-    private static void Compensation(DistortionCompensation compensation, ArrayPoolBufferWriter<byte> writer) => compensation.Switch(
+    private static void Compensation(DistortionCompensation compensation, CanonicalWriter writer) => compensation.Switch(
         state: writer,
-        none: static (sink, _) => { Byte(1, sink); return unit; },
+        none: static (sink, _) => { sink.Ordinal(1); return unit; },
         affine: static (sink, value) => {
-            Byte(2, sink); Transform(value.BuildToCommand, sink); Utf8(value.Calibration.Digest.ToString("x32", CultureInfo.InvariantCulture), sink); return unit;
+            sink.Ordinal(2); Transform(value.BuildToCommand, sink); sink.U128(value.Calibration.Digest); return unit;
         },
-        generated: static (sink, value) => { Byte(3, sink); Utf8(value.Calibration.Digest.ToString("x32", CultureInfo.InvariantCulture), sink); return unit; });
+        generated: static (sink, value) => { sink.Ordinal(3); sink.U128(value.Calibration.Digest); return unit; });
 
-    private static void Transform(Transform value, ArrayPoolBufferWriter<byte> writer) {
-        Float64(value.M00, writer); Float64(value.M01, writer); Float64(value.M02, writer); Float64(value.M03, writer);
-        Float64(value.M10, writer); Float64(value.M11, writer); Float64(value.M12, writer); Float64(value.M13, writer);
-        Float64(value.M20, writer); Float64(value.M21, writer); Float64(value.M22, writer); Float64(value.M23, writer);
-        Float64(value.M30, writer); Float64(value.M31, writer); Float64(value.M32, writer); Float64(value.M33, writer);
+    private static void Transform(Transform value, CanonicalWriter writer) {
+        writer.Double(value.M00); writer.Double(value.M01); writer.Double(value.M02); writer.Double(value.M03);
+        writer.Double(value.M10); writer.Double(value.M11); writer.Double(value.M12); writer.Double(value.M13);
+        writer.Double(value.M20); writer.Double(value.M21); writer.Double(value.M22); writer.Double(value.M23);
+        writer.Double(value.M30); writer.Double(value.M31); writer.Double(value.M32); writer.Double(value.M33);
     }
 
-    private static void Point(Point3d point, ArrayPoolBufferWriter<byte> writer) { Float64(point.X, writer); Float64(point.Y, writer); Float64(point.Z, writer); }
-    private static void Byte(byte value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(1); span[0] = value; writer.Advance(1); }
-    private static void Int32(int value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(sizeof(int)); BinaryPrimitives.WriteInt32LittleEndian(span, value); writer.Advance(sizeof(int)); }
-    private static void Int32(LaserId value, ArrayPoolBufferWriter<byte> writer) => Int32(value.ToValue(), writer);
-    private static void Float64(double value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(sizeof(double)); BinaryPrimitives.WriteInt64LittleEndian(span, BitConverter.DoubleToInt64Bits(value)); writer.Advance(sizeof(double)); }
-    private static void Utf8(string value, ArrayPoolBufferWriter<byte> writer) {
-        int length = Encoding.UTF8.GetByteCount(value);
-        Int32(length, writer);
-        Span<byte> target = writer.GetSpan(length);
-        int written = Encoding.UTF8.GetBytes(value, target);
-        writer.Advance(written);
-    }
+    private static void Point(Point3d point, CanonicalWriter writer) { writer.Double(point.X); writer.Double(point.Y); writer.Double(point.Z); }
 }
 
 public static class ScanGeometry {

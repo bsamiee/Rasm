@@ -36,6 +36,7 @@ using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
+using Rasm.Meshing;
 using Rhino.Geometry;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
@@ -399,7 +400,7 @@ public static class SteelImport {
         Seq<Loop> holes = regions.Filter(static row => row.Block.TopologySign < 0).Map(static row => row.Loop);
         PolygonOp operation = holes.IsEmpty
             ? new PolygonOp.Inspect(outers, new PolygonQuery.Topology(PolygonFill.NonZero))
-            : new PolygonOp.Boolean(outers, holes, PolygonBoolean.Difference, PolygonFill.NonZero);
+            : new PolygonOp.Boolean(outers, holes, BooleanOp.Difference, PolygonFill.NonZero);
         return outers.IsEmpty
             ? Fin.Fail<TopologyReceipt>(Fault(SteelBlockKind.Ak.Key, HeaderLine))
             : PolygonAlgebra.Apply(operation).Bind(static trace => trace is PolygonTrace.Regions result
@@ -475,15 +476,15 @@ public static class SteelImport {
     private static Fin<SteelFeature> Valid(SteelFeature feature, SteelBlockKind block, int line, SteelHeader header) =>
         feature.Switch(
             state: header,
-            hole: static (hole, row) => Faced(row, hole.Face) && ValidPoint(hole.Center)
+            hole: static (row, hole) => Faced(row, hole.Face) && ValidPoint(hole.Center)
                 && Positive(hole.Diameter) && Nonnegative(hole.Depth),
-            slot: static (slot, row) => Faced(row, slot.Face) && ValidPoint(slot.Center)
+            slot: static (row, slot) => Faced(row, slot.Face) && ValidPoint(slot.Center)
                 && Positive(slot.Diameter) && Nonnegative(slot.Depth) && Positive(slot.Span) && Positive(slot.Width)
                 && slot.Span >= slot.Width && Finite(slot.Rotation),
-            cut: static (cut, row) => Faced(row, cut.Face) && ValidPoint(cut.At),
-            numeration: static (numeration, row) => Faced(row, numeration.Face) && ValidPoint(numeration.At),
-            boundary: static (boundary, row) => Faced(row, boundary.Contour.Face),
-            marking: static (marking, row) => Faced(row, marking.Contour.Face))
+            cut: static (row, cut) => Faced(row, cut.Face) && ValidPoint(cut.At),
+            numeration: static (row, numeration) => Faced(row, numeration.Face) && ValidPoint(numeration.At),
+            boundary: static (row, boundary) => Faced(row, boundary.Contour.Face),
+            marking: static (row, marking) => Faced(row, marking.Contour.Face))
             ? Fin.Succ(feature)
             : Fin.Fail<SteelFeature>(Fault(block.Key, line));
 

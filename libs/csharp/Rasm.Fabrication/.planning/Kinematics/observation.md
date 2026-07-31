@@ -89,7 +89,7 @@ public abstract partial record MachineObservation {
     public sealed record ToolInSpindle(Instant At, string ToolNumber) : MachineObservation(At);
 
     public static Fin<Option<MachineObservation>> Admit(MachineObservationIngress source) =>
-        Optional(source).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "observation:null").ToError())
+        Optional(source).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "observation:null"))
             .Bind(row => row.Switch(
                 spindleLoad: static value => Fraction(value.Fraction, "observation:load")
                     .Map(fraction => Some((MachineObservation)new SpindleLoad(value.At, fraction))),
@@ -101,10 +101,10 @@ public abstract partial record MachineObservation {
                     .Bind(celsius => Text(value.Locus, "observation:temperature-locus")
                         .Map(locus => Some((MachineObservation)new Temperature(value.At, celsius, locus)))),
                 execution: static value => Optional(value.State)
-                    .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "observation:execution").ToError())
+                    .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "observation:execution"))
                     .Map(state => Some((MachineObservation)new Execution(value.At, state))),
                 alarm: static value => Optional(value.Severity)
-                    .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "observation:alarm-severity").ToError())
+                    .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "observation:alarm-severity"))
                     .Bind(severity => Text(value.ConditionId, "observation:alarm-condition")
                         .Map(condition => Some((MachineObservation)new Alarm(value.At, severity, condition, value.NativeCode?.Trim() ?? string.Empty)))),
                 toolInSpindle: static value => Text(value.ToolNumber, "observation:tool-number")
@@ -115,21 +115,21 @@ public abstract partial record MachineObservation {
     private static Fin<double> Finite(double value, string locus) =>
         double.IsFinite(value)
             ? Fin.Succ(value)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError());
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, locus));
 
     private static Fin<double> Nonnegative(double value, string locus) =>
         double.IsFinite(value) && value >= 0.0
             ? Fin.Succ(value)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError());
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, locus));
 
     private static Fin<double> Fraction(double value, string locus) =>
         double.IsFinite(value) && value is >= 0.0 and <= 1.0
             ? Fin.Succ(value)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError());
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, locus));
 
     private static Fin<string> Text(string value, string locus) =>
         Optional(value).Map(static row => row.Trim()).Filter(static row => row.Length > 0)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError());
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, locus));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
@@ -210,7 +210,7 @@ public sealed partial class MachineObservations {
         ref Seq<MachineObservation> rows,
         ref Instant windowEnd) {
         machineId = machineId?.Trim() ?? string.Empty;
-        rows = rows.OrderBy(static row => row.At).ToSeq();
+        rows = toSeq(rows.OrderBy(static row => row.At));
         validationError = machineId.Length > 0
             && !rows.IsEmpty
             && rows.ForAll(static row => row is not null)

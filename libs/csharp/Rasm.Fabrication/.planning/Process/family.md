@@ -2,7 +2,7 @@
 
 `ProcessKind`, `ProcessModality`, `InteractionKind`, `PhysicsKind`, `CutStrategy`, and `PostDialect` remain bounded generated vocabularies. `Machine.Admit` generates equipment from keyed capability data, physical axes, holding, topology, and dimensional envelopes; canonical archetypes are `MachineIngress.Seed` data, never named machine API. Keyed selection accumulates axis failures before `ProcessFamily` resolves selection, ordering, connected families, policy-weighted compatibility routes, and slot-preserving fleet matching through typed receipts.
 
-`PostDialect` binds grammar, work-offset policy, compensation, arc mode, physical-record cap, numeric rendering, word retention, modality, features, and command overrides. `MachineCapacity` carries removal, turning, thermal, jet, erosion, extrusion/deposition, resin, powder, forming, joining, and robot envelopes through `UnitsNet`; `CoolantDelivery` carries delivery pressure, temperature, and concentration. `Machine.Admit(MachineIngress)` projects native manufacturer, payload, joint range, and speed evidence without escaping `Robots` types.
+`PostDialect` binds grammar, work-offset policy, compensation, arc mode, physical-record cap, numeric rendering, word retention, modality, features, and command overrides. `MachineCapacity` carries removal, turning, thermal, jet, erosion, extrusion/deposition, resin, powder, forming, joining, and robot envelopes through `UnitsNet`; `CoolantDelivery` carries delivery pressure, temperature, and concentration. `MachineIngress.Robot` admits manufacturer, payload, reach, and ordinal-keyed joint travel as provider-free rows `Kinematics/cell` projects, so no `Robots` type reaches this floor.
 
 `MachineCapacity.Facts` is the one envelope correspondence: each case emits quantity facts and robot joint-limit facts once, and validity with all queries reads that stream. `Machine.Capacity<TQuantity>` folds a chosen quantity axis through a `CapacityFold` row over `UnitMath`; `Machine.Capacity(MachineAxis)` returns the matching admitted joint limit. `ProcessKind.Demands` declares which `CapacityKind` a process requires, so equipment fitness is one equality rather than an enumerated physics table with per-process exceptions.
 
@@ -16,11 +16,11 @@ Wire posture: HOST-LOCAL. These axes cross only the in-process `FabricationInput
 
 - Owner: bounded smart enums own process, physics, strategy, kinematics, holding, coolant, and dialect grammar; `Machine` owns admitted runtime equipment; `ProcessFamily` owns their relational graph.
 - Cases: `ProcessModality` covers subtractive, thermal, abrasive, erosion, additive, formed, and joined strategy postures. `InteractionKind` retains every modality's contact, jet, beam, discharge, deposition, fusion, cure, deformation, and bond mechanisms without a false modality-wide contact flag. `PhysicsKind` separates subtractive, thermal, abrasive, fused-filament, deposition, joining, wire erosion, resin, powder, and forming inputs. `ProcessKind` adds grinding, sawing, deposition, vat polymerization, and powder-bed production. `MachineIngress.Seed` rows cover every `CapacityKind` a process demands, so no admitted process is unallocatable against the canonical fleet; a press brake names its synchronized ram and backgauge axes, and a turn-mill carries both its turning and its live-tool removal envelope.
-- Entry: `Machine.Admit` consumes one `MachineIngress` case; `ProcessFamily.Admit` consumes a machine registry; `FamilyOp.Select` carries one admitted `ProcessSelection`; and `ProcessFamily.Apply` consumes one `FamilyOp` modality.
+- Entry: `Machine.Admit` consumes one `MachineIngress` case and `Machine.Register` seats the admitted result in the keyed registry the `[ObjectFactory<string>]` boundary resolves, so registered shop equipment and the built-in archetypes share one resolution space; `ProcessFamily.Admit` consumes a machine registry; `FamilyOp.Select` carries one admitted `ProcessSelection`; and `ProcessFamily.Apply` consumes one `FamilyOp` modality.
 - Auto: `ProcessPhysics` reads `ProcessKind.Physics`; toolpath admission reads `ProcessModality.Admits`; and posting resolves the selected dialect through `PostDialect.Admits` and enforces `PostDialect.BlockCap` where a controller stores a bounded program. Kinematics reads `Machine.Topology`, `KinematicClass.OrientationDof`, and `Machine.Axes`; fixturing reads `Machine.Holding`; posting reads grammar, admitted work-offset range, compensation, arc, retention, feature, render, and override columns. Machine admission proves every quantity fact finite and positive unless its axis is signed, retains every admitted joint limit, and proves each admitted process reaches a capacity whose case-owned `CapacityKind` equals its `Demands`. Job-size limits remain execution policy.
 - Receipt: `FamilyResult` returns admitted selection, weighted or unreachable paths, ordering, components, allocation pairs, and unassigned demand slots without exposing mutable graph state.
-- Packages: `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`, `QuikGraph`, `UnitsNet`, and `Robots` compose at their owning boundaries.
-- Growth: a machine is one `MachineIngress.Seed` row; a compatibility is one graph edge; a query is one `FamilyOp` case; a bounded vocabulary adds one generated row. An envelope dimension is one `CapacityAxis` row with one `CapacityFact` on the owning capacity case; an aggregation is one `CapacityFold` row; a process's equipment demand is its `CapacityKind` column.
+- Packages: `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`, `QuikGraph`, and `UnitsNet` compose at their owning boundaries.
+- Growth: a machine is one `Machine.Register` call over any `MachineIngress`, and a `Seeds` row is an archetype rather than a gate; a compatibility is one graph edge; a query is one `FamilyOp` case; a bounded vocabulary adds one generated row. An envelope dimension is one `CapacityAxis` row with one `CapacityFact` on the owning capacity case; an aggregation is one `CapacityFold` row; a process's equipment demand is its `CapacityKind` column.
 - Boundary: process, machine, modality, strategy, kinematics, holding, and dialect remain independent axes. Machine topology and physical axes are authoritative for motion; dialect rows contain capability data only; every textual key admits once through `ProcessFamily.Admit<TAxis>`.
 
 ```csharp signature
@@ -34,7 +34,6 @@ using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.ConnectedComponents;
 using Rasm.Numerics;
-using Robots;
 using Thinktecture;
 using UnitsNet;
 using static LanguageExt.Prelude;
@@ -132,6 +131,10 @@ public sealed partial class InteractionKind {
     public static readonly InteractionKind AdhesiveBond = new("adhesive-bond");
 }
 
+// `ThermalCoupling` is the share of a cut's engaged seconds that reaches the part as heat, so one exposure law
+// serves every modality: a plasma or arc pass couples its whole dwell, an abrasive jet carries its own coolant and
+// couples almost none, and a cold form couples nothing. The column is what lets `ElementVariant.Of` derive one
+// comparable thermal term for every element instead of gating the measurement on the modality and publishing zero.
 [SmartEnum<string>]
 public sealed partial class ProcessModality {
     public static readonly ProcessModality Subtractive = new("subtractive", ModalityClass.Removal, Set(InteractionKind.SolidContact),
@@ -139,27 +142,28 @@ public sealed partial class ProcessModality {
             CutStrategy.Helical, CutStrategy.ThreadMill, CutStrategy.Waterline, CutStrategy.Scallop, CutStrategy.Pencil, CutStrategy.Rest,
             CutStrategy.ThreePlusTwo, CutStrategy.Swarf, CutStrategy.DrillCycle, CutStrategy.BoreCycle, CutStrategy.ReamCycle,
             CutStrategy.Face, CutStrategy.Slot, CutStrategy.Trochoidal, CutStrategy.Raster, CutStrategy.Spiral, CutStrategy.Morph,
-            CutStrategy.Geodesic, CutStrategy.Rotary, CutStrategy.FiveAxisContour));
+            CutStrategy.Geodesic, CutStrategy.Rotary, CutStrategy.FiveAxisContour), thermalCoupling: 0.25);
     public static readonly ProcessModality Thermal = new("thermal", ModalityClass.Removal,
         Set(InteractionKind.PhotonBeam, InteractionKind.ElectronBeam, InteractionKind.PlasmaJet, InteractionKind.CombustionJet),
-        Set(CutStrategy.BoundaryPass, CutStrategy.Helical, CutStrategy.Raster, CutStrategy.Spiral));
+        Set(CutStrategy.BoundaryPass, CutStrategy.Helical, CutStrategy.Raster, CutStrategy.Spiral), thermalCoupling: 1.0);
     public static readonly ProcessModality Abrasive = new("abrasive", ModalityClass.Removal,
-        Set(InteractionKind.AbrasiveJet, InteractionKind.SolidContact), Set(CutStrategy.BoundaryPass, CutStrategy.Helical));
+        Set(InteractionKind.AbrasiveJet, InteractionKind.SolidContact), Set(CutStrategy.BoundaryPass, CutStrategy.Helical), thermalCoupling: 0.15);
     public static readonly ProcessModality Erosion =
-        new("erosion", ModalityClass.Removal, Set(InteractionKind.ElectricalDischarge), Set(CutStrategy.BoundaryPass, CutStrategy.PlungeDwell));
+        new("erosion", ModalityClass.Removal, Set(InteractionKind.ElectricalDischarge), Set(CutStrategy.BoundaryPass, CutStrategy.PlungeDwell), thermalCoupling: 0.30);
     public static readonly ProcessModality Additive = new("additive", ModalityClass.Additive,
         Set(InteractionKind.MoltenDeposition, InteractionKind.PowderFusion, InteractionKind.ResinCure, InteractionKind.MaterialJet,
             InteractionKind.BinderJet, InteractionKind.SheetBond),
-        Set(CutStrategy.LayerWalk, CutStrategy.LayerContour, CutStrategy.LayerInfill, CutStrategy.Support, CutStrategy.Raster));
+        Set(CutStrategy.LayerWalk, CutStrategy.LayerContour, CutStrategy.LayerInfill, CutStrategy.Support, CutStrategy.Raster), thermalCoupling: 0.80);
     public static readonly ProcessModality Formed =
-        new("formed", ModalityClass.Formed, Set(InteractionKind.PlasticDeformation), Set(CutStrategy.Form));
+        new("formed", ModalityClass.Formed, Set(InteractionKind.PlasticDeformation), Set(CutStrategy.Form), thermalCoupling: 0.0);
     public static readonly ProcessModality Joined = new("joined", ModalityClass.Joined,
         Set(InteractionKind.ArcFusion, InteractionKind.SolidStateBond, InteractionKind.BrazedJoint, InteractionKind.AdhesiveBond),
-        Set(CutStrategy.BoundaryPass, CutStrategy.Seam, CutStrategy.Spot));
+        Set(CutStrategy.BoundaryPass, CutStrategy.Seam, CutStrategy.Spot), thermalCoupling: 1.0);
 
     public ModalityClass Class { get; }
     public Set<InteractionKind> Interactions { get; }
     public Set<CutStrategy> Strategies { get; }
+    public double ThermalCoupling { get; }
 
     public bool Admits(CutStrategy strategy) => Strategies.Contains(strategy);
 }
@@ -242,15 +246,18 @@ public sealed partial class CapacityFold {
     public static readonly CapacityFold Total = new("total");
     public static readonly CapacityFold Mean = new("mean");
 
+    // `UnitMath.Min`/`Max` are PAIRWISE over two quantities; only `Sum`/`Average` take the sequence-and-unit form.
+    // The extremum therefore folds the tail onto the admitted head, and the `Head` option property is what admits
+    // it — the empty sequence has no extremum to report and leaves through the same `None` every other row's
+    // absence takes.
     public Option<TQuantity> Apply<TQuantity>(Seq<TQuantity> values, Enum unit)
-        where TQuantity : IQuantity => values.IsEmpty
-        ? None
-        : Some(Switch(
-            state: (Values: values, Unit: unit),
-            minimum: static state => UnitMath.Min(state.Values, state.Unit),
-            maximum: static state => UnitMath.Max(state.Values, state.Unit),
-            total: static state => UnitMath.Sum(state.Values, state.Unit),
-            mean: static state => UnitMath.Average(state.Values, state.Unit)));
+        where TQuantity : IQuantity =>
+        values.Head.Map(head => Switch(
+            state: (Head: head, Tail: values.Tail, All: values, Unit: unit),
+            minimum: static state => state.Tail.Fold(state.Head, UnitMath.Min),
+            maximum: static state => state.Tail.Fold(state.Head, UnitMath.Max),
+            total: static state => UnitMath.Sum(state.All, state.Unit),
+            mean: static state => UnitMath.Average(state.All, state.Unit)));
 }
 
 [SmartEnum<string>]
@@ -360,7 +367,7 @@ public sealed partial class WcsRoster {
 
     public static Fin<WcsRoster> Admit(int slots, int extendedBase, int extended) =>
         Validate(slots, extendedBase, extended, out WcsRoster roster) is { } error
-            ? Fin.Fail<WcsRoster>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<WcsRoster>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(roster);
 }
 
@@ -729,12 +736,18 @@ public abstract partial record MachineIngress {
         KinematicClass Topology,
         Set<CoolantDelivery> Coolant,
         Seq<MachineCapacity> Capacities) : MachineIngress;
+    // Robot ingress is provider-free by construction: `Kinematics/cell` owns the one `Rhino3dm` alias crossing the
+    // package admits, so it projects a `MechanicalGroup` into these rows — manufacturer, payload, reach, and one
+    // `(joint ordinal, travel)` pair per chain link — and the atoms floor never names a `Robots` type. The ordinal
+    // stays the axis correspondence's own key, so the `RobotAxes` roster below remains the single seating law.
     public sealed record Robot(
         string Key,
-        MechanicalGroup Group,
+        RobotManufacturer Manufacturer,
+        Mass Payload,
+        Length Reach,
+        Arr<(int Ordinal, AxisTravel Travel)> Joints,
         Set<ProcessKind> Processes,
         HoldingClass Holding,
-        Length Reach,
         Set<CoolantDelivery> Coolant,
         Seq<MachineCapacity> ProcessCapacities) : MachineIngress;
 }
@@ -766,7 +779,7 @@ public sealed partial class Machine {
             .Choose(fact => fact is CapacityFact.Joint { Value: { } limit } && limit.Axis == axis
                 ? Some(limit)
                 : None)
-            .HeadOrNone();
+            .Head;
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -791,54 +804,38 @@ public sealed partial class Machine {
                 : new ValidationError("<machine-degenerate>");
 
     public static Fin<Machine> Admit(MachineIngress ingress) => ingress is null
-        ? Fin.Fail<Machine>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "machine-ingress").ToError())
+        ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine-ingress"))
         : ingress.Switch(
             seed: static value => AdmitSeed(value),
             robot: static value => AdmitRobot(value));
 
     private static Fin<Machine> AdmitSeed(MachineIngress.Seed seed) =>
         seed is null
-            ? Fin.Fail<Machine>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "machine-seed").ToError())
+            ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine-seed"))
             : Validate(seed.Key, seed.Processes, seed.Holding, seed.Axes, seed.Topology, seed.Coolant, seed.Capacities, out Machine machine) is { } error
-                ? Fin.Fail<Machine>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+                ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
                 : Fin.Succ(machine);
 
-    // Out-parameter seam: the ObjectFactory contract fixes the shape, so the resolved machine binds through a captured local.
+    // Out-parameter seam: the ObjectFactory contract fixes the shape. The registry holds machines already admitted,
+    // so the keyed boundary is a lookup, never a second admission — re-validating here would re-decide an invariant
+    // the mint already settled and would keep the resolution space frozen at the archetypes.
     [BoundaryAdapter]
     public static ValidationError? Validate(string? value, IFormatProvider? provider, out Machine? item) {
-        Machine? resolved = null;
-        ValidationError? error = Seeds
-            .Find(row => string.Equals(row.Key, value, StringComparison.Ordinal))
-            .Match(
-                Some: seed => Validate(
-                    seed.Key, seed.Processes, seed.Holding, seed.Axes, seed.Topology, seed.Coolant, seed.Capacities, out resolved),
-                None: () => new ValidationError($"<machine-unknown:{value}>"));
-        item = resolved;
-        return error;
+        item = Optional(value).Bind(key => Registry.Value.Find(key)).MatchUnsafe(static machine => machine, () => null);
+        return item is null ? new ValidationError($"<machine-unknown:{value}>") : null;
     }
 
     public string ToValue() => Key;
 
     private static Fin<Machine> AdmitRobot(MachineIngress.Robot seed) =>
-        seed.Group is null || seed.Group.Robot is null || seed.ProcessCapacities.IsEmpty
-            ? Fin.Fail<Machine>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "machine:robot").ToError())
-            : toSeq(seed.Group.Joints)
-            .Traverse(joint => joint.Index < 0 || joint.Index >= RobotAxes.Count
-                ? Fin.Fail<AxisLimit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "machine:robot-axis").ToError())
-                : AxisLimit.Validate(
-                    RobotAxes[joint.Index],
-                    joint is RevoluteJoint
-                        ? new AxisTravel.Rotary(
-                            Angle.FromRadians(joint.Range.T0),
-                            Angle.FromRadians(joint.Range.T1),
-                            RotationalSpeed.FromRadiansPerSecond(joint.MaxSpeed))
-                        : new AxisTravel.Linear(
-                            Length.FromMillimeters(joint.Range.T0),
-                            Length.FromMillimeters(joint.Range.T1),
-                            Speed.FromMillimetersPerSecond(joint.MaxSpeed)),
-                    out AxisLimit limit) is { } error
-                        ? Fin.Fail<AxisLimit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
-                        : Fin.Succ(limit))
+        seed.Manufacturer is null || seed.Joints.IsEmpty || seed.ProcessCapacities.IsEmpty
+            ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine:robot"))
+            : seed.Joints.ToSeq()
+            .Traverse(joint => joint.Ordinal < 0 || joint.Ordinal >= RobotAxes.Count
+                ? Fin.Fail<AxisLimit>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine:robot-axis"))
+                : AxisLimit.Validate(RobotAxes[joint.Ordinal], joint.Travel, out AxisLimit limit) is { } error
+                    ? Fin.Fail<AxisLimit>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
+                    : Fin.Succ(limit))
             .As()
             .Bind(limits => AdmitSeed(new MachineIngress.Seed(
                 seed.Key,
@@ -848,8 +845,8 @@ public sealed partial class Machine {
                 KinematicClass.ArticulatedArm,
                 seed.Coolant,
                 seed.ProcessCapacities.Add(new MachineCapacity.Robot(
-                    ManufacturerOf(seed.Group.Robot.Manufacturer),
-                    Mass.FromKilograms(seed.Group.Robot.Payload),
+                    seed.Manufacturer,
+                    seed.Payload,
                     seed.Reach,
                     limits.ToArr())))));
 
@@ -961,9 +958,30 @@ public sealed partial class Machine {
                 Power.FromKilowatts(15), Temperature.FromDegreesCelsius(1600),
                 Force.FromKilonewtons(5), Speed.FromMillimetersPerMinutes(1500)))));
 
-    private static readonly Arr<MachineAxis> RobotAxes = Arr(
+    internal static readonly Arr<MachineAxis> RobotAxes = Arr(
         MachineAxis.J1, MachineAxis.J2, MachineAxis.J3, MachineAxis.J4, MachineAxis.J5, MachineAxis.J6, MachineAxis.J7,
         MachineAxis.X, MachineAxis.Y, MachineAxis.Z, MachineAxis.A, MachineAxis.B, MachineAxis.C);
+
+    // The arm block's width in the seating roster, so a projector seats external mechanisms (tracks, positioners)
+    // on the trailing rows without re-declaring the roster — a duplicated private roster is the forked truth.
+    internal static readonly int RobotArmSeats = 7;
+
+    // `Seeds` are the BUILT-IN ROWS, never the resolution space: real shop equipment enters through
+    // `Fleet.AdmitInstance` and must resolve by key afterwards, so the keyed boundary reads a registry the admission
+    // fold populates and the archetypes are only its opening rows. This field seats AFTER `Seeds` because a static
+    // initializer reading a later field captures the uninitialized default. Registration is first-writer-wins by key,
+    // so a second admission of one key resolves to the machine already registered rather than forking the vocabulary.
+    private static readonly Atom<HashMap<string, Machine>> Registry = Atom(Seeds.Fold(
+        HashMap<string, Machine>.Empty,
+        static (rows, seed) => AdmitSeed(seed).Match(
+            Succ: machine => rows.AddOrUpdate(machine.Key, machine),
+            Fail: _ => rows)));
+
+    public static Fin<Machine> Register(MachineIngress ingress) =>
+        Admit(ingress).Map(static machine =>
+            Registry.Swap(rows => rows.TryAdd(machine.Key, machine)).Find(machine.Key).IfNone(machine));
+
+    public static Seq<Machine> Registered => Registry.Value.Values.ToSeq();
 
     private static bool CapacityValid(MachineCapacity capacity) => capacity.Facts().ForAll(static fact => fact.Switch(
         quantity: static row => double.IsFinite((double)row.Value.Value)
@@ -971,19 +989,6 @@ public sealed partial class Machine {
         joint: static row => row.Value is not null));
 
     private static bool CapacityFits(ProcessKind process, MachineCapacity capacity) => capacity.Kind == process.Demands;
-
-    private static RobotManufacturer ManufacturerOf(Manufacturers manufacturer) => manufacturer switch {
-        Manufacturers.ABB => RobotManufacturer.Abb,
-        Manufacturers.KUKA => RobotManufacturer.Kuka,
-        Manufacturers.UR => RobotManufacturer.Ur,
-        Manufacturers.Staubli => RobotManufacturer.Staubli,
-        Manufacturers.FrankaEmika => RobotManufacturer.FrankaEmika,
-        Manufacturers.Doosan => RobotManufacturer.Doosan,
-        Manufacturers.Fanuc => RobotManufacturer.Fanuc,
-        Manufacturers.Igus => RobotManufacturer.Igus,
-        Manufacturers.Jaka => RobotManufacturer.Jaka,
-        _ => RobotManufacturer.Unspecified,
-    };
 }
 
 // --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
@@ -1080,18 +1085,18 @@ public sealed class ProcessFamily {
     public static Fin<TAxis> Admit<TAxis>(string key)
         where TAxis : class, IObjectFactory<TAxis, string, ValidationError> =>
         TAxis.Validate(key, null, out TAxis? value) is { } error || value is null
-            ? Fin.Fail<TAxis>(FabricationFault.UnknownAxis(typeof(TAxis).Name, key))
+            ? Fin.Fail<TAxis>(new FabricationFault.UnknownAxis(typeof(TAxis).Name, key))
             : Fin.Succ(value);
 
     public static Fin<ProcessFamily> Admit(Seq<Machine> machines) =>
         machines.IsEmpty
             || !machines.ForAll(static machine => machine is not null)
             || machines.Map(static machine => machine.Key).Distinct().Count != machines.Count
-            ? Fin.Fail<ProcessFamily>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "process-family:machines").ToError())
+            ? Fin.Fail<ProcessFamily>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:machines"))
             : Fin.Succ(new ProcessFamily(machines, Build(machines)));
 
     public Fin<FamilyResult> Apply(FamilyOp operation) => operation is null
-        ? Fin.Fail<FamilyResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "process-family:operation").ToError())
+        ? Fin.Fail<FamilyResult>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:operation"))
         : operation.Switch(
             state: this,
             select: static (family, value) => family.Select(value.Value),
@@ -1101,7 +1106,7 @@ public sealed class ProcessFamily {
             allocate: static (family, value) => family.Allocate(value.Demand));
 
     private Fin<FamilyResult> Select(ProcessSelection selection) => selection is null
-        ? Fin.Fail<FamilyResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "process-family:selection").ToError())
+        ? Fin.Fail<FamilyResult>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:selection"))
         : (Admit<ProcessKind>(selection.Process).ToValidation(),
            MachineOf(selection.Machine),
            Admit<CutStrategy>(selection.Strategy).ToValidation(),
@@ -1121,7 +1126,7 @@ public sealed class ProcessFamily {
         if (route.Source is null
             || route.Target is null
             || route.Policy is null) {
-            return Fin.Fail<FamilyResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "process-family:route").ToError());
+            return Fin.Fail<FamilyResult>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:route"));
         }
 
         if (!_graph.Vertices.Contains(route.Source) || !_graph.Vertices.Contains(route.Target)) {
@@ -1172,7 +1177,7 @@ public sealed class ProcessFamily {
 
     private Fin<FamilyResult> Allocate(Seq<ProcessKind> demand) {
         if (demand.IsEmpty || !demand.ForAll(static process => process is not null)) {
-            return Fin.Fail<FamilyResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "process-family:allocation").ToError());
+            return Fin.Fail<FamilyResult>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:allocation"));
         }
 
         AdjacencyGraph<FamilyNode, SEdge<FamilyNode>> graph = new(allowParallelEdges: false);
@@ -1181,9 +1186,9 @@ public sealed class ProcessFamily {
         graph.AddVertexRange(sources + targets);
         graph.AddEdgeRange(from source in sources
                            from target in targets
-                           where source is FamilyNode.Demand demand
+                           where source is FamilyNode.Demand slot
                                && target is FamilyNode.Equipment equipment
-                               && equipment.Value.Admits(demand.Value)
+                               && equipment.Value.Admits(slot.Value)
                            select new SEdge<FamilyNode>(source, target));
         int augment = 0;
         MaximumBipartiteMatchingAlgorithm<FamilyNode, SEdge<FamilyNode>> matching = new(
@@ -1231,13 +1236,11 @@ public sealed class ProcessFamily {
         augment: static (_, _) => false);
 
     private static K<Validation<Error>, Unit> Relation(bool admits, RelationFault fault) =>
-        admits
-            ? Fin.Succ(unit).ToValidation()
-            : Fin.Fail<Unit>(new FabricationFault.InadmissiblePair(fault)).ToValidation();
+        AdmissionSlots.Gate(admits, new FabricationFault.InadmissiblePair(fault));
 
     private K<Validation<Error>, Machine> MachineOf(string key) =>
         Machines.Find(machine => string.Equals(machine.Key, key, StringComparison.Ordinal))
-            .ToFin(FabricationFault.UnknownAxis(nameof(Machine), key))
+            .ToFin(new FabricationFault.UnknownAxis(nameof(Machine), key))
             .ToValidation();
 }
 ```
@@ -1253,8 +1256,8 @@ config:
 flowchart LR
     accTitle: Fabrication process-family relations
     accDescr: Bounded process axes and admitted runtime machines fold into one graph that serves selection, reachability, ordering, connected-family inspection, and fleet matching.
-    Seeds["MachineIngress keyed capability data"] -->|Machine.Admit| Machine["Machine axes · topology · holding · coolant · dimensional capacities"]
-    Mechanical["Robots MechanicalGroup"] -->|manufacturer · payload · joint ranges · speeds| Machine
+    Seeds["MachineIngress keyed capability data"] -->|Machine.Admit → Machine.Register| Machine["Machine axes · topology · holding · coolant · dimensional capacities"]
+    Cell["Kinematics/cell provider-free robot rows"] -->|manufacturer · payload · reach · ordinal-keyed joint travel| Machine
     Process["ProcessKind.Items"] --> Graph["ProcessFamily BidirectionalGraph"]
     Strategy["CutStrategy.Items"] --> Graph
     Dialect["PostDialect.Items"] --> Graph

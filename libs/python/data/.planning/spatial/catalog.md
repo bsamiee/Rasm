@@ -2,7 +2,7 @@
 
 Cloud-native STAC discovery owner: one `StacCatalog` over `pystac-client` resolving which cloud assets cover a query region — the discovery layer above the raster/vector claims (`spatial/geospatial#GEO`) and the archival byte-window read (`tabular/egress#EGRESS`) that the geospatial and object-store lanes lack. `StacCatalog.discover` folds the one `StacQuery` search axis onto the single keyword-only `Client.search`, the `Surface` discriminant alone routing the shared rows to `Client.collection_search` on a `FreeText` case, pages the lazy `ItemSearch` into a `pystac.ItemCollection`, and emits one `StacDiscovery` keyed by a runtime `ContentIdentity` over the matched item-id set. One `Signing` value encodes the request boundary as a frozen `SchemeRow` read by name — into `Client.open(modifier=)` for discovery, over the `ItemSearch` for asset hrefs, and into `odc.stac.load(patch_url=)` for the COG load — never a signed-vs-unsigned client pair.
 
-Discovered collections encode as a `stac-geoparquet` columnar Arrow `RecordBatchReader` (`[3]-[TABLE]`) the `tabular/columnar#SCAN` scan and `tabular/query#QUERY` engine consume, and the asset hrefs fold (`[4]-[ASSETS]`) into the `tabular/egress#EGRESS` `ObjectEgress.GetRange` byte-window read, the `gridded/virtual#VIRTUAL` `VirtualReference.apply` virtual-chunk registration over the `gridded/virtual#MANIFEST` `FieldVirtual` manifest, and the `odc-stac` `odc.stac.load` COG datacube driven by the catalogue-derived `stac_cfg`/`patch_url`. Every bundle keys by exactly one runtime `ContentIdentity`; the network legs ride the runtime `guarded(RetryClass.HTTP, ...)` envelope, never a second object-store transport, virtual-cube builder, COG loader, or hand-fed band metadata.
+Discovered collections encode as a `stac-geoparquet` columnar Arrow `RecordBatchReader` (`[3]-[TABLE]`) the `tabular/columnar#SCAN` scan and `tabular/query#QUERY` engine consume, and the asset hrefs fold (`[4]-[ASSETS]`) into the `tabular/egress#EGRESS` receipt owner over the `runtime/transport/roots#STORE` `StoreOp.GetRange` byte-window read, the `gridded/virtual#VIRTUAL` `VirtualReference.apply` virtual-chunk registration over the `gridded/virtual#MANIFEST` `FieldVirtual` manifest, and the `odc-stac` `odc.stac.load` COG datacube driven by the catalogue-derived `stac_cfg`/`patch_url`. Every bundle keys by exactly one runtime `ContentIdentity`; the network legs ride the runtime `guarded(RetryClass.HTTP, ...)` envelope, never a second object-store transport, virtual-cube builder, COG loader, or hand-fed band metadata.
 
 ## [01]-[INDEX]
 
@@ -12,13 +12,13 @@ Discovered collections encode as a `stac-geoparquet` columnar Arrow `RecordBatch
 
 ## [02]-[CATALOG]
 
-- Owner: `StacCatalog` — the one cloud-native discovery owner, a `Client.open`-bound STAC API root carrying one `Signing`. `StacQuery` is the tagged-union search axis folded by `match`/`case` onto the single keyword-only `Client.search`; a new search modality is one case, never a `search_bbox`/`search_intersects`/`search_cql2` method family. `Surface` is the discovery-method discriminant carrying its own frozen `SurfaceRow` `(method, cap, accepts, materialize)`: the `accepts` keyword-admission set is the boundary that keeps the union total across surfaces — an `ids`/`intersects`/`collections` row a `FreeText` union folds in never reaches `collection_search`, which rejects it — and the `materialize` policy owns the structural divergence between the two iterators, since the `ITEM` row signs the `ItemSearch` and reads `matched()` while a `CollectionSearch` carries no Azure hrefs and no `sign`/`matched` member, yielding zero hrefs and no expiry. `Signing` encodes the request boundary as one frozen `SchemeRow` (`NONE`/`PLANETARY_COMPUTER`) whose `open_kwargs`/`sign`/`patch_url` callables are read by name, never a positional triple, parallel `match` statements, or a forwarded bare callable.
+- Owner: `StacCatalog` — the one cloud-native discovery owner, a `Client.open`-bound STAC API root carrying one `Signing`. `Signing` holds TWO orthogonal axes on one value: `scheme` names the href-REWRITE dispatch (a `SchemeRow` read by name) and `credentials` the obstore-native provider the asset-BYTE reads bind — Planetary Computer does both, NASA Earthdata mints storage credentials and rewrites nothing, a public catalog does neither, so neither axis is a member of the other's vocabulary and no fake scheme row stands in for a credential-only catalog. `StacQuery` is the tagged-union search axis folded by `match`/`case` onto the single keyword-only `Client.search`; a new search modality is one case, never a `search_bbox`/`search_intersects`/`search_cql2` method family. `Surface` is the discovery-method discriminant carrying its own frozen `SurfaceRow` `(method, cap, accepts, materialize)`: the `accepts` keyword-admission set is the boundary that keeps the union total across surfaces — an `ids`/`intersects`/`collections` row a `FreeText` union folds in never reaches `collection_search`, which rejects it — and the `materialize` policy owns the structural divergence between the two iterators, since the `ITEM` row signs the `ItemSearch` and reads `matched()` while a `CollectionSearch` carries no Azure hrefs and no `sign`/`matched` member, yielding zero hrefs and no expiry. `Signing` encodes the request boundary as one frozen `SchemeRow` (`NONE`/`PLANETARY_COMPUTER`) whose `open_kwargs`/`sign`/`patch_url` callables are read by name, never a positional triple, parallel `match` statements, or a forwarded bare callable.
 - Cases: `StacQuery` rows — `Bbox`, `Intersects` (a GeoJSON-geometry dict the server intersects server-side, no shapely at the boundary), `Datetime` (an RFC-3339 interval), `Ids`, `Collection`, `Cql2Filter` (a CQL2-JSON predicate the STAC API evaluates server-side), `Cql2Query` (the legacy `query` extension), `Order` (server-side sort with field projection), and `FreeText` (whose presence flips `Surface` from `ITEM` to `COLLECTION`, routing to `Client.collection_search`). Each carries a `params()` projection contributing exactly its own keyword arguments, so an n-axis query unions the per-case keyword dicts rather than forking a method per axis; because `collection_search` shares the `bbox`/`datetime`/`query`/`filter`/`filter_lang`/`sortby`/`fields` axis with `search`, the shared rows union onto either surface unchanged, the surface alone differing.
 - Entry: `StacCatalog.discover` computes the pure plan — reduces the query tuple's `params()` into one keyword set and recovers `Surface.of_queries` and its `.row` — then drives the whole blocking `pystac_client` sequence (`Client.open`, `row.call`, `row.materialize`) through one `guarded(RetryClass.HTTP, on_thread, ...)` envelope, the `THREAD_BAND`-bounded hop, so the synchronous I/O never stalls the event loop and the transient `429`/`5xx`/timeout set retries under a `Retry-After`-honouring backoff as one logical discovery. `row.call` reads the method, cap, and `accepts` keyword filter off the `SurfaceRow` so a cross-surface param never reaches a method that rejects it, and `row.materialize` returns the full shaped `(collection, item_ids, matched, href_count, expiry, url)` outcome — the `ITEM` row's one `planetary_computer.sign(ItemSearch)` dispatch both materializes the page and rewrites every Azure blob href in a single pass, reports `matched()` and the resolved-GET `url_with_parameters()`, and reads each item's `msft:expiry`; the `COLLECTION` row materializes without signing, yielding a zero href count, no expiry, and a `None` url. Results flatten through `.bind(self._shape(surface))`, which folds the railed `ContentIdentity.of` over the item-id set through `.map` into one `StacDiscovery` rather than stuffing a `RuntimeRail[ContentKey]` into the `content_key` field.
-- Auto: the `params` fold is the union law — a bbox+datetime+cloud-cover+order query is one `search`, never four; `Surface.of_queries` flips to `collection_search` exactly when a `FreeText` case is present, the one boolean-free routing read, never a `search_by_<axis>` family. `ItemSearch` is lazy so `matched()` reads the API total without materializing every page, and `sign` over the lazy handle is the one canonical materialize-plus-sign — never the deprecated `get_all_items`, never a `next`-link follow loop, never a materialize-then-re-sign two-pass — and `min(msft:expiry)` over the signed items reports the token-validity horizon. `pystac-client`/`pystac`/`planetary-computer` import function-local per the boundary-scope import policy; the runtime rails ride module-level.
-- Receipt: one `StacDiscovery` carries the signed `ItemCollection`, the matched item-id tuple and `matched()` count, the href count, the `msft:expiry` horizon, the resolved `url`, and the `ContentKey`; `contribute()` yields one emitted-phase `Receipt.of("catalog", ...)`, the counts native scalars, never a parallel result-versus-receipt pair.
-- Packages: `pystac-client` (the keyword-only `Client.search`/`collection_search`, `ItemSearch.{item_collection,matched,url_with_parameters}` the `ITEM` row reads, `CollectionSearch.collection_list` the `COLLECTION` row reads), `pystac` (`ItemCollection`/`Item`/`Asset`, the `msft:expiry` token horizon), `planetary-computer` (`sign` the `singledispatch` over the lazy `ItemSearch`, `sign_inplace` the `modifier=` callable, `set_subscription_key`), runtime (`RuntimeRail`/`ContentIdentity`/`ContentKey`/`Receipt`/`RetryClass`/`guarded`/`on_thread`).
-- Growth: a new search modality is one `StacQuery` case with its key on the owning surface's `accepts` set; a new auth scheme is one `SignScheme` member with its `SchemeRow`; a new discovery surface is one `Surface` member with its `SurfaceRow` whose `accepts` names the method's admissible keywords; zero new surface.
+- Auto: the `params` fold is the union law — a bbox+datetime+cloud-cover+order query is one `search`, never four; `Surface.of_queries` flips to `collection_search` exactly when a `FreeText` case is present, the one boolean-free routing read, never a `search_by_<axis>` family. `ItemSearch` is lazy so `matched()` reads the API total without materializing every page, and `sign` over the lazy handle is the one canonical materialize-plus-sign — never the deprecated `get_all_items`, never a `next`-link follow loop, never a materialize-then-re-sign two-pass. `min(msft:expiry)` over the signed items reports the token-validity horizon as EVIDENCE alone: the bound credential provider owns refresh inside the store handle, so a fan-out outliving that window re-signs transparently rather than failing mid-read against a horizon this owner could only report and never renew. `pystac-client`/`pystac`/`planetary-computer` and both `obstore.auth` providers import function-local per the boundary-scope import policy; the runtime rails ride module-level.
+- Receipt: one `StacDiscovery` carries the signed `ItemCollection`, the matched item-id tuple and `matched()` count, the href count, the `msft:expiry` horizon, the resolved `url`, and the `ContentKey`; `contribute()` yields one emitted-phase `Receipt.of("catalog", ...)` spelling the `domain`/`kind`/`key` lifted columns beside the `rasm.catalog.items` measure it records, the counts native scalars, never a parallel result-versus-receipt pair.
+- Packages: `pystac-client` (the keyword-only `Client.search`/`collection_search`, `ItemSearch.{item_collection,matched,url_with_parameters}` the `ITEM` row reads, `CollectionSearch.collection_list` the `COLLECTION` row reads), `pystac` (`ItemCollection`/`Item`/`Asset`, the `msft:expiry` token horizon), `planetary-computer` (`sign` the `singledispatch` over the lazy `ItemSearch`, `sign_inplace` the `modifier=` callable, `set_subscription_key`), `obstore` (`auth.planetary_computer.PlanetaryComputerAsyncCredentialProvider` and `auth.earthdata.NasaEarthdataAsyncCredentialProvider`, the two providers that own token refresh inside the store rather than beside it), runtime (`RuntimeRail`/`ContentIdentity`/`ContentKey`/`Receipt`/`Metrics`/`Provider`/`RetryClass`/`guarded`/`on_thread`).
+- Growth: a new search modality is one `StacQuery` case with its key on the owning surface's `accepts` set; a new href-rewrite scheme is one `SignScheme` member with its `SchemeRow`; a new credential estate is one `Signing` factory binding its own obstore provider with no `SignScheme` member at all; a new discovery surface is one `Surface` member with its `SurfaceRow` whose `accepts` names the method's admissible keywords; zero new surface.
 - Boundary: composes the runtime credential and resilience owners, never a second STAC paging loop, CQL2 compiler, SAS token fetch, conformance negotiator, or retry/backoff loop; no live UI, no durable catalog store. A `search_by_<axis>` method family, a `cap`-keyword ternary fork where the `SurfaceRow` carries the name, a blind `**params` splat onto `collection_search` where `accepts` filters the rejected keyword, a `signing.sign(...) if surface is ITEM else ...` branch where `materialize` routes, and a hand-opened `boundary` re-spelling the retry/span/lift the `guarded` envelope fuses are rejected.
 
 ```python signature
@@ -37,8 +37,10 @@ from opentelemetry.trace import SpanKind
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, scoped
 from rasm.runtime.lanes import on_thread
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.resilience import RetryClass, guarded
+from rasm.runtime.roots import Provider
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -103,10 +105,26 @@ _SCHEME: Final[Map[SignScheme, SchemeRow]] = Map.of_seq([
 ])
 
 
+def _pc_credentials(subscription_key: str | None) -> Provider:
+    from obstore.auth.planetary_computer import PlanetaryComputerAsyncCredentialProvider  # ruff:ignore[import-outside-top-level]
+
+    return PlanetaryComputerAsyncCredentialProvider(subscription_key=subscription_key)
+
+
+def _earthdata_credentials(credentials_url: str, auth: "tuple[str, str] | str | None") -> Provider:
+    from obstore.auth.earthdata import NasaEarthdataAsyncCredentialProvider  # ruff:ignore[import-outside-top-level]
+
+    return NasaEarthdataAsyncCredentialProvider(credentials_url, auth=auth)
+
+
 class Signing(Struct, frozen=True):
     headers: Headers = field(default_factory=dict)
     timeout: float | None = None
     scheme: SignScheme = SignScheme.NONE
+    # the store-credential axis, orthogonal to `scheme`: the provider owns token refresh INSIDE the obstore handle
+    # every asset-byte read crosses, so a long fan-out re-signs transparently where a reported expiry horizon could
+    # only be observed. A catalog needing credentials without href rewriting binds this and keeps `SignScheme.NONE`.
+    credentials: Provider = None
 
     @staticmethod
     def none() -> "Signing":
@@ -118,9 +136,22 @@ class Signing(Struct, frozen=True):
 
     @staticmethod
     def planetary_computer(subscription_key: str | None = None, headers: Headers | None = None, timeout: float | None = None) -> "Signing":
+        # `planetary_computer.sign` resolves its subscription key off the module global and carries no per-call slot,
+        # so the href-rewrite half binds once there while the byte-read half takes the key on its own composition-bound
+        # provider — the split is the package's, not a choice, and the provider never reads that global.
         if subscription_key is not None:
             _pc().set_subscription_key(subscription_key)
-        return Signing(headers=headers or {}, timeout=timeout, scheme=SignScheme.PLANETARY_COMPUTER)
+        return Signing(
+            headers=headers or {}, timeout=timeout, scheme=SignScheme.PLANETARY_COMPUTER, credentials=_pc_credentials(subscription_key)
+        )
+
+    @staticmethod
+    def earthdata(
+        credentials_url: str, auth: "tuple[str, str] | str | None" = None, headers: Headers | None = None, timeout: float | None = None
+    ) -> "Signing":
+        # NASA Earthdata mints short-lived S3 credentials and rewrites no href, so it earns no `SignScheme` member:
+        # the rewrite axis stays NONE and the credential axis carries the whole estate at zero new surface.
+        return Signing(headers=headers or {}, timeout=timeout, credentials=_earthdata_credentials(credentials_url, auth))
 
     def open_kwargs(self) -> OpenKwargs:
         return self.scheme.row.open_kwargs(self.headers, self.timeout)
@@ -269,12 +300,20 @@ class StacDiscovery(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> "Iterable[Receipt]":
+        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
+        # the SAME pair handed `Metrics.record` beside the identity this discovery minted — so the durable row lands
+        # in the `catalog` partition a predicate prunes and rejoins the live series its twin emitted. `expiry`
+        # renders `"none"` rather than a null because every fact this map carries reaches the residence rendered.
+        Metrics.record({"rasm.catalog.items": float(len(self.item_ids))}, domain="catalog", kind=self.endpoint)
         yield Receipt.of(
             "catalog",
             (
                 "emitted",
                 self.endpoint,
                 {
+                    "domain": "catalog",
+                    "kind": self.endpoint,
+                    "key": self.content_key.hex,
                     "surface": self.surface.value,
                     "items": len(self.item_ids),
                     "matched": self.matched,
@@ -579,14 +618,14 @@ class StacGeoClaim(Struct, frozen=True):
 
 ## [04]-[ASSETS]
 
-- Owner: `AssetFold` — one awaitable fold over the signed `StacDiscovery.collection` discriminating a `FoldTarget` axis (`Egress`/`Cube`/`Coverage`) into the settled downstream seams, not a new transport. `Egress` reads the intersecting COG/GeoTIFF byte windows through `tabular/egress#EGRESS` `ObjectEgress.run(StoreOp.GetRange(...))`; `Cube` registers the cube-bearing hrefs as virtual chunk byte-ranges through `gridded/virtual#VIRTUAL` `VirtualReference.apply(VersionOp(aggregate=(...)))` composing the `gridded/virtual#MANIFEST` `FieldVirtual` manifest; `Coverage` reads the `proj`/`raster`/`eo` extensions into one `RasterGeoClaim` with `stac_cfg` and drives the `odc-stac` `odc.stac.load` COG datacube with `Signing.patch_url()` threaded so the reads are SAS-signed.
+- Owner: `AssetFold` — one awaitable fold over the signed `StacDiscovery.collection` discriminating a `FoldTarget` axis (`Egress`/`Cube`/`Coverage`) into the settled downstream seams, not a new transport. `Egress` reads the intersecting COG/GeoTIFF byte windows through `tabular/egress#EGRESS` `ObjectEgress.run_async(StoreOp.GetRange(...))` over a store this fold opens under the discovery's OWN credential provider, so the read half and the signing half share one token custody; `Cube` registers the cube-bearing hrefs as virtual chunk byte-ranges through `gridded/virtual#VIRTUAL` `VirtualReference.apply(VersionOp(aggregate=(...)))` composing the `gridded/virtual#MANIFEST` `FieldVirtual` manifest; `Coverage` reads the `proj`/`raster`/`eo` extensions into one `RasterGeoClaim` with `stac_cfg` and drives the `odc-stac` `odc.stac.load` COG datacube with `Signing.patch_url()` threaded so the reads are SAS-signed.
 - Cases: the `FoldTarget` value IS the route. One shared `_raster_hrefs` generator yields the `(asset, href)` pairs whose `media_type` is in `{MediaType.COG, MediaType.GEOTIFF}` — the one media-type gate for both raster arms, never a per-arm raw-MIME set. Extension reads ride the typed `obj.ext.<short>` accessor the object type statically scopes (`sample.ext.proj`, `sample.ext.eo`, `asset.ext.raster`), so a missing extension is a typed absence, not a `KeyError`, never a raw `properties` probe.
 - Entry: `AssetFold.over` guards on `surface is Surface.COLLECTION`, returning a typed reject so a collection terminal never reaches the asset arms, then materializes `sources` once. `Egress` arms fan the egress owner's `run_async` across the byte windows inside one task group under the run-scoped `_WINDOW_BAND` limiter — one instance per running event loop, shared by every concurrent fold on it — independent reads never serialize on the store's latency — and thread the order-preserved rails through `traversed(..., by=Disposition.ABORT)` so the first byte-window fault aborts the fold; the egress owner short-circuits an unchanged content-key to a by-reference no-op. `Cube` arms cross the blocking `VirtualReference.apply` on the banded `on_thread` hop and narrow its `VirtualOutcome` to `VirtualReceipt` through one `isinstance` arm, reading the real `chunk_refs` manifest count rather than `len(sources)`. `Coverage` arms ride the HTTP envelope and self-flattens; `_coverage` reads the sample item's extensions into one `RasterGeoClaim` (`spatial/geospatial#GEO`) and `stac_cfg`, then loads the cube from the catalogue-derived config. Every arm closes through `_rekey`, folding the railed `ContentIdentity.of` into a `StacDiscovery` preserving every source field with the real folded count — the `Egress` preimage the per-window `href:window:content_key` rows read off the receipts and its count the summed `EgressReceipt.byte_length`, the `Cube` count the manifest `chunk_refs`, the `Coverage` count the `band_count` — so changed remote bytes flip the egress key, a coverage is byte-distinct from its egress, and a single new asset flips the key.
-- Auto: the byte window is the COG/GeoTIFF IFD header/overview/tile range passed straight to `GetRange`, one HTTP range request, never a full-object read; the virtual cube reuses the `FieldVirtual` owner's `ObjectStoreRegistry` backend map so STAC asset URLs register through the same transport the egress owner speaks — one transport across discovery, egress, and cube. `RasterGeoClaim` carries the `proj:epsg` CRS, `raster:bands` nodata, and `eo:bands` count; the `ClaimBundle` carries the `eo:cloud_cover` scene fraction beside the claim (a knob the sibling-owned `RasterGeoClaim` has no slot for); `Signing.patch_url()` rides `patch_url=` so the COG reads are signed by the same dispatch that signed discovery. Loaded cube `sizes`, the CRS, and the cloud fraction fold into the `Coverage` key so a cloudy and a clear scene of one bbox key byte-distinct.
+- Auto: the byte window is the COG/GeoTIFF IFD header/overview/tile range passed straight to `GetRange`, one HTTP range request, never a full-object read; the virtual cube reuses the `FieldVirtual` owner's `ObjectStoreRegistry` backend map so STAC asset URLs register through the same runtime store fold the egress arm speaks — one transport AND one credential custody across discovery, egress, and cube, so no arm walks a token-less handle over assets the discovery signed. `RasterGeoClaim` carries the `proj:epsg` CRS, `raster:bands` nodata, and `eo:bands` count; the `ClaimBundle` carries the `eo:cloud_cover` scene fraction beside the claim (a knob the sibling-owned `RasterGeoClaim` has no slot for); `Signing.patch_url()` rides `patch_url=` so the COG reads are signed by the same dispatch that signed discovery. Loaded cube `sizes`, the CRS, and the cloud fraction fold into the `Coverage` key so a cloudy and a clear scene of one bbox key byte-distinct.
 - Receipt: the fold re-mints the one `StacDiscovery` keyed by the fold-target `ContentIdentity` over its arm payload with the folded count; no new receipt rail.
-- Packages: `pystac` (`Item.assets`/`Asset.href`/`media_type`/`MediaType.COG`/`GEOTIFF`, the `obj.ext.proj`/`ext.eo`/`ext.raster` accessors), `odc-stac` (`odc.stac.load`), `tabular/egress` (`ObjectEgress.run`/`StoreOp.GetRange`, the `EgressReceipt.byte_length` the fold sums), `gridded/virtual` (`VirtualReference.apply`/`ManifestWrite`/`VirtualReceipt.chunk_refs`), `gridded/virtual#MANIFEST` (`FieldVirtual` the composed manifest cube), `spatial/geospatial` (`RasterGeoClaim`/`Resampling`), `spatial/catalog` (`Surface` the terminal guard reads), `expression` (`Block.of_seq`/`Error`), runtime (`ContentIdentity`/`RuntimeRail`/`BoundaryFault`/`traversed`/`Disposition`/`RetryClass`/`guarded`/`on_thread`).
+- Packages: `pystac` (`Item.assets`/`Asset.href`/`media_type`/`MediaType.COG`/`GEOTIFF`, the `obj.ext.proj`/`ext.eo`/`ext.raster` accessors), `odc-stac` (`odc.stac.load`), `tabular/egress` (`ObjectEgress.of`/`run_async`, the `EgressReceipt.byte_length` the fold sums), `runtime/transport/roots#STORE` (`StoreOp.GetRange` the operation axis, `Provider` the credential carry), `gridded/virtual` (`VirtualReference.apply`/`ManifestWrite`/`VirtualReceipt.chunk_refs`), `gridded/virtual#MANIFEST` (`FieldVirtual` the composed manifest cube), `spatial/geospatial` (`RasterGeoClaim`/`Resampling`), `spatial/catalog` (`Surface` the terminal guard reads), `expression` (`Block.of_seq`/`Error`), runtime (`ContentIdentity`/`RuntimeRail`/`BoundaryFault`/`traversed`/`Disposition`/`RetryClass`/`guarded`/`on_thread`).
 - Growth: a new archival format is one `MediaType` member in the `_raster_hrefs` gate; a new cube source is the existing `gridded/virtual#MANIFEST` `VirtualParser` case upstream, zero change here; a new coverage knob is one field on the `Coverage` row; a new extension read is one typed accessor in `_claim`; zero new surface.
-- Boundary: reads the settled `tabular/egress`/`gridded/virtual`/`spatial/geospatial`/`odc-stac` fences and re-mints none — no second object-store transport, virtual-cube builder, COG loader, or raster claim, no full-object read where a byte window applies. A raw `properties` probe where the typed accessor applies, a `VirtualOutcome` consumed without the `VirtualReceipt` narrowing before `.chunk_refs`, a `len(sources)` count where the real receipt evidence is the count, a `_rekey` dropping `expiry`/`matched`/`url`, and a hand-fed `stac_cfg` where the extension read derives it are rejected.
+- Boundary: reads the settled `tabular/egress`/`gridded/virtual`/`spatial/geospatial`/`odc-stac` fences and re-mints none — no second object-store transport, virtual-cube builder, COG loader, or raster claim, no full-object read where a byte window applies. A raw `properties` probe where the typed accessor applies, a `VirtualOutcome` consumed without the `VirtualReceipt` narrowing before `.chunk_refs`, a `len(sources)` count where the real receipt evidence is the count, a `_rekey` dropping `expiry`/`matched`/`url`, a caller-supplied egress owner whose store may carry no credential lifetime where this fold binds the discovery's own provider, and a hand-fed `stac_cfg` where the extension read derives it are rejected.
 
 ```python signature
 from typing import TYPE_CHECKING, Final, Literal, assert_never
@@ -596,22 +635,25 @@ from anyio import CapacityLimiter
 from anyio.lowlevel import RunVar
 from expression import Error, case, tag, tagged_union
 from expression.collections import Block
-from msgspec import Struct
+from msgspec import Struct, structs
 
 from rasm.data.gridded.virtual import FieldVirtual, ManifestWrite, VirtualReceipt, VirtualReference, VersionOp
 from rasm.data.spatial.geospatial import RasterGeoClaim, Resampling
-from rasm.data.tabular.egress import ObjectEgress, StoreOp
+from rasm.data.tabular.egress import ObjectEgress
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, traversed
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.resilience import RetryClass, guarded
-from rasm.runtime.roots import ResourceRef
+from rasm.runtime.roots import Provider, ResourceRef, StoreOp
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
 type StacCfg = dict[str, dict[str, object]]
 type Window = tuple[int, int]
+
+_SOURCE_OWNER: Final[str] = "rasm.data.spatial.catalog"
+
 
 _WINDOW_BAND: Final[int] = 8  # concurrent byte-window reads across every egress fold; the store's own client pools connections under it
 _WINDOW_LIMITER: Final[RunVar[CapacityLimiter]] = RunVar("stac-window-band")  # per-event-loop instance under the one shared band
@@ -644,13 +686,16 @@ class ClaimBundle(Struct, frozen=True):
 @tagged_union(frozen=True)
 class FoldTarget:
     tag: Literal["egress", "cube", "coverage"] = tag()
-    egress: tuple[ObjectEgress, "Mapping[str, Window]"] = case()
+    # the egress arm names the store ROOT, never a pre-built owner: the fold binds the signing's own credential
+    # provider onto the handle it opens, so an asset read cannot cross a store carrying no token lifetime while the
+    # discovery that produced its hrefs was signed. A caller-supplied owner could silently be that store.
+    egress: tuple[ResourceRef, "Mapping[str, Window]"] = case()
     cube: tuple[ResourceRef, str] = case()
     coverage: tuple[str, str, "dict[str, int] | None"] = case()
 
     @staticmethod
-    def Egress(egress: ObjectEgress, windows: "Mapping[str, Window]") -> "FoldTarget":
-        return FoldTarget(egress=(egress, windows))
+    def Egress(ref: ResourceRef, windows: "Mapping[str, Window]") -> "FoldTarget":
+        return FoldTarget(egress=(ref, windows))
 
     @staticmethod
     def Cube(ref: ResourceRef, concat_dim: str = "time") -> "FoldTarget":
@@ -668,9 +713,17 @@ class AssetFold(Struct, frozen=True):
     async def over(self, target: FoldTarget) -> "RuntimeRail[StacDiscovery]":
         if self.discovery.surface is Surface.COLLECTION:
             return Error(BoundaryFault(boundary=("stac.assets", "collection-discovery is a terminal, re-enter an item search before the asset fold")))
-        sources = tuple(href for _, href in _raster_hrefs(self.discovery.collection))
+        # each asset href becomes a credential-bearing REF stamped with the signing estate's own provider: the byte
+        # reads authenticate and refresh through the same custody that signed discovery, and every downstream
+        # consumer (egress lane, manifest registry) reads that one column instead of taking a provider beside a ref.
+        sources = tuple(ResourceRef.admit(href, _SOURCE_OWNER, self.signing.credentials) for _, href in _raster_hrefs(self.discovery.collection))
         match target:
-            case FoldTarget(tag="egress", egress=(egress, windows)):
+            case FoldTarget(tag="egress", egress=(ref, windows)):
+                # one owner per fold over the signing's own provider: the byte reads authenticate and refresh through
+                # the same credential estate that signed discovery, never a second token custody beside it. The
+                # provider stamps onto the residence COORDINATE — the lane takes no `credential_provider=` beside its
+                # ref, because a lane credentialed apart from its residence is two resolutions one memo key cannot serve.
+                egress = ObjectEgress.of(structs.replace(ref, credentials=self.signing.credentials))
                 windowed = tuple((href, w) for href in sources if (w := windows.get(href)) is not None)
                 # byte windows ride the egress owner's awaitable leg as independent reads — a sequential await pays the
                 # store's latency once per window — fanned inside one task group under the run-scoped window band;
@@ -700,7 +753,11 @@ class AssetFold(Struct, frozen=True):
                     )
                 )
             case FoldTarget(tag="cube", cube=(ref, concat_dim)):
-                manifest = ManifestWrite(cube=FieldVirtual(sources=sources, target=ref, concat_dim=concat_dim))
+                # the manifest walk reads archival headers over the SAME credential estate that signed the hrefs, so a
+                # cube registration over a signed catalog authenticates instead of walking a token-less handle.
+                manifest = ManifestWrite(
+                    cube=FieldVirtual(sources=sources, target=structs.replace(ref, credentials=self.signing.credentials), concat_dim=concat_dim)
+                )
                 # icechunk registration and commit block on store I/O — the banded thread hop, never the loop; `apply` is railed, so the hop carries the rail whole.
                 outcome_rail = await on_thread(VirtualReference(sources=sources, ref=ref).apply, VersionOp(aggregate=(manifest, {}, None)))
                 return outcome_rail.bind(

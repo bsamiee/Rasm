@@ -14,28 +14,48 @@ A request family is one deep owner — the class carries its dedup identity in i
 ## [02]-[REQUEST_FAMILY]
 
 - Owner: the request-declaration law — every batched lookup is a class extending `Request.TaggedClass("<tag>")<Success, Error, Fields>`, one name serving value, type, constructor, and dedup identity, with the family's resolver mint, window upgrade, and provider seam riding the class as statics; the folder's `Descriptor` family consumes `object/store.md`'s singular `head` member and owns bounded parallel settlement inside the resolver window — one head-lookup family whose geometry (traversal, wall-clock, persisted) is the `[4]` upgrade axis on one declaration, never a sibling family per geometry.
-- Packages: `effect` (`Request`, `Schema`, `PrimaryKey`, `HashMap`, `Option`, `Array`, `Effect`).
+- Packages: `effect` (`Request`, `Schema`, `PrimaryKey`, `HashMap`, `Option`, `Array`, `Effect`); `@rasm/ts/core` (`ContentKey`, `FaultClass`).
 - Growth: a new lookup kind in an existing family is one more tagged class sharing the family resolver through `RequestResolver.fromEffectTagged`; a new family is one class whose statics compose the `[3]` engine — never a loose resolver const orbiting an empty class.
 - Law: the fields are exactly the identity — structural `Equal` over them is what collapses two requests for one key, so a field that varies without changing the answer (a caller label, a trace id) rides span annotation, never the request; success and failure types declare once at the family and no call site restates them.
 - Law: the class absorbs its engine — `Descriptor.resolver(head)` mints the settle fold over the provider's singular member, `Descriptor.windowed(head)` upgrades it to wall-clock geometry, and `Descriptor.durable(head, policy)` composes the persisted band; provider plurality never leaks through the port, and each window executes under the admitted concurrency bound.
 - Law: `Request.TaggedClass` is the family form and `Request.Class` is the admitted single-tag degenerate — a process-local family with exactly one member and no tagged-resolver fan (`lane/capability.md`'s `_Probe`) carries no `_tag` because nothing dispatches on it; the moment a second member or a `fromEffectTagged` handler arrives, the declaration upgrades to the tagged form.
 - Law: persistence selects the declaration form once per family — a family any geometry persists is `Schema.TaggedRequest` (payload, success, and failure schemas in one declaration) satisfying `PrimaryKey`, so hits and misses both encode through the family's own schemas and a persisted failure replays typed; a family that never persists stays `Request.TaggedClass` at zero codec cost, and promotion rewrites only the declaration.
 - Law: the request's fault is the family's — `Descriptor` maps a missing `head` to `DescriptorMiss` and every other fault to schema-owned `DescriptorFault`; every request settles independently, so one failed HEAD never poisons its siblings and persisted failures retain reason, key, and detail.
+- Law: both faults carry the core class — `DescriptorMiss` classifies `absent` and `DescriptorFault`'s rows close through the core `FaultClass.family` seam (`missing` → `absent`, `integrity` → `breached`, `io` → `unavailable`), mirroring the store family the resolver folds from, so a persisted failure replays with its retryability, blame, and quarantine derivable from the core row table and no local policy column rides beside `class`.
 - Law: the success row is the provider page's schema owner — `Descriptor` answers `ObjectStore.Stat`, the store-minted evidence class, so the probe, the wall-clock window, and the durable band persist ONE row shape and a parallel success struct restating the stat fields is unspellable.
 - Boundary: `Schema.TaggedRequest` declaration mechanics are the core shape law arriving settled; `lane/capability.md`'s `_Probe` stays its own realized family, and `object/store.md` hands the singular `ObjectStore.head` member across as a value — S3 has no batch HEAD operation to invent.
 
 ```typescript signature
 import { Effect, Exit, Request, RequestResolver, Schema, type Scope } from "effect"
-import { ContentKey } from "@rasm/ts/core"
+import { ContentKey, FaultClass } from "@rasm/ts/core"
 import { type ObjectFault, ObjectStore } from "../object/store.ts"
 
-class DescriptorMiss extends Schema.TaggedError<DescriptorMiss>()("DescriptorMiss", { key: ContentKey }) {}
+class DescriptorMiss extends Schema.TaggedError<DescriptorMiss>()("DescriptorMiss", { key: ContentKey }) {
+  get class(): FaultClass.Kind {
+    return "absent" // the one honest kind: the HEAD answered no such object
+  }
+}
+
+// One row per reason: the core kind alone, mirroring the store family this resolver folds from — retryability,
+// blame, and quarantine stay the core FaultClass row table's on both sides of the fold.
+const _family = FaultClass.family(["missing", "integrity", "io"] as const, {
+  missing: { class: "absent" },
+  integrity: { class: "breached" },
+  io: { class: "unavailable" },
+})
 
 class DescriptorFault extends Schema.TaggedError<DescriptorFault>()("DescriptorFault", {
-  reason: Schema.Literal("missing", "integrity", "io"),
+  reason: _family.schema,
   key: ContentKey,
   detail: Schema.String,
-}) {}
+}) {
+  get class(): FaultClass.Kind {
+    return _family.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<descriptor:${this.reason}> ${this.key}: ${this.detail}`
+  }
+}
 
 class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
   payload: { key: ContentKey },

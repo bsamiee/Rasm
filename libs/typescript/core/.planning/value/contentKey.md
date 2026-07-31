@@ -27,6 +27,7 @@
 - Owner: `Digest`, the assembled hasher vocabulary — the interior row table carries each width row's factory and key brand as two columns of one row, so `Digest.Key<K>` derives by indexed access over the row's `key` column and the factory-to-brand correspondence has exactly one edit site; the exported owner assembles the binary twin, the mint, the session algebra, and the keyed mint under a stated annotation, and the roster is seed data on one parameterized pattern — a new digest width is one row carrying both columns, never a new surface.
 - Law: four rows ride the table — `content` (`createXXHash128(0, 0)`, 32 hex, the cross-language ContentKey), `trace` (`createXXHash64(0, 0)`, 16 hex, the short correlation address log and sampling keys carry), `check` (`createCRC32()`, 8 hex, the wire checksum frame rails verify), `proof` (`createBLAKE3(256)`, 64 hex, the collision-resistant digest the data object stream folds its chunk-receipt Merkle proof tree through — leaf-versus-node domain separation is the consumer's framing byte) — and the seed is zero on every seeded row; a non-zero seed on any content-address path is out of contract.
 - Law: each row's factory promise is memoized through `GlobalValue.globalValue` under a row-keyed scope, so the WASM compile happens once per runtime per row across bundler-duplicated module instances, `init()` resets state between mints without recompiling, and an untouched row never compiles.
+- Law: the walk carries BOTH output modalities on one chunk fold — `IHasher.digest` overloads `"binary"` to the raw bytes beside the default hex, so `mint` lands the branded spelling and `raw` lands the bytes the hasher already held; a byte slot otherwise pays a hex render plus a hex parse to recover a digest that never needed a spelling, and the page's own display-order law then applies to a hex path that no byte consumer walks. `raw` carries no brand because a byte form has no spelling to refine — a key slot takes `mint`, a byte slot takes `raw`, and neither re-encodes the other.
 - Law: `mint` is modality-polymorphic — one annotated arrow whose payload discriminates on the value shape: a whole `Uint8Array` or an `Iterable<Uint8Array>` chunk sequence, both landing on one digest walk; a `mode` flag, a `mintMany` twin, or a string input (encoding ambiguity) is the rejected surface, and text hashes only after the caller's own explicit encode to bytes. Iterable payloads ARE the streaming verify — a multi-band reassembly proves its declared key over held bands with zero joined re-hash, and the interchange `Parity` combinator delegates exactly this walk, so no streaming-verify sibling exists anywhere.
 - Law: the mint cannot fail — `Effect.promise` carries the compile (rejection is a defect), the returned hex is proven by construction against the row's brand, and the per-row decode record is the mapped handler contract that keeps the generic indexed dispatch cast-free; `Effect.orDie` states that a decode fault here is a defect, never a channel member.
 - Law: the digest walk is synchronous and JS-thread-atomic — every await sits before `init`, so concurrent mints on a shared hasher cannot interleave and the shared state machine needs no lock.
@@ -93,6 +94,7 @@ declare namespace Digest {
     readonly finish: <K extends Kind>(session: Session<K>) => Effect.Effect<Key<K>>
     readonly mac: (key: Redacted.Redacted<Uint8Array>, payload: Payload) => Effect.Effect<Seal>
     readonly mint: <K extends Kind>(kind: K, payload: Payload) => Effect.Effect<Key<K>>
+    readonly raw: (kind: Kind, payload: Payload) => Effect.Effect<Uint8Array>
     readonly session: <K extends Kind>(kind: K, saved?: Uint8Array) => Effect.Effect<Session<K>>
   }
   type _Rows<T extends Record<Kind, { readonly key: Schema.Schema.Any; readonly make: () => Promise<IHasher> }> = typeof _rows> = T
@@ -108,12 +110,17 @@ const _minted: { readonly [K in Digest.Kind]: (hex: string) => Effect.Effect<Dig
 const _compiled = <K extends Digest.Kind>(kind: K): Effect.Effect<IHasher> =>
   Effect.promise(() => GlobalValue.globalValue(`@rasm/ts/core/Digest/${kind}`, () => _rows[kind].make()))
 
-const _walk = (hasher: IHasher, payload: Digest.Payload): string => {
-  // BOUNDARY ADAPTER: the IHasher state machine forces the statement loop; only the immutable hex leaves
+// The output modality is a parameter, not a second walk: `IHasher.digest` overloads `"binary"` to the raw bytes and
+// the default to hex, so a byte-slot consumer takes the bytes the hasher already holds instead of paying a hex render
+// plus a hex parse to recover them, and the two modalities share one chunk walk.
+function _walk(hasher: IHasher, payload: Digest.Payload): string
+function _walk(hasher: IHasher, payload: Digest.Payload, out: "binary"): Uint8Array
+function _walk(hasher: IHasher, payload: Digest.Payload, out?: "binary"): string | Uint8Array {
+  // BOUNDARY ADAPTER: the IHasher state machine forces the statement loop; only the immutable digest leaves
   const armed = hasher.init()
   if (Predicate.isUint8Array(payload)) armed.update(payload)
   else for (const chunk of payload) armed.update(chunk)
-  return armed.digest()
+  return out === undefined ? armed.digest() : armed.digest(out)
 }
 
 const _FromBytes: Schema.transformOrFail<typeof _Bytes, typeof ContentKey> = Schema.transformOrFail(_Bytes, ContentKey, {
@@ -149,6 +156,7 @@ const Digest: Digest.Shape = {
     Effect.flatMap(Effect.promise(() => createBLAKE3(256, Redacted.value(key))), (hasher) =>
       Effect.orDie(Schema.decode(_Seal)(_walk(hasher, payload)))),
   mint: (kind, payload) => Effect.flatMap(_compiled(kind), (hasher) => _minted[kind](_walk(hasher, payload))),
+  raw: (kind, payload) => Effect.map(_compiled(kind), (hasher) => _walk(hasher, payload, "binary")), // no brand: the byte form carries no spelling to refine, so a byte slot takes it and a key slot takes `mint`
   session: (kind, saved) =>
     saved === undefined
       ? Effect.map(_compiled(kind), (hasher) => ({ kind, state: hasher.init().save() }))

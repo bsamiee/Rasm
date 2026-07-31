@@ -9,12 +9,13 @@
 - [04]-[REPLAY_READS]: `SlotValue.Recover` — read dispatch on the write-family case.
 - [05]-[REGROWN]: `Regrown` — generated update dispatch over the `UpdateTo*` family.
 - [06]-[REPLAY_PROGRAM]: `ReplayProgram` — the compiled delegate and the strict-`bool` seam.
-- [07]-[CHRONICLE]: `BondOp`, `WebAsk`, `HistoryConduct`, and the linkage entry.
+- [07]-[CHRONICLE]: `BondOp`, `WebAsk`, `WebBudget`, `HistoryConduct`, and the linkage entry.
 - [08]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[SLOT_ALGEBRA]
 
 - Owner: `SlotKey` `[ValueObject<int>]` closes non-negative slot identity. `SlotValue` `[Union]` covers every catalogued scalar, geometry, object-source, and plural setter payload.
+- Law: geometry cases wear the `<Type>Slot` suffix because `Curve`/`Surface`/`Brep`/`Mesh` are host type names in scope on this fence; `SlotValue.MeshSlot` is therefore a nested history-payload case in `Rasm.Rhino.Objects` and shares nothing but a simple name with the top-level `Rasm.Rhino.Modeling` `MeshSlot` build-product vocabulary.
 - Law: the transform setter is the host's own misspelling — `SetTransorm` is the literal managed member (the native call underneath is spelled correctly), so the `Motion` arm names it verbatim and no local alias "fixes" it.
 - Law: source slots arm replay — `Source` and `PointOnSource` register a dependency through `SetObjRef`/`SetPoint3dOnObject`, so editing the referenced object fires the replay; a script recording only value slots never re-fires on a geometry edit, which makes at least one source slot the practical floor for a history-aware command.
 - Law: read asymmetry is payload law — plural readers exist only for ints, doubles, and guids, and no geometry reader exists at all, so geometry and the other plural payloads are write-only evidence: a replay program re-derives geometry from its source slots, and a plural point, vector, color, text, or bool payload that must read back encodes as scalar slots under consecutive keys.
@@ -148,7 +149,9 @@ public abstract partial record SlotValue {
             ids: static (context, slot) => context.Op.Confirm(success: context.Record.SetGuids(id: context.Id, values: slot.Values.AsIterable())),
             texts: static (context, slot) => context.Op.Confirm(success: context.Record.SetStrings(id: context.Id, values: slot.Values.AsIterable()))));
 
-    public Fin<SlotValue> Recover(ReplayHistoryData data, SlotKey key, Op? keyOp = null) {
+    // `internal` is the carrier fence made structural: `ReplayFrame` is the only consumer, so the raw
+    // `ReplayHistoryData` the sealed adapter delegate receives never reaches a caller through this member.
+    internal Fin<SlotValue> Recover(ReplayHistoryData data, SlotKey key, Op? keyOp = null) {
         Op op = keyOp.OrDefault();
         return from active in op.Need(data)
                from value in op.Catch(() => Switch(
@@ -594,9 +597,11 @@ public sealed class ReplayProgram {
 
 ## [07]-[CHRONICLE]
 
-- Owner: `BondOp` `[Union]` closes attach, detach, and replace-survival linkage; `WebAsk` separates document census from a targeted `HistoryWeb` row; `HistoryWeb` owns adjacency, order, cycles, transitive closure/reduction, and condensation projections; `HistoryConduct` `[SmartEnum<int>]` owns process switches.
+- Owner: `BondOp` `[Union]` closes attach, detach, and replace-survival linkage; `WebAsk` separates document census from a targeted `HistoryWeb` row under a `WebBudget`; `HistoryWeb` owns adjacency, order, cycles, transitive closure/reduction, and condensation projections; `HistoryConduct` `[SmartEnum<int>]` owns process switches behind one process gate.
 - Law: targeted topology expands the reachable parent/child graph once. Edges orient parent to dependent; Blocks' `GraphFold` and `GraphProjection` own the order, cycle, closure, reduction, and condensation projections, and Chronicle composes them without re-deriving a fold.
 - Law: conduct is process state, not document state — the rows drive `Rhino.ApplicationSettings.HistorySettings` statics (`RecordingEnabled`, `RecordNextCommand`, `UpdateEnabled`, `ObjectLockingEnabled`, `BrokenRecordWarningEnabled`), demand no session, and answer the post-write value; `RecordNextCommand` arms one command only, and `ObjectLockingEnabled` makes history-bearing outputs edit only through their inputs.
+- Law: process state takes a process gate — `HistoryConduct` owns one recursive lock spanning the whole read, write, body, and restore window, so two concurrent scopes cannot interleave and an inner scope's restore cannot clobber an outer's prior; a nested `Under` reads the outer's written value as its own prior, which is how priors stack rather than race.
+- Law: the topology walk is BUDGETED like its sibling closure — `WebBudget` bounds nodes and edges, `Woven` folds one frontier value under that bound, and an exhausted bound is a typed refusal; an unbounded transitive expansion over a cyclic or worksession-wide history web is the deleted form.
 - Law: linkage mutates on the shared spine. `Bind` rides `ObjectSpine.Commit` with redraw `None`, resolves once, applies every bond, and returns affected ids plus the sealed undo serial as `ObjectReceipt<Guid>`.
 
 ```csharp signature
@@ -627,10 +632,31 @@ public abstract partial record BondOp {
             survival: static (context, bond) => context.Op.Catch(() => context.Native.SetCopyHistoryOnReplace(bCopy: bond.Signal.On)));
 }
 
+[ComplexValueObject]
+public sealed partial class WebBudget {
+    public int MaxNodes { get; }
+    public long MaxEdges { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int maxNodes,
+        ref long maxEdges) =>
+        validationError = maxNodes > 0 && maxEdges > 0
+            ? validationError
+            : new ValidationError(message: "History web limits are positive.");
+
+    public static Fin<WebBudget> Of(int maxNodes, long maxEdges, Op? key = null) =>
+        Admission.Admitted(
+            fault: Validate(maxNodes, maxEdges, out WebBudget? admitted),
+            value: admitted,
+            refusal: key.OrDefault().InvalidInput());
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WebAsk {
     private WebAsk() { }
-    public sealed record Targeted(TableTarget Target, HistoryWeb View) : WebAsk;
+    public sealed record Targeted(TableTarget Target, HistoryWeb View, WebBudget Budget) : WebAsk;
     public sealed record Census : WebAsk;
 }
 
@@ -645,7 +671,7 @@ public sealed partial class HistoryWeb {
     public static readonly HistoryWeb Condensation = new(key: 6, read: Chronicle.Condensation);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<WebAnswer> Read(RhinoDoc document, TableTarget target, Op op);
+    internal partial Fin<WebAnswer> Read(RhinoDoc document, TableTarget target, WebBudget budget, Op op);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -696,20 +722,34 @@ public sealed partial class HistoryConduct {
                 return unit;
             });
 
-    internal Fin<bool> Read(Op op) => op.Catch(() => Fin.Succ(value: ReadRaw()));
+    // The rows drive PROCESS statics with no session and no document scope, so one gate owns every conduct
+    // window in the process. `Lock` is recursive, which is what makes nesting compose: an inner `Under` reads the
+    // outer's written value as its own prior and restores exactly that, so priors stack instead of racing.
+    private static readonly Lock Gate = new();
 
-    internal Fin<Unit> Write(bool value, Op op) => op.Catch(() => Fin.Succ(value: WriteRaw(value)));
+    internal Fin<bool> Read(Op op) => op.Catch(() => {
+        lock (Gate) { return Fin.Succ(value: ReadRaw()); }
+    });
 
-    internal Fin<T> Within<T>(ObjectSignal signal, Func<Fin<T>> body, Op op) =>
-        Read(op).Bind(prior => Write(value: signal.On, op: op).Bind(_ => {
-            Fin<T> primary = op.Catch(body);
-            Fin<Unit> cleanup = Write(value: prior, op: op);
-            return cleanup.Match(
-                Succ: _ => primary,
-                Fail: restore => primary.Match(
-                    Succ: _ => Fin.Fail<T>(error: restore),
-                    Fail: fault => Fin.Fail<T>(error: fault + restore)));
-        }));
+    internal Fin<Unit> Write(bool value, Op op) => op.Catch(() => {
+        lock (Gate) { return Fin.Succ(value: WriteRaw(value)); }
+    });
+
+    // Exemption: the gate spans the whole read-write-body-restore window, the one critical section a
+    // process-global switch admits; a lock taken per accessor leaves the window itself interleavable.
+    internal Fin<T> Within<T>(ObjectSignal signal, Func<Fin<T>> body, Op op) {
+        lock (Gate) {
+            return Read(op).Bind(prior => Write(value: signal.On, op: op).Bind(_ => {
+                Fin<T> primary = op.Catch(body);
+                Fin<Unit> cleanup = Write(value: prior, op: op);
+                return cleanup.Match(
+                    Succ: _ => primary,
+                    Fail: restore => primary.Match(
+                        Succ: _ => Fin.Fail<T>(error: restore),
+                        Fail: fault => Fin.Fail<T>(error: fault + restore)));
+            }));
+        }
+    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -737,7 +777,8 @@ public static class Chronicle {
                        targeted: static (ctx, query) =>
                            from target in ctx.Op.Need(query.Target)
                            from view in ctx.Op.Need(query.View)
-                           from result in view.Read(document: ctx.Document, target: target, op: ctx.Op)
+                           from budget in ctx.Op.Need(query.Budget)
+                           from result in view.Read(document: ctx.Document, target: target, budget: budget, op: ctx.Op)
                            select result,
                        census: static (ctx, _) => ctx.Op.Catch(() =>
                            Fin.Succ(value: (WebAnswer)new WebAnswer.Count(Records: ctx.Document.Objects.HistoryRecordCount)))),
@@ -763,28 +804,28 @@ public static class Chronicle {
                select result;
     }
 
-    internal static Fin<WebAnswer> Parents(RhinoDoc document, TableTarget target, Op op) =>
+    internal static Fin<WebAnswer> Parents(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
         Adjacent(document: document, target: target, op: op, linked: static native => native.HistoryParents());
 
-    internal static Fin<WebAnswer> Children(RhinoDoc document, TableTarget target, Op op) =>
+    internal static Fin<WebAnswer> Children(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
         Adjacent(document: document, target: target, op: op, linked: static native => native.HistoryChildren());
 
-    internal static Fin<WebAnswer> Order(RhinoDoc document, TableTarget target, Op op) =>
-        Projected(document, target, op, static (graph, key) => GraphFold.Ordered(graph: graph, op: key)
+    internal static Fin<WebAnswer> Order(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
+        Projected(document, target, budget, op, static (graph, key) => GraphFold.Ordered(graph: graph, op: key)
             .Map(static ordered => (WebAnswer)new WebAnswer.Ordered(UpdateOrder: ordered)));
 
-    internal static Fin<WebAnswer> Loops(RhinoDoc document, TableTarget target, Op op) =>
-        Projected(document, target, op, static (graph, key) => key.Catch(() =>
+    internal static Fin<WebAnswer> Loops(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
+        Projected(document, target, budget, op, static (graph, key) => key.Catch(() =>
             Fin.Succ(value: (WebAnswer)new WebAnswer.Groups(Cyclic: GraphFold.Cycles(graph: graph)))));
 
-    internal static Fin<WebAnswer> Closure(RhinoDoc document, TableTarget target, Op op) =>
-        Projected(document, target, op, static (graph, key) => GraphProjection.Closure.Project(graph, key).Map(Edges));
+    internal static Fin<WebAnswer> Closure(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
+        Projected(document, target, budget, op, static (graph, key) => GraphProjection.Closure.Project(graph, key).Map(Edges));
 
-    internal static Fin<WebAnswer> Reduction(RhinoDoc document, TableTarget target, Op op) =>
-        Projected(document, target, op, static (graph, key) => GraphFold.Reduced(graph: graph, op: key).Map(Edges));
+    internal static Fin<WebAnswer> Reduction(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
+        Projected(document, target, budget, op, static (graph, key) => GraphFold.Reduced(graph: graph, op: key).Map(Edges));
 
-    internal static Fin<WebAnswer> Condensation(RhinoDoc document, TableTarget target, Op op) =>
-        Projected(document, target, op, static (graph, key) => key.Catch(() => {
+    internal static Fin<WebAnswer> Condensation(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
+        Projected(document, target, budget, op, static (graph, key) => key.Catch(() => {
             (Seq<Seq<Guid>> components, Seq<(int From, int To)> edges) = GraphFold.Condensed(graph: graph);
             return Fin.Succ(value: (WebAnswer)new WebAnswer.Condensed(Components: components, Edges: edges));
         }));
@@ -795,9 +836,14 @@ public static class Chronicle {
             Fin.Succ(value: (native.Id, toSeq(linked(native)))))).As()
         select (WebAnswer)new WebAnswer.Edges(Rows: rows);
 
-    private static Fin<WebAnswer> Projected(RhinoDoc document, TableTarget target, Op op, Func<Web, Op, Fin<WebAnswer>> project) =>
+    private static Fin<WebAnswer> Projected(
+        RhinoDoc document,
+        TableTarget target,
+        WebBudget budget,
+        Op op,
+        Func<Web, Op, Fin<WebAnswer>> project) =>
         from natives in Objects.Resolve(document: document, target: target, key: op)
-        from graph in Woven(document: document, natives: natives, op: op)
+        from graph in Woven(document: document, natives: natives, budget: budget, op: op)
         from answer in project(graph, op)
         select answer;
 
@@ -805,43 +851,103 @@ public static class Chronicle {
         new WebAnswer.Edges(Rows: graph.Vertices.AsIterable().ToSeq()
             .Map(vertex => (vertex, graph.OutEdges(vertex).AsIterable().Map(static edge => edge.Target).ToSeq())));
 
-    private static Fin<Web> Woven(RhinoDoc document, Seq<RhinoObject> natives, Op op) =>
+    private sealed record WebWalk(
+        Seq<Guid> Pending,
+        LanguageExt.HashSet<Guid> Seen,
+        LanguageExt.HashSet<(Guid Parent, Guid Child)> Edges,
+        int Nodes,
+        Option<Error> Refusal) {
+        internal static WebWalk Of(Seq<Guid> seeds) => new(
+            Pending: seeds.Distinct(),
+            Seen: seeds.ToHashSet(),
+            Edges: Seq<(Guid, Guid)>().ToHashSet(),
+            Nodes: 0,
+            Refusal: Option<Error>.None);
+
+        internal bool Running => Refusal.IsNone && !Pending.IsEmpty;
+
+        internal WebWalk Refused(Error error) => this with { Refusal = Some(error) };
+    }
+
+    // The walk is a budget-bounded fixpoint: enqueue-side deduplication makes every frontier entry a fresh node,
+    // so `MaxNodes + 1` ticks strictly cover it and a settled walk re-emits itself, keeping the fold total.
+    private static Fin<Web> Woven(RhinoDoc document, Seq<RhinoObject> natives, WebBudget budget, Op op) =>
         op.Catch(() => {
             Web graph = new(allowParallelEdges: false);
-            Queue<Guid> pending = new(natives.Map(static native => native.Id).AsIterable());
-            HashSet<Guid> visited = [];
-            HashSet<(Guid Parent, Guid Child)> edges = [];
-            while (pending.TryDequeue(out Guid id)) {
-                if (!visited.Add(id)) { continue; }
-                _ = graph.AddVertex(id);
-                RhinoObject? native = document.Objects.FindId(id);
-                if (native is null) { return Fin.Fail<Web>(op.MissingContext()); }
-                foreach (Guid parent in native.HistoryParents()) {
-                    if (edges.Add((parent, id))) { _ = graph.AddVerticesAndEdge(new SEdge<Guid>(parent, id)); }
-                    pending.Enqueue(parent);
-                }
-                foreach (Guid child in native.HistoryChildren()) {
-                    if (edges.Add((id, child))) { _ = graph.AddVerticesAndEdge(new SEdge<Guid>(id, child)); }
-                    pending.Enqueue(child);
-                }
-            }
-            return Fin.Succ(value: graph);
+            WebWalk settled = toSeq(Enumerable.Range(start: 0, count: checked(budget.MaxNodes + 1))).Fold(
+                WebWalk.Of(seeds: natives.Map(static native => native.Id)),
+                (walk, _) => walk.Running
+                    ? Advanced(walk: walk, graph: graph, document: document, budget: budget, op: op)
+                    : walk);
+            return settled.Refusal.Match(
+                Some: Fin.Fail<Web>,
+                None: () => Fin.Succ(value: graph));
         });
+
+    private static WebWalk Advanced(WebWalk walk, Web graph, RhinoDoc document, WebBudget budget, Op op) =>
+        walk.Pending.Head.Match(
+            None: () => walk,
+            Some: id => walk.Nodes >= budget.MaxNodes
+                ? walk.Refused(error: op.InvalidResult(detail: nameof(WebBudget.MaxNodes)))
+                : Incident(
+                    walk: walk with { Pending = walk.Pending.Tail, Nodes = checked(walk.Nodes + 1) },
+                    id: id,
+                    graph: graph,
+                    document: document,
+                    budget: budget,
+                    op: op));
+
+    // Exemption: `BidirectionalGraph` publishes no immutable builder, so the graph is the one mutable accumulator
+    // this kernel threads; the frontier, the seen set, the edge set, and the refusal all fold purely beside it.
+    private static WebWalk Incident(WebWalk walk, Guid id, Web graph, RhinoDoc document, WebBudget budget, Op op) {
+        _ = graph.AddVertex(id);
+        return Optional(document.Objects.FindId(id)).Match(
+            None: () => walk.Refused(error: op.MissingContext()),
+            Some: native => toSeq(native.HistoryParents())
+                .Map(parent => (Edge: (Parent: parent, Child: id), Neighbour: parent))
+                .Concat(toSeq(native.HistoryChildren())
+                    .Map(child => (Edge: (Parent: id, Child: child), Neighbour: child)))
+                .Fold(walk, (state, row) => Joined(
+                    walk: state, edge: row.Edge, neighbour: row.Neighbour, graph: graph, budget: budget, op: op)));
+    }
+
+    private static WebWalk Joined(
+        WebWalk walk,
+        (Guid Parent, Guid Child) edge,
+        Guid neighbour,
+        Web graph,
+        WebBudget budget,
+        Op op) {
+        if (walk.Refusal.IsSome || walk.Edges.Contains(value: edge)) { return walk; }
+        if (walk.Edges.Count >= budget.MaxEdges) {
+            return walk.Refused(error: op.InvalidResult(detail: nameof(WebBudget.MaxEdges)));
+        }
+
+        _ = graph.AddVerticesAndEdge(new SEdge<Guid>(edge.Parent, edge.Child));
+        return walk.Seen.Contains(value: neighbour)
+            ? walk with { Edges = walk.Edges.Add(value: edge) }
+            : walk with {
+                Edges = walk.Edges.Add(value: edge),
+                Seen = walk.Seen.Add(value: neighbour),
+                Pending = walk.Pending.Add(value: neighbour),
+            };
+    }
 }
 ```
 
 ## [08]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                | [ENTRY]          |
-| :-----: | :------------------ | :--------------- | :------------------------------------ | :--------------- |
-|  [01]   | slot payloads       | `SlotValue`      | closed union with total native write  | `HistoryScript`  |
-|  [02]   | record authoring    | `HistoryScript`  | leased mint from detached sources     | `Mint`           |
-|  [03]   | slot recovery       | `SlotValue`      | generated write/read correspondence   | `Recover`        |
-|  [04]   | geometry regrowth   | `Regrown`        | admitted generated update dispatch    | `Apply`          |
-|  [05]   | replay body         | `ReplayProgram`  | strict-`bool` telemetry delegate      | `Delegate`       |
-|  [06]   | linkage mutation    | `BondOp`         | shared-spine linkage union            | `Chronicle.Bind` |
-|  [07]   | dependency topology | `HistoryWeb`     | delegate-column web projection        | `Chronicle.Ask`  |
-|  [08]   | process governance  | `HistoryConduct` | scoped settings rows with restoration | `Under`          |
+| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                | [ENTRY]           |
+| :-----: | :------------------ | :--------------- | :------------------------------------ | :---------------- |
+|  [01]   | slot payloads       | `SlotValue`      | closed union with total native write  | `HistoryScript`   |
+|  [02]   | record authoring    | `HistoryScript`  | leased mint from detached sources     | `Mint`            |
+|  [03]   | slot recovery       | `SlotValue`      | generated write/read correspondence   | `Recover`         |
+|  [04]   | geometry regrowth   | `Regrown`        | admitted generated update dispatch    | `Apply`           |
+|  [05]   | replay body         | `ReplayProgram`  | strict-`bool` telemetry delegate      | `Delegate`        |
+|  [06]   | linkage mutation    | `BondOp`         | shared-spine linkage union            | `Chronicle.Bind`  |
+|  [07]   | dependency topology | `HistoryWeb`     | delegate-column web projection        | `Chronicle.Ask`   |
+|  [08]   | process governance  | `HistoryConduct` | gated settings rows with restoration  | `Under`           |
+|  [09]   | traversal bound     | `WebBudget`      | node and edge ceilings on the walk    | `WebAsk.Targeted` |
 
 ## [09]-[RESEARCH]
 
@@ -850,4 +956,7 @@ public static class Chronicle {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+`Rhino.ApplicationSettings.HistorySettings` accessors carry NO managed thread affinity — each is a bare
+`UnsafeNativeMethods.CRhinoHistoryManager_GetBool(int)`/`SetBool(int, bool)` P/Invoke over a process-global manager
+with no managed thread check — so the process-wide recursive `Lock` the `HistoryConduct` owns IS the exclusion the
+managed surface admits, and no marshal crossing is owed.

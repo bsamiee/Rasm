@@ -21,21 +21,23 @@
 - Law: configuration is typed at the row — a policy with knobs declares `configSchema` and reads `args.getConfig<T>()`; a config-less policy declares none, knob defaults live in the schema, never in validator bodies, and a per-app enforcement override is `PolicyPackConfig` data at the entry, never a pack edit.
 - Growth: one policy row per invariant; a new benchmark is one frame value stamped on the rows it maps.
 - Boundary: attachment plumbing is `program/automation.md`'s options row; the narrowed classes are the tier pages' constructions; enforcement semantics (`remediate` apply order, `mandatory` abort) are the engine's contract.
-- Packages: `@pulumi/policy` (`PolicyPackArgs`, `ResourceValidationPolicy`, `StackValidationPolicy`, the typed helper family, `PolicyComplianceFramework`, `Secret`); `@pulumi/kubernetes`, `@pulumi/postgresql` (the narrowed classes).
+- Packages: `@pulumi/policy` (`PolicyPackArgs`, `ResourceValidationPolicy`, `StackValidationPolicy`, `PolicyResourceOptions`, the typed helper family, `PolicyComplianceFramework`, `Secret`); `@pulumi/kubernetes`, `@pulumi/postgresql` (the narrowed classes).
 
 ## [03]-[POLICY_ROWS]
 
 [POLICY_ROWS]:
-- Law: image provenance is structural — `image-digest-pinned` narrows `k8s.apps.v1.Deployment` and reports every container whose image lacks an `@sha256:` digest, with a typed `configSchema` allowlisting registries a proof stack may pull mutable; the `kube/workload` digest law compiles to this gate, so a mutable tag cannot reach a cluster even from an app-authored program.
+- Law: authorship is the narrowing every estate-invariant row states first — `helm.v4.Chart` renders server-side and hands EVERY manifest to the provider, so the capsule, CNPG, barman, external-dns, PKO, and object-plane controller Deployments reach this analyzer exactly as the tier-authored ones do, and a mandatory row asserting an estate stamp over all of them fails every run of the arm that installs them. `_authored` is that discriminant and it reads the one fact no upstream chart can carry: every resource a tier constructs receives `parent: this` through the `Tier` option fold, so its parent URN spells the `rasm:iac:<Kind>` type token while a chart-rendered object's parent is the chart component. A row judging what this estate DECLARES states the predicate; a row judging what any workload must SATISFY regardless of author (a wildcard IAM grant, a superuser role, a TLS-less edge) does not, and the split is the difference between an invariant and an audit of somebody else's chart.
+- Law: image provenance is structural — `image-digest-pinned` narrows `k8s.apps.v1.Deployment` under `_authored` and reports every container whose image lacks an `@sha256:` digest, with a typed `configSchema` allowlisting registries a proof stack may pull mutable; the `kube/workload` digest law compiles to this gate, so a mutable tag cannot reach a cluster even from an app-authored program while an upstream chart's own tag stays the chart pin's business.
 - Law: the data plane cannot escalate on ANY arm — `role-no-superuser` narrows the bridged `postgresql.Role` class (the docker cell's spelling), and `managed-role-no-superuser` walks the stack for CNPG `Cluster` CRs (matched on the CR's own `apiVersion`/`kind` props, the carrier's stable discriminant) and reports any `spec.managed.roles[]` row carrying `superuser: true` — the primary arm's managed roles are guarded by the same law the bridged class row enforces, one invariant, two carrier spellings.
 - Law: the data plane cannot vanish or run unarchived — `data-plane-protected` demands `opts.protect` on every CNPG `Cluster`, and `backup-beside-cluster` is the dependency-aware cross-resource row: every `Cluster` CR must have a `ScheduledBackup` CR whose `spec.cluster.name` references it, so an unprotected or unarchived database is unshippable.
 - Law: traffic is TLS-only at both edges — `ingress-tls-required` narrows the legacy `k8s.networking.v1.Ingress` and rejects a spec whose `tls` block is empty; `gateway-tls-required` walks Gateway API `Gateway` CRs and rejects a listener set with no `HTTPS`-terminating member carrying `certificateRefs`; the `kube/traffic` sink law becomes machine pressure on whichever edge row the estate selects.
+- Law: privilege posture compiles to a gate — `workload-hardened` narrows `k8s.apps.v1.Deployment` under `_authored` and asserts the `Tier.harden` stamp landed: the pod block's non-root identity and `RuntimeDefault` seccomp filter, and every container's dropped capabilities, refused escalation, read-only root, own non-root claim, and own filter restatement; the two rosters stay separate because a container-level setting outranks the pod's, so a compliant pod proves nothing about the container beneath it, and a `Tier.harden` field added upstream is one roster entry here — the container roster carries the seccomp row for exactly that reason, since the anchor restates the filter at the level that outranks and a roster silent on it proves only the level that does not. This is the pattern the digest row already sets — the tier stamps the invariant, the pack proves it held even on an app-authored program.
 - Law: workloads carry fences — `namespace-network-fence` narrows the stack to the `Deployment` class through `validateStackResourcesOfType` and demands a `k8s.networking.v1.NetworkPolicy` beside any member, judged over the dependency-aware `PolicyResource` graph because presence-beside is a cross-resource fact no single-resource validator can see.
-- Law: remediation and validation are one callback — `managed-by-stamp` rides `validateRemediateResourceOfType`, whose single callback yields both halves spread into the row: the returned prop bag fixes forward under `"remediate"`, and the same callback judges under stricter levels.
-- Law: cloud arms gate at the same bar — `bucket-versioned-aws` is the dependency-aware durability row (every `aws.s3.BucketV2` must have a `BucketVersioningV2` beside it, the same presence-beside shape as the backup row), `bucket-versioned-gcp` narrows `gcp.storage.Bucket` and rejects a spec whose `versioning.enabled` is not true, `iam-floor` admits string and object policy documents through one `_IamPolicy` schema, normalizes singular and array statement forms, marks malformed documents not applicable, and rejects an admitted granting statement whose string action set carries a wildcard — an explicit `Deny` wildcard is the hardening posture and passes; `tenant-fence` walks Capsule `Tenant` CRs (matched on the CR's own `apiVersion`/`kind` props) and rejects a tenant whose `networkPolicies.items` set is empty — every tenant namespace carries its fence by construction when tenancy escalates.
+- Law: remediation and validation are one callback — `managed-by-stamp` rides `validateRemediateResourceOfType` under `_authored`, whose single callback yields both halves spread into the row: the returned prop bag fixes forward under `"remediate"`, and the same callback judges under stricter levels; the narrowing is load-bearing rather than tidy, because remediation runs BEFORE validation and an unnarrowed stamp writes the estate's ownership label onto every chart-rendered controller in the graph, which is both a foreign object's field this pack never authored and the erasure of the only label an ownership question could have read.
+- Law: cloud arms gate at the same bar — `bucket-versioned-aws` is the dependency-aware durability row (every `aws.s3.BucketV2` must have a `BucketVersioningV2` beside it, the same presence-beside shape as the backup row), `bucket-versioned-gcp` narrows `gcp.storage.Bucket` and rejects a spec whose `versioning.enabled` is not true, `iam-floor` admits string and object policy documents through one `_IamPolicy` schema, normalizes singular and array statement forms, marks malformed documents not applicable, and rejects an admitted granting statement whose string action set carries a wildcard — an explicit `Deny` wildcard is the hardening posture and passes; `tenant-fence` is the tenancy presence-beside row (every Capsule `Tenant` must have a `GlobalTenantResource` whose tenant selector names it, since the fence rides a replication rather than the CR's own deprecated block), and `tenant-no-deprecated-spec` refuses a tenant composing any superseded governance block — `networkPolicies`, `containerRegistries`, `limitRanges`, `imagePullPolicies` — because the operator still serves each and drops them without a diff to warn on.
 - Law: preview-unknowns are engine-guarded — the policy host wraps every validator's deserialized props in its own unknown-checking proxy and converts the raised unknown-value signal into the advisory verdict, so a validator body never guards a possibly-unknown read and never throws one; a hand guard around prop reads restates the engine's own seam.
 - Law: validators read unwrapped props totally — optional chains over the generated arg shapes, `report(message, urn?)` once per finding, `args.notApplicable(reason)` where a policy cannot judge a resource; a validator that throws is a defect, not a verdict; the validator bodies are boundary-framework kernels over foreign prop bags, the one place native iteration is ruled.
-- Growth: one row per invariant appended to `_policies`; a new cloud-arm invariant is one row narrowing that provider's class; a new tenancy governance axis is one row beside `tenant-fence`.
+- Growth: one row per invariant appended to `_policies`; a new cloud-arm invariant is one row narrowing that provider's class; a new tenancy governance axis is one row beside `tenant-fence`; a new privilege refusal is one `_POD_HELD` or `_CONTAINER_HELD` entry, never a second policy; a new estate-authoring tier inherits `_authored` with no edit, because the predicate reads the base's own type token rather than a roster of tier names.
 
 ```typescript
 import * as aws from "@pulumi/aws"
@@ -54,13 +56,22 @@ const _CIS: policy.PolicyComplianceFramework = {
   specification: "workload and data-plane hardening controls",
 }
 
+// Every resource a tier constructs takes `parent: this` through the `Tier` option fold, so its parent URN
+// carries the `rasm:iac:<Kind>` type token; a chart-rendered object's parent is the chart component instead.
+// This is the one authorship fact no upstream chart can forge and no remediation can overwrite, which is why
+// the rows asserting an ESTATE stamp read it and the rows judging any workload's own posture do not.
+const _TIER_URN = "::rasm:iac:"
+
+const _authored = (opts: policy.PolicyResourceOptions): boolean => (opts.parent ?? "").includes(_TIER_URN)
+
 const _digestPinned: policy.ResourceValidationPolicy = {
   name: "image-digest-pinned",
-  description: "workload images pin an immutable digest",
+  description: "estate-authored workload images pin an immutable digest",
   severity: "high",
   framework: _CIS,
   configSchema: { properties: { allowRegistries: { type: "array", items: { type: "string" } } } },
   validateResource: policy.validateResourceOfType(k8s.apps.v1.Deployment, (deployment, args, report) => {
+    if (!_authored(args.opts)) return args.notApplicable("<upstream-chart-workload>")
     const allowed = args.getConfig<_DigestConfig>().allowRegistries ?? []
     return (deployment.spec?.template.spec?.containers ?? [])
       .filter((container) => !(container.image ?? "").includes("@sha256:"))
@@ -156,15 +167,20 @@ const _networkFence: policy.StackValidationPolicy = {
 
 const _managedBy: policy.ResourceValidationPolicy = {
   name: "managed-by-stamp",
-  description: "workloads carry the managed-by label",
+  description: "estate-authored workloads carry the managed-by label",
   enforcementLevel: "remediate",
-  ...policy.validateRemediateResourceOfType(k8s.apps.v1.Deployment, (deployment) => ({
-    ...deployment,
-    metadata: {
-      ...deployment.metadata,
-      labels: { ...deployment.metadata?.labels, "app.kubernetes.io/managed-by": "rasm-iac" },
-    },
-  })),
+  // Remediation runs BEFORE validation, so an unnarrowed stamp would write this estate's ownership label onto
+  // every chart-rendered controller in the graph — a foreign object's field this pack never authored.
+  ...policy.validateRemediateResourceOfType(k8s.apps.v1.Deployment, (deployment, args) =>
+    _authored(args.opts)
+      ? {
+          ...deployment,
+          metadata: {
+            ...deployment.metadata,
+            labels: { ...deployment.metadata?.labels, "app.kubernetes.io/managed-by": "rasm-iac" },
+          },
+        }
+      : undefined),
 }
 
 const _versionedAws: policy.StackValidationPolicy = {
@@ -226,21 +242,101 @@ const _iamFloor: policy.ResourceValidationPolicy = {
   }),
 }
 
+const _capsule = (resource: policy.PolicyResource, kind: string): boolean =>
+  String(resource.props.apiVersion ?? "").startsWith("capsule.clastix.io") && resource.props.kind === kind
+
+// The tenant fence rides a `GlobalTenantResource` replication because the Tenant CR's own `networkPolicies` block
+// is deprecated, so presence-beside is the shape this row judges — the same dependency-aware form the backup row
+// takes — and the replication's own tenant selector is what names which tenant it fences.
 const _tenantFence: policy.StackValidationPolicy = {
   name: "tenant-fence",
-  description: "every capsule tenant carries its network fence",
+  description: "every capsule tenant has a replicated ingress fence beside it",
   severity: "high",
+  validateStack: (args, report) => {
+    const fenced = new Set(
+      args.resources
+        .filter((resource) => _capsule(resource, "GlobalTenantResource"))
+        .flatMap((resource) => Object.values(resource.props.spec?.tenantSelector?.matchLabels ?? {}) as ReadonlyArray<string>),
+    )
+    return args.resources
+      .filter((resource) => _capsule(resource, "Tenant"))
+      .filter((resource) => !fenced.has(resource.props.metadata?.name ?? resource.name))
+      .forEach((resource) => report("<tenant-without-replicated-fence>", resource.urn))
+  },
+}
+
+// The operator still SERVES each of these and has superseded every one, so a tenant composing one is a row the
+// next operator bump deletes with no diff to warn on; naming the whole deprecated set here is what keeps the
+// governance CR on its stable spellings rather than on whichever block an author found first.
+const _DEPRECATED_TENANT = ["networkPolicies", "containerRegistries", "limitRanges", "imagePullPolicies"] as const
+
+const _tenantCurrent: policy.StackValidationPolicy = {
+  name: "tenant-no-deprecated-spec",
+  description: "tenants compose no deprecated governance block",
+  severity: "medium",
   validateStack: (args, report) =>
     args.resources
-      .filter((resource) => String(resource.props.apiVersion ?? "").startsWith("capsule.clastix.io") && resource.props.kind === "Tenant")
-      .filter((resource) => (resource.props.spec?.networkPolicies?.items ?? []).length === 0)
-      .forEach((resource) => report("<tenant-without-network-fence>", resource.urn)),
+      .filter((resource) => _capsule(resource, "Tenant"))
+      .flatMap((resource) =>
+        _DEPRECATED_TENANT
+          .filter((block) => resource.props.spec?.[block] !== undefined)
+          .map((block) => ({ block, urn: resource.urn })))
+      .forEach(({ block, urn }) => report(`<deprecated-tenant-block:${block}>`, urn)),
+}
+
+// Every estate tier stamps ONE `Tier.harden` anchor at the pod and at every container it constructs, so this
+// row asserts the stamp rather than re-deriving a posture. Pod and container rosters stay separate because a
+// container-level setting outranks the pod's, so a compliant pod proves nothing about the container beneath it
+// — the anchor restates the seccomp filter at the container level for exactly that reason, and the roster
+// carries the row that proves it — and a new `Tier.harden` refusal is one entry on the roster its level owns.
+type _Guarded = {
+  readonly runAsNonRoot?: boolean
+  readonly seccompProfile?: { readonly type?: string }
+}
+type _Pod = { readonly securityContext?: _Guarded }
+type _Container = {
+  readonly name?: string
+  readonly securityContext?: _Guarded & {
+    readonly allowPrivilegeEscalation?: boolean
+    readonly readOnlyRootFilesystem?: boolean
+    readonly capabilities?: { readonly drop?: ReadonlyArray<string> }
+  }
+}
+
+const _POD_HELD = [
+  ["<pod-may-run-root>", (pod: _Pod) => pod.securityContext?.runAsNonRoot === true],
+  ["<pod-without-seccomp>", (pod: _Pod) => pod.securityContext?.seccompProfile?.type === "RuntimeDefault"],
+] as const
+
+const _CONTAINER_HELD = [
+  ["<container-may-run-root>", (row: _Container) => row.securityContext?.runAsNonRoot === true],
+  ["<container-may-escalate>", (row: _Container) => row.securityContext?.allowPrivilegeEscalation === false],
+  ["<container-writable-root>", (row: _Container) => row.securityContext?.readOnlyRootFilesystem === true],
+  ["<container-keeps-capabilities>", (row: _Container) => (row.securityContext?.capabilities?.drop ?? []).includes("ALL")],
+  // the container level outranks the pod's, so the anchor restates the filter here and the roster proves it
+  ["<container-without-seccomp>", (row: _Container) => row.securityContext?.seccompProfile?.type === "RuntimeDefault"],
+] as const
+
+const _hardened: policy.ResourceValidationPolicy = {
+  name: "workload-hardened",
+  description: "every estate-authored pod and container carries the deploy-owned privilege posture",
+  severity: "critical",
+  framework: _CIS,
+  validateResource: policy.validateResourceOfType(k8s.apps.v1.Deployment, (deployment, args, report) => {
+    if (!_authored(args.opts)) return args.notApplicable("<upstream-chart-workload>")
+    const pod = deployment.spec?.template.spec ?? {}
+    return [
+      ..._POD_HELD.filter(([, held]) => !held(pod)).map(([reason]) => reason),
+      ...(pod.containers ?? []).flatMap((container) =>
+        _CONTAINER_HELD.filter(([, held]) => !held(container)).map(([reason]) => `${reason}:${container.name ?? ""}`)),
+    ].forEach((reason) => report(reason))
+  }),
 }
 
 const _policies: policy.Policies = [
-  _digestPinned, _noSuperuser, _noManagedSuperuser, _protectedData,
+  _digestPinned, _hardened, _noSuperuser, _noManagedSuperuser, _protectedData,
   _backupBeside, _tlsIngress, _tlsGateway, _networkFence, _managedBy,
-  _versionedAws, _versionedGcp, _iamFloor, _tenantFence,
+  _versionedAws, _versionedGcp, _iamFloor, _tenantFence, _tenantCurrent,
 ]
 
 const Guard: policy.PolicyPackArgs = {
@@ -453,7 +549,8 @@ const Drift = {
 - Owner: `Reconcile`, the in-cluster continuous-reconciliation tier — the Pulumi Kubernetes Operator installs as one `helm.v4.Chart` row, and each reconciled estate is one typed `Stack` CR (committed `crd2pulumi` classes from `../crds/pko`): `spec.stack` names the target, `spec.projectRepo`/`branch` bind the Git source of the desired-state program, `spec.refresh: true` re-reads provider state each cycle, `spec.continueResyncOnCommitMatch` + `spec.resyncFrequencySeconds` make the loop continuous rather than commit-edge-triggered, and `spec.envRefs` bind the workspace facts from the ONE workspace `Secret` this tier mints from its `workspace` args — the same facts `_host` reads on the deploy host, one vocabulary, two execution planes, and a CR referencing a secret nothing minted is the phantom this owner closes.
 - Law: two clocks never watch one stack — the deploy-host `Drift.sweep` and an in-cluster `Stack` CR are alternative reconcilers; an estate under PKO drops out of the local fleet roster, so evidence has one producer per stack and remediation posture stays deliberate on both paths.
 - Law: tenant-triggered provisioning rides the operator — a tenant-submitted CR (the `Program` CR carrying an inline desired-state program, or a `Stack` CR referencing a tenant repo) is reconciled by PKO inside the tenant's own RBAC envelope, so multi-tenant self-service provisioning needs no deploy-host actor and the Capsule/vcluster boundary from `kube/tenant.md` scopes what the tenant's CR may reach.
-- Law: the operator is scoped, not cluster-wide by default — the chart installs into the estate namespace with its workload identity bound through the same `ServiceAccount`/`Role` cell `kube/workload.md` realizes; widening to cluster scope is a deliberate values row.
+- Law: the operator's reach is RBAC shape, never a watch scope — the chart publishes no namespace-watch value at all, so the install lands in the estate namespace while `rbac.createClusterRole` (default TRUE) decides what the controller may reach cluster-wide; narrowing is `createClusterRole: false` plus `createRole: true`, and reading the namespace row as the scope leaves a namespaced install holding cluster-wide grants. The workload identity binds through the same `ServiceAccount` cell `kube/workload.md` realizes.
+- Law: the chart's CRDs stay current because the carrier renders — `crds/` carries the `Stack`, `Program`, `Workspace`, and `Update` schemas, which `helm upgrade` plants once and never revisits, while `helm.v4.Chart` hands each to the provider as a managed resource that diffs on every version bump; the generated `crds/pko` module regenerates against that same pin, so the cluster schema and the typed classes move together and neither needs an out-of-band apply.
 - Entry: `new Reconcile("reconcile", { spec, namespace, version, source, frequencySeconds, workspace }, opts)` inside the k8s arm when the estate earns the in-cluster loop, `workspace` carrying the backend URL and the passphrase read the composing arm resolves.
 - Growth: a second reconciled estate is one more `Stack` CR row; an inline-program subject is one `Program` CR row.
 - Boundary: the operator chart's values drift with its pin; the generated `crds/pko` module regenerates on operator bumps; hosted drift schedules are `operate/cloud.md`'s twin, subject to the same one-clock law.
@@ -479,10 +576,14 @@ class Reconcile extends Tier {
   constructor(name: string, args: Reconcile.Args, opts?: pulumi.ComponentResourceOptions) {
     super("Reconcile", name, opts)
     const operator = new k8s.helm.v4.Chart(name, {
-      chart: "pulumi-kubernetes-operator",
-      repositoryOpts: { repo: "https://pulumi.github.io/pulumi-kubernetes-operator" },
+      // OCI is the chart's ONLY published route: the GitHub Pages host serves no `index.yaml` and redirects to a
+      // 404, so a `repositoryOpts.repo` row here resolves nothing. The reference carries the registry inline.
+      chart: "oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator",
       version: args.version,
       namespace: args.namespace,
+      // The chart's four CRDs ship in `crds/`, which `helm upgrade` installs once and never touches again. This
+      // row escapes that: `helm.v4.Chart` RENDERS and hands every object to the provider, so the CRDs are ordinary
+      // Pulumi resources a version bump diffs and updates — no out-of-band apply, and no silently stale schema.
       skipCrds: false,
     }, this.child())
     const workspace = new k8s.core.v1.Secret(`${name}-workspace`, {

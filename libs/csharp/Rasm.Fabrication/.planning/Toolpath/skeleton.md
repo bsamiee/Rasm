@@ -31,7 +31,7 @@
 
 - Owner: `SkeletonDemand` carries every value needed to reproduce the walk, topology included.
 - Law: the demand carries the topology it validated against, so `Walk` reads admitted evidence and no second graph pass exists.
-- Law: each component's canonical `SkeletonArc.OriginEdge` set travels into every element key and pass receipt.
+- Law: each component's canonical `SkeletonArc.OriginEdge` set travels into every element key and pass receipt as a counted ordinal run, so the digest is self-delimiting and no delimiter collision forges equality.
 - Entry: `SkeletonDemand.Admit` mints `SkeletonTopology` once, folds stock, node, incidence, edge, geometry, budget, and clearance faults into one accumulated rail, and constructs through the generated factory.
 - Auto: `UndirectedGraph<int, SEdge<int>>` rejects parallel edges and supplies `ConnectedComponents` labels during admission; `SkeletonTopology` retains detached edges and component labels.
 - Packages: `TensorPrimitives.IsFiniteAll` admits coordinate, radius, and process batches before scalar inequalities classify them.
@@ -41,7 +41,7 @@
 ## [05]-[WALK]
 
 - Law: each connected component walks independently, so the binding limit is component-local and one narrow channel never collapses engagement across the whole part.
-- Law: `ElementVariant` carries the walk's own rotation penalty, thermal exposure, and pierce count derived from emitted motion, never a placeholder.
+- Law: `ElementVariant.Of` derives the walk's rotation penalty, thermal exposure, and pierce count off emitted motion at the link owner, so a placeholder and a page-local re-derivation are both deleted forms; `CutElement.Identify` mints the key from the component, its origin edges, and the run ordinal.
 - Entry: `Skeleton.Walk(SkeletonDemand)` is the only operation.
 - Auto: the component's medial chain orders from its maximum-clearance node outward and enters `ArcOp` as the guide loop, so emission follows the admitted skeleton.
 - Output: each component's emitted moves become one `CutElement` per contiguous cutting run, with rapid delimiters dropped, so branch and component travel stays absent from the cutting owner.
@@ -58,6 +58,7 @@ using NodaTime;
 using Rasm.Domain;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
@@ -136,11 +137,15 @@ public sealed partial class EngagementLimit {
                 state.Radial));
 }
 
+// Each row names the `CutStrategy` its emission IS, so the element key the canonical mint digests carries the same
+// strategy discriminant a motion-generated element does and the two schemes stay comparable.
 [SmartEnum<string>]
 public sealed partial class WalkStrategy {
-    public static readonly WalkStrategy Clearing = new("clearing", ClearingOp);
-    public static readonly WalkStrategy Trochoid = new("trochoid", TrochoidOp);
-    public static readonly WalkStrategy Peel = new("peel", PeelOp);
+    public static readonly WalkStrategy Clearing = new("clearing", CutStrategy.Adaptive, ClearingOp);
+    public static readonly WalkStrategy Trochoid = new("trochoid", CutStrategy.Trochoidal, TrochoidOp);
+    public static readonly WalkStrategy Peel = new("peel", CutStrategy.Slot, PeelOp);
+
+    public CutStrategy Cut { get; }
 
     [UseDelegateFromConstructor]
     public partial ArcOp Operation(ArcForest stock, Loop guide, EngagementSolution engagement, double cutterRadius, double feed, CutSense sense);
@@ -169,7 +174,7 @@ public sealed record SkeletonTopology(
     int ComponentCount,
     int DuplicateEdges) {
     public Seq<int> NodesOf(int component) =>
-        Range(0, Components.Count).Filter(index => Components[index] == component).ToSeq();
+        Range(0, Components.Count).ToSeq().Filter(index => Components[index] == component).ToSeq();
 }
 
 [ComplexValueObject]
@@ -180,6 +185,7 @@ public sealed partial class SkeletonDemand {
     public EngagementPolicy Engagement { get; }
     public CutSense Sense { get; }
     public WalkStrategy Strategy { get; }
+    public ProcessModality Modality { get; }
     public SkeletonTopology Topology { get; }
     public Option<(LoadWindow Window, Instant EvaluatedAt)> MeasuredLoad { get; }
 
@@ -190,13 +196,14 @@ public sealed partial class SkeletonDemand {
         EngagementPolicy engagement,
         CutSense sense,
         WalkStrategy strategy,
+        ProcessModality modality,
         Option<(LoadWindow Window, Instant EvaluatedAt)> measuredLoad = default) =>
-        from admitted in Optional(graph).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "skeleton:graph-absent").ToError())
+        from admitted in Optional(graph).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:graph-absent"))
         let topology = Skeleton.Topology(admitted)
         from _ in Skeleton.Facts(stock, admitted, cutter, engagement, topology).ToFin()
-        from demand in Validate(stock, admitted, cutter, engagement, sense, strategy, topology, measuredLoad,
+        from demand in Validate(stock, admitted, cutter, engagement, sense, strategy, modality, topology, measuredLoad,
             out SkeletonDemand row) is { } error
-            ? Fin.Fail<SkeletonDemand>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<SkeletonDemand>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(row)
         select demand;
 
@@ -208,9 +215,10 @@ public sealed partial class SkeletonDemand {
         ref EngagementPolicy engagement,
         ref CutSense sense,
         ref WalkStrategy strategy,
+        ref ProcessModality modality,
         ref SkeletonTopology topology,
         ref Option<(LoadWindow Window, Instant EvaluatedAt)> measuredLoad) =>
-        validationError = topology is null || topology.Components.Count != graph.Nodes.Count
+        validationError = topology is null || modality is null || topology.Components.Count != graph.Nodes.Count
             ? new ValidationError("<skeleton-topology-mismatch>")
             : null;
 }
@@ -240,12 +248,12 @@ public static class Skeleton {
         from tolerance in Tolerance.Apply(new ToleranceRequest.Scallop(demand.Engagement.Finish, demand.Cutter))
         from scallop in tolerance is ToleranceReceipt.Scallop receipt
             ? Fin.Succ(receipt.StepMm)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "skeleton:scallop-receipt").ToError())
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:scallop-receipt"))
         from budget in demand.Engagement.Budget is ProcessBudget.Subtractive subtractive
             ? Fin.Succ(subtractive)
-            : Fin.Fail<ProcessBudget.Subtractive>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "skeleton:budget").ToError())
+            : Fin.Fail<ProcessBudget.Subtractive>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:budget"))
         let cutterRadius = demand.Cutter.Diameter / 2.0
-        from passes in Range(0, demand.Topology.ComponentCount)
+        from passes in Range(0, demand.Topology.ComponentCount).ToSeq()
             .Map(component => Component(demand, budget, cutterRadius, scallop, component))
             .TraverseM(identity)
             .As()
@@ -267,10 +275,10 @@ public static class Skeleton {
         int component) =>
         from nodes in demand.Topology.NodesOf(component) is { IsEmpty: false } members
             ? Fin.Succ(members)
-            : Fin.Fail<Seq<int>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"skeleton:component-{component}:empty").ToError())
+            : Fin.Fail<Seq<int>>(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:empty").ToError())
         from arcs in demand.Graph.Arcs.Filter(arc => demand.Topology.Components[arc.From] == component) is { IsEmpty: false } spans
             ? Fin.Succ(spans)
-            : Fin.Fail<Seq<SkeletonArc>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"skeleton:component-{component}:arcs").ToError())
+            : Fin.Fail<Seq<SkeletonArc>>(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:arcs").ToError())
         let origins = arcs.Map(static arc => arc.OriginEdge).Distinct().Order().ToSeq()
         let clearance = arcs
             .Map(arc => double.Min(demand.Graph.Nodes[arc.From].Radius, demand.Graph.Nodes[arc.To].Radius) - cutterRadius)
@@ -281,13 +289,14 @@ public static class Skeleton {
         from _ in guard(
             double.IsFinite(engagement.Radial) && engagement.Radial > 0.0
                 && double.IsFinite(engagement.Step) && engagement.Step > 0.0,
-            new GeometryFault.DegenerateInput(Kind.Curve, -1, $"skeleton:component-{component}:{engagement.Binding.Key}").ToError()).ToFin()
+            (Error)new FabricationFault.PolicyInadmissible(
+                FabConcern.Toolpath, $"skeleton:component-{component}:{engagement.Binding.Key}")).ToFin()
         from guide in Chain(demand.Graph, demand.Topology, nodes, demand.Stock.Tolerance, component)
         from trace in ArcAlgebra.Apply(demand.Strategy.Operation(
             demand.Stock, guide, engagement, cutterRadius, budget.FeedRate, demand.Sense))
         from motion in trace is ArcTrace.Motion moved
             ? Fin.Succ(moved.Receipt)
-            : Fin.Fail<MotionReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"skeleton:component-{component}:arc-trace").ToError())
+            : Fin.Fail<MotionReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"skeleton:component-{component}:arc-trace"))
         from elements in Elements(demand, origins, component, motion.Moves)
         select new SkeletonPass(component, origins, elements, engagement, clearance, nodes.Count, arcs.Count);
 
@@ -326,7 +335,7 @@ public static class Skeleton {
                     .Apply(static facts => facts.IsEmpty
                         ? Validation<Error, Unit>.Success(unit)
                         : Validation<Error, Unit>.Fail(Error.Many([.. facts]))),
-            _ => Validation<Error, Unit>.Fail(new GeometryFault.DegenerateInput(Kind.Curve, -1, "skeleton:demand-absent").ToError()),
+            _ => Validation<Error, Unit>.Fail(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:demand-absent")),
         };
 
     private static Seq<Error> DemandFacts(
@@ -345,7 +354,7 @@ public static class Skeleton {
     private static Seq<Error> NodeFacts(SkeletonGraph graph, double cutterRadius, SkeletonTopology topology) =>
         graph.Nodes
             .Map((node, index) => node is null
-                ? Seq(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"skeleton:node-{index}:absent").ToError())
+                ? Seq(new GeometryFault.DegenerateInput(Kind.Curve, index, $"skeleton:node-{index}:absent").ToError())
                 : Axes(index, Seq(
                     (Ok: TensorPrimitives.IsFiniteAll<double>([node.At.X, node.At.Y, node.At.Z, node.Radius]), Axis: "finite"),
                     (Ok: node.At.IsValid, Axis: "point"),
@@ -356,7 +365,7 @@ public static class Skeleton {
     private static Seq<Error> ArcFacts(SkeletonGraph graph, double cutterRadius) =>
         graph.Arcs
             .Map((arc, index) => arc switch {
-                null => Seq(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"skeleton:arc-{index}:absent").ToError()),
+                null => Seq(new GeometryFault.DegenerateInput(Kind.Curve, index, $"skeleton:arc-{index}:absent").ToError()),
                 { } admitted => (
                         Endpoints: admitted.From >= 0 && admitted.From < graph.Nodes.Count
                             && admitted.To >= 0 && admitted.To < graph.Nodes.Count,
@@ -377,7 +386,7 @@ public static class Skeleton {
     private static Seq<Error> Axes(int index, Seq<(bool Ok, string Axis)> axes, string owner = "") =>
         axes.Choose(fact => fact.Ok
             ? Option<Error>.None
-            : Some(new GeometryFault.DegenerateInput(Kind.Curve, -1, index < 0
+            : Some(new GeometryFault.DegenerateInput(Kind.Curve, index < 0 ? Option<int>.None : index, index < 0
                 ? $"skeleton:{fact.Axis}"
                 : $"skeleton:{owner}-{index}:{fact.Axis}").ToError()));
 
@@ -396,18 +405,18 @@ public static class Skeleton {
                     .AddOrUpdate(edge.To, existing => existing.Add(edge.From), Seq(edge.From)))
             .Apply(adjacency => nodes
                 .Fold(
-                    (Seed: nodes.Head, Radius: double.NegativeInfinity),
+                    (Seed: Option<int>.None, Radius: double.NegativeInfinity),
                     (best, index) => graph.Nodes[index].Radius > best.Radius
-                        ? (index, graph.Nodes[index].Radius)
+                        ? (Some(index), graph.Nodes[index].Radius)
                         : best)
-                .Apply(best => Ordered(adjacency, best.Seed)))
+                .Apply(best => best.Seed.Map(seed => Ordered(adjacency, seed)).IfNone(Seq<int>())))
             .Apply(ordered => ordered.Count >= 2
                 ? Loop.Admit(
                     ordered.Map(index => graph.Nodes[index].At).ToArr(),
                     closed: false,
                     Arr<double>(),
                     tolerance)
-                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"skeleton:component-{component}:chain").ToError()));
+                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:chain").ToError()));
 
     private static Seq<int> Ordered(HashMap<int, Seq<int>> adjacency, int seed) {
         HashSet<int> visited = [];
@@ -447,62 +456,39 @@ public static class Skeleton {
             .TraverseM(row => Element(demand, origins, component, row.Path, row.Index))
             .As();
 
+    // Identity and the objective axes are BOTH the link owner's: the walk supplies its discriminants — the walked
+    // component, its canonical origin-edge set, and the contiguous run's ordinal — and `CutElement.Identify` digests
+    // them beside tool, work offset, cutter geometry, and every move. An interpolated page-local string could not
+    // separate two walks of one component that differ only in emitted arcs, and it minted a second identity scheme
+    // beside the canonical one. `Cam` owns the modality this element runs under, so the demand carries it forward.
     private static Fin<CutElement> Element(
         SkeletonDemand demand,
         Seq<int> origins,
         int component,
         Seq<Move> path,
         int index) =>
-        (Entry: path.Head.Target, Exit: path.Last.IfNone(path.Head).Target)
-            .Apply(span => FormattableString.Invariant(
-                    $"skeleton:{component}:{string.Join(',', origins)}:{index}") is var key
-                ? CutElement.Admit(
-                    key,
-                    demand.Cutter.Evidence.Map(static evidence => evidence.ToolId).IfNone(demand.Cutter.Family.Key),
-                    demand.Engagement.WorkOffset,
-                    new EntryFamily.Fixed(new ElementVariant(
-                        key,
-                        span.Entry,
-                        span.Exit,
-                        path,
-                        RotationPenalty: Rotation(path),
-                        ThermalExposure: Exposure(path),
-                        Pierces: path.Take(1).Count)))
-                : Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"skeleton:path-{index}:projection").ToError()));
+        from key in CutElement.Identify(new CutElementIdentity.Skeleton(
+            component,
+            origins,
+            index,
+            demand.Strategy.Cut,
+            ToolKey(demand),
+            demand.Engagement.WorkOffset,
+            demand.Cutter.Family.Key,
+            demand.Cutter.Diameter,
+            demand.Cutter.CornerRadius,
+            demand.Cutter.TaperAngle,
+            demand.Cutter.FluteLength,
+            path))
+        from element in CutElement.Admit(
+            key,
+            ToolKey(demand),
+            demand.Engagement.WorkOffset,
+            new EntryFamily.Fixed(ElementVariant.Of(key, path, demand.Modality)))
+        select element;
 
-    private static double Rotation(Seq<Move> path) =>
-        path.Map(static move => move.Target)
-            .Fold(
-                (Previous: Option<Vector3d>.None, Last: Option<Point3d>.None, Sum: 0.0),
-                static (state, point) => state.Last.Match(
-                    Some: previous => (point - previous) is { IsValid: true, Length: > 0.0 } span
-                        ? (Some(span), Some(point), state.Sum + state.Previous.Match(
-                            Some: earlier => Vector3d.VectorAngle(earlier, span),
-                            None: static () => 0.0))
-                        : (state.Previous, Some(point), state.Sum),
-                    None: () => (state.Previous, Some(point), state.Sum)))
-            .Sum;
-
-    private static double Exposure(Seq<Move> path) =>
-        path.Fold(
-                (Last: Option<Point3d>.None, Seconds: 0.0),
-                static (state, move) => (move.Target, move switch {
-                        Move.Linear row => row.Feed,
-                        Move.Circular row => row.Feed,
-                        _ => 0.0,
-                    })
-                    .Apply(step => (Some(step.Item1), state.Seconds + state.Last.Match(
-                        Some: previous => step.Item2 > 0.0 ? Distance(previous, move) / step.Item2 : 0.0,
-                        None: static () => 0.0))))
-            .Seconds;
-
-    private static double Distance(Point3d from, Move move) => move.Switch(
-        state: from,
-        rapid: static (_, _) => 0.0,
-        linear: static (start, row) => start.DistanceTo(row.Target),
-        circular: static (start, row) => Math.Sqrt(
-            Math.Pow(row.Radius * Math.Abs(row.SweepRadians), 2.0)
-            + Math.Pow(row.Target.Z - start.Z, 2.0)));
+    private static string ToolKey(SkeletonDemand demand) =>
+        demand.Cutter.Evidence.Map(static evidence => evidence.ToolId).IfNone(demand.Cutter.Family.Key);
 }
 ```
 

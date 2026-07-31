@@ -23,6 +23,7 @@ Reproducible-report composition binds data and visual outputs into one `document
 import io
 from collections.abc import Awaitable, Callable, Iterable
 from enum import StrEnum
+from functools import partial
 from typing import Final, Literal, Never, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
 from builtins import frozendict
@@ -885,16 +886,21 @@ class ReportPlan(Struct, frozen=True):
         return structs.replace(self, fact=await COMPOSE_ARMS[self.kind](self))
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
+        # ONE mint per node, captured into the closure: `_key` re-encodes the whole spec and opens a
+        # `content.derive` span per read.
+        key = self._key
+        return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         # `ContentIdentity.key` mints the bare `ContentKey`; `.of` is the railed form and never keys a plan.
+        # `kind`/`spec` are immutable across the compose fold, so the standalone `contribute` port's own read
+        # answers the SAME key the plan node carries — the derivation is safe there where a closure cannot reach.
         return ContentIdentity.key(f"report-{self.kind.value}", _KEY_ENCODER.encode((self.kind, self.spec)))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # Terminal receipt threads the PRE-RUN input key so receipt.slot == node.key.
-        return (await async_boundary(f"report.{self.kind.value}", self._composed)).map(lambda done: done._receipt(self._key))
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
+        return (await async_boundary(f"report.{self.kind.value}", self._composed)).map(lambda done: done._receipt(key))
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
         assert self.fact is not None

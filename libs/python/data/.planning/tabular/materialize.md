@@ -2,7 +2,7 @@
 
 One incremental CDC-materialization owner, the composing concern above the engines it composes: `DerivedSnapshot` folds the `tabular/lakehouse#LAKEHOUSE` change feed, the `tabular/query#QUERY` engine, and runtime `ContentIdentity` into a partition-delta recompute, and `PartitionBundle` is the per-partition content-keyed Arrow bundle. All three composition edges point strictly down the folder order, keeping `columnar` a pure base with zero back-edges.
 
-Only CDF-changed partitions recompute — an unchanged partition reuses its content key untouched, and a full re-scan is the rejected form. Each touched bundle keys through `columnar`'s `arrow_bytes` fold, and `snapshot_key` Merkle-folds the child keys. `LakeOp.ChangeFeed` through `Lakehouse.run_async` supplies the feed on its receipt `payload` slot, so this consumer opens no provider, and `_CHANGE_STATE` rows which change-type spellings a recompute reads — a format the lakehouse arms but this table leaves unrowed refuses typed rather than filtering an unknown discriminant to silent emptiness.
+Only CDF-changed partitions recompute — an unchanged partition reuses its content key untouched, and a full re-scan is the rejected form. Each touched bundle keys through `interop`'s `arrow_bytes` fold, and `snapshot_key` Merkle-folds the child keys. `LakeOp.ChangeFeed` through `Lakehouse.run_async` supplies the feed on its receipt `payload` slot, so this consumer opens no provider, and `_CHANGE_STATE` rows which change-type spellings a recompute reads — a format the lakehouse arms but this table leaves unrowed refuses typed rather than filtering an unknown discriminant to silent emptiness.
 
 ## [01]-[INDEX]
 
@@ -12,11 +12,11 @@ Only CDF-changed partitions recompute — an unchanged partition reuses its cont
 
 - Owner: `DerivedSnapshot` — the one incremental-materialization owner over a `(partition_by, transform, generation, lane)` policy, folding one change-feed range into per-partition recomputes; `PartitionBundle` is the per-partition content-keyed unit and `snapshot_key` its Merkle root. Partition identity is the composite key alone, so a second partitioning strategy is a `partition_by` tuple, never a sibling snapshot type.
 - Entry: `DerivedSnapshot.of` admits the policy on the rail — an empty `partition_by` refuses typed, matching the sibling `Lakehouse.open`/`ObjectEgress.of`/`QueryEngine.of` admission contract under `@beartype(conf=FAULT_CONF)`, never a construction-time raise the composition root has no fence for. `refresh` is the one operation entrypoint, taking only the change-feed range and the prior bundle set; `register_data_hooks` is the package's one hook-registration fold.
-- Auto: the `lakehouse` changefeed arm owns the arro3-to-`pyarrow` PyCapsule re-import, so the frame reaching this owner already carries the sort and compute surface the partition split needs. Partitioning is one strict sorted pass over every CDF record, and the `_CHANGE_STATE` row supplies both the discriminant column and its survivor set. `register_data_hooks(scope)` folds the package point table through `Hooks.register`; every emitting owner carries that same scope, so registry custody and fire cannot cross compositions. Each recomputed bundle fires `REFRESH_POINT` on that scoped registry, and a late subscriber drains the bounded replay ring.
+- Auto: the `lakehouse` changefeed arm owns the arro3-to-`pyarrow` PyCapsule re-import, so the frame reaching this owner already carries the sort and compute surface the partition split needs. Partitioning is one strict sorted pass over every CDF record, and the `_CHANGE_STATE` row supplies both the discriminant column and its survivor set. `register_data_hooks(scope)` claims the package point table in ONE `Hooks.register` roster transition and deposits its `DataInstall` receipt on that same registry's install ledger, so a capsule reads this package's admission where an absent row is the stated diagnosis; every emitting owner carries that same scope, so registry custody and fire cannot cross compositions. Each recomputed bundle fires `REFRESH_POINT` on that scoped registry, and a late subscriber drains the bounded replay ring.
 - Receipt: `PartitionBundle.contribute` yields one emitted-phase `Receipt.of("derived-snapshot", ("emitted", partition, facts))` and projects recomputed row volume onto the metric spine under `domain="materialize"`; the partition id stays receipt-only because a composite key carries unbounded cardinality. `snapshot_key` Merkle-folds the partition-sorted child keys, so identical content yields one key whatever order the lane completes in.
-- Packages: `pyarrow`/`pyarrow.compute` (the sorted slice and the change-type filter), `msgspec` (the frozen `Struct` shapes and the canonical-JSON composite key), `expression` (`Block`/`Map` and the `RuntimeRail` carrier), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `of`/`refresh` seams), `tabular/lakehouse#LAKEHOUSE` (`LakeOp.ChangeFeed` through `Lakehouse.run_async`, the receipt `payload` carrying the feed), `tabular/query#QUERY` (the recompute engine), `tabular/columnar#SCAN` (the `arrow_bytes` fold), runtime (`BackendGeneration`/`ContentIdentity`/`RuntimeRail`/`async_boundary`/`Hooks`/`LanePolicy`/`Metrics`/`scoped`). No provider package binds directly: the lakehouse owner holds every change-feed provider this page reads.
-- Growth: a new transform is a different `QuerySpec`; a new partition strategy is one `partition_by` tuple; a second CDF source is one `_CHANGE_STATE` row carrying its discriminant column and survivor states, the lakehouse arm supplying the feed; a new data hook is one `DATA_HOOK_POINTS` row and its owner fire; a new admission invariant is one refusal arm on `of`.
-- Boundary: composes the `lakehouse` `ChangeFeed` op, the `query` engine under the owner's admitted `BackendGeneration`, the `columnar` `arrow_bytes` fold, and the owner's composition-root-bound `lane` — `refresh` accepts only operation inputs, the partition fan-out drains under `LanePolicy.drain`, never a page-local task-group rig; a casualty fails the refresh closed, no durable derived store, no parallel materialization module, no second CDF reader. Deleted forms: a per-partition engine minted with no generation, an admission invariant raising at construction where the composition root carries no fence to convert it, a second CDF reader opened behind the lakehouse owner that already holds one, a hardcoded single-format test where the change vocabulary is a row, a hook-fire rail riding out as the recompute's own value, and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
+- Packages: `pyarrow`/`pyarrow.compute` (the sorted slice and the change-type filter), `msgspec` (the frozen `Struct` shapes and the canonical-JSON composite key), `expression` (`Block`/`Map` and the `RuntimeRail` carrier), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `of`/`refresh` seams), `tabular/lakehouse#LAKEHOUSE` (`LakeOp.ChangeFeed` through `Lakehouse.run_async`, the receipt `payload` carrying the feed), `tabular/query#QUERY` (the recompute engine), `tabular/interop#INTEROP` (the `arrow_bytes` fold), runtime (`BackendGeneration`/`ContentIdentity`/`RuntimeRail`/`async_boundary`/`LanePolicy`/`Metrics`/`scoped`, with `Hooks.register`'s roster arm the one whole-set claim and `Hooks.installed` the producer-install ledger this package deposits on). No provider package binds directly: the lakehouse owner holds every change-feed provider this page reads.
+- Growth: a new transform is a different `QuerySpec`; a new partition strategy is one `partition_by` tuple; a second CDF source is one `_CHANGE_STATE` row carrying its discriminant column and survivor states, the lakehouse arm supplying the feed; a new data hook is one `DATA_HOOK_POINTS` row and its owner fire, the install receipt widening by derivation because it names the landed ids rather than a hand-kept list; a new admission fact this package proves at composition is one `DataInstall` field of native scalars; a new admission invariant is one refusal arm on `of`.
+- Boundary: composes the `lakehouse` `ChangeFeed` op, the `query` engine under the owner's admitted `BackendGeneration`, the `interop` `arrow_bytes` fold, and the owner's composition-root-bound `lane` — `refresh` accepts only operation inputs, the partition fan-out drains under `LanePolicy.drain`, never a page-local task-group rig; a casualty fails the refresh closed, no durable derived store, no parallel materialization module, no second CDF reader. Deleted forms: a per-partition engine minted with no generation, an admission invariant raising at construction where the composition root carries no fence to convert it, a second CDF reader opened behind the lakehouse owner that already holds one, a hardcoded single-format test where the change vocabulary is a row, a hook-fire rail riding out as the recompute's own value, an accumulating per-point registration fold beside the registry's own roster arm — it short-circuits at the first breach with every prior point mounted, which is the half-mount that arm exists to foreclose — and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
 
 ```python signature
 from collections.abc import Iterable
@@ -33,9 +33,9 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.data.tabular.columnar import arrow_bytes
 from rasm.data.tabular.contract import VERDICT_POINT
 from rasm.data.tabular.egress import COPY_POINT, DELETE_POINT, PUT_POINT, RENAME_POINT
+from rasm.data.tabular.interop import arrow_bytes
 from rasm.data.tabular.lakehouse import LAKE_COMMIT_POINT, LakeOp, Lakehouse, TableFormat
 from rasm.data.tabular.query import QueryEngine, QuerySpec
 from rasm.runtime.admission import BackendGeneration
@@ -87,7 +87,21 @@ REFRESH_POINT: Final[HookPoint[PartitionBundle]] = HookPoint(
     id="rasm.data.materialize.refresh", payload=PartitionBundle, modality=Modality.REPLAY, buffer=64
 )
 
-DATA_HOOK_POINTS: Final[tuple[HookPoint[Struct], ...]] = (
+# this package deposits its install receipt under this ledger key; a support-bundle capsule reads an ABSENT row as the
+# diagnosis that the data leg never ran, so one constant carries the name rather than a literal at the deposit site.
+OWNER: Final[str] = "data.tabular"
+
+
+class DataInstall(Struct, frozen=True, gc=False):
+    # composition-time proof this package's WHOLE point roster landed in the caller's composition — the ids now
+    # deliverable there, flat native scalars alone so the capsule renders the row through `structs.asdict` with no
+    # nested mapping to breach its depth-walking redaction. Handing the registry's own `HookPoint` rows back instead
+    # leaks a `type[Struct]` field no receipt projection renders and names the registry's product rather than this
+    # package's admission.
+    points: tuple[str, ...]
+
+
+DATA_HOOK_POINTS: Final[Block[HookPoint[Struct]]] = Block.of_seq([
     LAKE_COMMIT_POINT,
     PUT_POINT,
     DELETE_POINT,
@@ -95,16 +109,17 @@ DATA_HOOK_POINTS: Final[tuple[HookPoint[Struct], ...]] = (
     RENAME_POINT,
     REFRESH_POINT,
     VERDICT_POINT,
-)
+])
 
 
-def register_data_hooks(scope: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[tuple[HookPoint[Struct], ...]]":
-    # one composition fold consumes every registration rail; duplicate ids and malformed rows fail the root.
-    return Block.of_seq(DATA_HOOK_POINTS).fold(
-        lambda registered, point: registered.bind(
-            lambda rows: Hooks.register(point, scope=scope).map(lambda admitted: (*rows, admitted))
-        ),
-        Ok(()),
+def register_data_hooks(scope: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[DataInstall]":
+    # ONE gated transition claims the whole roster: `Hooks.register` swaps the point table only past its last admitted
+    # row and reports every breach together, so a duplicate or malformed id leaves custody exactly as it stood. The
+    # short-circuiting fold this replaces stopped at the FIRST breach with every prior point already mounted and no
+    # accumulated diagnosis — a half-mount no retire verb is owed against, and the exact alternative the registry's
+    # roster arm exists to delete. The deposit passes its receipt through, so the install IS the rail's terminal.
+    return Hooks.register(DATA_HOOK_POINTS, scope=scope).map(
+        lambda points: Hooks.installed(OWNER, DataInstall(points=tuple(point.id for point in points)), scope=scope)
     )
 
 
@@ -222,7 +237,7 @@ class DerivedSnapshot(Struct, frozen=True):
 
     async def _recompute(self, delta: pa.Table, partition: str) -> "RuntimeRail[PartitionBundle]":
         # a query fault PROPAGATES — keying the raw delta in place of the transform's output lands untransformed
-        # rows under a materialized identity; `arrow_bytes` is the imported `columnar` public fold, never a re-spelled
+        # rows under a materialized identity; `arrow_bytes` is the imported `interop` folder fold, never a re-spelled
         # serialization. The engine binds the owner's admitted `generation` beside the named delta frame, so every
         # partition of one refresh reads one contract generation.
         railed = await QueryEngine.of(self.generation, {"delta": delta}).run(self.transform)

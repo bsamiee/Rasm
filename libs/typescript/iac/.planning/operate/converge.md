@@ -116,6 +116,7 @@ const _projected = (
 - Law: canonical journals, event stores, objects, or typed copy projections populate the target.
 - Law: runner reads realized catalogs and data frontiers, builds `Backend.Observation`, and exits only after `Backend.admit`.
 - Law: `backoffLimit: 0` and `activeDeadlineSeconds` preserve one terminal observation per deployment attempt.
+- Law: a runner pod carries `Tier.harden` like every other pod this estate declares — the phases hold the target's own libpq credentials and author every relation the application then binds, so the one pod family with DDL authority is the last that may run root-capable on a writable root filesystem; the anchor's scratch pair is what keeps the read-only root survivable for the runner's own temp writes.
 - Auto: `Array.mapAccum` threads target readiness through `materialize → hydrate → prove`, mapping each phase to its `[phase, job]` pair, so the fold yields a phase-keyed record and no callback graph or parallel plan exists.
 - Packages: `@pulumi/kubernetes` typed `ConfigMap` and `Job`; `@pulumi/pulumi` resource dependency algebra.
 
@@ -157,6 +158,9 @@ const _runner = (
         spec: {
           restartPolicy: "Never",
           serviceAccountName: args.runner.serviceAccountName,
+          // The one pod family holding DDL authority over the target, so it carries the estate's own posture
+          // rather than the API's defaults; the anchor's scratch pair keeps the read-only root survivable.
+          securityContext: Tier.harden.pod,
           containers: [{
             name: phase,
             image: args.runner.image,
@@ -169,16 +173,16 @@ const _runner = (
               { name: _CONTRACT_ROOT, value: args.runner.contractRoot },
               { name: _FENCE, value: args.publication.fence },
             ],
-            volumeMounts: [{
-              name: "contract",
-              mountPath: args.runner.contractRoot,
-              readOnly: true,
-            }],
+            securityContext: Tier.harden.container,
+            volumeMounts: [
+              { name: "contract", mountPath: args.runner.contractRoot, readOnly: true },
+              ...Tier.harden.mounts,
+            ],
           }],
-          volumes: [{
-            name: "contract",
-            configMap: { name: contract.metadata.name },
-          }],
+          volumes: [
+            { name: "contract", configMap: { name: contract.metadata.name } },
+            ...Tier.harden.volumes,
+          ],
         },
       },
     },

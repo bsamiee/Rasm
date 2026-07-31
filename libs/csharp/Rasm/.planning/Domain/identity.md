@@ -44,11 +44,11 @@ public static class ContentHash {
 
 ## [03]-[DETERMINISTIC_DERIVATION]
 
-- Owner: `Deterministic` static class — the one splitmix64 owner: `Mix` (finalizer) and `Advance` (golden-gamma stream) are the private mechanism, the public family is the unit draws, order keys, and clamped interval, and the mixer is unreachable outside the owner.
-- Entry: two modalities by input shape — stream sampling advances a `ref ulong state` seeded by the consuming algorithm's named policy seed (`NextSignedUnit` for real bases, `NextSignedComplexUnit` for Hermitian); coordinate keying is stateless (`OrderKey(coordinates, seed)`, the `Point3d` overload routing into the span floor, `UnitInterval(point, salt, seed)` for per-point draws).
+- Owner: `Deterministic` static class — the one splitmix64 owner: `Mix` (finalizer) and `Advance` (golden-gamma stream) are the private mechanism, the public family is the unit draws, order keys, clamped intervals, lane-keyed draws, the bounded integer draw, the equidistributed family, and the one `System.Random` adapter; the mixer is unreachable outside the owner.
+- Entry: three modalities by input shape — stream sampling advances a `ref ulong state` seeded by the consuming algorithm's named policy seed (`NextSignedUnit` for real bases, `NextSignedComplexUnit` for Hermitian, `NextBelow` for an unbiased bounded index); coordinate keying is stateless (`OrderKey(coordinates, seed)`, the `Point3d` overload routing into the span floor, `UnitInterval(point, salt, seed)` for per-point draws); lane keying is stateless over integer lanes (`Stream(lanes, seed)` mints a threadable state, `Unit(lanes, seed)` projects one clamped draw). `Source(seed, lanes)` is THE one adapter for a package API whose SIGNATURE demands `System.Random` — it ADDS the replay guarantee the BCL type cannot carry, and it is the only sanctioned crossing.
 - Law: coordinate keys normalize the signed zero — `-0.0` projects to `+0.0` before bit extraction so the two zeros key identically, and the seed widens unsigned (`(uint)seed`) so a negative seed never sign-extends into the state.
 - Law: unit projections take the top 53 bits (`>> 11`, scaled `2^-53`) for an exact double; `UnitInterval` clamps to `[EpsilonPolicy.SqrtEpsilon, 1 - EpsilonPolicy.SqrtEpsilon]` — the one named epsilon owner — so log-weighted rejection draws (`-log(u) / weight`) stay finite at both ends.
-- Cases: consumers by member — the matrix eigensolver's LOBPCG starting bases (`NextSignedUnit`/`NextSignedComplexUnit` under its named basis-seed policy), the sampler's candidate ordering, active-set rotation, annulus, and weighted-rejection draws (`OrderKey`/`UnitInterval`), and any reproducible tie-break in the processing suite (`OrderKey`).
+- Cases: consumers by member — the matrix eigensolver's LOBPCG starting bases (`NextSignedUnit`/`NextSignedComplexUnit` under its named basis-seed policy), the sampler's candidate ordering, active-set rotation, annulus, and weighted-rejection draws (`OrderKey`/`UnitInterval`), the fit consensus sampler's minimal-set draws (`NextBelow` over a `Stream`-minted state), per-(stream, ordinal, dimension) texel and jitter draws (`Unit`), Halton and Sobol coordinates (`RadicalInverse`/`ReverseBits`/`Hammersley`), MathNet distribution constructors (`Source`), and any reproducible tie-break in the processing suite (`OrderKey`).
 - Growth: a new reproducible draw shape is one member on this owner composing `Advance`/`OrderKey`.
 - Boundary: the span fold in `OrderKey` and the state-advancing `ref` members are the named kernel exemption; no member reads time, thread identity, or process state.
 
@@ -97,19 +97,67 @@ public static class Deterministic {
         }
         return state;
     }
-    // The EQUIDISTRIBUTED family beside the pseudo-random stream: RadicalInverse is the base-2 bit reversal onto
-    // [0, 1) and Hammersley the (i/n, radicalInverse(i)) pair a bounded-tap spherical integral reads — splitmix64
+    // Lane-keyed STATELESS unit draw — the Stream fold projected through the same top-53-bit rule as NextUnit, so a
+    // per-(stream, ordinal, dimension) draw keys directly instead of advancing a state a partition could reorder.
+    // The clamp is UnitInterval's, not NextUnit's: a lane-keyed draw feeds log-weighted rejection the same way.
+    public static double Unit(ReadOnlySpan<long> lanes, long seed = 0L) =>
+        Math.Clamp(value: ((Stream(lanes: lanes, seed: seed) >> 11) + 1.0) * (1.0 / 9_007_199_254_740_992.0),
+            min: EpsilonPolicy.SqrtEpsilon, max: 1.0 - EpsilonPolicy.SqrtEpsilon);
+    // Unbiased bounded integer draw (Lemire): the 64x64 widening multiply's high half is the scaled index and the
+    // low half rejects only the short tail, so a modulo's low-value bias never enters an ordering or a sample index.
+    public static int NextBelow(ref ulong state, int exclusiveCeiling) {
+        // Argument CONTRACT, not a domain state: a zero ceiling divides by zero in the threshold and a negative
+        // one casts to a near-2⁶⁴ bound — both caller programming errors the BCL throw-helper names at the
+        // boundary, never a Fin the hot draw loops would thread for an unreachable arm.
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value: exclusiveCeiling);
+        ulong bound = (ulong)exclusiveCeiling, threshold = (0UL - bound) % bound;
+        ulong draw = Advance(state: ref state);
+        while (unchecked(draw * bound) < threshold) draw = Advance(state: ref state);
+        return (int)Math.BigMul(left: draw, right: bound, low: out _);
+    }
+    // The EQUIDISTRIBUTED family beside the pseudo-random stream: RadicalInverse is the digit reversal onto [0, 1)
+    // and Hammersley the (i/n, radicalInverse(i)) pair a bounded-tap spherical integral reads — splitmix64
     // clustering leaves visible noise at a bounded tap budget, so equidistribution is its own member family on
-    // the ONE deterministic-draw owner, never a consumer-page kernel.
-    public static double RadicalInverse(uint bits) {
+    // the ONE deterministic-draw owner, never a consumer-page kernel. ReverseBits is the hoisted swap ladder, so a
+    // consumer scrambling a Sobol coordinate reads the owner's reversal instead of transcribing five swap steps.
+    public static uint ReverseBits(uint bits) {
         bits = (bits << 16) | (bits >> 16);
         bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
         bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
         bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
-        bits = ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
-        return bits * 2.3283064365386963e-10;
+        return ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
+    }
+    public static double RadicalInverse(uint bits) => ReverseBits(bits: bits) * 2.3283064365386963e-10;
+    // Base-parameterized radical inverse — the Halton leg's per-dimension prime, closing the declared
+    // equidistribution law for every dimension rather than base 2 alone; arity discriminates on the second argument.
+    public static double RadicalInverse(uint index, int radix) {
+        double inverse = 0.0, fraction = 1.0 / radix;
+        while (index > 0u) {
+            (inverse, index, fraction) = (inverse + ((index % (uint)radix) * fraction), index / (uint)radix, fraction / radix);
+        }
+        return inverse;
     }
     public static (double U0, double U1) Hammersley(int index, int count) => ((index + 0.5) / count, RadicalInverse(bits: (uint)index));
+    // THE one adapter for a package API whose SIGNATURE demands System.Random (MathNet distribution constructors).
+    // Not a shim: it ADDS the replay guarantee the BCL type cannot carry, and it is the only sanctioned crossing.
+    public static Random Source(long seed, params ReadOnlySpan<long> lanes) => new SplitMixRandom(seed: Stream(lanes: lanes, seed: seed));
+    private sealed class SplitMixRandom(ulong seed) : Random {
+        private ulong state = seed;
+        protected override double Sample() => NextUnit(state: ref state);
+        public override int Next(int maxValue) => NextBelow(state: ref state, exclusiveCeiling: maxValue);
+        public override int Next(int minValue, int maxValue) => minValue + NextBelow(state: ref state, exclusiveCeiling: maxValue - minValue);
+        public override void NextBytes(Span<byte> buffer) {
+            while (buffer.Length >= sizeof(ulong)) {
+                BitConverter.TryWriteBytes(destination: buffer, value: Advance(state: ref state));
+                buffer = buffer[sizeof(ulong)..];
+            }
+            if (!buffer.IsEmpty) {
+                Span<byte> tail = stackalloc byte[sizeof(ulong)];
+                BitConverter.TryWriteBytes(destination: tail, value: Advance(state: ref state));
+                tail[..buffer.Length].CopyTo(destination: buffer);
+            }
+        }
+    }
     // Signed zeros key identically: -0.0 normalizes before bit projection.
     private static ulong Bits(double value) => BitConverter.DoubleToUInt64Bits(value: value == 0.0 ? 0.0 : value);
 }
@@ -122,4 +170,4 @@ public static class Deterministic {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [DERIVED_RANDOM_VIRTUALS]-[OPEN]: which `System.Random` virtuals does .NET 10 route through a derived override versus its internal fast path, so `SplitMixRandom` covers every entry a MathNet distribution reaches (`Sample`, `Next()`, `Next(int)`, `Next(int,int)`, `NextDouble`, `NextBytes`, `NextInt64`, `NextSingle`); verify against the decompiled `System.Random` implementation on the assay api rail.

@@ -307,6 +307,7 @@ public sealed record LayerTree(Seq<LayerNode> Roots, int Count, Option<LayerStam
 - Law: a persistent-visibility or persistent-locking edit carries `Option<bool>`: a value writes `SetPersistent*`, absence runs `UnsetPersistent*`, so the host's three-state persistence is one case rather than a set/unset verb pair.
 - Law: section style is two independent axes — the table index and the custom carrier — and the custom axis clears through absence, mirroring the host `SetCustomSectionStyle`/`RemoveCustomSectionStyle` pair as one case.
 - Boundary: every override member on `Layer` is a void host write; each arm crosses through `Op.Catch`, and the staged copy never leaves the callback, so a failed edit program leaves the live table untouched until `Modify` lands the whole staged state.
+- Boundary: `Layer` inherits `IDisposable` through `ModelComponent`/`CommonObject`, and `Add`/`Modify` copy their argument into the table, so every caller-minted `Layer` — the created row and the staged copy alike — rides `Lease<Layer>.Owned(...).Use(...)`; a live row read back through `FindIndex` or `CurrentLayer` is table-owned and never leased.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -381,7 +382,8 @@ internal sealed partial class LayerFlag {
         key: 2,
         set: static (layer, value) => layer.IsExpanded = value);
 
-    internal Action<Layer, bool> Set { get; }
+    [UseDelegateFromConstructor]
+    internal partial void Set(Layer layer, bool value);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -488,7 +490,7 @@ public abstract partial record LayerEdit {
 - Owner: `LayerOp` `[Union]` closes the structural mutation family; `LayerArrangement` `[Union]` closes sibling ordering; `LayerDelta` admits one named program with its `RedrawPolicy`; `LayerSlot` `[SmartEnum<int>]` names structural consequences, and `LayerReceipt` is the additive fold over one internal `LayerFact` stream with the sealed undo serial as a fact.
 - Entry: `Layers.Ask` is the read window; `Layers.Commit` derives its needs through `SessionNeed.Mutation`, demands once, and commits through `DocumentCommit.Sealed` — suppress, fold every operation into one receipt, seal the record with the serial stamped as an `UndoCase` fact, restore redraw state on every outcome, then repaint after restoration so a suppressing policy still lands its terminal redraw.
 - Law: reparent is staged mutation with a cycle guard — the resolved new parent must not be a child of the target — and the root move writes the empty parent id; rename and every face edit ride the same staged-copy-then-`Modify` path, so a failed program never half-writes a live layer.
-- Law: merge is object custody before structure — every object on the source layer re-homes through a retained attribute snapshot, any failed move or source deletion restores the landed prefix, and successful cleanup evidence lands beside the tally; source equal to target is refused at admission.
+- Law: merge is object custody before structure — every object on the source layer re-homes through a retained attribute snapshot, any failed move or source deletion restores the landed prefix, and cleanup faults land beside the tally as `Seq<Error>`, foldable back onto the rail; source equal to target is refused twice — at admission by ADDRESS, where `LayerRef`'s structural equality catches only two identical addresses, and again inside `Apply` by resolved IDENTITY, which is what catches `ById` and `AtPath` naming one layer.
 - Law: purge tallies compose `TableKind.Layers.Reclaim` — the vocabulary row stays the one reclamation delegate — and revive addresses the dead row by id or index with deleted resolution, the only path that may see a deleted layer.
 - Law: explicit arrangement admits one complete permutation of every active layer before the native sort boundary.
 - Boundary: layer-table events stay on the events page's `EventFamily.LayerTable` binding, named-layer-state save/restore stays on the presets page, and object relayering by query stays on the tables rail; this page enters `document.Objects` only inside the merge arm's custody move.
@@ -628,11 +630,12 @@ public abstract partial record LayerOp {
                 from parent in edit.Parent
                     .Traverse(address => address.Resolve(document: context.Document, includeDeleted: false, key: context.Op).Map(static layer => layer.Id))
                     .As()
-                from index in context.Op.Catch(() => {
-                    Layer minted = new() { Name = edit.Name.Value };
-                    parent.IfSome(id => minted.ParentLayerId = id);
-                    return Fin.Succ(value: context.Document.Layers.Add(layer: minted));
-                })
+                from index in context.Op.Catch(() => new Lease<Layer>.Owned(Value: new Layer { Name = edit.Name.Value }).Use(
+                    state: (Document: context.Document, Parent: parent),
+                    project: static (state, minted) => {
+                        state.Parent.IfSome(id => minted.ParentLayerId = id);
+                        return Fin.Succ(value: state.Document.Layers.Add(layer: minted));
+                    }))
                 from _ in guard(index >= 0, context.Op.InvalidResult()).ToFin()
                 from receipt in Amended(document: context.Document, index: index, edits: edit.Edits, slot: LayerSlot.Created, op: context.Op)
                 select receipt,
@@ -749,13 +752,19 @@ public abstract partial record LayerOp {
 
     private static Fin<LayerReceipt> Staged(RhinoDoc document, int index, Func<Layer, Fin<Unit>> revise, LayerSlot slot, Op op) =>
         from live in Optional(document.Layers.FindIndex(index: index)).ToFin(Fail: op.MissingContext())
-        from staged in op.Catch(() => {
+        from landed in op.Catch(() => {
             Layer copy = new();
             copy.CopyAttributesFrom(otherLayer: live);
-            return Fin.Succ(value: copy);
+            return new Lease<Layer>.Owned(Value: copy).Use(
+                state: (Document: document, Index: index, Revise: revise, Op: op),
+                project: static (state, staged) =>
+                    from revised in state.Revise(arg: staged)
+                    from written in state.Op.Confirm(success: state.Document.Layers.Modify(
+                        newSettings: staged,
+                        layerIndex: state.Index,
+                        quiet: true))
+                    select written);
         })
-        from _ in revise(arg: staged)
-        from landed in op.Confirm(success: document.Layers.Modify(newSettings: staged, layerIndex: index, quiet: true))
         from stamp in Stamped(document: document, index: index, op: op)
         select LayerReceipt.Node(slot: slot, stamp: stamp);
 
@@ -863,7 +872,7 @@ internal abstract partial record LayerFact {
         LayerStamp Source,
         LayerStamp Target,
         int Relayered,
-        Seq<string> CleanupFaults) : LayerFact;
+        Seq<Error> CleanupFaults) : LayerFact;
     internal sealed record OrderCase(int Count) : LayerFact;
     internal sealed record ReclaimCase(int Tally) : LayerFact;
     internal sealed record UndoCase(uint Serial) : LayerFact;
@@ -889,7 +898,7 @@ public readonly record struct LayerReceipt : IDetachedDocumentResult {
             Source: source,
             Target: target,
             Relayered: relayered,
-            CleanupFaults: cleanupFaults.Map(static error => error.Message)));
+            CleanupFaults: cleanupFaults));
 
     internal static LayerReceipt Order(int count) => Of(fact: new LayerFact.OrderCase(Count: count));
 
@@ -905,10 +914,10 @@ public readonly record struct LayerReceipt : IDetachedDocumentResult {
                 ? Some(stamp)
                 : Option<LayerStamp>.None));
 
-    public Seq<(LayerStamp Source, LayerStamp Target, int Relayered, Seq<string> CleanupFaults)> Merges =>
+    public Seq<(LayerStamp Source, LayerStamp Target, int Relayered, Seq<Error> CleanupFaults)> Merges =>
         facts.Choose(static fact => fact is LayerFact.MergeCase merge
             ? Some((merge.Source, merge.Target, merge.Relayered, merge.CleanupFaults))
-            : Option<(LayerStamp, LayerStamp, int, Seq<string>)>.None);
+            : Option<(LayerStamp, LayerStamp, int, Seq<Error>)>.None);
 
     public Seq<int> Arranged =>
         facts.Choose(static fact => fact is LayerFact.OrderCase order ? Some(order.Count) : Option<int>.None);
@@ -943,8 +952,8 @@ public sealed record LayerDelta {
 }
 
 public static class Layers {
-    public static Fin<LayerTree> Ask(DocumentSession session, Op? key = null, params ReadOnlySpan<Guid> detailViewports) {
-        Op op = key.OrDefault();
+    public static Fin<LayerTree> Ask(DocumentSession session, params ReadOnlySpan<Guid> detailViewports) {
+        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
         Seq<Guid> probes = toSeq(detailViewports.ToArray());
         return from scope in Optional(session).ToFin(Fail: op.InvalidInput())
                from admitted in probes

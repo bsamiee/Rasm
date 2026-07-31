@@ -1,19 +1,21 @@
 # [MATERIALS_CAPACITY]
 
-THE SECTION-CAPACITY OWNER and THE ONE UTILISATION RAIL. One `SectionCapacity` `[Union]` is the closed structural-capacity surface a `Component` cross-section carries beyond its elastic `ComputedSection`, and one `Demand` folded against it through `Check` is the typed `Utilisation` verdict — so EVERY family's design check is one polymorphic fold differing only in the capacity case, never a per-family `RcColumnCheck`/`SteelBeamCheck`/`MasonryWallCheck` surface. The closed case set spans the realized `ComponentFamily` structural rails: `RcInteraction` (the ultimate biaxial Force-Moment-Moment capacity hull `VividOrange.InteractionDiagram` welds over the `reinforcement#RC_SECTION` `IConcreteSection`), `RcElastic` (the elastic transformed-section reinforcement properties `VividOrange.Sections.SectionProperties` `ConcreteSectionProperties` computes over the same section, PLUS the EC2 §6.2 section-level shear screen over the bottom-face tension steel and the two-leg link area `CrossSectionalShearReinforcementArea` carries), `SteelLrfd` (the AISC 360 `steel#STEEL_FAMILY` `DesignCapacity` `φMn`/`φMny`/`φPn`/`φVn` + `CompactnessClass`/slenderness lifted whole), `TimberEc5` (the EN 1995-1-1 `timber#TIMBER_CAPACITY` `TimberCapacity` design-resistance receipt lifted whole — `M_Rd,y`/`M_Rd,z` per axis with the §`6.1.6`(2) `k_m` weight), and `MasonryCompression` (the TMS 402 axial-flexural unity check PLUS the §`9.2.2` flexural-tension screen over the Table `9.1.9.2` `fr` — the `cmu#CMU_FAMILY` `CmuStrength` `f'm` + grouted `ComputedSection` + the `masonry#MASONRY_FAMILY` `RuptureModulus` mortar-keyed row feed). A capacity is admitted to the family ONLY when no existing case's column set carries it: each sibling family page that hand-rolls its design rules (`steel#STEEL_FAMILY`, `timber#TIMBER_CAPACITY`, `cmu#CMU_FAMILY`) lifts its already-computed receipt into ONE case here, and the RC cases are the two `Resolve` builds over the section input — the design-code COMPUTATION stays the family owner's, the unified VERDICT this owner's. The rail is TOTAL over the load path: `MasonryReinforced` carries the TMS 402 §9.3 steel-couple arm over the cmu lattice facts, `GlassPane` the EN 16612 pane resistance the glazing family lifts, and `Connection` the weld/adhesive/stud/connector receipts — one `Check` from cross-section to weld to hanger — while `SectionSelection.Lightest` is the rail's INVERSE query, the lightest-adequate scan over the frozen catalogue maps the full-database steel seed supplies. This owner is the ULTIMATE complement to `component#COMPONENT_OWNER` `SectionSolver`: that solver gives the elastic `ComputedSection` every family solves from its `SectionProfile` arm, THIS owner gives the reinforced-section transformed properties, the EC2 section-level shear screen, the ultimate capacity hull, and the unified utilisation fold the elastic solver does not. The `InteractionDiagram` constructor RUNS the full eager fibre-integration solve at construction (the `Triangle` section mesh, the `Parallel.For` strain-plane sweep, the `MIConvexHull` hull weld are encapsulated `internal` — this owner composes the welded `IForceMomentMesh`, never the meshing primitive), so a design page constructs the capacity ONCE per section/settings and reads `diagram.Mesh` cached, never re-solving per query. The page composes `reinforcement#RC_SECTION` `RcSection`/`IConcreteSection` for the RC input, `VividOrange.InteractionDiagram` (`InteractionDiagram`/`DiagramSettings`/`IForceMomentMesh`) for the N-M-M hull, `VividOrange.Sections.SectionProperties` `ConcreteSectionProperties` for the elastic transformed-section properties, `VividOrange.Materials` `EnConcreteFactory` for the EC2 `fck` the cracking reference reads, the `steel#STEEL_FAMILY` `DesignCapacity` / `timber#TIMBER_CAPACITY` `TimberCapacity` / `cmu#CMU_FAMILY` `CmuStrength` sibling receipts, the in-folder `UnitsNet` `Force`/`Torque`/`Area`/`Length` quantity coercion at the edge, and the `component#COMPONENT_OWNER` `ComponentFault` band-2300 rail (the SAME component-sub-domain fault every sibling Component family page rails — NOT a borrowed appearance band) for a non-finite, degenerate, or infeasible solve; the capacity surface and the utilisation verdict feed the forward `Rasm.Compute/Analysis/structural#DESIGN_CHECK` structural-Assessment route by `MaterialId`/section key, host-neutral here, the `IForceMomentMesh` round-tripping through the realized `SectionCapacity.Freeze`/`Thaw` `VividOrange.Serialization` pair for the C#-internal cache — the eager `Steps²` solve is paid once, persisted, and rehydrated, never re-run.
+THE SECTION-CAPACITY OWNER and THE ONE UTILISATION RAIL. One `SectionCapacity` `[Union]` is the closed structural-capacity surface a `Component` cross-section carries beyond its elastic `ComputedSection`, and one `Demand` folded against it through `Check` is the typed `Utilisation` verdict — so EVERY family's design check is one polymorphic fold differing only in the capacity case, never a per-family `RcColumnCheck`/`SteelBeamCheck`/`MasonryWallCheck` surface. The closed case set spans the realized `ComponentFamily` structural rails: `RcInteraction` (the ultimate biaxial Force-Moment-Moment capacity hull `VividOrange.InteractionDiagram` welds over the `reinforcement#RC_SECTION` `IConcreteSection`), `RcElastic` (the elastic transformed-section reinforcement properties `VividOrange.Sections.SectionProperties` `ConcreteSectionProperties` computes over the same section, PLUS the EC2 §6.2 section-level shear screen over the bottom-face tension steel and the two-leg link area `CrossSectionalShearReinforcementArea` carries), `SteelLrfd` (the AISC 360 `steel#STEEL_FAMILY` `DesignCapacity` `φMn`/`φMny`/`φPn`/`φVn` + `CompactnessClass`/slenderness lifted whole — the AISI deck receipt and the EN 1993-1-2 fire state land the same case), `TimberEc5` (the EN 1995-1-1 `timber#TIMBER_CAPACITY` `TimberCapacity` design-resistance receipt lifted whole — `M_Rd,y`/`M_Rd,z` per axis with the §`6.1.6`(2) `k_m` weight), and `MasonryCompression` (the TMS 402 axial-flexural unity check PLUS the §`9.2.2` flexural-tension screen over the Table `9.1.9.2` `fr` — the `cmu#CMU_FAMILY` `CmuStrength` `f'm` + grouted `ComputedSection` + the `masonry#MASONRY_FAMILY` `RuptureModulus` mortar-keyed row feed). A capacity is admitted to the family ONLY when no existing case's column set carries it: each sibling family page that hand-rolls its design rules (`steel#STEEL_FAMILY`, `timber#TIMBER_CAPACITY`, `cmu#CMU_FAMILY`) lifts its already-computed receipt into ONE case here, and the RC cases are the two `Resolve` builds over the section input — the design-code COMPUTATION stays the family owner's, the unified VERDICT this owner's. The rail is TOTAL over the load path: `MasonryReinforced` carries the TMS 402 §9.3 steel-couple arm over the cmu lattice facts, `GlassPane` the EN 16612 pane resistance the glazing family lifts, and `Connection` the weld/adhesive/stud/connector receipts — one `Check` from cross-section to weld to hanger — while `SectionSelection.Lightest` and `SectionSelection.Fabricated` are the rail's INVERSE queries, the least-MASS section-passing scan over the frozen catalogue maps the full-database steel seed supplies and over a caller-parameterized `SectionProfile.BuiltUp` composition sweep. This owner is the ULTIMATE complement to `component#COMPONENT_OWNER` `SectionSolver`: that solver gives the elastic `ComputedSection` every family solves from its `SectionProfile` arm, THIS owner gives the reinforced-section transformed properties, the EC2 section-level shear screen, the ultimate capacity hull, and the unified utilisation fold the elastic solver does not. The `InteractionDiagram` constructor RUNS the full eager fibre-integration solve at construction (the `Triangle` section mesh, the `Parallel.For` strain-plane sweep, the `MIConvexHull` hull weld are encapsulated `internal` — this owner composes the welded `IForceMomentMesh`, never the meshing primitive), so a design page constructs the capacity ONCE per section/settings and reads `diagram.Mesh` cached, never re-solving per query. The page composes `reinforcement#RC_SECTION` `RcSection`/`IConcreteSection` for the RC input, `VividOrange.InteractionDiagram` (`InteractionDiagram`/`DiagramSettings`/`IForceMomentMesh`) for the N-M-M hull, `VividOrange.Sections.SectionProperties` `ConcreteSectionProperties` for the elastic transformed-section properties, `VividOrange.Materials` `EnConcreteFactory` for the EC2 `fck` the cracking reference reads, the `steel#STEEL_FAMILY` `DesignCapacity` / `timber#TIMBER_CAPACITY` `TimberCapacity` / `cmu#CMU_FAMILY` `CmuStrength` sibling receipts, the in-folder `UnitsNet` `Force`/`Torque`/`Area`/`Length` quantity coercion at the edge, and the `component#COMPONENT_OWNER` `ComponentFault` band-2300 rail (the SAME component-sub-domain fault every sibling Component family page rails — NOT a borrowed appearance band) for a non-finite, degenerate, or infeasible solve; the capacity surface and the utilisation verdict feed the forward `Rasm.Compute/Analysis/structural#DESIGN_CHECK` structural-Assessment route by `MaterialId`/section key, host-neutral here, the `IForceMomentMesh` round-tripping through the realized `SectionCapacity.Freeze`/`Thaw` `VividOrange.Serialization` pair into a `Rasm.Persistence` artifact row content-keyed on `(ComponentId, DiagramResolution.Key)` — the eager `Steps²` solve is paid once, persisted, and rehydrated across processes, never re-run.
 
 ## [01]-[INDEX]
 
-- [02]-[SECTION_CAPACITY]: the `SectionCapacity` `[Union]` (`RcInteraction` N-M-M hull · `RcElastic` transformed-section · `SteelLrfd` rolled-steel · `TimberEc5` EC5 receipt · `MasonryCompression` TMS 402 compression + §`9.2.2` flexural-tension · `MasonryReinforced` TMS 402 §`9.3` steel-couple · `GlassPane` EN 16612 pane · `Connection` weld/adhesive/stud/connector load path) over the `component#COMPONENT_OWNER` `ComponentFault` band-2300 rail, the `CapacityBuild` RC-build request `[Union]` (hull · elastic — the hull arm alone carrying its `DiagramResolution`), the `DiagramResolution` `[SmartEnum]` mesh/sweep-refinement policy folding to a `DiagramSettings`, the `Demand` applied-action shape (axial · biaxial moment · biaxial shear · torsion · bearing), the `GoverningAction` `[SmartEnum]` verdict axis, the `Utilisation` typed verdict, the `CapacityReceipt` sibling-receipt request `[Union]` (steel · timber · masonry · reinforced-masonry · glass · weld · adhesive · stud · connector — each case carrying its full lift context), and the `SectionCapacity.Resolve` eager-solve boundary plus the ONE `Lift(CapacityReceipt)` total-`Switch` entry and the `Freeze`/`Thaw` C#-internal hull-cache round-trip — every boundary static on the union owner, no satellite resolver class — plus the `SectionSelection.Lightest` inverse sizing fold over the frozen catalogue maps.
+- [02]-[SECTION_CAPACITY]: the `SectionCapacity` `[Union]` (`RcInteraction` N-M-M hull · `RcElastic` transformed-section · `SteelLrfd` rolled/cold-formed/deck/fire steel · `TimberEc5` EC5 receipt · `MasonryCompression` TMS 402 compression + §`9.2.2` flexural-tension · `MasonryReinforced` TMS 402 §`9.3` steel-couple · `GlassPane` EN 16612 pane · `Connection` weld/adhesive/stud/connector load path) over the `component#COMPONENT_OWNER` `ComponentFault` band-2300 rail, the `CapacityBuild` RC-build request `[Union]` (hull · elastic — the hull arm alone carrying its `DiagramResolution`), the `DiagramResolution` `[SmartEnum]` mesh/sweep-refinement policy folding to a `DiagramSettings`, the `Demand` applied-action shape (axial · biaxial moment · biaxial shear · torsion · bearing), the `GoverningAction` `[SmartEnum]` verdict axis, the `Utilisation` typed verdict, the `MemberCheckRequirement` section-undecidable deferral vocabulary, the `CapacityReceipt` sibling-receipt request `[Union]` (steel · timber · steel-deck · masonry · reinforced-masonry · glass · steel-fire · timber-fire · weld · adhesive · stud · connector — each case carrying its full lift context), and the `SectionCapacity.Resolve` eager-solve boundary plus the ONE TOTAL `Lift(CapacityReceipt)` entry and the `Freeze`/`Thaw` content-keyed hull-artifact round-trip — every boundary static on the union owner, no satellite resolver class — plus the `SectionSelection.Lightest`/`Fabricated` inverse sizing folds over the frozen catalogue maps and the fabricated composition sweep.
 
 ## [02]-[SECTION_CAPACITY]
 
-- Owner: `SectionCapacity` is the closed capacity family spanning the member rails and the connection load path; `Demand` admits the signed action vector; `Utilisation` distinguishes a bounded verdict, a section pass requiring a named member check, and an unbounded overcapacity verdict, projecting both the `Adequate` acceptance bit and the optional `Ratio` every downstream reader charts against; scalar `MasonryReduction` admits the `(0,1]` stability factor; `CapacityBuild` and `CapacityReceipt` carry solve and lift modality, and `CapacityReceipt.Kind` owns the case-name projection every signal dimension and analytics column keys on, so a reflected runtime type name at a consumer has no reason to exist.
+- Owner: `SectionCapacity` is the closed capacity family spanning the member rails and the connection load path; `Demand` admits the signed action vector; `Utilisation` distinguishes a bounded verdict, a section pass owing a named member check, and an UNBOUNDED verdict (the capacity surface does not bound the demand), projecting the strict `Adequate` acceptance bit, the section-altitude `SectionPasses` bit the sizing folds select on, and the optional `Ratio` every downstream reader charts against; `MemberCheckRequirement` closes the section-undecidable deferral vocabulary; `MasonryReduction` OWNS the TMS 402 stability bracket as a derivation over `(height, radius of gyration)`; `CapacityBuild` and `CapacityReceipt` carry solve and lift modality, and `CapacityReceipt.Kind` owns the case-name projection every signal dimension and analytics column keys on, so a reflected runtime type name at a consumer has no reason to exist.
 - Cases: `RcInteraction` (the ultimate biaxial N-M-M capacity hull as the `IForceMomentMesh` over an `IConcreteSection`, `VividOrange.InteractionDiagram`) · `RcElastic` (the elastic section state read off the ONE `ConcreteSectionProperties` carrier the `RcSection` receipt holds — `TotalReinforcementArea`/`ConcreteArea`/`GeometricReinforcementRatio`, the GROSS `MomentOfInertiaYy`/`Zz` (the inherited base polygon integral — the SLS fibre divisors) AND the `ReinforcementSecondMomentOfAreaYy`/`Zz` `Σ(As·d²)` steel moments (the cracked-`Icr` readout), + the bottom-face `EffectiveDepth(SectionFace)` ULS lever + the bottom-face `ReinforcementArea(SectionFace)` tension steel and the two-leg `CrossSectionalShearReinforcementArea` link area + the gross depth AND width (the major/minor-axis SLS extreme-fibre levers) + the parsed `fck` and its EC2 `fctm` cracking limit, the combined `N/A ± My·cy/Iyy ± Mz·cz/Izz` SLS check AND the EC2 §6.2 shear screen) · `SteelLrfd` (the rolled/composite/cold-formed `steel#STEEL_FAMILY` `DesignCapacity` `φMn`/`φMny`/`φPn`/`φVn` + `CompactnessClass` + slenderness lifted WHOLE — the §F6 minor column the per-axis H1.1 fold divides against) · `TimberEc5` (the EN 1995-1-1 `timber#TIMBER_CAPACITY` `TimberCapacity` `M_Rd,y`/`M_Rd,z`/`N_Rd`/`V_Rd`/`R_90,Rd` + `λ_rel` + `k_m` + `k_mod` lifted WHOLE — the member minor column `k_h(w)`-scaled with no `k_crit`, the panel minor research-gated 0) · `MasonryCompression` (the TMS 402 axial-flexural check + the §`9.2.2` flexural-tension screen the `cmu#CMU_FAMILY` `CmuStrength` `f'm` + the grouted `ComputedSection` net area AND both net moduli `SxMm3`/`SyMm3` + slenderness reduction + the `masonry#MASONRY_FAMILY` `RuptureModulus` Table `9.1.9.2` `fr` feed) — plus `MasonryReinforced` (the TMS 402 §`9.3` steel-couple arm over the cmu lattice's `ReinforcedCells`/`RebarBarMm`/grouted-net facts and the bar grade's yield), `GlassPane` (the EN 16612 governing-pane per-metre resistance the `glazing#GLAZING_FAMILY` `GlassCapacity` receipt lifts WHOLE), and `Connection` (the `joint#JOINT_FAMILY` weld/adhesive/stud design values and the `connector#CONNECTOR_FAMILY` duration-governed capacity as one shear/tension/bearing column triple) — the closed structural-capacity family across steel/RC/timber/masonry/glass and the connection load path; a capacity is a `SectionCapacity` case over a section or connection receipt, never a per-section-type check.
-- Entry: `SectionCapacity.Resolve(RcSection, CapacityBuild, Op)` dispatches the RC solve request; `SectionCapacity.Lift(CapacityReceipt)` dispatches complete steel, timber, and masonry receipts; internal `Freeze`/`Thaw` persist the trusted C# hull cache; and `Check(Demand)` returns the closed `Utilisation` verdict. `CapacityReceipt.Masonry` carries `MasonryReduction`, so no raw stability factor reaches construction. The `RcInteraction` arm casts the raw `(N, My, Mz)` demand vector against the hull and interprets the smallest positive intersection parameter as the capacity multiplier; utilization is its reciprocal. Force and moment axes are never Euclidean-normalized together.
-- Packages: VividOrange.InteractionDiagram (`InteractionDiagram`/`DiagramSettings`, the eager-solve ctor + `Mesh`; `.api/api-vividorange-interactiondiagram.md`), VividOrange.IForceMomentInteraction (`IForceMomentMesh`/`IForceMomentVertex`/`IForceMomentTriFace` the hull read through, the `Faces`/`A`/`B`/`C`/`X`/`Y`/`Z` `Force`/`Torque` members; `.api/api-vividorange-iforcemomentinteraction.md`), VividOrange.Sections.SectionProperties (`ConcreteSectionProperties` the transformed-section carrier RIDING the `RcSection` receipt — the `EffectiveDepth(SectionFace)`/`ReinforcementArea(SectionFace)` face queries, the `CrossSectionalShearReinforcementArea` two-leg link area, and the inherited base `MomentOfInertiaYy`/`Zz` gross polygon integral the SLS fibre divisors read; `.api/api-vividorange-sections-sectionproperties.md`), VividOrange.Sections (`IConcreteSection`/`SectionFace` from the `reinforcement#RC_SECTION` `RcSection`; `.api/api-vividorange-sections.md`), VividOrange.Materials (`EnConcreteFactory.CreateLinearElastic` whose `LinearElasticMaterial.Strength` IS the parsed `fck` — decompile-verified: the factory parses the first `Cxx` token of the grade, so `Strength.Megapascals` is the characteristic cylinder strength the EC2 `fctm` AND the §6.2 shear screen read; `.api/api-vividorange-materials.md`), VividOrange.Serialization (`JsonSerializationExtensions.ToJson`/`FromJson<T>` `where T : ITaxonomySerializable` — the `Freeze`/`Thaw` C#-internal hull cache over the marker `IForceMomentMesh` itself extends, `$type`-tagged Newtonsoft wire + `UnitsNet` SI-scalar+unit quantities, producer=consumer only; `.api/api-vividorange-serialization.md`), UnitsNet (`Force.Kilonewtons`/`Torque.KilonewtonMeters`/`Area`/`Length`/`Ratio`/`Angle` coerced at the edge; `libs/csharp/.api/api-unitsnet.md`), Rasm.Element (project — `MaterialId`/`ProfileRef` the seam-carried identity, seam-canonical), Rasm (project — `PositiveMagnitude` from `Rasm.Numerics`, `Op`/`Context` from `Rasm.Domain`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Fold`), Thinktecture.Runtime.Extensions (`[Union]` for `SectionCapacity`/`CapacityBuild`, `[SmartEnum]` for `DiagramResolution`/`GoverningAction`). Triangle + MIConvexHull ride transitively INSIDE the `InteractionDiagram` engine (encapsulated `internal`, `.api/api-triangle.md` / `.api/api-vividorange-forcemomentinteraction.md [TRANSITIVE_CONVEX_HULL]`) — this owner mints NO direct mesher/hull call, composing only the welded `IForceMomentMesh`. The `steel#STEEL_FAMILY` `DesignCapacity`, `timber#TIMBER_CAPACITY` `TimberCapacity`, and `cmu#CMU_FAMILY` `CmuStrength` are sibling-page receipts lifted, never re-computed.
-- Growth: a new structural family's capacity is one `SectionCapacity` `[Union]` case binding either a `Resolve` build (a section-input solve) or a lift factory (an already-computed sibling receipt) plus one `Check` arm — a moment-curvature `RcInteraction` refinement, a panel diaphragm unit-shear check — admitted only when no existing case's column set carries it; a new demand axis is one `Demand` column (a warping bimoment, a second-order P-Δ amplifier); a new utilisation metric one `Utilisation`/`GoverningAction` projection — never a per-section-type capacity surface, never a re-derived elastic property where `ConcreteSectionProperties` computes it, never a direct `Triangle`/`MIConvexHull` call where the `InteractionDiagram` engine welds the hull; a persisted-capacity need is the one `Freeze`/`Thaw` pair over the `ITaxonomySerializable` marker, never a second serializer; the `steel`/`timber`/`cmu` design receipts stay the family-owner derivation lifted here, never re-computed; a fire-modality lift case composes the landed family-owner fire facts — `SteelDesign` `FireRetention`/`SectionFactorPerM`/`CriticalTemperatureC` and the timber `ResidualStack` charred section — as one more `CapacityReceipt` case over the same lift law, never a page-local fire derivation.
-- Boundary: `SectionCapacity.Resolve` is the BOUNDARY_ADMISSION point where the `VividOrange.InteractionDiagram` engine is admitted EXACTLY ONCE and the `ConcreteSectionProperties` carrier — admitted once at `RcSectionBuilder.Of`, riding the `RcSection` receipt — is READ, never re-constructed — the `InteractionDiagram` ctor runs the expensive eager solve (`.api/api-vividorange-interactiondiagram.md` `[construction law]`) and a non-EN material whose `IEnConcreteMaterial`/`IEnRebarMaterial` cast the engine cannot read, an under-reinforced degenerate section, or a hull-weld failure rails `ComponentFault.Capacity` (the component-sub-domain band 2300 — `FaultBand.Component` on the registry — the dedicated capacity-solve slot distinct from the `Section` elastic-integral slot `component#COMPONENT_OWNER` `SectionSolver.Admit` rails, both band 2300 with their Component siblings, NOT the `Appearance/bsdf#SHADING_FRAME` `MaterialFault` band 2450) rather than throwing, so no `VividOrange` throw and no infeasible hull reaches an interior signature; the `IForceMomentMesh` is read THROUGH its interface floor (`.api/api-vividorange-iforcemomentinteraction.md` `[LOCAL_ADMISSION]`), never the `ForceMomentMesh` concrete, and the `Force`/`Torque` hull coordinates carry as `UnitsNet` quantities coerced to SI base (`Force.Kilonewtons`/`Torque.KilonewtonMeters`) once at the edge so no interior signature carries the hull as raw `double`; the `Triangle` section mesher and the `MIConvexHull` hull builder are encapsulated `internal` inside the engine (`.api/api-triangle.md` `[STACKING_LAW]` / `.api/api-vividorange-forcemomentinteraction.md [TRANSITIVE_CONVEX_HULL]` `[STACKING_LAW]`) — this AEC-DOMAIN owner mints NO direct mesher/hull call, composing the welded hull through the constructor, the strata-correct seam (the computational-geometry primitives are `Rasm`-kernel-owned, consumed transitively here); the eager solve is cached on the `SectionCapacity` `RcInteraction` carrier (`.api/api-vividorange-interactiondiagram.md` `[LOCAL_ADMISSION]` — construct once per section/settings, never re-solve per query), so a `Check(demand)` reads the cached hull; the `RcInteraction` utilisation is the exact Möller–Trumbore intersection of the origin-cast demand ray against the hull faces (the `IForceMomentTriFace.A`/`B`/`C` the demand vector pierces, the positive front-face pierce `t` the capacity boundary along the load direction), the no-pierce case (an eccentric hull that does not enclose the origin) yielding a typed over-capacity verdict rather than a silent `+∞`, NEVER the facet `Area` `Ratio` read as a physical quantity (`.api/api-vividorange-iforcemomentinteraction.md` `[AXIS_SEMANTICS]`); the `Utilisation.Governing` is the typed `GoverningAction` `[SmartEnum]` (axial · flexure · biaxial-moment · shear · torsion · bearing — ONE canonical term per action; a `bending` synonym row beside `flexure` is the deleted form), NEVER a stringly-typed verdict; the capacity surface is host-neutral — the `IForceMomentMesh` round-trips through the realized `Freeze`/`Thaw` pair (`ToJson`/`FromJson<IForceMomentMesh>` over the marker the interface itself extends, `.api/api-vividorange-serialization.md`) for the C#-internal cache, producer=consumer ONLY: the `TypeNameHandling.Objects` `$type` wire is a deserialization-gadget surface, so `Thaw` is fed exclusively JSON a trusted `Freeze` minted, never an external document, and the `$type` shape NEVER crosses to a peer (distinct from the canonical Thinktecture wire) — the utilisation verdict crosses to `Rasm.Compute/Analysis/structural#DESIGN_CHECK` as portable scalar data keyed by section, never a `VividOrange` assembly type crossing the boundary.
+- Entry: `SectionCapacity.Resolve(RcSection, CapacityBuild, Op)` dispatches the RC solve request; the TOTAL `SectionCapacity.Lift(CapacityReceipt)` dispatches every already-computed sibling receipt — steel, timber, steel deck, masonry, reinforced masonry, glass, the two fire modalities, and the four connection kinds; internal `Freeze`/`Thaw` persist the content-keyed hull artifact; and `Check(Demand)` returns the closed `Utilisation` verdict. The masonry receipts carry the member HEIGHT as a kernel-admitted `PositiveMagnitude` beside their section, so `Lift` mints the stability reduction from the section's own governing radius — no caller-supplied stability scalar and no re-derived code bracket exists. `SectionSelection.Lightest` and `SectionSelection.Fabricated` are the inverse queries over the frozen catalogue and a caller-parameterized composition sweep. The `RcInteraction` arm casts the raw `(N, My, Mz)` demand vector against the hull and interprets the smallest positive intersection parameter as the capacity multiplier; utilization is its reciprocal. Force and moment axes are never Euclidean-normalized together.
+- Packages: VividOrange.InteractionDiagram (`InteractionDiagram`/`DiagramSettings`, the eager-solve ctor + `Mesh`; `.api/api-vividorange-interactiondiagram.md`), VividOrange.IForceMomentInteraction (`IForceMomentMesh`/`IForceMomentVertex`/`IForceMomentTriFace` the hull read through, the `Faces`/`A`/`B`/`C`/`X`/`Y`/`Z` `Force`/`Torque` members; `.api/api-vividorange-iforcemomentinteraction.md`), VividOrange.Sections.SectionProperties (`ConcreteSectionProperties` the transformed-section carrier RIDING the `RcSection` receipt — the `EffectiveDepth(SectionFace)`/`ReinforcementArea(SectionFace)` face queries, the `CrossSectionalShearReinforcementArea` two-leg link area, and the inherited base `MomentOfInertiaYy`/`Zz` gross polygon integral the SLS fibre divisors read; `.api/api-vividorange-sections-sectionproperties.md`), VividOrange.Sections (`IConcreteSection`/`SectionFace` from the `reinforcement#RC_SECTION` `RcSection`; `.api/api-vividorange-sections.md`), VividOrange.Materials (`EnConcreteFactory.CreateLinearElastic` whose `LinearElasticMaterial.Strength` IS the parsed `fck` — decompile-verified: the factory parses the first `Cxx` token of the grade, so `Strength.Megapascals` is the characteristic cylinder strength the EC2 `fctm` AND the §6.2 shear screen read; `.api/api-vividorange-materials.md`), VividOrange.Serialization (`JsonSerializationExtensions.ToJson`/`FromJson<T>` `where T : ITaxonomySerializable` — the `Freeze`/`Thaw` content-keyed hull artifact over the marker `IForceMomentMesh` itself extends, `$type`-tagged Newtonsoft wire + `UnitsNet` SI-scalar+unit quantities, producer=consumer only; `.api/api-vividorange-serialization.md`), UnitsNet (`Force.Kilonewtons`/`Torque.KilonewtonMeters`/`Area`/`Length`/`Ratio`/`Angle` coerced at the edge; `libs/csharp/.api/api-unitsnet.md`), Rasm.Element (project — `MaterialId`/`ProfileRef` the seam-carried identity, seam-canonical), Rasm (project — `PositiveMagnitude` from `Rasm.Numerics`, `Op`/`Context` from `Rasm.Domain`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Fold`), Thinktecture.Runtime.Extensions (`[Union]` for `SectionCapacity`/`CapacityBuild`, `[SmartEnum]` for `DiagramResolution`/`GoverningAction`). Triangle + MIConvexHull ride transitively INSIDE the `InteractionDiagram` engine (encapsulated `internal`, `.api/api-triangle.md` / `.api/api-vividorange-forcemomentinteraction.md [TRANSITIVE_CONVEX_HULL]`) — this owner mints NO direct mesher/hull call, composing only the welded `IForceMomentMesh`. The `steel#STEEL_FAMILY` `DesignCapacity`, `timber#TIMBER_CAPACITY` `TimberCapacity`, and `cmu#CMU_FAMILY` `CmuStrength` are sibling-page receipts lifted, never re-computed.
+- Growth: a new structural family's capacity is one `SectionCapacity` `[Union]` case binding either a `Resolve` build (a section-input solve) or a lift factory (an already-computed sibling receipt) plus one `Check` arm — a moment-curvature `RcInteraction` refinement, a panel diaphragm unit-shear check — admitted only when no existing case's column set carries it; a new demand axis is one `Demand` column (a warping bimoment, a second-order P-Δ amplifier); a new utilisation metric one `Utilisation`/`GoverningAction` projection — never a per-section-type capacity surface, never a re-derived elastic property where `ConcreteSectionProperties` computes it, never a direct `Triangle`/`MIConvexHull` call where the `InteractionDiagram` engine welds the hull; a persisted-capacity need is the one `Freeze`/`Thaw` pair over the `ITaxonomySerializable` marker, never a second serializer; the `steel`/`timber`/`cmu`/`panel` design receipts stay the family-owner derivation lifted here, never re-computed — the fire modality is that law EXECUTED, two `CapacityReceipt` cases lifting the landed `SteelDesign` `FireRetention` retention pair and the timber `ResidualStack` charred receipt onto the existing verdict cases.
+- Boundary: `SectionCapacity.Resolve` and `Check` are the `Projection/observability#SIGNAL_FACTS` `MaterialsFact.CapacityCheck(Key, Receipt, Verdict, Elapsed)` tap SUBJECTS and `Check` is the `Projection/benchmarks#BENCH_CORPUS` `BenchKernel.InteractionSweep` measured kernel; the tap is a composition-root decorator over `MaterialsHooks.CapacityCheck`, so this owner emits nothing, carries no `Duration`, and references no signal type — the seam is declared at both ends and instrumented at neither, and `CapacityReceipt.Kind` is the one dimension spelling both the fact stream and the analytics column key on.
+- Boundary: the frozen hull RESIDES in `Rasm.Persistence` as an artifact row content-keyed on `(ComponentId, DiagramResolution.Key)` — the `Rasm.Materials/ARCHITECTURE.md` `[CONTENT_KEY]: ArtifactIndexRow` edge the raster estate already crosses, reused verbatim rather than minted a second time. `Freeze` writes that row and `Thaw` is fed EXCLUSIVELY from that store, so the eager `Steps²` solve is paid once per `(section, resolution)` pair and rehydrated across processes; a process-local memo re-pays the sweep on every load and carries none of the claim this page states. The store is the ONLY `Thaw` ingress: the `TypeNameHandling.Objects` `$type` wire is a deserialization-gadget surface, so no peer document reaches it.
+- Boundary: `SectionCapacity.Resolve` is the BOUNDARY_ADMISSION point where the `VividOrange.InteractionDiagram` engine is admitted EXACTLY ONCE and the `ConcreteSectionProperties` carrier — admitted once at `RcSectionBuilder.Of`, riding the `RcSection` receipt — is READ, never re-constructed — the `InteractionDiagram` ctor runs the expensive eager solve (`.api/api-vividorange-interactiondiagram.md` `[construction law]`) and a non-EN material whose `IEnConcreteMaterial`/`IEnRebarMaterial` cast the engine cannot read, an under-reinforced degenerate section, or a hull-weld failure rails `ComponentFault.Capacity` (the component-sub-domain band 2300 — `FaultBand.Component` on the registry — the dedicated capacity-solve slot distinct from the `Section` elastic-integral slot `component#COMPONENT_OWNER` `SectionSolver.Admit` rails, both band 2300 with their Component siblings, NOT the `Appearance/bsdf#SHADING_FRAME` `MaterialFault` band 2450) rather than throwing, so no `VividOrange` throw and no infeasible hull reaches an interior signature; the `IForceMomentMesh` is read THROUGH its interface floor (`.api/api-vividorange-iforcemomentinteraction.md` `[LOCAL_ADMISSION]`), never the `ForceMomentMesh` concrete, and the `Force`/`Torque` hull coordinates carry as `UnitsNet` quantities coerced to SI base (`Force.Kilonewtons`/`Torque.KilonewtonMeters`) once at the edge so no interior signature carries the hull as raw `double`; the `Triangle` section mesher and the `MIConvexHull` hull builder are encapsulated `internal` inside the engine (`.api/api-triangle.md` `[STACKING_LAW]` / `.api/api-vividorange-forcemomentinteraction.md [TRANSITIVE_CONVEX_HULL]` `[STACKING_LAW]`) — this AEC-DOMAIN owner mints NO direct mesher/hull call, composing the welded hull through the constructor, the strata-correct seam (the computational-geometry primitives are `Rasm`-kernel-owned, consumed transitively here); the eager solve is cached on the `SectionCapacity` `RcInteraction` carrier (`.api/api-vividorange-interactiondiagram.md` `[LOCAL_ADMISSION]` — construct once per section/settings, never re-solve per query), so a `Check(demand)` reads the cached hull; the `RcInteraction` utilisation is the exact Möller–Trumbore intersection of the origin-cast demand ray against the hull faces (the `IForceMomentTriFace.A`/`B`/`C` the demand vector pierces, the positive front-face pierce `t` the capacity boundary along the load direction), the no-pierce case (an eccentric hull that does not enclose the origin) yielding the typed `Utilisation.Unbounded` verdict rather than a silent `+∞`, NEVER the facet `Area` `Ratio` read as a physical quantity (`.api/api-vividorange-iforcemomentinteraction.md` `[AXIS_SEMANTICS]`); the `Utilisation.Governing` is the typed `GoverningAction` `[SmartEnum]` (axial · flexure · biaxial-moment · combined · shear · torsion · bearing — ONE canonical term per action; a `bending` synonym row beside `flexure` is the deleted form, and every axial-plus-flexure interaction reports `combined` rather than whichever component was larger), NEVER a stringly-typed verdict; the capacity surface is host-neutral — the `IForceMomentMesh` round-trips through the realized `Freeze`/`Thaw` pair (`ToJson`/`FromJson<IForceMomentMesh>` over the marker the interface itself extends, `.api/api-vividorange-serialization.md`) into its content-keyed `Rasm.Persistence` artifact row, producer=consumer ONLY: the `TypeNameHandling.Objects` `$type` wire is a deserialization-gadget surface, so `Thaw` is fed exclusively JSON a trusted `Freeze` minted, never an external document, and the `$type` shape NEVER crosses to a peer (distinct from the canonical Thinktecture wire) — the utilisation verdict crosses to `Rasm.Compute/Analysis/structural#DESIGN_CHECK` as portable scalar data keyed by section, never a `VividOrange` assembly type crossing the boundary.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -27,7 +29,7 @@ using VividOrange.ForceMomentInteraction;            // IForceMomentMesh, IForce
 using ForceMomentEngine = VividOrange.ForceMomentInteraction.InteractionDiagram;  // the eager-solve engine (alias frees the bare name for the SectionCapacity owner)
 using VividOrange.Sections;                          // IConcreteSection, SectionFace (the RcSection input + the effective-depth face)
 using VividOrange.Materials.StandardMaterials.En;    // EnConcreteFactory (the LinearElasticMaterial.Strength == parsed fck the EC2 fctm + §6.2 shear screen read)
-using VividOrange.Serialization;                     // JsonSerializationExtensions ToJson/FromJson (the Freeze/Thaw C#-internal hull cache)
+using VividOrange.Serialization;                     // JsonSerializationExtensions ToJson/FromJson (the Freeze/Thaw content-keyed hull artifact)
 using UnitsNet;                                      // Force, Torque, Area, Length, Ratio, Angle (coerced at the edge)
 using static LanguageExt.Prelude;                    // toSeq, Some, None, Optional
 
@@ -83,12 +85,26 @@ public abstract partial record CapacityReceipt {
     private CapacityReceipt() { }
     public sealed record Steel(DesignCapacity Capacity) : CapacityReceipt;
     public sealed record Timber(TimberCapacity Capacity) : CapacityReceipt;
-    public sealed record Masonry(CmuStrength Strength, ComputedSection Section, MasonryReduction Slenderness, RuptureModulus Rupture, MortarSystem System, MortarType Mortar) : CapacityReceipt;
+    // The steel deck's AISI S100 receipt beside its gauge and rib rows: the panel#PANEL_FAMILY deck seeds Sectioned
+    // and solves a full ComputedSection through the corrugated arm, and SteelDesign's AISI overload prices it at the
+    // GaugeRow's own SS Grade 33/50 yield — so the deck datum GaugeRow.AxialSectionCapacityKnPerMm declared for the
+    // seam finally has a check behind it. Gauge and Rib ride the receipt because the report and the analytics kind
+    // dimension name WHICH deck, never a bare steel row.
+    public sealed record DeckSheet(GaugeRow Gauge, DeckProfileRow Rib, DesignCapacity Capacity) : CapacityReceipt;
+    public sealed record Masonry(CmuStrength Strength, ComputedSection Section, PositiveMagnitude HeightMm, RuptureModulus Rupture, MortarSystem System, MortarType Mortar) : CapacityReceipt;
     // The reinforced case reads the cmu lattice facts the URM case never consumed: the seed row's ReinforcedCells/
     // RebarBarMm steel, the bar grade's yield, and the grouted net section — the TMS 402 §9.3 inputs.
-    public sealed record ReinforcedMasonry(CmuStrength Strength, ComputedSection Section, CmuRow Unit, RebarGradeRow Bar, MasonryReduction Slenderness) : CapacityReceipt;
+    public sealed record ReinforcedMasonry(CmuStrength Strength, ComputedSection Section, PositiveMagnitude HeightMm, CmuRow Unit, RebarGradeRow Bar) : CapacityReceipt;
     // The glazing pane resistance lifted WHOLE from glazing#GLAZING_FAMILY GlazingStructural — never re-derived here.
     public sealed record Glass(GlassCapacity Capacity) : CapacityReceipt;
+    // The ACCIDENTAL fire design situation as two more lift cases over the SAME law: the steel owner's already-read
+    // EN 1993-1-2 Table 3.1 retention pair (steel#STEEL_FAMILY FireRetention.At over the section's SectionFactorPerM
+    // and CriticalTemperatureC) rides beside the ambient receipt, and the timber owner's ResidualSection/ResidualStack
+    // charred receipt arrives already priced at kmod = γM = 1.0 — the EN 1995-1-2 accidental combination. Neither arm
+    // derives fire physics here: the family owner computes, this owner lifts, and Check folds the fire state through
+    // the identical ambient interaction so a fire verdict and an ambient verdict are one rail.
+    public sealed record SteelFire(DesignCapacity Ambient, double Ky, double Ke, double SteelTemperatureC) : CapacityReceipt;
+    public sealed record TimberFire(TimberCapacity Residual) : CapacityReceipt;
     // The connection receipts — the joint#JOINT_FAMILY line/area/stud design values and the connector#CONNECTOR_FAMILY
     // duration-governed capacity — each case carrying its full lift context (the weld its load angle, the stud its
     // group count), so the load-path verdict rides the SAME Check fold as the member cases.
@@ -98,14 +114,17 @@ public abstract partial record CapacityReceipt {
     public sealed record Connector(ConnectorCapacity Capacity) : CapacityReceipt;
 
     // Case identity IS the kind dimension every downstream reader keys on — signal roster tag and analytics column
-    // alike — so this total projection holds the one spelling, a tenth case breaks it at compile time, and no
+    // alike — so this total projection holds the one spelling, a thirteenth case breaks it at compile time, and no
     // reflected runtime type name at a consumer renames that dimension on the next case rename.
     public string Kind => Switch(
         steel: static _ => nameof(Steel),
         timber: static _ => nameof(Timber),
+        deckSheet: static _ => nameof(DeckSheet),
         masonry: static _ => nameof(Masonry),
         reinforcedMasonry: static _ => nameof(ReinforcedMasonry),
         glass: static _ => nameof(Glass),
+        steelFire: static _ => nameof(SteelFire),
+        timberFire: static _ => nameof(TimberFire),
         weld: static _ => nameof(Weld),
         adhesive: static _ => nameof(Adhesive),
         stud: static _ => nameof(Stud),
@@ -114,15 +133,20 @@ public abstract partial record CapacityReceipt {
 
 // The verdict axis — which applied action governs the check, a typed bounded vocabulary NEVER a stringly-typed label.
 // One canonical term per action (flexure owns every bending-governed verdict — a bending synonym row is the deleted
-// form): axial/flexure for the uniaxial and combined-interaction components, biaxial-moment for the RC hull ray, shear
-// for a shear-governed check, torsion for the St-Venant demand the steel/timber arms fold against their torsional
-// resistance, bearing for the perpendicular support reaction the timber R_90,Rd resists.
+// form): axial/flexure for the verdicts one action really drives (the RC cracking fold, the glass plate-bending fold),
+// COMBINED for every unity ratio that is definitionally an axial-plus-flexure INTERACTION — the AISC §H1.1, EN 1995
+// §6.3.2/§6.2.4, and TMS 402 §9.2/§9.3 sums no single component reaches, so a design report never reads `Axial` on a
+// 1.7 ratio neither p nor m alone attains and the analytics governing column never files an interaction under an axis
+// that does not describe it; biaxial-moment for the RC hull ray, shear for a shear-governed check, torsion for the
+// St-Venant demand the steel/timber arms fold against their torsional resistance, bearing for the perpendicular
+// support reaction the timber R_90,Rd resists.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GoverningAction {
     public static readonly GoverningAction Axial         = new("axial");
     public static readonly GoverningAction Flexure       = new("flexure");
     public static readonly GoverningAction BiaxialMoment = new("biaxial-moment");
+    public static readonly GoverningAction Combined      = new("combined");
     public static readonly GoverningAction Shear         = new("shear");
     public static readonly GoverningAction Torsion       = new("torsion");
     public static readonly GoverningAction Bearing       = new("bearing");
@@ -168,44 +192,70 @@ public readonly partial struct Demand {
     public double ShearResultantKn => Math.Sqrt(ShearYKn * ShearYKn + ShearZKn * ShearZKn);
 }
 
+// The TMS 402 member-stability bracket as a DERIVED value object: the formula IS the owner, so no caller re-derives
+// the code bracket and a transposed branch is unrepresentable. The height arrives as the kernel-admitted
+// PositiveMagnitude and the radius as the always-positive ComputedSection.GoverningRadiusMm, so the derivation is
+// TOTAL — its range over h/r ∈ (0, ∞) is exactly (0, 1] — and the throwing Create is the sanctioned re-admission of a
+// value the algebra already proves. The prior raw-scalar Of is DELETED with its caller-supplied branch: every producer
+// is now the Lift arm that holds the section.
 [ValueObject<double>]
 public readonly partial struct MasonryReduction {
+    const double SlendernessBreak = 99.0;   // TMS 402: h/r <= 99 takes the parabolic bracket, above it the Euler-form ratio
+
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value) && value is > 0.0 and <= 1.0
             ? null
             : new ValidationError($"<masonry-reduction-invalid:{value:R}>");
 
-    public static Fin<MasonryReduction> Of(double value, Op key) =>
-        Validate(value, out MasonryReduction reduction) is { } error
-            ? Fin.Fail<MasonryReduction>(ComponentFault.Dimension(key, error.Message))
-            : Fin.Succ(reduction);
+    public static MasonryReduction Of(PositiveMagnitude heightMm, double radiusOfGyrationMm) =>
+        heightMm.Value / radiusOfGyrationMm is var ratio && ratio <= SlendernessBreak
+            ? Create(1.0 - Math.Pow(ratio / 140.0, 2.0))
+            : Create(Math.Pow(70.0 / ratio, 2.0));
 }
 
 [Union]
 public abstract partial record Utilisation {
     private Utilisation(GoverningAction governing) => Governing = governing;
     public GoverningAction Governing { get; }
+    // The strict ACCEPTANCE bit: only a bounded ratio at or under unity is a finished verdict.
     public bool Adequate => Switch(
         bounded: static verdict => verdict.Value <= 1.0,
         requiresMemberCheck: static _ => false,
-        overcapacity: static _ => false);
+        unbounded: static _ => false);
+    // The SECTION-altitude pass: a deferring verdict passed everything the section can decide and owes only the named
+    // member-level detailing check, so a sizing query returns it WITH its deferral attached rather than rejecting the
+    // exact sections a designer wants — the acceptance bit stays strict for the terminal report.
+    public bool SectionPasses => Switch(
+        bounded: static verdict => verdict.Value <= 1.0,
+        requiresMemberCheck: static verdict => verdict.Value <= 1.0,
+        unbounded: static _ => false);
     // Two cases carry ONE demand/capacity number and the unbounded case carries none, so every reader — a design
     // report, a projection, a chart series — takes the verdict's own optional ratio and no consumer re-enumerates
     // which cases happen to hold a Value.
     public Option<double> Ratio => Switch(
         bounded: static verdict => Some(verdict.Value),
         requiresMemberCheck: static verdict => Some(verdict.Value),
-        overcapacity: static _ => Option<double>.None);
+        unbounded: static _ => Option<double>.None);
 
     public sealed record Bounded(double Value, GoverningAction Action) : Utilisation(Action);
     public sealed record RequiresMemberCheck(double Value, GoverningAction Action, MemberCheckRequirement Requirement) : Utilisation(Action);
-    public sealed record Overcapacity(GoverningAction Action) : Utilisation(Action);
+    // The capacity surface does not BOUND this demand: a demand ray piercing no hull face, or a nonzero demand
+    // against a declared-zero resistance column. The name states the surface's relation to the demand — the prior
+    // `Overcapacity` said the opposite to every design-report reader charting the verdict — and no +∞ sentinel exists.
+    public sealed record Unbounded(GoverningAction Action) : Utilisation(Action);
 }
 
+// The section-UNDECIDABLE deferrals: a check whose remaining input is member-level DETAILING the cross-section does
+// not carry, so the section verdict passes with the named obligation attached instead of failing on a zero column.
+// Each row is a real code clause whose missing input is spelled: stirrup/link/bar SPACING, an open-shape warping
+// torsion that is not one resistance, or a research-gated in-plane panel verification.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MemberCheckRequirement {
-    public static readonly MemberCheckRequirement RcShearReinforcement = new("rc-shear-reinforcement");
+    public static readonly MemberCheckRequirement RcShearReinforcement          = new("rc-shear-reinforcement");            // EC2 §6.2.3(3) V_Rd,s needs the stirrup spacing — the ONE linked-section deferral
+    public static readonly MemberCheckRequirement SteelWarpingTorsion           = new("steel-warping-torsion");             // AISC §H3.3 open-shape warping torsion is not a single resistance
+    public static readonly MemberCheckRequirement CltInPlaneBending             = new("clt-in-plane-bending");              // EN 1995-1-1 in-plane CLT bending unsettled pending the 2025 revision
+    public static readonly MemberCheckRequirement ReinforcedMasonryShearSpacing = new("reinforced-masonry-shear-spacing");  // TMS 402 §9.3.4.1.2 V_ns needs the bar spacing
 }
 
 // One SectionCapacity [Union] closes the structural-capacity family across the realized structural rails AND the
@@ -253,6 +303,10 @@ public abstract partial record SectionCapacity {
     // CLOSED HSS/pipe, 0 for an OPEN thin-walled shape whose §H3.3 warping torsion is not a single resistance, so an
     // open-shape torsion demand surfaces as the governing over-ratio (the consumed-action discipline), never a
     // silently-ignored 0 column.
+    // StiffnessRetention is the EN 1993-1-2 kE,θ Young's-modulus retention the FIRE lift carries onto the SAME case
+    // (1.0 at ambient): stiffness never enters the strength interaction, so it rides as the forward member-stability
+    // input a Rasm.Compute fire buckling check reads off the receipt rather than re-deriving from a temperature the
+    // verdict no longer carries.
     public sealed record SteelLrfd(
         double FlexuralKnm,
         double FlexuralMinorKnm,
@@ -260,7 +314,8 @@ public abstract partial record SectionCapacity {
         double ShearKn,
         double TorsionalKnm,
         CompactnessClass Classification,
-        double Slenderness) : SectionCapacity;
+        double Slenderness,
+        double StiffnessRetention) : SectionCapacity;
     // The EN 1995-1-1 timber design receipt lifted WHOLE from timber#TIMBER_CAPACITY TimberCapacity (the M_Rd/N_Rd/V_Rd/
     // R_90,Rd design resistances + the relative slenderness λ_rel + the k_mod service×duration factor) — never re-derived.
     // BendingMinorKnm is the member M_Rd,z = k_h(w)·k_mod·f_m,k·S_y/γ_M (no k_crit — no LTB about the minor axis) and
@@ -349,12 +404,15 @@ public abstract partial record SectionCapacity {
     static Utilisation RcElasticUtilisation(RcElastic e, Demand demand) {
         (double cracking, GoverningAction axis) = Cracking(e, demand);
         double shear = demand.ShearResultantKn / Math.Max(ShearResistanceKn(e), double.Epsilon);
-        Utilisation section = Worst((cracking, axis), (shear, GoverningAction.Shear),
-            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion),
-            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing));
-        return e.ShearLinkAreaMm2 > 0.0 && section is Utilisation.Bounded { Value: <= 1.0 } bounded
-            ? new Utilisation.RequiresMemberCheck(bounded.Value, bounded.Governing, MemberCheckRequirement.RcShearReinforcement)
-            : section;
+        // A LINKED section defers stirrup detailing whichever action governs — the §6.2.3(3) V_Rd,s spacing is the ONE
+        // obligation, so it rides the shear candidate AND the whole-verdict wrap through the SAME row, never a second
+        // spelling of one clause.
+        Option<MemberCheckRequirement> linked = e.ShearLinkAreaMm2 > 0.0 ? Some(MemberCheckRequirement.RcShearReinforcement) : None;
+        return Worst(
+            (cracking, axis, linked),
+            (shear, GoverningAction.Shear, linked),
+            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, linked),
+            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, linked));
     }
 
     // EC2 SLS cracking: the MAXIMUM-tensile extreme-CONCRETE-fibre transformed stress against fctm — the FULL combined
@@ -405,9 +463,14 @@ public abstract partial record SectionCapacity {
             + Math.Abs(demand.MomentZKnm) / Math.Max(s.FlexuralMinorKnm, double.Epsilon);
         double combined = p >= 0.2 ? p + 8.0 / 9.0 * m : p / 2.0 + m;
         double shear = demand.ShearResultantKn / Math.Max(s.ShearKn, double.Epsilon);
-        return Worst((combined, p >= m ? GoverningAction.Axial : GoverningAction.Flexure),
-            (shear, GoverningAction.Shear), (GuardedRatio(demand.TorsionKnm, s.TorsionalKnm), GoverningAction.Torsion),
-            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing));
+        return Worst(
+            (combined, GoverningAction.Combined, Option<MemberCheckRequirement>.None),
+            (shear, GoverningAction.Shear, Option<MemberCheckRequirement>.None),
+            // An OPEN shape's φTn is engineering-zero because §H3.3 warping torsion is not one resistance, so a
+            // torsion demand on it DEFERS to the member check rather than reading as an infinite over-ratio.
+            (GuardedRatio(demand.TorsionKnm, s.TorsionalKnm), GoverningAction.Torsion,
+                s.TorsionalKnm > 0.0 ? None : Some(MemberCheckRequirement.SteelWarpingTorsion)),
+            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, Option<MemberCheckRequirement>.None));
     }
 
     // EN 1995-1-1 combined axial-bending, the km-swapped two-equation MAX pair: axialTerm + my + km·mz vs
@@ -425,9 +488,14 @@ public abstract partial record SectionCapacity {
         double axialTerm = t.RelativeSlenderness > 0.3 ? n : n * n;
         double combined = Math.Max(axialTerm + my + t.Km * mz, axialTerm + t.Km * my + mz);
         double shear = demand.ShearResultantKn / Math.Max(t.ShearKn, double.Epsilon);
-        return Worst((combined, n >= my + mz ? GoverningAction.Axial : GoverningAction.Flexure),
-            (shear, GoverningAction.Shear), (GuardedRatio(demand.TorsionKnm, t.TorsionalKnm), GoverningAction.Torsion),
-            (GuardedRatio(demand.BearingKn, t.BearingPerpKn), GoverningAction.Bearing));
+        // BendingMinorKnm is 0.0 only on the research-gated PANEL arm (a member always prices M_Rd,z), so an in-plane
+        // panel Mz demand DEFERS to the member check rather than reading as an unbounded over-ratio.
+        return Worst(
+            (combined, GoverningAction.Combined,
+                t.BendingMinorKnm > 0.0 || Math.Abs(demand.MomentZKnm) <= double.Epsilon ? None : Some(MemberCheckRequirement.CltInPlaneBending)),
+            (shear, GoverningAction.Shear, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.TorsionKnm, t.TorsionalKnm), GoverningAction.Torsion, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.BearingKn, t.BearingPerpKn), GoverningAction.Bearing, Option<MemberCheckRequirement>.None));
     }
 
     // The zero-demand-inert ratio every arm's unresisted-action candidates share: a zero demand is trivially 0
@@ -471,11 +539,12 @@ public abstract partial record SectionCapacity {
         double vnKn = Math.Min(Math.Min(0.315 * Math.Sqrt(m.FmMpa), 2.07) * m.NetAreaMm2 * 1e-3,
             0.386 * m.NetAreaMm2 * 1e-3 + 0.45 * Math.Max(0.0, -demand.AxialKn));
         double shear = demand.ShearResultantKn / Math.Max(phiV * vnKn, double.Epsilon);
-        return Worst((axial + flexure, axial >= flexure ? GoverningAction.Axial : GoverningAction.Flexure),
-            (tension, GoverningAction.Flexure),
-            (shear, GoverningAction.Shear),
-            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion),
-            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing));
+        return Worst(
+            (axial + flexure, GoverningAction.Combined, Option<MemberCheckRequirement>.None),
+            (tension, GoverningAction.Flexure, Option<MemberCheckRequirement>.None),
+            (shear, GoverningAction.Shear, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, Option<MemberCheckRequirement>.None));
     }
 
     // TMS 402 §9.3 reinforced masonry (φ = 0.90 flexure/axial, φv = 0.80 shear): the §9.3.4.1.1 reinforced axial
@@ -497,22 +566,27 @@ public abstract partial record SectionCapacity {
             : Math.Abs(demand.AxialKn) / Math.Max(phi * pn, double.Epsilon);
         double flexure = Math.Abs(demand.MomentYKnm) / Math.Max(phi * mn, double.Epsilon);
         double vnm = 0.083 * 2.25 * m.NetAreaMm2 * Math.Sqrt(m.FmMpa) * 1e-3;
-        return Worst((axial + flexure, axial >= flexure ? GoverningAction.Axial : GoverningAction.Flexure),
-            (GuardedRatio(demand.MomentZKnm, 0.0), GoverningAction.Flexure),
-            (demand.ShearResultantKn / Math.Max(phiV * vnm, double.Epsilon), GoverningAction.Shear),
-            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion),
-            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing));
+        // Vnm alone is the section-decidable shear: Vns needs the bar SPACING, so a shear-governed reinforced verdict
+        // DEFERS to the member check rather than reporting a resistance the section cannot complete.
+        return Worst(
+            (axial + flexure, GoverningAction.Combined, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.MomentZKnm, 0.0), GoverningAction.Flexure, Option<MemberCheckRequirement>.None),
+            (demand.ShearResultantKn / Math.Max(phiV * vnm, double.Epsilon), GoverningAction.Shear,
+                Some(MemberCheckRequirement.ReinforcedMasonryShearSpacing)),
+            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, Option<MemberCheckRequirement>.None));
     }
 
     // EN 16612 pane check per metre strip: BOTH plate bending directions fold against the SAME isotropic per-metre
     // resistance, their SUM the conservative combined-stress bound; in-plane axial, shear, torsion, and bearing are
     // unresisted at pane altitude and govern loud through GuardedRatio.
     static Utilisation GlassUtilisation(GlassPane g, Demand demand) =>
-        Worst(((Math.Abs(demand.MomentYKnm) + Math.Abs(demand.MomentZKnm)) / Math.Max(g.BendingKnmPerM, double.Epsilon), GoverningAction.Flexure),
-            (GuardedRatio(demand.AxialKn, 0.0), GoverningAction.Axial),
-            (GuardedRatio(demand.ShearResultantKn, 0.0), GoverningAction.Shear),
-            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion),
-            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing));
+        Worst(
+            ((Math.Abs(demand.MomentYKnm) + Math.Abs(demand.MomentZKnm)) / Math.Max(g.BendingKnmPerM, double.Epsilon), GoverningAction.Flexure, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.AxialKn, 0.0), GoverningAction.Axial, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.ShearResultantKn, 0.0), GoverningAction.Shear, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, Option<MemberCheckRequirement>.None));
 
     // The connection verdict over the load path's three resisted axes: the shear resultant against the lifted line/
     // area/group shear, a POSITIVE axial (tension, uplift) against the tension column, and the seat reaction (a
@@ -520,21 +594,30 @@ public abstract partial record SectionCapacity {
     // unresisted at connection altitude and govern loud — the connector's private DemandRatio mini-rail collapses
     // onto this one fold, its direction vocabulary living on in the lift columns.
     static Utilisation ConnectionUtilisation(Connection c, Demand demand) =>
-        Worst((GuardedRatio(demand.ShearResultantKn, c.ShearKn), GoverningAction.Shear),
-            (GuardedRatio(Math.Max(demand.AxialKn, 0.0), c.TensionKn), GoverningAction.Axial),
-            (GuardedRatio(demand.BearingKn, c.BearingKn), GoverningAction.Bearing),
-            (GuardedRatio(demand.MomentResultantKnm, 0.0), GoverningAction.Flexure),
-            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion));
+        Worst(
+            (GuardedRatio(demand.ShearResultantKn, c.ShearKn), GoverningAction.Shear, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(Math.Max(demand.AxialKn, 0.0), c.TensionKn), GoverningAction.Axial, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.BearingKn, c.BearingKn), GoverningAction.Bearing, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.MomentResultantKnm, 0.0), GoverningAction.Flexure, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, Option<MemberCheckRequirement>.None));
 
     // The worst (largest) ratio over the candidate span — the unified governing-axis fold every arm drives, so a
     // steel/timber/masonry check reports WHICH action governs, not just a ratio; the span-params buffer stack-allocates
-    // per Check, and the strict-greater fold keeps the earliest-maximal tie-break without a per-call array.
-    static Utilisation Worst(params ReadOnlySpan<(double Ratio, GoverningAction Action)> candidates) {
-        (double ratio, GoverningAction action) = Iterable<(double Ratio, GoverningAction Action)>.FromSpan(candidates[1..])
-            .Fold(candidates[0], static (best, next) => next.Ratio > best.Ratio ? next : best);
+    // per Check, and the strict-greater fold keeps the earliest-maximal tie-break without a per-call array. Each
+    // candidate carries its own DEFERRAL: a capacity column that is zero because the code clause is section-undecidable
+    // (an open shape's warping torsion, a research-gated CLT in-plane bending, the reinforced-masonry V_ns spacing)
+    // names its MemberCheckRequirement, so a governing deferral folds to RequiresMemberCheck WITH its ratio instead of
+    // reading as an unbounded verdict — the distinction between "no resistance" and "resistance the section cannot
+    // finish computing" survives to the design report.
+    static Utilisation Worst(params ReadOnlySpan<(double Ratio, GoverningAction Action, Option<MemberCheckRequirement> Defer)> candidates) {
+        (double ratio, GoverningAction action, Option<MemberCheckRequirement> defer) =
+            Iterable<(double Ratio, GoverningAction Action, Option<MemberCheckRequirement> Defer)>.FromSpan(candidates[1..])
+                .Fold(candidates[0], static (best, next) => next.Ratio > best.Ratio ? next : best);
         return double.IsFinite(ratio)
-            ? new Utilisation.Bounded(ratio, action)
-            : new Utilisation.Overcapacity(action);
+            ? defer.Match(
+                Some: owed => (Utilisation)new Utilisation.RequiresMemberCheck(ratio, action, owed),
+                None: () => new Utilisation.Bounded(ratio, action))
+            : new Utilisation.Unbounded(action);
     }
 
     // --- [BOUNDARIES]
@@ -597,19 +680,43 @@ public abstract partial record SectionCapacity {
     public static SectionCapacity Lift(CapacityReceipt receipt) => receipt.Switch(
         steel: static r => (SectionCapacity)new SteelLrfd(
             r.Capacity.FlexuralNmm * 1e-6, r.Capacity.FlexuralMinorNmm * 1e-6, r.Capacity.CompressionN * 1e-3,
-            r.Capacity.ShearN * 1e-3, r.Capacity.TorsionalNmm * 1e-6, r.Capacity.Classification, r.Capacity.Slenderness),
+            r.Capacity.ShearN * 1e-3, r.Capacity.TorsionalNmm * 1e-6, r.Capacity.Classification, r.Capacity.Slenderness,
+            StiffnessRetention: 1.0),
         timber: static r => new TimberEc5(
             r.Capacity.BendingNmm * 1e-6, r.Capacity.BendingMinorNmm * 1e-6, r.Capacity.CompressionN * 1e-3,
             r.Capacity.ShearN * 1e-3, r.Capacity.BearingPerpN * 1e-3, r.Capacity.TorsionalNmm * 1e-6,
             r.Capacity.RelativeSlenderness, r.Capacity.Km, r.Capacity.Kmod),
+        // The deck's AISI receipt lands the SAME SteelLrfd case — one cold-formed verdict shape for a stud and a
+        // sheet; only the receipt KIND distinguishes them for the report and the analytics dimension.
+        deckSheet: static r => new SteelLrfd(
+            r.Capacity.FlexuralNmm * 1e-6, r.Capacity.FlexuralMinorNmm * 1e-6, r.Capacity.CompressionN * 1e-3,
+            r.Capacity.ShearN * 1e-3, r.Capacity.TorsionalNmm * 1e-6, r.Capacity.Classification, r.Capacity.Slenderness,
+            StiffnessRetention: 1.0),
+        // The slenderness reduction MINTS here off the carried height and the section's own governing radius of
+        // gyration — the TMS 402 bracket is the MasonryReduction owner's derivation, so no caller re-derives it and a
+        // transposed branch is unrepresentable.
         masonry: static r => new MasonryCompression(
             r.Strength.FmMpa, r.Section.AreaMm2.Value, r.Section.SxMm3.Value, r.Section.SyMm3.Value,
-            r.Slenderness.Value, r.Rupture.FrMpa(r.System, r.Mortar)),
+            MasonryReduction.Of(r.HeightMm, r.Section.GoverningRadiusMm).Value, r.Rupture.FrMpa(r.System, r.Mortar)),
         reinforcedMasonry: static r => new MasonryReinforced(
             r.Strength.FmMpa, r.Bar.MinimumYieldMpa,
             r.Unit.ReinforcedCells * Math.PI / 4.0 * r.Unit.RebarBarMm * r.Unit.RebarBarMm,   // As off the lattice facts
-            r.Section.AreaMm2.Value, r.Unit.WMm / 2.0, r.Unit.LMm, r.Slenderness.Value),      // d = W/2 mid-wall bars, b the bed length
+            r.Section.AreaMm2.Value, r.Unit.WMm / 2.0, r.Unit.LMm,                            // d = W/2 mid-wall bars, b the bed length
+            MasonryReduction.Of(r.HeightMm, r.Section.GoverningRadiusMm).Value),
         glass: static r => new GlassPane(r.Capacity.BendingKnmPerM, r.Capacity.ResistanceMpa, r.Capacity.EffectiveThicknessMm),
+        // The EN 1993-1-2 accidental situation: ky,θ scales every STRENGTH column (flexure both axes, compression,
+        // shear, torsion), kE,θ rides the StiffnessRetention column for the forward member-stability check, and the
+        // ambient classification/slenderness carry unchanged — the section's geometry does not char.
+        steelFire: static r => new SteelLrfd(
+            r.Ambient.FlexuralNmm * r.Ky * 1e-6, r.Ambient.FlexuralMinorNmm * r.Ky * 1e-6, r.Ambient.CompressionN * r.Ky * 1e-3,
+            r.Ambient.ShearN * r.Ky * 1e-3, r.Ambient.TorsionalNmm * r.Ky * 1e-6, r.Ambient.Classification, r.Ambient.Slenderness,
+            StiffnessRetention: r.Ke),
+        // The EN 1995-1-2 residual section is already priced at kmod = γM = 1.0 by the timber owner, so the fire arm
+        // lifts it verbatim — the charring is geometry, never a factor applied here.
+        timberFire: static r => new TimberEc5(
+            r.Residual.BendingNmm * 1e-6, r.Residual.BendingMinorNmm * 1e-6, r.Residual.CompressionN * 1e-3,
+            r.Residual.ShearN * 1e-3, r.Residual.BearingPerpN * 1e-3, r.Residual.TorsionalNmm * 1e-6,
+            r.Residual.RelativeSlenderness, r.Residual.Km, r.Residual.Kmod),
         weld: static r => new Connection(r.Row.DirectionalShearKn(Angle.FromDegrees(r.LoadAngleDeg)), 0.0, 0.0),
         adhesive: static r => new Connection(r.Row.DesignShearKn, 0.0, 0.0),
         stud: static r => new Connection(Math.Max(r.Count, 0) * r.Row.DesignShearKn, 0.0, 0.0),
@@ -617,11 +724,15 @@ public abstract partial record SectionCapacity {
         // columns scale by the connector's own admitted duration factor.
         connector: static r => new Connection(r.Capacity.LateralKn * r.Capacity.Cd, r.Capacity.UpliftKn * r.Capacity.Cd, r.Capacity.DownloadKn));
 
-    // The C#-internal hull cache, realized: Freeze writes the eagerly-solved mesh through the ITaxonomySerializable
-    // marker IForceMomentMesh itself extends ($type-tagged Newtonsoft wire, UnitsNet SI-scalar+unit quantities); Thaw
-    // rehydrates the exact ForceMomentMesh via the $type tag WITHOUT re-running the Steps² sweep, trapping the
-    // FromJson null/throw onto ComponentFault.Capacity. Producer=consumer ONLY — TypeNameHandling.Objects is a
-    // deserialization-gadget surface, so Thaw is fed exclusively JSON a trusted Freeze minted, never a peer document.
+    // The persisted hull cache, realized: Freeze writes the eagerly-solved mesh through the ITaxonomySerializable
+    // marker IForceMomentMesh itself extends ($type-tagged Newtonsoft wire, UnitsNet SI-scalar+unit quantities) as the
+    // BODY of a Rasm.Persistence artifact row content-keyed on (ComponentId, DiagramResolution.Key) — the same
+    // content-key edge the raster estate crosses; Thaw rehydrates the exact ForceMomentMesh via the $type tag WITHOUT
+    // re-running the Steps² sweep, trapping the FromJson null/throw onto ComponentFault.Capacity. The key pair is the
+    // whole preimage: the section identity and the resolution are the only inputs the eager solve reads, so a
+    // resolution change is a distinct row rather than a stale hit. Producer=consumer ONLY — TypeNameHandling.Objects
+    // is a deserialization-gadget surface, so Thaw is fed exclusively the artifact a trusted Freeze wrote, never a
+    // peer document; the composition root owns the store handle, this owner the two projections.
     internal static string Freeze(RcInteraction capacity) => capacity.Hull.ToJson();
 
     internal static Fin<SectionCapacity> Thaw(string json, Op key) =>
@@ -647,17 +758,18 @@ public abstract partial record SectionCapacity {
             : GoverningAction.Axial;
         double ray = Math.Abs(demand.AxialKn) <= double.Epsilon && demand.MomentResultantKnm <= double.Epsilon
             ? 0.0
-            : toSeq(hull.Faces)
-                .Map(face => Pierce(face, demand.AxialKn, demand.MomentYKnm, demand.MomentZKnm))
-                .Somes()
-                .Filter(static multiplier => multiplier > 0.0)
-                .OrderBy(static multiplier => multiplier)
-                .HeadOrNone()
+            : toSeq(toSeq(hull.Faces)
+                    .Map(face => Pierce(face, demand.AxialKn, demand.MomentYKnm, demand.MomentZKnm))
+                    .Somes()
+                    .Filter(static multiplier => multiplier > 0.0)
+                    .OrderBy(static multiplier => multiplier))
+                .Head
                 .Match(Some: static multiplier => 1.0 / multiplier, None: static () => double.PositiveInfinity);
-        return Worst((ray, governing),
-            (GuardedRatio(demand.ShearResultantKn, 0.0), GoverningAction.Shear),
-            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion),
-            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing));
+        return Worst(
+            (ray, governing, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.ShearResultantKn, 0.0), GoverningAction.Shear, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, Option<MemberCheckRequirement>.None),
+            (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, Option<MemberCheckRequirement>.None));
     }
 
     // EXPRESSION_SPINE measured-kernel exemption: Möller-Trumbore ray-triangle scalar kernel — span-free numeric
@@ -691,34 +803,77 @@ public abstract partial record SectionCapacity {
         (left.y * right.z - left.z * right.y, left.z * right.x - left.x * right.z, left.x * right.y - left.y * right.x);
 }
 
-// The INVERSE of Check — design as selection: one fold scans the frozen catalogue maps lightest-first (AreaMm2 ranks
-// linear mass within a substance) and returns the first candidate whose capacity verdict is Adequate. The per-candidate
-// capacity arrives through the caller's capacityOf projection because the family capacity needs placement facts —
-// unbraced/effective lengths, service class, duration — the catalogue does not carry; admit is the family/depth policy
-// filter (a stocked subset, a depth cap, one SteelClass). A candidate whose capacity FAULTS aborts the scan loud (a
-// filter that admits a family the projection cannot price is a caller defect, never a silently skipped row); an
-// exhausted scan faults typed. The full-catalogue seed supplies the search space, so the fold IS the lightest-adequate
-// sizing query every member-design tool leads with.
+// The INVERSE of Check — design as selection over two search spaces under ONE law: `Lightest` scans the frozen
+// catalogue (a section someone stocked) and `Fabricated` sweeps a caller-parameterized composition space (a section
+// nobody stocked yet), both ranking by REAL linear mass and both accepting on the SECTION-altitude verdict so a
+// deferring section returns WITH its member-check obligation rather than being silently rejected.
+//
+// Mass is `AreaMm2 × ρ(substance)`, never area alone: area ranks linear mass only INSIDE one substance, so a mixed
+// steel/timber/masonry catalogue ordered by area returns a 90 mm sawn section ahead of every W-shape. The density
+// arrives through the caller's `densityOf` projection (the composing root binds it to
+// `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Lookup(id, key)`'s Mechanical density column), so `admit`
+// reverts to a genuine POLICY filter — a stocked subset, a depth cap, one `SteelClass` — rather than a correctness
+// precondition the type system never enforced. The per-candidate capacity arrives through `capacityOf` because the
+// family capacity needs placement facts — unbraced/effective lengths, service class, duration — the catalogue does
+// not carry. A candidate whose density or capacity FAULTS aborts the scan loud (a filter admitting a family the
+// projections cannot price is a caller defect, never a silently skipped row); an exhausted search faults typed.
 public static class SectionSelection {
     public static Fin<(Component Section, Utilisation Verdict)> Lightest(
         FrozenDictionary<ComponentId, Component> rows,
         FrozenDictionary<ComponentId, ComputedSection> sections,
         Demand demand,
         Func<Component, ComputedSection, Fin<SectionCapacity>> capacityOf,
+        Func<MaterialId, Fin<double>> densityOf,
         Func<Component, bool> admit,
         Op key) =>
         toSeq(sections)
             .Filter(pair => rows.ContainsKey(pair.Key) && admit(rows[pair.Key]))
-            .OrderBy(static pair => pair.Value.AreaMm2.Value)
-            .ToSeq()
-            .Fold(
+            .Traverse(pair => densityOf(rows[pair.Key].SubstanceId)
+                .Map(density => (Row: rows[pair.Key], Section: pair.Value, MassPerMm: pair.Value.AreaMm2.Value * density)))
+            .As()
+            .Map(static ranked => toSeq(ranked.OrderBy(static candidate => candidate.MassPerMm)))
+            .Bind(ranked => Least(ranked.Map(static c => (c.Row, c.Section)), demand, capacityOf, key));
+
+    // The GENERATIVE counterpart: `SectionProfile.BuiltUp` plus the `component#SECTION_SOLVER` `Composed` arm already
+    // price an arbitrary positioned member set exactly (parallel-axis inertias, the equal-area plastic pair, summed
+    // J and shear areas), so a caller-supplied parameterized sweep — a plate-girder web-depth × flange-width lattice,
+    // a battened-column spacing sweep — folds through the SAME solve, the SAME Check, and the SAME acceptance as a
+    // catalogue row. The generator is indexed so the sweep is a pure function of its own ordinal (replayable, and a
+    // caller may cap it without a mutable cursor), and every candidate is solved HERE because a fabricated section
+    // has no catalogue entry to have solved it. This turns the utilisation rail from a catalogue query into a
+    // fabricated-member design tool at the cost of one fold.
+    public static Fin<(Component Section, Utilisation Verdict)> Fabricated(
+        Func<int, Seq<(Component Row, SectionProfile.BuiltUp Profile)>> candidates,
+        int sweeps,
+        Demand demand,
+        Func<Component, ComputedSection, Fin<SectionCapacity>> capacityOf,
+        Func<MaterialId, Fin<double>> densityOf,
+        Op key) =>
+        toSeq(Enumerable.Range(0, Math.Max(sweeps, 0))).Bind(candidates)
+            .Traverse(candidate => SectionSolver.Solve(candidate.Profile, key)
+                .Bind(section => densityOf(candidate.Row.SubstanceId)
+                    .Map(density => (candidate.Row, Section: section, MassPerMm: section.AreaMm2.Value * density))))
+            .As()
+            .Map(static ranked => toSeq(ranked.OrderBy(static candidate => candidate.MassPerMm)))
+            .Bind(ranked => Least(ranked.Map(static c => (c.Row, c.Section)), demand, capacityOf, key));
+
+    // The ONE acceptance fold both search spaces drive: the first mass-ordered candidate whose verdict PASSES AT
+    // SECTION ALTITUDE wins and carries its verdict verbatim, so a linked RC section that passes and merely owes
+    // stirrup detailing returns WITH its deferral for the caller to route forward — the strict `Adequate` bit stays
+    // the terminal report's, never the sizing gate's.
+    static Fin<(Component Section, Utilisation Verdict)> Least(
+        Seq<(Component Row, ComputedSection Section)> ranked,
+        Demand demand,
+        Func<Component, ComputedSection, Fin<SectionCapacity>> capacityOf,
+        Op key) =>
+        ranked.Fold(
                 Fin.Succ(Option<(Component Section, Utilisation Verdict)>.None),
-                (state, pair) => state.Bind(found => found.IsSome
+                (state, candidate) => state.Bind(found => found.IsSome
                     ? Fin.Succ(found)
-                    : capacityOf(rows[pair.Key], pair.Value)
+                    : capacityOf(candidate.Row, candidate.Section)
                         .Map(capacity => capacity.Check(demand))
-                        .Map(verdict => verdict.Adequate
-                            ? Some((rows[pair.Key], verdict))
+                        .Map(verdict => verdict.SectionPasses
+                            ? Some((candidate.Row, verdict))
                             : Option<(Component, Utilisation)>.None)))
             .Bind(found => found.ToFin(ComponentFault.Capacity(key, "<selection-no-adequate-section>")));
 }
@@ -726,16 +881,4 @@ public static class SectionSelection {
 
 ## [03]-[RESEARCH]
 
-- [RC_INTERACTION_HULL]: REALIZED — the `RcInteraction` capacity case is the ultimate biaxial Force-Moment-Moment capacity hull `VividOrange.InteractionDiagram` computes over the `reinforcement#RC_SECTION` `IConcreteSection`: `SectionCapacity.Resolve` dispatches the `CapacityBuild.Hull` request onto `new InteractionDiagram(rc.Section, hull.Resolution.ToSettings())` — the arm's own carried `DiagramResolution`, no loose knob — (the eager solve that `Triangle`-meshes the concrete+rebar section into `AnalyticalFace` fibres, runs the `Parallel.For` strain-plane sweep integrating fibre stress, and `MIConvexHull`-welds the (N, My, Mz) cloud into the closed onion, `.api/api-vividorange-interactiondiagram.md` `[FIBRE_INTEGRATION_CONTRACT]`) and reads `diagram.Mesh` as the cached `IForceMomentMesh`. VERIFIED via `assay api query InteractionDiagram --key VividOrange.InteractionDiagram`: the ctor pair `(IConcreteSection)` / `(IConcreteSection, DiagramSettings)` and the `public IForceMomentMesh Mesh { get; set; }` property, the sweep emitting `ForceMomentVertex(N, My, Mz, ForceUnit.Kilonewton, TorqueUnit.KilonewtonMeter)` so the hull coordinates are kN/kNm. The `Triangle` mesher and `MIConvexHull` hull builder are encapsulated `internal` inside the engine — this AEC-DOMAIN owner composes the welded hull through the constructor, mints NO direct `Triangle`/`MIConvexHull` call (the strata-correct seam: those primitives are `Rasm`-kernel-owned, consumed transitively, `.api/api-triangle.md` / `.api/api-vividorange-forcemomentinteraction.md [TRANSITIVE_CONVEX_HULL]` `[STACKING_LAW]`). The hull is read through the `IForceMomentMesh` interface floor (`hull.Faces` → `IForceMomentTriFace.A`/`B`/`C` → `IForceMomentVertex.X`/`Y`/`Z`, all VERIFIED on the `VividOrange.ICartesianBase` generic floor `ICartesianMesh.Faces`/`ICartesianTriFace.A,B,C`/`ICartesian3d.X`+`ILocalCartesian2d.Y,Z`), the `Force`/`Torque` coordinates as `UnitsNet` quantities through `Force.Kilonewtons`/`Torque.KilonewtonMeters`, never the `ForceMomentMesh` concrete and never the facet `Area` `Ratio` as a physical quantity. The eager solve caches on the `RcInteraction` carrier so a `Check(demand)` reads the cached hull, never re-solving. Ripple counterpart: `reinforcement#RC_SECTION` (the `RcSection`/`IConcreteSection` input this owner consumes).
-- [RC_ELASTIC_TRANSFORMED]: REALIZED — the `RcElastic` capacity case reads the ONE `ConcreteSectionProperties` carrier the `RcSection` receipt holds (constructed and eager-forced at `RcSectionBuilder.Of` — a second `new ConcreteSectionProperties(rc.Section)` inside `Resolve` is the DELETED re-admission): the `RcSection` projections supply `TotalReinforcementArea`/`ConcreteArea`/`GeometricReinforcementRatio`/`ReinforcementSecondMomentOfAreaYy`/`Zz`, the bottom-face `EffectiveDepthMm(SectionFace.Bottom)` and `FaceSteelAreaMm2(SectionFace.Bottom)` tension steel — `Option<double>` at the receipt seam (the receipt traps the engine's no-bottom-bar throw), lifted `ToFin` onto the typed `<rc-elastic-no-bottom-tension-chord>` fault here — AND the `CrossSectionalShearReinforcementArea` link area; the GROSS `MomentOfInertiaYy`/`Zz` fibre divisors read the INHERITED base `SectionProperties` polygon integral on the same carrier (VERIFIED: `ConcreteSectionProperties : SectionProperties`, `Area TotalReinforcementArea`, `Area ConcreteArea => base.Area - TotalReinforcementArea`, `AreaMomentOfInertia ReinforcementSecondMomentOfAreaYy => Rebars.CalculateInertiaYy(_section)` — the STEEL-ONLY `Σ(As·d²)` moment — `Length EffectiveDepth(SectionFace)`, `Area ReinforcementArea(SectionFace)`, and `Area CrossSectionalShearReinforcementArea => Rebars.CalculateArea(_section.Link) * 2.0` — the TWO-LEG stirrup area, `.api/api-vividorange-sections-sectionproperties.md` `[RC seam]`). The EC2 SLS cracking check compares the maximum-tensile extreme-CONCRETE-fibre stress against `fctm` as the FULL combined action `σ = N/A ± My·cy/Iyy ± Mz·cz/Izz` — a SIGNED axial `N/A` (the `Demand` convention − compression / + tension, so a compressive service axial DELAYS cracking, the physically-correct SLS behaviour a `|N|` over-predicts) plus BOTH bending axes' tension-side fibre stress (`cy = h/2`, `cz = b/2` the gross half-depths), the divisors the GROSS `GrossInertiaYyMm4`/`GrossInertiaZzMm4` (the EC2 7.1 gross-basis SLS) — dividing by the reinforcement-only `Σ(As·d²)` column (~5% of gross) inflates the fibre stress ~20× and falsely cracks every service state, the ILLUSORY prior spelling now deleted; the `ReinforcementInertiaYyMm4`/`ZzMm4` columns stay carried as the cracked-section `Icr` input the forward `Rasm.Compute` member check composes with its modular ratio — never a major-axis-bending-only slice, never the effective depth `d` as a fibre lever. The bottom-face `EffectiveDepth(SectionFace.Bottom)` is the distinct ULS flexural lever to the tension steel; it is a first-class `ConcreteSectionProperties` concept member (the `.api` `[RC seam]` lists it) carried on the `RcElastic` record for the `Rasm.Compute/Analysis/structural#DESIGN_CHECK` consumer's moment-capacity readout, never conflated with the SLS extreme-fibre distance. The SHEAR screen closes the coverage gap the `Demand.ShearYKn`/`ShearZKn` columns anticipated: the shear resultant folds against the EC2 §`6.2.2` `V_Rd,c` (`ρl` from the bottom-face tension steel, `k` from the effective depth, both `min`-capped per the code) for a LINKLESS section, and against the §`6.2.3`(3) web-crushing ceiling `V_Rd,max` (`cotθ = 2.5`) for a LINKED one — the ONLY shear facts decidable at section altitude, because the member `V_Rd,s = (Asw/s)·z·f_ywd·cotθ` needs the stirrup SPACING neither `IConcreteSection` (`ILink` carries diameter + mandrel, no spacing) nor `RcSection` models; the carried `ShearLinkAreaMm2` is exactly the `Asw` the forward `Rasm.Compute` member check pairs with its detailing spacing, so a linked section-level pass defers detailing loudly and a linked fail refutes the section outright. One `IConcreteSection` minted at `reinforcement#RC_SECTION` drives BOTH the elastic transformed-section properties here and the ultimate N-M-M hull (`.api/api-vividorange-sections-sectionproperties.md` `[01]-[RC_COMPOSITION_PATH]`), so the cracked/uncracked elastic check and the ultimate capacity envelope share one section input — the elastic `RcElastic` is the transformed-section complement the bare `component#COMPONENT_OWNER` `SectionSolver` (the gross elastic `Admit` lift over any `IProfile`, `SectionSolver.ProfileOf` the kept RC gross-outline entry) does not compute, this owner the reinforced-section transformed properties.
-- [STEEL_LRFD_LIFT]: REALIZED — the `SteelLrfd` capacity case lifts the `steel#STEEL_FAMILY` `DesignCapacity` WHOLE into the one `SectionCapacity` rail: the AISC 360 Chapters F/E/G rolled-steel LRFD (`φMn`/`φPn`/`φVn`, plus the AISC 360 Chapter I composite and the AISI S100 cold-formed arms) already derived over the computed `SteelSection` columns, carried as the SI N·mm/N → kN·m/kN projection PLUS the `CompactnessClass` Table B4.1 verdict and the column slenderness `λ` (so the `Check` reports the governing compactness in a design report, not a bare ratio). A steel column and an RC column are checked through the SAME `Check(demand)` fold — never a parallel `SteelBeamCheck` surface. The `SteelLrfd` interaction is the REALIZED AISC 360 §H1.1 combined axial-flexure split — `p + 8/9·m` at `p >= 0.2` (H1-1a), `p/2 + m` below (H1-1b), `m` the PER-AXIS biaxial sum `|My|/φMnx + |Mz|/φMny` over the lifted `FlexuralKnm`/`FlexuralMinorKnm` pair — worst-folded with the §G shear-resultant ratio and the §H3.1 torsion `demand.TorsionKnm` against the lifted `TorsionalKnm`, the governing axis the typed `GoverningAction`; the prior `max(N/φPn, M/φMn, …)` independent-ratio fold AND the moment-resultant-against-`φMnx`-alone fold are the DELETED forms (the first passes `p = m = 0.9` where H1.1 fails at 1.7; the second credited a weak-axis moment the full major capacity, under-predicting weak-axis bending by `φMnx/φMny` — 3-10x on an I-shape — an unconservative naivety, not a refinement to defer). `φMny` is the REALIZED §F6 `DesignCapacity.FlexuralMinorNmm` column (`min(Fy·Zy, 1.6·Fy·Sy)` per F6-1, the 1.5 cap on the F10 single-angle regime, F6.2-bounded for the F2 flange classes over the SAME per-class `SlendernessRow` data, `Seff`-scaled on the cold-formed arm), read DIRECTLY by the lift. A zero torsion demand contributes a 0 ratio (so a `φTn = 0` open-shape column never spuriously governs), a nonzero torsion against a `φTn = 0` open shape surfaces as the governing over-ratio rather than silently passing — `demand.TorsionKnm` is a CONSUMED action, not a carried-but-ignored column. The §H3.1 `φTn = φT·Fcr·C` resistance is REALIZED on the steel `DesignCapacity.TorsionalNmm` column (the `SteelDesign.TorsionalResistance` projection over the canonical `JMm4` St-Venant constant, positive for the CLOSED HSS/pipe topology and engineering-zero for an OPEN warping-torsion shape), which the `SectionCapacity.Lift(CapacityReceipt.Steel)` arm reads DIRECTLY onto `TorsionalKnm` — one source, no redundant parallel lift parameter, so a torsion-loaded HSS checks against a real resistance. The steel capacity computation stays the `steel#STEEL_FAMILY` owner, this page only the unified utilisation rail. Ripple counterpart: `steel#STEEL_FAMILY` (the `DesignCapacity` receipt lifted here, the REALIZED AISC §H3.1 `DesignCapacity.TorsionalNmm` column the `SteelLrfd` lift folds against `demand.TorsionKnm`).
-- [TIMBER_EC5_LIFT]: REALIZED — the `TimberEc5` capacity case lifts the `timber#TIMBER_CAPACITY` `TimberCapacity` WHOLE into the rail, closing the cross-file ripple `timber#TIMBER_CAPACITY` explicitly declared ("the `TimberCapacity` lifts into the `capacity#SECTION_CAPACITY` unified utilisation rail as a `SectionCapacity.TimberEc5` case the SAME way the steel `DesignCapacity` lifts as `SteelLrfd`"): the EN 1995-1-1 design resistances (`M_Rd,y` = `k_crit·k_h·k_mod·f_m,k·W / γ_M`, `M_Rd,z` = `k_h(w)·k_mod·f_m,k·S_y / γ_M` member / research-gated 0 panel, `N_Rd` = `k_c·k_mod·f_c0,k·A / γ_M` column-buckling-reduced, `V_Rd` = `k_mod·f_v,k·k_cr·A_shear / γ_M` rolling-shear for a CLT panel, `R_90,Rd` = `k_mod·f_c90,k·A_bearing / γ_M`) carried as kN·m/kN with the relative slenderness `λ_rel` and the `k_mod` service×duration factor preserved. The `TimberEc5` `Check` is the REALIZED EN 1995-1-1 km-swapped two-equation MAX pair — `axial + my + k_m·mz` vs `axial + k_m·my + mz` with the axial term LINEAR per §`6.3.2` eq 6.23/6.24 when buckling governs (`λ_rel > 0.3`, the carried `RelativeSlenderness` the branch discriminant, `N_Rd` already `k_c`-reduced) and `n²` per §`6.2.4` eq 6.19/6.20 for the stocky member, `k_m` the lifted §`6.1.6`(2) per-form weight, `my`/`mz` the `GuardedRatio` per-axis folds over `BendingKnm`/`BendingMinorKnm` — worst-folded with the shear ratio, the §`6.1.8` torsion `demand.TorsionKnm` against the lifted `TorsionalKnm`, AND the §`6.1.5` bearing `demand.BearingKn` against the lifted `R_90,Rd` (the same zero-demand-inert / unbounded-resistance-governs discipline), the governing axis the typed `GoverningAction`; the perpendicular-bearing column is a CONSUMED capacity — the prior carried-but-unchecked `R_90,Rd`, the independent-ratio `max(...)` fold, AND the moment-resultant-against-`M_Rd,y`-alone fold are the DELETED forms (the resultant fold under-predicted weak-axis bending by `M_Rd,y/M_Rd,z`). `M_Rd,z` is the REALIZED `TimberCapacity.BendingMinorNmm` member column (`k_h(w)·k_mod·f_m,k·S_y/γ_M` — no `k_crit`, no LTB about the minor axis); the PANEL minor is research-GATED at 0.0 (in-plane CLT bending verification unsettled pending EN 1995-1-1:2025), so an in-plane panel `Mz` demand governs loud through `GuardedRatio`, never passing silent. A timber column and a steel column are checked through ONE `Check(demand)` fold differing only in the capacity case — the EN 1995 design rules HAND-ROLLED in `timber#TIMBER_CAPACITY` (no .NET EC5 package), the unified verdict this owner's. The §`6.1.8` `T_Rd = k_shape·f_v,d·W_tor` resistance is REALIZED on the timber `TimberCapacity.TorsionalNmm` column (`TimberDesign.Capacity` over the rectangular `W_tor` Roark torsion modulus and the design longitudinal shear `f_v,d`), which the `SectionCapacity.Lift(CapacityReceipt.Timber)` arm reads DIRECTLY onto `TorsionalKnm` — one source, no redundant lift parameter, so a torsion-loaded glulam member checks against a real resistance. Ripple counterpart: `timber#TIMBER_CAPACITY` (the `TimberCapacity` receipt lifted here, the REALIZED EN 1995-1-1 §`6.1.8` `TimberCapacity.TorsionalNmm` column the `TimberEc5` lift folds against `demand.TorsionKnm`).
-- [MASONRY_COMPRESSION_CHECK]: `CapacityReceipt.Masonry` carries `CmuStrength`, `ComputedSection`, `MasonryReduction`, `RuptureModulus`, `MortarSystem`, and `MortarType`. `MasonryReduction.Of` admits the `(0,1]` stability factor once; `Lift` resolves the typed `f'm`, section properties, stability value, and mortar-dependent `fr` into `MasonryCompression`. `Check` combines axial-flexural unity, flexural tension, and URM shear on the common utilization rail.
-- [UTILISATION_RAY_CAST]: `SectionCapacity.Cast` intersects the raw applied `(N, My, Mz)` vector with the welded `IForceMomentMesh`. A positive face parameter is a load multiplier, so the bounded utilization is `1/t`; no intersection returns `Utilisation.Overcapacity`, and a fully zero demand returns `Utilisation.Bounded(0, Axial)`. Raw coordinates preserve the independent force and moment scales; a Euclidean unit vector across heterogeneous axes is forbidden. The ray verdict worst-folds with the `GuardedRatio`-against-0 shear/torsion/bearing candidates because the hull carries no resistance on those axes — a shear-only demand on an `RcInteraction` capacity governs loud as an unresisted action, never the prior silent `Bounded(0)` pass; the same total-demand fold closes the `RcElastic` (torsion/bearing), `SteelLrfd` (bearing), and `MasonryCompression` (torsion/bearing) arms.
-- [COMPONENT_FAULT_RAIL]: REALIZED — the capacity owner rails the `component#COMPONENT_OWNER` `ComponentFault` band-2300 fault (`Code => FaultBand.Component` through the registry, composed here, never re-declared), the SAME component-sub-domain rail every sibling Component surface uses (`component#COMPONENT_OWNER` `SectionSolver.Solve`/`Admit` → `ComponentFault.Section`, the family seed folds → `ComponentFault.Family`/`Dimension`, `reinforcement#RC_SECTION` `RcSectionBuilder.Of` → `ComponentFault`). A section-capacity solve is a component-sub-domain concern, so its fault bands 2300 with its Component siblings — NOT the `Appearance/bsdf#SHADING_FRAME` `MaterialFault` band 2450, the appearance/material band that conflates a structural fault with a shading fault for any telemetry reader banding by `Expected.Code`, and NOT a thin private `CapacityFault` rename wrapper that adds zero domain value. `SectionCapacity.Resolve` rails the REALIZED `ComponentFault.Capacity(key, $"<rc-interaction-solve:{e.Message}>")` / `ComponentFault.Capacity(key, $"<rc-elastic-solve:{e.Message}>")` (a non-EN material the `IEnConcreteMaterial`/`IEnRebarMaterial` cast cannot read, an under-reinforced degenerate section, or a hull-weld failure), and the Option-typed `RcSection` face queries lift `ToFin` onto the typed `<rc-elastic-no-bottom-tension-chord>` fault (the receipt already traps the engine's no-bottom-bar `EffectiveDepth` divide at ITS seam), so no `VividOrange` throw and no silent absence reaches an interior signature. The dedicated `ComponentFault.Capacity` case (`Category => "Capacity"`, distinct from the `Dimension`/`Coring`/`Family`/`Bond`/`Mortar`/`Section` sibling arms) is REALIZED on the `component#COMPONENT_OWNER` owner so a section-CAPACITY-SOLVE fault carries a capacity-specific `Category` a telemetry reader bands apart from a section-PROPERTY (`Section`) or registration (`Family`) fault — the capacity solve never flattens onto `ComponentFault.Family`. `ComponentFault` 2300 is the one component-sub-domain band, disjoint from the kernel `GeometryFault` band 2400, each case `Expected`-derived with the `…Case`-suffixed factory pattern. Ripple counterpart: `component#COMPONENT_OWNER` (the realized `ComponentFault.Capacity` case the capacity solves rail).
-- [MASONRY_REINFORCED_CASE]: REALIZED — `SectionCapacity.MasonryReinforced` is the TMS 402 §`9.3` arm the URM case's own admission law reserved (no existing case carried a steel term): `CapacityReceipt.ReinforcedMasonry(CmuStrength, ComputedSection, CmuRow, RebarGradeRow, MasonryReduction)` lifts the lattice facts the URM lift never consumed — `As = ReinforcedCells·π/4·RebarBarMm²`, the mid-wall lever `d = W/2`, the bed length `b = L`, the grouted net area — and the `Check` arm runs the §`9.3.4.1.1` reinforced `Pn`, the §`9.3.5` steel-couple `Mn = As·fy·(d − a/2)`, the steel-resisted net tension (the URM tension-governs-outright arm retired for the reinforced state), and the §`9.3.4.1.2` `Vnm` screen at the `M/(V·dv) = 1` bound (`Vns` is member detailing — bar spacing is not a section column), φ = 0.90 / φv = 0.80 per §`9.1.4`. The masonry rail is now total over the grouted/reinforced states the cmu lattice distinguishes cell-by-cell; the sanctioned RC/EC2-builder workaround for a grouted unit stays the RC path, never a §`9.3` substitute. Ripple counterpart: `cmu#CMU_FAMILY` (the `ReinforcedCells`/`RebarBarMm`/`GroutedCells` columns this lift consumes).
-- [GLASS_PANE_LIFT]: REALIZED — `SectionCapacity.GlassPane` lifts the `glazing#GLAZING_FAMILY` `GlassCapacity` receipt WHOLE through `CapacityReceipt.Glass` (the EN 16612 governing-pane per-metre design moment, resistance, and effective thickness — the derivation stays the glazing owner's `GlazingStructural`), and the `Check` arm folds both plate-bending directions against the isotropic per-metre resistance with every non-plate action governing loud — glazing is the fifth structural rail through the SAME `Check(demand)` fold as steel and timber, per the receipt-lift discipline the steel/timber/cmu cases fixed. Ripple counterpart: `glazing#GLAZING_FAMILY` (`GlassCapacity`/`GlazingStructural`).
-- [CONNECTION_RAIL]: REALIZED — the `Utilisation`/`GoverningAction` vocabulary is total over the LOAD PATH: `CapacityReceipt.Weld`/`Adhesive`/`Stud`/`Connector` lift the realized `joint#JOINT_FAMILY` `JointRow.Weld.DirectionalShearKn(Angle)`/`JointRow.Adhesive.DesignShearKn`/`JointRow.Stud.DesignShearKn × count` design values and the `connector#CONNECTOR_FAMILY` `ConnectorCapacity` duration-governed columns (seat-borne download Cd-exempt, fastener-transferred uplift/lateral Cd-scaled) onto ONE `SectionCapacity.Connection(ShearKn, TensionKn, BearingKn)` case — member → connection → member is one `Check` rail, and the connector's private `DemandRatio` unit-check collapses onto the same polymorphic fold (its direction-typed read surviving as the lift columns). The joint page's deferred utilisation case lands here; the composite stud's concrete branch stays the `Rasm.Compute` `min(steel, concrete)` join. Ripple counterparts: `joint#JOINT_FAMILY` (the deferral sentence retired), `connector#CONNECTOR_FAMILY` (the mini-rail collapse).
-- [SECTION_SELECTION]: REALIZED — `SectionSelection.Lightest` is the rail's inverse query: a lightest-first fold (AreaMm2 the linear-mass rank) over the frozen `ComponentCatalogue` `Rows`/`Sections` maps under a caller policy filter, each candidate priced through the caller's `capacityOf` projection (placement facts — lengths, service, duration — are not catalogue columns) and checked through the ONE `Check(demand)`; the first `Adequate` verdict returns with its `Component`, a pricing fault aborts loud, an exhausted scan faults typed. The full-database steel seed is the search space, a stocked subset one `admit` filter.
-- [ADMITTED_DEMAND_AND_RECEIPT_UNION]: `Demand.Of` admits every finite signed action. `CapacityReceipt` carries the complete sibling receipt per case, including `MasonryReduction`; `Lift(CapacityReceipt)` is the sole lift entry. `Utilisation.Bounded` is final, `Utilisation.RequiresMemberCheck` carries the named unresolved member-level check, and `Utilisation.Overcapacity` carries no infinity sentinel.
-- [HULL_CACHE]: REALIZED — the `IForceMomentMesh` C#-internal cache the Boundary prose previously CLAIMED without a fence is the `SectionCapacity.Freeze`/`Thaw` pair: `Freeze` writes the eagerly-solved hull through `VividOrange.Serialization` `JsonSerializationExtensions.ToJson<T>` over the `ITaxonomySerializable` marker the `IForceMomentMesh` INTERFACE itself extends (decompile-verified: `IForceMomentMesh : ICartesianMesh<…>, IGeometryBase, ITaxonomySerializable`, so `capacity.Hull.ToJson()` compiles against the floor, never the `ForceMomentMesh` concrete), emitting the `$type`-tagged Newtonsoft wire whose `Force`/`Torque` vertex fields serialize as `UnitsNet` SI-scalar+unit pairs; `Thaw` rehydrates through `json.FromJson<IForceMomentMesh>()`, the `TypeNameHandling.Objects` `$type` tag reconstructing the exact concrete mesh WITHOUT re-running the eager `Steps²` strain-plane sweep, and the `FromJson` `null` return or Newtonsoft throw traps onto `ComponentFault.Capacity` at the one boundary. The round-trip is producer=consumer ONLY — `TypeNameHandling.Objects` is a known deserialization-gadget surface, so `Thaw` is fed exclusively JSON a trusted `Freeze` minted, and the `$type` shape NEVER crosses to a TS/Python peer (the WIRE_FIREBREAK: cross-language egress stays the portable `Utilisation` scalars over the canonical Thinktecture wire). A second serializer beside this pair, or a re-solve where a frozen hull exists, is the rejected form.
+(none)

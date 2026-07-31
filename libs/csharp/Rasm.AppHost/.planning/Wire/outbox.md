@@ -218,6 +218,8 @@ public static class OutboxRelay {
 
 ```mermaid
 sequenceDiagram
+    accTitle: Transactional outbox dispatch and watermark advance
+    accDescr: A producing transaction enqueueing an event atomically with source state, the relay sweep reading past the watermark and dispatching the in-process and durable legs, and the fenced watermark advancing only after delivery.
     participant Tx as Producing transaction
     participant Outbox as OutboxRow (same-tx)
     participant Sweep as OutboxRelay.Sweep

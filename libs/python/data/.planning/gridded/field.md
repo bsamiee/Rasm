@@ -384,6 +384,7 @@ from msgspec import Struct
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
@@ -408,8 +409,26 @@ class FieldReceipt(Struct, frozen=True):
         return boundary("field.to_arrow", lambda: _to_arrow(dataset)).bind(lambda lowered: _arrow_receipt(*lowered))
 
     def contribute(self) -> Iterable[Receipt]:
+        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
+        # the SAME pair handed `Metrics.record` beside the identity this egress minted — so the durable row lands in
+        # the `field` partition a predicate prunes and rejoins the live series its twin emitted. `kind` renders the
+        # closed `FieldEngine | EgressTag` family, so the absorbed virtual aggregation and a netCDF write partition
+        # apart on one column rather than collapsing into one nameless engine.
+        Metrics.record({"rasm.field.byte_volume": float(self.bytes_stored)}, domain="field", kind=str(self.engine))
         yield Receipt.of(
-            "field", ("emitted", str(self.engine), {"dims": ",".join(self.dims), "variables": self.variables, "stored": self.bytes_stored})
+            "field",
+            (
+                "emitted",
+                str(self.engine),
+                {
+                    "domain": "field",
+                    "kind": str(self.engine),
+                    "key": self.content_key.hex,
+                    "dims": ",".join(self.dims),
+                    "variables": self.variables,
+                    "stored": self.bytes_stored,
+                },
+            ),
         )
 
 

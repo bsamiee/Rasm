@@ -33,7 +33,7 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from stamina.instrumentation import RetryDetails, RetryHook, RetryHookFactory, StructlogOnRetryHook, get_on_retry_hooks, set_on_retry_hooks
 
-from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, async_boundary, boundary, scoped
+from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, async_boundary, boundary, scoped, spelled
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import OPEN, Receipt, Signals
 
@@ -128,17 +128,18 @@ _TRACER: Final = scoped(trace.get_tracer, SCOPES[Scope.RESILIENCE])
 
 def _transient(*targets: type[Exception] | str, refuse: tuple[type[Exception] | str, ...] = ()) -> BackoffHook:
     # ONE polymorphic MRO-matching law over both target spellings, the value's own shape the discriminant: an importable
-    # class (stdlib, BASE-tier dep) matches by isinstance, a gated provider's class by module-qualified name over the
-    # raise's MRO — identical subclass semantics, zero provider imports, a bare-name collision unspellable. `refuse`
-    # rides the same polymorphic axis and reads first, pinning the terminal subclasses a transient base would otherwise
-    # absorb (asyncssh auth/host-key failures subclass DisconnectError; a missing binary subclasses OSError).
+    # class (stdlib, BASE-tier dep) matches by isinstance, a gated provider's class by the faults-owned `spelled` set —
+    # identical subclass semantics, zero provider imports, a bare-name collision unspellable, and one derivation shared
+    # with the `CLASSIFY` frozenset rows rather than a second copy of the dotted-spelling convention. `refuse` rides the
+    # same polymorphic axis and reads first, pinning the terminal subclasses a transient base would otherwise absorb
+    # (asyncssh auth/host-key failures subclass DisconnectError; a missing binary subclasses OSError).
     wanted_types = tuple(t for t in targets if isinstance(t, type))
     wanted_names = frozenset(t for t in targets if isinstance(t, str))
     denied_types = tuple(t for t in refuse if isinstance(t, type))
     denied_names = frozenset(t for t in refuse if isinstance(t, str))
 
     def backoff(exc: Exception) -> bool:
-        spellings = frozenset(f"{k.__module__}.{k.__qualname__}" for k in type(exc).__mro__)
+        spellings = spelled(exc)
         denied = isinstance(exc, denied_types) or bool(spellings & denied_names)
         return not denied and (isinstance(exc, wanted_types) or bool(spellings & wanted_names))
 
@@ -284,7 +285,34 @@ POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
     # consumer trailer fence owns the terminal `AioRpcError` lift so the typed detail survives.
     (RetryClass.WIRE, Policy(attempts=5, timeout=15.0, target=_wire_transient(ConnectionError))),
     (RetryClass.SCAN, Policy(attempts=2, timeout=60.0, target=(OSError,), wait_max=30.0)),
-    (RetryClass.SECRET, Policy(attempts=3, timeout=10.0, target=(KeyringLocked, OSError))),
+    # secret-derivation band: the keystore lock and file-mount hiccups match by class, while the three cloud
+    # providers' transport transients match by dotted spelling — NONE of them subclasses OSError (probed: the
+    # google, hvac, and azure families all stop at Exception), so a class-only target left every cloud transient
+    # failing on its first RPC error while three catalogs read as retried. Permanent file-tier refusals a retry
+    # cannot clear refuse rather than burn attempts; CredentialUnavailableError stays OUT — absent material never
+    # heals inside a retry window.
+    (
+        RetryClass.SECRET,
+        Policy(
+            attempts=3,
+            timeout=10.0,
+            target=_transient(
+                KeyringLocked,
+                OSError,
+                "google.api_core.exceptions.ServiceUnavailable",
+                "google.api_core.exceptions.DeadlineExceeded",
+                "google.api_core.exceptions.InternalServerError",
+                "hvac.exceptions.VaultDown",
+                "hvac.exceptions.BadGateway",
+                "hvac.exceptions.InternalServerError",
+                "hvac.exceptions.RateLimitExceeded",
+                "azure.core.exceptions.ServiceRequestError",
+                "azure.core.exceptions.ServiceResponseError",
+                refuse=(PermissionError, IsADirectoryError, NotADirectoryError),
+            ),
+            wait_initial=0.2,
+        ),
+    ),
     # engine prechecks: a transiently-locked config folder retries tightly, a missing engine exhausts fast.
     (RetryClass.ENGINE, Policy(attempts=2, timeout=10.0, target=(OSError, TimeoutError))),
     # flaky external-oracle subprocess verdicts, name-matched so no subprocess import rides this tier.

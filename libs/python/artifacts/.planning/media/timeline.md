@@ -12,7 +12,7 @@ Two ops derive a lossless-versus-re-encode strategy from the clip streams, never
 
 - Owner: `Timeline` discriminates modality over the closed `TimelineOp` union, each case carrying its own typed payload — never a shared erased bag, a per-op subclass, or a parallel `trim`/`concat`/`xfade` trio. `Clip` carries `data: bytes` and `key: ContentKey`, so a clip is a content-keyed node and an op's dependency is its clips' keys, never a path or a re-minted key. Strategy is never a field — packet-versus-filter choice derives from stream identity for `Concat` and keyframe alignment for `Trim`. `Effect` carries the ordered `FilterNode` program directly, so every single-input filtergraph member is one data value under the existing grammar rather than another timeline case. `Transition` is the closed transition vocabulary the `Xfade` payload carries. `MediaFault` remains the one fault rail across the media plane.
 - Cases: `Trim` re-encodes zero-based or packet-copies when the in-point seats tick-exact on a keyframe packet and the out-point on a packet boundary; an audio-only clip qualifies only on real packet boundaries, so a boundary-seated lossless audio trim or a param-equal audio concat packet-copies while the re-encode fallback stays video-bound and rails `MediaFault.invalid` on an audio-only source. `Segment` composes the spine's segmented encode. `Xfade` blends video through the filtergraph `wired` dissolve arm or a `_MASK` plane and audio through overlap-add. `Speed` retimes by index-pick and rate-resamples audio, while `Reverse` flips frame and sample order. `Effect` delegates the ordered `FilterNode` program to `_transcode`, so capability grows at the filtergraph vocabulary rather than through timeline case proliferation.
-- Entry: `Timeline.parents` is the pure projection of the op's clip `ContentKey`s and `emit()` passes it as `ArtifactWork.parents`, so the planner wires upstream producers without inspecting `TimelineOp` internals. Pre-run identity includes deterministic encodings of both `TimelineOp` and `MediaProfile`. `_crossed` dispatches each worker through `self.lane.offload(Kernel.of(worker, KernelTrait.HOSTILE, idempotent=...))` — idempotency derived structurally from the crossing's segmented-profile argument, never a per-arm convention — maps the outer `BoundaryFault` through `_lapsed`, and flattens the worker's `Result` without an exception bridge.
+- Entry: `Timeline.parents` is the pure projection of the op's clip `ContentKey`s and `emit()` passes it as `ArtifactWork.parents`, so the planner wires upstream producers without inspecting `TimelineOp` internals. `_canon` frames the pre-run preimage: each clip lowers to its raw bytes plus its key's published `hex` projection, and `_tail` carries the op's non-clip payload through the deterministic encoder — a `Clip` never encodes whole, because `ContentKey.value` is a u128 and the msgpack integer ceiling is u64. `_crossed` dispatches each worker through `self.lane.offload(Kernel.of(worker, KernelTrait.HOSTILE, idempotent=...))` — idempotency derived structurally from the crossing's segmented-profile argument, never a per-arm convention — maps the outer `BoundaryFault` through `_lapsed`, and flattens the worker's `Result` without an exception bridge.
 - Auto: `_packet_concat` clones every source stream from the head clip's template and advances one offset per stream by its last `pts + duration` in that stream's own `time_base`, so the joined timeline stays monotonic across video and audio. `_sealed` is the one re-encode close every structural arm shares: `_mux_av` for `Some(Voice)` through the container-keyed `_VOICE_CODEC` policy and `_encode_video` for `Nothing`, with `_voice` preserving malformed-audio faults on `Result` rather than masking them as absence. Packet evidence composes `_probe`, so duration, frame count, and bit rate describe the delivered bytes rather than clip count or requested profile values.
 - Receipt: `_keyed` threads the PRE-RUN node key as the receipt slot — the `core/receipt#RECEIPT` elision law — and demotes the assembled-bytes content address to the `address` band fact; each op adds its timeline facts to the shared `Media` band — `Trim` `{clips, trimmed_seconds, strategy}`, `Concat` `{clips, strategy}`, `Segment` `{clips, segments}`, `Xfade` `{clips, dissolve_frames, transition}`, `Speed` `{clips, factor}`, `Reverse` `{clips}`, and `Effect` `{filter_nodes}` — one `ArtifactReceipt.Media` case across the whole plane.
 - Packages: `av` supplies the demux/seek/re-stamp/mux capsule; the timeline's own workers open read/write containers only for the packet-copy arms, and every decode/encode rides the `media/container#CONTAINER` primitives. Members settled against the folder `.api`.
@@ -120,9 +120,10 @@ class TimelineOp:
 
 class Timeline(Struct, frozen=True):
     op: TimelineOp
-    profile: MediaProfile = MediaProfile()
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
+    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner;
+    # it seats above `profile` because msgspec refuses a required field after a defaulted one at class creation.
     lane: LanePolicy
+    profile: MediaProfile = MediaProfile()
 
     @property
     def parents(self) -> tuple[ContentKey, ...]:
@@ -134,7 +135,7 @@ class Timeline(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        return ContentIdentity.key(f"media.timeline-{self.op.tag}", _CANON.encode((self.op, self.profile)))
+        return ContentIdentity.key(f"media.timeline-{self.op.tag}", _canon(self.op, self.profile))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
         # member MediaFault folds into the boundary fault (Work[ArtifactReceipt] forbids an inner Result).
@@ -214,8 +215,9 @@ lazy import av
 lazy import av.error
 lazy from rasm.artifacts.media.audio import _decode_audio
 lazy from rasm.artifacts.media.container import (
-    _CANON,
+    CANON,
     ContainerFormat,
+    Verification,
     _decode_video,
     _decode_window,
     _deployment,
@@ -225,7 +227,7 @@ lazy from rasm.artifacts.media.container import (
     _probe,
     _transcode,
     _worker,
-    Verification,
+    framed,
 )
 lazy from rasm.artifacts.media.filtergraph import wired
 
@@ -249,6 +251,13 @@ _MASK: frozendict[Transition, "Callable[[float, int, int], NDArray[np.float32]]"
     ).astype(np.float32),
 })
 
+# import-time coverage witness, the sibling of the `scene/spec#SPEC` `_COVERED` and `scene/export#EXPORT` `ROW`
+# gates: `_blended`'s spatial arm reads `_MASK[spatial]` through a catch-all, so an unruled `Transition` member is
+# otherwise a runtime `KeyError` mid-render rather than a load-time refusal. FADE is excluded BY CONSTRUCTION — it
+# routes the filtergraph dissolve ramp instead of a weight plane — so the gate names the carve rather than hiding it.
+if frozenset(_MASK) != frozenset(Transition) - {Transition.FADE}:
+    raise RuntimeError("_MASK does not cover the spatial transition vocabulary")
+
 _VOICE_CODEC: frozendict[ContainerFormat, str] = frozendict({
     ContainerFormat.MP4: "aac",
     ContainerFormat.WEBM: "libopus",
@@ -260,6 +269,35 @@ _VOICE_CODEC: frozendict[ContainerFormat, str] = frozendict({
 })
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _tail(op: TimelineOp, /) -> tuple[object, ...]:
+    # the op's NON-clip payload — every field that discriminates two otherwise-identical clip sets.
+    match op:
+        case TimelineOp(tag="trim", trim=(_, in_point, out_point)):
+            return (in_point, out_point)
+        case TimelineOp(tag="segment", segment=(_, cuts)):
+            return cuts
+        case TimelineOp(tag="xfade", xfade=(_, _, duration, transition)):
+            return (duration, transition.value)
+        case TimelineOp(tag="speed", speed=(_, factor)):
+            return (factor,)
+        case TimelineOp(tag="effect", effect=(_, nodes)):
+            return tuple(node.facet() for node in nodes)  # the node-owned canonical projection, never a repr
+        case TimelineOp(tag="concat") | TimelineOp(tag="reverse"):
+            return ()
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _canon(op: TimelineOp, profile: "MediaProfile", /) -> tuple[bytes, ...]:
+    # PRE-RUN identity preimage under the `scene/spec#SPEC` framing discipline the whole media plane composes. A
+    # `Clip` is NOT msgpack-encodable whole: `ContentKey.value` is a u128 and the msgspec msgpack integer ceiling
+    # is u64, so encoding the op raises `OverflowError` at the mint — before any work, on every timeline node.
+    # Each clip therefore lowers to its raw bytes plus its key's own published `hex` projection, and the op's
+    # remaining payload rides the deterministic encoder as the tag-keyed tail.
+    clips = tuple(chunk for clip in op.clips for chunk in (clip.data, clip.key.hex.encode()))
+    return framed(f"timeline.{op.tag}".encode(), CANON.encode(_tail(op)), CANON.encode(profile), *clips)
 
 
 def _augment(evidence: "MediaEvidence", extra: frozendict[str, float | str], /) -> "MediaEvidence":
@@ -562,7 +600,7 @@ def _segmented(cuts: tuple[float, ...], profile: "MediaProfile") -> Result["Medi
     # list, so the segmented container must be visible there — a worker-side derivation would leave the crossing
     # marked replayable and a worker-death retry would re-write the manifest and segment set.
     if profile.segment is None:
-        return Error(MediaFault(invalid="segment op needs profile.segment (a UPath root); none supplied"))
+        return Error(MediaFault(invalid="segment op needs profile.segment (a store root); none supplied"))
     if not cuts or not all(isfinite(cut) and cut > 0.0 for cut in cuts) or any(left >= right for left, right in zip(cuts, cuts[1:], strict=False)):
         return Error(MediaFault(invalid="segment cuts must be a non-empty ascending sequence of finite positive seconds"))
     seg = profile.segment

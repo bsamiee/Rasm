@@ -388,7 +388,7 @@ public readonly partial struct SquishLaw {
 
 ## [04]-[ALGEBRA]
 
-`DeformOp` is the sole operation algebra. Geometry products cross through `ModelGate`, while unrolled points, source indices, squished points, topology diagnostics, and labelled spring axes remain receipt evidence. `MeshUnwrapper`, `Unroller`, `Squisher`, and every concrete morph stay inside their consuming arm.
+`DeformOp` is the sole operation algebra. Geometry products cross through `ModelGate`, while unrolled points, source indices, squished points, topology diagnostics, and labelled spring axes remain receipt evidence. `MeshUnwrapper`, `Unroller`, `Squisher`, and every concrete morph stay inside their consuming arm — the two `IDisposable` engines under a lease, `Unroller` as a plain managed value.
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -481,7 +481,9 @@ public abstract partial record DeformOp {
                                     from carried in ModelGate.OwnMany(built: curves, key: op, allowEmpty: true)
                                         .Rollback(flat)
                                         .Rollback([.. dots])
-                                    let rows = dots.Map(static dot => (dot.Point, dot.Text))
+                                    // `Seq.Map` projects lazily, so the label rows force BEFORE the dots are disposed;
+                                    // an unforced projection reads `Point`/`Text` off a released native handle.
+                                    let rows = dots.Map(static dot => (dot.Point, dot.Text)).Strict()
                                     let _ = dots.Iter(static dot => dot.Dispose())
                                     select Built<DeformSlot>.Of(
                                         operation: op,
@@ -597,29 +599,20 @@ public static class Deforms {
     internal static bool Declared<T>(FrozenSet<T>? values, IReadOnlyList<T> rows) where T : class =>
         values is not null && values.All(row => row is not null && rows.Contains(row));
 
-    public static Fin<Built<DeformSlot>> Apply(Context context, params ReadOnlySpan<DeformOp> operations) {
-        Op op = Op.Of();
-        Seq<DeformOp> captured = toSeq(operations.ToArray());
-        return from domain in Optional(context).ToFin(Fail: op.MissingContext())
-               from _ in guard(!captured.IsEmpty, op.InvalidInput())
-               from admitted in captured.TraverseM(operation =>
-                       Optional(operation).ToFin(Fail: op.InvalidInput())
-                           .Bind(active => active.Admitted(key: op)))
-                   .As()
-               from built in ModelGate.Folded(
-                   context: domain,
-                   operations: admitted,
-                   apply: static (operation, model) => operation.Apply(domain: model))
-               select built;
-    }
+    public static Fin<Built<DeformSlot>> Apply(Context context, params ReadOnlySpan<DeformOp> operations) =>
+        ModelGate.Entry(
+            context: context,
+            operations: operations,
+            admit: static (operation, key) => operation.Admitted(key: key),
+            apply: static (operation, model) => operation.Apply(domain: model));
 }
 ```
 
 ## [05]-[EXECUTION]
 
-`Deforms.Apply` admits every operation payload before `ModelGate.Folded`. Morph and unwrap operations duplicate before mutation; unroll and squish engines die after all primary, carried, mapped, and diagnostic projections are detached.
+`Deforms.Apply` is `ModelGate.Entry`, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the folder spine's and `Built<DeformSlot>.Bench` carries harvest evidence. Morph and unwrap operations duplicate before mutation. Engine custody splits on the host: `Squisher` and `MeshUnwrapper` are `IDisposable` and release after all primary, carried, mapped, and diagnostic projections are detached, while `Unroller` holds no native handle and needs no release — a lease over it names a disposal the type does not have.
 
-`FollowingGeometryIndex` records one source position per normalized flattened curve. `ModelGate.OwnEach` owns each direct squish result before producing the next, so a later refusal releases the complete prefix.
+`FollowingGeometryIndex` records one source position per normalized flattened curve. `ModelGate.OwnEach` owns each direct squish result before producing the next, so a later refusal releases the complete prefix. Unroll label rows force with `Strict()` before the host `TextDot` spread is disposed, because a lazy projection reads the location and text off released natives.
 
 `BoundarySpring` and `DeformationSpring` preserve the two `SquishParameters.GetSpringConstants` axes as distinct facts rather than position-dependent repeated measures.
 

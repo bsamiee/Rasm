@@ -21,13 +21,16 @@
 - Law: consuming working trees carry zero Doppler files — machine-side directory scopes (`doppler configure set project=<p> config=<c> --scope <dir>`) map a checkout to its config and apply idempotently from declared scope rows, and a service token's embedded project/config outranks every flag and scope at run time; a repo-local `doppler.yaml` beside the scope rows is the second scope source this law deletes.
 - Law: a missing read key aborts as typed evidence — `read(key)` resolves the whole-config map once, `Record.get` lifts the pluck to `Option`, and a key the config does not carry mints `SecretAbsent` naming it; the apply body is the engine's own execution context, so `Effect.runSync` is the rail's exit there and no empty string is ever forged.
 - Law: `store(key, value)` is the late-landing write — a value minted AFTER the tier constructs (a `Certs` CA key, a Grafana automation token, an ACME-issued edge pair) lands as one more `Secret` row under the same tier through the same parent chain, so construction-time `entries` and graph-late material share one canonical store and no second write surface exists.
-- Entry: `new Secrets("secrets", { spec, entries }, opts)` inside every provider arm; `secrets.read("DB_PASSWORD")` at any credential `Input`; `secrets.store("MESH_CA_KEY", ca.key.privateKeyPem)` for graph-late material; `secrets.token` into `Workload.token`.
+- Entry: `new Secrets("secrets", { spec, entries }, opts)` inside every provider arm; `secrets.read("DB_PASSWORD")` at any credential `Input`; `secrets.store("MESH_CA_KEY", ca.key.privateKeyPem)` for graph-late material; `secrets.token` into `Workload.token`; `Secrets.lease(secrets, { lease, namespace }, child)` per leased scope, its `StackOutputs.Cell` into `Workload.rows` where the arm assembles the container env.
+- Law: a lease is three resources this plane owns and zero semantics it re-derives — `Secrets.lease` realizes the security branch's `LeaseSpec` as a branch config whose whole contents are the spec's own name allowlist (each row reading the canonical value through the tier's one pluck), a read-only `ServiceToken` scoped to that config alone, and one namespace cell carrying both variables `StackOutputs.custody` names; `scope + epoch` names all three, so an epoch bump lands the successor set before the prior token retires, exactly as the tier's standing token replaces. Value renewal, cache expiry, and revocation are the security custodian's — the encoded boundary crosses verbatim and this plane never parses it, because a deploy-side reading of a lease is a second lease semantics that drifts on the first renewal-posture change.
+- Law: the cell states what it carries and neither end owns the spelling — the mint stamps its keys off `StackOutputs.custody` and the workload fold reads the same record, so a token-only cell and a leased cell differ in data and never in a flag a consuming tier then branches on; the roster seats at the spec owner because this plane and the stamping tier sit on different strata, so a literal here and a literal there fork one variable name into two that only a running pod discovers disagree, and a second custody key is one row there.
 - Law: access is the `_ACCESS` handler record — `machine` mints the durable `ServiceAccount`/`ServiceAccountToken` identity (the workplace-RBAC upgrade over the config-scoped token), `group` binds a workplace group onto the project at a role with optional environment scoping, `member` binds a service account the same way; tenant secret isolation is rows of this record against the one store, never a second store per tenant.
-- Growth: a new credential is one entries row (`digest: true` stores the `bcryptHash` projection for a consumer that never needs the value); a new policy axis is one `_Policy` field with its default; a new access posture is one `_ACCESS` row.
-- Boundary: runtime consumption through `doppler run` is the workload assembly's process boundary; generated-material laws (`keepers`, encodings) are the entropy provider's contract; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`.
-- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`); `effect` (`Array`, `Data`, `Effect`, `Hash`, `Option`, `Predicate`, `Record`, `Schema`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Growth: a new credential is one entries row (`digest: true` stores the `bcryptHash` projection for a consumer that never needs the value); a new policy axis is one `_Policy` field with its default; a new access posture is one `_ACCESS` row; a new custody-cell variable is one `carries` entry with its stamping row at the consuming tier.
+- Boundary: runtime consumption through `doppler run` is the workload assembly's process boundary; generated-material laws (`keepers`, encodings) are the entropy provider's contract; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`; the `LeaseSpec` shape, its ttl grammar, and every renewal and revocation semantic are the security branch's `crypt/secret` owner.
+- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/kubernetes` (`core.v1.Secret`); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `interpolate`); `effect` (`Array`, `Data`, `Effect`, `Hash`, `Option`, `Predicate`, `Record`, `Schema`); `../program/spec.ts` (`StackSpec`, `StackOutputs`, `Tier`).
 
 ```typescript
+import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import * as random from "@pulumi/random"
 import * as doppler from "@pulumiverse/doppler"
@@ -35,7 +38,7 @@ import * as integration from "@pulumiverse/doppler/integration"
 import * as projectmember from "@pulumiverse/doppler/projectmember"
 import * as secretssync from "@pulumiverse/doppler/secretssync"
 import { Array, Data, Effect, Hash, Option, Predicate, Record, Schema } from "effect"
-import { Tier, type StackSpec } from "../program/spec.ts"
+import { StackOutputs, Tier, type StackSpec } from "../program/spec.ts"
 
 // --- [ERRORS] ----------------------------------------------------------------------------
 
@@ -55,9 +58,23 @@ const _Policy = Schema.Struct({
 
 const _TOKEN_NAME = { max: 100, hashWidth: 7 } as const
 
+// The custody roster is the spec plane's, shared with the tier that stamps the cell's rows into a container:
+// this plane mints the keys and that one reads them, so the spelling lives below both rather than twice.
+// The lease value crosses encoded — the deploy plane copies it and never parses it, so ttl, renewal posture,
+// and revocation stay the security custodian's semantics.
+const _CUSTODY = StackOutputs.custody
+
 declare namespace Secrets {
   type Policy = typeof _Policy.Type
   type Entry = { readonly generate: Partial<Policy>; readonly digest?: boolean } | { readonly value: pulumi.Input<string> }
+  // The security-owned `LeaseSpec` read as deploy coordinates: the custody scope, the name allowlist that becomes
+  // the scoped config's whole contents, the replacement identity, and the encoded value that crosses verbatim.
+  type Lease = {
+    readonly scope: string
+    readonly keys: ReadonlyArray<string>
+    readonly epoch: string
+    readonly encoded: pulumi.Input<string>
+  }
   type Args = { readonly spec: StackSpec; readonly entries: Record.ReadonlyRecord<string, Entry> }
 }
 
@@ -107,6 +124,45 @@ class Secrets extends Tier {
       ...(args.secret !== undefined && { secret: args.secret }),
       ...(args.payload !== undefined && { payload: args.payload }),
     }, child)
+  // One lease, three resources and nothing re-derived: a branch config carrying exactly the allowlisted names,
+  // a read-only token scoped to that config alone, and the namespace cell the app root reads both variables from.
+  // `scope + epoch` names every one of them, so an epoch bump mints the successor set before Pulumi retires the
+  // prior token and the workload's own graph edge carries it across — the same replacement discipline the tier's
+  // standing token rides. Lease semantics — value renewal, cache expiry, revocation — stay the security branch's;
+  // this plane owns the Doppler and Kubernetes resources and copies the encoded boundary through verbatim.
+  static readonly lease = (
+    owner: Secrets,
+    args: { readonly lease: Secrets.Lease; readonly namespace: pulumi.Input<string> },
+    child: pulumi.CustomResourceOptions,
+  ): StackOutputs.Cell => {
+    const slug = `${args.lease.scope}-${args.lease.epoch}`
+    const scoped = new doppler.BranchConfig(slug, {
+      project: owner.project.name,
+      environment: owner.config.environment,
+      name: pulumi.interpolate`${owner.config.environment}_${slug}`,
+    }, child)
+    // The allowlist IS the config: each admitted name lands as its own row reading the canonical value through
+    // the tier's one pluck, so a key outside `LeaseSpec.keys` has no row to read and the token that opens this
+    // config reaches nothing else in the store.
+    Array.map(args.lease.keys, (key) =>
+      new doppler.Secret(`${slug}-${key}`, {
+        project: owner.project.name,
+        config: scoped.name,
+        name: key,
+        value: owner.read(key),
+      }, child))
+    const token = new doppler.ServiceToken(slug, {
+      project: owner.project.name,
+      config: scoped.name,
+      name: _serviceTokenName(slug, args.lease.epoch),
+      access: "read",
+    }, child).key
+    const cell = new k8s.core.v1.Secret(slug, {
+      metadata: { namespace: args.namespace },
+      stringData: { [_CUSTODY.token]: token, [_CUSTODY.lease]: args.lease.encoded },
+    }, child)
+    return { secret: cell.metadata.name, carries: ["token", "lease"] }
+  }
   static readonly access = <K extends Secrets.Access["kind"]>(
     owner: Secrets,
     name: string,

@@ -1,11 +1,11 @@
 # [RUNTIME_EMBED]
 
-The embedding corpus pipeline and the retrieval port's satisfying side: deterministic chunking (one normalization anchor, three cut lanes as policy rows folding into `Piece` receipts), embedding capability rows on the native engine (`EmbeddingModel.make` with its built-in batch-and-cache, `makeDataLoader` with wall-clock window coalescing, the OpenAI rows as the shipped reference, the Google row over the raw `BatchEmbedContents` client, a `custom` row for any remaining raw provider), a two-tier cache whose durable band survives restart through the persisted request-resolver family, and the `Embedder` Layer that satisfies the data wave's retrieval port at app composition — publishing the admitted `Search.Embedding.fingerprint`, batching through the data wave's `Batch.Engine` on both postures, and folding the provider error union into the port's typed fault through one total tag table. The optional `Reranker` port is satisfied here too: a gated structured-output scoring fold over the window the retrieval fusion hands across, its answer re-admitted against the presented cells before it leaves. Determinism is the spine: the NFC scrub is the identity anchor — equal text yields equal pieces, equal pieces yield equal cache hits and equal fingerprint rows in every process and every language. The module is `runtime/src/ai/embed.ts`.
+The embedding corpus pipeline and the retrieval port's satisfying side: deterministic chunking (one normalization anchor, three cut lanes as policy rows folding into `Piece` receipts), embedding capability rows on the native engine, each taking ONE admitted window policy rather than freezing a posture in its name (`EmbeddingModel.make` with its built-in batch-and-cache, `makeDataLoader` with wall-clock window coalescing, the OpenAI row as the shipped reference, the Google row over the raw `BatchEmbedContents` client, a `custom` row for any remaining raw provider), a two-tier cache whose durable band survives restart through the persisted request-resolver family, and the `Embedder` Layer that satisfies the data wave's retrieval port at app composition — publishing the admitted `Search.Embedding.fingerprint`, batching through the data wave's `Batch.Engine` on both postures, and folding the provider error union into the port's typed fault through one total tag table. The optional `Reranker` port is satisfied here too: a gated structured-output scoring fold over the window the retrieval fusion hands across, its answer re-admitted against the presented cells before it leaves. Determinism is the spine: the NFC scrub is the identity anchor — equal text yields equal pieces, equal pieces yield equal cache hits and equal fingerprint rows in every process and every language. The module is `runtime/src/ai/embed.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[CUT]: the normalization anchor, the cut-lane policy rows, the `Piece` receipt; `Cut`.
-- [03]-[ROWS]: embedding capability rows — batched, windowed, google, custom — and the cache; `Embedding`.
+- [03]-[ROWS]: embedding capability rows — openai, google, custom — under one window policy, and the cache; `Embedding`.
 - [04]-[PORT]: the `Embedder`/`Reranker` satisfying Layers — fingerprint, fault fold, batching; `Embedding`.
 
 ## [02]-[CUT]
@@ -25,7 +25,7 @@ import { AiError, EmbeddingModel, type LanguageModel } from "@effect/ai"
 import { GoogleClient } from "@effect/ai-google"
 import { type OpenAiClient, OpenAiEmbeddingModel } from "@effect/ai-openai"
 import type { Persistence } from "@effect/experimental"
-import { Array, Duration, Effect, Exit, HashSet, Layer, Match, Option, PrimaryKey, Schema } from "effect"
+import { Array, Effect, Exit, HashSet, Layer, Match, Option, PrimaryKey, Schema } from "effect"
 import { Batch, Embedder, EmbedFault, Reranker, Search } from "@rasm/ts/data"
 import { Guardrail } from "./model.ts"
 
@@ -103,11 +103,14 @@ const Cut = { Lane: _Lane, pieces: _pieces, scrub: _scrubbed }
 ## [03]-[ROWS]
 
 [ROWS]:
-- Owner: `Embedding.rows` — the capability rows over the native engine: `batched` (the OpenAI polymorphic `model` under `{ mode: "batched", maxBatchSize, cache: { capacity, timeToLive } }` — request coalescing plus the hot in-memory tier in one shipped option), `windowed` (`{ mode: "data-loader", window, maxBatchSize }` — wall-clock coalescing across unrelated fibers, the bulk-ingest row), `google` (the Gemini row — no curated `EmbeddingModel` ships, so the row lifts the raw `GoogleClient` `BatchEmbedContents` rail through `EmbeddingModel.make`: one wire call per engine batch, each request `{ model, content: { parts: [{ text }] }, taskType, outputDimensionality }`, vectors read off `embeddings[].values` positionally, and the `taskType`/`outputDimensionality` policy is row data so query-versus-document asymmetry and truncated dims are declaration facts), and `custom` (`EmbeddingModel.make`/`makeDataLoader` over any raw `embedMany` — the row a local ONNX model lands on without a new surface).
+- Owner: `Embedding.rows` — three capability rows over the native engine, all taking their window geometry as the SAME admitted policy value: `openai` (the curated rows — `Embedding.Custom` selects `layerBatched` for request coalescing plus the hot in-memory tier, or `layerDataLoader` for wall-clock coalescing across unrelated fibers, the bulk-ingest posture), `google` (the Gemini row — no curated `EmbeddingModel` ships, so the row lifts the raw `GoogleClient` `BatchEmbedContents` rail through `EmbeddingModel.make`: one wire call per engine batch, each request `{ model, content: { parts: [{ text }] }, taskType, outputDimensionality }`, vectors read off `embeddings[].values` positionally, and the `taskType`/`outputDimensionality` policy is row data so query-versus-document asymmetry and truncated dims are declaration facts), and `custom` (`EmbeddingModel.make`/`makeDataLoader` over any raw `embedMany` — the row a local ONNX model lands on without a new surface).
+- Law: the window posture is a POLICY VALUE, never a row name — one `Embedding.Custom` union states batch width, hot-cache geometry, and wall-clock window, and EVERY row reads it, so a batched and a windowed deployment of one provider are one row taking two values rather than two rows freezing two literals. A provider row differing from its sibling only by a frozen option record is the shape this collapse deletes, and a new posture is one union member every row inherits.
+- Law: a raw provider states its `embedMany` and NOTHING about geometry — one `_raw` builder holds both engine arms and every non-curated row composes it, so a row body cannot carry a batch-width literal at all. A hand-frozen width inside a row denies that provider the wall-clock window and the hot tier the policy union grants its siblings, and it reads as a row-shaped fact while being a posture the deployment was never asked about; the curated OpenAI row keeps its own builder because the package ships the pair.
+- Law: an absent cache is an ABSENT KEY, not a written `undefined` — the hot-tier option is spread conditionally out of the `Option`, because the engine's option record is exact-optional and writing the key with no value is a different fact from omitting it.
 - Law: the cache is two tiers with distinct owners — the hot tier is the engine's own bounded `cache` option; the durable tier is the `_Embedded` persisted request family riding the data wave's engine values (`Batch.windowed` under the wall-clock window, then `Batch.durable` over `Persistence.ResultPersistence`, backed at the root by the data-wave cache lane with its tenant partition), primary-keyed `<fingerprint>:<body>` on the scrubbed body — so a re-embedding of unchanged corpus text after restart is a durable hit, not a provider call.
 - Law: provider identity is the admitted `Search.Embedding` value — model, dimensions, revision, and derived fingerprint travel as one fact through every provider row, while `Search.Corpus` composes the distinct relation identity at the data owner; a parallel identity tuple cannot drift, and a revision can never hide behind a constructor-local `"1"` default.
-- Growth: a new provider row is one table entry over `custom`; a cache policy change is an option field; a Google task-type posture is a row field, never a call knob.
-- Packages: `@effect/ai` (`EmbeddingModel`, `AiError`); `@effect/ai-openai` (`OpenAiEmbeddingModel`, type `OpenAiClient`); `@effect/ai-google` (`GoogleClient` — the raw `BatchEmbedContents` rail); `@rasm/ts/data` (`Batch.Engine`, `Batch.Persistence`, `Batch.tagged`, `Batch.windowed`, `Batch.durable`); `@effect/experimental` (`Persistence.ResultPersistence` — the durable band's requirement); `effect` (`Duration`, `Exit`, `Layer`, `Option`, `PrimaryKey`, `Schema`).
+- Growth: a new provider row is one table entry over `custom`; a cache or window policy change is a field on the one policy union; a Google task-type posture is a row field, never a call knob.
+- Packages: `@effect/ai` (`EmbeddingModel`, `AiError`); `@effect/ai-openai` (`OpenAiEmbeddingModel`, type `OpenAiClient`); `@effect/ai-google` (`GoogleClient` — the raw `BatchEmbedContents` rail); `@rasm/ts/data` (`Batch.Engine`, `Batch.Persistence`, `Batch.tagged`, `Batch.windowed`, `Batch.durable`); `@effect/experimental` (`Persistence.ResultPersistence` — the durable band's requirement); `effect` (`Exit`, `Layer`, `Option`, `PrimaryKey`, `Schema`).
 
 ```typescript
 const _Custom = Schema.Union(
@@ -139,74 +142,70 @@ declare namespace Embedding {
   type Custom = typeof _Custom.Type
 }
 
+const _cached = (policy: Extract<Embedding.Custom, { readonly _tag: "Batched" }>) =>
+  Option.match(policy.cache, { onNone: () => ({}), onSome: (cache) => ({ cache }) }) // exact-optional: an absent hot tier omits the key, never writes undefined
+
+// The ONE raw-engine builder every non-curated row composes: the window posture is the policy union's on both arms, so
+// no raw provider freezes a batch width in its own body and a windowed deployment of any of them is another value.
+const _raw = (
+  policy: Embedding.Custom,
+  embedMany: Parameters<typeof EmbeddingModel.make>[0]["embedMany"],
+): Layer.Layer<EmbeddingModel.EmbeddingModel> =>
+  policy._tag === "DataLoader"
+    ? Layer.scoped(
+        EmbeddingModel.EmbeddingModel,
+        EmbeddingModel.makeDataLoader({ embedMany, window: policy.engine.window, maxBatchSize: policy.engine.width }),
+      )
+    : Layer.effect(
+        EmbeddingModel.EmbeddingModel,
+        EmbeddingModel.make({ embedMany, maxBatchSize: policy.maxBatchSize, ..._cached(policy) }),
+      )
+
+const _googleEmbed = (
+  google: GoogleClient.GoogleClient,
+  embedding: Search.Embedding,
+  task: Embedding.Task,
+): Parameters<typeof EmbeddingModel.make>[0]["embedMany"] =>
+(bodies) =>
+  google.client.BatchEmbedContents(embedding.model, {
+    requests: Array.map(bodies, (text) => ({
+      model: `models/${embedding.model}`,
+      content: { parts: [{ text }] },
+      taskType: task,
+      outputDimensionality: embedding.dims,
+    })),
+  }).pipe(
+    Effect.map((response) => Array.map(response.embeddings ?? [], (row, index) => ({ index, embeddings: [...(row.values ?? [])] }))),
+    // the raw client's transport and decode faults join the engine's own AiError rail before make() sees them
+    Effect.mapError((cause) => new AiError.UnknownError({ module: "GoogleEmbedding", method: "BatchEmbedContents", cause })),
+  )
+
 const _rows = {
-  batched: (embedding: Search.Embedding): Embedding.Row<OpenAiClient.OpenAiClient> => ({
+  openai: (embedding: Search.Embedding, policy: Embedding.Custom): Embedding.Row<OpenAiClient.OpenAiClient> => ({
     embedding,
-    layer: OpenAiEmbeddingModel.layerBatched({
-      model: embedding.model,
-      config: { maxBatchSize: 64, cache: { capacity: 4096, timeToLive: Duration.minutes(30) } },
-    }),
-  }),
-  windowed: (embedding: Search.Embedding): Embedding.Row<OpenAiClient.OpenAiClient> => ({
-    embedding,
-    layer: OpenAiEmbeddingModel.layerDataLoader({
-      model: embedding.model,
-      config: { window: Duration.millis(80), maxBatchSize: 256 },
-    }),
+    layer: policy._tag === "DataLoader"
+      ? OpenAiEmbeddingModel.layerDataLoader({
+        model: embedding.model,
+        config: { window: policy.engine.window, maxBatchSize: policy.engine.width },
+      })
+      : OpenAiEmbeddingModel.layerBatched({
+        model: embedding.model,
+        config: { maxBatchSize: policy.maxBatchSize, ..._cached(policy) },
+      }),
   }),
   google: (
     embedding: Search.Embedding,
     task: Embedding.Task,
+    policy: Embedding.Custom,
   ): Embedding.Row<GoogleClient.GoogleClient> => ({
     embedding,
-    layer: Layer.effect(
-      EmbeddingModel.EmbeddingModel,
-      Effect.flatMap(GoogleClient.GoogleClient, (google) =>
-        EmbeddingModel.make({
-          maxBatchSize: 64,
-          embedMany: (bodies) =>
-            google.client.BatchEmbedContents(embedding.model, {
-              requests: Array.map(bodies, (text) => ({
-                model: `models/${embedding.model}`,
-                content: { parts: [{ text }] },
-                taskType: task,
-                outputDimensionality: embedding.dims,
-              })),
-            }).pipe(
-              Effect.map((response) =>
-                Array.map(response.embeddings ?? [], (embedding, index) => ({ index, embeddings: [...(embedding.values ?? [])] })),
-              ),
-              Effect.mapError((cause) =>
-                new AiError.UnknownError({ module: "GoogleEmbedding", method: "BatchEmbedContents", cause }),
-              ), // the raw client's transport and decode faults join the engine's own AiError rail before make() sees them
-            ),
-        })),
-    ),
+    layer: Layer.unwrapEffect(Effect.map(GoogleClient.GoogleClient, (google) => _raw(policy, _googleEmbed(google, embedding, task)))),
   }),
   custom: (
     embedding: Search.Embedding,
     policy: Embedding.Custom,
     embedMany: Parameters<typeof EmbeddingModel.make>[0]["embedMany"],
-  ): Embedding.Row => ({
-    embedding,
-    layer: policy._tag === "DataLoader"
-      ? Layer.scoped(
-          EmbeddingModel.EmbeddingModel,
-          EmbeddingModel.makeDataLoader({
-            embedMany,
-            window: policy.engine.window,
-            maxBatchSize: policy.engine.width,
-          }),
-        )
-      : Layer.effect(
-          EmbeddingModel.EmbeddingModel,
-          EmbeddingModel.make({
-            embedMany,
-            maxBatchSize: policy.maxBatchSize,
-            cache: Option.getOrUndefined(policy.cache),
-          }),
-        ),
-  }),
+  ): Embedding.Row => ({ embedding, layer: _raw(policy, embedMany) }),
 } as const
 
 class _Embedded extends Schema.TaggedRequest<_Embedded>()("Embedded", {
@@ -321,7 +320,11 @@ const _reranker = (policy: Guardrail.Policy): Layer.Layer<Reranker, never, Langu
         },
       }).pipe(
         Effect.map((response) => _permuted(Array.map(hits, (hit) => hit.cell), response.value.order)),
-        Effect.mapError((fault) => new EmbedFault({ reason: "provider", detail: fault._tag })),
+        // blame crosses with the refusal: `policy` is THIS caller's own misconfiguration, which the port spells
+        // `shape`, and reporting it as `provider` sends a rerank bug to whoever operates the model
+        Effect.mapError((fault) =>
+          new EmbedFault({ reason: fault.reason === "policy" ? "shape" : "provider", detail: fault.reason })
+        ),
       ),
   })
 

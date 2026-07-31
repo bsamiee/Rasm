@@ -58,17 +58,23 @@ public abstract partial record RedrawTarget {
 ## [03]-[CLOCKS_AND_GATES]
 
 - Owner: `FrameClock` `[Union]` owns display-link, timer, and idle pacing; `FrameRatePolicy` `[ComplexValueObject]` owns the requested frequency interval; `MotionPresentation` owns the complete accessibility posture delivered with every sample; `FrameTick` owns timestamp and delta evidence. `TimeProvider` enters once through `MotionPump.Drive` and feeds portable clock rows.
-- Entry: `FrameClock.Resolve(Option<FrameRatePolicy>, Op?) : Fin<FrameClock>` admits a frequency policy and selects display link or timer, while `FrameClock.Idle()` admits background-tolerant pacing explicitly; `Start(onTick, onFault, TimeProvider, Op) : Fin<MotionAttachment>` returns one pause/resume/dispose lifecycle and preserves clock failures on the drive rail.
-- Law: the display link is built from the SCREEN — `NSScreen.GetDisplayLink(target, selector)` on the key window's screen with `NSScreen.MainScreen` as the windowless fallback — and its callback advances on `CADisplayLink.TargetTimestamp`, the next presentation time; a wall-clock read inside a vsync tick double-advances across rebinds and is the deleted form.
-- Law: the link lifecycle is create → `AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common)` → `Paused` toggling → `Invalidate` — an invalidated link is dead and rebuilt, never resumed; `ObserveDidChangeScreenParameters` fires on display reconfiguration and the pacer re-reads `MaximumFramesPerSecond` and rebinds the link, so a monitor swap re-rates a running animation instead of orphaning it.
-- Law: tick delivery is already on the UI loop for every row — the display link attaches to the main run loop, `UITimer.Elapsed` raises on the UI thread, and `RhinoApp.Idle` is main-thread by contract — so the pump body never marshals.
+- Entry: `FrameClock.Resolve(Option<FrameRatePolicy>, Op?) : Fin<FrameClock>` admits a frequency policy and selects display link or timer off ONE anchor probe crossing `UiThread` — the probe is an AppKit window walk, so the row decision runs UI-affine inside the `Fin` funnel and an off-thread or throwing probe lands on the rail; `FrameClock.Idle()` admits background-tolerant pacing explicitly, and `Start(onTick, onFault, TimeProvider, Op) : Fin<MotionAttachment>` returns one pause/resume/dispose lifecycle and preserves clock failures on the drive rail.
+- Law: the display link is built from a WINDOW-DERIVED screen — `NSScreen.GetDisplayLink(target, selector)` on the key window's screen, falling to the first application window that resolves one — and `NSScreen.MainScreen` is the deleted form: it names the application main screen, not the paced surface's, so a second-display target paces against the wrong refresh ceiling and carries the wrong backing scale. No window resolving a screen is a typed refusal that selects the portable row, never a substituted anchor.
+- Law: `GetDisplayLink` carries `SupportedOSPlatform("macos14.0")` and declares non-null while the native result still needs validation, so the row admits on `OperatingSystem.IsMacOSVersionAtLeast(14)` — never the OS family — and every vended link crosses `Optional(...).ToFin(...)` before it is configured or attached.
+- Law: the link lifecycle is create → `AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common)` → `Paused` toggling → `RemoveFromRunLoop(NSRunLoop.Main, NSRunLoopMode.Common)` → `Invalidate` → `Dispose` — teardown is the exact inverse of attachment and an invalidated link is dead and rebuilt, never resumed; a rebind that invalidates without removing leaks a run-loop registration per display reconfiguration. `ObserveDidChangeScreenParameters` fires on that reconfiguration and the pacer re-reads `MaximumFramesPerSecond` and rebinds the link, so a monitor swap re-rates a running animation instead of orphaning it.
+- Law: tick delivery is already on the UI loop for every row — the display link attaches to the main run loop, `UITimer.Elapsed` raises on the UI thread, and `RhinoApp.Idle` is main-thread by contract — so the pump body never marshals and the consumer apply's own `HostThread.Run` and session demand both take their inline `RhinoApp.IsOnMainThread` branch. That inline crossing is what keeps the drive gate off a blocking host wait — a marshalling tick holds the gate across a command-thread round trip the command thread itself re-enters.
 - Law: the timer and idle rows derive every elapsed interval through one kernel `MonotonicTimeline` beat chain per drive — `Capture` seeds the origin, `Beat` advances ordinal, elapsed, and delta evidence — so no clock row reads or subtracts raw provider timestamps; the display-link row alone reads `TargetTimestamp`, the host's own presentation clock.
-- Boundary: `Microsoft.macOS` members live only inside the platform-gated pacer (`OperatingSystem.IsMacOS()` selects the row); portable code holds `FrameClock` values and `FrameTick` facts, never an `NSScreen`, `CADisplayLink`, or `nint`.
+- Law: the panel bounds the requested range from BOTH ends — `MaximumFramesPerSecond` is the ceiling and `MaximumRefreshInterval` its reciprocal the floor, because a variable-refresh panel advertises a rate ceiling it will not hold and the interval is the other half of the clamp; a range built from the ceiling alone lets a `CADisplayLink` drop below the panel's own slowest presentation and the drive samples against a cadence the display never delivers.
+- Law: a paced sample carries the device-pixel scale it was computed against — `FrameTick.BackingScale` reads `NSScreen.BackingScaleFactor` inside the same gated `Configured` body that reads the rate bounds, and the portable rows read the Eto display owner's `LogicalPixelSize` once per drive — so `FrameTick.DevicePixels` is the one projection a consumer reads for hairline width and hit slop, a hand-asserted `1.0` is the deleted form, and no page re-derives DPI per frame from a second host read.
+- Law: this page composes no `Eto.Forms` type: `Eto` partially qualified inside `Rasm.Rhino.Viewport` binds the sibling `Rasm.Rhino.Eto` namespace, and the strata forbid an S3 owner reaching the S1 Eto floor's package directly. The affinity assert enters through `UiThread`, the portable cadence through the Eto `Pulse` lease, and the density read through `Displays` — each the Eto sub-domain's own owner, each carrying the beat chain and disposal this page then never re-derives.
+- Boundary: `Microsoft.macOS` members live only inside the platform-gated pacer (`OperatingSystem.IsMacOSVersionAtLeast(14)` selects the row); portable code holds `FrameClock` values and `FrameTick` facts, never an `NSScreen`, `CADisplayLink`, or `nint`.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class FrameRatePolicy {
+    // Portable cadence is a declared policy row, not a host read: no portable surface publishes a refresh rate, so
+    // display-link pacing derives its range from the panel while this row states its 30..60 Hz band exactly once.
     public static FrameRatePolicy Portable { get; } = Create(min: 30f, max: 60f, preferred: 60f);
 
     public float Min { get; }
@@ -103,10 +109,18 @@ public readonly partial struct FrameInterval {
 public readonly partial struct FrameTick {
     public double Timestamp { get; }
     public double Delta { get; }
+    public double BackingScale { get; }
+
+    // `BackingScale` rides as a ratio, so a logical length crosses to device pixels by one multiply and no host read.
+    public double DevicePixels(double logical) => logical * BackingScale;
+
+    public double HairlineWidth => DevicePixels(logical: 1.0);
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double timestamp, ref double delta) {
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError, ref double timestamp, ref double delta, ref double backingScale) {
         validationError = double.IsFinite(timestamp) && double.IsFinite(delta) && delta >= 0.0
+            && double.IsFinite(backingScale) && backingScale > 0.0
             ? validationError
             : new ValidationError(message: "frame tick is invalid");
     }
@@ -166,39 +180,54 @@ public abstract partial record FrameClock {
     public sealed record TimerCase(FrameInterval Interval) : FrameClock;
     public sealed record IdleCase : FrameClock;
 
+    // `ScreenReachable` walks the application's windows, so the row decision is an AppKit read: probe, selection, and
+    // interval mint cross the Eto floor together and land inside one funnel. An unguarded off-thread probe is the
+    // deleted form — it reaches AppKit from whatever lane composed the drive and escapes the `Fin` this method returns.
     public static Fin<FrameClock> Resolve(Option<FrameRatePolicy> rate = default, Op? key = null) {
+        Op op = key.OrDefault();
         FrameRatePolicy selected = rate.IfNone(FrameRatePolicy.Portable);
-        return Fin.Succ(OperatingSystem.IsMacOS() && MacPacer.ScreenReachable
-            ? (FrameClock)new DisplayLinkCase(Rate: selected)
-            : new TimerCase(Interval: FrameInterval.Create(value: 1.0 / selected.Preferred)));
+        return UiThread.Run(new UiDispatch<FrameClock>.Blocking(() => op.Catch(() => MacPacer.ScreenReachable
+            ? Fin.Succ<FrameClock>(new DisplayLinkCase(Rate: selected))
+            : Fin.Succ<FrameClock>(new TimerCase(Interval: FrameInterval.Create(value: 1.0 / selected.Preferred))))), op).Result;
     }
 
     public static FrameClock Idle() => new IdleCase();
 
+    // The affinity assert is the Eto floor's `Current` dispatch, never a raw `Application` reach from this stratum.
     internal Fin<MotionAttachment> Start(Action<FrameTick> onTick, Action<Error> onFault, TimeProvider provider, Op key) =>
-        from _ in key.Catch(() => Fin.Succ(Op.Side(Eto.Forms.Application.Instance.EnsureUIThread)))
+        from _ in UiThread.Run(new UiDispatch<Unit>.Current(() => Fin.Succ(unit)), key).Result
+        from scale in PortableScale(key: key)
         from attachment in Switch(
-            (OnTick: onTick, OnFault: onFault, Provider: provider, Op: key),
+            (OnTick: onTick, OnFault: onFault, Provider: provider, Scale: scale, Op: key),
             displayLinkCase: static (ctx, clock) => MacPacer.Start(rate: clock.Rate, onTick: ctx.OnTick, onFault: ctx.OnFault, key: ctx.Op),
-            timerCase: static (ctx, clock) =>
-                from beats in TickBeats(onTick: ctx.OnTick, onFault: ctx.OnFault, provider: ctx.Provider, key: ctx.Op)
-                from mount in ctx.Op.Catch(() => Fin.Succ<MotionAttachment>(Attachment.Timer(interval: (double)clock.Interval, beat: beats)))
-                select mount,
+            timerCase: static (ctx, clock) => Pulse.Start(
+                    seconds: PositiveMagnitude.Create((double)clock.Interval),
+                    clock: ctx.Provider,
+                    publish: beat => ctx.OnTick(FrameTick.Create(
+                        timestamp: beat.Evidence.Elapsed.TotalSeconds, delta: beat.Evidence.Delta.TotalSeconds, backingScale: ctx.Scale)),
+                    report: ctx.OnFault,
+                    key: ctx.Op)
+                .Map<MotionAttachment>(pulse => Attachment.Paced(pulse)),
             idleCase: static (ctx, _) =>
-                from beats in TickBeats(onTick: ctx.OnTick, onFault: ctx.OnFault, provider: ctx.Provider, key: ctx.Op)
+                from beats in TickBeats(onTick: ctx.OnTick, onFault: ctx.OnFault, provider: ctx.Provider, scale: ctx.Scale, key: ctx.Op)
                 from mount in ctx.Op.Catch(() => Fin.Succ<MotionAttachment>(Attachment.Idle(beat: beats)))
                 select mount)
         select attachment;
 
-    // Kernel timeline owns every interval: each drive advances its own MonotonicBeat chain, so no clock row subtracts raw provider timestamps.
-    private static Fin<Action> TickBeats(Action<FrameTick> onTick, Action<Error> onFault, TimeProvider provider, Op key) =>
+    // The device-pixel ratio is a host read, never an asserted 1.0: the Eto display owner publishes it and one read serves the whole drive.
+    private static Fin<double> PortableScale(Op key) =>
+        key.Catch(() => Fin.Succ((double)Displays.Primary().LogicalPixelSize));
+
+    // Kernel timeline owns every interval for the idle row: `Pulse` owns the timer row's chain, so neither subtracts raw provider timestamps.
+    private static Fin<Action> TickBeats(Action<FrameTick> onTick, Action<Error> onFault, TimeProvider provider, double scale, Op key) =>
         from timeline in MonotonicTimeline.Of(provider: provider, key: key)
         from origin in timeline.Capture(key: key)
         let chain = Atom(Option<MonotonicBeat>.None)
         select (Action)(() => {
             _ = chain.Swap(prior => timeline.Beat(seed: prior.IfNone(origin), key: key)
                 .Bind(beat => key.Catch(() => {
-                    onTick(FrameTick.Create(timestamp: beat.Elapsed.TotalSeconds, delta: beat.Delta.TotalSeconds));
+                    onTick(FrameTick.Create(
+                        timestamp: beat.Elapsed.TotalSeconds, delta: beat.Delta.TotalSeconds, backingScale: scale));
                     return Fin.Succ(beat);
                 }))
                 .Match(Succ: Some, Fail: error => {
@@ -211,11 +240,9 @@ public abstract partial record FrameClock {
 internal sealed class Attachment(Func<Unit> pause, Func<Unit> resume, Action release) : MotionAttachment {
     internal static readonly Attachment Completed = new(static () => unit, static () => unit, static () => { });
 
-    internal static Attachment Timer(double interval, Action beat) {
-        Eto.Forms.UITimer timer = new((_, _) => beat()) { Interval = interval };
-        timer.Start();
-        return new(fun(timer.Stop), fun(timer.Start), () => { timer.Stop(); timer.Dispose(); });
-    }
+    // The Eto `Pulse` lease owns the host timer, its beat chain, and its disposal; this row adds pause and resume over that lease.
+    internal static Attachment Paced(Pulse pulse) =>
+        new(fun(pulse.Pause), fun(pulse.Resume), pulse.Dispose);
 
     internal static Attachment Idle(Action beat) {
         int attached = 0;
@@ -231,54 +258,74 @@ internal sealed class Attachment(Func<Unit> pause, Func<Unit> resume, Action rel
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// One Microsoft.macOS crossing: display-link pacing behind the platform gate; the link is screen-vended
-// (NSScreen.GetDisplayLink); teardown is Invalidate, and a screen-parameter change rebuilds the link in place.
+// One Microsoft.macOS crossing: display-link pacing behind the macos14.0 gate; the link is vended by a window-derived
+// NSScreen and validated before use; teardown is RemoveFromRunLoop then Invalidate then Dispose, the exact inverse of
+// attachment, and a screen-parameter change rebinds the link onto the re-resolved anchor in place.
 internal sealed class MacPacer : NSObject, MotionAttachment {
     private static readonly Selector TickSelector = new("pacerTick:");
     private readonly Action<FrameTick> onTick;
     private readonly Action<Error> onFault;
     private readonly FrameRatePolicy rate;
+    private double scale = 1.0;
     private readonly Op key;
-    private CADisplayLink link;
+    // The link is vended in `Arm`, after construction, because its callback target is the pacer itself.
+    private CADisplayLink? link;
     private NSObject? screenObserver;
     private double last = double.NaN;
 
-    private MacPacer(Action<FrameTick> onTick, Action<Error> onFault, FrameRatePolicy rate, NSScreen screen, Op key) {
+    private MacPacer(Action<FrameTick> onTick, Action<Error> onFault, FrameRatePolicy rate, Op key) {
         this.onTick = onTick;
         this.onFault = onFault;
         this.rate = rate;
         this.key = key;
-        link = Configured(link: screen.GetDisplayLink(this, TickSelector), screen: screen);
-        link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
-        screenObserver = NSApplication.Notifications.ObserveDidChangeScreenParameters((_, _) =>
-            _ = Guarded(key.Catch(() => Fin.Succ(Op.Side(Rebind)))));
     }
 
     private Unit Guarded(Fin<Unit> outcome) => outcome.Match(
         Succ: static _ => unit,
         Fail: error => {
-            link.Paused = true;
+            _ = Optional(link).Map(held => held.Paused = true);
             onFault(error);
             return unit;
         });
 
-    internal static bool ScreenReachable =>
-        OperatingSystem.IsMacOS() && (NSApplication.SharedApplication.KeyWindow?.Screen ?? NSScreen.MainScreen) is not null;
+    // `MainScreen` describes the application's main display, never the paced surface's, so the anchor walks real windows and refuses when none resolves.
+    private static Option<NSScreen> Anchor() =>
+        OperatingSystem.IsMacOSVersionAtLeast(14)
+            ? Optional(NSApplication.SharedApplication.KeyWindow?.Screen)
+                .Match(Some: Some, None: () => toSeq(NSApplication.SharedApplication.Windows).Choose(window => Optional(window.Screen)).Head)
+            : None;
 
+    internal static bool ScreenReachable => Anchor().IsSome;
+
+    // The link's callback target is the pacer itself, so the pacer is built first and armed second; `GetDisplayLink` declares
+    // non-null and still vends native null, so `Arm` validates before configuring and a refused arm releases the half-built pacer.
     internal static Fin<MotionAttachment> Start(FrameRatePolicy rate, Action<FrameTick> onTick, Action<Error> onFault, Op key) =>
-        from _ in guard(OperatingSystem.IsMacOS(), key.MissingContext()).ToFin()
-        from screen in Optional(NSApplication.SharedApplication.KeyWindow?.Screen ?? NSScreen.MainScreen).ToFin(Fail: key.MissingContext())
-        from pacer in key.Catch(() => Fin.Succ<MotionAttachment>(new MacPacer(onTick: onTick, onFault: onFault, rate: rate, screen: screen, key: key)))
-        select pacer;
+        from pacer in key.Catch(() => Fin.Succ(new MacPacer(onTick: onTick, onFault: onFault, rate: rate, key: key)))
+        from armed in Anchor().ToFin(Fail: key.MissingContext())
+            .Bind(screen => pacer.Arm(screen: screen))
+            .Match(Succ: _ => Fin.Succ<MotionAttachment>(pacer), Fail: fault => { pacer.Dispose(); return Fin.Fail<MotionAttachment>(fault); })
+        select armed;
 
-    public Unit Pause() { link.Paused = true; return unit; }
-    public Unit Resume() { link.Paused = false; return unit; }
+    private Fin<Unit> Arm(NSScreen screen) => key.Catch(() =>
+        Optional(screen.GetDisplayLink(this, TickSelector)).ToFin(Fail: key.InvalidResult()).Map(vended => {
+            link = Configured(link: vended, screen: screen);
+            link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
+            screenObserver = NSApplication.Notifications.ObserveDidChangeScreenParameters((_, _) =>
+                _ = Guarded(key.Catch(() => Fin.Succ(Op.Side(Rebind)))));
+            return unit;
+        }));
+
+    public Unit Pause() => Paused(true);
+    public Unit Resume() => Paused(false);
+
+    private Unit Paused(bool value) => Optional(link).Match(Some: held => Op.Side(() => held.Paused = value), None: () => unit);
 
     [Export("pacerTick:")]
     public void Tick(CADisplayLink sender) {
         double now = sender.TargetTimestamp;
         _ = Guarded(key.Catch(() => {
-            onTick(FrameTick.Create(timestamp: now, delta: double.IsNaN(last) ? sender.Duration : now - last));
+            onTick(FrameTick.Create(
+                timestamp: now, delta: double.IsNaN(last) ? sender.Duration : now - last, backingScale: scale));
             last = now;
             return Fin.Succ(unit);
         }));
@@ -286,28 +333,40 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
 
     private CADisplayLink Configured(CADisplayLink link, NSScreen screen) {
         float ceiling = (float)Math.Max(1L, (long)screen.MaximumFramesPerSecond);
+        double interval = screen.MaximumRefreshInterval;
+        float floor = double.IsFinite(interval) && interval > 0.0 ? (float)(1.0 / interval) : rate.Min;
         float maximum = Math.Min(rate.Max, ceiling);
-        float minimum = Math.Min(rate.Min, maximum);
+        float minimum = Math.Clamp(Math.Max(rate.Min, floor), 1f, maximum);
         float preferred = Math.Clamp(rate.Preferred, minimum, maximum);
         link.PreferredFrameRateRange = CAFrameRateRange.Create(minimum: minimum, maximum: maximum, preferred: preferred);
+        scale = (double)screen.BackingScaleFactor;
         return link;
     }
 
     private void Rebind() {
-        NSScreen? screen = NSApplication.SharedApplication.KeyWindow?.Screen ?? NSScreen.MainScreen;
-        if (screen is null) { return; }
-        bool paused = link.Paused;
-        CADisplayLink replaced = Configured(link: screen.GetDisplayLink(this, TickSelector), screen: screen);
-        replaced.Paused = paused;
-        replaced.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
-        link.Invalidate();
-        link = replaced;
-        last = double.NaN;
+        _ = Anchor().Bind(screen => Optional(screen.GetDisplayLink(this, TickSelector)).Map(vended => (Screen: screen, Vended: vended)))
+            .Map(held => {
+                CADisplayLink replaced = Configured(link: held.Vended, screen: held.Screen);
+                replaced.Paused = Optional(link).Match(Some: static prior => prior.Paused, None: static () => false);
+                replaced.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
+                _ = Optional(link).Map(prior => { Detach(prior); return unit; });
+                link = replaced;
+                last = double.NaN;
+                return unit;
+            });
+    }
+
+    // Teardown is the exact inverse of attachment: remove from the same loop and mode, invalidate, then dispose.
+    private static void Detach(CADisplayLink held) {
+        held.RemoveFromRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
+        held.Invalidate();
+        held.Dispose();
     }
 
     protected override void Dispose(bool disposing) {
         if (disposing) {
-            link.Invalidate();
+            _ = Optional(link).Map(held => { Detach(held); return unit; });
+            link = null;
             screenObserver?.Dispose();
         }
         base.Dispose(disposing);
@@ -321,8 +380,9 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
 - Entry: `MotionPump.Drive(session, script, target, TimeProvider, apply, clock?, integrator?, Op?) : Fin<MotionDrive>` executes sample → apply → invalidate per tick. Accessibility probes fresh inside `Drive`; `Pause`, `Resume`, `Retarget`, `Completion`, and `Dispose` expose the complete lifecycle.
 - Law: reduced motion is a collapse, not a skip — when `MotionPresentation.ReduceMotion` holds, the drive applies the terminal sample once (`t = 1` for a tween, the settled state for a spring), invalidates once, and completes; perceivable state changes still land, motion does not.
 - Law: the tick body computes nothing — `CyclePlan.Phase`, `Easing.Evaluate`, and `SpringShape.Step` are the kernel calls, the apply is the consumer's, the invalidation is the target row's; a numeric expression in the pump beyond elapsed-time bookkeeping is the census defect this page exists to kill.
-- Law: `MotionValue` preserves every finite easing result, including overshoot; a consumer whose domain is bounded performs its own projection at that boundary.
-- Law: one injected `Lock` serializes tick, clock fault, pause, resume, retarget, and disposal transitions; disposal waits for an in-flight tick and no callback begins host work after release.
+- Law: `MotionValue` preserves every finite easing result, including overshoot; a consumer whose domain is bounded performs its own projection at that boundary, so a back, elastic, or spring excursion never terminates a drive at an admission gate the producing law licensed it to exceed.
+- Law: every policy default either DERIVES from a named anchor or declares itself conventional in one clause — `MotionStepPolicy.Interactive` derives both bounds from `FrameRatePolicy.Portable`, and that row declares its band conventional because no portable surface publishes a refresh rate; an undived magic constant beside a policy name is the deleted form.
+- Law: one per-drive `Lock` — minted by the drive fold and threaded into `MotionDrive` — serializes tick, clock fault, pause, resume, retarget, and disposal transitions; disposal waits for an in-flight tick and no callback begins host work after release. Gate arity is per drive, never per target: concurrent drives on one view coalesce at the host's own redraw.
 - Law: spring settling is evidence-driven — `|position − target| ≤ EpsilonPolicy.SqrtEpsilon · max(1, |target|)` and `|velocity| ≤ EpsilonPolicy.SqrtEpsilon` — so a drive terminates on state, never on an iteration guess; a color tween is a tween whose apply samples `PerceptualColor.Mix` at the eased parameter, needing no third script case.
 - Law: `MotionDrive` latches terminal intent, pauses and releases the attachment, then publishes one typed outcome; the tick rail folds every kernel, consumer, invalidation, pause, and release fault onto that terminal before any waiter resumes.
 - Law: pause, resume, retarget, and disposal serialize on one lifecycle gate — disposal waits out an in-flight call, no call reaches a disposed clock, and a released drive refuses with `InvalidContext`; `Dispose` enters the same terminal fold as natural completion.
@@ -390,9 +450,12 @@ public abstract partial record MotionScript {
 
 [ComplexValueObject]
 public sealed partial class MotionStepPolicy {
+    // Step bounds derive from the portable cadence row rather than restating it: maximum step is one whole frame at
+    // that row's floor and minimum is the quarter-frame sub-step at its ceiling, so re-rating the cadence re-rates
+    // integration bounds and no second frame-rate literal survives on this page.
     public static MotionStepPolicy Interactive { get; } = Create(
-        minimumSeconds: 1.0 / 240.0,
-        maximumSeconds: 1.0 / 30.0);
+        minimumSeconds: 1.0 / (4.0 * FrameRatePolicy.Portable.Max),
+        maximumSeconds: 1.0 / FrameRatePolicy.Portable.Min);
 
     public double MinimumSeconds { get; }
     public double MaximumSeconds { get; }
@@ -627,6 +690,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Rhino viewport motion pump
+    accDescr: Kernel easing, cycle, spring, and field samplers feeding the motion pump beside the frame-clock tick and the reduce-motion gate, screen refresh policy rebinding the clock, and the pump landing samples on consumer apply, redraw targets, and the spring retarget.
     Kernel["Rasm.Parametric Easing · CyclePlan · SpringShape / Rasm.Numerics PerceptualColor · FieldIntegrator"] -->|samples| Pump["MotionPump.Drive"]
     Clock["FrameClock — CADisplayLink · UITimer · RhinoApp.Idle"] -->|FrameTick — TargetTimestamp| Pump
     Gate["MotionGate — NSWorkspace reduce-motion family"] -->|collapse decision| Pump

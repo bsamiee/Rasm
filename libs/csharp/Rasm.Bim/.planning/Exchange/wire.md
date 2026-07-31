@@ -12,17 +12,16 @@ Seam-graph interchange stays out of Bim: the `ElementGraph`/`GraphDelta` snapsho
 
 - Owner: `IfcWire` the content-keyed cross-runtime IFC interchange artifact — the IFC serialization bytes, the seam `ContentAddress` graph identity, and the `Rasm.Element/Graph/element#NODE_MODEL` `ReleaseVersion` schema stamp (the `docs/stacks/csharp/domain/data-interchange#ARTIFACT_IDENTITY` "payload + descriptor stamp + content hash" law applied to IFC); `WireParity` the IFC-wire leg of the cross-runtime golden corpus (`tests/contracts/MANIFEST.md` `IFC_WIRE`).
 - Entry: `IfcWire.Seal(SemanticProjector projector, ElementGraph graph, InterchangeFormat format, Option<EmitContext> context, Instant at, Op key)` is the producer egress (the profiles resolver is the projector's ctor-held capability, never a `Seal` parameter — the `EmitContext` carrier rides through whole, so a diff-prior, a scoped trade-package slice, or a declared unit regime wires with zero `Seal` edits) and `IfcWire.Admit(ProjectionContext ctx, IIfcTypeReconciler reconciler, IIfcProfileStore profiles)` the consumer ingress — `Fin<T>` aborts on a non-IFC `format` (`Model/faults#FAULT_BAND` `BimFault.ModelRejected` `wire-encode`) or a `SemanticProjector.Emit` egress-gate fault on the egress — the `Projection/egress#IFC_EGRESS` per-token gate rails `BimFault.UnmappedClass` on a `class-out-of-schema` row, a `predefined-out-of-schema`/`predefined-reject` token [PREDEFINED_TOKEN_RULING][H8], and an `Instantiable: false` abstract class (`abstract-class-at-egress`), and the frozen `ReleaseMap` rails `BimFault.CodecReject` on an unmapped schema member, the silent `IFC4X3_ADD2` fallback deleted — and on a malformed-bytes decode or an `IfcLegality`-rejected projection (`BimFault.ModelRejected` `wire-decode`, the wire-admission arm; the legality gate carries the two vocabulary arms `vocabulary-class-miss`/`vocabulary-token-reject` beside the relationship law) on the ingress — each typed `BimFault` case (band 2600, `Expected`-derived) lifting BARE onto the `Fin<T>` rail with no `.ToError()` hop; `IfcWire.Negotiate(Seq<string> accepted, Op key)` resolves the highest-fidelity IFC serialization a peer admits. Artifact identity is the SEMANTIC graph address (`ContentAddress.OfGraph`), never a positional DTO and never the byte hash.
-- Auto: `Seal` re-authors the graph through `SemanticProjector.Emit` at the `FormatIfcSerialization` the row resolves, stamps the serialization-INDEPENDENT `ContentAddress.OfGraph(graph)` and the `graph.Header.Schema`, so a STEP and an ifcJSON of one model carry one `Content` and a peer joins them; `Admit` decodes through the ONE GeometryGym decode owner — `Exchange/import#IMPORT_RAIL` `BimIo.ImportIfc`, the schema sniffed off the bytes BEFORE construction [H8] — hands a fresh `SemanticProjector` to `ProjectionAssembly.Assemble` over an `ElementGraph.Genesis(ctx.Header)` seed (the projector's own `GraphDelta.Reheader` overriding the seed header), and runs the `IfcLegality` IFC-semantic legality (the relationship law with the vocabulary arms) so an illegal or out-of-roster projection never freezes a graph; `Negotiate` folds the IFC `InterchangeFormat` rows by interop breadth so a peer that reads only ifcJSON receives ifcJSON without a call-site branch.
+- Auto: `Seal` re-authors the graph through `SemanticProjector.Emit` at the `Projection/egress#IFC_EGRESS` `IfcWireForm` the row resolves — the form's own seal writing the container and handing back BYTES this seam stores whole — stamps the wire-form-INDEPENDENT `ContentAddress.OfGraph(graph)` and the `graph.Header.Schema`, so a STEP and an ifcJSON of one model carry one `Content` and a peer joins them; `Admit` decodes through the ONE GeometryGym decode owner — `Exchange/import#IMPORT_RAIL` `BimIo.ImportIfc`, the schema sniffed off the bytes BEFORE construction [H8] — hands a fresh `SemanticProjector` to `ProjectionAssembly.Assemble` over an `ElementGraph.Genesis(ctx.Header)` seed (the projector's own `GraphDelta.Reheader` overriding the seed header), and runs the `IfcLegality` IFC-semantic legality (the relationship law with the vocabulary arms) so an illegal or out-of-roster projection never freezes a graph; `Negotiate` folds the IFC `InterchangeFormat` rows by interop breadth so a peer that reads only ifcJSON receives ifcJSON without a call-site branch.
 - Receipt: `IfcWire` is the one cross-runtime IFC contract — the ifcopenshell companion and the web peer decode the same bytes the C# branch emits; the `Content` joins the artifact to the `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` geometry-blob store (the `RepresentationContentHash` body keys inside the graph are cross-runtime stable) and the seam graph the `csharp:Rasm.Persistence/Element/codec#CODEC_AXIS` `SnapshotCodec` persists; `WireParity` carries the cross-runtime contract as the seam `Content` (`Agrees` — a peer that decodes the same bytes and projects its OWN graph computes the same `ContentAddress`) and the C#-host re-seal byte golden as `Reproduces` (host-local emit determinism), so a cross-runtime peer is checked by `Agrees` and never by a byte compare (the GeometryGym/ifcopenshell/web serializers emit divergent byte layouts for one graph).
 - Packages: GeometryGymIFC_Core, Rasm.Element, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm
-- Growth: a new IFC serialization GeometryGym emits is one `Exchange/format#FORMAT_AXIS` `InterchangeFormat` row on the `GeometryGym` codec — the DERIVED `Serializations` and `Negotiate` admit it with NO wire edit, the row-promotion discipline applied to the wire; only a genuinely new serialization KIND beyond STEP/XML/JSON is one `Serialization` column value on its format row with one fidelity-rank arm here and its `Exchange/import#IMPORT_RAIL` decode arm (the wire carries no decode fence), and a `CataloguePending` row (the `ifc5` row until an IFC5/IFCX toolkit lands) is excluded by the codec filter rather than advertised as sealable; a new peer is one decoder aligning to the IFC bytes (never a new wire owner); the artifact identity is the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph`, so a new content-stable rule is one clause on the seam `Rasm.Element/Projection/address#CANONICAL_WRITER` `CanonicalWriter`, never a second wire hasher; the seam-graph snapshot/delta wire grows in `csharp:Rasm.Persistence` and the gRPC descriptor in the APP-PLATFORM transport owner, never here.
+- Growth: a new IFC serialization GeometryGym emits is one `Exchange/format#FORMAT_AXIS` `InterchangeFormat` row on the `GeometryGym` codec — the DERIVED `Serializations` and `Negotiate` admit it with NO wire edit, the row-promotion discipline applied to the wire; a new wire form — a genuinely new serialization KIND beyond STEP/XML/JSON, or a new CONTAINER over a landed one — is one `Projection/egress#IFC_EGRESS` `IfcWireForm` row named as that format row's `Serialization` value, the container form ranking with its serialization column and the new KIND alone earning one fidelity-rank arm here and its `Exchange/import#IMPORT_RAIL` decode arm (the wire carries no decode fence), and a `CataloguePending` row (the `ifc5` row until an IFC5/IFCX toolkit lands) is excluded by the codec filter rather than advertised as sealable; a new peer is one decoder aligning to the IFC bytes (never a new wire owner); the artifact identity is the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph`, so a new content-stable rule is one clause on the seam `Rasm.Element/Projection/address#CANONICAL_WRITER` `CanonicalWriter`, never a second wire hasher; the seam-graph snapshot/delta wire grows in `csharp:Rasm.Persistence` and the gRPC descriptor in the APP-PLATFORM transport owner, never here.
 - Boundary: this page owns ONLY the IFC interchange wire — the seam-graph cross-runtime wire (`ElementGraph`/`GraphDelta` as `json-stj`/`cbor`/`messagepack` + the op-log change stream) is `csharp:Rasm.Persistence/Element/codec#CODEC_AXIS` `SnapshotCodec`'s and a `BimWire`/`BimWireContext` STJ serializer over the seam graph re-minted in Bim is the deleted form (the seam-graph STJ wire is Persistence's `ElementJson`, peers depending on a peer is the named strata violation); the gRPC service descriptor and the op-log change-stream FACE are APP-PLATFORM transport concerns, and the retired `BimWireDescriptor`/`OpLogWire`/`BimWireFace` consolidation inside an AEC-domain package was the strata leak this rebuild deletes; the artifact identity is the SEMANTIC `ContentAddress.OfGraph` (order-independent, the one `XxHash128` seed-zero hasher) so the same graph emitted to STEP and to ifcJSON shares one key and a byte-hash identity is the deleted form; the rooted `NodeId` is LOCAL — a fresh `Guid`-v7 per ingest [H6], the compressed IFC `GlobalId` riding the `Node.Object.ExternalId` for re-ingest correlation — so a re-admitted wire re-mints rooted ids and a "rooted address round-trips across runtimes" claim is the deleted form, the cross-runtime parity being over the content-keyed (non-rooted) `Material`/`PropertySet`/representation nodes + the `GlobalId` correlation; the geometry-bearing `ExportArtifact` (the GLB byte-keyed emit) is `Exchange/export#EXPORT_RAIL`'s and distinct (byte identity, not graph identity); `SemanticProjector.Emit` builds its OWN target `DatabaseIfc` and ignores the captured ingress db, so the same projector that imported a model re-emits it and a from-scratch path supplies any instance; the bytes→`DatabaseIfc` admission decode IS `Exchange/import#IMPORT_RAIL`'s `BimIo.ImportIfc` — the ONE GeometryGym byte→graph decode, schema-sniffed before construction [H8] — composed with the `wire-decode` admission context, so a second decode fence beside the import rail is the deleted form and a hand-constructed non-IFC `IfcWire` faults at `Admit` through the same owner's codec gate.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.IO.Hashing;
 using System.Linq;
-using System.Text;
 using GeometryGym.Ifc;
 using LanguageExt;
 using NodaTime;
@@ -52,9 +51,11 @@ public sealed record IfcWire(
     public long ByteCount => Bytes.Length;
 
     // Producer egress: re-author the graph to IFC bytes through the Bim-internal SemanticProjector.Emit, stamp the
-    // serialization-INDEPENDENT seam graph content-address and the Header schema. Emit's emittable gate IS the
-    // format#FORMAT_AXIS Serialization column (Some exactly on the GeometryGym rows) filtered by CanExport — a None
-    // column or a read-only row faults ModelRejected (wire-encode); an Emit gate fault rails through: the per-token
+    // wire-form-INDEPENDENT seam graph content-address and the Header schema. Emit's emittable gate IS the
+    // format#FORMAT_AXIS Serialization column — an Option<IfcWireForm> carrying serialization AND container on one row,
+    // Some exactly on the GeometryGym rows — filtered by CanExport, so a None column or a read-only row faults
+    // ModelRejected (wire-encode). Emit already returns BYTES (the row's own seal writes the container), so this seam
+    // stores the memory whole and no re-encode hop exists; an Emit gate fault rails through: the per-token
     // UnmappedClass span gate [PREDEFINED_TOKEN_RULING][H8], the abstract-class-at-egress check, the ReleaseMap CodecReject on an unmapped
     // schema member. Emit builds its own target database and ignores the projector's captured ingress db (the profiles
     // resolver rides the projector ctor, never a Seal parameter), so the same projector that imported a model (Project)
@@ -63,8 +64,8 @@ public sealed record IfcWire(
         SemanticProjector projector, ElementGraph graph, InterchangeFormat format,
         Option<EmitContext> context, Instant at, Op key) =>
         format.Serialization.Filter(_ => format.CanExport).Match(
-            Some: serialization => projector.Emit(graph, serialization, key, context).Map(text =>
-                new IfcWire(format, Encoding.UTF8.GetBytes(text), graph.Header.Schema, ContentAddress.OfGraph(graph), at)),
+            Some: form => projector.Emit(graph, form, key, context).Map(bytes =>
+                new IfcWire(format, bytes, graph.Header.Schema, ContentAddress.OfGraph(graph), at)),
             None: () => Fin.Fail<IfcWire>(new BimFault.ModelRejected(key, $"wire-encode:{format.Key}")));
 
     // Consumer admission: IFC bytes decode through the ONE GeometryGym decode owner — the import rail's
@@ -91,17 +92,19 @@ public sealed record IfcWire(
         Serializations.Find(f => accepted.Contains(f.Key) || accepted.Contains(f.MediaType))
             .ToFin(new BimFault.CodecReject(key, $"wire-no-mutual:{string.Join(',', accepted)}"));
 
-    // GeometryGym-emittable IFC serializations, highest interop fidelity first (STEP > ifcXML > ifcJSON) — DERIVED
+    // GeometryGym-emittable IFC wire forms, highest interop fidelity first (STEP > ifcXML > ifcJSON) — DERIVED
     // from the format#FORMAT_AXIS Serialization column (Some exactly on the GeometryGym rows) + export capability, so
     // a future IFC5/IFCX codec admission (one format row flipping InterchangeCodec.Ifc5Pending to a real toolkit)
     // joins the wire with NO edit here; IFC5 is ABSENT until then because GeometryGym reads/writes IFC2x3-IFC4.x only —
-    // enumerating the CataloguePending ifc5 row would advertise a serialization Seal cannot produce (the deleted
-    // phantom form). Fidelity rank is WIRE policy (negotiation breadth), never a format column; a hand map from
-    // format identity to serialization is the deleted form — the row carries it.
+    // enumerating the CataloguePending ifc5 row would advertise a wire form Seal cannot produce (the deleted
+    // phantom form). Fidelity rank is WIRE policy (negotiation breadth), never a format column; the rank reads the
+    // egress row's OWN IfcWireForm.Serialization column, so a hand map from format identity to serialization is the
+    // deleted form. Two forms over one serialization (plain and zipped STEP) tie on the column and the stable sort
+    // holds the InterchangeFormat.Items roster order, seating the bare container ahead of its zip.
     static readonly Seq<InterchangeFormat> Serializations =
         InterchangeFormat.Items
             .Where(static f => f.CanExport && f.Serialization.IsSome)
-            .OrderBy(static f => f.Serialization.Map(static s => s switch {
+            .OrderBy(static f => f.Serialization.Map(static form => form.Serialization switch {
                 FormatIfcSerialization.STEP => 0,
                 FormatIfcSerialization.XML  => 1,
                 _                           => 2,
@@ -118,8 +121,11 @@ public sealed record IfcWire(
 // cross-runtime byte-equality claim is the deleted form: GeometryGym, ifcopenshell, and web serializers emit
 // divergent byte layouts for one graph, so the byte golden NEVER crosses runtimes — only the GraphKey does.
 public sealed record WireParity(string Corpus, ContentAddress GraphKey, UInt128 GoldenBytes, long ByteCount) {
+    // The byte golden mints through the ONE kernel seed-zero `ContentHash` the semantic key already rides — the
+    // two are different QUESTIONS (semantic parity across runtimes, host-local byte determinism) over one hasher,
+    // so a second digest scheme beside it forks the content space this package's ruling seals to one.
     public static WireParity Of(string corpus, IfcWire wire) =>
-        new(corpus, wire.Content, XxHash128.HashToUInt128(wire.Bytes.Span), wire.ByteCount);
+        new(corpus, wire.Content, ContentHash.Of(wire.Bytes.Span), wire.ByteCount);
 
     // Cross-runtime semantic parity — the contract the corpus exists for: a Python/TypeScript peer reproduces the
     // seam ContentAddress from its OWN projection of the same bytes, so agreement is Content equality, never bytes.
@@ -128,7 +134,7 @@ public sealed record WireParity(string Corpus, ContentAddress GraphKey, UInt128 
     // C#-host re-seal byte determinism (host-local, NOT cross-runtime): a re-Seal of one graph under the canonical
     // authoring order reproduces the byte golden, catching a GeometryGym-output regression; a peer satisfies Agrees.
     public bool Reproduces(IfcWire wire) =>
-        wire.ByteCount == ByteCount && XxHash128.HashToUInt128(wire.Bytes.Span) == GoldenBytes;
+        wire.ByteCount == ByteCount && ContentHash.Of(wire.Bytes.Span) == GoldenBytes;
 }
 ```
 

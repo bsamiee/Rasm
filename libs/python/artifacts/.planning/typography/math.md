@@ -12,10 +12,10 @@
 
 - Owner: `Formula` folds `(spec, font, operators)` into one laid-out `Fragment`. `MathConstants.of(face, size)` projects the complete uharfbuzz MATH constant family once per face; `has_math_data` maps a MATH-less face to the typed `font` fault.
 - Cases: `FormulaSpec` carries `MathMLSpec`, `LatexSpec`, or `MixedSpec`; each payload contains its renderer's complete source and style policy. `Fragment.math` carries the MathML intermediate, while `Fragment.mixed` makes that inapplicable field unrepresentable.
-- Entry: `emit()` mints one key over `(spec ⊕ font ⊕ operators)`, captures it in `partial(self._emit, key)`, and threads it into `ArtifactReceipt.Document`; `laid()` composes without minting a node.
+- Entry: `emit()` mints one key over `(spec ⊕ font ⊕ operators)`, captures it in `partial(self._emit, key)`, and threads it into `ArtifactReceipt.Document`, whose `product` band carries the source grammar, the laid width/height/baseline that IS this owner's product, the emitted SVG profile a host matches to embed, and the equation label — every fact a byte count attests nothing about, each read through `_declared`'s total match rather than a reflective payload get; `laid()` composes without minting a node.
 - Auto: `render()` crosses the ziamath kernel as a `KernelTrait.RELEASING` thread kernel — ziamath refuses the subinterpreter import, so the thread arm is its one placement; `_CONFIG_LOCK` serializes global operator and SVG-profile mutation for both sync and async entrypoints, and `finally` restores the prior profile. `ParseError`, `OSError`, and `ValueError` map to distinct `MathFault` cases; an unclassified raise crosses as the runtime boundary fault.
 - Output: `Fragment` is a closed `math`/`mixed` family over shared SVG, extent, and baseline values; only `math` carries the MathML intermediate. `MathConstants.values` covers the complete provider enum, normalizes percentage rows, scales dimensional rows, and derives named projections without a parallel value roster.
-- Packages: `ziamath` (`Math`/`Latex`/`Text`, `svg`/`getsize`/`getyofst`/`mathmlstr`, `declareoperator`, `config.svg2`), `ziafont` (the glyph substrate), `uharfbuzz` (`has_math_data`, `get_math_constant`, `get_math_min_connector_overlap`), `core/receipt#RECEIPT` (`ArtifactReceipt.Document`, composed never re-declared).
+- Packages: `ziamath` (`Math`/`Latex`/`Text`, `svg`/`getsize`/`getyofst`/`mathmlstr`, `declareoperator`, `config.svg2`), `latex2mathml` (`commands.FUNCTIONS` alone — the module-global operator tuple `declareoperator` REBINDS rather than mutates, which is what makes the per-render snapshot-and-restore real instead of a no-op; ziamath's own front-end dependency, composed at this one member), `ziafont` (the glyph substrate), `uharfbuzz` (`has_math_data`, `get_math_constant`, `get_math_min_connector_overlap`), `core/receipt#RECEIPT` (`ArtifactReceipt.Document`, composed never re-declared).
 - Growth: a new source grammar is one `FormulaSpec` case and one dispatch arm; a style axis lands on its existing case payload; a new MATH constant requires no owner edit because the enum fold absorbs it; operator vocabulary grows inside `Formula.operators`.
 - Exemption: `_laid` is the provider boundary for process-global config, operator registration, parsing, and layout; its lock, `try`/`finally`, and exact exception arms own that forced mutable kernel.
 - Boundary: no plain-text shaping or outlining (`typography/shape#SHAPE`), no font engineering (`typography/font#FONT` — faces arrive engineered), no rasterization (resvg/vl-convert over the SVG at the consuming plane), no equation semantics (formulas arrive authored; CAS is the compute track), no bidi (math layout is its own directional law). A consumer importing `ziamath` directly, a per-consumer math renderer, and a hand-measured baseline offset are rejected against the one kernel and `seat()`; a nested `RuntimeRail[Result[...]]` return and a raised provider exception crossing the async edge are rejected against the one-carrier boundary migration.
@@ -222,11 +222,40 @@ class Formula(Struct, frozen=True):
         key = ContentIdentity.key("formula", _CANON.encode((self.spec, self.font, tuple(sorted(self.operators)))))
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=0.5)
 
+    @property
+    def _declared(self) -> tuple[bool, str]:
+        # total match, never a reflective `getattr(self.spec, self.spec.tag)`: the receipt spine rules reflective
+        # payload reads out because they erase the exhaustiveness witness the tail below carries. `mixed` numbers
+        # nothing — a multi-line block has no single equation label — and spells that as the empty fact.
+        match self.spec:
+            case FormulaSpec(tag="mathml", mathml=style) | FormulaSpec(tag="latex", latex=style):
+                return (style.svg2, style.number or "")
+            case FormulaSpec(tag="mixed", mixed=style):
+                return (style.svg2, "")
+            case _ as unreachable:
+                assert_never(unreachable)
+
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         laid = await self.render()
-        return laid.map(lambda frag: ArtifactReceipt.Document(key, len(frag.svg.encode()))).map_error(
-            lambda fault: BoundaryFault(boundary=(f"math.{self.spec.tag}", fault.tag))
-        )
+        # the product of this owner IS geometry, so the `product` band carries the laid extents beside the source
+        # grammar, the emitted SVG profile a host must match to embed, and the equation label a numbered formula
+        # ships under: byte volume alone attests an SVG string and answers nothing a `seat()` consumer places
+        # against, and three grammars folding onto one receipt case are otherwise indistinguishable in `_facts`.
+        svg2, number = self._declared
+        return laid.map(
+            lambda frag: ArtifactReceipt.Document(
+                key,
+                len(frag.svg.encode()),
+                frozendict({
+                    "grammar": self.spec.tag,
+                    "width": frag.width,
+                    "height": frag.height,
+                    "baseline": frag.baseline,
+                    "profile": "svg2" if svg2 else "svg11",
+                    "number": number,
+                }),
+            )
+        ).map_error(lambda fault: BoundaryFault(boundary=(f"math.{self.spec.tag}", fault.tag)))
 
 
 def _laid(spec: FormulaSpec, font: str | None, operators: frozenset[str], /) -> Result[Fragment, MathFault]:
@@ -234,11 +263,13 @@ def _laid(spec: FormulaSpec, font: str | None, operators: frozenset[str], /) -> 
         previous_svg2 = ziamath.config.svg2
         previous_operators = latex2mathml.commands.FUNCTIONS
         try:
-            # per-render operator registry: `declareoperator` APPENDS to `latex2mathml.commands.FUNCTIONS`, a
-            # process-global tuple, so each render declares over the pristine baseline and the finally restores it —
-            # one formula's vocabulary never leaks into a sibling's parse (a leaked declare would typeset an
-            # undeclared token as an operator and poison the content-addressed cache), and repeat renders never
-            # grow the tuple unboundedly.
+            # per-render operator registry: `declareoperator` REBINDS `latex2mathml.commands.FUNCTIONS` — a
+            # process-global TUPLE — so the snapshot above holds the prior binding and the finally restores it. The
+            # baseline captured is whatever ziamath's own import-time declarations left, never a bare latex2mathml
+            # roster, which is why it is read per render rather than frozen once. One formula's vocabulary therefore
+            # never leaks into a sibling's parse (a leaked declare typesets an undeclared token as an operator and
+            # poisons the content-addressed cache), and repeat renders never grow the tuple unboundedly. Were this a
+            # list, `previous_operators` would alias the mutated object and the restore would be a silent no-op.
             for name in sorted(operators):
                 ziamath.declareoperator(name)
             match spec:

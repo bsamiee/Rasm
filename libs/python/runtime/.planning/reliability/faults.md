@@ -6,17 +6,17 @@ One fault-lift core backs every application shape — the explicit-thunk `bounda
 
 ## [01]-[INDEX]
 
-- [02]-[FAULT]: the closed fault family, the classification table, the rail carriers and disposition-parameterized traversal, the three fault-lift shapes, the install latch, and the versioned instrumentation-scope stamp.
+- [02]-[FAULT]: the closed fault family, the classification table, the rail carriers and disposition-parameterized traversal, the three fault-lift shapes, the carried-fault span fold, the install latch, and the versioned instrumentation-scope stamp.
 
 ## [02]-[FAULT]
 
 - Owner: `BoundaryFault` and its rail, tables, and cross-cutting tenants per the fence. Traversal splits by shape: `traversed` folds a homogeneous `Block` of already-evaluated rails under one `Disposition`, while `railed` is the bound `effect.result` builder for free-form interleaved binds whose later steps depend on earlier bound values — a variadic short-circuit collector beside them is `traversed(by=ABORT)` re-spelled and never lands.
 - Cases: `config` versus `boundary` splits on who can repair the refusal — `config` carries a caller-repairable construction refusal (a policy value, roster, credential row, or precondition the same inputs deterministically refuse), while `boundary` carries the seam classification of a provider or runtime raise during work (a codec, render, parse, or engine failure a re-issue may clear), so a render-class or draw-class fault rides `boundary=` and a refused composition rides `config=` in every consumer. `wire` is reserved for explicit code-carrying construction where a numeric protocol/status code is the discriminant; a caught codec exception carries no code, so the `CLASSIFY` `msgspec` row lands it in the subject-carrying `boundary` case. A deadline-owning fence constructs `deadline` explicitly with its real budget and tripped-axis `cause`; the `CLASSIFY` `TimeoutError` row, with no budget in hand, defaults `budget` to `0.0` — the budget-unknown floor a consumer reads as unspecified, never a true zero deadline.
 - Entry: the three lift shapes share one `_convert`; `catch` admits a class tuple so an engine boundary narrows over its real multi-class raise surface instead of the `Exception` catch-all, and it never widens past `Exception` — converting the `anyio` cancellation exception into a fault is the forbidden widening, cancellation being scope-owned flow control rather than an ingress class.
-- Auto: `facts` is the one structured egress projection the `observability/receipts#RECEIPT` `rejected` projection spreads whole, so every leaf case carries its own `subject` inline and the receipts owner re-derives nothing.
-- Packages: `expression`, `beartype`, `msgspec`, `anyio`, `opentelemetry-api`, and `opentelemetry-semantic-conventions` per the fence imports; the OTel dependency is `-api` with the semconv constant surface — the owner reads the active span, `scoped` stamps a caller-supplied factory, and no SDK type or provider instance enters.
-- Growth: a new fault class is one `case()` with one recovery-membership row; a new exception family is one ordered `CLASSIFY` row reaching every lift shape and the trace weave; a new egress slot is one `facts` arm; a new traversal output shape is one `Disposition` member with one fold arm; a new instrumentation scope is one `Scope` member with one `SCOPES` row; a semconv bump one `Schemas` member swap reaching every meter, tracer, logger, and `Resource` at once; a fourth scope-minting API one `scoped` call, the port already covering any factory sharing the positional `(name, version, provider, schema_url)` shape; a new one-shot install owner is one `@latched(...)` application.
-- Boundary: no C# `Expected` clone and no exception taxonomy copied from a C# owner. Recovery keys on the fault's own `FaultTag` and never imports `reliability/resilience#RESILIENCE` `RetryClass` — resilience depends on faults, never the reverse; the rail maps exceptions to fault classes, the policy table maps retry classes to exception sets, and the two meet only through the rail outcome.
+- Auto: `facts` is the one structured egress projection the `observability/receipts#RECEIPT` `rejected` projection spreads whole, so every leaf case carries its own `subject` inline and the receipts owner re-derives nothing. `faulted` is its span-side twin and the branch's ONE Error-arm fold for a fault the rail CARRIED into a live span: `_convert` covers the raise this fence caught, `faulted` covers the typed fault that crossed a worker, lane, or sibling boundary and would otherwise leave an `UNSET` span beside an uncorrelated line. It seats here for the reason `scoped` does — every producer plane reaches this tier and none reaches a peer's — so the four hand-rolled copies a charter declaring universal behavior had grown collapse onto one body, and its `**fields` band is the growth axis a stage, subject, or crossing index rides.
+- Packages: `expression`, `beartype`, `msgspec`, `anyio`, `structlog`, `opentelemetry-api`, and `opentelemetry-semantic-conventions` per the fence imports; the OTel dependency is `-api` with the semconv constant surface — the owner reads the active span, `scoped` stamps a caller-supplied factory, and no SDK type or provider instance enters. `structlog` enters as the PACKAGE alone, whose `get_logger` proxy resolves the configured chain at first bind, so this tier composes the log egress without importing the `observability/logging` module the rail seats above it.
+- Growth: a new fault class is one `case()` with one recovery-membership row; a new exception family is one ordered `CLASSIFY` row reaching every lift shape and the trace weave; a new egress slot is one `facts` arm; a new traversal output shape is one `Disposition` member with one fold arm; a new span-side error dimension is one `**fields` key at a `faulted` call site, never a second fold; a new instrumentation scope is one `Scope` member with one `SCOPES` row; a semconv bump one `Schemas` member swap reaching every meter, tracer, logger, and `Resource` at once; a fourth scope-minting API one `scoped` call, the port already covering any factory sharing the positional `(name, version, provider, schema_url)` shape; a new one-shot install owner is one `@latched(...)` application.
+- Boundary: no C# `Expected` clone and no exception taxonomy copied from a C# owner. Recovery keys on the fault's own `FaultTag` and never imports `reliability/resilience#RESILIENCE` `RetryClass` — resilience depends on faults, never the reverse; the rail maps exceptions to fault classes, the policy table maps retry classes to exception sets, and the two meet through the rail outcome and the exported `spelled` matcher alone, which resilience reads and never re-derives.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -29,6 +29,7 @@ from typing import Any, Final, Literal, Protocol, assert_never, overload
 
 import anyio
 import msgspec
+import structlog
 from beartype import BeartypeConf, beartype
 from beartype.roar import BeartypeCallHintViolation
 from expression import Error, Nothing, Ok, Result, Some, case, effect, tag, tagged_union
@@ -61,6 +62,9 @@ class Scope(StrEnum):
     IDENTITY = "identity"
     EVIDENCE = "evidence"
     RECIPE = "recipe"
+    WORKERS = "workers"
+    PROFILES = "profiles"
+    JOURNAL = "journal"
 
 
 # Three API scope factories — `metrics.get_meter`, `trace.get_tracer`, `_logs.get_logger` — spell their version
@@ -188,7 +192,9 @@ FAULT_CONF: Final[BeartypeConf] = BeartypeConf(violation_type=BeartypeCallHintVi
 
 # consumers mint handles through the stamp — scoped(trace.get_tracer, SCOPES[Scope.WIRE]) — never a per-page literal and
 # never a bare factory call. A scope names the instrumenting library, never the signal, so the meter and logger slots
-# resolve one name for one library's two signals.
+# resolve one name for one library's two signals while four independently-emitting planes each keep their own row: a
+# backend joining on scope separates the worker crossing, the profiler push, and the durable journal from the served
+# host, and `SERVICE` narrows to that host and its CLI app name alone.
 SCOPES: Final[Map[Scope, str]] = Map.of_seq([
     (Scope.WIRE, "rasm.wire"),
     (Scope.METER, "rasm.runtime"),
@@ -198,6 +204,9 @@ SCOPES: Final[Map[Scope, str]] = Map.of_seq([
     (Scope.IDENTITY, "rasm.runtime.identity"),
     (Scope.EVIDENCE, "rasm.runtime.evidence"),
     (Scope.RECIPE, "rasm.runtime.recipe"),
+    (Scope.WORKERS, "rasm.runtime.workers"),
+    (Scope.PROFILES, "rasm.runtime.profiles"),
+    (Scope.JOURNAL, "rasm.runtime.journal"),
 ])
 
 # Distribution version and estate-wide semconv pin complete the coordinate `SCOPES` starts, every runtime `Resource`
@@ -215,6 +224,10 @@ SCOPES: Final[Map[Scope, str]] = Map.of_seq([
 # release identity, so an uninstalled run still mints a versioned, schema-pinned coordinate a backend joins against
 # its installed siblings and the segment itself reports which was read; a plausible release number spelled as the miss
 # is the deleted form, because it forges provenance the process never had.
+# module-scope bound logger: `structlog.get_logger()` is a lazy proxy resolving the configured chain at first bind,
+# so this tier carries the PACKAGE and never the `observability/logging` module the import rail seats above it.
+_LOG: Final = structlog.get_logger()
+
 SCHEMA_URL: Final[str] = Schemas.V1_43_0.value
 DISTRIBUTION: Final[str] = "workspace-foundation-python"
 SOURCE_VERSION: Final[str] = "0+source"
@@ -232,13 +245,35 @@ def scoped[T](acquire: ScopeAcquire[T], scope: str) -> T:
     return acquire(scope, SCOPE_VERSION, None, SCHEMA_URL)
 
 
+def faulted(span: trace.Span, event: str, fault: BoundaryFault, /, **fields: object) -> BoundaryFault:
+    # the ONE Error-arm fold for a fault the rail CARRIED into a live span rather than raised inside it: `_convert`
+    # already owns the raise-at-this-fence case, so this is its twin for a typed fault that crossed a worker, a lane,
+    # or a sibling boundary and would otherwise leave the span `UNSET` and its error line uncorrelated. Status first,
+    # then the structured line off `facts()` — the same projection the receipts `rejected` arm spreads, so the log and
+    # the receipt cannot disagree — then the fault back, so a producer's arm reads `.map_error(lambda f: faulted(span,
+    # "<event>", f, step=...))` and never a three-statement block whose middle line drifts per page. `**fields` is the
+    # growth axis and merges UNDER the fault's own facts, so a caller key can never shadow the tag, subject, or detail
+    # a reader gates on. `record_exception` is deliberately absent: the raise converted at its own boundary and is
+    # unpicklable across a worker crossing, so the flat projection IS the evidence. Issue scope and tenant arrive
+    # ambient through the chain's contextvars and baggage heads — a caller binding either re-owns a logging seam.
+    span.set_status(Status(StatusCode.ERROR, fault.tag))
+    _LOG.error(event, **(fields | fault.facts()))
+    return fault
+
+
+def spelled(cause: BaseException) -> frozenset[str]:
+    # the ONE module-qualified MRO spelling set the branch matches import-free names against — isinstance semantics
+    # for a provider class this tier never imports, the defining-module anchor rejecting an unrelated class that
+    # re-uses a provider's bare name. Both matchers intersect against it: the `CLASSIFY` frozenset row here and
+    # `reliability/resilience#RESILIENCE` `_transient`'s target/refuse rosters, so the convention has one derivation
+    # and a spelling change lands once instead of drifting between the classifier and the retry predicate.
+    return frozenset(f"{klass.__module__}.{klass.__qualname__}" for klass in type(cause).__mro__)
+
+
 def _hits(marker: ClassifyMarker, cause: BaseException) -> bool:
     match marker:
         case frozenset() as names:
-            # module-qualified qualname over the MRO — isinstance semantics for a provider class this tier never
-            # imports, the defining-module anchor rejecting an unrelated class that re-uses a provider's bare name;
-            # resilience's `_transient` retry predicate carries the same dotted-spelling convention.
-            return any(f"{klass.__module__}.{klass.__qualname__}" in names for klass in type(cause).__mro__)
+            return bool(spelled(cause) & names)
         case classes:
             return isinstance(cause, classes)
 

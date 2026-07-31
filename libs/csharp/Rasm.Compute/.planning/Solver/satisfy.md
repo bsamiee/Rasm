@@ -1,6 +1,6 @@
 # [COMPUTE_SOLVER_SATISFY]
 
-Rasm.Compute rule satisfaction: the SMT owner beside the optimizer — Z3 VERIFIES-AND-EXPLAINS where CP-SAT OPTIMIZES, orthogonal concerns on two admitted engines, one page each. Every typed `ComplianceRule` set lowers to `Microsoft.Z3` assertions from the CAS — each rule an AngouriMath `Entity.Statement` walked term-by-term onto `Context.Mk*` terms (the nonlinear NRA/NIA arithmetic CP-SAT cannot reach), asserted through `Solver.AssertAndTrack` under one tracking literal PER RULE so an UNSATISFIABLE `UnsatCore` names the EXACT violated rules, never an opaque refusal. Verdict is the three-way `SatisfyVerdict` — SATISFIABLE carries the `Model` witness, UNSATISFIABLE the unsat-core rule names, UNKNOWN a typed `(Solve, Numeric)` shortfall — surfacing as an `AssessmentResult` a discipline route carries.
+Rasm.Compute rule satisfaction: the SMT owner beside the optimizer — Z3 VERIFIES-AND-EXPLAINS where CP-SAT OPTIMIZES, orthogonal concerns on two admitted engines, one page each. Every typed `ComplianceRule` set lowers to `Microsoft.Z3` assertions from the CAS — each rule an AngouriMath `Entity.Statement` walked term-by-term onto `Context.Mk*` terms (the nonlinear NRA/NIA arithmetic CP-SAT cannot reach), asserted through `Solver.AssertAndTrack` under one tracking literal PER RULE so an UNSATISFIABLE `UnsatCore` names the EXACT violated rules, never an opaque refusal. Verdict is the three-way `SatisfyVerdict` — SATISFIABLE carries the `Model` witness beside the `Consequences` implied set every passing design must satisfy, UNSATISFIABLE the unsat-core rule names, UNKNOWN a typed `(Solve, Numeric)` shortfall beside the solver's own decision, conflict, and restart counts — surfacing as an `AssessmentResult` a discipline route carries.
 
 Ownership is ONE `Context` per `Runtime/scheduling#JOB_GRAPH` sweep worker — the AST factory and arena (`IDisposable`; every `Expr`/`Sort`/`Solver` it mints dies with it), disposed at the `AssessmentResult` boundary, never a shared global nor a context outliving its verdict. Osx-arm64 `libz3` provisions through the Forge nix lane (NuGet stable ships win-x64/osx-x64 natives only); a `Context` operation without the native FAULTS AT INIT, never a silent degrade. One `Discipline.Compliance` seam row mints ONLY when a verdict must persist as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches — a verdict enriching an existing discipline's `AssessmentResult` rides that route, no `Compliance` row minted this campaign.
 
@@ -11,12 +11,12 @@ Ownership is ONE `Context` per `Runtime/scheduling#JOB_GRAPH` sweep worker — t
 ## [02]-[RULE_SATISFACTION]
 
 - Owner: `ComplianceRule` carries one named `Entity.Statement`, citation, element-grounding rows, and a hypothesis discriminant; `RuleLowering` walks the same positional nodes as `Symbolic/dimensional#DIMENSION_PROOF`, including Boolean equivalence through `Context.MkIff`; `SatisfyVerdict` `[Union]` carries the three outcomes; `RuleSatisfaction` asserts base rules, opens one `Solver.Push` frame for hypotheses, checks once, projects the witness/core, then `Pop`s the frame.
-- Cases: `Satisfiable` carries every declared free variable as `WitnessValue.Rational` or exact Z3 text; `Unsatisfiable` carries tracked `name`/`name@element` literals; `Unknown` carries `(SolvePhase, FailureKind, Reason)` without coercion.
+- Cases: `Satisfiable` carries every declared free variable as `WitnessValue.Rational` or exact Z3 text beside the implied-literal set every model satisfies; `Unsatisfiable` carries tracked `name`/`name@element` literals; `Unknown` carries `(SolvePhase, FailureKind, Reason)` without coercion, beside the `SearchCounters` decisions/conflicts/restarts read off the same holding.
 - Entry: `Check` validates names, unique tracking identities, finite ordered bounds, grounding coverage, free-variable coverage, and timeout conversion, then consumes the `Pregate` interval decision — a `ProvenViolated` rule settles `Unsatisfiable` and an all-`ProvenSatisfied` roster settles `Satisfiable` at the box midpoint before any native allocation; only `Indeterminate` mints the bracketed `Context`. Every asserted CAS variable resolves through a declared bound or grounding binding; the lowering never silently mints an untracked symbol.
-- Receipt: the verdict surfaces on the carrying discipline's `AssessmentResult`: `rule:<name>` flags, rational witnesses as ratio facts, non-rational witnesses as exact text, the raw unsat core, or the typed unknown triple (`satisfy-unknown-phase`/`satisfy-unknown-kind`/`satisfy-unknown` — the `SolvePhase`/`FailureKind` evidence stays typed at the assessment boundary, never a bare reason string); no satisfy-local receipt exists.
-- Packages: Microsoft.Z3 (the `Context` AST factory/arena and `AssertAndTrack`/`Check`/`Model`/`UnsatCore`/`Mk*` term surface — MIT; arm64 native Forge-provisioned, fault-at-init), AngouriMath (the `Entity.Statement` rule source, the one lowering algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
-- Growth: a new rule is one `ComplianceRule` DATA row; a new element population under an existing rule is one `RuleGrounding` row (the template quantifies, never a per-element rule copy); a new lowered node family is one `RuleLowering` arm (the walk breaks typed on an unmapped node, never silently); a new verdict projection is one field on the verdict case; an OPTIMIZING rule query (maximize slack, Z3 soft assertions with weights) is the recorded `Optimize` growth row on this SAME owner and engine — never a second exact rail beside `Solver/optimizer`'s CP-SAT/MILP; zero new surface.
-- Boundary: Z3 VERIFIES-AND-EXPLAINS, CP-SAT OPTIMIZES — a rule-consistency question with an unsat-core explanation lands here, a design-space search on `Solver/optimizer`'s cp-sat/milp rows, and cross-wiring either engine onto the other is rejected; the lowering source is the CAS, so the `Symbolic/dimensional#DIMENSION_PROOF` gate proves a rule's unit-consistency BEFORE it asserts and a stringly rule DSL beside the CAS is rejected; a cached global `Context` is rejected because Z3 contexts are not thread-safe across workers; `UNKNOWN` stays honest — the NRA/NIA fragment is undecidable in general, so the policy timeout and `ReasonUnknown` surface as the typed shortfall, never a coerced SAT/UNSAT nor a managed fallback SMT when the Forge-provisioned native is absent; the `Symbolic/lowering#ENCLOSURE_AND_COLUMNS` `EnclosureFold.Certify` interval pre-gate answers a rule whose enclosure proves over the declared bounds BEFORE the Z3 context is minted — `ProvenSatisfied`/`ProvenViolated` short-circuit the check, `Indeterminate` falls through to the exact engine, and the gate is a filter over the same admitted `SymbolicExpr`, never a second verdict authority.
+- Receipt: the verdict surfaces on the carrying discipline's `AssessmentResult`: `rule:<name>` flags, rational witnesses as ratio facts, non-rational witnesses as exact text, `implied` rows for each universal literal, the raw unsat core, or the typed unknown triple (`satisfy-unknown-phase`/`satisfy-unknown-kind`/`satisfy-unknown` — the `SolvePhase`/`FailureKind` evidence stays typed at the assessment boundary, never a bare reason string) beside `satisfy-decisions`/`satisfy-conflicts`/`satisfy-restarts`, each present only where the run's own counter table published it; no satisfy-local receipt exists.
+- Packages: Microsoft.Z3 (the `Context` AST factory/arena and `AssertAndTrack`/`Check`/`Model`/`UnsatCore`/`Consequences`/`Statistics`/`ReasonUnknown`/`Mk*` term surface — MIT; arm64 native Forge-provisioned, fault-at-init), AngouriMath (the `Entity.Statement` rule source, the one lowering algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
+- Growth: a new rule is one `ComplianceRule` DATA row; a new element population under an existing rule is one `RuleGrounding` row (the template quantifies, never a per-element rule copy); a new lowered node family is one `RuleLowering` arm (the walk breaks typed on an unmapped node, never silently); a new verdict projection is one field on the verdict case; a further search counter is one `SearchCounters` column with its own Z3 key; an OPTIMIZING rule query (maximize slack, Z3 soft assertions with weights) is the recorded `Optimize` growth row on this SAME owner and engine — never a second exact rail beside `Solver/optimizer`'s CP-SAT/MILP; zero new surface.
+- Boundary: Z3 VERIFIES-AND-EXPLAINS, CP-SAT OPTIMIZES — a rule-consistency question with an unsat-core explanation lands here, a design-space search on `Solver/optimizer`'s cp-sat/milp rows, and cross-wiring either engine onto the other is rejected; the lowering source is the CAS, so the `Symbolic/dimensional#DIMENSION_PROOF` gate proves a rule's unit-consistency BEFORE it asserts and a stringly rule DSL beside the CAS is rejected; a cached global `Context` is rejected because Z3 contexts are not thread-safe across workers; `UNKNOWN` stays honest AND MEASURED — the NRA/NIA fragment is undecidable in general, so the policy timeout and `ReasonUnknown` surface as the typed shortfall beside the solver's own decision, conflict, and restart counts, never a coerced SAT/UNSAT nor a managed fallback SMT when the Forge-provisioned native is absent; every counter is `Option<long>` because the statistics indexer answers `null` on a key the running tactic never published and a zero there would name a search that decided nothing; the universal `Consequences` extraction rides one policy column on the SATISFIABLE branch of the same holding — no second verdict authority, no re-`Check`, and an empty implied set where the policy declines or the extraction cannot settle; the `Symbolic/lowering#ENCLOSURE_AND_COLUMNS` `EnclosureFold.Certify` interval pre-gate answers a rule whose enclosure proves over the declared bounds BEFORE the Z3 context is minted — `ProvenSatisfied`/`ProvenViolated` short-circuit the check, `Indeterminate` falls through to the exact engine, and the gate is a filter over the same admitted `SymbolicExpr`, never a second verdict authority.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -24,10 +24,36 @@ public sealed record ComplianceRule(string Name, SymbolicExpr Constraint, string
 
 public sealed record RuleGrounding(string Element, Map<string, double> Bindings);
 
-public sealed record SatisfyPolicy(Duration Timeout, bool WitnessCompletion = true) {
+public sealed record SatisfyPolicy(Duration Timeout, bool WitnessCompletion = true, bool Implications = false) {
     public static readonly SatisfyPolicy Canonical = new(Duration.FromSeconds(30));
 
     public bool Invalid => Timeout <= Duration.Zero || Timeout.TotalMilliseconds > uint.MaxValue;
+}
+
+// Search counters read off the solver's own `Statistics` table after the check that produced the verdict. Every
+// column is `Option<long>` because the indexer answers `null` on a key the running tactic never published, and a
+// zero there would read as a solver that decided nothing — the discrimination the whole carrier exists to make.
+public readonly record struct SearchCounters(Option<long> Decisions, Option<long> Conflicts, Option<long> Restarts) {
+    public static readonly SearchCounters Absent = new(None, None, None);
+
+    // Z3 publishes its counters under its own names; the roster is closed here so a renamed upstream key surfaces
+    // as absence rather than as a fabricated count.
+    public static SearchCounters Of(Microsoft.Z3.Statistics statistics) =>
+        new(Counter(statistics, "decisions"), Counter(statistics, "conflicts"), Counter(statistics, "restarts"));
+
+    // `Entry` discriminates its own storage, so a double-valued counter narrows and an unset flag pair answers
+    // absence rather than reading whichever field happens to hold zero.
+    static Option<long> Counter(Microsoft.Z3.Statistics statistics, string key) =>
+        statistics[key] switch {
+            { IsUInt: true } entry => Some((long)entry.UIntValue),
+            { IsDouble: true } entry when double.IsFinite(entry.DoubleValue) => Some((long)entry.DoubleValue),
+            _ => None,
+        };
+
+    public Seq<AssessmentFact> Facts =>
+        Decisions.Map(static value => AssessmentFact.Ratio("satisfy-decisions", value)).ToSeq()
+        + Conflicts.Map(static value => AssessmentFact.Ratio("satisfy-conflicts", value)).ToSeq()
+        + Restarts.Map(static value => AssessmentFact.Ratio("satisfy-restarts", value)).ToSeq();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -42,9 +68,16 @@ public abstract partial record WitnessValue {
 public abstract partial record SatisfyVerdict {
     private SatisfyVerdict() { }
 
-    public sealed record Satisfiable(Map<string, WitnessValue> Witness) : SatisfyVerdict;
+    // `Witness` is ONE design that passes; `Implied` is what EVERY passing design must satisfy — the answer a
+    // code-compliance consumer actually asks, and what makes the `Citation` column on `ComplianceRule` actionable
+    // rather than decorative. The set is empty when the policy declines the extraction, never absent as a case.
+    public sealed record Satisfiable(Map<string, WitnessValue> Witness, Seq<string> Implied) : SatisfyVerdict;
     public sealed record Unsatisfiable(Seq<string> ViolatedRules) : SatisfyVerdict;
-    public sealed record Unknown(SolvePhase Phase, FailureKind Kind, string Reason) : SatisfyVerdict;
+
+    // `Reason` cannot separate a timeout at three decisions — a lowering pathology a caller fixes by re-encoding —
+    // from one at three million, a genuinely hard NRA fragment where raising `SatisfyPolicy.Timeout` is the only
+    // move; the counters read off the same solver holding are what decide it.
+    public sealed record Unknown(SolvePhase Phase, FailureKind Kind, string Reason, SearchCounters Counters) : SatisfyVerdict;
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
@@ -72,9 +105,13 @@ public static class RuleSatisfaction {
                 : (rule, new IntervalVerdict.Indeterminate(Interval.Of(double.MinValue, double.MaxValue))));
         return certified.Find(static pair => pair.Verdict is IntervalVerdict.ProvenViolated).Match(
             Some: violated => Some((SatisfyVerdict)new SatisfyVerdict.Unsatisfiable(Seq(violated.Rule.Name))),
+            // Implications stay EMPTY on the pre-gate branch: an enclosure proves the box satisfies, never what
+            // every model must carry, so the extraction rides the exact engine alone rather than inventing a
+            // universal claim from an interval bound.
             None: () => certified.ForAll(static pair => pair.Verdict is IntervalVerdict.ProvenSatisfied)
                 ? Some((SatisfyVerdict)new SatisfyVerdict.Satisfiable(
-                    order.Fold(Map<string, WitnessValue>(), (acc, name) => acc.Add(name, new WitnessValue.Rational((bounds[name].Lower + bounds[name].Upper) * 0.5)))))
+                    order.Fold(Map<string, WitnessValue>(), (acc, name) => acc.Add(name, new WitnessValue.Rational((bounds[name].Lower + bounds[name].Upper) * 0.5))),
+                    Seq<string>()))
                 : Option<SatisfyVerdict>.None);
     }
 
@@ -125,15 +162,30 @@ public static class RuleSatisfaction {
                 Microsoft.Z3.Status.SATISFIABLE => (SatisfyVerdict)new SatisfyVerdict.Satisfiable(
                     variables.Map((name, variable) => (name, Value: solver.Model.Evaluate(variable, completion: policy.WitnessCompletion)))
                         .Values.ToSeq()
-                        .Fold(Map<string, WitnessValue>(), (acc, pair) => acc.Add(pair.name, RuleLowering.Witness(pair.Value)))),
+                        .Fold(Map<string, WitnessValue>(), (acc, pair) => acc.Add(pair.name, RuleLowering.Witness(pair.Value))),
+                    Implied(solver, variables, policy)),
                 Microsoft.Z3.Status.UNSATISFIABLE => new SatisfyVerdict.Unsatisfiable(
                     toSeq(solver.UnsatCore).Map(static literal => literal.ToString())),
-                _ => new SatisfyVerdict.Unknown(SolvePhase.Solve, FailureKind.Numeric, solver.ReasonUnknown),
+                // Counters read from the SAME holding that produced the verdict; a second `Check` would re-run the
+                // search and report a different one.
+                _ => new SatisfyVerdict.Unknown(SolvePhase.Solve, FailureKind.Numeric, solver.ReasonUnknown, SearchCounters.Of(solver.Statistics)),
             };
             if (framed) { solver.Pop(); }
             return verdict;
         }).Run().MapFail(static error => (Error)new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<z3:{error.GetType().Name}:{error.Message}>"))
         select verdict;
+
+    // Universal implications over the declared variable set, on the SAME holding the witness came from: the fixed
+    // point every model satisfies, so a rule roster answers "every passing design carries beam depth >= 450" and
+    // not merely "here is one that does". An empty roster is the honest read for a policy that declines the cost,
+    // for a status the extraction cannot settle, and for a rule set implying nothing beyond its own bounds.
+    static Seq<string> Implied(Microsoft.Z3.Solver solver, Map<string, Microsoft.Z3.RealExpr> variables, SatisfyPolicy policy) =>
+        !policy.Implications
+            ? Seq<string>()
+            : solver.Consequences([], variables.Values.ToSeq().Map(static variable => (Microsoft.Z3.Expr)variable), out Microsoft.Z3.BoolExpr[] implied)
+              is Microsoft.Z3.Status.SATISFIABLE
+                ? toSeq(implied).Map(static literal => literal.ToString())
+                : Seq<string>();
 
     static Fin<Unit> Admit(Seq<ComplianceRule> rules, Map<string, (double Lower, double Upper)> bounds, SatisfyPolicy policy) {
         if (policy.Invalid || rules.IsEmpty || rules.Map(static rule => rule.Name).ToHashSet(StringComparer.Ordinal).Count != rules.Count)
@@ -170,14 +222,16 @@ public static class RuleSatisfaction {
             satisfiable: sat =>
                 sat.Witness.Map((name, value) => (name, value)).Values.ToSeq()
                     .TraverseM(static pair => WitnessFact(pair.name, pair.value)).As()
-                    .Map(witness => rules.Map(static rule => AssessmentFact.Flag($"rule:{rule.Name}", true)) + witness),
+                    .Map(witness => rules.Map(static rule => AssessmentFact.Flag($"rule:{rule.Name}", true))
+                        + witness
+                        + sat.Implied.Map(static literal => AssessmentFact.Text("implied", literal))),
             unsatisfiable: unsat => FinSucc(
                 rules.Map(rule => AssessmentFact.Flag($"rule:{rule.Name}", !unsat.ViolatedRules.Exists(literal => literal == rule.Name || literal.StartsWith($"{rule.Name}@", StringComparison.Ordinal))))
                     + Seq(AssessmentFact.Text("unsat-core", string.Join(",", unsat.ViolatedRules)))),
             unknown: static unknown => FinSucc(Seq(
                 AssessmentFact.Text("satisfy-unknown-phase", unknown.Phase.Key),
                 AssessmentFact.Text("satisfy-unknown-kind", unknown.Kind.Key),
-                AssessmentFact.Text("satisfy-unknown", unknown.Reason))));
+                AssessmentFact.Text("satisfy-unknown", unknown.Reason)) + unknown.Counters.Facts));
 
     static Fin<AssessmentFact> WitnessFact(string name, WitnessValue value) =>
         value.Switch(

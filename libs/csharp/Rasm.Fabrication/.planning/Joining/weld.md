@@ -30,6 +30,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
 using NodaTime;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
 using Rhino.Geometry;
@@ -127,7 +128,7 @@ public abstract partial record Waveform {
                 ? Some(pair.Item1.Offset + ((pair.Item2.Offset - pair.Item1.Offset)
                     * ((p - pair.Item1.Phase) / (pair.Item2.Phase - pair.Item1.Phase))))
                 : None)
-            .HeadOrNone()
+            .Head
             .IfNone(0.0));
 
     public bool Admitted => Switch(
@@ -249,7 +250,7 @@ public sealed partial class FillProfile {
         .Choose(pair => stationMm >= pair.Item1.StationMm && stationMm <= pair.Item2.StationMm
             ? Some((pair.Item1, pair.Item2))
             : None)
-        .HeadOrNone()
+        .Head
         .Map(pair => {
             double t = (stationMm - pair.Item1.StationMm) / (pair.Item2.StationMm - pair.Item1.StationMm);
             return (
@@ -520,7 +521,7 @@ public sealed partial class WeldJoint {
             preheat.DegreesCelsius, pwht.Map(static value => value.DegreesCelsius),
             pwhtDuration.Map(static value => value.Minutes), impactDemanded, qualificationContext, inspection,
             out WeldJoint admitted) is { } error
-                ? Fin.Fail<WeldJoint>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                ? Fin.Fail<WeldJoint>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, error.Message))
                 : Fin.Succ(admitted);
 
     internal static Vector3d Tangent(Arr<Point3d> seam, int index) => index switch {
@@ -652,17 +653,15 @@ public sealed partial class TransferMode {
 
     public Fin<double> Travel(double requestedMmMin, int joint) =>
         !double.IsFinite(requestedMmMin) || requestedMmMin < TravelLowMmMin
-            ? Fin.Fail<double>(new GeometryFault.DegenerateInput(
-                Kind.Curve,
-                -1,
-                $"weld-plan:travel-floor:{joint}:{requestedMmMin:R}").ToError())
+            ? Fin.Fail<double>(new FabricationFault.PolicyInadmissible(
+                FabConcern.Joining,
+                $"weld-plan:travel-floor:{joint}:{requestedMmMin:R}"))
             : Fin.Succ(Math.Min(requestedMmMin, TravelHighMmMin));
 
     private static K<Validation<Error>, Unit> Gate(Set<string> admitted, string key, string axis, int joint) =>
-        admitted.Contains(key)
-            ? Validation<Error, Unit>.Success(unit)
-            : Validation<Error, Unit>.Fail(
-                new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-arc-mode:{axis}:{joint}:{key}").ToError());
+        AdmissionSlots.Gate(
+            admitted.Contains(key),
+            new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-arc-mode:{axis}:{joint}:{key}"));
 }
 
 [ComplexValueObject]
@@ -686,9 +685,9 @@ public sealed partial class WeldProcessLaw {
     public Fin<TransferMode> Mode(WeldJoint joint) => joint.TransferModeKey
         .Match(
             Some: key => Modes.Find(key)
-                .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:transfer-mode:{joint.Joint}:{key}").ToError()),
+                .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-plan:transfer-mode:{joint.Joint}:{key}")),
             None: () => Modes.Find(DefaultModeKey)
-                .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:default-mode:{DefaultModeKey}").ToError()))
+                .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-plan:default-mode:{DefaultModeKey}")))
         .Bind(mode => mode.Admits(joint).ToFin().Map(_ => mode));
 }
 
@@ -767,7 +766,7 @@ public interface IWeldAccess {
         string key,
         Func<WeldJoint, Seq<WeldPass>, Validation<Error, Unit>> check) =>
         WeldAccess.Validate(key, check, out WeldAccess access) is { } error
-            ? Fin.Fail<IWeldAccess>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<IWeldAccess>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, error.Message))
             : Fin.Succ<IWeldAccess>(access);
 }
 
@@ -790,10 +789,9 @@ internal sealed partial class WeldAccess : IWeldAccess {
             .Run()
             .Match(
                 Succ: static result => result,
-                Fail: error => Validation<Error, Unit>.Fail(new GeometryFault.DegenerateInput(
-                    Kind.Curve,
-                    -1,
-                    $"weld-access:{Key}:{error.Message}").ToError()));
+                Fail: error => Validation<Error, Unit>.Fail(new FabricationFault.PolicyInadmissible(
+                    FabConcern.Joining,
+                    $"weld-access:{Key}:{error.Message}")));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -855,10 +853,9 @@ public abstract partial record WeldDemandBinding {
             : projected.Match(
                 Some: value => Fin.Succ(wrap(value)),
                 None: () => variable.Requirement.EvidenceRequired
-                    ? Fin.Fail<QualificationValue>(new GeometryFault.DegenerateInput(
-                        Kind.Curve,
-                        -1,
-                        $"weld-demand:required:{variable.Key}").ToError())
+                    ? Fin.Fail<QualificationValue>(new FabricationFault.PolicyInadmissible(
+                        FabConcern.Joining,
+                        $"weld-demand:required:{variable.Key}"))
                     : Fin.Succ<QualificationValue>(new QualificationValue.EvidenceOmitted()));
 }
 
@@ -926,7 +923,7 @@ public sealed partial class WeldPolicy {
         Map<string, WeldProcessLaw> processes,
         Seq<IWeldAccess> access,
         Seq<WeldDemandBinding> demandBindings) => Optional(source)
-        .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-policy-source").ToError())
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-policy-source"))
         .Map(input => input.Switch(
             defined: static value => (
                 Target: value.TargetHeatInputKjMm,
@@ -957,7 +954,7 @@ public sealed partial class WeldPolicy {
             access,
             demandBindings,
             out WeldPolicy admitted) is { } error
-                ? Fin.Fail<WeldPolicy>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                ? Fin.Fail<WeldPolicy>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, error.Message))
                 : Fin.Succ(admitted));
 }
 
@@ -990,11 +987,11 @@ public sealed partial class WeldRequest {
                 .Map(static pass => pass.Lineage.ExcavatedMm3).Sum(),
             Deposited: passes.Filter(pass => pass.Joint == joint.Joint)
                 .Map(static pass => pass.Deposit.DepositedVolumeMm3 * pass.Role.FillContribution).Sum()))
-        .Map(row => Math.Abs(row.Required - row.Deposited) <= Math.Max(
+        .Map(row => AdmissionSlots.Gate(
+            Math.Abs(row.Required - row.Deposited) <= Math.Max(
                 Policy.AbsoluteVolumeToleranceMm3,
-                row.Required * Policy.RelativeVolumeTolerance)
-            ? Fin.Succ(unit).ToValidation()
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:coverage:{row.Joint}").ToError()).ToValidation())
+                row.Required * Policy.RelativeVolumeTolerance),
+            new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-plan:coverage:{row.Joint}")))
         .Traverse(identity)
         .As()
         .ToFin()
@@ -1309,7 +1306,7 @@ public sealed partial class WeldPlan {
             && row.Pass.Lineage.Resolves(row.Pass.Joint, row.Prior));
 
     public Fin<WeldProjectionReceipt> Project(WeldProjection projection) => Optional(projection)
-        .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-projection").ToError())
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-projection"))
         .Map(request => request.Switch(
             state: this,
             execution: static (plan, value) => new WeldProjectionReceipt.Execution(
@@ -1324,7 +1321,7 @@ public sealed partial class WeldPlan {
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Weld {
     public static Fin<WeldPlan> Plan(WeldRequest request) =>
-        request.Joints.OrderBy(static joint => joint.Joint).ToSeq()
+        toSeq(request.Joints.OrderBy(static joint => joint.Joint))
             .Map(joint => PlanJoint(joint, request.Policy, request.Budget).ToValidation())
             .Traverse(identity)
             .As()
@@ -1340,9 +1337,9 @@ public static class Weld {
                 receipt.Demands,
                 receipt.Maximum,
                 receipt.Passes.Count,
-                ContentKey.Of(EgressKind.WeldPlan, CanonicalBytes(receipt.Passes, receipt.Actions, receipt.Demands)),
+                ContentKey.Of(EgressKind.WeldPlan, CanonicalBytes(receipt.Passes, receipt.Actions, receipt.Demands, request.Policy)),
                 out WeldPlan plan) is { } error
-                    ? Fin.Fail<WeldPlan>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                    ? Fin.Fail<WeldPlan>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, error.Message))
                     : Fin.Succ(plan)));
 
     public static double HeatInput(double efficiency, double powerW, double arcTimeS, double weldLengthMm) =>
@@ -1353,22 +1350,22 @@ public static class Weld {
         WeldPolicy policy,
         ProcessBudget.Joining budget) =>
         from law in policy.Processes.Find(joint.ProcessKey)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:process-law:{joint.ProcessKey}").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-plan:process-law:{joint.ProcessKey}"))
         from mode in law.Mode(joint)
         from consumable in law.Deposition is DepositionSource.Autogenous
             ? joint.FillerKey.IsNone && joint.FillerClassificationKey.IsNone
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:autogenous-filler").ToError())
+                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-plan:autogenous-filler"))
             : joint.FillerKey.IsSome && joint.FillerClassificationKey.IsSome
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:filler").ToError())
+                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-plan:filler"))
         from arc in budget.CurrentA <= mode.CurrentCapA && budget.InterpassTemp >= joint.PreheatC
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:arc-envelope:{joint.Joint}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-plan:arc-envelope:{joint.Joint}"))
         from frames in Transport(joint, policy, budget.Standoff)
         from seal in joint.Prep is JointPrep.Groove { Root: RootProgram.Seal }
             && !policy.Beads.Bands.Exists(static band => band.Role == PassRole.Seal && band.EndFraction == 1.0)
-                ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:seal-band").ToError())
+                ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-plan:seal-band"))
                 : Fin.Succ(unit)
         from passes in Generate(joint, policy, budget, law, mode, frames)
         from access in policy.Access.Traverse(constraint => constraint.Check(joint, passes)).As().ToFin()
@@ -1382,13 +1379,13 @@ public static class Weld {
                 Math.Min(policy.HeatInputCapKjMm, mode.HeatInputHighKjMm)).ToError())
         from floor in minimum >= mode.HeatInputLowKjMm
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:heat-input-floor:{joint.Joint}:{minimum:R}").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-plan:heat-input-floor:{joint.Joint}:{minimum:R}"))
         from cooling in passes.Map(static pass => pass.Deposit.CoolingTimeS)
             .Filter(value => value < mode.CoolingLowS || value > mode.CoolingHighS)
-            .HeadOrNone()
+            .Head
             .Match(
                 Some: value => Fin.Fail<Unit>(
-                    new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:cooling-band:{joint.Joint}:{value:R}").ToError()),
+                    new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-plan:cooling-band:{joint.Joint}:{value:R}")),
                 None: () => Fin.Succ(unit))
         from demand in Demand(joint, policy, budget, passes, maximum)
         select (passes, Actions(joint, budget), demand, maximum);
@@ -1417,7 +1414,7 @@ public static class Weld {
         double rate = law.Deposition.Rate(budget) * joint.Position.DepositionDerate;
         double required = joint.Prep.Demand.VolumeMm3;
         return mode.Travel(requestedTravel, joint.Joint).Bind(travel => rate <= 0.0 || pathLength <= 0.0
-                ? Fin.Fail<Seq<WeldPass>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:capacity").ToError())
+                ? Fin.Fail<Seq<WeldPass>>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-plan:capacity"))
                 : Range(0, policy.PassCap).Fold(
                     Fin.Succ(new BeadCursor(0.0, 0.0, 0, 0, 1, Seq<WeldPass>())),
                     (held, ordinal) => held.Bind(cursor => cursor.FillMm3 >= required
@@ -1427,8 +1424,8 @@ public static class Weld {
                             cursor, ordinal, travel, rate, pathLength)))
                     .Bind(cursor => cursor.FillMm3 >= required
                         ? Fin.Succ(cursor)
-                        : Fin.Fail<BeadCursor>(new GeometryFault.DegenerateInput(
-                            Kind.Curve, -1, "weld-plan:pass-cap").ToError()))
+                        : Fin.Fail<BeadCursor>(new FabricationFault.PolicyInadmissible(
+                            FabConcern.Joining, "weld-plan:pass-cap")))
                     .Bind(cursor => policy.Beads.Overlay.Fold(
                         Fin.Succ(cursor),
                         (held, band) => held.Bind(row => Pass(
@@ -1517,10 +1514,9 @@ public static class Weld {
                 Passes = cursor.Passes.Add(pass),
             })
             : Fin.Fail<BeadCursor>(
-                new GeometryFault.DegenerateInput(
-                    Kind.Curve,
-                    -1,
-                    evidenceError?.Message ?? passError?.Message ?? "weld-plan:deposit-span").ToError());
+                new FabricationFault.PolicyInadmissible(
+                    FabConcern.Joining,
+                    evidenceError?.Message ?? passError?.Message ?? "weld-plan:deposit-span"));
         });
     }
 
@@ -1544,19 +1540,17 @@ public static class Weld {
 
     // Span endpoints rarely coincide with seam vertices, so each boundary station gains an interpolated frame;
     // without it a span bracketed by two distant vertices yields fewer than two run frames and no deposit path.
-    private static Seq<TorchFrame> Resample(Seq<TorchFrame> rows, Seq<double> required) => required
-        .Distinct()
-        .OrderBy(static station => station)
-        .ToSeq()
+    private static Seq<TorchFrame> Resample(Seq<TorchFrame> rows, Seq<double> required) =>
+        toSeq(required.Distinct().OrderBy(static station => station))
         .Fold(rows, static (held, station) => held.Exists(row => row.StationMm == station)
             ? held
             : held.Zip(held.Tail)
                 .Choose(pair => station > pair.Item1.StationMm && station < pair.Item2.StationMm
                     ? Some(Interpolate(pair.Item1, pair.Item2, station))
                     : None)
-                .HeadOrNone()
+                .Head
                 .Match(
-                    Some: frame => held.Add(frame).OrderBy(static row => row.StationMm).ToSeq(),
+                    Some: frame => toSeq(held.Add(frame).OrderBy(static row => row.StationMm)),
                     None: () => held));
 
     private static TorchFrame Interpolate(TorchFrame low, TorchFrame high, double station) {
@@ -1584,7 +1578,7 @@ public static class Weld {
             : suppliedNormal;
         return tangent.Unitize() && normal.Unitize()
             ? Pose(point, tangent, normal, standoffMm, policy, joint.Joint, index).Map(frame => (frame, normal))
-            : Fin.Fail<(TorchFrame, Vector3d)>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:frame").ToError());
+            : Fin.Fail<(TorchFrame, Vector3d)>(new GeometryFault.DegenerateInput(Kind.Curve, index, "weld-plan:frame").ToError());
     }
 
     private static Fin<TorchFrame> Pose(
@@ -1599,7 +1593,7 @@ public static class Weld {
         return pose.IsValid
             ? Fin.Succ(new TorchFrame(
                 joint, 0, index, 0.0, pose, policy.WorkAngleDeg, policy.TravelAngleDeg, 0.0, 0.0, standoffMm))
-            : Fin.Fail<TorchFrame>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:pose").ToError());
+            : Fin.Fail<TorchFrame>(new GeometryFault.DegenerateInput(Kind.Curve, index, "weld-plan:pose").ToError());
     }
 
     private static Seq<TorchFrame> Weave(
@@ -1663,7 +1657,7 @@ public static class Weld {
         policy.DemandBindings.Map(binding => Try.lift(() => binding.Resolve(
                     new WeldDemandBinding.Facts(joint, budget, passes, maximum)))
                 .Run()
-                .MapFail(error => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-demand:{binding.Field.Key}:{error.Message}").ToError())
+                .MapFail(error => new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-demand:{binding.Field.Key}:{error.Message}"))
                 .Bind(identity)
                 .Map(value => (binding.Field.Key, value))
                 .ToValidation())
@@ -1676,187 +1670,150 @@ public static class Weld {
                     joint.QualificationContext,
                     joint.Inspection,
                     out WeldDemand demand) is { } error
-                        ? Fin.Fail<WeldDemand>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                        ? Fin.Fail<WeldDemand>(new FabricationFault.PolicyInadmissible(FabConcern.Joining, error.Message))
                         : Fin.Succ(demand));
 
-    private static byte[] CanonicalBytes(Seq<WeldPass> passes, Seq<JointAction> actions, Seq<WeldDemand> demands) {
-        using System.IO.MemoryStream stream = new();
-        using System.IO.BinaryWriter writer = new(stream, System.Text.Encoding.UTF8, leaveOpen: true);
-        writer.Write(passes.Count);
+    // The weld-plan preimage composes the ONE `Rasm.Element` `CanonicalWriter`. `BinaryWriter` was the divergent
+    // form on two axes at once: its string prefix is 7-bit-encoded rather than a fixed little-endian count, and its
+    // `double` write leaves `-0.0` and every NaN payload distinct — so one plan keyed here and the same plan keyed
+    // through any sibling page addressed differently. Case discriminants ride `Ordinal`, fixed-width and
+    // self-delimiting, and the grid is the policy's own absolute tolerance: no column on this preimage is a
+    // `Measure` today, and the writer binds the page's declared grid the moment one becomes one.
+    private static byte[] CanonicalBytes(
+        Seq<WeldPass> passes,
+        Seq<JointAction> actions,
+        Seq<WeldDemand> demands,
+        WeldPolicy policy) {
+        CanonicalWriter writer = new(policy.AbsoluteVolumeToleranceMm3);
+        _ = writer.Ordinal(passes.Count);
         passes.Iter(pass => {
-            writer.Write(pass.Joint);
-            writer.Write(pass.Role.Key);
+            _ = writer.Ordinal(pass.Joint).String(pass.Role.Key);
             WriteWeave(writer, pass.Weave);
             WriteLineage(writer, pass.Lineage);
-            writer.Write(pass.Layer);
-            writer.Write(pass.Bead);
-            writer.Write(pass.BeadsInLayer);
-            writer.Write(pass.Side);
-            writer.Write(pass.Ordinal);
-            writer.Write(pass.Position.Key);
-            writer.Write(pass.EdgeDwellMs);
-            writer.Write(pass.LateralOffsetMm);
-            writer.Write(pass.HeightOffsetMm);
-            writer.Write(pass.TravelMmMin);
-            writer.Write(pass.CommandedFeedMmMin);
-            writer.Write(pass.HeatInputKjMm);
-            writer.Write(pass.ThicknessMm);
-            writer.Write(pass.Deposit.DepositedVolumeMm3);
-            writer.Write(pass.Deposit.BeadAreaMm2);
-            writer.Write(pass.Deposit.WidthMm);
-            writer.Write(pass.Deposit.HeightMm);
-            writer.Write(pass.Deposit.EnergyJ);
-            writer.Write(pass.Deposit.FillerLengthMm);
-            writer.Write(pass.Deposit.CoverageFraction);
-            writer.Write(pass.Deposit.ArcTimeS);
-            writer.Write(pass.Deposit.CoolingTimeS);
-            writer.Write(pass.Deposit.DepositLengthMm);
-            writer.Write(pass.Arc.RunInMm);
-            writer.Write(pass.Arc.BackstepMm);
-            writer.Write(pass.Arc.CraterFillS);
-            writer.Write(pass.Arc.RunOutMm);
-            writer.Write(pass.Frames.Count);
+            _ = writer.Ordinal(pass.Layer).Ordinal(pass.Bead).Ordinal(pass.BeadsInLayer)
+                .Ordinal(pass.Side).Ordinal(pass.Ordinal).String(pass.Position.Key)
+                .Double(pass.EdgeDwellMs).Double(pass.LateralOffsetMm).Double(pass.HeightOffsetMm)
+                .Double(pass.TravelMmMin).Double(pass.CommandedFeedMmMin)
+                .Double(pass.HeatInputKjMm).Double(pass.ThicknessMm)
+                .Double(pass.Deposit.DepositedVolumeMm3).Double(pass.Deposit.BeadAreaMm2)
+                .Double(pass.Deposit.WidthMm).Double(pass.Deposit.HeightMm).Double(pass.Deposit.EnergyJ)
+                .Double(pass.Deposit.FillerLengthMm).Double(pass.Deposit.CoverageFraction)
+                .Double(pass.Deposit.ArcTimeS).Double(pass.Deposit.CoolingTimeS).Double(pass.Deposit.DepositLengthMm)
+                .Double(pass.Arc.RunInMm).Double(pass.Arc.BackstepMm)
+                .Double(pass.Arc.CraterFillS).Double(pass.Arc.RunOutMm)
+                .Ordinal(pass.Frames.Count);
             pass.Frames.Iter(frame => {
-                writer.Write(frame.Joint);
-                writer.Write(frame.Side);
-                writer.Write(frame.Waypoint);
-                writer.Write(frame.StationMm);
-                writer.Write(frame.WorkAngleDeg);
-                writer.Write(frame.TravelAngleDeg);
-                writer.Write(frame.Phase);
-                writer.Write(frame.LateralOffsetMm);
-                writer.Write(frame.StandoffMm);
+                _ = writer.Ordinal(frame.Joint).Ordinal(frame.Side).Ordinal(frame.Waypoint)
+                    .Double(frame.StationMm).Double(frame.WorkAngleDeg).Double(frame.TravelAngleDeg)
+                    .Double(frame.Phase).Double(frame.LateralOffsetMm).Double(frame.StandoffMm);
                 WritePoint(writer, frame.Pose.Origin);
                 WriteVector(writer, frame.Pose.XAxis);
                 WriteVector(writer, frame.Pose.YAxis);
                 WriteVector(writer, frame.Pose.ZAxis);
             });
-            writer.Write(pass.Path.Count);
+            _ = writer.Ordinal(pass.Path.Count);
             pass.Path.Iter(move => move.Switch(
                 state: writer,
-                rapid: static (sink, value) => { sink.Write((byte)0); WritePoint(sink, value.Target); },
-                linear: static (sink, value) => { sink.Write((byte)1); WritePoint(sink, value.Target); sink.Write(value.Feed); },
+                rapid: static (sink, value) => { _ = sink.Ordinal(0); WritePoint(sink, value.Target); return unit; },
+                linear: static (sink, value) => { _ = sink.Ordinal(1); WritePoint(sink, value.Target); _ = sink.Double(value.Feed); return unit; },
                 circular: static (sink, value) => {
-                    sink.Write((byte)2);
+                    _ = sink.Ordinal(2);
                     WritePoint(sink, value.Target);
-                    sink.Write(value.Feed);
+                    _ = sink.Double(value.Feed);
                     WritePoint(sink, value.Arc.Center);
-                    sink.Write(value.Arc.Sense.Key);
+                    _ = sink.String(value.Arc.Sense.Key);
+                    return unit;
                 }));
         });
-        writer.Write(actions.Count);
+        _ = writer.Ordinal(actions.Count);
         actions.Iter(action => action.Switch(
             state: writer,
             prepareGroove: static (sink, value) => {
-                sink.Write((byte)0); sink.Write(value.Joint); sink.Write(value.GeometryKey); sink.Write(value.PenetrationKey);
-                WriteProfile(sink, value.Profile); sink.Write(value.DoubleSided);
+                _ = sink.Ordinal(0).Ordinal(value.Joint).String(value.GeometryKey).String(value.PenetrationKey);
+                WriteProfile(sink, value.Profile);
+                return sink.Bool(value.DoubleSided);
             },
-            installBacking: static (sink, value) => { sink.Write((byte)1); sink.Write(value.Joint); sink.Write(value.BackingKey); },
-            backgouge: static (sink, value) => {
-                sink.Write((byte)2); sink.Write(value.Joint); sink.Write(value.BeforeSide); sink.Write(value.DepthMm);
-            },
-            removeBacking: static (sink, value) => { sink.Write((byte)3); sink.Write(value.Joint); sink.Write(value.BackingKey); },
-            preheat: static (sink, value) => {
-                sink.Write((byte)4); sink.Write(value.Joint); sink.Write(value.TargetC); sink.Write(value.InterpassCapC);
-            },
-            postWeldHeatTreat: static (sink, value) => {
-                sink.Write((byte)5); sink.Write(value.Joint); sink.Write(value.SoakC); sink.Write(value.SoakMinutes);
-            }));
-        writer.Write(demands.Count);
+            installBacking: static (sink, value) => sink.Ordinal(1).Ordinal(value.Joint).String(value.BackingKey),
+            backgouge: static (sink, value) => sink.Ordinal(2).Ordinal(value.Joint).Ordinal(value.BeforeSide).Double(value.DepthMm),
+            removeBacking: static (sink, value) => sink.Ordinal(3).Ordinal(value.Joint).String(value.BackingKey),
+            preheat: static (sink, value) => sink.Ordinal(4).Ordinal(value.Joint).Double(value.TargetC).Double(value.InterpassCapC),
+            postWeldHeatTreat: static (sink, value) => sink.Ordinal(5).Ordinal(value.Joint).Double(value.SoakC).Double(value.SoakMinutes)));
+        _ = writer.Ordinal(demands.Count);
         demands.Iter(demand => {
-            writer.Write(demand.Joint);
-            writer.Write(demand.Context.Count);
-            demand.Context.OrderBy(static value => value).Iter(value => writer.Write(value));
-            writer.Write(demand.Inspection.JointClass.Key);
-            writer.Write(demand.Inspection.ExecutionClass);
-            writer.Write(demand.Inspection.StressCategory);
-            writer.Write(demand.Inspection.FatigueCritical);
-            writer.Write(demand.Inspection.Thickness.As(LengthUnit.Millimeter));
-            writer.Write(demand.Inspection.Populations.Count);
-            demand.Inspection.Populations.OrderBy(static row => row.Key.Key).Iter(row => {
-                writer.Write(row.Key.Key);
-                row.Value.Switch(
+            _ = writer.Ordinal(demand.Joint).Ordinal(demand.Context.Count);
+            demand.Context.OrderBy(static value => value, StringComparer.Ordinal).Iter(value => writer.String(value));
+            _ = writer.String(demand.Inspection.JointClass.Key)
+                .String(demand.Inspection.ExecutionClass)
+                .String(demand.Inspection.StressCategory)
+                .Bool(demand.Inspection.FatigueCritical)
+                .Double(demand.Inspection.Thickness.As(LengthUnit.Millimeter))
+                .Ordinal(demand.Inspection.Populations.Count);
+            demand.Inspection.Populations.OrderBy(static row => row.Key.Key, StringComparer.Ordinal).Iter(row => {
+                _ = writer.String(row.Key.Key);
+                _ = row.Value.Switch(
                     state: writer,
-                    joints: static (sink, value) => { sink.Write((byte)0); sink.Write(value.Count); },
-                    linear: static (sink, value) => { sink.Write((byte)1); sink.Write(value.Value.Millimeters); },
-                    areal: static (sink, value) => { sink.Write((byte)2); sink.Write(value.Value.SquareMillimeters); },
-                    volumetric: static (sink, value) => { sink.Write((byte)3); sink.Write(value.Value.CubicMillimeters); });
+                    joints: static (sink, value) => sink.Ordinal(0).Ordinal(value.Count),
+                    linear: static (sink, value) => sink.Ordinal(1).Double(value.Value.Millimeters),
+                    areal: static (sink, value) => sink.Ordinal(2).Double(value.Value.SquareMillimeters),
+                    volumetric: static (sink, value) => sink.Ordinal(3).Double(value.Value.CubicMillimeters));
             });
-            writer.Write(demand.Values.Count);
-            demand.Values.OrderBy(static row => row.Key.Value).Iter(row => {
-                writer.Write(row.Key.Value);
-                row.Value.Switch(
+            _ = writer.Ordinal(demand.Values.Count);
+            demand.Values.OrderBy(static row => row.Key.Value, StringComparer.Ordinal).Iter(row => {
+                _ = writer.String(row.Key.Value);
+                _ = row.Value.Switch(
                     state: writer,
-                    quantity: static (sink, value) => {
-                        sink.Write((byte)0);
-                        sink.Write(value.Value.GetType().FullName ?? value.Value.GetType().Name);
-                        sink.Write(value.Value.Unit.ToString());
-                        sink.Write(Convert.ToDouble(value.Value.Value, System.Globalization.CultureInfo.InvariantCulture));
-                    },
-                    categorical: static (sink, value) => { sink.Write((byte)1); sink.Write(value.Value); },
-                    boolean: static (sink, value) => { sink.Write((byte)2); sink.Write(value.Value); },
-                    temporal: static (sink, value) => { sink.Write((byte)3); sink.Write(value.Value.ToUnixTimeTicks()); },
-                    notApplicable: static (sink, _) => sink.Write((byte)4));
+                    quantity: static (sink, value) => sink.Ordinal(0)
+                        .String(value.Value.GetType().FullName ?? value.Value.GetType().Name)
+                        .String(value.Value.Unit.ToString())
+                        .Double(Convert.ToDouble(value.Value.Value, System.Globalization.CultureInfo.InvariantCulture)),
+                    categorical: static (sink, value) => sink.Ordinal(1).String(value.Value),
+                    boolean: static (sink, value) => sink.Ordinal(2).Bool(value.Value),
+                    temporal: static (sink, value) => sink.Ordinal(3).I64(value.Value.ToUnixTimeTicks()),
+                    notApplicable: static (sink, _) => sink.Ordinal(4));
             });
         });
-        writer.Flush();
-        return stream.ToArray();
+        return writer.ToBytes().ToArray();
 
-        static void WritePoint(System.IO.BinaryWriter writer, Point3d point) {
-            writer.Write(point.X);
-            writer.Write(point.Y);
-            writer.Write(point.Z);
+        static void WritePoint(CanonicalWriter writer, Point3d point) =>
+            _ = writer.Double(point.X).Double(point.Y).Double(point.Z);
+
+        static void WriteVector(CanonicalWriter writer, Vector3d vector) =>
+            _ = writer.Double(vector.X).Double(vector.Y).Double(vector.Z);
+
+        static void WriteProfile(CanonicalWriter writer, FillProfile profile) {
+            _ = writer.Double(profile.VolumeMm3).Double(profile.EffectiveThroatMm)
+                .Double(profile.ReinforcementMm).Double(profile.ToeRadiusMm)
+                .Ordinal(profile.Stations.Count);
+            profile.Stations.Iter(station => writer
+                .Double(station.StationMm).Double(station.AreaMm2).Double(station.WidthMm)
+                .Double(station.RootWidthMm).Double(station.HeightMm));
+            _ = writer.Ordinal(profile.Spans.Count);
+            profile.Spans.Iter(span => writer.Double(span.StartMm).Double(span.EndMm));
         }
 
-        static void WriteVector(System.IO.BinaryWriter writer, Vector3d vector) {
-            writer.Write(vector.X);
-            writer.Write(vector.Y);
-            writer.Write(vector.Z);
-        }
-
-        static void WriteProfile(System.IO.BinaryWriter writer, FillProfile profile) {
-            writer.Write(profile.VolumeMm3);
-            writer.Write(profile.EffectiveThroatMm);
-            writer.Write(profile.ReinforcementMm);
-            writer.Write(profile.ToeRadiusMm);
-            writer.Write(profile.Stations.Count);
-            profile.Stations.Iter(station => {
-                writer.Write(station.StationMm);
-                writer.Write(station.AreaMm2);
-                writer.Write(station.WidthMm);
-                writer.Write(station.RootWidthMm);
-                writer.Write(station.HeightMm);
-            });
-            writer.Write(profile.Spans.Count);
-            profile.Spans.Iter(span => { writer.Write(span.StartMm); writer.Write(span.EndMm); });
-        }
-
-        static void WriteWeave(System.IO.BinaryWriter writer, WeavePattern weave) {
-            writer.Write(weave.AmplitudeMm);
-            writer.Write(weave.PitchMm);
-            writer.Write(weave.EdgeDwellS);
-            writer.Write(weave.TogglesPerCycle);
-            weave.Shape.Switch(
+        static void WriteWeave(CanonicalWriter writer, WeavePattern weave) {
+            _ = writer.Double(weave.AmplitudeMm).Double(weave.PitchMm)
+                .Double(weave.EdgeDwellS).Ordinal(weave.TogglesPerCycle);
+            _ = weave.Shape.Switch(
                 state: writer,
                 harmonic: static (sink, value) => {
-                    sink.Write((byte)0);
-                    sink.Write(value.Terms.Count);
-                    value.Terms.Iter(term => { sink.Write(term.Order); sink.Write(term.Amplitude); sink.Write(term.PhaseRad); });
+                    _ = sink.Ordinal(0).Ordinal(value.Terms.Count);
+                    value.Terms.Iter(term => sink.Ordinal(term.Order).Double(term.Amplitude).Double(term.PhaseRad));
+                    return sink;
                 },
                 piecewise: static (sink, value) => {
-                    sink.Write((byte)1);
-                    sink.Write(value.Knots.Count);
-                    value.Knots.Iter(knot => { sink.Write(knot.Phase); sink.Write(knot.Offset); });
+                    _ = sink.Ordinal(1).Ordinal(value.Knots.Count);
+                    value.Knots.Iter(knot => sink.Double(knot.Phase).Double(knot.Offset));
+                    return sink;
                 });
         }
 
-        static void WriteLineage(System.IO.BinaryWriter writer, PassLineage lineage) => lineage.Switch(
+        static void WriteLineage(CanonicalWriter writer, PassLineage lineage) => _ = lineage.Switch(
             state: writer,
-            planned: static (sink, _) => sink.Write((byte)0),
-            repair: static (sink, value) => {
-                sink.Write((byte)1); sink.Write(value.ReplacesOrdinal); sink.Write(value.DefectKey); sink.Write(value.ExcavatedMm3);
-            },
-            temper: static (sink, value) => { sink.Write((byte)2); sink.Write(value.ConditionsOrdinal); });
+            planned: static (sink, _) => sink.Ordinal(0),
+            repair: static (sink, value) => sink.Ordinal(1).Ordinal(value.ReplacesOrdinal)
+                .String(value.DefectKey).Double(value.ExcavatedMm3),
+            temper: static (sink, value) => sink.Ordinal(2).Ordinal(value.ConditionsOrdinal));
     }
 }
 ```

@@ -9,15 +9,16 @@ Every fallible operation rides an `Op`-keyed `Fin<T>` rail through the `Op.Catch
 - [02]-[DISPATCH]: `EtoDispatch` — the one UI-thread seam over `Application.Instance` (`Invoke`/`AsyncInvoke`/`InvokeAsync`) with on-thread short-circuit, `DispatchLane`, the two-row marshal-policy vocabulary command-shaped consumers carry as data, and the stall watchdog: `PulseLane` budgets, `DispatchPulse` receipts, and the token-addressed pulse tap.
 - [03]-[CLOCK]: `UiCadence` + `ClockBeat` + `UiClock` — the `UITimer` lifecycle owner: validated cadence admission, typed beat evidence, `Lease<UiClock>` ownership, and fault-posture policy for beat bodies.
 - [04]-[TRANSFER]: `TransferSurface` + `TransferPayload` + `PayloadShape` + `Transfer` — one algebra over the clipboard/drag accessor family: typed write, shaped read, probe, clear, and `DoDragDrop` behind one `Apply` gate.
-- [05]-[HOST_FACTS]: `DisplayMetrics` + `Display`, `PointerSnapshot` + `InputState`, `Notice` + `NoticeMount` + `TrayMount` + `NoticeSurface` — per-display density projection, ambient input reads, and lease-owned OS alerts and tray surfaces.
+- [05]-[HOST_FACTS]: `DisplayMetrics` + `Display`, `PointerSnapshot` + `InputState` + `ModifierWatch`, `Notice` + `NoticeMount` + `TrayMount` + `NoticeSurface` — per-display density projection, ambient input reads, and lease-owned OS alerts and tray surfaces.
 
 ## [02]-[DISPATCH]
 
 - Owner: `EtoDispatch` — THE one UI-thread seam in the package. `Run<T>` marshals a `Fin<T>` body synchronously (`Application.Instance.Invoke<T>`), `RunAsync<T>` marshals awaitably (`InvokeAsync<T>`), and `Post` always queues a `Fin<Unit>` body through `AsyncInvoke`; the value-bearing carriers short-circuit when `Application.Instance.IsUIThread` already holds, while the queued lane preserves its deferred ordering on every caller thread. `Post` publishes the deferred result as `DispatchEcho` through one latest-value cell and token-addressed observers, while its return value proves queue admission only. `Pump` wraps `RunIteration` as the named platform-forced run-loop boundary. `DispatchLane` `[SmartEnum<int>]` carries the marshal choice as a policy row — `Blocking` (key 0) and `Queued` (key 1) over one `[UseDelegateFromConstructor]` `Marshal(Func<Fin<Unit>>, Op)` column — so a command-shaped consumer (`Shell/session.md` `SessionOp.ExecuteCase`) stores the lane as data instead of forking call sites.
 - Entry: `EtoDispatch.Run<T>(Func<Fin<T>> body, Op? key = null)` → `Fin<T>`; `RunAsync<T>(Func<Fin<T>> body, Op? key = null)` → `Task<Fin<T>>`; `Post(Func<Fin<Unit>> body, Op? key = null)` → `Fin<Unit>`; `Tap(Action<DispatchEcho> observer, Op? key = null)` → `Fin<IDisposable>`. Three carriers are one owner: the carrier IS the modality (value now, value later, deferred receipt), never a name-suffixed sibling family.
-- Entry: `EtoDispatch.Watch(Action<DispatchPulse> observer, Op? key = null)` → `Fin<IDisposable>` — the watchdog tap; `Tune(StallPolicy policy, Op? key = null)` → `Fin<Unit>` — per-lane budget overrides and the injected clock; `LastPulse`/`LastStall` — the latest-value receipt cells.
-- Law: every marshaled body is gauged — `PulseLane` closes the four capture points (`Blocking`, `Awaitable`, `Queued`, `Pump`) with a per-row `Budget` column, the active `StallPolicy` supplies overrides and the `TimeProvider` timestamp pair, and every body exit — success, typed failure, or captured throw — mints one `DispatchPulse` carrying its `Op`, lane, elapsed wall time, and breach verdict, because the gauge's own `Op.Catch` sits inside the timestamp pair and no unwinding path skips pulse construction. A breached pulse retains on `LastStall` — the hang evidence correlating the stalled body with the operation that submitted it — and every pulse publishes to individually contained watch observers; span-profile correlation composes at the app root, never here.
-- Law: every body crosses the seam inside `Op.Catch` — a host callback that throws lands as `Fault.InvalidResult` with the raising key, a cancellation surfaces as `Fault.Cancelled`, and no bare `try`/`catch` exists on the marshal path. `Post` catches the body inside its deferred window, stores the exact `Fin<Unit>` outcome, and publishes it to individually contained observers; no queued failure disappears and no observer can escape into the pump. A `SynchronizationContext` capture, a raw `Thread` hop, or a second scheduler beside `Application.Instance` is the deleted form.
+- Entry: `EtoDispatch.Watch(Action<DispatchPulse> observer, Op? key = null)` → `Fin<IDisposable>` — the watchdog tap; `Tune(StallPolicy policy, Op? key = null)` → `Fin<Unit>` — the measured frame interval, per-lane budget overrides, and the injected clock; `OnMarshal(Op? key = null)` → `Fin<bool>` — the affinity probe a caller that must NOT block the marshal (`Document/solution.md`'s awaited run) reads before it takes the caller's own thread; `LastPulse`/`LastStall` — the latest-value receipt cells.
+- Law: the stall budget is HOST-DERIVED, never a wall-clock literal — the display's own frame interval is the one anchor and each `PulseLane` row carries how many frames its capture point may consume (`Blocking` one, because a synchronous marshal that outruns the compositor drops the frame the caller is holding; `Awaitable` four, because the caller yielded and only a visible stall counts; `Queued` six; `Pump` one, because a run-loop iteration IS a frame). `StallPolicy.Frame` seeds at the slowest refresh an admitted display reports, so an untuned floor over-reports a stall and never hides one, and `Platform/native.md`'s measured `PaceBounds.MinimumRefreshInterval` pushes the real interval down through `Tune` — a fabricated 60 Hz period reads every frame of a 120 Hz display as on-time, which is the exact stall class the watchdog exists for.
+- Law: every marshaled body is gauged — `PulseLane` closes the four capture points with the frame-multiple column above, the active `StallPolicy` supplies per-lane overrides and the `TimeProvider` timestamp pair, and every body exit — success, typed failure, or captured throw — mints one `DispatchPulse` carrying its `Op`, lane, elapsed wall time, and breach verdict, because the gauge's own `Op.Catch` sits inside the timestamp pair and no unwinding path skips pulse construction. Any breached pulse retains on `LastStall` — the hang evidence correlating the stalled body with the operation that submitted it — and every pulse publishes to individually contained watch observers; span-profile correlation composes at the app root, never here.
+- Law: every body crosses the seam inside `Op.Catch` — a host callback that throws lands as `Fault.InvalidResult` with the raising key, a cancellation surfaces as `Fault.Cancelled`, and no bare `try`/`catch` exists on the marshal path. `Post` catches the body inside its deferred window, stores the exact `Fin<Unit>` outcome, and publishes it to individually contained observers; no queued failure disappears and no observer can escape into the pump. Every `SynchronizationContext` capture, raw `Thread` hop, and second scheduler beside `Application.Instance` is the deleted form.
 - Law: absence of a live application is a typed refusal — `Optional(Application.Instance).ToFin(key.MissingContext())` gates every marshal, so a headless or pre-boot call fails as `Fault.MissingContext`, never as a null dereference inside Eto.
 - Boundary: `Application.EnsureUIThread`, `UIThreadCheckMode`, `Quit`, `Open`, and `Localize` stay host verbs consumed at the seam by the shell owner; this floor owns only the marshal and the pump. `Application` lifecycle events (`Initialized`/`Terminating`/`UnhandledException`/`NotificationActivated`/`IsActiveChanged`) are `Shell/events.md` source rows, never subscribed here.
 - Packages: Eto (`Application.Instance`, `IsUIThread`, `Invoke`, `AsyncInvoke`, `InvokeAsync`, `RunIteration`), .NET (`TimeProvider.GetTimestamp`/`GetElapsedTime`), Microsoft.Extensions.Logging.Abstractions (`[LoggerMessage]`), LanguageExt.Core (`Fin`, `Optional`), `Rasm.Domain` (`Op`, `Fault`), `Shell/telemetry.md` (`GhLog` — same-stratum floor reach).
@@ -42,16 +43,18 @@ public sealed partial class DispatchLane {
 
 [SmartEnum<int>]
 public sealed partial class PulseLane {
-    public static readonly PulseLane Blocking = new(key: 0, budget: TimeSpan.FromMilliseconds(50.0));
-    public static readonly PulseLane Awaitable = new(key: 1, budget: TimeSpan.FromMilliseconds(50.0));
-    public static readonly PulseLane Queued = new(key: 2, budget: TimeSpan.FromMilliseconds(100.0));
-    public static readonly PulseLane Pump = new(key: 3, budget: TimeSpan.FromMilliseconds(17.0));
-    public TimeSpan Budget { get; }
+    public static readonly PulseLane Blocking = new(key: 0, frames: 1.0);
+    public static readonly PulseLane Awaitable = new(key: 1, frames: 4.0);
+    public static readonly PulseLane Queued = new(key: 2, frames: 6.0);
+    public static readonly PulseLane Pump = new(key: 3, frames: 1.0);
+    public double Frames { get; }
+    internal TimeSpan Budget(TimeSpan frame) => frame * Frames;
 }
 
-public sealed record StallPolicy(TimeProvider Clock, HashMap<int, TimeSpan> Bounds) {
-    public static readonly StallPolicy Default = new(Clock: TimeProvider.System, Bounds: HashMap<int, TimeSpan>());
-    public TimeSpan Bound(PulseLane lane) => Bounds.Find(lane.Key).IfNone(lane.Budget);
+public sealed record StallPolicy(TimeProvider Clock, TimeSpan Frame, HashMap<int, TimeSpan> Bounds) {
+    public static readonly StallPolicy Default = new(
+        Clock: TimeProvider.System, Frame: TimeSpan.FromSeconds(1.0 / 30.0), Bounds: HashMap<int, TimeSpan>());
+    public TimeSpan Bound(PulseLane lane) => Bounds.Find(lane.Key).IfNone(() => lane.Budget(frame: Frame));
 }
 
 public sealed record DispatchEcho(Op Operation, Fin<Unit> Outcome);
@@ -146,6 +149,10 @@ public static class EtoDispatch {
     }
     public static Fin<Unit> Tune(StallPolicy policy, Op? key = null) =>
         key.OrDefault().Need(policy).Map(valid => ignore(Pacing.Swap(_ => valid)));
+    public static Fin<bool> OnMarshal(Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(Application.Instance).ToFin(op.MissingContext()).Map(static app => app.IsUIThread);
+    }
     public static Fin<Unit> Pump(Op? key = null) {
         Op op = key.OrDefault();
         return from app in Optional(Application.Instance).ToFin(op.MissingContext())
@@ -177,7 +184,7 @@ public static class EtoDispatch {
 
 - Owner: `UiClock` sealed class — the one `UITimer` lifecycle owner: a validated `UiCadence` interval, a beat body returning `Fin<Unit>`, a core `MonotonicTimeline` sequence, and a `FaultPosture` policy row deciding whether a failed beat halts the tick or continues. Construction returns `Lease<UiClock>.Owned` — the consumer's disposal window IS the timer lifetime, and one idempotent UI-affine release arrow detaches, stops, and disposes the `UITimer`. `UiCadence` `[ValueObject<double>]` admits the tick interval in seconds (finite, positive) so no raw `double` reaches `UITimer.Interval`. `ClockBeat` composes `MonotonicBeat` and projects its `Ordinal`, `Elapsed`, and `Delta`; the host cadence selects when evidence advances but never mints a parallel temporal identity.
 - Entry: `UiClock.Of(UiCadence cadence, Func<ClockBeat, Fin<Unit>> beat, FaultPosture? posture = null, TimeProvider? provider = null, Op? key = null)` → `Fin<Lease<UiClock>>`; the optional provider admits deterministic timeline tests while production defaults to `TimeProvider.System`. `Start`/`Stop` toggle the timer through the captured application, and `Tap(Action<ClockBeat>, Op)` attaches a token-addressed observer.
-- Law: the entire deferred `Elapsed` callback and each observer/body projection enter `Op.Catch`. A tick advances exactly one `MonotonicTimeline` predecessor before publication; provider failures, stale predecessor substitution, observer faults, and body faults persist in the atomic last-fault cell. `FaultPosture` governs timeline/body failure only, while one observer cannot halt the clock or suppress later observers/body execution.
+- Law: the entire deferred `Elapsed` callback and each observer/body projection enter `Op.Catch`. Each tick advances exactly one `MonotonicTimeline` predecessor before publication; provider failures, stale predecessor substitution, observer faults, and body faults persist in the atomic last-fault cell. `FaultPosture` governs timeline/body failure only, while one observer cannot halt the clock or suppress later observers/body execution.
 - Law: `UiClock` is the package's ONE repeating-tick surface — `Shell/events.md` publishes `ClockBeat` facts through its `UiSource` clock row, `Canvas/motion.md` paces kernel motion rows off it, and a second `System.Threading.Timer`, `Task.Delay` loop, or per-consumer `UITimer` beside it is the deleted form. High-cadence display-link pacing is the macOS platform owner's replacement seam, selected by the consumer, never a fork inside this owner.
 - Boundary: `UITimer` is UI-affine — `Of`, `Start`, `Stop`, and disposal all marshal through `EtoDispatch.Run`; the `Elapsed` subscription and its detach on dispose are the named platform-forced statement seam inside the constructor.
 - Packages: Eto (`UITimer.Interval`/`Started`/`Start`/`Stop`/`Elapsed`), .NET (`TimeProvider`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`, `IValidityEvidence`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicBeat`, `BeatSeed`).
@@ -208,9 +215,12 @@ public sealed partial class FaultPosture {
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ClockBeat(MonotonicBeat Evidence) : IValidityEvidence {
-    public long Index => Evidence is { } active ? active.Ordinal : -1L;
-    public TimeSpan Elapsed => Evidence is { } active ? active.Elapsed : TimeSpan.Zero;
-    public TimeSpan Delta => Evidence is { } active ? active.Delta : TimeSpan.Zero;
+    // `MonotonicBeat` is non-nullable evidence carried by value, so the guards were unreachable and their
+    // fallbacks — a `-1L` ordinal in particular — were sentinels no reader could ever observe. `IsValid` is
+    // the one acceptance oracle; the projections read the beat straight through.
+    public long Index => Evidence.Ordinal;
+    public TimeSpan Elapsed => Evidence.Elapsed;
+    public TimeSpan Delta => Evidence.Delta;
     public bool IsValid => ValidityClaim.Evidence(evidence: Evidence);
 }
 
@@ -534,12 +544,13 @@ public static class Transfer {
 
 ## [05]-[HOST_FACTS]
 
-- Owner: `Display` — the screen-metrics projection: `DisplayMetrics` readonly record struct carries `Bounds`, `WorkingArea`, `LogicalPixelSize`, `Dpi`, `Scale`, `BitsPerPixel`, `IsPrimary` per display with `IValidityEvidence` over the claim fold, and `DisplayQuery` `[Union]` discriminates the resolution modality — `PrimaryCase`, `AllCase`, `AtCase(PointF)` — behind one `Display.Resolve` gate returning `Fin<Seq<DisplayMetrics>>`. A panel reads density once per paint from these facts; a hardcoded scale constant is the deleted form.
-- Owner: `InputState` — the ambient input reader: `PointerSnapshot` (`Position`, `Buttons`, `Modifiers`) captured in one marshal from `Mouse.Position`/`Mouse.Buttons`/`Keyboard.Modifiers`, and `LockProbe(Keys)` gating `Keyboard.IsKeyLocked` on `Keyboard.SupportedLockKeys` membership so an unsupported lock key faults typed instead of answering garbage. Ambient reads are distinct from per-event snapshots — `Shell/events.md` owns the event-borne facts; this owner answers "now".
+- Owner: `Display` — the screen-metrics projection: `DisplayMetrics` readonly record struct carries `Bounds`, `WorkingArea`, `LogicalPixelSize`, `Dpi`, `Scale`, `BitsPerPixel`, `IsPrimary` per display with `IValidityEvidence` over the claim fold, and `DisplayQuery` `[Union]` discriminates the resolution modality — `PrimaryCase`, `AllCase`, `AtCase(PointF)` — behind one `Display.Resolve` gate returning `Fin<Seq<DisplayMetrics>>`. Panels read density once per paint from these facts; a hardcoded scale constant is the deleted form.
+- Owner: `InputState` — the ambient input reader: `PointerSnapshot` (`Position`, `Buttons`, `Modifiers`) captured in one marshal from `Mouse.Position`/`Mouse.Buttons`/`Keyboard.Modifiers`, `Held(MouseButtons)` folding the host `Mouse.IsAnyButtonPressed` multi-button predicate, `LockProbe(Keys)` gating `Keyboard.IsKeyLocked` on `Keyboard.SupportedLockKeys` membership so an unsupported lock key faults typed instead of answering garbage, and `Observe` leasing the `Keyboard.ModifiersChanged` push edge through `ModifierWatch`. Ambient reads are distinct from per-event snapshots — `Shell/events.md` owns the event-borne facts; this owner answers "now" and, through the watch, "the instant it changed".
+- Law: poll and edge are two modalities of one ambient owner, not two owners — `Canvas/canvas.md`'s `DragChord` resolves its `PickGrain` off the chord this owner reports, so every modifier-sensitive drag reads the grain the instant a chord moves, so a poll-only reader sees a mid-drag modifier only at the next unrelated read; the watch is a leased `IDisposable` with one interlocked release marshalled through `EtoDispatch`, exactly the shape every other host subscription on this page carries.
 - Owner: `NoticeSurface` — the OS alert seam: `Notice` carries optional content-image ownership, `NoticeMount` retains the notification and that image, and `TrayMount` aggregates the tray indicator with its icon and optional menu lease from `Eto/windows.md`. `Tray` transfers icon/menu ownership only after every tray property settles; its inverse hides the tray, detaches the exact menu, releases the tray, then releases menu and icon. `Post` borrows the live tray mount, transfers content-image ownership only after `Show` settles, and returns `Lease<NoticeMount>.Owned`.
 - Law: failed notification or tray acquisition independently detaches and disposes each newly minted host widget without consuming input image, tray, or menu leases. `NoticeMount.LastFault` and `TrayMount.LastFault` retain release failures; a dependent image/menu cannot release before its host detaches. Host-obsolete `Notification.Icon` earns no seam, and notification/tray activation facts remain inside the owning lease windows.
 - Law: cursor selection composes the host `Cursors` roster (`Default`/`Arrow`/`Crosshair`/`Pointer`/`IBeam`/`Move`/`NotAllowed` and the eight directional size cursors, `GetCursor(CursorType)`) directly at the consuming control — a wrapper renaming the roster is the deleted form.
-- Packages: Eto (`Screen.PrimaryScreen`/`Screens`/`Bounds`/`WorkingArea`/`LogicalPixelSize`/`DPI`/`Scale`/`BitsPerPixel`/`IsPrimary`, `Mouse`, `Keyboard`, `Cursors`, `Notification`, `TrayIndicator`, `ContextMenu`, `Image`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`).
+- Packages: Eto (`Screen.PrimaryScreen`/`Screens`/`Bounds`/`WorkingArea`/`LogicalPixelSize`/`DPI`/`Scale`/`BitsPerPixel`/`IsPrimary`, `Mouse.IsAnyButtonPressed`, `Keyboard.ModifiersChanged`, `Cursors`, `Notification`, `TrayIndicator`, `ContextMenu`, `Image`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`).
 - Growth: a new display fact is one `DisplayMetrics` field; a new resolution modality is one `DisplayQuery` case.
 
 ```csharp signature
@@ -578,6 +589,39 @@ public sealed record Notice(
     string Title, string Message, Option<Lease<Image>> ContentImage, Option<string> UserData);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
+public sealed class ModifierWatch : IDisposable {
+    private readonly EventHandler<EventArgs> changed;
+    private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
+    private readonly Op key;
+    private int releaseState;
+
+    private ModifierWatch(EventHandler<EventArgs> changed, Op key) {
+        this.changed = changed;
+        this.key = key;
+    }
+
+    public Option<Error> LastFault => lastFault.Value;
+
+    internal static Fin<Lease<ModifierWatch>> Open(Action<Keys> publish, Op key) =>
+        key.Catch(body: () => {
+            ModifierWatch? mounted = null;
+            EventHandler<EventArgs> changed = (_, _) => key.Catch(body: () => Fin.Succ(Op.Side(
+                action: () => publish(obj: Keyboard.Modifiers)))).IfFail(fault =>
+                    ignore(mounted?.lastFault.Swap(_ => Optional(fault))));
+            mounted = new ModifierWatch(changed: changed, key: key);
+            Keyboard.ModifiersChanged += changed;
+            return Fin.Succ((Lease<ModifierWatch>)new Lease<ModifierWatch>.Owned(Value: mounted));
+        });
+
+    public void Dispose() => ignore(Release());
+
+    private Fin<Unit> Release() =>
+        Interlocked.Exchange(location1: ref releaseState, value: 1) != 0
+            ? Fin.Succ(unit)
+            : EtoDispatch.Run(body: () => key.Catch(body: () => Fin.Succ(Op.Side(
+                action: () => Keyboard.ModifiersChanged -= changed))), key: key);
+}
+
 public sealed class NoticeMount : IDisposable {
     private readonly Lease<Notification> notification;
     private readonly Option<Lease<Image>> image;
@@ -699,6 +743,18 @@ public static class InputState {
             from state in op.Catch(body: () => Fin.Succ(Keyboard.IsKeyLocked(key: lockKey)))
             select state, key: op);
     }
+
+    public static Fin<bool> Held(MouseButtons buttons, Op? key = null) {
+        Op op = key.OrDefault();
+        return EtoDispatch.Run(body: () => op.Catch(body: () => Fin.Succ(Mouse.IsAnyButtonPressed(buttons: buttons))), key: op);
+    }
+
+    public static Fin<Lease<ModifierWatch>> Observe(Action<Keys> publish, Op? key = null) {
+        Op op = key.OrDefault();
+        return from sink in op.Need(publish)
+               from lease in EtoDispatch.Run(body: () => ModifierWatch.Open(publish: sink, key: op), key: op)
+               select lease;
+    }
 }
 
 [BoundaryAdapter]
@@ -787,8 +843,8 @@ One owner per axis; capability lands as a case, a row, or a field — never a si
 
 | [INDEX] | [CONCERN]         | [OWNER]                                    | [RAIL]                                                     | [CASES] |
 | :-----: | :---------------- | :----------------------------------------- | :--------------------------------------------------------- | :-----: |
-|  [01]   | UI-thread marshal | `EtoDispatch` / `DispatchLane`             | `Run<T>` / `RunAsync<T>` / `Post`                          |    2    |
-|  [02]   | stall watchdog    | `PulseLane` / `DispatchPulse`              | gauged bodies → `Watch` tap + `LastStall` evidence         |    4    |
+|  [01]   | UI-thread marshal | `EtoDispatch` / `DispatchLane`             | `Run<T>` / `RunAsync<T>` / `Post` / `OnMarshal`            |    2    |
+|  [02]   | stall watchdog    | `PulseLane` / `DispatchPulse`              | frame-derived budgets → `Watch` tap + `LastStall` evidence |    4    |
 |  [03]   | repeating tick    | `UiClock` / `ClockBeat`                    | `Of → Fin<Lease<UiClock>>`                                 |    2    |
 |  [04]   | typed transfer    | `Transfer` / transfer unions               | `Apply → Fin<TransferResult>`                              |   29    |
 |  [05]   | host facts        | `Display` / `InputState` / `NoticeSurface` | `Resolve` / `Snapshot → Fin`; `Post` / `Tray → Fin<Lease>` |    3    |

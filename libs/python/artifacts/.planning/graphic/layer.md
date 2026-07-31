@@ -30,7 +30,7 @@ from typing import Annotated, Final, Literal, assert_never
 
 from beartype import beartype
 from beartype.vale import Is
-from expression import Nothing, Ok, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block
 from expression.extra.result import catch, sequence, traverse
 
@@ -39,7 +39,7 @@ from rasm.artifacts.graphic.color.derive import Amount, BlendMode
 from rasm.runtime.identity import ContentKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type LayerFault = Literal["<missing-aec-name>", "<uncomposable-name>", "<duplicate-sibling-name>"]
+type LayerFault = Literal["<missing-aec-name>", "<uncomposable-name>", "<duplicate-sibling-name>", "<unknown-comp>"]
 type LayerNameText = Annotated[str, Is[lambda value: bool(value.strip())]]
 type Fragment = Annotated[bytes, Is[lambda value: len(value) > 0]]
 type EntityHandles = Annotated[tuple[str, ...], Is[lambda values: bool(values) and all(value.strip() for value in values)]]
@@ -167,6 +167,22 @@ class LayerPlan:
     schema: NamingSchema
     roots: tuple[LayerNode, ...]
     comps: tuple[LayerComp, ...] = ()
+
+    def composed(self, name: LayerNameText, /) -> Result[tuple[FlatLayer, ...], LayerFault]:
+        # THE COMP'S OWN PROJECTION, and what makes `comps` load-bearing at its owner rather than a field a writer
+        # was expected to interpret for itself. A comp is a named audience view-state, so the thing every layered
+        # writer actually needs is the FLATTENED layer run under that state — a PSD layer comp, a PDF OCG
+        # configuration, and an ORA view are the same selection expressed three ways. Resolving it here means the
+        # semantic-path membership test happens once, against the tree that owns those paths, instead of once per
+        # writer against a path grammar none of them owns.
+        return next(
+            (
+                flattened(self).map(lambda flat: tuple(layer for layer in flat if layer[0] in comp.visible))
+                for comp in self.comps
+                if comp.name == name
+            ),
+            Error("<unknown-comp>"),
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

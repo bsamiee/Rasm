@@ -21,6 +21,7 @@
 import math
 from collections.abc import Callable, Iterable
 from enum import StrEnum
+from functools import partial
 from io import BytesIO
 from typing import TYPE_CHECKING, Annotated, Final, Literal, Self, assert_never
 
@@ -516,12 +517,17 @@ class Imposition(Struct, frozen=True):
     composed: Option[Composed] = Nothing
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
+        # ONE mint per node, captured into the closure and threaded to the receipt: `_key` re-encodes the whole op
+        # payload — the source document included — and opens a `content.derive` span per read.
+        key = self._key
+        return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         # key-over-INPUT: canonical op payload minted PRE-RUN through the bare `ContentIdentity.key`
         # (`of` returns the railed `RuntimeRail[ContentKey]`) — never a key over the imposed press-form bytes.
+        # `op` is immutable across `folded()`, so the standalone `contribute` port's own read answers the SAME key
+        # the plan node carries — the derivation is safe there where a closure cannot reach.
         return ContentIdentity.key(f"impose-{self.op.tag}", _CANON.encode(self.op))
 
     def folded(self) -> Self:
@@ -529,15 +535,15 @@ class Imposition(Struct, frozen=True):
         # it — never a per-projection re-render of the imposition fold.
         return structs.replace(self, composed=Some(_composed(self.op)))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        return await async_boundary(f"impose.{self.op.tag}", self._folded, catch=_FAULTS)
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        return await async_boundary(f"impose.{self.op.tag}", partial(self._folded, key), catch=_FAULTS)
 
-    async def _folded(self) -> ArtifactReceipt:
+    async def _folded(self, key: ContentKey, /) -> ArtifactReceipt:
         # Async execution: the `_composed` fold crosses as one HOSTILE process kernel — MuPDF mutation and the
         # pdfimpose provider both hold the GIL — and the receipt derives from that one fold; the terminal
-        # threads the PRE-RUN key.
+        # threads the PRE-RUN key the closure captured.
         crossed = await self.lane.offload(Kernel.of(_composed, KernelTrait.HOSTILE), self.op)
-        return self._receipt(self._key, crossed.default_with(_impose_raise))
+        return self._receipt(key, crossed.default_with(_impose_raise))
 
     def _receipt(self, key: ContentKey, composed: Composed, /) -> ArtifactReceipt:
         match composed.kind:

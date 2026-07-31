@@ -298,9 +298,43 @@ public sealed record ArchiveMetadata(
     Option<(string CreatedBy, string LastEditedBy, int Revision, DateTime CreatedOn, DateTime LastEditedOn)> Revision,
     Option<(string Name, string Url, string Details)> Application,
     bool EarthAnchored,
-    Seq<(string Name, Guid Id)> Layouts,
+    Option<Seq<(string Name, Guid Id)>> Layouts,
     int DimensionStyles,
-    bool HasPreview);
+    bool HasPreview) {
+    internal static ArchiveMetadata Of(
+        Func<Option<string>> notes,
+        Func<int> archiveVersion,
+        Func<Option<(string, string, int, DateTime, DateTime)>> revision,
+        Func<Option<(string, string, string)>> application,
+        Func<bool> anchored,
+        Func<Option<Seq<(string Name, Guid Id)>>> layouts,
+        Func<int> dimensionStyles,
+        Func<bool> preview) =>
+        new(Notes: notes(),
+            ArchiveVersion: archiveVersion(),
+            Revision: revision(),
+            Application: application(),
+            EarthAnchored: anchored(),
+            Layouts: layouts(),
+            DimensionStyles: dimensionStyles(),
+            HasPreview: preview());
+
+    internal static Option<(string, string, int, DateTime, DateTime)> Revised(
+        bool read, string createdBy, string lastEditedBy, int revision, DateTime createdOn, DateTime lastEditedOn) =>
+        read && revision > 0 ? Some((createdBy, lastEditedBy, revision, createdOn, lastEditedOn)) : None;
+
+    internal static Option<string> Text(string? value) =>
+        Optional(value).Filter(static text => !string.IsNullOrWhiteSpace(value: text));
+
+    internal static Option<(string, string, string)> Origin(string name, string url, string details) =>
+        Text(value: name).Map(admitted => (admitted, url, details));
+
+    internal static bool Previewed(System.Drawing.Bitmap? bitmap) =>
+        Optional(bitmap).Map(static held => {
+            using System.Drawing.Bitmap preview = held;
+            return true;
+        }).IfNone(noneValue: false);
+}
 
 public sealed record ArchiveDelta(
     UInt128 SourceKey,
@@ -430,7 +464,7 @@ public abstract partial record ArchivePatch {
                 ctx.Archive.SetPreviewImage(image: detached);
                 return Fin.Succ(value: new ArchiveChange(
                     Resource: new ResourceNode(ResourceRole.Embedded, nameof(SetPreviewCase), None)));
-            }));
+            })));
 
     private static Fin<ExchangeEvidence> ModelUnits(
         File3dm archive,
@@ -482,8 +516,9 @@ public sealed record ArchiveChange(ResourceNode Resource, Seq<ExchangeEvidence> 
 - Owner: `ArchiveOp` `[Union]` is the standalone request family. Extraction, amendment, and persistence each carry an `OutputPolicy` — the operations rail's one collision/directory/landing owner — so replace-versus-refuse, parent-directory minting, and bounded ordinal renaming are the same rows every Exchange egress obeys, never a second archive-local collision vocabulary. `ArchiveYield` carries detached result data; `ArchiveReceipt` carries the yield plus evidence; `ArchiveStep` retains source ordinal, the failed step's evidence, and mutation residue truth; `ArchiveProgram` retains requested cardinality and the ordered executed prefix.
 - Entry: `Archives.Apply(ArchiveSource, ArchiveOp, Op?) : Fin<ArchiveReceipt>` — no live document or session enters the archive scope.
 - Law: `InspectCase` over a `PathCase` never constructs a `File3dm` — the static header reads (`ReadNotes`, `ReadArchiveVersion`, `ReadRevisionHistory`, `ReadApplicationData`, `ReadEarthAnchorPoint`, `ReadPageViews`, `ReadDimensionStyles`, `ReadPreviewImage`) answer from the file, and the batch dispatcher routes an inner inspect over a path source to the same static reads; only a `BytesCase` inspect projects the in-memory header with `ExchangeEvidence.DegradedCase`, so the yield shape never forks on ingress and the degraded row is emitted only where the layout roster is genuinely unreachable.
+- Law: `ArchiveMetadata.Of` is the ONE projection both ingresses fill, parameterized per field on its own reader, so presence rules cannot diverge between them — `Revised` owns the one presence rule — a positive revision ordinal, gated further on the static reader's parse verdict where a path ingress supplies one — a blank author or application name projects to absence through one text admission, and `Layouts` is `Option<Seq<…>>` so byte ingress spells the unreachable roster as `None` rather than measuring it as empty.
 - Law: `SerializeCase` keys the exact `ToByteArray(policy.Host())` payload it returns; `PersistCase` and `AmendCase` write and verify a same-directory temporary file, move it over the target, and key the bytes that were committed, so content identity names the landed artifact.
-- Law: every nonempty `ReadWithLog`, `WriteWithLog`, and `IsValidWithLog` diagnostic becomes `ExchangeEvidence.NativeCase` with the native call's outcome; a native call without a result carries the same diagnostic in its fault, and an invalid object without native text receives an explicit failed fallback row.
+- Law: every nonempty `ReadWithLog`, `WriteWithLog`, and `IsValidWithLog` diagnostic becomes `ExchangeEvidence.NativeCase` with the native call's outcome; a native call without a result carries the same diagnostic in its fault, and an invalid object without native text receives an explicit failed fallback row. `ReadWithLog` names its filter parameter `tableTypeFilterFilter` in the host's own doubled spelling, preserved verbatim beside every other host misspelling this boundary binds — renaming it to the readable form breaks the compile rather than repairing anything.
 - Law: `VerifyCase` folds every object's validity fact plus every native log and broken graph link into one verdict/evidence pair; archive-wide validity never substitutes for these object and relationship witnesses. `File3dmObject.Geometry` is runtime-null for an unrealized native pointer, so every geometry read — validity, unit scaling — guards through `Optional` before dereference and reports the null as an explicit failed witness, never an escape.
 - Law: extraction admits a case-insensitively unique basename set before the first save; folder existence and per-file collision ride each landing's `OutputPolicy` rows. Amendment rejects an empty patch sequence because unchanged persistence already belongs to `PersistCase`.
 - Law: `BatchCase` shares one materialization and dispatches the request sequence in source order; nesting is refused at admission, the first failure seals the executed prefix, and `ArchiveProgram.Requested`, `Steps`, `StoppedAt`, `MutationAttempted`, and `MutationMayRemain` distinguish completion, skipped suffix, external mutation, and possible residue.
@@ -505,8 +540,8 @@ public abstract partial record ArchiveOp {
     public sealed record DiffCase(ArchiveSource Other) : ArchiveOp;
     public sealed record BatchCase(Seq<ArchiveOp> Program) : ArchiveOp;
 
-    public static Fin<ArchiveOp> Batch(Op? key = null, params ReadOnlySpan<ArchiveOp> program) {
-        Op op = key.OrDefault();
+    public static Fin<ArchiveOp> Batch(params ReadOnlySpan<ArchiveOp> program) {
+        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
         return ((ArchiveOp)new BatchCase(Program: toSeq(program.ToArray()))).Admit(op: op);
     }
 
@@ -921,25 +956,22 @@ public static class Archives {
             using (EarthAnchorPoint? anchor = File3dm.ReadEarthAnchorPoint(path: path.Value)) {
                 anchored = anchor is { } value && value.EarthLocationIsSet();
             }
-            Seq<(string Name, Guid Id)> layouts = ProjectOwned(
-                values: File3dm.ReadPageViews(path: path.Value),
-                project: static view => (view.Name, view.Viewport.Id));
-            int dimensionStyles = ProjectOwned(
-                values: File3dm.ReadDimensionStyles(path: path.Value),
-                project: static _ => unit).Count;
             return Fin.Succ(value: ArchiveReceipt.Of(
-                yield: new ArchiveYield.MetadataCase(Metadata: new ArchiveMetadata(
-                    Notes: Optional(File3dm.ReadNotes(path: path.Value)).Filter(static text => !string.IsNullOrWhiteSpace(value: text)),
-                    ArchiveVersion: File3dm.ReadArchiveVersion(path: path.Value),
-                    Revision: hasRevision ? Some((createdBy, lastEditedBy, revision, createdOn, lastEditedOn)) : None,
-                    Application: string.IsNullOrWhiteSpace(value: appName) ? None : Some((appName, appUrl, appDetails)),
-                    EarthAnchored: anchored,
-                    Layouts: layouts,
-                    DimensionStyles: dimensionStyles,
-                    HasPreview: Optional(File3dm.ReadPreviewImage(path: path.Value)).Map(static bitmap => {
-                        using System.Drawing.Bitmap preview = bitmap;
-                        return true;
-                    }).IfNone(noneValue: false)))));
+                yield: new ArchiveYield.MetadataCase(Metadata: ArchiveMetadata.Of(
+                    notes: () => ArchiveMetadata.Text(value: File3dm.ReadNotes(path: path.Value)),
+                    archiveVersion: () => File3dm.ReadArchiveVersion(path: path.Value),
+                    revision: () => ArchiveMetadata.Revised(
+                        read: hasRevision, createdBy: createdBy, lastEditedBy: lastEditedBy,
+                        revision: revision, createdOn: createdOn, lastEditedOn: lastEditedOn),
+                    application: () => ArchiveMetadata.Origin(name: appName, url: appUrl, details: appDetails),
+                    anchored: () => anchored,
+                    layouts: () => Some(ProjectOwned(
+                        values: File3dm.ReadPageViews(path: path.Value),
+                        project: static view => (view.Name, view.Viewport.Id))),
+                    dimensionStyles: () => ProjectOwned(
+                        values: File3dm.ReadDimensionStyles(path: path.Value),
+                        project: static _ => unit).Count,
+                    preview: () => ArchiveMetadata.Previewed(bitmap: File3dm.ReadPreviewImage(path: path.Value))))));
         });
 
     private static Fin<ArchiveReceipt> Extract(
@@ -1072,22 +1104,18 @@ public static class Archives {
                 anchored = anchor.EarthLocationIsSet();
             }
             return Fin.Succ(value: ArchiveReceipt.Of(
-                yield: new ArchiveYield.MetadataCase(Metadata: new ArchiveMetadata(
-                    Notes: Optional(archive.Notes.Notes).Filter(static text => !string.IsNullOrWhiteSpace(value: text)),
-                    ArchiveVersion: archive.ArchiveVersion,
-                    Revision: archive.Revision > 0 || !string.IsNullOrWhiteSpace(value: archive.CreatedBy)
-                        ? Some((archive.CreatedBy, archive.LastEditedBy, archive.Revision, archive.Created, archive.LastEdited))
-                        : None,
-                    Application: string.IsNullOrWhiteSpace(value: archive.ApplicationName)
-                        ? None
-                        : Some((archive.ApplicationName, archive.ApplicationUrl, archive.ApplicationDetails)),
-                    EarthAnchored: anchored,
-                    Layouts: Seq<(string, Guid)>(),
-                    DimensionStyles: archive.AllDimStyles.Count,
-                    HasPreview: Optional(archive.GetPreviewImage()).Map(static bitmap => {
-                        using System.Drawing.Bitmap preview = bitmap;
-                        return true;
-                    }).IfNone(noneValue: false))),
+                yield: new ArchiveYield.MetadataCase(Metadata: ArchiveMetadata.Of(
+                    notes: () => ArchiveMetadata.Text(value: archive.Notes.Notes),
+                    archiveVersion: () => archive.ArchiveVersion,
+                    revision: () => ArchiveMetadata.Revised(
+                        read: true, createdBy: archive.CreatedBy, lastEditedBy: archive.LastEditedBy,
+                        revision: archive.Revision, createdOn: archive.Created, lastEditedOn: archive.LastEdited),
+                    application: () => ArchiveMetadata.Origin(
+                        name: archive.ApplicationName, url: archive.ApplicationUrl, details: archive.ApplicationDetails),
+                    anchored: () => anchored,
+                    layouts: () => None,
+                    dimensionStyles: () => archive.AllDimStyles.Count,
+                    preview: () => ArchiveMetadata.Previewed(bitmap: archive.GetPreviewImage()))),
                 evidence: Seq<ExchangeEvidence>(new ExchangeEvidence.DegradedCase(
                     Surface: nameof(MetadataOf),
                     Detail: "Byte ingress projects the in-memory header; the layout roster is a path-only read."))));

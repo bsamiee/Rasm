@@ -167,15 +167,14 @@ public static class DialogSurface {
             var other => FinFail<Option<TResult>>(new DialogFault.ResultShape(typeof(TResult).Name, other.GetType().Name)),
         };
 
+    // The reservation is a CAS REFUSAL, never a flag a lambda writes: a swap body re-runs on every lost race,
+    // so an admission recorded inside it survives an iteration that lost, and the caller opens a session it
+    // never reserved — the exact read-then-open race the single-session law exists to close. `SwapMaybe`
+    // returns None on an occupied cell, so the refusal is the CELL'S answer and only the winning writer
+    // observes a transition; the losing writer sees the occupied state and refuses without latching it.
     private static async Task<Fin<Option<TResult>>> Request<TResult>(DialogTopology root, DialogAsk<TResult> ask) where TResult : notnull {
-        bool admitted = root.StackedSessions;
-        ignore(root.Occupied.Swap(occupied => root.StackedSessions
-            ? occupied
-            : occupied || root.HasOpenSession
-                ? true
-                : (admitted = true)));
-
-        if (!admitted) {
+        if (!root.StackedSessions
+            && root.Occupied.SwapMaybe(occupied => occupied || root.HasOpenSession ? None : Some(true)).IsNone) {
             return FinFail<Option<TResult>>(new DialogFault.SessionOccupied(root.SurfaceKey));
         }
 
@@ -213,7 +212,6 @@ public static class DialogSurface {
 - Boundary: enter/exit timing and reduced-motion pairs arrive from the motion vocabulary — linger and suppression are the only timing facts owned here; `ToastPipe` binds one `WindowNotificationManager` constructed over the surface `TopLevel`, whose `Show(object, NotificationType, TimeSpan?, ...)` overload carries the row's severity as the `NotificationType` case and the linger as the expiration; native Rhino toasts and status panes stay host-owned; `Suspended` drops every note because retained capabilities exclude presentation.
 
 ```csharp signature
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -268,17 +266,23 @@ public static class ToastGate {
                 ? IO.pure(FinFail<Seq<ToastReceipt>>(new DialogFault.PolicyRejected($"toast-horizon:{horizon}")))
                 : ToastGate.Admit(phase, degradation.Level) == ToastOutcome.Queued
                     ? IO.pure(FinSucc(Seq<ToastReceipt>()))
-                : IO.lift(() => {
-                Seq<QueuedToast> taken = default;
-                ignore(root.Held.Swap(held => (taken = held, Seq<QueuedToast>()).Item2));
-                return taken;
-            })
-            .Bind(taken => taken
-                .TraverseM(note => at - note.At <= horizon
-                    ? root.Toast(note.Row, note.Title, note.Body, phase, degradation, at, note.Correlation, note.IntentKey)
-                    : IO.pure(new ToastReceipt(note.Row, root.SurfaceKey, ToastOutcome.Dropped, note.IntentKey, at, note.Correlation)))
-                .As()
-                .Map(static receipts => FinSucc(receipts.Strict()));
+                    : IO.lift(() => Taken(root))
+                        .Bind(taken => taken
+                            .TraverseM(note => at - note.At <= horizon
+                                ? root.Toast(note.Row, note.Title, note.Body, phase, degradation, at, note.Correlation, note.IntentKey)
+                                : IO.pure(new ToastReceipt(note.Row, root.SurfaceKey, ToastOutcome.Dropped, note.IntentKey, at, note.Correlation)))
+                            .As()
+                            .Map(static receipts => FinSucc(receipts.Strict())));
+    }
+
+    // A hand-off read takes the PRIOR value, and Swap answers the value it just installed — so the drain
+    // reads Value as the honest snapshot and the swap body stays pure, dropping exactly the prefix the
+    // snapshot claimed. A side-effecting lambda repeats on every lost CAS, and clearing the whole register
+    // instead of the drained prefix silently discards a note admitted between the read and the swap.
+    private static Seq<QueuedToast> Taken(DialogTopology root) {
+        Seq<QueuedToast> held = root.Held.Value;
+        ignore(root.Held.Swap(current => current.Skip(held.Count)));
+        return held;
     }
 }
 ```
@@ -292,6 +296,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Toast admission and outcome fan
+    accDescr: A toast admitting through the gate into the shown pipe, the held register, or a dropped receipt, held entries flushing back on resume or aging past the horizon onto the same receipt.
     Toast["Toast"] --> Admit["ToastGate.Admit"]
     Admit -->|"ToastOutcome.Shown"| Pipe["ToastPipe"]
     Admit -->|"ToastOutcome.Queued"| Held["Held register"]
@@ -330,4 +336,5 @@ public static class PickOps {
 
 ## [06]-[RESEARCH]
 
-- [EMBEDDED_TOPLEVEL]: the embedded-root service-capsule spelling the `TopLevelResolver` returns inside the rhino-panel root — the notification-manager construction surface and the storage-provider resolution across the embedded `TopLevel`, both uncatalogued for the embedded host and bound at the embed-capsule spike.
+- [EMBEDDED_TOPLEVEL]-[OPEN]: does `TopLevel.GetTopLevel(Visual)` answer a non-null root for content mounted inside the rhino-panel embed capsule, so `TopLevelResolver` returns `Some` and `WindowNotificationManager` constructs over it; route: resolve the top level from a live RhinoWIP panel mount.
+- [EMBEDDED_STORAGE_PROVIDER]-[OPEN]: does `TopLevel.StorageProvider` resolve on that embedded root, so the pick route reaches the native file dialog instead of sealing a policy fault; route: raise a `Pick` intent from a live RhinoWIP panel mount.

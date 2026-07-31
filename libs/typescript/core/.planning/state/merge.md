@@ -5,7 +5,7 @@ The one lawful merge owner of the branch and its law surface in one module: ever
 ## [01]-[INDEX]
 
 - [02]-[INSTANCE_CONTRACT]: combine, posture, alike, empty; `Merge.Posture`, `Merge.Instance`, `Merge.instance`.
-- [03]-[INSTANCE_ROSTER]: scalar, keyed, set, and product constructor rows — `Merge.max` through `Merge.struct`.
+- [03]-[INSTANCE_ROSTER]: scalar, keyed, set, and product constructor rows — `Merge.max` through `Merge.tuple`.
 - [04]-[FOLD_ENTRY]: fold, `Monoid` projection, gate; `Merge.fold`, `Merge.monoid`, `Merge.convergent`.
 - [05]-[LAW_SURFACE]: obligations, witnesses, replay; `Converge`, `Breach`.
 - [06]-[MERGE_CELLS]: keyed transactional cell table; `Merge.cell`.
@@ -18,7 +18,7 @@ The one lawful merge owner of the branch and its law surface in one module: ever
 - Law: `alike` derives from the instance's own material — `_fromOrder` for extremum instances, `Schema.equivalence` for decoded owners, composed `Equivalence` rows for products — so law checks and table comparison never fall back to reference identity.
 - Law: the algebra is generic over the op vocabulary — the contract wire op family the interchange codec decodes and app-authored journal families are instance rows on this surface, never sibling merge functions; LWW is `Merge.max` applied to a total stamp order (`Hlc.Order` composed by the caller), never a second constructor.
 - Growth: a new merge semantic is a new constructor row or a `data/*` atom lift; the `Instance` shape never widens per semantic.
-- Packages: `@effect/typeclass` (`Semigroup`, `Monoid`, `Bounded`, `data/*` atoms); `effect` (`Array`, `Data`, `Effect`, `Either`, `Equal`, `Equivalence`, `HashMap`, `HashSet`, `Option`, `Order`, `Predicate`, `Record`, `STM`, `TMap`).
+- Packages: `@effect/typeclass` (`Semigroup`, `Monoid`, `Bounded`, `data/*` atoms); `effect` (`Array`, `Data`, `Effect`, `Either`, `Equal`, `Equivalence`, `HashMap`, `HashSet`, `Option`, `Order`, `Predicate`, `Record`, `STM`, `TMap`); `../value/fault.ts` (`FaultClass`).
 
 ```typescript
 import type * as Bounded from "@effect/typeclass/Bounded"
@@ -29,6 +29,7 @@ import * as NumberInstances from "@effect/typeclass/data/Number"
 import * as OptionInstances from "@effect/typeclass/data/Option"
 import * as RecordInstances from "@effect/typeclass/data/Record"
 import { Array, Data, Effect, Either, Equal, Equivalence, HashMap, HashSet, Option, type Order, Predicate, Record, STM, TMap, TRef, type Types } from "effect"
+import { FaultClass } from "../value/fault.ts"
 
 declare namespace Merge {
   type Posture = { readonly commutative: boolean; readonly idempotent: boolean }
@@ -39,6 +40,7 @@ declare namespace Merge {
     readonly empty: Option.Option<A>
   }
   type Fields<S> = { readonly [K in keyof S]: Instance<S[K]> }
+  type Slots<T extends ReadonlyArray<unknown>> = { readonly [I in keyof T]: Instance<T[I]> }
   type Lattice<A> = { readonly join: Instance<A>; readonly meet: Instance<A> }
   type Cell<K, S> = {
     readonly absorb: (rows: ReadonlyArray<readonly [K, S]>) => Effect.Effect<void>
@@ -66,6 +68,7 @@ declare namespace Merge {
     readonly hashMap: <K, V>(row: Instance<V>) => Instance<HashMap.HashMap<K, V>>
     readonly optional: <A>(row: Instance<A>) => Instance<Option.Option<A>>
     readonly struct: <S extends object>(fields: Fields<S>) => Instance<Types.Simplify<S>>
+    readonly tuple: <T extends ReadonlyArray<unknown>>(...rows: Slots<T>) => Instance<T>
     readonly imap: <A, B>(row: Instance<A>, to: (value: A) => B, from: (wrapped: B) => A) => Instance<B>
     readonly fold: <A>(instance: Instance<A>, rows: ReadonlyArray<A>) => Option.Option<A>
     readonly monoid: <A>(instance: Instance<A>) => Option.Option<Monoid.Monoid<A>>
@@ -95,8 +98,8 @@ const _fromOrder = <A>(order: Order.Order<A>): Equivalence.Equivalence<A> =>
 - Law: `Merge.hashSet` is the grow-only set CRDT on the branch's keyed-set currency — `HashSet.union` joins, the posture is the full lattice, `empty` is the empty set, `alike` is the set's own structural equality — the row causal reach tables and selection axes compose; a 2P set is `Merge.struct` over an add set and a remove set with the read-time difference as its projection, never a third constructor.
 - Law: `Merge.imap` carries an instance across a wrapper pair — `Semigroup.imap` maps the combine through `to`/`from`, `alike` re-anchors through `Equivalence.mapInput`, `empty` maps through `to` — so a class owner re-lands its interior field-product instance through one iso, and the hand `Semigroup.make` constructor wrap beside a roster instance is the deleted spelling.
 - Law: `Merge.hashMap` is the keyed-map CRDT on the branch's own keyed-state currency — the `HashMap` twin of `union`: present-in-one keeps, present-in-both combines through the row instance, `empty` is the empty map, posture inherits the row's — so a keyed evidence field composes `Merge.struct({ commands: Merge.hashMap(row) })` and a hand-rolled `HashMap.reduce` combine beside the roster is the deleted spelling; its `alike` is the law surface's own keyed-table comparison, so table proofs and instance proofs share one equality.
-- Law: `Merge.struct` is the record CRDT — one instance per field, posture the conjunction of field postures, equivalence and empty composed from the same rows — a record merge is exactly as lawful as its weakest field and the whole matrix reads from one declaration.
-- Exemption: `_mapped` and `_struct` are the marked reverse-mapped projection kernel — `Record.map` deliberately homogenizes record values and the checker cannot retain each key's `Instance<S[K]>` correlation through that API, so one input cast and the three exact output rebindings live here, carry the `// BOUNDARY ADAPTER` mark, and no asserted value crosses the kernel.
+- Law: `Merge.struct` is the record CRDT — one instance per field, posture the conjunction of field postures, equivalence and empty composed from the same rows — a record merge is exactly as lawful as its weakest field and the whole matrix reads from one declaration; `Merge.tuple` is its POSITIONAL twin over `Semigroup.tuple`/`Equivalence.tuple` on the identical four-line shape, so a positional product is a plan state without a wrapper class: `fold#DATAFLOW_VERBS`' joined pair (`readonly [SL, SR]` from the two sides' own instances), its ordered and topped rows, and `fold#WATERMARK_PANES`' `Window.Key<K>` pane coordinate each fold under one row rather than through a minted record.
+- Exemption: `_mapped`/`_struct` and `_indexed`/`_tuple` are the marked reverse-mapped projection kernels — `Record.map` and `Array.map` deliberately homogenize their members and the checker cannot retain each key's or slot's `Instance<_>` correlation through those APIs, so one input cast and the three exact output rebindings live at each, carry the `// BOUNDARY ADAPTER` mark, and no asserted value crosses either kernel.
 - Growth: a new CRDT type is one constructor row here plus its law row at the law surface; the wire op family binds instances per op case at the interchange decode seam, never by forking this algebra.
 
 ```typescript
@@ -136,10 +139,32 @@ const _lattice = <A>(bounds: Bounded.Bounded<A>): Merge.Lattice<A> => ({
 })
 
 const _struct = <S extends object>(fields: Merge.Fields<S>): Merge.Instance<Types.Simplify<S>> => ({
+  // BOUNDARY ADAPTER: the typeclass composers state their own record shape, so each rebinding restores the flattened
+  // owner type the mapped-key projection already proved; no asserted value crosses
   combine: Semigroup.struct(_mapped(fields, (row) => row.combine)) as unknown as Semigroup.Semigroup<Types.Simplify<S>>,
   posture: _postures(Record.values(_mapped(fields, (row) => row.posture))),
   alike: Equivalence.struct(_mapped(fields, (row) => row.alike)) as unknown as Equivalence.Equivalence<Types.Simplify<S>>,
   empty: Option.all(_mapped(fields, (row) => row.empty)) as unknown as Option.Option<Types.Simplify<S>>,
+})
+
+const _indexed = <T extends ReadonlyArray<unknown>, R>(
+  rows: Merge.Slots<T>,
+  project: (row: Merge.Instance<unknown>) => R,
+): { readonly [I in keyof T]: R } => {
+  // BOUNDARY ADAPTER: Array.map homogenizes tuple elements; the mapped-index contract restores the exact arity before the value leaves
+  return Array.map(
+    rows as unknown as ReadonlyArray<Merge.Instance<unknown>>,
+    project,
+  ) as unknown as { readonly [I in keyof T]: R }
+}
+
+const _tuple = <T extends ReadonlyArray<unknown>>(...rows: Merge.Slots<T>): Merge.Instance<T> => ({
+  // BOUNDARY ADAPTER: the positional twin of the record rebinding — the spread composers homogenize their slots, so
+  // each rebinding restores the arity the mapped-index projection already proved
+  combine: Semigroup.tuple(..._indexed<T, Semigroup.Semigroup<unknown>>(rows, (row) => row.combine)) as unknown as Semigroup.Semigroup<T>,
+  posture: _postures(_indexed<T, Merge.Posture>(rows, (row) => row.posture)),
+  alike: Equivalence.tuple(..._indexed<T, Equivalence.Equivalence<unknown>>(rows, (row) => row.alike)) as unknown as Equivalence.Equivalence<T>,
+  empty: Option.all(_indexed<T, Option.Option<unknown>>(rows, (row) => row.empty)) as unknown as Option.Option<T>,
 })
 ```
 
@@ -166,20 +191,20 @@ const _monoid = <A>(instance: Merge.Instance<A>): Option.Option<Monoid.Monoid<A>
 ## [05]-[LAW_SURFACE]
 
 [LAW_SURFACE]:
-- Owner: `Converge` — the `_LAWS` anchor with its `_OBLIGED` gate record and the `_WITNESSES` record, one gate and one total witness per law over an instance and a three-value sample, so a law is data a harness enumerates, never prose a spec restates; `Breach` is the typed fault carrying the broken law and the sample operands themselves — evidence as data the harness shrinks, rendered only at the reporting edge.
+- Owner: `Converge` — the `_LAWS` anchor with its `_OBLIGED` gate record and the `_WITNESSES` record, one gate and one total witness per law over an instance and a three-value sample, so a law is data a harness enumerates, never prose a spec restates; `Breach` is the typed fault carrying the broken law and the sample operands themselves — evidence as data the harness shrinks, rendered only at the reporting edge — with its law roster closed through the core `FaultClass.family` mint so the `class` a consumer routes on comes from the one severity lattice and never a second rank column here.
 - Law: obligations derive as one filter of the `_LAWS` anchor through the `_OBLIGED` gates — `associativity` unconditionally, `commutativity`/`idempotence` from the posture, `identity` from `Option.isSome(empty)` — so an instance cannot under-declare its proof surface, a new law is one anchor entry plus one gate row plus one witness row, and `Merge.counter`'s non-idempotent posture routes it around the idempotence law toward the delivery-uniqueness witness `causal`'s admission provides: redelivered envelopes shed as `Drained` receipt evidence before any op reaches a fold, because the engine lanes compact multiplicities without structural dedup and only an idempotent combine absorbs a duplicate that slips past admission.
 - Law: every witness compares through the instance's own `alike` — the equivalence declared at the instance is the equality the law is proven under, so structural classes, plain records, and branded scalars all prove under one spelling.
 - Law: `Converge.commutes` is the bridge law between instance and fold — for a convergence-legal instance, folding any two permutations of one delivered op set through the caller-supplied run yields equivalent tables; the run parameter is `fold#PLAN_CONTRACT`'s `Fold.run` closed over the instance's plan — `(ops) => Fold.run(plan, ops)` — so instance proofs and replay proofs share one predicate with zero import cycle, and a non-convergent instance answers `false` by construction rather than sampling its way to a lie.
 - Law: `Converge.tables` compares key census and per-key states under the instance's `alike` — the one table comparison every convergence and replay assertion uses; a `JSON.stringify` table diff or reference comparison is the deleted spelling.
 - Law: `Converge.Fixture` binds a law set to a frozen corpus asset — `corpus` names the estate root, `seam` the cross-language seam id, `asset` the fixture coordinate — so the contract op families the interchange codec decodes prove their instance laws against pinned bytes, not only generated samples.
 - Boundary: permutation generation, run counts, and shrinking are tests-estate decisions; corpus bytes live at `tests/contracts` and no fixture path is hardcoded in the library.
-- Growth: a new law is one `_LAWS` row plus one witness arm — the record contract turns a missing witness into a compile error; a new instance adds zero lines here.
+- Growth: a new law is one `_LAWS` row with its class row in the family mint plus one witness arm — the record contract turns a missing witness into a compile error and the mint's exact-key constraint turns a missing class row into one; a new instance adds zero lines here.
 
 ```typescript
 const _LAWS = ["associativity", "commutativity", "idempotence", "identity"] as const
 
 declare namespace Converge {
-  type Law = (typeof _LAWS)[number]
+  type Law = (typeof _family.reasons)[number] // the frozen snapshot the family mint publishes, so a caller cannot drift the law roster the witnesses enumerate
   type Sample<A> = { readonly first: A; readonly second: A; readonly third: A }
   type Fixture = { readonly corpus: string; readonly seam: string; readonly asset: string; readonly laws: ReadonlyArray<Law> }
   type Shape = {
@@ -196,10 +221,28 @@ declare namespace Converge {
   }
 }
 
+// One row per law carrying the core kind alone: a merge law that fails is a torn convergence invariant — system-blamed,
+// never re-driven, and no repair report to quarantine into — so retryability and blame read off the core row table and
+// no local rank, retry, or status column rides beside `class`. `Data` is the declaration form because the operands are
+// the caller's own `A` values a harness shrinks in process; nothing here crosses a wire to earn a codec.
+const _family = FaultClass.family(_LAWS, {
+  associativity: { class: "breached" },
+  commutativity: { class: "breached" },
+  idempotence: { class: "breached" },
+  identity: { class: "breached" },
+})
+
 class Breach extends Data.TaggedError("Breach")<{
   readonly law: Converge.Law
   readonly operands: ReadonlyArray<unknown>
-}> {}
+}> {
+  get class(): FaultClass.Kind {
+    return _family.classOf(this.law)
+  }
+  override get message(): string {
+    return `<merge:${this.law}> refused over ${this.operands.length} operands`
+  }
+}
 
 const _OBLIGED: { readonly [L in Converge.Law]: <A>(instance: Merge.Instance<A>) => boolean } = {
   associativity: () => true,
@@ -359,6 +402,7 @@ const Merge: Merge.Shape = {
     empty: Option.some(Option.none()),
   }),
   struct: _struct,
+  tuple: _tuple,
   imap: (row, to, from) => ({
     combine: Semigroup.imap(row.combine, to, from),
     posture: row.posture,

@@ -61,10 +61,10 @@ public readonly record struct ClosestHit(
         ValidityClaim.Of(Distance.Map(static d => ValidityClaim.Nonnegative(d).Holds).IfNone(noneValue: false)),
         ValidityClaim.Of(Parameter.Map(static t => ValidityClaim.Finite(t).Holds).IfNone(noneValue: true)),
         ValidityClaim.Of(Uv.Map(static uv => uv.IsValid).IfNone(noneValue: true)),
-        ValidityClaim.Of(Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(noneValue: true)),
+        ValidityClaim.Of(Normal.Map(static n => n.IsValid && n.Length > EpsilonPolicy.ZeroTolerance).IfNone(noneValue: true)),
         ValidityClaim.Of(Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(noneValue: true)),
         ValidityClaim.Of(MeshPoint.Map(static m => OpAcceptance.ValidityOf(source: m).IfNone(noneValue: false)).IfNone(noneValue: true)),
-        ValidityClaim.Of(Tangent.Map(static v => v.IsValid && v.Length > RhinoMath.ZeroTolerance).IfNone(noneValue: true)),
+        ValidityClaim.Of(Tangent.Map(static v => v.IsValid && v.Length > EpsilonPolicy.ZeroTolerance).IfNone(noneValue: true)),
         ValidityClaim.Of(Frame.Map(static p => p.IsValid).IfNone(noneValue: true)));
     internal Fin<TOut> Project<TOut>(Op key) {
         ClosestHit hit = this;
@@ -179,10 +179,10 @@ internal static class Evaluation {
                                 point: point,
                                 parameter: Some(u),
                                 component: Some(component),
-                                tangent: hitVector.IsValid && hitVector.Length > RhinoMath.ZeroTolerance ? Some(hitVector) : Option<Vector3d>.None,
+                                tangent: hitVector.IsValid && hitVector.Length > EpsilonPolicy.ZeroTolerance ? Some(hitVector) : Option<Vector3d>.None,
                                 frame: (brep.Edges[edgeIndex].PerpendicularFrameAt(t: u, plane: out Plane edgeFrame), edgeFrame, hitVector) switch {
                                     (true, { IsValid: true } frame, _) => Some(frame),
-                                    (_, _, { IsValid: true } tangent) when tangent.Length > RhinoMath.ZeroTolerance => new Plane(origin: point, normal: tangent) switch {
+                                    (_, _, { IsValid: true } tangent) when tangent.Length > EpsilonPolicy.ZeroTolerance => new Plane(origin: point, normal: tangent) switch {
                                         { IsValid: true } frame => Some(frame),
                                         _ => Option<Plane>.None,
                                     },
@@ -317,6 +317,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Closest-point and sampling evaluation spine
+    accDescr: Raw geometry admitting through the capability gate into the closest-point recovery lattice, one nine-field hit receipt fanning into typed projections, support facets, and signed distance, beside the sampling lanes feeding the analysis consumers.
     Raw["object? geometry + Point3d target"] -->|Capability.Closest gate + oracle| ClosestOf
     ClosestOf -->|18-arm recovery lattice| Hit["ClosestHit 9-field receipt"]
     Analytic["Circle / Ellipse / Cylinder / Cone / Torus"] -->|Lease recovery ≤2 deep| ClosestOf

@@ -12,6 +12,7 @@ One in-memory classical-statistics owner producing hypothesis-test and distribut
 
 - Owner: `TestIntent` — `Goodness` is the strictly narrower Anderson-Darling reference set because `scipy.stats.anderson` rejects any distribution outside its published set, so a reference the route raises on is unspellable on the AD intent — two bounded vocabularies for two admissible domains, never one over-wide enum; `Decision` owns both reject regimes as a policy value carrying its own `reject` algebra, so `criterion` is one typed yardstick per route, never a field overload where a p-value column smuggles `alpha` for the critical-value route.
 - Cases: the three `(statistic, pvalue)` routes share the one `_significance` body keyed by `_SIGNIFICANCE_CALLS` because their bodies differed only in the bound entrypoint and one keyword; `anderson` and `fit` read divergent result shapes and keep dedicated readers — only truly-identical bodies collapse to the table.
+- Seed: the report `ContentKey` resolves ahead of the route and IS the replay seed a drawing route takes, so one derivation over the sample bytes serves both the report identity and the reference draw. A second entropy source over those same bytes is the deleted form on both axes — it can fork from the identity it mirrors, and its own cost is quadratic in the sample where the bounded digest is flat.
 - Packages: the scipy result carriers are typed through local `TYPE_CHECKING` `Protocol`s because the catalogue documents the `.statistic`/`.pvalue` shape rather than a public result-type name, and the gated package never imports at runtime; entrypoints stay boundary-scoped per the manifest import policy.
 - Growth: a new `(statistic, pvalue)` test is one `Tag` literal, one `TestIntent` case, one `_SIGNIFICANCE_CALLS` row, and one `_STAT_ROUTES` row; a divergent-shape test adds one dedicated reader instead; a new fittable distribution is one `Distribution` row; a new Anderson-Darling reference is one `Goodness` row only when `scipy.stats.anderson` documents it; a new reject regime is one `Decision` row carrying its own `reject` rule.
 
@@ -30,7 +31,7 @@ from msgspec import Struct
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
 if TYPE_CHECKING:
     class TestResult(Protocol):
@@ -202,16 +203,18 @@ class TestIntent:
 
 
 class StatRoute(Struct, frozen=True):
-    run: Callable[[TestIntent, float, int], Reading]  # binds the route's `scipy.stats` entrypoint and projects the typed `Reading`
+    # `run` takes the report's own `ContentKey` because a route needing a reproducible draw seeds off THAT key rather
+    # than re-deriving a second identity from the same bytes; a route that draws nothing ignores the argument.
+    run: Callable[[TestIntent, float, int, ContentKey], Reading]  # binds the `scipy.stats` entrypoint, projects the typed `Reading`
     decision: Decision  # the reject-regime the row grades under
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
 
-def test(intent: TestIntent, *, alpha: float = 0.05, fit_sample: int = 4096) -> "RuntimeRail[StatReport]":
+def test(intent: TestIntent, *, alpha: float = 0.05, fit_sample: int = 4096, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[StatReport]":
     # a `scipy.stats` raise, the gated `ImportError`, a contract violation, or an in-body digest `Error` all fold onto the ONE rail.
     facts = {"test": intent.tag, "alpha": alpha}
-    return evidence_run(EvidenceScope.STATISTICS, f"stat.{intent.tag}", lambda: _stat_report(intent, alpha, fit_sample), facts=facts)
+    return evidence_run(EvidenceScope.STATISTICS, f"stat.{intent.tag}", lambda: _stat_report(intent, alpha, fit_sample), facts=facts, composition=composition)
 
 
 
@@ -219,12 +222,13 @@ def test(intent: TestIntent, *, alpha: float = 0.05, fit_sample: int = 4096) -> 
 def _stat_report(intent: TestIntent, alpha: float, fit_sample: int) -> StatReport:
     # `alpha` threads into `run` (the AD criterion selects its critical value at the configured level) AND into `graded` (every
     # `Decision.reject` grades against the same level); the `_stat_key` rail is matched HERE inside the already-fenced body so a
-    # digest `Error` re-raises onto the boundary rather than flattening a double rail.
+    # digest `Error` re-raises onto the boundary rather than flattening a double rail. The key resolves BEFORE the route runs,
+    # so the one identity the report carries is also the one seed a drawing route replays from — never two derivations over the
+    # same bytes that a later change to either can silently fork.
     route = _STAT_ROUTES[intent.tag]
-    reading = route.run(intent, alpha, fit_sample)
     match _stat_key(intent, alpha, fit_sample):
         case Result(tag="ok", ok=key):
-            return StatReport.graded(intent.tag, route.decision, reading, alpha, key)
+            return StatReport.graded(intent.tag, route.decision, route.run(intent, alpha, fit_sample, key), alpha, key)
         case Result(tag="error", error=fault):
             raise RuntimeError(fault)  # the `boundary` `_convert` re-folds it; `BoundaryFault` is no exception
 
@@ -234,7 +238,7 @@ def _stat_key(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeRail
     return ContentIdentity.of(f"stat.{intent.tag}", intent.identity_buffer(alpha, fit_sample))
 
 
-def _significance(intent: TestIntent, _alpha: float, _: int) -> Reading:
+def _significance(intent: TestIntent, _alpha: float, _sample: int, _key: ContentKey) -> Reading:
     # `_SIGNIFICANCE_CALLS[tag]` projects `(entry_name, kwargs)` off the intent and the gated `getattr(stats, entry_name)` binds
     # entrypoint inside the boundary; the named result's `.pvalue` is the SIGNIFICANCE criterion.
     from scipy import stats
@@ -244,7 +248,7 @@ def _significance(intent: TestIntent, _alpha: float, _: int) -> Reading:
     return Reading(float(result.statistic), float(result.pvalue))
 
 
-def _run_anderson(intent: TestIntent, alpha: float, _: int) -> Reading:
+def _run_anderson(intent: TestIntent, alpha: float, _sample: int, _key: ContentKey) -> Reading:
     from scipy import stats
 
     (x,) = intent.samples
@@ -258,7 +262,7 @@ def _run_anderson(intent: TestIntent, alpha: float, _: int) -> Reading:
     return Reading(float(result.statistic), float(np.asarray(result.critical_values, dtype=float)[pick]))
 
 
-def _run_fit(intent: TestIntent, _alpha: float, fit_sample: int) -> Reading:
+def _run_fit(intent: TestIntent, _alpha: float, fit_sample: int, key: ContentKey) -> Reading:
     from scipy import stats
 
     (x,) = intent.samples
@@ -266,10 +270,13 @@ def _run_fit(intent: TestIntent, _alpha: float, fit_sample: int) -> Reading:
     frozen = getattr(stats, dist.value)
     params = tuple(float(p) for p in frozen.fit(x))
     estimate = frozen(*params)
-    # reference draw seeds off the sample buffer so the GOF p-value is reproducible per input — an unseeded `rvs` would re-score
-    # a fresh verdict on identical data and break the `ContentKey` cache-hit-by-reference contract.
-    entropy = int.from_bytes(np.ascontiguousarray(x).tobytes(), "big")
-    rng = np.random.default_rng(np.random.SeedSequence(entropy))
+    # reference draw seeds off the report's own 128-bit digest so the GOF p-value is reproducible per input — an unseeded `rvs`
+    # would re-score a fresh verdict on identical data and break the `ContentKey` cache-hit-by-reference contract, while the
+    # digest already folds the samples, `alpha`, `fit_sample`, and every route discriminant the identity buffer names.
+    # Seeding off the raw sample bytes is the deleted form and the cost is QUADRATIC, MEASURED:
+    # `SeedSequence(int.from_bytes(x.tobytes(), "big"))` takes 0.027 s at 512 float64 samples, 0.419 s at 2048, and 7.05 s at
+    # 8192 — the coercion divides a megabit-wide integer down to 32-bit words — where the bounded digest is flat.
+    rng = np.random.default_rng(np.random.SeedSequence(key.project("digest")))
     gof: TestResult = stats.ks_2samp(x, estimate.rvs(size=fit_sample, random_state=rng))
     mean, var = estimate.stats(moments="mv")
     return Reading(float(gof.statistic), float(gof.pvalue), parameters=params, moments=Some((float(mean), float(var))))

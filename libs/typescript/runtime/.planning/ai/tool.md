@@ -1,6 +1,6 @@
 # [RUNTIME_TOOL]
 
-The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed data (`Tool.make` declarations collected by `Toolkit.make`, merged by `Toolkit.merge`, handled by `toLayer` — a god-toolkit is structurally impossible because assembly happens at the consumer), the `Safety` partition is the ONE blast-radius admission every generation gate and agent turn consumes — with one hint-admission constructor both the local annotation band and the remote MCP hint band fold through, so the fail-closed default is a single spelling — the `Arsenal` ledger types the four provider packages that expose provider-defined tools as rows of one name-keyed table, and MCP is a duality with a hard boundary: hosting is NATIVE (`McpServer`/`McpSchema` from `@effect/ai` — toolkits, resources, prompts, and elicitation served over stdio or HTTP transports), consumption is the reference SDK's client lane ONLY (`@modelcontextprotocol/sdk` `Client` transcribed at the seam — Promise lifted, every result re-parsed through the native `McpSchema` classes, hints graded onto `Safety` — the `./server` subpath has no import site). A remote server's tools enter an app toolkit as ordinary declared rows, so the language model treats local, provider-defined, and remote tools identically and no raw wire value escapes the client seam. The module is `runtime/src/ai/tool.ts`.
+The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed data (`Tool.make` declarations collected by `Toolkit.make`, merged by `Toolkit.merge`, handled by `toLayer` — a god-toolkit is structurally impossible because assembly happens at the consumer), the `Safety` partition is the ONE blast-radius admission every generation gate and agent turn consumes — with one hint-admission constructor both the local annotation band and the remote MCP hint band fold through, so the fail-closed default is a single spelling — the `Arsenal` ledger types the four provider packages that expose provider-defined tools as rows of one name-keyed table, and MCP is a duality with a hard boundary: hosting is NATIVE (`McpServer`/`McpSchema` from `@effect/ai` — toolkits, resources, prompts, and elicitation served over stdio or HTTP transports), consumption is the reference SDK's client lane ONLY (`@modelcontextprotocol/sdk` `Client` transcribed at the seam — Promise lifted, every result re-parsed through the native `McpSchema` classes, hints graded onto `Safety` — the `./server` subpath has no import site). That lane is bidirectional and bounded: the session enumerates resources before reading one, watches a subscribed resource as a filtered channel feed, answers a server that elicits, and prices every request against one `Budget` row whose attempt deadline, total deadline, and interrupt-wired signal reach the SDK's own `RequestOptions`. A remote server's tools enter an app toolkit as ordinary declared rows, so the language model treats local, provider-defined, and remote tools identically and no raw wire value escapes the client seam. The module is `runtime/src/ai/tool.ts`.
 
 ## [01]-[INDEX]
 
@@ -8,7 +8,7 @@ The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed da
 - [03]-[SAFETY]: blast-radius classes, posture modes, hint admission, the fail-closed partition; `Safety`.
 - [04]-[ARSENAL]: the provider-defined tool ledger — four package rosters as one graded table; `Arsenal`.
 - [05]-[HOST]: native MCP hosting — toolkit projection, resources, prompts, elicitation, transports; `Host`.
-- [06]-[REMOTE]: the SDK client lane — one scoped session owner, declared rows, decoded capabilities; `Remote`.
+- [06]-[REMOTE]: the SDK client lane — one scoped session owner, budgeted calls, declared rows, both inbound halves; `Remote`.
 
 ## [02]-[TOOL_LAW]
 
@@ -16,7 +16,7 @@ The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed da
 - Law: a tool is declared once by `Tool.make(name, { description, parameters, success, failure, failureMode, dependencies })` — parameters, success, and failure are `Schema`s, `dependencies` threads `Context.Tag`s into the handler's `R`, and `failureMode` is the routing policy: `"return"` keeps a handler failure inside the tool result so the model self-corrects in-band, `"error"` lifts it onto the effect rail; the mode is chosen per tool by whether the model or the caller owns recovery.
 - Law: `Tool.fromTaggedRequest(schema)` lifts a `Schema.TaggedRequest` — the same triple that serves an entity message and a workflow payload — so one request class is simultaneously actor protocol, workflow definition, and tool row; agents-as-tools is this lift applied to an agent's `Act` class, never a wrapper.
 - Law: annotations are the hint band — `Tool.Readonly`/`Destructive`/`Idempotent`/`OpenWorld`/`Title` project one-to-one onto MCP tool hints at the host seam and seed the `Safety` grade through the one admission constructor; a tool declared without annotations grades through the same constructor's absent arm and lands fail-closed.
-- Law: `ToolFault` is `Schema.TaggedError` because it crosses in-band — under `failureMode: "return"` the failure serializes into the tool result the model reads, and the remote rows declare it as their failure schema — so the fault is encodable by construction and `ToolFault.class` projects every reason into the core `FaultClass` vocabulary.
+- Law: `ToolFault` is `Schema.TaggedError` because it crosses in-band — under `failureMode: "return"` the failure serializes into the tool result the model reads, and the remote rows declare it as their failure schema — so the fault is encodable by construction. Its rows close through the core `FaultClass.family` seam: `reason` derives its literal schema from the mint, `class` projects the mint's row, and severity, retryability, blame, and quarantine come from the core row table, so no local guard pair and no rank or retry column ride beside `class`. Five reasons route recovery — `dial` (transport or handshake) and `call` (a rejected invocation) classify `unavailable` and re-dial or re-issue, `lapsed` (a deadline the budget row set) classifies `expired` so a blown call is priced as budget exhaustion rather than as an unhealthy server, `shape` (a re-parse miss) classifies `malformed` and quarantines, and `declined` (a refused credential or an `isError` result) classifies `denied` and never re-drives.
 - Law: assembly is data — a folder exports `Toolkit.make(...tools)` values; the composition root merges selected toolkits with `Toolkit.merge` and binds handlers with `toolkit.toLayer(handlers)` where the handler record is compiler-checked exhaustive; `Toolkit.empty` seeds gated calls that admit no tools.
 - Law: `Tool.make` and `Toolkit.make` are used directly — a local wrapper renaming the declaration surface is the one-hop defect; this page adds vocabulary beside the package surface, never in front of it.
 
@@ -26,32 +26,37 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { UnauthorizedError, type OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js"
+import type { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js"
+import { ElicitRequestSchema, ErrorCode, McpError, ResourceUpdatedNotificationSchema } from "@modelcontextprotocol/sdk/types.js"
 import { AnthropicTool } from "@effect/ai-anthropic"
 import { AmazonBedrockTool } from "@effect/ai-amazon-bedrock"
 import { GoogleTool } from "@effect/ai-google"
 import { OpenAiTool } from "@effect/ai-openai"
-import { Array, Context, Effect, Layer, Option, Record, Schema, type Scope, Sink, Stream } from "effect"
-import { FaultClass } from "@rasm/ts/core"
+import { Array, Context, Duration, Effect, FiberSet, Layer, Match, Option, PubSub, Queue, Record, Schema, type Scope, Sink, Stream } from "effect"
+import { Budget, FaultClass } from "@rasm/ts/core"
 
-const _toolFaults = {
+const _faults = FaultClass.family(["dial", "call", "lapsed", "shape", "declined"] as const, {
   dial: { class: "unavailable" },
   call: { class: "unavailable" },
+  lapsed: { class: "expired" },
   shape: { class: "malformed" },
   declined: { class: "denied" },
-} as const
+})
 
 declare namespace ToolFault {
-  type Reason = keyof typeof _toolFaults
-  type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _toolFaults> = T
+  type Reason = (typeof _faults.reasons)[number]
 }
 
 class ToolFault extends Schema.TaggedError<ToolFault>()("ToolFault", {
-  reason: Schema.Literal("dial", "call", "shape", "declined"),
+  reason: _faults.schema,
   server: Schema.String,
   detail: Schema.String,
 }) {
   get class(): FaultClass.Kind {
-    return _toolFaults[this.reason].class
+    return _faults.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<tool:${this.reason}> ${this.server}: ${this.detail}`
   }
 }
 ```
@@ -259,18 +264,27 @@ const Host = { serve: _serve, confirm: _confirm, artifact: _artifactResource }
 ## [06]-[REMOTE]
 
 [REMOTE]:
-- Owner: `Remote` — the outbound client lane as one scoped session owner: `Remote.dial(spec)` acquires the SDK `Client` under `Effect.acquireRelease` (`connect` on acquire, `close` on release — a spawned stdio server or an HTTP session dies with the scope) and yields the `Session` whose members are the only crossings: `call(row, params)` (encode through the row's parameter schema, `callTool`, re-parse the promise result through `McpSchema.CallToolResult`, then re-parse `structuredContent` through the row's success schema — an `isError` result folds to `declined` carrying the content text), `roster(mode)` (the graded census — `listTools` decoded through `McpSchema.ListToolsResult`, each hint band admitted through `Safety.hints` and partitioned by `Safety.admit`; the census carries evidence, never a call capability), `read(uri)`/`prompt(name, args)`/`complete(ref)` (each decoded through its `McpSchema` result class), and `capabilities` (the post-init server facts). The Zod wire never escapes: every promise result crosses one native-Schema admission before any consumer sees it.
+- Owner: `Remote` — the outbound client lane as one scoped session owner: `Remote.dial(spec)` acquires the SDK `Client` under `Effect.acquireRelease` with `close` as its release, arms the inbound halves the protocol is bidirectional about, and only THEN connects — so a handshake that fails still tears its transport down, where a bracket whose acquire spans the connect would leak a half-started process — and yields the `Session` whose members are the only crossings: `call(row, params)` (encode through the row's parameter schema, `callTool`, re-parse the promise result through `McpSchema.CallToolResult`, then re-parse `structuredContent` through the row's success schema — an `isError` result folds to `declined` carrying the content text), `roster(mode)` (the graded census — `listTools` decoded through `McpSchema.ListToolsResult`, each hint band admitted through `Safety.hints` and partitioned by `Safety.admit`; the census carries evidence, never a call capability), `resources()` (the resource census — `listResources` and `listResourceTemplates` settled applicatively as one pair, each decoded through its `McpSchema` result class), `watch(uri)` (a live update feed for one resource), `read(uri)`/`prompt(name, args)`/`complete(ref)` (each decoded through its `McpSchema` result class), and `capabilities` (the post-init server facts). The Zod wire never escapes: every promise result crosses one native-Schema admission before any consumer sees it.
+- Law: enumeration precedes reading — `resources()` is what makes `read(uri)` reachable by a caller that does not already know the URI, so `[05]-[HOST]`'s "a resource row serves evidence" has a consuming half; the pair settles under `Effect.all` with an explicit degree because the two lists are independent, and templates travel beside concrete rows so a parameterized address is admitted from the server's own template rather than assembled by hand.
+- Law: resource subscription has ONE handler and N watchers — the notification method admits exactly one handler per client, so `_dial` registers it once feeding a sliding `PubSub` and `watch(uri)` is a scoped subscription filtered by URI prefix (the protocol states an update may name a sub-resource of the subscribed one). The subscribe RPC and its `unsubscribeResource` release bracket the stream's own scope through `Stream.unwrapScoped`, so the server-side subscription dies with the feed; a per-watcher handler registration would silently overwrite its predecessor, and that collision is the reason the fan-out is a channel rather than a callback.
+- Law: elicitation is answered, not ignored — a spec carrying an `answer` responder registers the `elicitation` client capability BEFORE `connect` (a capability declared after the handshake is invisible to the server) and installs one request handler that decodes the ask through `McpSchema.Elicit.payloadSchema`, runs the responder on the rail, and encodes the verdict through `McpSchema.ElicitResult`. `Host.confirm` owns the hosting half of the same capability, so both directions of one protocol feature live in this file; a spec with no responder declares no capability, so a server never elicits into a lane that cannot answer.
+- Law: the platform callback seams cross exactly twice, each by its own sanctioned spelling — a notification is a synchronous `Queue.unsafeOffer` onto the channel (no fiber per event), and a request handler that must answer with a promise runs through a `FiberSet.makeRuntimePromise` runner minted in the dial scope, so both handlers' work stays owned and dies when the session's scope closes.
 - Law: remote tools enter a toolkit as DECLARED rows — `Remote.tool(session, row)` lifts a `Remote.Row` (name, description, parameter fields, success schema, safety hints) into an ordinary `Tool.make` declaration whose handler is `session.call` under `failureMode: "return"`; the four hints become native `Tool` annotations, so hosting, local grading, and remote grading consume one metadata band. The census names what a server ships, the declared row is what the model may call, and an undeclared remote tool is uncallable by construction.
 - Law: transport is locality — `StdioClientTransport({ command, args, env: getDefaultEnvironment() })` for a local server process (the safe-env allowlist), `StreamableHTTPClientTransport(url, { authProvider })` for remote with the OAuth provider arriving as an app-passed value composing the security wave's ceremony — no `security` import here.
-- Law: every SDK rejection folds to `ToolFault` — `UnauthorizedError` to `declined`, transport failure to `dial`, a re-parse miss to `shape` — and the fault's class column routes retry through the caller's budget exactly like every other rail.
-- Growth: a new server is a dial spec value; a new SDK capability (tasks, subscriptions, the client-side elicitation responder) is one more member on the `Session` owner.
-- Packages: `@modelcontextprotocol/sdk` (`Client`, `StdioClientTransport`, `getDefaultEnvironment`, `StreamableHTTPClientTransport`, `OAuthClientProvider`); `@effect/ai` (`McpSchema`, `Tool`); `effect` (`Scope`, `Effect`, `Schema`).
+- Law: every call is bounded, cancellable, and priced by one row — `_bounded` builds the SDK's own `RequestOptions` from the spec's `Budget.Kind`: the row's per-attempt deadline becomes `timeout`, its whole-call deadline becomes `maxTotalTimeout`, and `resetTimeoutOnProgress` makes the server's progress notification the heartbeat that re-arms the per-attempt clock while the total stays absolute, so a long handler with liveness survives and a silent one does not. The `signal` is the one `Effect.tryPromise` hands its evaluator, so fiber interruption cancels the in-flight request instead of abandoning it — every `dialed` call takes `(signal) => Promise<T>` for exactly that reason. A per-call deadline literal is unspellable because the geometry is the branch budget row's.
+- Law: every SDK rejection folds to `ToolFault` through one triage — `UnauthorizedError` to `declined`, an `McpError` carrying the request-timeout code to `lapsed`, the caller's stated reason otherwise — and the fault's class column routes retry through the caller's budget exactly like every other rail. The triage is `Match.instanceOf` arms over an open `unknown` residue, so `Match.orElse` is its lawful terminal.
+- Growth: a new server is a dial spec value; a new SDK capability (tasks, sampling, roots) is one more member on the `Session` owner beside one handler in the dial scope.
+- Packages: `@modelcontextprotocol/sdk` (`Client`, `StdioClientTransport`, `getDefaultEnvironment`, `StreamableHTTPClientTransport`, `OAuthClientProvider`, `RequestOptions`, `ElicitRequestSchema`, `ResourceUpdatedNotificationSchema`, `McpError`, `ErrorCode`); `@effect/ai` (`McpSchema`, `Tool`); `effect` (`Scope`, `Effect`, `Schema`, `PubSub`, `Queue`, `FiberSet`, `Match`, `Duration`, `Stream`); `@rasm/ts/core` (`Budget`).
 
 ```typescript
+const _UPDATES = 256 // the resource-update channel sheds oldest: a stalled watcher never backpressures the transport's read loop
+
 declare namespace Remote {
   type Spec = {
     readonly name: string
     readonly version: string
+    readonly budget: Budget.Kind // the row whose attempt deadline bounds one request and whose total deadline bounds the whole call
+    readonly answer: Option.Option<(ask: typeof McpSchema.Elicit.payloadSchema.Type) => Effect.Effect<typeof McpSchema.ElicitResult.Type, ToolFault>>
     readonly transport:
       | { readonly kind: "stdio"; readonly command: string; readonly args: ReadonlyArray<string> }
       | { readonly kind: "http"; readonly url: URL; readonly auth: Option.Option<OAuthClientProvider> }
@@ -291,6 +305,11 @@ declare namespace Remote {
       readonly graded: ReadonlyArray<{ readonly name: string; readonly clazz: Safety.Class }>
       readonly admission: Safety.Admission
     }, ToolFault>
+    readonly resources: () => Effect.Effect<{
+      readonly listed: ReadonlyArray<McpSchema.Resource>
+      readonly templates: ReadonlyArray<McpSchema.ResourceTemplate>
+    }, ToolFault>
+    readonly watch: (uri: string) => Stream.Stream<string, ToolFault>
     readonly read: (uri: string) => Effect.Effect<McpSchema.ReadResourceResult, ToolFault>
     readonly prompt: (name: string, args: Record<string, string>) => Effect.Effect<McpSchema.GetPromptResult, ToolFault>
     readonly complete: (params: Parameters<Client["complete"]>[0]) => Effect.Effect<McpSchema.CompleteResult, ToolFault>
@@ -298,14 +317,26 @@ declare namespace Remote {
   }
 }
 
-const _lifted = (server: string, reason: "dial" | "call") => (cause: unknown): ToolFault =>
-  new ToolFault({ reason: cause instanceof UnauthorizedError ? "declined" : reason, server, detail: String(cause) })
+const _bounded = (spec: Remote.Spec, signal: AbortSignal): RequestOptions => ({
+  signal, // the fiber's own interrupt wiring: cancellation crosses the seam instead of abandoning an in-flight request
+  timeout: Duration.toMillis(Budget[spec.budget].attempt),
+  resetTimeoutOnProgress: true, // a progress notification IS the heartbeat re-arming the per-attempt clock
+  maxTotalTimeout: Duration.toMillis(Budget[spec.budget].total),
+})
+
+const _lifted = (server: string, reason: ToolFault.Reason) => (cause: unknown): ToolFault =>
+  Match.value(cause).pipe(
+    Match.when(Match.instanceOf(UnauthorizedError), (fault) => new ToolFault({ reason: "declined", server, detail: fault.message })),
+    Match.when(Match.instanceOf(McpError), (fault) =>
+      new ToolFault({ reason: fault.code === ErrorCode.RequestTimeout ? "lapsed" : reason, server, detail: fault.message })),
+    Match.orElse((residue) => new ToolFault({ reason, server, detail: String(residue) })), // instanceOf subtracts nothing, so the open residue earns orElse
+  )
 
 const _shaped = (server: string) => (fault: unknown): ToolFault =>
   new ToolFault({ reason: "shape", server, detail: String(fault) })
 
-const _session = (spec: Remote.Spec, client: Client): Remote.Session => {
-  const dialed = <T>(run: () => Promise<T>): Effect.Effect<T, ToolFault> =>
+const _session = (spec: Remote.Spec, client: Client, updates: PubSub.PubSub<string>): Remote.Session => {
+  const dialed = <T>(run: (signal: AbortSignal) => Promise<T>): Effect.Effect<T, ToolFault> =>
     Effect.tryPromise({ try: run, catch: _lifted(spec.name, "call") })
   const admitted = <A, I>(shape: Schema.Schema<A, I>) => (raw: unknown): Effect.Effect<A, ToolFault> =>
     Effect.mapError(Schema.decodeUnknown(shape)(raw), _shaped(spec.name))
@@ -314,7 +345,7 @@ const _session = (spec: Remote.Spec, client: Client): Remote.Session => {
       Schema.encode(Schema.Struct(row.parameters))(params).pipe(
         Effect.flatMap(Schema.decodeUnknown(Schema.Record({ key: Schema.String, value: Schema.Unknown }))),
         Effect.mapError(_shaped(spec.name)),
-        Effect.flatMap((args) => dialed(() => client.callTool({ name: row.name, arguments: args }))),
+        Effect.flatMap((args) => dialed((signal) => client.callTool({ name: row.name, arguments: args }, undefined, _bounded(spec, signal)))),
         Effect.flatMap(admitted(McpSchema.CallToolResult)),
         Effect.filterOrFail(
           (result) => result.isError !== true,
@@ -323,7 +354,7 @@ const _session = (spec: Remote.Spec, client: Client): Remote.Session => {
         Effect.flatMap((result) => admitted(row.success)(result.structuredContent)),
       ),
     roster: (mode) =>
-      dialed(() => client.listTools()).pipe(
+      dialed((signal) => client.listTools(undefined, _bounded(spec, signal))).pipe(
         Effect.flatMap(admitted(McpSchema.ListToolsResult)),
         Effect.map((result) =>
           Array.map(result.tools, (tool) => ({
@@ -333,10 +364,36 @@ const _session = (spec: Remote.Spec, client: Client): Remote.Session => {
         ),
         Effect.map((graded) => ({ graded, admission: _admit(graded, mode) })),
       ),
-    read: (uri) => dialed(() => client.readResource({ uri })).pipe(Effect.flatMap(admitted(McpSchema.ReadResourceResult))),
+    resources: () =>
+      Effect.all({
+        listed: dialed((signal) => client.listResources(undefined, _bounded(spec, signal))).pipe(
+          Effect.flatMap(admitted(McpSchema.ListResourcesResult)),
+          Effect.map((result) => result.resources),
+        ),
+        templates: dialed((signal) => client.listResourceTemplates(undefined, _bounded(spec, signal))).pipe(
+          Effect.flatMap(admitted(McpSchema.ListResourceTemplatesResult)),
+          Effect.map((result) => result.resourceTemplates),
+        ),
+      }, { concurrency: 2 }), // two independent censuses: the product, never a bind chain that serializes them
+    watch: (uri) =>
+      Stream.unwrapScoped(
+        // the local subscription lands BEFORE the server-side one: an update arriving on the subscribe ack has a reader waiting
+        PubSub.subscribe(updates).pipe(
+          Effect.zipLeft(Effect.acquireRelease(
+            dialed((signal) => client.subscribeResource({ uri }, _bounded(spec, signal))),
+            () => Effect.ignore(dialed((signal) => client.unsubscribeResource({ uri }, _bounded(spec, signal)))),
+          )),
+          Effect.map((feed) => Stream.filter(Stream.fromQueue(feed), (updated) => updated.startsWith(uri))), // an update may name a sub-resource of the subscribed URI
+        ),
+      ),
+    read: (uri) =>
+      dialed((signal) => client.readResource({ uri }, _bounded(spec, signal))).pipe(Effect.flatMap(admitted(McpSchema.ReadResourceResult))),
     prompt: (name, args) =>
-      dialed(() => client.getPrompt({ name, arguments: args })).pipe(Effect.flatMap(admitted(McpSchema.GetPromptResult))),
-    complete: (params) => dialed(() => client.complete(params)).pipe(Effect.flatMap(admitted(McpSchema.CompleteResult))),
+      dialed((signal) => client.getPrompt({ name, arguments: args }, _bounded(spec, signal))).pipe(
+        Effect.flatMap(admitted(McpSchema.GetPromptResult)),
+      ),
+    complete: (params) =>
+      dialed((signal) => client.complete(params, _bounded(spec, signal))).pipe(Effect.flatMap(admitted(McpSchema.CompleteResult))),
     capabilities: Effect.flatMap(
       Effect.sync(() => Option.fromNullable(client.getServerCapabilities())),
       Option.match({
@@ -348,17 +405,39 @@ const _session = (spec: Remote.Spec, client: Client): Remote.Session => {
 }
 
 const _dial = (spec: Remote.Spec): Effect.Effect<Remote.Session, ToolFault, Scope.Scope> =>
-  Effect.acquireRelease(
-    Effect.gen(function* () {
-      const client = new Client({ name: spec.name, version: spec.version })
-      const transport = spec.transport.kind === "stdio"
-        ? new StdioClientTransport({ command: spec.transport.command, args: [...spec.transport.args], env: getDefaultEnvironment() })
-        : new StreamableHTTPClientTransport(spec.transport.url, { authProvider: Option.getOrUndefined(spec.transport.auth) })
-      yield* Effect.tryPromise({ try: () => client.connect(transport), catch: _lifted(spec.name, "dial") })
-      return client
-    }),
-    (client) => Effect.promise(() => client.close()),
-  ).pipe(Effect.map((client) => _session(spec, client)))
+  Effect.gen(function* () {
+    const updates = yield* Effect.acquireRelease(PubSub.sliding<string>(_UPDATES), PubSub.shutdown)
+    const answered = yield* FiberSet.makeRuntimePromise<never>() // the one owned runner for the handler that must reply with a promise
+    const client = yield* Effect.acquireRelease(
+      Effect.sync(() => new Client({ name: spec.name, version: spec.version })),
+      (held) => Effect.promise(() => held.close()),
+    )
+    yield* Effect.sync(() =>
+      client.setNotificationHandler(ResourceUpdatedNotificationSchema, (note) => void Queue.unsafeOffer(updates, note.params.uri))
+    )
+    yield* Option.match(spec.answer, {
+      onNone: () => Effect.void,
+      onSome: (respond) =>
+        Effect.sync(() => {
+          client.registerCapabilities({ elicitation: {} }) // declared BEFORE connect or the server never sees the lane
+          client.setRequestHandler(ElicitRequestSchema, (ask) =>
+            answered(
+              Schema.decodeUnknown(McpSchema.Elicit.payloadSchema)(ask.params).pipe(
+                Effect.flatMap(respond),
+                Effect.flatMap(Schema.encode(McpSchema.ElicitResult)),
+              ),
+            ))
+        }),
+    })
+    const transport = spec.transport.kind === "stdio"
+      ? new StdioClientTransport({ command: spec.transport.command, args: [...spec.transport.args], env: getDefaultEnvironment() })
+      : new StreamableHTTPClientTransport(spec.transport.url, { authProvider: Option.getOrUndefined(spec.transport.auth) })
+    yield* Effect.tryPromise({
+      try: (signal) => client.connect(transport, _bounded(spec, signal)),
+      catch: _lifted(spec.name, "dial"),
+    })
+    return _session(spec, client, updates)
+  })
 
 const _tool = <const Name extends string, Fields extends Schema.Struct.Fields, A, AI>(
   session: Remote.Session,

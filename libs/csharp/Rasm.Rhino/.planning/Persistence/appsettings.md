@@ -1,4 +1,4 @@
-# [APPLICATION_SETTINGS]
+# [RASM_RHINO_PERSISTENCE_APPSETTINGS]
 
 `AppSettingsFamily` closes each `Rhino.ApplicationSettings` static owner as one keyed behavior vocabulary whose rows carry capture, default, apply, and reset delegates; `AppState` carries each serializable `*State` snapshot as one typed case, so a preference family round-trips as one immutable value and never as mid-flight mutable statics. `AppSettings.Commit` interprets state round-trips, theme and color policy, registry custody, initial window placement, and analysis solves into detached answers with prior/current observation receipts.
 
@@ -6,20 +6,19 @@ Owner boundary against the settings tree is settled: `SettingsRoot.ApplicationCa
 
 ## [01]-[STATE_AND_FAMILY]
 
-`AppState` closes host `*State` payloads; `Family` derives the owning row from the case, so an apply request carries no parallel family parameter. `AppSettingsFamily.Of` binds each stateful owner's supported verbs, and absent host verbs refuse with a typed unsupported fault; `Bare` marks owners without a `*State` type. `General` state remains read-only while `GeneralConduct` owns its writable knobs.
+`AppState` closes host `*State` payloads; `Family` derives the owning row from the case, so an apply request carries no parallel family parameter. `AppSettingsFamily.Of` binds each stateful owner's supported verbs, and absent host verbs refuse with a typed unsupported fault; `Bare` marks owners without a `*State` type — every stateful owner, `General` included, carries the host's whole-state `update`/`restore` quartet, and `GeneralConduct` owns `General`'s per-knob enum policies beside it.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
-
-using LanguageExt;
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rhino.ApplicationSettings;
-using Thinktecture;
-using static LanguageExt.Prelude;
 
-[Union]
-public abstract partial record AppState
-{
+namespace Rasm.Rhino.Persistence;
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AppState {
+    private AppState() { }
+
     public sealed record AppearanceCase(AppearanceSettingsState Value) : AppState;
     public sealed record ModelAidCase(ModelAidSettingsState Value) : AppState;
     public sealed record FilesCase(FileSettingsState Value) : AppState;
@@ -65,8 +64,7 @@ public abstract partial record AppState
 }
 
 [SmartEnum<string>]
-public sealed partial class AppSettingsFamily
-{
+public sealed partial class AppSettingsFamily {
     public static readonly AppSettingsFamily Appearance = Of(
         key: "appearance",
         current: AppearanceSettings.GetCurrentState,
@@ -79,20 +77,24 @@ public sealed partial class AppSettingsFamily
         key: "model-aid",
         current: ModelAidSettings.GetCurrentState,
         preset: ModelAidSettings.GetDefaultState,
+        update: ModelAidSettings.UpdateFromState,
+        restore: ModelAidSettings.RestoreDefaults,
         lift: static state => new AppState.ModelAidCase(Value: state),
-        lower: static state => state is AppState.ModelAidCase { Value: not null } typed ? Some(typed.Value) : None,
-        update: ModelAidSettings.UpdateFromState);
+        lower: static state => state is AppState.ModelAidCase { Value: not null } typed ? Some(typed.Value) : None);
     public static readonly AppSettingsFamily Files = Of(
         key: "files",
         current: FileSettings.GetCurrentState,
         preset: FileSettings.GetDefaultState,
+        update: FileSettings.UpdateFromState,
+        restore: FileSettings.RestoreDefaults,
         lift: static state => new AppState.FilesCase(Value: state),
-        lower: static state => state is AppState.FilesCase { Value: not null } typed ? Some(typed.Value) : None,
-        update: FileSettings.UpdateFromState);
+        lower: static state => state is AppState.FilesCase { Value: not null } typed ? Some(typed.Value) : None);
     public static readonly AppSettingsFamily General = Of(
         key: "general",
         current: GeneralSettings.GetCurrentState,
         preset: GeneralSettings.GetDefaultState,
+        update: GeneralSettings.UpdateFromState,
+        restore: GeneralSettings.RestoreDefaults,
         lift: static state => new AppState.GeneralCase(Value: state),
         lower: static state => state is AppState.GeneralCase { Value: not null } typed ? Some(typed.Value) : None);
     public static readonly AppSettingsFamily Views = Of(
@@ -115,16 +117,18 @@ public sealed partial class AppSettingsFamily
         key: "cursor-tooltip",
         current: CursorTooltipSettings.GetCurrentState,
         preset: CursorTooltipSettings.GetDefaultState,
+        update: CursorTooltipSettings.UpdateFromState,
+        restore: CursorTooltipSettings.RestoreDefaults,
         lift: static state => new AppState.CursorTooltipCase(Value: state),
-        lower: static state => state is AppState.CursorTooltipCase { Value: not null } typed ? Some(typed.Value) : None,
-        update: CursorTooltipSettings.UpdateFromState);
+        lower: static state => state is AppState.CursorTooltipCase { Value: not null } typed ? Some(typed.Value) : None);
     public static readonly AppSettingsFamily SmartTrack = Of(
         key: "smart-track",
         current: SmartTrackSettings.GetCurrentState,
         preset: SmartTrackSettings.GetDefaultState,
+        update: SmartTrackSettings.UpdateFromState,
+        restore: SmartTrackSettings.RestoreDefaults,
         lift: static state => new AppState.SmartTrackCase(Value: state),
-        lower: static state => state is AppState.SmartTrackCase { Value: not null } typed ? Some(typed.Value) : None,
-        update: SmartTrackSettings.UpdateFromState);
+        lower: static state => state is AppState.SmartTrackCase { Value: not null } typed ? Some(typed.Value) : None);
     public static readonly AppSettingsFamily Gumball = Of(
         key: "gumball",
         current: GumballSettings.GetCurrentState,
@@ -187,18 +191,24 @@ public sealed partial class AppSettingsFamily
         key: "end",
         current: EndAnalysisSettings.GetCurrentState,
         preset: EndAnalysisSettings.GetDefaultState,
+        update: EndAnalysisSettings.UpdateFromState,
+        restore: EndAnalysisSettings.RestoreDefaults,
         lift: static state => new AppState.EndCase(Value: state),
         lower: static state => state is AppState.EndCase { Value: not null } typed ? Some(typed.Value) : None);
     public static readonly AppSettingsFamily Direction = Of(
         key: "direction",
         current: DirectionAnalysisSettings.GetCurrentState,
         preset: DirectionAnalysisSettings.GetDefaultState,
+        update: DirectionAnalysisSettings.UpdateFromState,
+        restore: DirectionAnalysisSettings.RestoreDefaults,
         lift: static state => new AppState.DirectionCase(Value: state),
         lower: static state => state is AppState.DirectionCase { Value: not null } typed ? Some(typed.Value) : None);
     public static readonly AppSettingsFamily Emap = Of(
         key: "emap",
         current: EmapAnalysisSettings.GetCurrentState,
         preset: EmapAnalysisSettings.GetDefaultState,
+        update: EmapAnalysisSettings.UpdateFromState,
+        restore: EmapAnalysisSettings.RestoreDefaults,
         lift: static state => new AppState.EmapCase(Value: state),
         lower: static state => state is AppState.EmapCase { Value: not null } typed ? Some(typed.Value) : None);
     public static readonly AppSettingsFamily Zebra = Of(
@@ -217,6 +227,10 @@ public sealed partial class AppSettingsFamily
         restore: ThicknessAnalysisSettings.RestoreDefaults,
         lift: static state => new AppState.ThicknessCase(Value: state),
         lower: static state => state is AppState.ThicknessCase { Value: not null } typed ? Some(typed.Value) : None);
+
+    // Structural: true on every stateful `Of` row, false on `Bare` — the receipt's Unobservable-versus-Faulted
+    // split reads this column, never the shape of a capture failure.
+    public bool Observable { get; }
 
     [UseDelegateFromConstructor]
     internal partial Fin<AppState> Capture(Op op);
@@ -240,21 +254,20 @@ public sealed partial class AppSettingsFamily
         Action? restore = null) where TState : class =>
         new(
             key,
+            observable: true,
             capture: op => op.Catch(() => Fin.Succ(value: lift(arg: current()))),
             fallback: op => op.Catch(() => Fin.Succ(value: lift(arg: preset()))),
             apply: (state, op) => update is null
                 ? Fin.Fail<Unit>(error: op.Unsupported(geometryType: typeof(AppState), outputType: typeof(Unit)))
                 : lower(arg: state)
                     .ToFin(Fail: op.InvalidInput())
-                    .Bind(typed => op.Catch(() =>
-                    {
+                    .Bind(typed => op.Catch(() => {
                         update(obj: typed);
                         return Fin.Succ(value: unit);
                     })),
             reset: op => restore is null
                 ? Fin.Fail<Unit>(error: op.Unsupported(geometryType: typeof(AppSettingsFamily), outputType: typeof(Unit)))
-                : op.Catch(() =>
-                {
+                : op.Catch(() => {
                     restore();
                     return Fin.Succ(value: unit);
                 }));
@@ -262,6 +275,7 @@ public sealed partial class AppSettingsFamily
     private static AppSettingsFamily Bare(string key) =>
         new(
             key,
+            observable: false,
             capture: op => Fin.Fail<AppState>(error: op.Unsupported(geometryType: typeof(AppSettingsFamily), outputType: typeof(AppState))),
             fallback: op => Fin.Fail<AppState>(error: op.Unsupported(geometryType: typeof(AppSettingsFamily), outputType: typeof(AppState))),
             apply: (_, op) => Fin.Fail<Unit>(error: op.Unsupported(geometryType: typeof(AppState), outputType: typeof(Unit))),
@@ -269,24 +283,18 @@ public sealed partial class AppSettingsFamily
 }
 
 [SmartEnum<string>]
-public sealed partial class AppTheme
-{
+public sealed partial class AppTheme {
     public static readonly AppTheme Dark = new(
         "dark",
         adopt: static () => AppearanceSettings.SetToDarkMode(),
-        adopted: static () => AppearanceSettings.UsingDefaultDarkModeColors(),
         preset: static () => AppearanceSettings.GetDefaultState(darkMode: true));
     public static readonly AppTheme Light = new(
         "light",
         adopt: static () => AppearanceSettings.SetToLightMode(),
-        adopted: static () => AppearanceSettings.UsingDefaultLightModeColors(),
         preset: static () => AppearanceSettings.GetDefaultState(darkMode: false));
 
     [UseDelegateFromConstructor]
     internal partial bool Adopt();
-
-    [UseDelegateFromConstructor]
-    internal partial bool Adopted();
 
     [UseDelegateFromConstructor]
     internal partial AppearanceSettingsState Preset();
@@ -295,26 +303,22 @@ public sealed partial class AppTheme
 
 ## [02]-[REQUEST_ALGEBRA]
 
-`AppOperation` closes every application-settings verb; each registry carries its own nested edit union so a new alias, shortcut, path, or repeat verb lands as one case under an existing arm, and `GeneralConduct` carries the per-knob enum policies that are `General`'s only write path beside its read-only state pair. `MacroText` and `AliasName` admit registry text once; folder paths reuse the Document `DocumentPath` owner. Foreign `PaintColor`, `WidgetColor`, `KeyboardKey`, `ModifierKey`, `MouseSelectMode`, and `MiddleMouseMode` ordinals stop at these case payloads — every answer detaches into typed receipts.
+`AppOperation` closes every application-settings verb; each registry carries its own nested edit union so a new alias, shortcut, path, or repeat verb lands as one case under an existing arm, and `GeneralConduct` carries `General`'s per-knob enum policies beside the family's whole-state quartet. `MacroText` and `AliasName` admit registry text once; folder paths reuse the Document `DocumentPath` owner. Foreign `PaintColor`, `WidgetColor`, `KeyboardKey`, `ModifierKey`, `MouseSelectMode`, and `MiddleMouseMode` ordinals stop at these case payloads — every answer detaches into typed receipts.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
-
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Drawing;
-using LanguageExt;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino.ApplicationSettings;
 using Rhino.Geometry;
 using Rhino.UI;
-using Thinktecture;
-using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino.Persistence;
 
 [ValueObject<string>]
-public readonly partial struct AliasName
-{
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value)
-    {
+public readonly partial struct AliasName {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         validationError = string.IsNullOrWhiteSpace(value) || value.Any(char.IsWhiteSpace)
             ? new ValidationError(message: "Alias name is blank or carries interior whitespace.")
@@ -323,10 +327,8 @@ public readonly partial struct AliasName
 }
 
 [ValueObject<string>]
-public readonly partial struct MacroText
-{
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value)
-    {
+public readonly partial struct MacroText {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         validationError = string.IsNullOrWhiteSpace(value)
             ? new ValidationError(message: "Command macro is blank.")
@@ -335,21 +337,24 @@ public readonly partial struct MacroText
 }
 
 [SmartEnum<string>]
-public sealed partial class RegistryMerge
-{
+public sealed partial class RegistryMerge {
     public static readonly RegistryMerge Extend = new("extend", replaceAll: false);
     public static readonly RegistryMerge Replace = new("replace", replaceAll: true);
 
     internal bool ReplaceAll { get; }
 }
 
-public sealed record AliasBinding(AliasName Name, MacroText Macro, bool Instant);
+// Instant is measured on the live roster alone — the host default roster carries no instant flag, so the preset
+// path answers None instead of publishing an unmeasured false; the host lowers an absent flag to its own
+// non-instant default at the write seam.
+public sealed record AliasBinding(AliasName Name, MacroText Macro, Option<bool> Instant);
 
 public sealed record ShortcutBinding(KeyboardKey Key, ModifierKey Modifier, MacroText Macro);
 
-[Union]
-public abstract partial record AliasEdit
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AliasEdit {
+    private AliasEdit() { }
+
     public sealed record RosterCase : AliasEdit;
     public sealed record PresetCase : AliasEdit;
     public sealed record ProbeCase(AliasName Name) : AliasEdit;
@@ -358,34 +363,38 @@ public abstract partial record AliasEdit
     public sealed record MergeCase(Seq<AliasBinding> Bindings, RegistryMerge Merge) : AliasEdit;
 }
 
-[Union]
-public abstract partial record ShortcutEdit
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ShortcutEdit {
+    private ShortcutEdit() { }
+
     public sealed record RosterCase : ShortcutEdit;
     public sealed record PresetCase : ShortcutEdit;
     public sealed record AssignCase(ShortcutBinding Binding) : ShortcutEdit;
     public sealed record MergeCase(Seq<ShortcutBinding> Bindings, RegistryMerge Merge) : ShortcutEdit;
 }
 
-[Union]
-public abstract partial record RepeatEdit
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RepeatEdit {
+    private RepeatEdit() { }
+
     public sealed record RosterCase : RepeatEdit;
     public sealed record ReplaceCase(Seq<string> CommandNames) : RepeatEdit;
 }
 
-[Union]
-public abstract partial record GeneralConduct
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GeneralConduct {
+    private GeneralConduct() { }
+
     public sealed record MouseSelectCase(MouseSelectMode Mode) : GeneralConduct;
     public sealed record MiddleMouseCase(MiddleMouseMode Mode) : GeneralConduct;
 }
 
 public sealed record RepeatRoster(bool Enabled, Seq<string> CommandNames);
 
-[Union]
-public abstract partial record PathEdit
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PathEdit {
+    private PathEdit() { }
+
     public sealed record RosterCase : PathEdit;
     public sealed record AddCase(DocumentPath Folder, int IndexAt) : PathEdit;
     public sealed record RemoveCase(DocumentPath Folder) : PathEdit;
@@ -396,9 +405,10 @@ public abstract partial record PathEdit
     public sealed record TemplateFolderCase(int LanguageId) : PathEdit;
 }
 
-[Union]
-public abstract partial record AppOperation
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AppOperation {
+    private AppOperation() { }
+
     public sealed record CaptureCase(AppSettingsFamily Family) : AppOperation;
     public sealed record FallbackCase(AppSettingsFamily Family, Option<AppTheme> Theme) : AppOperation;
     public sealed record ApplyCase(AppState State) : AppOperation;
@@ -415,28 +425,41 @@ public abstract partial record AppOperation
     public sealed record AutoRangeCase(CurvatureAnalysisSettingsState Seed, Seq<Mesh> Meshes) : AppOperation;
 }
 
-[Union]
-public abstract partial record AppObservation
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AppObservation {
+    private AppObservation() { }
+
     public sealed record ObservedCase(AppState State) : AppObservation;
     public sealed record UnobservableCase(AppSettingsFamily Family) : AppObservation;
+    public sealed record FaultedCase(AppSettingsFamily Family, Error Fault) : AppObservation;
 }
 
+// No Changed column: the host `*State` classes carry reference equality and every capture mints a fresh instance,
+// so a computed change flag would publish a constant — a consumer with family knowledge projects change from the
+// Prior/Current pair itself.
 public sealed record AppMutationReceipt(
     AppSettingsFamily Family,
     AppObservation Prior,
-    AppObservation Current,
-    bool Changed);
+    AppObservation Current);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SwatchSlot {
+    private SwatchSlot() { }
+
+    public sealed record PaintCase(PaintColor Slot) : SwatchSlot;
+    public sealed record WidgetCase(WidgetColor Slot) : SwatchSlot;
+}
 
 public sealed record SwatchReceipt(
-    string Slot,
+    SwatchSlot Slot,
     Color Prior,
     Color Current,
     Color Preset);
 
-[Union]
-public abstract partial record AppAnswer
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AppAnswer {
+    private AppAnswer() { }
+
     public sealed record StateCase(AppState State) : AppAnswer;
     public sealed record MutationCase(AppMutationReceipt Receipt) : AppAnswer;
     public sealed record SwatchCase(SwatchReceipt Receipt) : AppAnswer;
@@ -457,21 +480,17 @@ public abstract partial record AppAnswer
 Host static setters, registry mutators, and the `ref`-state auto-range solve form the platform-forced statement seam; generated dispatch keeps the operation, edit, observation, and answer families exhaustive around it.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
-
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Drawing;
-using LanguageExt;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino.ApplicationSettings;
 using Rhino.UI;
-using Thinktecture;
-using static LanguageExt.Prelude;
 
-public static class AppSettings
-{
-    public static Fin<AppAnswer> Commit(AppOperation operation, Op? key = null)
-    {
+namespace Rasm.Rhino.Persistence;
+
+public static class AppSettings {
+    public static Fin<AppAnswer> Commit(AppOperation operation, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(operation).ToFin(Fail: op.InvalidInput())
             .Bind(active => Admit(active, op))
@@ -499,14 +518,14 @@ public static class AppSettings
                 write: () => op.Catch(() => op.Confirm(success: theme.Theme.Adopt())),
                 op: op),
             paintCase: static (op, paint) => Swatch(
-                slot: paint.Slot.ToString(),
+                slot: new SwatchSlot.PaintCase(Slot: paint.Slot),
                 read: () => AppearanceSettings.GetPaintColor(whichColor: paint.Slot),
                 write: value => AppearanceSettings.SetPaintColor(whichColor: paint.Slot, c: value),
                 preset: () => AppearanceSettings.DefaultPaintColor(whichColor: paint.Slot),
                 value: paint.Value,
                 op: op),
             widgetCase: static (op, widget) => Swatch(
-                slot: widget.Slot.ToString(),
+                slot: new SwatchSlot.WidgetCase(Slot: widget.Slot),
                 read: () => AppearanceSettings.GetWidgetColor(whichColor: widget.Slot),
                 write: value => AppearanceSettings.SetWidgetColor(whichColor: widget.Slot, c: value),
                 preset: () => AppearanceSettings.DefaultWidgetColor(whichColor: widget.Slot),
@@ -518,8 +537,7 @@ public static class AppSettings
             pathCase: static (op, path) => Paths(edit: path.Edit, op: op),
             conductCase: static (op, conduct) => Mutated(
                 family: AppSettingsFamily.General,
-                write: () => op.Catch(() =>
-                {
+                write: () => op.Catch(() => {
                     conduct.Conduct.Switch(
                         mouseSelectCase: static mouse => GeneralSettings.MouseSelectMode = mouse.Mode,
                         middleMouseCase: static middle => GeneralSettings.MiddleMouseMode = middle.Mode);
@@ -530,8 +548,7 @@ public static class AppSettings
                 AppearanceSettings.InitialMainWindowPosition(out Rectangle bounds)
                     ? Fin.Succ<AppAnswer>(new AppAnswer.BoundsCase(bounds))
                     : Fin.Fail<AppAnswer>(op.InvalidResult())),
-            autoRangeCase: static (op, range) => op.Catch(() =>
-            {
+            autoRangeCase: static (op, range) => op.Catch(() => {
                 CurvatureAnalysisSettingsState state = range.Seed;
                 return op.Confirm(success: CurvatureAnalysisSettings.CalculateCurvatureAutoRange(
                         meshes: range.Meshes,
@@ -577,8 +594,8 @@ public static class AppSettings
 
     private static Fin<AliasEdit> Admit(AliasEdit edit, Op op) => edit.Switch<Op, Fin<AliasEdit>>(
         state: op,
-        rosterCase: static (_, _) => Succ<AliasEdit>(new AliasEdit.RosterCase()),
-        presetCase: static (_, _) => Succ<AliasEdit>(new AliasEdit.PresetCase()),
+        rosterCase: static (_, _) => Fin.Succ<AliasEdit>(new AliasEdit.RosterCase()),
+        presetCase: static (_, _) => Fin.Succ<AliasEdit>(new AliasEdit.PresetCase()),
         probeCase: static (op, value) => op.AcceptValidated<AliasName>(value.Name.Value)
             .Map(name => (AliasEdit)new AliasEdit.ProbeCase(name)),
         putCase: static (op, value) => Admit(value.Binding, op)
@@ -599,8 +616,8 @@ public static class AppSettings
 
     private static Fin<ShortcutEdit> Admit(ShortcutEdit edit, Op op) => edit.Switch<Op, Fin<ShortcutEdit>>(
         state: op,
-        rosterCase: static (_, _) => Succ<ShortcutEdit>(new ShortcutEdit.RosterCase()),
-        presetCase: static (_, _) => Succ<ShortcutEdit>(new ShortcutEdit.PresetCase()),
+        rosterCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.RosterCase()),
+        presetCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.PresetCase()),
         assignCase: static (op, value) => Admit(value.Binding, op)
             .Map(binding => (ShortcutEdit)new ShortcutEdit.AssignCase(binding)),
         mergeCase: static (op, value) => Optional(value.Merge).ToFin(Fail: op.InvalidInput())
@@ -629,7 +646,7 @@ public static class AppSettings
 
     private static Fin<RepeatEdit> Admit(RepeatEdit edit, Op op) => edit.Switch<Op, Fin<RepeatEdit>>(
         state: op,
-        rosterCase: static (_, _) => Succ<RepeatEdit>(new RepeatEdit.RosterCase()),
+        rosterCase: static (_, _) => Fin.Succ<RepeatEdit>(new RepeatEdit.RosterCase()),
         replaceCase: static (op, value) => value.CommandNames
             .Traverse(name => op.AcceptText(value: name).ToValidation())
             .As()
@@ -638,7 +655,7 @@ public static class AppSettings
 
     private static Fin<PathEdit> Admit(PathEdit edit, Op op) => edit.Switch<Op, Fin<PathEdit>>(
         state: op,
-        rosterCase: static (_, _) => Succ<PathEdit>(new PathEdit.RosterCase()),
+        rosterCase: static (_, _) => Fin.Succ<PathEdit>(new PathEdit.RosterCase()),
         addCase: static (op, value) =>
             from folder in DocumentPath.Of(value.Folder.Value, op)
             from _index in guard(value.IndexAt >= -1, op.InvalidInput()).ToFin()
@@ -653,56 +670,54 @@ public static class AppSettings
                 .As()
                 .ToFin()
                 .Map(names => (PathEdit)new PathEdit.AutosaveCase(Some(names))),
-            None: static () => Succ<PathEdit>(new PathEdit.AutosaveCase(None))),
-        recentCase: static (_, _) => Succ<PathEdit>(new PathEdit.RecentCase()),
-        dataFolderCase: static (_, value) => Succ<PathEdit>(new PathEdit.DataFolderCase(value.CurrentUser)),
-        templateFolderCase: static (_, value) => Succ<PathEdit>(new PathEdit.TemplateFolderCase(value.LanguageId)));
+            None: static () => Fin.Succ<PathEdit>(new PathEdit.AutosaveCase(None))),
+        recentCase: static (_, _) => Fin.Succ<PathEdit>(new PathEdit.RecentCase()),
+        dataFolderCase: static (_, value) => Fin.Succ<PathEdit>(new PathEdit.DataFolderCase(value.CurrentUser)),
+        templateFolderCase: static (_, value) => Fin.Succ<PathEdit>(new PathEdit.TemplateFolderCase(value.LanguageId)));
 
     private static Fin<GeneralConduct> Admit(GeneralConduct conduct, Op op) => conduct.Switch<Op, Fin<GeneralConduct>>(
         state: op,
         mouseSelectCase: static (op, value) => Defined(value.Mode)
-            ? Succ<GeneralConduct>(new GeneralConduct.MouseSelectCase(value.Mode))
-            : Fail<GeneralConduct>(op.InvalidInput()),
+            ? Fin.Succ<GeneralConduct>(new GeneralConduct.MouseSelectCase(value.Mode))
+            : Fin.Fail<GeneralConduct>(op.InvalidInput()),
         middleMouseCase: static (op, value) => Defined(value.Mode)
-            ? Succ<GeneralConduct>(new GeneralConduct.MiddleMouseCase(value.Mode))
-            : Fail<GeneralConduct>(op.InvalidInput()));
+            ? Fin.Succ<GeneralConduct>(new GeneralConduct.MiddleMouseCase(value.Mode))
+            : Fin.Fail<GeneralConduct>(op.InvalidInput()));
 
     private static bool Defined<T>(T value) where T : struct, System.Enum => System.Enum.IsDefined(value);
 
-    private static bool FlagsDefined<T>(T value) where T : struct, System.Enum
-    {
+    private static bool FlagsDefined<T>(T value) where T : struct, System.Enum {
         ulong admitted = System.Enum.GetValues<T>()
             .Aggregate(0UL, static (mask, item) => mask | Convert.ToUInt64(item));
         return (Convert.ToUInt64(value) & ~admitted) == 0UL;
     }
 
-    private static Fin<AppAnswer> Mutated(AppSettingsFamily family, Func<Fin<Unit>> write, Op op)
-    {
-        AppObservation Observe() => family.Capture(op: op).Match(
-            Succ: state => (AppObservation)new AppObservation.ObservedCase(State: state),
-            Fail: _ => new AppObservation.UnobservableCase(Family: family));
+    private static Fin<AppAnswer> Mutated(AppSettingsFamily family, Func<Fin<Unit>> write, Op op) {
+        // Structural snapshot-lessness and a read FAILURE are different facts: a Bare family answers Unobservable,
+        // a stateful family whose capture refused answers Faulted with the refusing error on the receipt.
+        AppObservation Observe() => family.Observable
+            ? family.Capture(op: op).Match(
+                Succ: state => (AppObservation)new AppObservation.ObservedCase(State: state),
+                Fail: error => new AppObservation.FaultedCase(Family: family, Fault: error))
+            : new AppObservation.UnobservableCase(Family: family);
         AppObservation prior = Observe();
-        return write().Map(_ =>
-        {
+        return write().Map(_ => {
             AppObservation current = Observe();
             return (AppAnswer)new AppAnswer.MutationCase(Receipt: new AppMutationReceipt(
                 Family: family,
                 Prior: prior,
-                Current: current,
-                Changed: (prior, current) is not (AppObservation.ObservedCase before, AppObservation.ObservedCase after)
-                    || before.State != after.State));
+                Current: current));
         });
     }
 
     private static Fin<AppAnswer> Swatch(
-        string slot,
+        SwatchSlot slot,
         Func<Color> read,
         Action<Color> write,
         Func<Color> preset,
         Option<Color> value,
         Op op) =>
-        op.Catch(() =>
-        {
+        op.Catch(() => {
             Color prior = read();
             value.IfSome(write);
             return Fin.Succ(value: (AppAnswer)new AppAnswer.SwatchCase(Receipt: new SwatchReceipt(
@@ -715,42 +730,43 @@ public static class AppSettings
     private static Fin<AppAnswer> Aliases(AliasEdit edit, Op op) => edit.Switch<Op, Fin<AppAnswer>>(
         op,
         rosterCase: static (op, _) => AliasBindings(
-            source: () => CommandAliasList.GetNames().Select(name => (
-                Name: name,
-                Macro: CommandAliasList.GetMacro(alias: name),
-                Instant: Optional(CommandAliasList.FindAlias(alias: name))
-                    .Map(static found => found.Instant)
-                    .IfNone(noneValue: false))),
+            // ONE FindAlias answers macro and instant together; the name-only fallback covers a row the host
+            // resolver refuses mid-walk, its instant honestly absent.
+            source: () => CommandAliasList.GetNames().Select(name =>
+                CommandAliasList.FindAlias(alias: name) is { } found
+                    ? (Name: name, Macro: found.Macro, Instant: Some(found.Instant))
+                    : (Name: name, Macro: CommandAliasList.GetMacro(alias: name), Instant: Option<bool>.None)),
             op: op),
         presetCase: static (op, _) => AliasBindings(
             source: () => CommandAliasList.GetDefaults().Select(static binding => (
                 Name: binding.Key,
                 Macro: binding.Value,
-                Instant: false)),
+                Instant: Option<bool>.None)),
             op: op),
-        probeCase: static (op, probe) => op.Catch(() => Fin.Succ(value: (AppAnswer)new AppAnswer.MacroCase(
-            Macro: CommandAliasList.IsAlias(alias: probe.Name.Value)
-                ? op.AcceptValidated<MacroText>(CommandAliasList.GetMacro(alias: probe.Name.Value)).ToOption()
-                : None))),
+        probeCase: static (op, probe) => op.Catch(() => CommandAliasList.IsAlias(alias: probe.Name.Value)
+            // A blank or malformed macro on an EXISTING alias refuses on the rail — folding it to None would make
+            // a defective alias read as a non-existent one.
+            ? op.AcceptValidated<MacroText>(CommandAliasList.GetMacro(alias: probe.Name.Value))
+                .Map(static macro => (AppAnswer)new AppAnswer.MacroCase(Macro: Some(macro)))
+            : Fin.Succ(value: (AppAnswer)new AppAnswer.MacroCase(Macro: None))),
         putCase: static (op, put) => op.Catch(() => op.Confirm(success: CommandAliasList.IsAlias(alias: put.Binding.Name.Value)
                 ? CommandAliasList.SetMacro(alias: put.Binding.Name.Value, macro: put.Binding.Macro.Value)
                 : CommandAliasList.Add(alias: put.Binding.Name.Value, macro: put.Binding.Macro.Value))
             .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(CommandAliasList.GetNames())))),
         deleteCase: static (op, delete) => op.Catch(() => op.Confirm(success: CommandAliasList.Delete(alias: delete.Name.Value))
             .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(CommandAliasList.GetNames())))),
-        mergeCase: static (op, merge) => op.Catch(() =>
-        {
+        mergeCase: static (op, merge) => op.Catch(() => {
             CommandAliasList.Update(
                 aliases: merge.Bindings.Map(static binding => new CommandAlias(
                     alias: binding.Name.Value,
                     macro: binding.Macro.Value,
-                    instant: binding.Instant)).AsIterable(),
+                    instant: binding.Instant.IfNone(noneValue: false))).AsIterable(),   // absent lowers to the host's own non-instant default
                 replaceAll: merge.Merge.ReplaceAll);
             return Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(CommandAliasList.GetNames())));
         }));
 
     private static Fin<AppAnswer> AliasBindings(
-        Func<IEnumerable<(string Name, string Macro, bool Instant)>> source,
+        Func<IEnumerable<(string Name, string Macro, Option<bool> Instant)>> source,
         Op op) =>
         op.Catch(() => toSeq(source())
             .Traverse(binding =>
@@ -766,8 +782,7 @@ public static class AppSettings
         rosterCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetShortcuts, op: op),
         presetCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetDefaults, op: op),
         assignCase: static (op, assign) =>
-            from written in op.Catch(() =>
-            {
+            from written in op.Catch(() => {
                 ShortcutKeySettings.SetMacro(
                     key: assign.Binding.Key,
                     modifier: assign.Binding.Modifier,
@@ -776,11 +791,9 @@ public static class AppSettings
             })
             from roster in Bindings(source: ShortcutKeySettings.GetShortcuts, op: op)
             select roster,
-        mergeCase: static (op, merge) => op.Catch(() =>
-        {
+        mergeCase: static (op, merge) => op.Catch(() => {
             ShortcutKeySettings.Update(
-                shortcuts: merge.Bindings.Map(static binding => new KeyboardShortcut
-                {
+                shortcuts: merge.Bindings.Map(static binding => new KeyboardShortcut {
                     Key = binding.Key,
                     Modifier = binding.Modifier,
                     Macro = binding.Macro.Value,
@@ -815,8 +828,8 @@ public static class AppSettings
         rosterCase: static (op, _) => op.Catch(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
             Names: toSeq(FileSettings.GetSearchPaths())))),
         addCase: static (op, add) => op.Catch(() => op.Confirm(
-                success: FileSettings.AddSearchPath(folder: add.Folder.Value, index: add.IndexAt) >= 0))
-            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths()))),
+                success: FileSettings.AddSearchPath(folder: add.Folder.Value, index: add.IndexAt) >= 0)
+            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths())))),
         removeCase: static (op, remove) => op.Catch(() => op.Confirm(success: FileSettings.DeleteSearchPath(folder: remove.Folder.Value))
             .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths())))),
         findCase: static (op, find) =>
@@ -826,8 +839,7 @@ public static class AppSettings
                 .As())
             select (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved),
         autosaveCase: static (op, autosave) => autosave.Commands.Match(
-            Some: commands => op.Catch(() =>
-                {
+            Some: commands => op.Catch(() => {
                     FileSettings.SetAutoSaveBeforeCommands(commands: commands.ToArray());
                     return Fin.Succ(value: unit);
                 })

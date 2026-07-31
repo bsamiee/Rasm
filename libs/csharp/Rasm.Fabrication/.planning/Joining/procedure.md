@@ -842,11 +842,11 @@ public abstract partial record ProcedureDecision {
 
     public Fin<ProcedureReceipt> Require() => Switch(
         qualified: static decision => Fin.Succ(decision.Receipt),
-        unqualified: static decision => decision.Failures.HeadOrNone()
+        unqualified: static decision => decision.Failures.Head
             .ToFin(Error.New("weld-procedure:empty-failure-set"))
             .Bind(first => Fin.Fail<ProcedureReceipt>(decision.Failures.Tail.Fold(
                 Failure(first),
-                static (combined, row) => combined + Failure(row))));
+                static (combined, row) => combined + Failure(row)))));
 
     private static Error Failure(ComplianceRow row) =>
         new FabricationFault.WpsUnqualified(row.Fault, row.FaultScalar)

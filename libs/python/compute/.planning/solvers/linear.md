@@ -12,10 +12,11 @@ Reused axes and seams a rebuild composes without re-derivation: `SolverReceipt` 
 
 - Owner: `LinearIntent` — the four route cases on the one solver, each reading one `LinearMap` operand; `Eigen` carries the `EigenScheme` sparse-eigen row (`ARPACK`/`LOBPCG`/`SHIFT_INVERT`) and its `sigma` shift. `LinearIntent.solve(lane)` is the one `async` method, the inner `match self` dispatching all four routes through `assert_never` — identical in shape to `NonlinearIntent.solve`/`DifferentialIntent.solve`/`FieldQuery.evaluate`, never a free `solve(intent)` beside a free `_dispatch`.
 - Cases: `LinearMap` is the ONE `@tagged_union` operand carrying one `MatrixStructure` field, exposing four total `match` projections so every route reads ONE projection rather than a raw `self.dense[0]` that raises on a mis-routed operand — `scipy_op` (the sparse-linalg operand), `dense_array` (the LAPACK operand), `matrix` (the actual sparse container the `SuperLU` factorizations need, since a factor admits no `LinearOperator`), and `residual`. Its lineax-operator projection is NOT on `LinearMap` — it lives on `LinearEngine.operator` so the value object never imports the gated `jnp`/`lx`, and the sparse case there stays matrix-free (never `a.toarray()`) so a FEM/graph-Laplacian operand stays sparse through the differentiable solve. `LinearPolicy` is the ONE frozen tuning value over every route (`tol`/`maxiter`/`preconditioner`): the scheme discriminant carries the METHOD, this policy the TUNING, so a re-tuned solve is one value, not a re-spelled `Krylov(kind, rtol, maxiter, M)`; the multi-RHS sweep discriminates on the RHS rank itself, never a `batched` knob. `SparseScheme` is the ONE sparse-route discriminant, its Krylov member indexing the full `KrylovKind` family whose enum value IS its `scipy.sparse.linalg` callable name.
-- Entry: `LinearIntent.solve` composes `lane.offload` on the `_TRAIT` family row under the hub `evidence_run` weave. `boundary` converts an unexpected host fault to the runtime fault rail; the *expected* non-convergence is carried inside the success receipt as `SolveStatus`, so the two failure notions stay distinct.
+- Entry: `LinearIntent.solve` composes `lane.offload` on the `_TRAIT` family row under the hub `evidence_run` weave, threading the caller's composition `ScopeKey` onto the weave and `graduates` onto the crossing so an embedded composition's lifecycle and admission facts key to it; both default `DEFAULT_SCOPE`. `boundary` converts an unexpected host fault to the runtime fault rail; the *expected* non-convergence is carried inside the success receipt as `SolveStatus`, so the two failure notions stay distinct.
 - Auto: structure values drive backend selection with no per-route branch. `MatrixStructure` values ARE the scipy `solve(assume_a=...)` driver strings, so a symmetric or SPD dense system reaches the LAPACK symmetric/Cholesky driver instead of the general LU floor. For the lineax tier the `_TAG_NAMES` projection resolves the structure to a `frozenset` of documented tags that `AutoLinearSolver(well_posed=True)` reads to pick `Cholesky` → `Triangular` → `Tridiagonal` → `Diagonal` → `LU` — `well_posed=True` is load-bearing: `well_posed=None` is the rank-deficient least-squares SVD path `MIN_NORM`/`LSMR` owns and discards the structure, so the square route never passes it. A matrix-free SPD operand routes `lineax.Normal(lineax.CG(...))`, the documented normal-equations composite, NEVER the deprecated `lineax.NormalCG`.
+- Absence: only the dense route holds a singular spectrum, so `condition` is measured there alone — `_condition` answers `None` on an empty or rank-deficient spectrum where no finite ratio exists, and every sparse, ARPACK-stalled, and lineax-operator arm constructs its receipt without the slot. The receipt's declared-residual ledger then omits an unmeasured slot and the hub refuses a conditioning ceiling by key coverage; a `float("nan")` or `float("inf")` in the slot is the deleted form, since either enters the ledger as a value and breaches the hub's finiteness refinement on every sparse crossing instead of grading.
 - Output: every route folds into the one `SolverReceipt`, and every iterative/operator route folds the backend's *termination reason* into a typed `SolveStatus` — the scipy `info` through `_info_status`, the `lsqr`/`lsmr` `istop` through the shared `_ISTOP`, and the `lineax.Solution.result` member name through the receipt-owned `verdict` fold. `lineax.linear_solve(..., throw=False)` returns its verdict rather than raising, so a CG/GMRES non-convergence or singular factorization is a first-class verdict, never a silent residual-floor pass and never a raise. Its batched sweep carries the true aggregate verdict (worst column by `jnp.max` over the per-row codes) rather than a `result=None` fiction.
-- Packages: `scipy` (`linalg.solve`/`lstsq`/`eigh`/`svdvals`/`norm`, the `sparse.diags_array`/`eye_array`/`kron`/`hstack`/`vstack` operand builders, `sparse.linalg` `LinearOperator`/`spsolve`/`splu`/`spilu`/`factorized`/`eigsh`/`svds`/`lobpcg`/`minres`, the Krylov family `cg`/`minres`/`gmres`/`bicgstab`/`qmr`/`tfqmr`/`lgmres`/`gcrotmk`, `lsqr`/`lsmr`); `lineax` (`MatrixLinearOperator`/`FunctionLinearOperator`/`DiagonalLinearOperator`/`TridiagonalLinearOperator`, `AutoLinearSolver`/`linear_solve`/`QR`/`LSMR`/`CG`/`Normal`, the six structure tags, `Solution`/`RESULTS` — `AutoLinearSolver(well_posed=True)` owns direct-solver selection so `LU`/`Cholesky`/`Triangular`/`Tridiagonal`/`Diagonal` are never named and `NormalCG` is deleted); `equinox` (`filter_vmap` the batched multi-RHS sweep); `jax` (`config.update` floating the gated solve to float64, `ShapeDtypeStruct` the domain-sized `FunctionLinearOperator` input, `numpy.diagonal`/`asarray`/`linalg.norm`/`max`); `numpy` (dense floors); `jaxtyping` (`Float[Array, ...]` on the gated residual, checked through `beartype(conf=FAULT_CONF)`); `solvers/receipt#RECEIPT`, hub (`EvidenceScope`/`evidence_run`), `msgspec` (`Struct` for `LinearPolicy`), `dataclasses` (frozen `LinearEngine`), `expression.collections` (`Map` the table rail), runtime (`RuntimeRail`/`FAULT_CONF`/`LanePolicy`/`Kernel`/`KernelTrait`).
+- Packages: `scipy` (`linalg.solve`/`lstsq`/`eigh`/`svdvals`/`norm`, the `sparse.diags_array`/`eye_array`/`kron`/`hstack`/`vstack` operand builders, `sparse.linalg` `LinearOperator`/`spsolve`/`splu`/`spilu`/`factorized`/`eigsh`/`svds`/`lobpcg`/`minres`, the Krylov family `cg`/`minres`/`gmres`/`bicgstab`/`qmr`/`tfqmr`/`lgmres`/`gcrotmk`, `lsqr`/`lsmr`); `lineax` (`MatrixLinearOperator`/`FunctionLinearOperator`/`DiagonalLinearOperator`/`TridiagonalLinearOperator`, `AutoLinearSolver`/`linear_solve`/`QR`/`LSMR`/`CG`/`Normal`, the six structure tags, `Solution`/`RESULTS` — `AutoLinearSolver(well_posed=True)` owns direct-solver selection so `LU`/`Cholesky`/`Triangular`/`Tridiagonal`/`Diagonal` are never named and `NormalCG` is deleted); `equinox` (`filter_vmap` the batched multi-RHS sweep); `jax` (`config.update` floating the gated solve to float64, `ShapeDtypeStruct` the domain-sized `FunctionLinearOperator` input, `numpy.diagonal`/`asarray`/`linalg.norm`/`max`); `numpy` (dense floors); `jaxtyping` (`Float[Array, ...]` on the gated residual, checked through `beartype(conf=FAULT_CONF)`); `solvers/receipt#RECEIPT`, hub (`EvidenceScope`/`evidence_run`), `msgspec` (`Struct` for `LinearPolicy`), `dataclasses` (frozen `LinearEngine`), `expression.collections` (`Map` the table rail), runtime (`RuntimeRail`/`FAULT_CONF`/`LanePolicy`/`Kernel`/`KernelTrait`, and `ScopeKey`/`DEFAULT_SCOPE` for the composition key both entries thread).
 - Growth: a new structure class is one `MatrixStructure` row with its `_TAG_NAMES` entry (the `assume_a` driver is the value itself); a new Krylov method one `KrylovKind` row (the value resolves the callable through `getattr(spla, kind.value)`); a new sparse scheme one `SparseScheme` case; a new operand backend one `LinearMap` case with its `scipy_op`/`dense_array`/`matrix`/`krylov_preconditioner`/`LinearEngine.operator` arms; a new lineax solver cell one `LinearEngine.solver` `match shape` arm; a new tuning axis one `LinearPolicy` field; a new termination code one `_info_status` branch or `_ISTOP` row; a new sparse-eigen method one `EigenScheme` row with its `_eigen_receipt` arm. Never a parallel dense/sparse owner, a free `lineax_solve`, a parallel matrix-free operand union, a boolean `least_squares`/`spectral` knob, or a Python loop over a multi-RHS stack.
 - Boundary: operand construction stays at the boundary — the `scipy.sparse` builders assemble the banded/identity/tensor/block operands the FEM and graph-Laplacian routes feed, and `SparseMat` accepts any container with its known structure; the dispatch bodies take only the projected `scipy_op`/`operator` and the structure. Batched and lineax residuals contract over the operator's OWN `.mv`, never `scipy_op @ x` re-entering the scipy rail off a JAX solve.
 
@@ -38,6 +39,7 @@ from rasm.compute.solvers.receipt import SolverReceipt, graduate, verdict
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] -------------------------------------------------------------------------------
@@ -139,9 +141,12 @@ def _tags(structure: MatrixStructure, lx: object) -> frozenset:
     return frozenset(getattr(lx, name) for name in _TAG_NAMES[structure])
 
 
-# 2-norm condition number from the singular spectrum.
-def _condition(s: np.ndarray) -> float:
-    return float(s.max() / s.min()) if s.size and s.min() > 0 else float("inf")
+# 2-norm condition number from the singular spectrum, or ABSENT where no finite ratio exists: an empty or
+# rank-deficient spectrum has no condition number, and spelling that `inf` publishes an unbounded value into the
+# graduation ledger that breaches the hub's own finiteness refinement instead of grading against a ceiling — the
+# `SINGULAR`/`ILL_CONDITIONED` verdict and the residual gate already carry the degeneracy.
+def _condition(s: np.ndarray) -> float | None:
+    return float(s.max() / s.min()) if s.size and s.min() > 0 else None
 
 
 # A matrix-free SPD operand has no factorable matrix, so its SQUARE solve routes `Normal(CG)`; dense/
@@ -395,18 +400,22 @@ class LinearIntent:
     def Operator(matrix: LinearMap, rhs: np.ndarray, shape: SolveShape = SolveShape.SQUARE, policy: LinearPolicy = LinearPolicy()) -> "LinearIntent":
         return LinearIntent(operator=(matrix, rhs, shape, policy))
 
-    async def solve(self, lane: LanePolicy) -> "RuntimeRail[SolverReceipt]":
+    async def solve(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
         # composes the runtime crossing on the family trait row — isolation, band, and worker-death retry all derive
-        # from the Kernel value, wrapping the isolation leg, never the solve. The weave owns span/fence/harvest.
+        # from the Kernel value, wrapping the isolation leg, never the solve. The weave owns span/fence/harvest, and
+        # the caller's composition key threads onto it so an embedded second composition's lifecycle facts reach the
+        # points IT registered; the key defaults so the root call shape stays scope-free.
         async def dispatch() -> RuntimeRail[SolverReceipt]:
             return await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self)
 
-        return await evidence_run(EvidenceScope.LINEAR, f"solve.{self.tag}", dispatch, facts={"route": self.tag})
+        return await evidence_run(EvidenceScope.LINEAR, f"solve.{self.tag}", dispatch, facts={"route": self.tag}, composition=composition)
 
-    def graduates(self, receipt: SolverReceipt, key: ContentKey, ceiling: dict[str, float] | None = None) -> "RuntimeRail[GraduationReceipt]":
+    def graduates(
+        self, receipt: SolverReceipt, key: ContentKey, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> "RuntimeRail[GraduationReceipt]":
         # `graduate` projects the receipt's own ledger, so the receipt IS the evidence; the key names the
         # solved operand the caller already identified — a convergence verdict keys to what was solved, never to itself.
-        return graduate(EvidenceScope.LINEAR.value, f"solve.{self.tag}", key, receipt, ceiling or dict(_CEILING.items()))
+        return graduate(EvidenceScope.LINEAR.value, f"solve.{self.tag}", key, receipt, ceiling or dict(_CEILING.items()), composition=composition)
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
@@ -451,16 +460,19 @@ def sparse_receipt(m: LinearMap, b: np.ndarray, scheme: SparseScheme, policy: Li
 
     # Direct schemes read `m.matrix()` (only a sparse container admits a `SuperLU`); Krylov/lsqr read the
     # matrix-free `m.scipy_op()` so a `Free` FEM operand reaches them without materialising a matrix.
+    # Every direct sparse arm constructs WITHOUT `condition`: a `SuperLU` factor exposes no singular spectrum, so the
+    # slot stays absent and the residual carries the whole verdict — the receipt's declared-residual ledger then omits
+    # it and the hub refuses a caller's conditioning ceiling by key coverage rather than clearing a fabricated number.
     match scheme:
         case SparseScheme(tag="spsolve"):
-            return SolverReceipt.Direct(m.residual(spla.spsolve(m.matrix(), b), b), float("nan"))
+            return SolverReceipt.Direct(m.residual(spla.spsolve(m.matrix(), b), b))
         # `splu` exact factor, `spilu` incomplete — both return a `SuperLU` whose `.solve(b)` back-substitutes.
         case SparseScheme(tag="splu"):
-            return SolverReceipt.Direct(m.residual(spla.splu(m.matrix()).solve(b), b), float("nan"))
+            return SolverReceipt.Direct(m.residual(spla.splu(m.matrix()).solve(b), b))
         case SparseScheme(tag="spilu", spilu=(drop_tol, fill_factor)):
-            return SolverReceipt.Direct(m.residual(spla.spilu(m.matrix(), drop_tol=drop_tol, fill_factor=fill_factor).solve(b), b), float("nan"))
+            return SolverReceipt.Direct(m.residual(spla.spilu(m.matrix(), drop_tol=drop_tol, fill_factor=fill_factor).solve(b), b))
         case SparseScheme(tag="factored"):
-            return SolverReceipt.Direct(m.residual(spla.factorized(m.matrix())(b), b), float("nan"))
+            return SolverReceipt.Direct(m.residual(spla.factorized(m.matrix())(b), b))
         case SparseScheme(tag="krylov", krylov=(kind,)):
             op = m.scipy_op()
             pre = m.krylov_preconditioner(policy.preconditioner, spla)
@@ -522,8 +534,9 @@ def _eigen_receipt(m: LinearMap, k: int, mode: SpectralMode, scheme: EigenScheme
             except spla.ArpackNoConvergence as stalled:
                 w, v = stalled.eigenvalues, stalled.eigenvectors
                 partial = float(np.linalg.norm(op @ v - v * w)) if w.size else float("inf")
-                return SolverReceipt.Eigen(partial, int(w.size), float("nan"), result="max_steps_reached")
-            return SolverReceipt.Eigen(float(np.linalg.norm(op @ v - v * w)), int(np.asarray(w).size), float("nan"))
+                return SolverReceipt.Eigen(partial, int(w.size), result="max_steps_reached")
+            # a sparse eigensolve reads `k` extremal pairs and never the full spectrum, so no condition ratio exists.
+            return SolverReceipt.Eigen(float(np.linalg.norm(op @ v - v * w)), int(np.asarray(w).size))
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -553,11 +566,12 @@ def _operator_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape, policy: Li
         status, iterations = e.verdict(solution.result), int(solution.stats.get("num_steps", 0))
         residual = float(e.residual(operator, solution.value, rhs))
     # `Solution` exposes no rank; the slot stays 0 (unknown), never `x.size` (the solution dimension, not
-    # operator rank the slot names).
+    # operator rank the slot names). `Solution` exposes no conditioning either, so the SQUARE arm's `condition`
+    # stays absent rather than fabricated.
     return (
         SolverReceipt.LeastSquares(residual, 0, iterations, result=status)
         if shape is not SolveShape.SQUARE
-        else SolverReceipt.Direct(residual, float("nan"), result=status)
+        else SolverReceipt.Direct(residual, result=status)
     )
 ```
 

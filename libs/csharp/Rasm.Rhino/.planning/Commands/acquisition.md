@@ -4,7 +4,7 @@
 
 ## [01]-[PAYLOAD]
 
-`Acquired` closes interactive, screen-space, scalar, object, geometry, view, transform, and file payloads. `AcquireTerminal` preserves every non-fault control terminal, including native timeout.
+`Acquired` closes interactive, screen-space, scalar, object, geometry, view, transform, and file payloads. `AcquireTerminal` preserves every non-fault control terminal, including native timeout. `DragEvidence` detaches the drag buffer's object, grip, and owner census with its measured extent and applied-pose count, so the host buffer itself dies inside the drive.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -51,17 +51,28 @@ public sealed record PointEvidence(
     Seq<Point3d> SnapPoints,
     Seq<Point3d> ConstructionPoints);
 
+public sealed record DragEvidence(
+    Seq<Guid> Objects,
+    Seq<Guid> Grips,
+    Seq<Guid> GripOwners,
+    int ObjectCount,
+    int GripCount,
+    int GripOwnerCount,
+    BoundingBox Extent,
+    int Poses);
+
 public sealed record AcquiredReceipt(
     AcquireTerminal Terminal,
     Seq<OptionChoice> Options,
-    bool GotDefault) : IDetachedDocumentResult {
+    bool GotDefault,
+    Option<DragEvidence> Dragged) : IDetachedDocumentResult {
     public Option<Acquired> Payload => Terminal is AcquireTerminal.Value value ? Some(value.Payload) : None;
 }
 ```
 
 ## [02]-[ACCEPTANCE]
 
-`AcceptGate` rows carry every parameterless native accept call beside its result terminal, so acceptance grows by one row, never a new case. `AcceptRule` closes the gated, numeric, transparency, and wait modalities; each rule family derives its one-row-per-slot admission from `SlotKey`, the case identity a parameterized case overrides with its row value. Wait duration and option-cycle bounds are admitted once; no getter receives a raw flag bag.
+`AcceptGate` rows carry every parameterless native accept call beside its result terminal, so acceptance grows by one row, never a new case. `AcceptRule` closes the gated, numeric, transparency, and wait modalities; each rule family derives its one-row-per-slot admission from `SlotKey`, the case identity a parameterized case overrides with its row value. Wait duration and option-cycle bounds are admitted once; no getter receives a raw flag bag. `Requiring` is the derivation seam: a prompt terminal's required row lands only into an unoccupied slot, so a caller's `AcceptRule.Number(Zero: false)` survives admission and the derived `Zero: true` is a default, never an override.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -137,8 +148,27 @@ public sealed partial class AcceptPlan {
 
     internal bool AcceptsNothing => Rules.Exists(static rule => rule is AcceptRule.Allowed allowed && allowed.Gate == AcceptGate.Nothing);
 
+    internal Fin<AcceptPlan> Requiring(Seq<GetResult> terminals, Op key) {
+        Seq<AcceptRule> missing = terminals
+            .Choose(Derived)
+            .Distinct()
+            .Filter(row => !Rules.Exists(held => held.SlotKey.Equals(row.SlotKey)));
+        return missing.IsEmpty
+            ? Fin.Succ(value: this)
+            : key.AcceptValidated<AcceptPlan>(
+                fault: Validate(Rules + missing, OptionBudget, out AcceptPlan? widened),
+                admitted: widened);
+    }
+
     internal Fin<Unit> Apply(GetBaseClass getter, Op key) =>
         Rules.TraverseM(rule => rule.Apply(getter: getter, key: key)).As().Map(static _ => unit);
+
+    private static Option<AcceptRule> Derived(GetResult terminal) => terminal switch {
+        GetResult.Number => Some((AcceptRule)new AcceptRule.Number(Zero: true)),
+        GetResult.String => Some((AcceptRule)new AcceptRule.Allowed(Gate: AcceptGate.Text)),
+        GetResult.Color => Some((AcceptRule)new AcceptRule.Allowed(Gate: AcceptGate.Color)),
+        _ => Option<AcceptRule>.None,
+    };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -150,7 +180,9 @@ public static class Slots {
 
 ## [03]-[POINT_ALGEBRA]
 
-`PointConstraint` closes the native constraint family. `PointRule` parameterizes every independent point-getter setting as data — `PointGate` rows carry the boolean getter toggles and `SnapBarAxis` rows the curve-snap bars, so a new toggle is one row, never a new case — while `PointFeedback` carries rail-returning callbacks whose failures interrupt the native loop and surface after `Get` returns.
+`PointConstraint` closes the native constraint family. `PointRule` parameterizes every independent point-getter setting as data — `PointGate` rows carry the boolean getter toggles and `SnapBarAxis` rows the curve-snap bars, so a new toggle is one row, never a new case — while `PointFeedback` carries rail-returning callbacks whose failures interrupt the native loop and surface after `Get` returns. `Pose` alone returns a value: its `Transform` re-poses the drag buffer through the host's own display-feedback call, moving the whole selection in one crossing.
+
+The three pointer arms take `PointerFact` — world point, window point, viewport identity, and the `PointerKey` set — projected at the callback edge, so no `GetPointMouseEventArgs` reaches a caller sink and the arg's non-owning viewport wrapper dies with the crossing. The two DRAW arms keep their host args because a draw sink's whole purpose is the live `DisplayPipeline` the arg carries: the borrow is valid only inside the callback and the page states that rather than detaching a pipeline the sink cannot draw without.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -235,6 +267,20 @@ public sealed partial class PointGate {
 }
 
 [SmartEnum<int>]
+public sealed partial class PointerShape {
+    public static readonly PointerShape Default = new(key: (int)global::Rhino.UI.CursorStyle.Default);
+    public static readonly PointerShape Wait = new(key: (int)global::Rhino.UI.CursorStyle.Wait);
+    public static readonly PointerShape CrossHair = new(key: (int)global::Rhino.UI.CursorStyle.CrossHair);
+    public static readonly PointerShape Hand = new(key: (int)global::Rhino.UI.CursorStyle.Hand);
+    public static readonly PointerShape Rotate = new(key: (int)global::Rhino.UI.CursorStyle.Rotate);
+    public static readonly PointerShape Magnify = new(key: (int)global::Rhino.UI.CursorStyle.Magnify);
+    public static readonly PointerShape ArrowCopy = new(key: (int)global::Rhino.UI.CursorStyle.ArrowCopy);
+    public static readonly PointerShape CrosshairCopy = new(key: (int)global::Rhino.UI.CursorStyle.CrosshairCopy);
+
+    internal global::Rhino.UI.CursorStyle Native => (global::Rhino.UI.CursorStyle)Key;
+}
+
+[SmartEnum<int>]
 public sealed partial class SnapBarAxis {
     public static readonly SnapBarAxis Tangent = new(key: 0, set: static (getter, on, ends) => getter.EnableCurveSnapTangentBar(on, ends));
     public static readonly SnapBarAxis Perpendicular = new(key: 1, set: static (getter, on, ends) => getter.EnableCurveSnapPerpBar(on, ends));
@@ -251,7 +297,7 @@ public abstract partial record PointRule : ISlotted {
     public sealed record ConstructionPoints(Seq<Point3d> Values) : PointRule;
     public sealed record BasedAt(Point3d Value, bool ShowDistance, bool DrawLine) : PointRule;
     public sealed record Radial(double Distance) : PointRule;
-    public sealed record Cursor(global::Rhino.UI.CursorStyle Value) : PointRule;
+    public sealed record Cursor(PointerShape Value) : PointRule;
     public sealed record ElevatorMode(int Mode) : PointRule;
     public sealed record Gated(PointGate Gate, bool Enabled) : PointRule { public override object SlotKey => Gate; }
     public sealed record SnapBar(SnapBarAxis Axis, bool Enabled, bool Ends) : PointRule { public override object SlotKey => Axis; }
@@ -291,7 +337,7 @@ public abstract partial record PointRule : ISlotted {
             held.Getter.ConstrainDistanceFromBasePoint(rule.Distance);
             return Fin.Succ(unit);
         }),
-        cursor: static (held, rule) => held.Op.Catch(() => { held.Getter.SetCursor(rule.Value); return Fin.Succ(unit); }),
+        cursor: static (held, rule) => held.Op.Catch(() => { held.Getter.SetCursor(rule.Value.Native); return Fin.Succ(unit); }),
         elevatorMode: static (held, rule) => held.Op.Catch(() => { held.Getter.PermitElevatorMode(rule.Mode); return Fin.Succ(unit); }),
         gated: static (held, rule) => held.Op.Catch(() => { rule.Gate.Set(held.Getter, rule.Enabled); return Fin.Succ(unit); }),
         snapBar: static (held, rule) => held.Op.Catch(() => { rule.Axis.Set(held.Getter, rule.Enabled, rule.Ends); return Fin.Succ(unit); }),
@@ -299,22 +345,55 @@ public abstract partial record PointRule : ISlotted {
         onMouseUp: static (_, _) => Fin.Succ(unit));
 }
 
+// The host publishes the pointer flag word as five independent bool reads and keeps its own `MK_*` masks private, so
+// the mask is unreachable and the set is rebuilt from the reads. One row per axis restores it: a sink tests membership
+// instead of carrying five columns, and a new host flag is one row.
+[SmartEnum<int>]
+public sealed partial class PointerKey {
+    public static readonly PointerKey LeftButton = new(key: 0, read: static args => args.LeftButtonDown);
+    public static readonly PointerKey MiddleButton = new(key: 1, read: static args => args.MiddleButtonDown);
+    public static readonly PointerKey RightButton = new(key: 2, read: static args => args.RightButtonDown);
+    public static readonly PointerKey Shift = new(key: 3, read: static args => args.ShiftKeyDown);
+    public static readonly PointerKey Control = new(key: 4, read: static args => args.ControlKeyDown);
+
+    [UseDelegateFromConstructor]
+    internal partial bool Read(GetPointMouseEventArgs args);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PointFeedback {
     private PointFeedback() { }
-    public sealed record MouseMove(Func<GetPointMouseEventArgs, Fin<Unit>> Sink) : PointFeedback;
-    public sealed record MouseDown(Func<GetPointMouseEventArgs, Fin<Unit>> Sink) : PointFeedback;
+    public sealed record MouseMove(Func<PointerFact, Fin<Unit>> Sink) : PointFeedback;
+    public sealed record MouseDown(Func<PointerFact, Fin<Unit>> Sink) : PointFeedback;
     public sealed record DynamicDraw(Func<GetPointDrawEventArgs, Fin<Unit>> Sink) : PointFeedback;
     public sealed record PostDraw(Func<DrawEventArgs, Fin<Unit>> Sink) : PointFeedback;
+    public sealed record Pose(Func<PointerFact, Fin<Transform>> Sink) : PointFeedback;
 
     internal Fin<Unit> Admit(Op key) => Switch(
         mouseMove: row => guard(row.Sink is not null, key.InvalidInput()).ToFin(),
         mouseDown: row => guard(row.Sink is not null, key.InvalidInput()).ToFin(),
         dynamicDraw: row => guard(row.Sink is not null, key.InvalidInput()).ToFin(),
-        postDraw: row => guard(row.Sink is not null, key.InvalidInput()).ToFin());
+        postDraw: row => guard(row.Sink is not null, key.InvalidInput()).ToFin(),
+        pose: row => guard(row.Sink is not null, key.InvalidInput()).ToFin());
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+// `GetPointMouseEventArgs.Viewport` mints a NON-OWNING `RhinoViewport` over the callback's native pointer and caches
+// it on the arg, so the wrapper dies with the crossing and is never bracketed; `PointerFact` reads its identity once
+// and detaches the whole arg, so no host event type reaches a caller-supplied sink.
+public sealed record PointerFact(
+    Point3d World,
+    System.Drawing.Point Window,
+    Guid Viewport,
+    Seq<PointerKey> Keys) {
+
+    internal static PointerFact Of(GetPointMouseEventArgs args) => new(
+        World: args.Point,
+        Window: args.WindowPoint,
+        Viewport: args.Viewport.Id,
+        Keys: toSeq(PointerKey.Items).Filter(row => row.Read(args)).Strict());
+}
+
 public sealed record PointPlan {
     private PointPlan(Seq<PointRule> rules, Seq<PointFeedback> feedback) {
         Rules = rules;
@@ -347,7 +426,11 @@ public sealed record PointPlan {
 
 ## [04]-[REQUEST]
 
-`PromptCase` generates the interactive value space over one `GetPoint`; multiple distinct terminal cases compose number, text, color, 3D point, and 2D point acquisition without getter-specific helper classes, and getter configuration derives from each case's `Terminal`. `Acquire.Of` admits each option, prompt default, typed default, and accept terminal against the selected `AcquireIntent`; no configured terminal can outrun its projector. `ObjectPlan`, `ModalInput`, and `AcquireIntent` close the remaining custom and one-shot routes; `ShapeAsk` rows carry the parameterless one-shot shape getters as data, so a new native shape is one row.
+`PromptCase` generates the interactive value space over one `GetPoint`; multiple distinct terminal cases compose number, text, color, 3D point, and 2D point acquisition without getter-specific helper classes. `Acquire.Of` admits each option, prompt default, typed default, drag plan, and accept terminal against the selected `AcquireIntent`, so no configured terminal outruns its projector, and it closes the loop the other way through `AcceptPlan.Requiring`: each prompt case's `Terminal` derives the accept row it needs and that row folds into the plan ONLY where the caller left the slot empty. Acceptance therefore reaches the native getter exactly once, through `AcceptPlan.Apply`. A second configuration pass re-issuing `AcceptNumber`/`AcceptString`/`AcceptColor` after the plan has run is the deleted form — it lands after the plan by construction, so its literals silently overwrite the caller's admitted policy and nothing raises.
+
+`ObjectPlan`, `ModalInput`, `DragPlan`, and `AcquireIntent` close the remaining custom and one-shot routes; `ShapeAsk` rows carry the parameterless one-shot shape getters as data, so a new native shape is one row.
+
+The modal object asks take `Document`'s `ObjectKinds`, never a raw `ObjectType` — the type vocabulary is one S0 owner this page and the S2 properties-page scope both compose, and the flag mask is spelled at the `RhinoGet` call alone through `Filter.Mask`. The view asks project `ViewportFact` at the same seam, so a live `RhinoView` or `RhinoViewport` never reaches a caller projector. `FileAsk` keys the host's sparse `GetFileNameMode` roster, and the file ask's `Option<string> Title` IS the route discriminant: a caption drives `GetFileName` against the host's own main window and its absence drives `GetFileNameScripted`, which needs no window at all — so the untyped `object parent` the host overload takes never reaches a signature.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -413,16 +496,6 @@ public abstract partial record PromptCase {
         (PaintValue, InputDefault.PaintValue) => true,
         _ => false,
     };
-
-    internal Fin<Unit> Configure(GetPoint getter, Op key) => key.Catch(() => {
-        switch (Terminal) {
-            case GetResult.Number: getter.AcceptNumber(enable: true, acceptZero: true); break;
-            case GetResult.String: getter.AcceptString(enable: true); break;
-            case GetResult.Color: getter.AcceptColor(enable: true); break;
-            default: break;
-        }
-        return Fin.Succ(unit);
-    });
 
     internal Fin<Acquired> Project(GetPoint getter, RhinoDoc document, Op key) => Switch(
         state: (Getter: getter, Document: document, Op: key),
@@ -506,6 +579,31 @@ public sealed partial class ObjectPlan {
 }
 
 [SmartEnum<int>]
+public sealed partial class DragScope {
+    public static readonly DragScope ObjectsOnly = new(key: 0, grips: false);
+    public static readonly DragScope ObjectsAndGrips = new(key: 1, grips: true);
+
+    public bool Grips { get; }
+}
+
+[ComplexValueObject]
+public sealed partial class DragPlan {
+    public string Prompt { get; }
+    public ObjectPlan Selection { get; }
+    public DragScope Scope { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref string prompt,
+        ref ObjectPlan selection,
+        ref DragScope scope) =>
+        validationError = !string.IsNullOrWhiteSpace(prompt) && selection is not null && scope is not null && selection.Minimum >= 1
+            ? validationError
+            : new ValidationError(message: "drag plan needs a prompt, a scope, and a selection admitting at least one object");
+}
+
+[SmartEnum<int>]
 public sealed partial class ShapeAsk {
     public static readonly ShapeAsk Segment = new(key: 0, run: static () =>
         Projected(RhinoGet.GetLine(out Line value), () => new Acquired.Segment(Value: value)));
@@ -529,12 +627,34 @@ public sealed partial class ShapeAsk {
         (native, () => Fin.Succ(wrap()));
 }
 
+// `Rhino.Input.Custom.GetFileNameMode` — the host's own file-ask roster, sparse by construction (ordinals 4, 15, and 16
+// carry no row), so the keyed wrap mirrors the live ordinals and an unlisted ordinal refuses at admission.
+[SmartEnum<GetFileNameMode>]
+public sealed partial class FileAsk {
+    public static readonly FileAsk Open = new(key: GetFileNameMode.Open);
+    public static readonly FileAsk OpenTemplate = new(key: GetFileNameMode.OpenTemplate);
+    public static readonly FileAsk OpenImage = new(key: GetFileNameMode.OpenImage);
+    public static readonly FileAsk OpenRhinoOnly = new(key: GetFileNameMode.OpenRhinoOnly);
+    public static readonly FileAsk OpenTextFile = new(key: GetFileNameMode.OpenTextFile);
+    public static readonly FileAsk OpenWorksession = new(key: GetFileNameMode.OpenWorksession);
+    public static readonly FileAsk Import = new(key: GetFileNameMode.Import);
+    public static readonly FileAsk Attach = new(key: GetFileNameMode.Attach);
+    public static readonly FileAsk LoadPlugIn = new(key: GetFileNameMode.LoadPlugIn);
+    public static readonly FileAsk Save = new(key: GetFileNameMode.Save);
+    public static readonly FileAsk SaveSmall = new(key: GetFileNameMode.SaveSmall);
+    public static readonly FileAsk SaveTemplate = new(key: GetFileNameMode.SaveTemplate);
+    public static readonly FileAsk SaveImage = new(key: GetFileNameMode.SaveImage);
+    public static readonly FileAsk Export = new(key: GetFileNameMode.Export);
+    public static readonly FileAsk SaveTextFile = new(key: GetFileNameMode.SaveTextFile);
+    public static readonly FileAsk SaveWorksession = new(key: GetFileNameMode.SaveWorksession);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ModalInput {
     private ModalInput() { }
     public sealed record Point : ModalInput;
-    public sealed record OneObject(ObjectType Filter) : ModalInput;
-    public sealed record ManyObjects(ObjectType Filter) : ModalInput;
+    public sealed record OneObject(ObjectKinds Filter) : ModalInput;
+    public sealed record ManyObjects(ObjectKinds Filter) : ModalInput;
     public sealed record Text(string Seed) : ModalInput;
     public sealed record Toggle(string Off, string On, bool Seed) : ModalInput;
     public sealed record Number(double Seed, double Lower, double Upper) : ModalInput;
@@ -542,14 +662,14 @@ public abstract partial record ModalInput {
     public sealed record Paint(System.Drawing.Color Seed) : ModalInput;
     public sealed record Distance(double Seed) : ModalInput;
     public sealed record Shape(ShapeAsk Ask) : ModalInput;
-    public sealed record View(Func<RhinoView, Fin<Acquired>> Project) : ModalInput;
-    public sealed record Viewports(Func<Seq<RhinoViewport>, Fin<Acquired>> Project) : ModalInput;
-    public sealed record File(GetFileNameMode Mode, string DefaultName, string Title, object Parent) : ModalInput;
+    public sealed record View(Func<ViewportFact, Fin<Acquired>> Project) : ModalInput;
+    public sealed record Viewports(Func<Seq<ViewportFact>, Fin<Acquired>> Project) : ModalInput;
+    public sealed record File(FileAsk Ask, string DefaultName, Option<string> Title) : ModalInput;
 
     internal Fin<Unit> Admit(Op key) => Switch(
         point: static _ => Fin.Succ(unit),
-        oneObject: static _ => Fin.Succ(unit),
-        manyObjects: static _ => Fin.Succ(unit),
+        oneObject: row => Optional(row.Filter).Map(static _ => unit).ToFin(Fail: key.InvalidInput()),
+        manyObjects: row => Optional(row.Filter).Map(static _ => unit).ToFin(Fail: key.InvalidInput()),
         text: row => Optional(row.Seed).Map(static _ => unit).ToFin(Fail: key.InvalidInput()),
         toggle: row => from _ in key.AcceptText(row.Off)
                        from __ in key.AcceptText(row.On)
@@ -566,8 +686,8 @@ public abstract partial record ModalInput {
         shape: row => guard(row.Ask is not null, key.InvalidInput()).ToFin(),
         view: row => guard(row.Project is not null, key.InvalidInput()).ToFin(),
         viewports: row => guard(row.Project is not null, key.InvalidInput()).ToFin(),
-        file: row => from _ in key.AcceptText(row.Title)
-                     from __ in guard(row.DefaultName is not null && row.Parent is not null, key.InvalidInput())
+        file: row => from _ in guard(row.Ask is not null && row.DefaultName is not null, key.InvalidInput()).ToFin()
+                     from __ in row.Title.Traverse(caption => key.AcceptText(caption)).As()
                      select unit);
 
     internal bool Accepts(AcceptRule rule) =>
@@ -587,8 +707,19 @@ public abstract partial record AcquireIntent {
 
     internal bool SupportsPromptDefault => SupportsOptions;
 
+    internal bool SupportsDrag => this is Interactive or Transform;
+
+    internal bool NeedsDrag =>
+        this is Interactive row && row.Point.Feedback.Exists(static feed => feed is PointFeedback.Pose);
+
     internal bool Accepts(InputDefault value) =>
         this is Interactive row && row.Cases.Exists(prompt => prompt.Accepts(value));
+
+    internal Seq<GetResult> Terminals => Switch(
+        interactive: static row => row.Cases.Map(static prompt => prompt.Terminal).Distinct(),
+        objects: static _ => Seq<GetResult>(),
+        transform: static _ => Seq<GetResult>(),
+        modal: static _ => Seq<GetResult>());
 
     internal bool Accepts(AcceptRule rule) => Switch(
         state: rule,
@@ -638,6 +769,18 @@ public abstract partial record InputDefault {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+// A modal view ask hands back live host views and viewports whose lifetime is the getter call; identity, name, and the
+// owning view serial detach at that seam, so a projector composes evidence and no `RhinoView`/`RhinoViewport` escapes.
+// A detail viewport has no parent view, hence the optional serial.
+public sealed record ViewportFact(Guid Id, string Name, Option<uint> ViewSerial) {
+    internal static ViewportFact Of(RhinoViewport viewport) => new(
+        Id: viewport.Id,
+        Name: viewport.Name,
+        ViewSerial: Optional(viewport.ParentView).Map(static view => view.RuntimeSerialNumber));
+
+    internal static ViewportFact Of(RhinoView view) => Of(view.MainViewport);
+}
+
 public sealed record Acquire {
     private Acquire(
         AcquireIntent intent,
@@ -645,13 +788,15 @@ public sealed record Acquire {
         AcceptPlan accept,
         Option<string> promptDefault,
         Option<InputDefault> @default,
-        Option<OptionSet> options) {
+        Option<OptionSet> options,
+        Option<DragPlan> drag) {
         Intent = intent;
         Prompt = prompt;
         Accept = accept;
         PromptDefault = promptDefault;
         Default = @default;
         Options = options;
+        Drag = drag;
     }
 
     public AcquireIntent Intent { get; }
@@ -660,6 +805,7 @@ public sealed record Acquire {
     public Option<string> PromptDefault { get; }
     public Option<InputDefault> Default { get; }
     public Option<OptionSet> Options { get; }
+    public Option<DragPlan> Drag { get; }
 
     public static Fin<Acquire> Of(
         AcquireIntent intent,
@@ -667,7 +813,8 @@ public sealed record Acquire {
         AcceptPlan accept,
         Option<string> promptDefault = default,
         Option<InputDefault> @default = default,
-        Option<OptionSet> options = default) {
+        Option<OptionSet> options = default,
+        Option<DragPlan> drag = default) {
         Op op = Op.Of(name: nameof(Acquire));
         return from admittedIntent in Optional(intent).ToFin(Fail: op.InvalidInput())
                from admittedAccept in Optional(accept).ToFin(Fail: op.InvalidInput())
@@ -675,22 +822,31 @@ public sealed record Acquire {
                from _ in admittedIntent.Admit(op)
                from __ in guard(options.IsNone || admittedIntent.SupportsOptions, op.InvalidInput()).ToFin()
                from ___ in guard(promptDefault.IsNone || admittedIntent.SupportsPromptDefault, op.InvalidInput()).ToFin()
-               from ____ in guard(admittedAccept.Rules.ForAll(rule => admittedIntent.Accepts(rule)), op.InvalidInput()).ToFin()
-               from _____ in promptDefault.Match(
+               from ____ in guard(
+                   (drag.IsNone || admittedIntent.SupportsDrag) && (!admittedIntent.NeedsDrag || drag.IsSome),
+                   op.InvalidInput()).ToFin()
+               from _____ in guard(admittedAccept.Rules.ForAll(rule => admittedIntent.Accepts(rule)), op.InvalidInput()).ToFin()
+               from ______ in promptDefault.Match(
                    Some: value => op.AcceptText(value).Map(static _ => unit),
                    None: static () => Fin.Succ(unit))
-               from ______ in @default.Match(
+               from _______ in @default.Match(
                    Some: value => value.Admit(op).Bind(_ => guard(admittedIntent.Accepts(value), op.InvalidInput()).ToFin()),
                    None: static () => Fin.Succ(unit))
+               from complete in admittedAccept.Requiring(terminals: admittedIntent.Terminals, key: op)
                select new Acquire(
-                   admittedIntent, admittedPrompt, admittedAccept, promptDefault, @default, options);
+                   admittedIntent, admittedPrompt, complete, promptDefault, @default, options, drag);
     }
 }
 ```
 
 ## [05]-[DRIVE]
 
-`Acquisition.Probe` projects the four host getter-state probes inside one read grant. `GetterDrive.Run` owns one getter and option lease. A bounded `FoldM` consumes option terminals, then projects exactly one final discriminant. Modal payloads remain deferred until `Result.Success`, so failed one-shot calls never read uninitialized `out` values.
+`Acquisition.Probe` projects the four host getter-state probes inside one read grant. `GetterDrive.Run` owns one getter and option lease. One bounded `FoldM` consumes option terminals, then projects exactly one final discriminant. Modal payloads remain deferred until `Result.Success`, so failed one-shot calls never read uninitialized `out` values.
+
+- Law: a mixed object-and-grip selection destined for a dynamic transform lands in the HOST's own buffer — `DragBuffer.Of` folds a completed `GetObject` into `TransformObjectList.AddObjects(getter, scope.Grips)`, so `ObjectArray`, `GripArray`, `GripOwnerArray`, the `Count`/`GripCount`/`GripOwnerCount` census, and `GetBoundingBox(regularObjects, grips)` all read one drag truth; a per-object re-projection loses the grip-to-owner correspondence the buffer alone carries.
+- Law: the drag set is a request column, never a fifth intent — `Acquire.Drag` rides beside `Options` and `Default` under the `SupportsDrag` gate, so the point drive and the transform drive admit one plan through one gate, a `GetObject` or one-shot request carrying a drag plan refuses at `Acquire.Of`, and a `PointFeedback.Pose` row without a plan refuses on the same line through `NeedsDrag`.
+- Law: the two drives consume the buffer differently and the buffer never learns which — `GetTransform` takes it through `AddTransformObjects` and the native getter paints its own feedback, while a `GetPoint` drag drives `UpdateDisplayFeedbackTransform(Transform)` per `PointFeedback.Pose` sample under `DisplayFeedbackEnabled`, re-posing the whole dragged set in one host call instead of one per selected object, which is the hand-roll the geometry catalog's reject clause names.
+- Law: `TransformObjectList` is `IDisposable` and dies inside `GetterDrive.Run`'s bracket — `DragEvidence` is read off the live buffer at seal time and is the only drag fact reaching `AcquiredReceipt`, so the `Poses` count is a measured tally of applied feedback samples and `Clear` stays scope-internal.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -746,11 +902,8 @@ public static class Acquisition {
         from receipt in GetterDrive.Run(
             request: request,
             create: static () => new GetPoint(),
-            prepare: getter =>
-                from __ in intent.Point.Rules.TraverseM(rule => rule.Apply(getter, op)).As()
-                from ___ in intent.Cases.TraverseM(row => row.Configure(getter, op)).As()
-                select unit,
-            receive: getter => PointFeedbackLease.Attach(getter, intent.Point.Feedback, op).Bind(callbacks => {
+            prepare: getter => intent.Point.Rules.TraverseM(rule => rule.Apply(getter, op)).As().Map(static _ => unit),
+            receive: (getter, dragging) => PointFeedbackLease.Attach(getter, intent.Point.Feedback, dragging, op).Bind(callbacks => {
                 GetResult raw;
                 using (callbacks) {
                     raw = getter.Get(
@@ -771,7 +924,7 @@ public static class Acquisition {
         request: request,
         create: static () => new GetObject(),
         prepare: getter => plan.Rules.TraverseM(rule => rule.Apply(getter, op)).As().Map(static _ => unit),
-        receive: getter => op.Catch(() => Fin.Succ(getter.GetMultiple(plan.Minimum, plan.Maximum))),
+        receive: (getter, _) => op.Catch(() => Fin.Succ(getter.GetMultiple(plan.Minimum, plan.Maximum))),
         project: (getter, raw) => raw is GetResult.Object
             ? Picks.CaptureOwned(references: getter.Objects(), key: op)
                 .Map(static picks => (Acquired)new Acquired.Objects(Picks: picks))
@@ -785,7 +938,7 @@ public static class Acquisition {
         request: request,
         create: () => new TransformGetter(calculate),
         prepare: static _ => Fin.Succ(unit),
-        receive: getter => op.Catch(() => Fin.Succ(getter.GetXform())),
+        receive: (getter, _) => op.Catch(() => Fin.Succ(getter.GetXform())),
         project: (getter, raw) => getter.Fault.Match(
             Some: Fin.Fail<Acquired>,
             None: () => getter.Calculated
@@ -806,13 +959,13 @@ public static class Acquisition {
         }),
         oneObject: static (held, modal) => ModalResult(held.Op, () => {
             Result native = RhinoGet.GetOneObject(
-                held.Request.Prompt, held.Request.Accept.AcceptsNothing, modal.Filter, out ObjRef reference);
+                held.Request.Prompt, held.Request.Accept.AcceptsNothing, modal.Filter.Mask, out ObjRef reference);
             return (native, () => Picks.CaptureOwned([reference], held.Op)
                 .Map(static picks => (Acquired)new Acquired.Objects(Picks: picks)));
         }),
         manyObjects: static (held, modal) => ModalResult(held.Op, () => {
             Result native = RhinoGet.GetMultipleObjects(
-                held.Request.Prompt, held.Request.Accept.AcceptsNothing, modal.Filter, out ObjRef[] references);
+                held.Request.Prompt, held.Request.Accept.AcceptsNothing, modal.Filter.Mask, out ObjRef[] references);
             return (native, () => Picks.CaptureOwned(references, held.Op)
                 .Map(static picks => (Acquired)new Acquired.Objects(Picks: picks)));
         }),
@@ -853,14 +1006,17 @@ public static class Acquisition {
         shape: static (held, modal) => ModalResult(held.Op, modal.Ask.Run),
         view: static (held, modal) => ModalResult(held.Op, () => {
             Result native = RhinoGet.GetView(held.Request.Prompt, out RhinoView value);
-            return (native, () => modal.Project(value));
+            return (native, () => modal.Project(ViewportFact.Of(value)));
         }),
         viewports: static (held, modal) => ModalResult(held.Op, () => {
             Result native = RhinoGet.GetViewports(held.Request.Prompt, out RhinoViewport[] value);
-            return (native, () => modal.Project(toSeq(value)));
+            return (native, () => modal.Project(toSeq(value).Map(static row => ViewportFact.Of(row)).Strict()));
         }),
+        // Title presence IS the route: a caption drives the native dialog, its absence the command-line ask.
         file: static (held, modal) => held.Op.Catch(() => {
-            string value = RhinoGet.GetFileName(modal.Mode, modal.DefaultName, modal.Title, modal.Parent);
+            string value = modal.Title.Match(
+                Some: caption => RhinoGet.GetFileName(modal.Ask.Key, modal.DefaultName, caption, parent: null),
+                None: () => RhinoGet.GetFileNameScripted(modal.Ask.Key, modal.DefaultName));
             return string.IsNullOrWhiteSpace(value)
                 ? Fin.Succ(Receipt(new AcquireTerminal.Cancelled()))
                 : Fin.Succ(Receipt(new AcquireTerminal.Value(new Acquired.FileName(Value: value))));
@@ -880,7 +1036,7 @@ public static class Acquisition {
     });
 
     private static AcquiredReceipt Receipt(AcquireTerminal terminal) =>
-        new(Terminal: terminal, Options: [], GotDefault: false);
+        new(Terminal: terminal, Options: [], GotDefault: false, Dragged: None);
 }
 
 internal static class GetterDrive {
@@ -888,7 +1044,7 @@ internal static class GetterDrive {
         Acquire request,
         Func<TGetter> create,
         Func<TGetter, Fin<Unit>> prepare,
-        Func<TGetter, Fin<GetResult>> receive,
+        Func<TGetter, Option<DragBuffer>, Fin<GetResult>> receive,
         Func<TGetter, GetResult, Fin<Acquired>> project,
         Op op)
         where TGetter : GetBaseClass => op.Catch(() => {
@@ -898,70 +1054,155 @@ internal static class GetterDrive {
             _ = request.Default.Iter(value => value.Apply(getter));
             return request.Accept.Apply(getter, op)
                 .Bind(_ => prepare(getter))
-                .Bind(_ => request.Options.Match(
-                    Some: options => options.Bind(getter, op),
-                    None: static () => Fin.Succ(new OptionLease())))
-                .Bind(lease => {
-                    using (lease) {
-                        return toSeq(Enumerable.Range(0, request.Accept.OptionBudget + 1))
-                            .FoldM<Fin, GetterCycle>(
-                                new GetterCycle(Choices: [], Terminal: None),
-                                (cycle, _) => cycle.Terminal.IsSome
-                                    ? Fin.Succ(cycle)
-                                    : receive(getter).Bind(raw => raw is GetResult.Option
-                                        ? lease.Selected(getter, op).Map(choice => cycle with {
-                                            Choices = cycle.Choices.Add(choice),
-                                        })
-                                        : Fin.Succ(cycle with { Terminal = Some(raw) })))
-                            .As()
-                            .Bind(cycle => cycle.Terminal.ToFin(Fail: op.InvalidResult(
-                                    detail: nameof(AcceptPlan.OptionBudget)))
-                                .Bind(raw => raw switch {
-                                    GetResult.Cancel => Sealed(new AcquireTerminal.Cancelled(), getter, cycle.Choices),
-                                    GetResult.Nothing => Sealed(new AcquireTerminal.Nothing(), getter, cycle.Choices),
-                                    GetResult.Undo => Sealed(new AcquireTerminal.Undone(), getter, cycle.Choices),
-                                    GetResult.Timeout => Sealed(new AcquireTerminal.TimedOut(), getter, cycle.Choices),
-                                    GetResult.ExitRhino => Sealed(new AcquireTerminal.Exit(), getter, cycle.Choices),
-                                    GetResult.NoResult or GetResult.Miss =>
-                                        Fin.Fail<AcquiredReceipt>(op.InvalidResult(detail: raw.ToString())),
-                                    _ => project(getter, raw).Bind(payload => Sealed(
-                                        new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices)),
-                                }));
-                    }
-                });
+                .Bind(_ => Dragging(request.Drag, op, dragging =>
+                    dragging.Map(buffer => buffer.Bind(getter)).IfNone(Fin.Succ(unit))
+                        .Bind(_ => request.Options.Match(
+                            Some: options => options.Bind(getter, op),
+                            None: static () => Fin.Succ(new OptionLease())))
+                        .Bind(lease => {
+                            using (lease) {                              // Exemption: option-lease bracket, the page's host-handle seam
+                                return Cycle(request, getter, dragging, receive, project, lease, op);
+                            }
+                        })));
         });
+
+    private static Fin<AcquiredReceipt> Dragging(
+        Option<DragPlan> plan,
+        Op op,
+        Func<Option<DragBuffer>, Fin<AcquiredReceipt>> body) => plan.Match(
+        Some: row => DragBuffer.Of(row, op).Bind(buffer => {
+            using (buffer) {                                            // Exemption: drag-buffer bracket, the host list dies here
+                return body(Some(buffer));
+            }
+        }),
+        None: () => body(None));
+
+    private static Fin<AcquiredReceipt> Cycle<TGetter>(
+        Acquire request,
+        TGetter getter,
+        Option<DragBuffer> dragging,
+        Func<TGetter, Option<DragBuffer>, Fin<GetResult>> receive,
+        Func<TGetter, GetResult, Fin<Acquired>> project,
+        OptionLease lease,
+        Op op)
+        where TGetter : GetBaseClass =>
+        toSeq(Enumerable.Range(0, request.Accept.OptionBudget + 1))
+            .FoldM<Fin, GetterCycle>(
+                new GetterCycle(Choices: [], Terminal: None),
+                (cycle, _) => cycle.Terminal.IsSome
+                    ? Fin.Succ(cycle)
+                    : receive(getter, dragging).Bind(raw => raw is GetResult.Option
+                        ? lease.Selected(getter, op).Map(choice => cycle with {
+                            Choices = cycle.Choices.Add(choice),
+                        })
+                        : Fin.Succ(cycle with { Terminal = Some(raw) })))
+            .As()
+            .Bind(cycle => cycle.Terminal.ToFin(Fail: op.InvalidResult(detail: nameof(AcceptPlan.OptionBudget)))
+                .Bind(raw => raw switch {
+                    GetResult.Cancel => Sealed(new AcquireTerminal.Cancelled(), getter, cycle.Choices, dragging),
+                    GetResult.Nothing => Sealed(new AcquireTerminal.Nothing(), getter, cycle.Choices, dragging),
+                    GetResult.Undo => Sealed(new AcquireTerminal.Undone(), getter, cycle.Choices, dragging),
+                    GetResult.Timeout => Sealed(new AcquireTerminal.TimedOut(), getter, cycle.Choices, dragging),
+                    GetResult.ExitRhino => Sealed(new AcquireTerminal.Exit(), getter, cycle.Choices, dragging),
+                    GetResult.NoResult or GetResult.Miss =>
+                        Fin.Fail<AcquiredReceipt>(op.InvalidResult(detail: raw.ToString())),
+                    _ => project(getter, raw).Bind(payload => Sealed(
+                        new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices, dragging)),
+                }));
 
     private static Fin<AcquiredReceipt> Sealed(
         AcquireTerminal terminal,
         GetBaseClass getter,
-        Seq<OptionChoice> choices) => Fin.Succ(new AcquiredReceipt(
-        Terminal: terminal,
-        Options: choices,
-        GotDefault: getter.GotDefault()));
+        Seq<OptionChoice> choices,
+        Option<DragBuffer> dragging) =>
+        dragging.Match(
+            Some: buffer => buffer.Evidence().Map(Some),
+            None: static () => Fin.Succ(Option<DragEvidence>.None))
+        .Map(evidence => new AcquiredReceipt(
+            Terminal: terminal,
+            Options: choices,
+            GotDefault: getter.GotDefault(),
+            Dragged: evidence));
 }
 ```
 
 ## [06]-[CALLBACK_BOUNDARY]
 
-`PointFeedbackLease` converts every callback into a non-throwing native handler. `Subscription` owns attachment rollback and complete detachment. Callback, interrupt, and cleanup failures combine before acquisition resumes.
+`PointFeedbackLease` converts every callback into a non-throwing native handler. `Subscription` owns attachment rollback and complete detachment. Callback, interrupt, and cleanup failures combine before acquisition resumes. `DragBuffer` owns the host transform list end to end: it runs the drag selection, binds a `GetTransform` or arms display feedback for a point drag, applies each `Pose` sample, and projects its measured census before disposal.
 
 ```csharp signature
 // --- [BOUNDARIES] -------------------------------------------------------------------------
+internal sealed class DragBuffer : IDisposable {
+    private readonly TransformObjectList buffer;
+    private readonly DragScope scope;
+    private readonly Op op;
+    private int poses;
+
+    private DragBuffer(TransformObjectList buffer, DragScope scope, Op op) {
+        this.buffer = buffer;
+        this.scope = scope;
+        this.op = op;
+    }
+
+    internal static Fin<DragBuffer> Of(DragPlan plan, Op op) => op.Catch(() => {
+        using GetObject selection = new();                              // Exemption: host getter bracket, the selection never escapes
+        selection.SetCommandPrompt(plan.Prompt);
+        return plan.Selection.Rules.TraverseM(rule => rule.Apply(selection, op)).As()
+            .Bind(_ => selection.GetMultiple(plan.Selection.Minimum, plan.Selection.Maximum) is GetResult.Object
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(op.InvalidResult(detail: nameof(DragPlan.Selection))))
+            .Bind(_ => Minted(selection, plan.Scope, op));
+    });
+
+    private static Fin<DragBuffer> Minted(GetObject selection, DragScope scope, Op op) {
+        TransformObjectList buffer = new();
+        return op.Confirm(buffer.AddObjects(selection, scope.Grips) > 0)
+            .Map(_ => new DragBuffer(buffer, scope, op))
+            .MapFail(fault => (fun(buffer.Dispose)(), fault).Item2);
+    }
+
+    internal Fin<Unit> Bind(GetBaseClass getter) => op.Catch(() => Fin.Succ(getter switch {
+        GetTransform target => Op.Side(() => target.AddTransformObjects(buffer)),
+        _ => Op.Side(() => buffer.DisplayFeedbackEnabled = true),
+    }));
+
+    internal Fin<Unit> Pose(Transform xform) => op.Confirm(buffer.UpdateDisplayFeedbackTransform(xform))
+        .Map(_ => ignore(Interlocked.Increment(ref poses)));
+
+    internal Fin<DragEvidence> Evidence() => op.Catch(() => Fin.Succ(new DragEvidence(
+        Objects: toSeq(buffer.ObjectArray()).Map(static row => row.Id),
+        Grips: toSeq(buffer.GripArray()).Map(static row => row.Id),
+        GripOwners: toSeq(buffer.GripOwnerArray()).Map(static row => row.Id),
+        ObjectCount: buffer.Count,
+        GripCount: buffer.GripCount,
+        GripOwnerCount: buffer.GripOwnerCount,
+        Extent: buffer.GetBoundingBox(regularObjects: true, grips: scope.Grips),
+        Poses: Volatile.Read(ref poses))));
+
+    public void Dispose() => buffer.Dispose();
+}
+
 internal sealed class PointFeedbackLease : IDisposable {
     private readonly GetPoint getter;
+    private readonly Option<DragBuffer> dragging;
     private readonly Op op;
     private readonly Atom<Option<Error>> fault = Atom(Option<Error>.None);
     private Subscription? observation;
 
-    private PointFeedbackLease(GetPoint getter, Op op) {
+    private PointFeedbackLease(GetPoint getter, Option<DragBuffer> dragging, Op op) {
         this.getter = getter;
+        this.dragging = dragging;
         this.op = op;
     }
 
     internal Option<Error> Fault => fault.Value;
 
-    internal static Fin<PointFeedbackLease> Attach(GetPoint getter, Seq<PointFeedback> feedback, Op op) {
-        PointFeedbackLease lease = new(getter, op);
+    internal static Fin<PointFeedbackLease> Attach(
+        GetPoint getter,
+        Seq<PointFeedback> feedback,
+        Option<DragBuffer> dragging,
+        Op op) {
+        PointFeedbackLease lease = new(getter, dragging, op);
         return Subscription.AttachAll(feedback.Map(row => (Func<Fin<Subscription>>)(() => lease.Wire(row))))
             .Map(attached => {
                 lease.observation = attached;
@@ -972,9 +1213,11 @@ internal sealed class PointFeedbackLease : IDisposable {
     private Fin<Subscription> Wire(PointFeedback feedback) => op.Catch(() =>
         feedback.Switch(
             state: this,
-            mouseMove: static (lease, row) => lease.Hook<GetPointMouseEventArgs>(row.Sink,
+            mouseMove: static (lease, row) => lease.Hook<GetPointMouseEventArgs>(
+                args => row.Sink(PointerFact.Of(args)),
                 handler => lease.getter.MouseMove += handler, handler => lease.getter.MouseMove -= handler),
-            mouseDown: static (lease, row) => lease.Hook<GetPointMouseEventArgs>(row.Sink,
+            mouseDown: static (lease, row) => lease.Hook<GetPointMouseEventArgs>(
+                args => row.Sink(PointerFact.Of(args)),
                 handler => lease.getter.MouseDown += handler, handler => lease.getter.MouseDown -= handler),
             dynamicDraw: static (lease, row) => lease.Hook<GetPointDrawEventArgs>(row.Sink,
                 handler => lease.getter.DynamicDraw += handler, handler => lease.getter.DynamicDraw -= handler),
@@ -982,7 +1225,14 @@ internal sealed class PointFeedbackLease : IDisposable {
                 lease.getter.FullFrameRedrawDuringGet = true;
                 return lease.Hook<DrawEventArgs>(row.Sink,
                     handler => lease.getter.PostDrawObjects += handler, handler => lease.getter.PostDrawObjects -= handler);
-            }));
+            },
+            pose: static (lease, row) => lease.Hook<GetPointMouseEventArgs>(
+                args => row.Sink(PointerFact.Of(args)).Bind(lease.Reposed),
+                handler => lease.getter.MouseMove += handler, handler => lease.getter.MouseMove -= handler)));
+
+    private Fin<Unit> Reposed(Transform xform) => dragging.Match(
+        Some: buffer => buffer.Pose(xform),
+        None: () => Fin.Fail<Unit>(op.InvalidContext()));
 
     private Fin<Subscription> Hook<TArgs>(
         Func<TArgs, Fin<Unit>> sink,
@@ -1040,7 +1290,9 @@ internal sealed class TransformGetter(Func<RhinoViewport, Point3d, Transform> ca
 
 ## [07]-[BOUNDARY]
 
-`AcquireIntent` is the sole modality entry, `AcquireTerminal` is the sole control egress, and `Acquired` is the sole value egress. `OptionLease`, `PointFeedbackLease`, `GetBaseClass`, `ObjRef`, and every one-shot `out` value terminate before the receipt crosses the session boundary.
+`AcquireIntent` is the sole modality entry, `AcquireTerminal` is the sole control egress, and `Acquired` is the sole value egress. `OptionLease`, `PointFeedbackLease`, `DragBuffer` with its `TransformObjectList`, `GetBaseClass`, `ObjRef`, and every one-shot `out` value terminate before the receipt crosses the session boundary; `DragEvidence` is the dragged set's detached census.
+
+A caller-supplied delegate takes a detached fact, never a host handle: `PointerFact` for the pointer arms, `ViewportFact` for both view asks, `ObjectKinds` for the object filters. The one carve is the pair of draw arms, whose `GetPointDrawEventArgs`/`DrawEventArgs` carry the live `DisplayPipeline` the sink exists to draw into — a callback-scoped borrow, never retained past the crossing, and the only host type this page's public delegates admit.
 
 ## [08]-[RESEARCH]
 

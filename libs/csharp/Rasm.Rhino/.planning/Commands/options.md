@@ -23,7 +23,7 @@ public sealed partial class OptionLabel {
             : new ValidationError(message: "option name is invalid");
     }
 
-    public global::Rhino.UI.LocalizeStringPair Native => new(english: English, local: Local.IfNone(English));
+    internal global::Rhino.UI.LocalizeStringPair Native => new(english: English, local: Local.IfNone(English));
 }
 
 [ComplexValueObject]
@@ -41,7 +41,22 @@ public sealed partial class OptionToken {
             : new ValidationError(message: "option value is invalid");
     }
 
-    public global::Rhino.UI.LocalizeStringPair Native => new(english: English, local: Local.IfNone(English));
+    internal global::Rhino.UI.LocalizeStringPair Native => new(english: English, local: Local.IfNone(English));
+}
+
+[SmartEnum<int>]
+public sealed partial class OptionKind {
+    public static readonly OptionKind Simple = new(key: (int)CommandLineOptionType.Simple);
+    public static readonly OptionKind Number = new(key: (int)CommandLineOptionType.Number);
+    public static readonly OptionKind Toggle = new(key: (int)CommandLineOptionType.Toggle);
+    public static readonly OptionKind Color = new(key: (int)CommandLineOptionType.Color);
+    public static readonly OptionKind List = new(key: (int)CommandLineOptionType.List);
+    public static readonly OptionKind Hidden = new(key: (int)CommandLineOptionType.Hidden);
+
+    internal CommandLineOptionType Native => (CommandLineOptionType)Key;
+
+    internal static Fin<OptionKind> Of(CommandLineOptionType native, Op key) =>
+        TryGet((int)native, out OptionKind? row) ? Fin.Succ(value: row) : Fin.Fail<OptionKind>(error: key.InvalidResult());
 }
 
 [SmartEnum]
@@ -344,11 +359,13 @@ public abstract partial record OptionValue {
 
 `OptionLease` exists before the first bind and receives each carrier as it is created. Any failed row releases the partial lease; success returns the same capsule to acquisition. One `OptionValue.Read` projection admits pointer-backed values for selection and snapshots before detached evidence leaves the getter window; one `OptionMark` threads the shared native identity through every evidence case as a base positional column.
 
+`Dispose` accumulates into `Faults` and returns. The lease is consumed under a `using` nested inside the getter's own `using`, so a throwing cleanup would unwind past the acquisition result and replace the in-flight answer with a release fault — the caller then loses the value it actually obtained. `Release` remains the railed entry a caller reads when cleanup evidence matters.
+
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record OptionRow(OptionLabel Label, OptionValue Value, OptionVariance Variance);
 
-public sealed record OptionMark(int NativeIndex, CommandLineOptionType Kind, string English, string Local);
+public sealed record OptionMark(int NativeIndex, OptionKind Kind, string English, string Local);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OptionEvidence {
@@ -418,6 +435,7 @@ public sealed record OptionSet {
 
 // --- [BOUNDARIES] -------------------------------------------------------------------------
 public sealed class OptionLease : IDisposable {
+    private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
     private Seq<(OptionRow Row, BoundOption Bound)> bound = [];
     private Seq<IDisposable> resources = [];
     private int released;
@@ -440,10 +458,11 @@ public sealed class OptionLease : IDisposable {
             from native in Optional(getter.Option()).ToFin(Fail: key.InvalidResult())
             from entry in bound.Find(candidate => candidate.Bound.Index == index).ToFin(Fail: key.InvalidResult())
             from current in entry.Row.Value.Read(native: Some(native), fallback: entry.Bound.Current, key: key)
+            from kind in OptionKind.Of(native: native.OptionType, key: key)
             select new OptionChoice(
                 Label: entry.Row.Label,
                 Value: current,
-                Evidence: Evidence(native, current)))
+                Evidence: Evidence(native, current, kind)))
         select choice;
 
     internal Fin<Seq<(OptionLabel Label, OptionValue Current)>> Snapshot(Op key) => key.Catch(() =>
@@ -475,12 +494,14 @@ public sealed class OptionLease : IDisposable {
         return cleanup;
     }
 
+    public Seq<Error> Faults => faults.Value;
+
     public void Dispose() => _ = Release().Match(
         Succ: static released => released,
-        Fail: static fault => throw fault.ToException());
+        Fail: fault => ignore(faults.Swap(held => held.Add(value: fault))));
 
-    private static OptionEvidence Evidence(CommandLineOption native, OptionValue current) {
-        OptionMark mark = new(native.Index, native.OptionType, native.EnglishName, native.LocalName);
+    private static OptionEvidence Evidence(CommandLineOption native, OptionValue current, OptionKind kind) {
+        OptionMark mark = new(native.Index, kind, native.EnglishName, native.LocalName);
         return current.Switch(
             state: (Mark: mark, Native: native),
             verb: static (held, _) => (OptionEvidence)new OptionEvidence.Verb(held.Mark),

@@ -6,7 +6,7 @@ The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given s
 
 - [02]-[WORK_CLASS]: the one service-class row table — concurrency, mailbox, idle, budget, attempts, priority; `WorkClass`.
 - [03]-[ACTOR_MINT]: the entity mint: protocol, fenced bounds, durability annotations, client, exposure; `Actor`.
-- [04]-[MAILBOX]: the durable-message port, dedup receipt, the `ClusterError → FaultClass` bridge; `Mailbox`.
+- [04]-[MAILBOX]: the durable plane's two-store tier rows, dedup receipt, the `ClusterError → FaultClass` bridge; `Mailbox`.
 - [05]-[GRID]: leaderless topology, runner health, entry rows, singleton, the workflow-engine bridge; `Grid`.
 
 ## [02]-[WORK_CLASS]
@@ -21,10 +21,12 @@ The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given s
 - Packages: `effect` (`Duration`, `Schema`); `@rasm/ts/core` (`Budget`).
 
 ```typescript
-import { ClusterError, ClusterMetrics, ClusterSchema, ClusterWorkflowEngine, Entity, EntityProxy, EntityProxyServer, MessageStorage, RunnerHealth, Sharding, ShardingConfig, ShardingRegistrationEvent, Snowflake, SqlMessageStorage, SqlRunnerStorage } from "@effect/cluster"
+import { ClusterError, ClusterMetrics, ClusterSchema, ClusterWorkflowEngine, Entity, EntityProxy, EntityProxyServer, EntityResource, MessageStorage, RunnerHealth, Sharding, ShardingConfig, ShardingRegistrationEvent, Snowflake, SqlMessageStorage, SqlRunnerStorage } from "@effect/cluster"
+import { PersistedQueue } from "@effect/experimental"
 import type { HttpApi } from "@effect/platform"
 import { type Rpc, RpcGroup } from "@effect/rpc"
-import { Array, Duration, Effect, Layer, Metric, Schema, Stream, Struct, type Types } from "effect"
+import { SqlPersistedQueue } from "@effect/sql"
+import { Array, Duration, Effect, Layer, Metric, Option, Schema, Stream, Struct, type Types } from "effect"
 import { Budget, FaultClass, type TenantContext } from "@rasm/ts/core"
 import { Setting } from "../proc/config.ts"
 
@@ -78,14 +80,15 @@ const WorkClass: WorkClass.Shape = {
 - Law: the mailbox-drain reply seam is `Entity.Replier` — a `toLayerMailbox` handler answers out-of-band through `succeed`/`fail`/`failCause`/`complete(Exit)` on the handed replier, so a streaming-batch drain settles each message exactly once without occupying the serialized lane.
 - Law: locality is span evidence — `Entity.CurrentAddress` and `Entity.CurrentRunnerAddress` are in-handler context Tags whose `EntityAddress`/`RunnerAddress` stamp the message span, so which shard and which runner handled a message reads off every trace, not just the registration census.
 - Law: `Actor.expose(entity)` projects the entity as `serve/api#CONTRIBUTION` pairing material — `EntityProxy.toRpcGroup(entity)` beside `EntityProxyServer.layerRpcHandlers(entity)` is exactly the `Contribution.rpc(group, handlers)` pair, and `EntityProxy.toHttpApiGroup(name, entity)` beside the api-reading builder `(api) => EntityProxyServer.layerHttpApi(api, name, entity)` is exactly the `Contribution.http(group, handlers)` pair — so the app mounts an actor through the same two pairing constructors as every other group and the typed client derives for free; a bare group projection whose handler binding the app must rediscover is the half-pairing defect. The mailbox-draining `toLayerMailbox` form is the streaming-batch escape hatch and carries the same bounds.
-- Law: a per-actor external handle rides `EntityResource.make({ acquire, idleTimeToLive })` — acquired once, surviving shard-move restarts, released on idle expiry — and the K8s pod form is `EntityResource.makeK8sPod`; a handle opened inside a handler body leaks across replays and is the rejected form.
+- Law: a per-actor external handle is a `Spec.resource` column, never a raw handler-body acquisition — the mint folds `Option.map(spec.resource, (acquire) => EntityResource.make({ acquire, idleTimeToLive: row.idle }))`, so the handle's residency is the actor's own `WorkClass` idle window, it survives a shard-move restart, and it releases on idle expiry; the K8s pod form is `EntityResource.makeK8sPod` against the same column. A handle opened raw inside a handler body leaks across replays and is the rejected form, and an actor with no external handle states `Option.none()` rather than carrying a null slot.
+- Law: the resource is published as an EFFECT whose ONE seat is the per-instance handler builder — `EntityResource.make` mints a fresh `RcRef` per call and acquires eagerly, and its requirement channel names `Entity.CurrentAddress`, which `toLayer` provides to a builder effect alone (the return type excludes `Scope`, `CurrentAddress`, and `CurrentRunnerAddress` from `RX` for exactly that reason). So an actor's builder runs `resource` once and its handlers read `held.get` per message; calling `make` inside a handler body mints a second `RcRef` and a second acquisition on every message — the leak this column exists to close, wearing the column's name. `registered` therefore carries the package's own generic pair rather than an erased parameter type, because an erased builder cannot state the requirement the seat depends on.
 - Entry: `Actor.make` at the owning page; `Entity.makeTestClient(entity, layer)` binds the kit-driven spec client with no runner.
 - Growth: a new actor family is one `Spec` value; a new message is one `Rpc` row on its group; a new per-Rpc posture axis is one exemption set folded at `_annotated`; a new modality (streaming reply) is `toLayerMailbox` on the same spec.
-- Packages: `@effect/cluster` (`Entity`, `EntityProxy`, `EntityProxyServer`, `EntityResource`, `ClusterSchema`); `@effect/rpc` (`Rpc`, `RpcGroup`); `@effect/platform` (`HttpApi` — the pairing builder's api parameter); `effect` (`Array`, `Layer`, `Effect`).
+- Packages: `@effect/cluster` (`Entity`, `EntityProxy`, `EntityProxyServer`, `EntityResource`, `ClusterSchema`); `@effect/rpc` (`Rpc`, `RpcGroup`); `@effect/platform` (`HttpApi` — the pairing builder's api parameter); `effect` (`Array`, `Effect`, `Layer`, `Option`).
 
 ```typescript
 declare namespace Actor {
-  type Spec<Type extends string, Rpcs extends Rpc.Any> = {
+  type Spec<Type extends string, Rpcs extends Rpc.Any, Handle = never, Fault = never, Need = never> = {
     readonly name: Type
     readonly protocol: (annotate: <Current extends Rpcs>(rpc: Current) => Current) => RpcGroup.RpcGroup<Rpcs>
     readonly clazz: WorkClass.Kind
@@ -93,29 +96,38 @@ declare namespace Actor {
     readonly ephemeral: ReadonlyArray<Rpcs["_tag"]>
     readonly untraced: ReadonlyArray<Rpcs["_tag"]>
     readonly interrupt: boolean | "client" | "server"
+    // the per-actor external handle: acquired once per live instance, surviving shard-move restarts under the row's own residency
+    readonly resource: Option.Option<Effect.Effect<Handle, Fault, Need>>
   }
 }
 
-const _annotated = <Rpcs extends Rpc.Any>(spec: Actor.Spec<string, Rpcs>): RpcGroup.RpcGroup<Rpcs> =>
+const _annotated = <Rpcs extends Rpc.Any>(spec: Actor.Spec<string, Rpcs, never, never, never>): RpcGroup.RpcGroup<Rpcs> =>
   spec.protocol(<Current extends Rpcs>(rpc: Current): Current =>
     rpc
       .annotate(ClusterSchema.Persisted, !Array.contains(spec.ephemeral, rpc._tag))
       .annotate(ClusterSchema.ClientTracingEnabled, !Array.contains(spec.untraced, rpc._tag)))
 
-const _make = <Type extends string, Rpcs extends Rpc.Any>(spec: Actor.Spec<Type, Rpcs>) => {
+const _make = <Type extends string, Rpcs extends Rpc.Any, Handle, Fault, Need>(spec: Actor.Spec<Type, Rpcs, Handle, Fault, Need>) => {
   const row = WorkClass[spec.clazz]
-  const entity = Entity.fromRpcGroup(spec.name, _annotated(spec)).pipe(
+  const entity = Entity.fromRpcGroup(spec.name, _annotated(spec as never)).pipe(
     (e) => e.annotateRpcs(ClusterSchema.ShardGroup, (entityId: string) => spec.tenant(entityId)),
     (e) => e.annotateRpcs(ClusterSchema.Uninterruptible, spec.interrupt),
   )
-  const registered = (handlers: Parameters<typeof entity.toLayer>[0]) =>
-    entity.toLayer(handlers, {
+  // The handle's residency IS the actor's: one row column prices the mailbox, the fence, and how long the external
+  // handle outlives idleness. `make` mints a FRESH RcRef per call and acquires eagerly, so it belongs in the per-instance
+  // handler BUILDER — the one seat `toLayer` provides `Scope`, `CurrentAddress`, and `CurrentRunnerAddress` to — and a
+  // handler then reads `yield* held.get` per message off that one value.
+  const resource = Option.map(spec.resource, (acquire) => EntityResource.make({ acquire, idleTimeToLive: row.idle }))
+  // The generic mirrors the package's own so an Effect builder keeps its `RX` accounting, which is what makes the
+  // resource seat reachable at all; the class row fixes every geometry option, so the entry takes the build alone.
+  const registered = <Handlers extends Entity.HandlersFrom<Rpcs>, RX = never>(build: Handlers | Effect.Effect<Handlers, never, RX>) =>
+    entity.toLayer(build, {
       concurrency: row.concurrency,
       mailboxCapacity: row.mailbox,
       maxIdleTime: row.idle,
       defectRetryPolicy: WorkClass.defectRetry(spec.clazz),
     })
-  return { entity, registered, client: entity.client } as const
+  return { entity, registered, resource, client: entity.client } as const
 }
 
 const _expose = <Type extends string, Rpcs extends Rpc.Any>(entity: Entity.Entity<Type, Rpcs>) => ({
@@ -131,23 +143,30 @@ const Actor = { make: _make, expose: _expose }
 ## [04]-[MAILBOX]
 
 [MAILBOX]:
-- Owner: `Mailbox` — the durable-message port composition and its fault fold. `SqlMessageStorage.layer` persists every `Persisted` message on the `SqlClient` Tag the app root satisfies from the data wave's `Stores` scopes; `Snowflake.layerGenerator` mints the monotonic message identity dedup keys on; `MessageStorage.layerMemory` is the single-node/spec tier and `layerNoop` the ephemeral tier — three tier rows behind one Tag, selected at the root.
+- Owner: `Mailbox` — the durable plane's store composition and its fault fold. Each tier row publishes the two stores the plane draws on: the cluster envelope store (`SqlMessageStorage.layer` on the `SqlClient` Tag the app root satisfies from the data wave's `Stores` scopes, with `Snowflake.layerGenerator` minting the monotonic identity dedup keys on; `MessageStorage.layerMemory` for single-node and spec, `layerNoop` for ephemeral) AND the queue-item store (`PersistedQueue.layer` over `SqlPersistedQueue.layerStore()` on the same `SqlClient`, over `PersistedQueue.layerStoreMemory` on the lighter tiers) — three rows behind one selection at the root.
+- Law: the two stores are disjoint by signature and neither substitutes for the other — `MessageStorage` holds cluster envelopes keyed by `Snowflake` plus Rpc primary key, `PersistedQueueFactory` holds queue items a `DurableQueue.worker` leases and settles, and the `worker` Layer's requirement names the second by type. A tier publishing only the envelope arm leaves every `queue#JOB_FAMILY` worker Layer unsatisfiable at the composition root, which is why the queue store is a column on this row and not a fourth Layer the app must remember.
 - Law: delivery is at-least-once folded to exactly-once effect — `SaveResult.Duplicate`, keyed on `Snowflake` plus the Rpc primary key, re-subscribes a replayed send to the prior result and never re-executes the handler; the sender needs no idempotency wrapper because dedup is the storage contract.
 - Law: the fault bridge is one governed record — every `ClusterError` tag maps to its `FaultClass` kind (`MailboxFull → exhausted`, `AlreadyProcessingMessage → conflicted`, `PersistenceError → unavailable`, `MalformedMessage → malformed`, `EntityNotAssignedToRunner → unavailable`, `RunnerNotRegistered → unavailable`, `RunnerUnavailable → unavailable`) — so cluster faults enter the branch rail with rank, blame, and the retryable column already decided, and `Mailbox.classify` is total over the family. Re-drive reads `FaultClass.retryable` through the caller's `Budget` row; no cluster-specific retry predicate exists.
 - Law: cluster topology is observed through the package's own instruments — `Grid.metrics` reads `ClusterMetrics.entities`, `ClusterMetrics.singletons`, `ClusterMetrics.runners`, `ClusterMetrics.runnersHealthy`, and `ClusterMetrics.shards` as one concurrent snapshot, so runner and shard topology stays aligned with the cluster runtime's registered gauges. Mailbox depth and drain rate belong to the queue and journal owners because `ClusterMetrics` exposes neither; attributing those signals to this package is a phantom contract.
 - Boundary: the journal, outbox, and idempotency-ledger relations belong to the data wave; this port persists cluster envelopes in cluster-owned relations on the same scope, and atomicity with a domain aggregate is the data journal's transaction, reached by enqueuing from inside it — never by threading this storage into a domain write.
-- Growth: a new durability tier is one row on the tier record; a new cluster fault tag is one bridge row the governed record demands at compile time.
-- Packages: `@effect/cluster` (`SqlMessageStorage`, `MessageStorage`, `Snowflake`, `ClusterError`, `ClusterMetrics`); `effect` (`Layer`, `Metric`); `@rasm/ts/core` (`FaultClass`).
+- Growth: a new durability tier is one row on the tier record carrying both store arms; a new cluster fault tag is one bridge row the governed record demands at compile time.
+- Packages: `@effect/cluster` (`SqlMessageStorage`, `MessageStorage`, `Snowflake`, `ClusterError`, `ClusterMetrics`); `@effect/experimental` (`PersistedQueue`); `@effect/sql` (`SqlPersistedQueue`); `effect` (`Layer`, `Metric`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
 declare namespace Mailbox {
   type Tier = "durable" | "memory" | "noop"
 }
 
+// Each tier publishes BOTH stores the durable plane draws on: the cluster envelope store and the queue-item store.
+// `DurableQueue.worker` requires `PersistedQueueFactory`, which `MessageStorage` does not and cannot satisfy, so a tier
+// carrying only the envelope arm leaves every job worker Layer unsatisfiable at the root.
 const _tiers = {
-  durable: Layer.provideMerge(SqlMessageStorage.layer, Snowflake.layerGenerator),
-  memory: MessageStorage.layerMemory,
-  noop: MessageStorage.layerNoop,
+  durable: Layer.mergeAll(
+    Layer.provideMerge(SqlMessageStorage.layer, Snowflake.layerGenerator),
+    Layer.provide(PersistedQueue.layer, SqlPersistedQueue.layerStore()),
+  ),
+  memory: Layer.mergeAll(MessageStorage.layerMemory, Layer.provide(PersistedQueue.layer, PersistedQueue.layerStoreMemory)),
+  noop: Layer.mergeAll(MessageStorage.layerNoop, Layer.provide(PersistedQueue.layer, PersistedQueue.layerStoreMemory)),
 } as const
 
 const _bridge = {

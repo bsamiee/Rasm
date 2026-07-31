@@ -15,18 +15,17 @@
 - Entry: `TubeProgram.Apply(TubeOp)` is the one polymorphic entry for every modality.
 - Auto: Centerlines normalize once, tooling resolves per bend, neutral-axis length consumes the forming budget, `Brent.TryFindRoot` inverts the cubic elastic-recovery law over the loaded radius for both bend springback and pass torque, mandrel rows supply their own interior wall support, weld-seam rotation propagates, roll passes generate command curvature with axis modulus and distortion gates, and sectioned cope lowers exact crossing keys through source vertices or source faces into developed islands.
 - Receipt: Form results carry the canonical coordinate beside every projected command, force, tooling position, deformation witness, terminal feed, nominal centerline, developed body, cut length, and key; roll results carry input, commanded, and recovered radius, axis, distortion, and machine margin; cope results carry chart-coherent developed runs and defining-face crossing wedges.
-- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `CommunityToolkit.HighPerformance`, `MathNet.Numerics`, `UnitsNet`, `RhinoCommon`, `Rasm.Meshing`, `Rasm.Parametric`, `Rasm.Processing`, and `ContentKey` compose the surface.
+- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, the `Rasm.Element` `CanonicalWriter` codec, `MathNet.Numerics`, `UnitsNet`, `RhinoCommon`, `Rasm.Meshing`, `Rasm.Parametric`, `Rasm.Processing`, and `ContentKey` compose the surface.
 - Growth: A discrete process is one `TubeFormKind` row, a command convention is one `BendFormat` row, a physical tool is one catalog row, an analytic branch end is one `CopeEnd` row, a roll target is data, and a new modality is one `TubeOp`/`TubeResult` case pair.
 - Boundary: Forming owns tube mechanics and projection; machine capacity, process material physics, exact intersection, development, planar loop admission, posting text, and content identity remain at their canonical owners.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Buffers.Binary;
-using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
@@ -72,10 +71,10 @@ public sealed partial class BendFormat {
 public sealed partial class CopeEnd {
     public static readonly CopeEnd Negative = new("negative", static (index, lower, lowerZ, _, _) => lower
         ? Fin.Succ(lowerZ)
-        : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:cope-root:{index}:negative").ToError()));
+        : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Polyline, index, $"tube:cope-root:{index}:negative").ToError()));
     public static readonly CopeEnd Positive = new("positive", static (index, _, _, upper, upperZ) => upper
         ? Fin.Succ(upperZ)
-        : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:cope-root:{index}:positive").ToError()));
+        : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Polyline, index, $"tube:cope-root:{index}:positive").ToError()));
 
     [UseDelegateFromConstructor]
     public partial Fin<double> Select(int index, bool lower, double lowerZ, bool upper, double upperZ);
@@ -171,7 +170,7 @@ public sealed partial class TubeSection {
         Length chordTolerance,
         int maximumStations) =>
         family is null || profile is null
-            ? Fin.Fail<TubeSection>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:section").ToError())
+            ? Fin.Fail<TubeSection>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:section"))
             : from properties in Mechanics(profile, wall.Millimeters, chordTolerance.Millimeters, maximumStations)
               from section in TubeSection.Validate(
                   family,
@@ -180,7 +179,7 @@ public sealed partial class TubeSection {
                   weldSeam.Map(static angle => angle.Radians / Angle.FromDegrees(1.0).Radians),
                   properties,
                   out TubeSection admitted) is { } error
-                    ? Fin.Fail<TubeSection>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+                    ? Fin.Fail<TubeSection>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, error.Message))
                     : Fin.Succ(admitted)
               select section;
 
@@ -192,24 +191,24 @@ public sealed partial class TubeSection {
         from measured in profile.Apply(new ProfileOp.Measure())
         from metric in measured is ProfileResult.Measure value
             ? Fin.Succ(value)
-            : Fin.Fail<ProfileResult.Measure>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:section-measure").ToError())
+            : Fin.Fail<ProfileResult.Measure>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:section-measure"))
         from _ in double.IsFinite(chordToleranceMm) && chordToleranceMm > 0.0 && maximumStations >= 3
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:section-policy").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:section-policy"))
         let stationCount = Math.Max(3, (int)Math.Ceiling(metric.Path.Millimeters / chordToleranceMm))
         from __ in stationCount <= maximumStations
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:section-stations").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:section-stations"))
         from stations in toSeq(Enumerable.Range(0, stationCount)).Traverse(index =>
             profile.Apply(new ProfileOp.Sample(Length.FromMillimeters(metric.Path.Millimeters * index / stationCount)))
                 .Bind(static result => result is ProfileResult.Sampled sample
                     ? Fin.Succ(sample.Point)
-                    : Fin.Fail<Point3d>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:section-sample").ToError()))
+                    : Fin.Fail<Point3d>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:section-sample")))
                 .ToValidation()).As().ToFin()
         from bound in profile.Apply(new ProfileOp.Bound())
         from box in bound is ProfileResult.Bound bounded
             ? Fin.Succ(bounded.Box)
-            : Fin.Fail<BoundingBox>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:section-bound").ToError())
+            : Fin.Fail<BoundingBox>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:section-bound"))
         let edges = toSeq(Enumerable.Range(0, stations.Count))
             .Map(index => (First: stations[index], Second: stations[(index + 1) % stations.Count]))
         let weighted = edges.Map(edge => {
@@ -229,7 +228,7 @@ public sealed partial class TubeSection {
         let radii = stations.Map(point => point.DistanceTo(new Point3d(centroid.X, centroid.Y, centroid.Z)))
         from radialRatio in radii.Head
             .Map(seed => radii.Fold(seed, Math.Max) / radii.Fold(seed, Math.Min))
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:section-radii").ToError())
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "tube:section-radii").ToError())
         let width = box.Diagonal.X
         let height = box.Diagonal.Y
         let major = Math.Max(width, height)
@@ -518,7 +517,7 @@ public sealed partial class RollSection {
             properties,
             governingThickness.Millimeters,
             out RollSection section) is { } error
-                ? Fin.Fail<RollSection>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+                ? Fin.Fail<RollSection>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, error.Message))
                 : Fin.Succ(section);
 }
 
@@ -646,7 +645,7 @@ public abstract partial record TubeResult {
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class TubeProgram {
     public static Fin<TubeResult> Apply(TubeOp operation) => operation is null
-        ? Fin.Fail<TubeResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:operation").ToError())
+        ? Fin.Fail<TubeResult>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:operation"))
         : operation.Switch(
             form: static value => Form(value.Run, value.Kind, value.Machine).Map<TubeResult>(static receipt => new TubeResult.Formed(receipt)),
             roll: static value => Roll(value.Run, value.Machine).Map<TubeResult>(static receipt => new TubeResult.Rolled(receipt)),
@@ -654,7 +653,7 @@ public static class TubeProgram {
 
     private static Fin<TubeProgramReceipt> Form(TubeRun run, TubeFormKind kind, ProcessEnvelope.Bender machine) =>
         run is null || kind is null || machine is null
-            ? Fin.Fail<TubeProgramReceipt>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:form").ToError())
+            ? Fin.Fail<TubeProgramReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:form"))
             : from points in Normalize(run.Centerline, run.Policy, run.Tolerance)
               from bends in toSeq(Enumerable.Range(1, Math.Max(0, points.Count - 2)))
                   .Traverse(index => BendOf(index, points, run, kind).ToValidation()).As().ToFin()
@@ -667,9 +666,9 @@ public static class TubeProgram {
         toSeq(source.Skip(1)).FoldM<Fin, Seq<Point3d>>(
                 Seq(source[0]),
                 (held, point) => held.Last
-                    .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:centerline-empty").ToError())
+                    .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "tube:centerline-empty").ToError())
                     .Bind(prior => point.DistanceTo(prior) <= Math.Max(policy.MinimumSegmentMm, tolerance.Absolute.Value)
-                        ? Fin.Fail<Seq<Point3d>>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:centerline-zero").ToError())
+                        ? Fin.Fail<Seq<Point3d>>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "tube:centerline-zero").ToError())
                         : held.Count < 2
                             ? Fin.Succ(held.Add(point))
                             : from angle in AngleAt(held[^2], held[^1], point)
@@ -708,7 +707,7 @@ public static class TubeProgram {
                from __ in feed >= Math.Max(run.Policy.MinimumSegmentMm,
                        kind.MinimumStraight(tool, run.Policy))
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:straight:{index}:{feed:0.###}").ToError())
+                    : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"tube:straight:{index}:{feed:0.###}"))
                let neutralRadius = run.ClrMm + ((run.Forming.KFactor - 0.5) * run.Section.WallMm)
                let neutralArc = Angle.FromDegrees(bendDeg).Radians * neutralRadius
                let force = Force.FromNewtons(
@@ -737,17 +736,17 @@ public static class TubeProgram {
 
     private static Fin<TubeTool> ToolOf(TubeRun run, TubeFormKind kind, double straightMm) {
         double ratio = run.Section.Properties.MajorMm / run.Section.WallMm;
-        return run.Policy.Tools
-            .Filter(tool => tool.Processes.Contains(kind) && tool.Sections.Contains(run.Section.Family)
-                && tool.Materials.Contains(run.Material.Family)
-                && run.ClrMm >= tool.MinClrMm && run.ClrMm <= tool.MaxClrMm
-                && ratio >= tool.MinDiameterWallRatio && ratio <= tool.MaxDiameterWallRatio
-                && straightMm >= tool.MinStraightMm)
-            .OrderBy(static tool => tool.MaxClrMm - tool.MinClrMm)
-            .ThenBy(static tool => tool.QualifiedOvality + tool.QualifiedThinning)
-            .ThenBy(static tool => tool.Key, StringComparer.Ordinal)
-            .HeadOrNone()
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:tool:{kind.Key}:{run.ClrMm:0.###}").ToError());
+        return toSeq(run.Policy.Tools
+                .Filter(tool => tool.Processes.Contains(kind) && tool.Sections.Contains(run.Section.Family)
+                    && tool.Materials.Contains(run.Material.Family)
+                    && run.ClrMm >= tool.MinClrMm && run.ClrMm <= tool.MaxClrMm
+                    && ratio >= tool.MinDiameterWallRatio && ratio <= tool.MaxDiameterWallRatio
+                    && straightMm >= tool.MinStraightMm)
+                .OrderBy(static tool => tool.MaxClrMm - tool.MinClrMm)
+                .ThenBy(static tool => tool.QualifiedOvality + tool.QualifiedThinning)
+                .ThenBy(static tool => tool.Key, StringComparer.Ordinal))
+            .Head
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"tube:tool:{kind.Key}:{run.ClrMm:0.###}"));
     }
 
     // Elastic recovery tracks the loaded radius under the conserved neutral-fibre arc, and the extreme fibre of a
@@ -767,7 +766,7 @@ public static class TubeProgram {
             run.Policy.RootIterations,
             out double command)
                 ? Fin.Succ(command)
-                : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:springback").ToError());
+                : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:springback"));
 
         double Recovered(double commandDeg) {
             double index = elastic * ((arc / Angle.FromDegrees(commandDeg).Radians) - fibre);
@@ -798,13 +797,13 @@ public static class TubeProgram {
                     return seamAxis >= run.Policy.WeldSeamExclusionDeg;
                 })
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:quality:{index}:{ovality:0.######}:{thinning:0.######}").ToError())
+                    : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"tube:quality:{index}:{ovality:0.######}:{thinning:0.######}"))
                select new TubeQuality(ovality, thinning, fiberStrain, run.Forming.LimitStrain - fiberStrain, weld);
     }
 
     private static Fin<TubeCommand> CommandOf(BendFormat format, TubeCoordinate coordinate) =>
         TubeCommand.Validate(format, format.Project(coordinate), out TubeCommand command) is { } error
-            ? Fin.Fail<TubeCommand>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<TubeCommand>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, error.Message))
             : Fin.Succ(command);
 
     private static Fin<TubeProgramReceipt> Project(
@@ -821,7 +820,7 @@ public static class TubeProgram {
                 + run.TailAllowanceMm
                 + (bends.IsEmpty ? run.LeadAllowanceMm : 0.0);
         if (!double.IsFinite(terminal) || terminal < run.Policy.MinimumSegmentMm)
-            return Fin.Fail<TubeProgramReceipt>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:terminal-feed").ToError());
+            return Fin.Fail<TubeProgramReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:terminal-feed"));
         double cut = tangent + terminal + bends.Fold(0.0, static (sum, bend) => sum + bend.NeutralArcMm);
         double developed = cut - run.LeadAllowanceMm - run.TailAllowanceMm;
         ContentKey key = ContentKey.Of(EgressKind.BendProgram, Canonical(
@@ -849,27 +848,26 @@ public static class TubeProgram {
 
     private static Fin<RollReceipt> Roll(RollRun run, ProcessEnvelope.Roll machine) =>
         run is null || machine is null
-            ? Fin.Fail<RollReceipt>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:roll").ToError())
+            ? Fin.Fail<RollReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:roll"))
             : from _ in Seq(machine.MaxWidthMm, machine.MinThicknessMm, machine.MaxThicknessMm, machine.TorqueNm)
                         .ForAll(static value => double.IsFinite(value) && value > 0.0)
                     && machine.MaxThicknessMm >= machine.MinThicknessMm && machine.Stations >= 3
                         ? Fin.Succ(unit)
-                        : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:roll-machine").ToError())
+                        : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:roll-machine"))
               let radius = run.TargetRadius.Millimeters
               let depth = run.Axis.Depth(run.Section.Properties)
               from __ in double.IsFinite(depth) && depth > 0.0
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:roll-demand").ToError())
+                    : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:roll-demand"))
               let targetCurvature = 1.0 / radius
               let requiredPasses = Math.Ceiling(targetCurvature / run.Policy.MaximumCurvatureIncrement)
               from passes in double.IsFinite(requiredPasses)
                     && requiredPasses is >= 1.0 and <= int.MaxValue
                     && requiredPasses <= run.Policy.MaximumPasses
                         ? Fin.Succ((int)requiredPasses)
-                        : Fin.Fail<int>(new GeometryFault.DegenerateInput(
-                            Kind.Brep,
-                            -1,
-                            $"tube:roll-envelope:passes:{requiredPasses:R}").ToError())
+                        : Fin.Fail<int>(new FabricationFault.PolicyInadmissible(
+                            FabConcern.Forming,
+                            $"tube:roll-envelope:passes:{requiredPasses:R}"))
               // Torque is a per-pass fact: a pass below the elastic-limit curvature of the governing axis never
               // develops the fully plastic moment, so a schedule-constant torque overstates every early pass.
               let yieldCurvature = 2.0 * run.Material.Mechanical.YieldStrengthMpa
@@ -899,11 +897,11 @@ public static class TubeProgram {
                     && radius >= run.Section.Kind.MinimumRadiusFactor * run.Forming.MinBendRadiusFactor * depth
                     && peakTorque <= machine.TorqueNm
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1,
-                        $"tube:roll-envelope:{peakTorque:0.###}:{machine.TorqueNm:0.###}").ToError())
+                    : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming,
+                        $"tube:roll-envelope:{peakTorque:0.###}:{machine.TorqueNm:0.###}"))
               from ____ in double.IsFinite(maximumDistortion) && maximumDistortion <= run.Policy.MaximumDistortion
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:roll-distortion:{maximumDistortion:0.######}").ToError())
+                    : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"tube:roll-distortion:{maximumDistortion:0.######}"))
               let developed = radius * run.Sweep.Radians
               select new RollReceipt(
                   run.Section,
@@ -940,11 +938,11 @@ public static class TubeProgram {
             policy.RootIterations,
             out double command)
                 ? Fin.Succ(command)
-                : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "tube:roll-recovery-root").ToError());
+                : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:roll-recovery-root"));
     }
 
     private static Fin<(Seq<Loop> Curves, CopeReceipt Receipt)> Cope(CopeSource source) => source is null
-        ? Fin.Fail<(Seq<Loop>, CopeReceipt)>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:cope").ToError())
+        ? Fin.Fail<(Seq<Loop>, CopeReceipt)>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:cope"))
         : source.Switch(
             analytic: static value => AnalyticCope(value),
             sectioned: static value => SectionedCope(value));
@@ -953,12 +951,12 @@ public static class TubeProgram {
         if (source.Branch is null || source.Main is null || source.End is null || source.Policy is null || source.Tolerance is null
             || !source.Branch.Family.AnalyticCope || !source.Main.Family.AnalyticCope
             || source.Intersection.Radians is <= 0.0 || source.Intersection.Radians >= Math.PI)
-            return Fin.Fail<(Seq<Loop>, CopeReceipt)>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:cope-analytic").ToError());
+            return Fin.Fail<(Seq<Loop>, CopeReceipt)>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:cope-analytic"));
         double branchRadius = (source.Branch.Properties.MajorMm + source.Branch.WallMm) / 2.0;
         double mainRadius = (source.Main.Properties.MajorMm + source.Main.WallMm) / 2.0;
         int samples = Math.Max(3, (int)Math.Ceiling(2.0 * Math.PI * branchRadius / source.Policy.ChordToleranceMm));
         if (samples > source.Policy.MaximumCopeStations)
-            return Fin.Fail<(Seq<Loop>, CopeReceipt)>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:cope-stations").ToError());
+            return Fin.Fail<(Seq<Loop>, CopeReceipt)>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:cope-stations"));
         Fin<Seq<Point3d>> solved = toSeq(Enumerable.Range(0, samples)).Traverse(index => {
             double theta = 2.0 * Math.PI * index / samples;
             double x = branchRadius * Math.Cos(theta);
@@ -989,29 +987,29 @@ public static class TubeProgram {
         }).As().ToFin();
         return from points in solved
                from loop in Loop.Admit(points.ToArr(), closed: true, Arr<double>(), source.Tolerance)
-               let key = ContentKey.Of(EgressKind.FlatPattern, Canonical(Seq(loop), Seq<CopeProjection>(), None))
+               let key = ContentKey.Of(EgressKind.FlatPattern, Canonical(Seq(loop), Seq<CopeProjection>(), None, source.Tolerance))
                select (Seq(loop), new CopeReceipt(samples, samples, Seq<CopeProjection>(), None, key));
     }
 
     private static Fin<(Seq<Loop> Curves, CopeReceipt Receipt)> SectionedCope(CopeSource.Sectioned source) =>
         from _ in source.Part is not null && source.Tool is not null && source.Development is not null && source.Intersection is not null
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:cope-sectioned").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:cope-sectioned"))
         from intersection in Intersection.Apply(new IntersectOp.MeshMesh(source.Part.Mesh, source.Tool, source.Intersection))
         from chains in intersection is IntersectResult.Chains crossed
             ? Fin.Succ(crossed)
-            : Fin.Fail<IntersectResult.Chains>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:cope-intersection").ToError())
+            : Fin.Fail<IntersectResult.Chains>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:cope-intersection"))
         from development in Development.Apply(new DevelopOp.Unroll(source.Part, source.Development))
         from unrolled in development is DevelopmentResult.Unrolled value
             ? Fin.Succ(value)
-            : Fin.Fail<DevelopmentResult.Unrolled>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:cope-development").ToError())
+            : Fin.Fail<DevelopmentResult.Unrolled>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:cope-development"))
         from edges in ProjectEdges(chains.Lattice, unrolled.Atlas)
         from developed in chains.Walked
             .Traverse(chain => DevelopedChain(chain, chains.Lattice, edges, source.Part.Mesh.Tolerance).ToValidation()).As().ToFin()
         let loops = developed.Bind(static run => run)
         let projected = edges.Bind(static edge => Seq(edge.A, edge.B))
         let distortion = Some(unrolled.Atlas.Receipt)
-        let key = ContentKey.Of(EgressKind.FlatPattern, Canonical(loops, projected, distortion))
+        let key = ContentKey.Of(EgressKind.FlatPattern, Canonical(loops, projected, distortion, source.Part.Mesh.Tolerance))
         select (
             loops,
             new CopeReceipt(
@@ -1031,7 +1029,7 @@ public static class TubeProgram {
             from b in CrossUv(row.B, lattice.Rows[row.B], row.FaceA, mesh, atlas.Source.Tolerance, atlas.Islands)
             from _ in a.Chart == b.Chart
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:cope-edge-chart:{row.A}:{row.B}").ToError())
+                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, $"tube:cope-edge-chart:{row.A}:{row.B}").ToError())
             select new DevelopedEdge(row.A, row.B, a, b)).ToValidation()).As().ToFin();
     }
 
@@ -1052,7 +1050,7 @@ public static class TubeProgram {
             return EdgeUv(index, point, key.EdgeU, key.EdgeV, partFace, mesh, islands);
         if (key.Side == 1)
             return FaceUv(index, point, partFace, mesh, tolerance.Absolute.Value, islands);
-        return Fin.Fail<CopeProjection>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:cope-key:{index}").ToError());
+        return Fin.Fail<CopeProjection>(new GeometryFault.DegenerateInput(Kind.Mesh, index, $"tube:cope-key:{index}").ToError());
     }
 
     private static Fin<CopeProjection> EdgeUv(
@@ -1101,8 +1099,8 @@ public static class TubeProgram {
                    .Filter(row => row.Weights.A >= -weightTolerance
                        && row.Weights.B >= -weightTolerance
                        && row.Weights.C >= -weightTolerance)
-                   .HeadOrNone()
-                   .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:cope-face:{index}").ToError())
+                   .Head
+                   .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, index, $"tube:cope-face:{index}").ToError())
                from uvA in Uv(chosen.Triangle.Island, chosen.Triangle.A)
                from uvB in Uv(chosen.Triangle.Island, chosen.Triangle.B)
                from uvC in Uv(chosen.Triangle.Island, chosen.Triangle.C)
@@ -1124,7 +1122,7 @@ public static class TubeProgram {
                 from edge in projected
                     .Find(row => row.CrossingA == crossingA && row.CrossingB == crossingB
                         || row.CrossingA == crossingB && row.CrossingB == crossingA)
-                    .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:cope-chain-edge:{crossingA}:{crossingB}").ToError())
+                    .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, None, $"tube:cope-chain-edge:{crossingA}:{crossingB}").ToError())
                 select edge.CrossingA == crossingA
                     ? new DevelopedRun(edge.A.Chart, Seq(edge.A.Uv, edge.B.Uv))
                     : new DevelopedRun(edge.B.Chart, Seq(edge.B.Uv, edge.A.Uv))).ToValidation()).As().ToFin()
@@ -1150,8 +1148,8 @@ public static class TubeProgram {
         return matches.Count == 1
             ? matches.Head
                 .Map(static row => row.Index)
-                .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:cope-chain-provenance:0").ToError())
-            : Fin.Fail<int>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:cope-chain-provenance:{matches.Count}").ToError());
+                .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, None, "tube:cope-chain-provenance:0").ToError())
+            : Fin.Fail<int>(new GeometryFault.DegenerateInput(Kind.Mesh, None, $"tube:cope-chain-provenance:{matches.Count}").ToError());
     }
 
     private static bool Near(Point2d a, Point2d b, double toleranceMm) =>
@@ -1163,14 +1161,14 @@ public static class TubeProgram {
             : Seq(sourceFace.A, sourceFace.B, sourceFace.C);
         return islands.Find(island => vertices.ForAll(island.Vertices.Contains)
                 && island.Faces.Exists(face => Seq(face.A, face.B, face.C).ForAll(source.Contains)))
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:cope-chart").ToError());
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, None, "tube:cope-chart").ToError());
     }
 
     private static Fin<Point2d> Uv(UvIsland island, int vertex) =>
         island.Vertices.Map((value, index) => (Vertex: value, Index: index))
             .Find(row => row.Vertex == vertex)
             .Map(row => island.Uv[row.Index])
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:cope-vertex:{vertex}").ToError());
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, vertex, $"tube:cope-vertex:{vertex}").ToError());
 
     private static Point2d Lerp(Point2d a, Point2d b, double t) => ((1.0 - t) * a) + (t * b);
 
@@ -1185,7 +1183,7 @@ public static class TubeProgram {
         double d21 = v2 * v1;
         double denominator = (d00 * d11) - (d01 * d01);
         if (!double.IsFinite(denominator) || denominator == 0.0)
-            return Fin.Fail<(double, double, double)>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:cope-barycentric").ToError());
+            return Fin.Fail<(double, double, double)>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "tube:cope-barycentric").ToError());
         double bWeight = ((d11 * d20) - (d01 * d21)) / denominator;
         double cWeight = ((d00 * d21) - (d01 * d20)) / denominator;
         return Fin.Succ((1.0 - bWeight - cWeight, bWeight, cWeight));
@@ -1199,7 +1197,7 @@ public static class TubeProgram {
         Vector3d axis = points[index] - points[index - 1];
         return prior.Unitize() && next.Unitize() && axis.Unitize()
             ? Fin.Succ(Degrees(Math.Atan2(Vector3d.CrossProduct(prior, next) * axis, prior * next)))
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tube:rotation:{index}").ToError());
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Polyline, index, $"tube:rotation:{index}").ToError());
     }
 
     private static Fin<double> AngleAt(Point3d before, Point3d at, Point3d after) {
@@ -1207,7 +1205,7 @@ public static class TubeProgram {
         Vector3d outgoing = after - at;
         return incoming.Unitize() && outgoing.Unitize()
             ? Fin.Succ(Degrees(Math.Acos(Math.Clamp(incoming * outgoing, -1.0, 1.0))))
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:centerline-angle").ToError());
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "tube:centerline-angle").ToError());
     }
 
     private static double Degrees(double radians) => radians / Angle.FromDegrees(1.0).Radians;
@@ -1218,7 +1216,7 @@ public static class TubeProgram {
             && machine.DieCount >= 0 && requiredDies >= 0
             && (requiredDies == 0 || machine.DieCount >= requiredDies && clrMm >= machine.MinClrMm && clrMm <= machine.MaxClrMm)
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tube:bender-envelope").ToError());
+                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "tube:bender-envelope"));
 
     private static byte[] Canonical(
         TubeFormKind process,
@@ -1230,51 +1228,35 @@ public static class TubeProgram {
         double nominalCenterlineMm,
         double developedLengthMm,
         double cutLengthMm) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Write(writer, process.Key);
-        Write(writer, section.Family.Key);
-        Write(writer, section.WallMm);
-        Write(writer, section.WeldSeamDeg.IsSome ? 1 : 0);
-        section.WeldSeamDeg.Iter(value => Write(writer, value));
+        // Every preimage on this page composes the ONE `Rasm.Element` `CanonicalWriter`, so a bend program and a
+        // flat pattern keyed here address byte-identically with the same artifact keyed at any sibling page.
+        CanonicalWriter writer = new(section.Profile.Tolerance.Absolute.Value);
+        _ = writer.String(process.Key).String(section.Family.Key).Double(section.WallMm)
+            .Bool(section.WeldSeamDeg.IsSome);
+        section.WeldSeamDeg.Iter(value => writer.Double(value));
         Write(writer, section.Profile);
         Write(writer, section.Properties);
-        Write(writer, material.Family.Key);
-        Write(writer, material.Identity.Grade);
-        Write(writer, forming.KFactor);
-        Write(writer, forming.TensileRm);
-        Write(writer, forming.SpringbackRatio);
-        Write(writer, forming.MinBendRadiusFactor);
-        Write(writer, forming.FlowStressMpa);
-        Write(writer, forming.LimitStrain);
+        _ = writer.String(material.Family.Key).String(material.Identity.Grade)
+            .Double(forming.KFactor).Double(forming.TensileRm).Double(forming.SpringbackRatio)
+            .Double(forming.MinBendRadiusFactor).Double(forming.FlowStressMpa).Double(forming.LimitStrain);
         Write(writer, forming.Evidence);
-        Write(writer, bends.Count);
+        _ = writer.Ordinal(bends.Count);
         bends.Iter(bend => {
-            Write(writer, bend.Index);
-            Write(writer, bend.Command.Format.Key);
+            _ = writer.Ordinal(bend.Index).String(bend.Command.Format.Key);
             Write(writer, bend.Command.Coordinate);
             Write(writer, bend.Coordinate);
-            Write(writer, bend.GeometricBendDeg);
-            Write(writer, bend.NeutralArcMm);
-            Write(writer, bend.ToolKey);
-            Write(writer, bend.Mandrel.Key);
-            Write(writer, bend.BallCount);
-            Write(writer, bend.MandrelNoseMm);
-            Write(writer, bend.WiperRakeDeg);
-            Write(writer, bend.PressureAssistKn);
-            Write(writer, bend.BoostMm);
-            Write(writer, bend.ForceKn);
-            Write(writer, bend.Quality.Ovality);
-            Write(writer, bend.Quality.WallThinning);
-            Write(writer, bend.Quality.FiberStrain);
-            Write(writer, bend.Quality.StrainMargin);
-            Write(writer, bend.Quality.WeldSeamDeg.IsSome ? 1 : 0);
-            bend.Quality.WeldSeamDeg.Iter(value => Write(writer, value));
+            _ = writer.Double(bend.GeometricBendDeg).Double(bend.NeutralArcMm)
+                .String(bend.ToolKey).String(bend.Mandrel.Key).Ordinal(bend.BallCount)
+                .Double(bend.MandrelNoseMm).Double(bend.WiperRakeDeg).Double(bend.PressureAssistKn)
+                .Double(bend.BoostMm).Double(bend.ForceKn)
+                .Double(bend.Quality.Ovality).Double(bend.Quality.WallThinning)
+                .Double(bend.Quality.FiberStrain).Double(bend.Quality.StrainMargin)
+                .Bool(bend.Quality.WeldSeamDeg.IsSome);
+            bend.Quality.WeldSeamDeg.Iter(value => writer.Double(value));
         });
-        Write(writer, terminalFeedMm);
-        Write(writer, nominalCenterlineMm);
-        Write(writer, developedLengthMm);
-        Write(writer, cutLengthMm);
-        return writer.WrittenSpan.ToArray();
+        _ = writer.Double(terminalFeedMm).Double(nominalCenterlineMm)
+            .Double(developedLengthMm).Double(cutLengthMm);
+        return writer.ToBytes().ToArray();
     }
 
     private static byte[] Canonical(
@@ -1286,118 +1268,77 @@ public static class TubeProgram {
         double developedLengthMm,
         double maximumDistortion,
         double torqueMarginNm) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Write(writer, section.Key);
-        Write(writer, section.Kind.Key);
-        Write(writer, axis.Key);
-        Write(writer, section.GoverningThicknessMm);
+        CanonicalWriter writer = new(section.Profile.Tolerance.Absolute.Value);
+        _ = writer.String(section.Key).String(section.Kind.Key).String(axis.Key)
+            .Double(section.GoverningThicknessMm);
         Write(writer, section.Profile);
         Write(writer, section.Properties);
-        Write(writer, material.Family.Key);
-        Write(writer, material.Identity.Grade);
-        Write(writer, forming.FlowStressMpa);
-        Write(writer, forming.TensileRm);
-        Write(writer, forming.KFactor);
-        Write(writer, forming.SpringbackRatio);
-        Write(writer, forming.MinBendRadiusFactor);
-        Write(writer, forming.LimitStrain);
+        _ = writer.String(material.Family.Key).String(material.Identity.Grade)
+            .Double(forming.FlowStressMpa).Double(forming.TensileRm).Double(forming.KFactor)
+            .Double(forming.SpringbackRatio).Double(forming.MinBendRadiusFactor).Double(forming.LimitStrain);
         Write(writer, forming.Evidence);
-        Write(writer, passes.Count);
+        _ = writer.Ordinal(passes.Count);
         passes.Iter(pass => {
-            Write(writer, pass.Index);
-            Write(writer, pass.InputRadiusMm.IsSome ? 1 : 0);
-            pass.InputRadiusMm.Iter(value => Write(writer, value));
-            Write(writer, pass.CommandRadiusMm);
-            Write(writer, pass.OutputRadiusMm);
-            Write(writer, pass.GapMm);
-            Write(writer, pass.TorqueNm);
-            Write(writer, pass.SpringbackDeg);
-            Write(writer, pass.Distortion);
+            _ = writer.Ordinal(pass.Index).Bool(pass.InputRadiusMm.IsSome);
+            pass.InputRadiusMm.Iter(value => writer.Double(value));
+            _ = writer.Double(pass.CommandRadiusMm).Double(pass.OutputRadiusMm).Double(pass.GapMm)
+                .Double(pass.TorqueNm).Double(pass.SpringbackDeg).Double(pass.Distortion);
         });
-        Write(writer, developedLengthMm);
-        Write(writer, maximumDistortion);
-        Write(writer, torqueMarginNm);
-        return writer.WrittenSpan.ToArray();
+        _ = writer.Double(developedLengthMm).Double(maximumDistortion).Double(torqueMarginNm);
+        return writer.ToBytes().ToArray();
     }
 
+    // The cope preimage takes its grid as an argument because a cope carries no section of its own; both callers
+    // already hold the admitting `Context`, so the writer is never opened on a fabricated tolerance.
     private static byte[] Canonical(
         Seq<Loop> loops,
         Seq<CopeProjection> projection,
-        Option<DistortionReceipt> distortion) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Write(writer, loops.Count);
-        loops.Iter(loop => {
-            Write(writer, loop.Count);
-            Write(writer, loop.Closed ? 1 : 0);
-            Write(writer, loop.Tolerance.Absolute.Value);
-            loop.Vertices.Iter(point => { Write(writer, point.X); Write(writer, point.Y); Write(writer, point.Z); });
-            loop.Bulges.Iter(bulge => Write(writer, bulge));
-        });
-        Write(writer, projection.Count);
-        projection.Iter(row => {
-            Write(writer, row.Crossing); Write(writer, row.Chart.Value); Write(writer, row.Uv.X); Write(writer, row.Uv.Y);
-        });
-        Write(writer, distortion.IsSome ? 1 : 0);
-        distortion.Iter(row => {
-            Write(writer, row.MaxConformal); Write(writer, row.MeanConformal);
-            Write(writer, row.MaxArea); Write(writer, row.MinArea); Write(writer, row.MeanArea);
-            Write(writer, row.MaxQuasiConformal); Write(writer, row.Iterations); Write(writer, row.Residual);
-            Write(writer, row.FactorNonZeros); Write(writer, row.FlipFreeBijective ? 1 : 0);
-        });
-        return writer.WrittenSpan.ToArray();
+        Option<DistortionReceipt> distortion,
+        Context tolerance) {
+        CanonicalWriter writer = new(tolerance.Absolute.Value);
+        _ = writer.Ordinal(loops.Count);
+        loops.Iter(loop => Write(writer, loop));
+        _ = writer.Ordinal(projection.Count);
+        projection.Iter(row => writer.Ordinal(row.Crossing).Ordinal(row.Chart.Value).Double(row.Uv.X).Double(row.Uv.Y));
+        _ = writer.Bool(distortion.IsSome);
+        distortion.Iter(row => writer
+            .Double(row.MaxConformal).Double(row.MeanConformal)
+            .Double(row.MaxArea).Double(row.MinArea).Double(row.MeanArea)
+            .Double(row.MaxQuasiConformal).Ordinal(row.Iterations).Double(row.Residual)
+            .Ordinal(row.FactorNonZeros).Bool(row.FlipFreeBijective));
+        return writer.ToBytes().ToArray();
     }
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(sizeof(int)), value);
-        writer.Advance(sizeof(int));
+    private static void Write(CanonicalWriter writer, TubeCoordinate coordinate) =>
+        _ = writer.Double(coordinate.FeedMm).Double(coordinate.RotationDeg)
+            .Double(coordinate.CommandDeg).Double(coordinate.RadiusMm)
+            .Double(coordinate.Vertex.X).Double(coordinate.Vertex.Y).Double(coordinate.Vertex.Z)
+            .Double(coordinate.Incoming.X).Double(coordinate.Incoming.Y).Double(coordinate.Incoming.Z)
+            .Double(coordinate.Outgoing.X).Double(coordinate.Outgoing.Y).Double(coordinate.Outgoing.Z);
+
+    private static void Write(CanonicalWriter writer, Loop loop) {
+        _ = writer.Ordinal(loop.Count).Bool(loop.Closed).Double(loop.Tolerance.Absolute.Value);
+        loop.Vertices.Iter(point => writer.Double(point.X).Double(point.Y).Double(point.Z));
+        loop.Bulges.Iter(value => writer.Double(value));
     }
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, double value) {
-        BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(sizeof(double)), value);
-        writer.Advance(sizeof(double));
-    }
+    private static void Write(CanonicalWriter writer, SectionProperties properties) =>
+        _ = writer.Double(properties.MetalAreaMm2).Double(properties.Centroid.X).Double(properties.Centroid.Y)
+            .Double(properties.IxMm4).Double(properties.IyMm4).Double(properties.JMm4)
+            .Double(properties.SxMm3).Double(properties.SyMm3).Double(properties.PerimeterMm)
+            .Double(properties.WidthMm).Double(properties.HeightMm)
+            .Double(properties.MajorMm).Double(properties.MinorMm)
+            .Ordinal(properties.VertexCount).Ordinal(properties.CurvedEdges).Double(properties.RadialRatio);
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, string value) {
-        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(value);
-        Write(writer, bytes.Length);
-        bytes.CopyTo(writer.GetSpan(bytes.Length));
-        writer.Advance(bytes.Length);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, TubeCoordinate coordinate) {
-        Write(writer, coordinate.FeedMm); Write(writer, coordinate.RotationDeg);
-        Write(writer, coordinate.CommandDeg); Write(writer, coordinate.RadiusMm);
-        Write(writer, coordinate.Vertex.X); Write(writer, coordinate.Vertex.Y); Write(writer, coordinate.Vertex.Z);
-        Write(writer, coordinate.Incoming.X); Write(writer, coordinate.Incoming.Y); Write(writer, coordinate.Incoming.Z);
-        Write(writer, coordinate.Outgoing.X); Write(writer, coordinate.Outgoing.Y); Write(writer, coordinate.Outgoing.Z);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Loop loop) {
-        Write(writer, loop.Count); Write(writer, loop.Closed ? 1 : 0);
-        Write(writer, loop.Tolerance.Absolute.Value);
-        loop.Vertices.Iter(point => { Write(writer, point.X); Write(writer, point.Y); Write(writer, point.Z); });
-        loop.Bulges.Iter(value => Write(writer, value));
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, SectionProperties properties) {
-        Write(writer, properties.MetalAreaMm2); Write(writer, properties.Centroid.X); Write(writer, properties.Centroid.Y);
-        Write(writer, properties.IxMm4); Write(writer, properties.IyMm4); Write(writer, properties.JMm4);
-        Write(writer, properties.SxMm3); Write(writer, properties.SyMm3); Write(writer, properties.PerimeterMm);
-        Write(writer, properties.WidthMm); Write(writer, properties.HeightMm);
-        Write(writer, properties.MajorMm); Write(writer, properties.MinorMm);
-        Write(writer, properties.VertexCount); Write(writer, properties.CurvedEdges); Write(writer, properties.RadialRatio);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, BudgetEvidence evidence) {
-        Write(writer, evidence.State.TemperatureC); Write(writer, evidence.State.Hardness);
-        Write(writer, evidence.State.StrainRate); Write(writer, evidence.State.Strain);
-        Write(writer, evidence.State.MoistureFraction); Write(writer, evidence.State.GrainSizeUm);
-        Write(writer, evidence.PowerW);
-        Write(writer, evidence.Energy.Joules.IsSome ? 1 : 0);
-        evidence.Energy.Joules.Iter(value => Write(writer, value));
-        Write(writer, evidence.Energy.Seconds.IsSome ? 1 : 0);
-        evidence.Energy.Seconds.Iter(value => Write(writer, value));
-        Write(writer, evidence.Material.Family.Key); Write(writer, evidence.Material.Identity.Grade);
+    private static void Write(CanonicalWriter writer, BudgetEvidence evidence) {
+        _ = writer.Double(evidence.State.TemperatureC).Double(evidence.State.Hardness)
+            .Double(evidence.State.StrainRate).Double(evidence.State.Strain)
+            .Double(evidence.State.MoistureFraction).Double(evidence.State.GrainSizeUm)
+            .Double(evidence.PowerW).Bool(evidence.Energy.Joules.IsSome);
+        evidence.Energy.Joules.Iter(value => writer.Double(value));
+        _ = writer.Bool(evidence.Energy.Seconds.IsSome);
+        evidence.Energy.Seconds.Iter(value => writer.Double(value));
+        _ = writer.String(evidence.Material.Family.Key).String(evidence.Material.Identity.Grade);
     }
 }
 ```

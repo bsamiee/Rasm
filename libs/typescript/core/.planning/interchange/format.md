@@ -45,6 +45,7 @@ const _lifted = (
 [PROTO_ENGINE]:
 - Owner: `Proto`, the protobuf-es engine — `_READ`/`_WRITE` posture rows, the `_Message` foreign-identity schema, `frame(gen)` the raw byte-to-message schema, `family(gen, owned)` the composed byte-to-owned-vocabulary schema every proto registry row instantiates, `stream(gen)` the size-delimited frame walk lifted to `Stream`, `delimit(gen, message)` the length-prefixed egress twin of that walk, `peek(octets)` the frame-header triage read, `option(options, ext)` the custom-option read over any `Desc*.proto.options` carrier, the `_suite` `GenMessage` table over the ordered `_names` tuple, and the one `createRegistry` value `Any` unpacking and error-detail decode resolve against.
 - Law: `readUnknownFields: true` and `writeUnknownFields: true` are the drift-safe posture — an unknown field is preserved evidence the contract gate grades, never a decode fault, and a partial peer's round-trip re-emits what it did not understand; `recursionLimit` bounds adversarial nesting before allocation grows, surfacing as `ParseError` at the seam.
+- Law: the framed lane states its own admitted-message ceiling — `sizeDelimitedDecodeStream` defaults `readMaxBytes` to 64 MiB, so `_STREAM` widens the read posture with the `Ingress` floor's own assembled-byte row and no frame the branch's ingress budget refuses can reach a decode; leaving the default standing makes the proto arm the one engine whose stream lane admits past the budget every sibling engine already prices, and a fresh literal here forks the ceiling the ingress owner declares.
 - Law: `_Message` admits the foreign message by identity through `Schema.declare` over `isMessage` — a decoded message is `$typeName`-branded plain data, never `instanceof`-discriminated, and it leaves this module only through `family`'s composed owned vocabulary.
 - Law: 64-bit fields are `bigint` end to end — `protoInt64` bridges construction sites, and a `Number`-coerced i64 loses precision past 2^53 and is the named defect.
 - Law: the suite is the only site touching the generated `interchange_pb.ts` — sibling pages import `Proto`, never the emit; the generated module is `@bufbuild/protoc-gen-es` output pinned lockstep with the runtime by the workspace catalog, regenerated atomically with a census edit, and never hand-edited.
@@ -55,7 +56,7 @@ const _lifted = (
 - Law: `toBinary` canonical bytes are the content-key input — proto is deterministic per field order, so the codec parity combinator hashes engine egress and never a second serialization.
 - Growth: a new proto wire family is one census row, one regenerated emit, and one `_suite` row — the tuple/table guards break until all three agree; a read-posture axis is a `_READ` field.
 - Boundary: which family binds which suite row, quarantine classification, and every landing shape are the codec registry's; descriptor reflection over the `FileDescriptorSet` is the contract gate's altitude.
-- Packages: `@bufbuild/protobuf` (`fromBinary`, `toBinary`, `isMessage`, `createRegistry`, `getExtension`, `hasExtension`, `DescExtension`, `DescMessage`, `Extendee`, `ExtensionValueShape`, `Message`, `Registry`); `@bufbuild/protobuf/wire` (`sizeDelimitedDecodeStream`, `sizeDelimitedEncode`, `sizeDelimitedPeek`); `effect` (`Schema`, `Stream`, `Either`, `Option`, `Array`, `pipe`); generated `./interchange_pb.ts`.
+- Packages: `@bufbuild/protobuf` (`fromBinary`, `toBinary`, `isMessage`, `createRegistry`, `getExtension`, `hasExtension`, `DescExtension`, `DescMessage`, `Extendee`, `ExtensionValueShape`, `Message`, `Registry`); `@bufbuild/protobuf/wire` (`sizeDelimitedDecodeStream`, `sizeDelimitedEncode`, `sizeDelimitedPeek`); `effect` (`Schema`, `Stream`, `Either`, `Option`, `Array`, `pipe`); `../value/schema.ts` (`Ingress`); generated `./interchange_pb.ts`.
 
 ```typescript signature
 import {
@@ -73,9 +74,14 @@ import {
   toBinary,
 } from "@bufbuild/protobuf"
 import { sizeDelimitedDecodeStream, sizeDelimitedEncode, sizeDelimitedPeek } from "@bufbuild/protobuf/wire"
+import { Ingress } from "../value/schema.ts"
 import * as pb from "./interchange_pb.ts"
 
 const _READ = { readUnknownFields: true, recursionLimit: 24 } as const
+// The framed lane carries its own admitted-message ceiling: `sizeDelimitedDecodeStream` defaults `readMaxBytes` to
+// 64 MiB, so an unstated posture would leave the proto arm the one engine whose stream lane admits a frame the
+// branch's own ingress budget already refuses — the row reads the `Ingress` floor rather than a fresh literal.
+const _STREAM = { ..._READ, readMaxBytes: Ingress.floor.maxAssembledBytes } as const
 const _WRITE = { writeUnknownFields: true } as const
 
 const _Message: Schema.Schema<Message> = Schema.declare((input: unknown): input is Message => isMessage(input))
@@ -93,7 +99,11 @@ const _names = [
   "BindingStatusWire", "CoercedValueWire", "WriteReceiptWire", "FlagVerdictWire",
   "ControlIntentWire", "LayoutConstraintWire", "CommandGateWire", "BcfTopicWire", "BcfViewpointWire",
   "GeoFeatureWire", "BimWire", "DiffWire", "IdsAuditWire",
-  "MaterialWire", "OpenPbrGroupsWire", "AppearanceSummaryWire", "TextureSetWire", "AssetSetManifest",
+  // the appearance families (MaterialWire/OpenPbrGroupsWire) are NOT proto names: `rasm/channels.proto`
+  // declares no message for them and the contract forecloses one — their wire is the producer's MessagePack
+  // integer-keyed roster, landed through the codec page's Pack arm. The seam summary is no family at all:
+  // its wire is the `rasm.element.v1` `AppearanceWire` payload inside `NodeWire` (field 7).
+  "TextureSetWire", "AssetSetManifest",
   "ArtifactFrameWire", "GeometryPayloadWire", "GeometryResidencyWire",
   "CommandPayloadWire", "SupportCaptureWire", "CapabilityDescriptorWire",
 ] as const
@@ -126,9 +136,6 @@ const _suite = {
   BimWire: pb.BimWireSchema,
   DiffWire: pb.DiffWireSchema,
   IdsAuditWire: pb.IdsAuditWireSchema,
-  MaterialWire: pb.MaterialWireSchema,
-  OpenPbrGroupsWire: pb.OpenPbrGroupsWireSchema,
-  AppearanceSummaryWire: pb.AppearanceSummaryWireSchema,
   TextureSetWire: pb.TextureSetWireSchema,
   AssetSetManifest: pb.AssetSetManifestSchema,
   ArtifactFrameWire: pb.ArtifactFrameWireSchema,
@@ -165,7 +172,7 @@ const Proto: Proto.Shape = {
   registry: createRegistry(...Array.map(_names, (name) => _suite[name])),
   frame: _frame,
   family: (gen, owned) => _frame(gen).pipe(Schema.compose(owned, { strict: false })),
-  stream: (gen) => (frames) => Stream.fromAsyncIterable(sizeDelimitedDecodeStream(gen, frames, _READ), (defect) => defect),
+  stream: (gen) => (frames) => Stream.fromAsyncIterable(sizeDelimitedDecodeStream(gen, frames, _STREAM), (defect) => defect),
   delimit: (gen, message) => sizeDelimitedEncode(gen, message, _WRITE),
   peek: (octets) =>
     pipe(sizeDelimitedPeek(octets), (header) =>
@@ -180,19 +187,20 @@ const Proto: Proto.Shape = {
 ## [04]-[CBOR_ENGINE]
 
 [CBOR_ENGINE]:
-- Owner: `Cbor`, the canonical-CBOR engine — one configured `Decoder` under the cross-language posture (`useRecords: false`, `mapsAsObjects: true`, `tagUint8Array: true`), `frame` the decode-only byte schema, `frames` the concatenated multi-frame walk, and `chunked` the iterator lane over `decodeIter` for a segment set that outgrows one buffer; the `setSizeLimits` DoS ceilings arm at module init, on the same engine-configuration seam that constructs the decoder, so no decode path exists before the gate.
-- Law: the top-level `decode`/`encode` bind cbor-x's shared default instance whose `useRecords: true` engages the proprietary tag-105 record dialect no C# writer speaks — a top-level call on cross-language bytes is the drift defect, and this engine's configured instance is the only decoder the plane touches.
+- Owner: `Cbor`, the canonical-CBOR engine — a configured `Decoder`/`Encoder` pair under the cross-language posture (`useRecords: false`, `mapsAsObjects: true`, `tagUint8Array: true`) with `variableMapSize` on the encoder, `frame` the bidirectional byte schema, `frames` the concatenated multi-frame walk, and `chunked` the iterator lane over `decodeIter` for a segment set that outgrows one buffer; the `setSizeLimits` DoS ceilings arm at module init, on the same engine-configuration seam that constructs the pair, so no decode path exists before the gate.
+- Law: the top-level `decode`/`encode` bind cbor-x's shared default instance whose `useRecords: true` engages the proprietary tag-105 record dialect no C# writer speaks — a top-level call on cross-language bytes is the drift defect, and this engine's configured pair is the only codec the plane touches.
+- Law: the arm carries a real inverse — `variableMapSize` writes the shortest-form map header the content-stability law already asserts, so the encode leg is byte-canonical and the codec registry's cbor row takes the golden-byte roundtrip proof exactly as every proto and msgpack row does. A decode-only cbor arm made that row the one family the divergence proof could never run against, which is a hole in the proof estate rather than a posture.
 - Law: the ceiling is an admission invariant, never an optional boot effect — `setSizeLimits(_CEILINGS)` executes in the same module-init seam as the decoder construction and the ext registrations (the package's own once-at-init contract), so every public decode path is bounded before the engine is constructible and a composition root cannot sequence an unbounded decode ahead of the gate; a post-decode size check or a consumer-armed limit layer is the deleted spelling.
 - Law: Contract CBOR is content-stable — deterministic key order, shortest-form integers — so the decoded header's content key re-verifies against the held octets through the codec parity combinator; the engine never re-canonicalizes and never re-mints.
-- Law: the quirk augmentation is the owner's capture — the shipped `index.d.ts` mislabels the size gate `setMaxLimits` and phantoms `MAX_LIMITS_OPTIONS` while the runtime exports `setSizeLimits` and `decodeIter`; the `declare module` block beside the engine declares only verified runtime truth, so downstream composes `setSizeLimits` typed and never re-discovers the mismatch.
+- Law: the quirk augmentation is the owner's capture — the shipped `index.d.ts` declares a `setMaxLimits` the runtime never exports and omits both `setSizeLimits` and `decodeIter`, which the runtime does export, so the declared gate is the phantom and the real one is invisible; the `declare module` block beside the engine declares only verified runtime truth, never calls the mislabeled member, and downstream composes `setSizeLimits` typed without re-discovering the mismatch.
 - Law: `tagUint8Array: true` keeps byte fields as `Uint8Array` views for content-key verification; a decoded `Tag` value dispatches at the consuming registry row, never here.
 - Law: `chunked` rides the same posture — `decodeIter` takes the `_POSTURE` options record, so the multi-segment `SnapshotHeader` roster streams through the canonical decoder and the module-level default instance (whose `useRecords: true` speaks the tag-105 dialect) stays untouched on this lane too.
 - Growth: a ceiling axis is one `_CEILINGS` field; a posture axis is one `_POSTURE` field every lane inherits.
 - Boundary: the `SnapshotHeader` landing shape, its parity verify, and quarantine classification are the codec registry's; the ceilings guard this engine's decode plane and the frame rail's assembly budgets are `value` `Ingress` rows enforced at the frame page.
-- Packages: `cbor-x` (`Decoder`, `setSizeLimits`, `decodeIter` via the local augmentation); `effect` (`Schema`, `Stream`).
+- Packages: `cbor-x` (`Decoder`, `Encoder`, `setSizeLimits`, `decodeIter` via the local augmentation); `effect` (`Schema`, `Stream`).
 
 ```typescript signature
-import { decodeIter, Decoder, setSizeLimits } from "cbor-x"
+import { decodeIter, Decoder, Encoder, setSizeLimits } from "cbor-x"
 
 declare module "cbor-x" {
   function setSizeLimits(limits: {
@@ -209,15 +217,16 @@ declare module "cbor-x" {
 const _POSTURE = { useRecords: false, mapsAsObjects: true, tagUint8Array: true } as const
 const _CEILINGS = { maxArraySize: 65536, maxMapSize: 16384, maxObjectSize: 1048576 } as const
 
-setSizeLimits(_CEILINGS) // The once-at-init DoS gate arms before decoder construction.
+setSizeLimits(_CEILINGS) // The once-at-init DoS gate arms before codec construction.
 const _cborDecoder = new Decoder(_POSTURE)
+const _cborEncoder = new Encoder({ ..._POSTURE, variableMapSize: true }) // shortest-form map headers: the content-stability law made mechanical
 
 const Cbor: {
   readonly frame: Schema.Schema<unknown, Uint8Array>
   readonly frames: (octets: Uint8Array) => ReadonlyArray<unknown>
   readonly chunked: (segments: AsyncIterable<Uint8Array>) => Stream.Stream<unknown, unknown>
 } = {
-  frame: _lifted((octets) => _cborDecoder.decode(octets), () => undefined),
+  frame: _lifted((octets) => _cborDecoder.decode(octets), (value) => _cborEncoder.encode(value)),
   frames: (octets) => _cborDecoder.decodeMultiple(octets) ?? [],
   chunked: (segments) => Stream.fromAsyncIterable(decodeIter(segments, _POSTURE), (defect) => defect),
 }
@@ -226,17 +235,18 @@ const Cbor: {
 ## [05]-[MSGPACK_ENGINE]
 
 [MSGPACK_ENGINE]:
-- Owner: `Pack`, the MessagePack engine — one `ExtensionCodec` carrying the contract sixteen-byte `Hlc` cell as extension row `_EXT.hlc`, decoding through `Hlc.FromBytes` so the two-half little-endian layout has exactly one spelling; one configured `Decoder`/`Encoder` pair under `useBigInt64: true` and the `max*Length` ceilings; `schema(owned)` the composed byte-to-owned schema, `stream` the backpressured multi-frame walk, `encode`/`transfer` the canonical and zero-copy egress, and the `Alien`/`alien` foreign-ext seam.
+- Owner: `Pack`, the MessagePack engine — one `ExtensionCodec` carrying the contract sixteen-byte `Hlc` cell as extension row `_EXT.hlc`, decoding through `Hlc.FromBytes` so the two-half little-endian layout has exactly one spelling; one configured `Decoder`/`Encoder` pair under `useBigInt64: true` and the `max*Length` ceilings; `schema(owned)` the composed byte-to-owned schema, `frames` the sync concatenated walk, `stream` the backpressured multi-frame walk, `encode`/`transfer` the canonical and zero-copy egress, and the `Alien`/`alien` foreign-ext seam.
+- Law: the multi-frame walk carries both arrival modalities off ONE options record — `frames` reads a buffered run of ops already in hand and `stream` reads a backpressured source, mirroring the cbor arm member for member, so the `Hlc` extension row and every `max*Length` ceiling apply identically on both. A buffered op run — an HTTP body, a replayed quarantine octet run, a fixture vector — otherwise has to be wrapped in an async iterable to reach a decoder that never needed one.
 - Law: the ext registry and the union tag are two tables, never a branch ladder — the `Hlc` ext row decodes the fixed cell into the kernel stamp inside the codec, and the op union's own discriminant dispatches at the landing schema; an unregistered ext surfaces as `ExtData`, never dropped, and `Pack.Alien` — the `Schema.declare` identity over the engine class — is the one seam a consuming row's dispatch arm composes, with `Pack.alien(ext, cell)` the encode-side mint so the class construction never leaks past this module.
 - Law: the interner context threads the mint — `context.intern` is `Schema.decodeSync(Hlc.FromBytes)` handed into every ext decode, so the stamp mints once at the seam and no module-level mint singleton exists; a TS re-mint of the sixteen-byte layout is the named cross-language drift defect.
 - Law: `useBigInt64: true` is i64 fidelity — HLC counters, sequence ordinals, and version counts decode as `bigint`; a decoder without it silently truncates past 2^53 and is the precision defect. Default cached key decoding already owns hot repeated map keys; no `keyDecoder` override exists to tune.
 - Law: `sortKeys: true` on the encoder is canonical egress — re-encoded quarantine octets and transfer payloads are byte-stable; `transfer` returns the encoder's shared-buffer view for a zero-copy worker crossing, dead to this side the moment the buffer transfers.
 - Growth: a domain ext row is one `register` call beside the `Hlc` row in the contract-allocated positive type range; a ceiling axis is one `_CEILINGS` field.
 - Boundary: the `CrdtOp` union, the oplog stream row with its gap Mealy, and the version-plane landings are the codec registry's; the built-in `EXT_TIMESTAMP` row stays registered on the default codec path for `Date` fields.
-- Packages: `@msgpack/msgpack` (`Decoder`, `Encoder`, `ExtData`, `ExtensionCodec`, `decodeMultiStream`); `effect` (`Schema`, `Stream`); `../value/clock.ts` (`Hlc`).
+- Packages: `@msgpack/msgpack` (`Decoder`, `Encoder`, `ExtData`, `ExtensionCodec`, `decodeMulti`, `decodeMultiStream`); `effect` (`Schema`, `Stream`, `Array`); `../value/clock.ts` (`Hlc`).
 
 ```typescript signature
-import { Decoder as PackDecoder, decodeMultiStream, Encoder as PackEncoder, ExtData, ExtensionCodec } from "@msgpack/msgpack"
+import { Decoder as PackDecoder, decodeMulti, decodeMultiStream, Encoder as PackEncoder, ExtData, ExtensionCodec } from "@msgpack/msgpack"
 import { Hlc } from "../value/clock.ts"
 
 const _EXT = { hlc: 8 } as const
@@ -255,6 +265,7 @@ declare namespace Pack {
     readonly Alien: Schema.Schema<ExtData>
     readonly alien: (ext: number, cell: Uint8Array) => ExtData
     readonly schema: <A, I>(owned: Schema.Schema<A, I>) => Schema.Schema<A, Uint8Array>
+    readonly frames: (octets: Uint8Array) => ReadonlyArray<unknown>
     readonly stream: (frames: ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>) => Stream.Stream<unknown, unknown>
     readonly encode: (value: unknown) => Uint8Array
     readonly transfer: (value: unknown) => Uint8Array
@@ -283,6 +294,7 @@ const Pack: Pack.Shape = {
     _lifted((octets) => _packDecoder.decode(octets), (value) => _packEncoder.encode(value)).pipe(
       Schema.compose(owned, { strict: false }),
     ),
+  frames: (octets) => Array.fromIterable(decodeMulti(octets, _packOptions)),
   stream: (frames) => Stream.fromAsyncIterable(decodeMultiStream(frames, _packOptions), (defect) => defect),
   encode: (value) => _packEncoder.encode(value),
   transfer: (value) => _packEncoder.encodeSharedRef(value),
@@ -292,22 +304,23 @@ const Pack: Pack.Shape = {
 ## [06]-[JSONPATCH_ENGINE]
 
 [JSONPATCH_ENGINE]:
-- Owner: `Patch`, the RFC 6902 engine — the six-op `Operation` union whose `path`/`from` fields carry the branch `Refined.JsonPointer` brand so a malformed pointer dies at admission, never inside the apply engine; `FromJson` the fused string codec; `apply` the clone-fenced value-rail application; `diff` the content-key-reconciled minimal patch; `guarded` the OCC egress prefixing `createTests` pre-image proofs; `encode` and `key` the egress projections; `pointer` the RFC 6901 traversal-and-token codec riding rfc6902's own `Pointer`.
+- Owner: `Patch`, the RFC 6902 engine — the six-op `Operation` union whose `path`/`from` fields carry the branch `Refined.JsonPointer` brand so a malformed pointer dies at admission, never inside the apply engine; `FromJson` the fused string codec; `apply` the clone-fenced value-rail application; `holds` the non-mutating OCC pre-check; `diff` the content-key-reconciled minimal patch; `guarded` the OCC egress prefixing `createTests` pre-image proofs; `encode` and `key` the egress projections; `pointer` the RFC 6901 traversal-and-token codec riding rfc6902's own `Pointer`.
 - Law: rfc6902 stays the pure engine under the Schema boundary — the C#-authored `JsonPatchDocument` decodes once through the union, `applyPatch` returns one result slot per op with errors as values, and the first non-`null` slot folds through the `Match.instanceOf` triage into the interchange fault vocabulary at the consuming registry row; a raw operation array or a thrown apply fault never crosses.
 - Law: mutation is fenced by a clone — the engine applies in place, so `apply` clones the target before `applyPatch` and the decoded base stays immutable on the rail.
 - Law: the diff is parameterized, never enumerated — `Patch.keyed(identity)` compiles an explicit `VoidableDiff` policy from the entity family's content-key projection: two admitted keys compare by identity, a key change replaces the value whole, and an absent key falls through to `diffAny`. Generic patching uses `Patch.structural`; no object becomes content-addressed merely because it carries a string field named `key`, and a per-shape differ roster is the rejected form.
 - Law: egress mints through `_mintedDoc` — the engine emits RFC 6901-valid pointers by construction, so the interior `Schema.decodeSync` brand mint is the trusted-construction channel over proven inputs and the throw path is structurally unreachable; `diff` and `guarded` land the branded `Document` every consumer already speaks.
 - Law: the egress is self-guarding — `guarded` emits `test` ops over the base pre-image ahead of the mutation so the C# OCC append refuses a stale patch before applying; `key` mints the patch content key through the one `Digest` content row over the encoded document, so `EntityEdit` identity is the branch identity.
+- Law: the guard is verifiable on THIS side — `holds` folds the applier's own non-mutating precondition check over the document's `test` entries against an un-cloned base and answers the first failing slot with its ordinal, reusing the triage `apply` already carries; without it a holder of a base and a guarded patch has to run the full mutating apply to learn a precondition failed. Both members answer the same `[Slot, number]` pair, so `stale` and `conflict` keep their single mint site at the consuming registry row's slot triage.
 - Law: `TestError` slots carry `{ actual, expected }` both ways — the drift report reads evidence as data; an op outside the closed six is contract-drift material graded at the contract page's verdict vocabulary.
 - Law: pointer authority splits by altitude — the `Refined.JsonPointer` brand owns admission grammar at the schema seam, and `pointer` owns traversal and the `~0`/`~1` token codec through `Pointer.fromJSON`/`escapeToken`/`unescapeToken`, so a hand-rolled escape or path walk beside either owner is the re-implementation defect; `pointer.evaluate` reads a branded path against a value as `Option` off the evaluation triple's own parent-and-key presence — a resident `null` leaf is `Option.some(null)`, only a missing location folds to `Option.none`, and nothing throws.
 - Growth: an apply-policy axis is one `_APPLY` field; a new reconciliation family is one `Patch.keyed` projection at its composition root.
 - Boundary: the `JsonPatchDocument` census row, the slot-to-fault classification (`WireFault.fromSlot`), and the OCC/conflict fault reasons are the codec registry's; the version-plane append that consumes the guard is the data branch's.
-- Packages: `rfc6902` (`applyPatch`, `createPatch`, `createTests`), `rfc6902/diff` (`isDestructive`, `VoidableDiff`), `rfc6902/pointer` (`Pointer`, `escapeToken`, `unescapeToken`), `rfc6902/patch` (`InvalidOperationError`, `MissingError`, `TestError`), `rfc6902/util` (`clone`); `effect` (`Schema`, `ParseResult`, `Effect`, `Array`, `Option`, `Predicate`, `pipe`); `../value/schema.ts` (`Refined`); `../value/contentKey.ts` (`ContentKey`, `Digest`).
+- Packages: `rfc6902` (`applyPatch`, `createPatch`, `createTests`), `rfc6902/diff` (`isDestructive`, `VoidableDiff`), `rfc6902/pointer` (`Pointer`, `escapeToken`, `unescapeToken`), `rfc6902/patch` (`test`, `InvalidOperationError`, `MissingError`, `TestError`), `rfc6902/util` (`clone`); `effect` (`Schema`, `ParseResult`, `Effect`, `Array`, `Option`, `Predicate`, `pipe`); `../value/schema.ts` (`Refined`); `../value/contentKey.ts` (`ContentKey`, `Digest`).
 
 ```typescript signature
 import { applyPatch, createPatch, createTests } from "rfc6902"
 import { isDestructive, type VoidableDiff } from "rfc6902/diff"
-import type { InvalidOperationError, MissingError, TestError } from "rfc6902/patch"
+import { type InvalidOperationError, type MissingError, test, type TestError } from "rfc6902/patch"
 import { escapeToken, Pointer, unescapeToken } from "rfc6902/pointer"
 import { clone } from "rfc6902/util"
 import { type ContentKey, Digest } from "../value/contentKey.ts"
@@ -348,6 +361,7 @@ declare namespace Patch {
     readonly FromValue: typeof _document
     readonly destructive: (operation: Operation) => boolean
     readonly apply: (target: unknown, patch: Document) => Effect.Effect<unknown, readonly [Slot, number]>
+    readonly holds: (base: unknown, patch: Document) => Effect.Effect<void, readonly [Slot, number]>
     readonly structural: Reconcile
     readonly keyed: (identity: (value: unknown) => Option.Option<ContentKey>) => Reconcile
     readonly diff: (reconcile: Reconcile) => (base: unknown, next: unknown) => Document
@@ -381,6 +395,16 @@ const Patch: Patch.Shape = {
         { onNone: () => Effect.succeed(successor), onSome: Effect.fail },
       )
     }),
+  // The pre-check runs the applier's own guard against an UN-cloned base: nothing mutates, so the same first-non-null
+  // triage `apply` carries answers whether the guarded patch still holds without spending the mutation to find out.
+  holds: (base, patch) =>
+    Option.match(
+      Array.findFirst(
+        Array.map(patch, (operation, index) => [operation.op === "test" ? test(base, operation, _APPLY) : null, index] as const),
+        (pair): pair is readonly [Patch.Slot, number] => pair[0] !== null,
+      ),
+      { onNone: () => Effect.void, onSome: Effect.fail },
+    ),
   diff: (reconcile) => (base, next) => _mintedDoc(createPatch(base, next, reconcile)),
   guarded: (reconcile) => (base, next) =>
     pipe(createPatch(base, next, reconcile), (mutation) => _mintedDoc([...createTests(base, mutation), ...mutation])),

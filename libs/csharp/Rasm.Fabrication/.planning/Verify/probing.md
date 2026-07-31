@@ -20,7 +20,7 @@
 
 ## [03]-[OBSERVATION_RAIL]
 
-- Owner: `MeasurementSource` closes telemetry, manual, and fixture-synthetic ingress with one `Interval`, evidence key, and observation sequence per case.
+- Owner: `MeasurementSource` is ONE admitted value carrying its `MeasurementKind` row beside the `Interval`, evidence key, and observation sequence every lane shares; a new ingress modality is one row and no consumer changes, because nothing downstream branches on the lane.
 - Cases: `ProbeCycle` rows retain exact `G31`, `G38.2`, `G38.3`, `G38.4`, and `G38.5` semantics, their posted `GCommand`, and the approach direction they orient; `ProbeOutcome` closes contact, optional miss, and rejection so a hit always carries its observation and compensated point.
 - Auto: `Interval.Contains` gates source and calibration time; `ProbeAddress` retains cycle, feature, sample, and attempt, and correlation runs through one keyed index so contact count never drives quadratic scanning.
 - Receipt: robust median/MAD aggregation rejects contact outliers, then combined uncertainty conserves calibration, thermal, lobing, and repeatability contributions.
@@ -30,8 +30,8 @@
 
 - Owner: `DatumPolicy` closes assigned transform, best-fit registration, and primitive substitution over the current `DatumReceipt` wire.
 - Auto: `AlignKind.AlignDetailed` projects a transform only through `AlignmentReceipt.Project<Transform>`; `Fit.Apply` retains per-feature and datum-substitution `FitReceipt` evidence, and a group thinned below its kind's `MinimalSamples` carries no fit rather than a fabricated one; transformed measured points precede every `ResidualSample`.
-- Receipt: `ProbeReport` closes the pre-egress evidence fold, while the frozen `InspectionResult` projects only `InspectionFeature` atoms and drops cycle, datum, fit, capability, source, and time evidence. `Probe.Inspect` mints `FabricationFact.Probe` beside the frozen result — conformance counts and worst deviation onto `rasm.fabrication.probe.features` and `rasm.fabrication.probe.deviation` through `Process/telemetry#FACT_PROJECTION` as kind `probe` — because `ProbeReport` is file-scoped and the fact is its one telemetry projection; the fact fires through the `FabricationTap` the run spine passes, defaulting silent for headless callers, and the whole fold runs inside the `FabricationEngine.Probe` bracket the run spine's `SpanBand` opens — absent for a headless caller on the same law — with `EnginePhase.DatumRegistered` and `EnginePhase.FeaturesFitted` as its span marks; the settled datum alignment fires the `FabricationFact.Engine.Of` ICP-iteration row through the same tap, so probe-fit cost attribution rides the engine census with zero kernel writes.
-- Boundary: `Capability.Assess(new CapabilityStudy.Variables(...), tolerance)` consumes the residual tranche; no local QIF-shaped record claims a standard contract the package does not admit.
+- Receipt: `ProbeReport` closes the pre-egress evidence fold — cycles, datum, fitted features, the kernel residual spread and its worst sample, and the capability study — while the frozen `InspectionResult` projects only `InspectionFeature` atoms and drops cycle, datum, fit, residual-census, capability, source, and time evidence. `Probe.Inspect` mints `FabricationFact.Probe` beside the frozen result — conformance counts and worst deviation onto `rasm.fabrication.probe.features` and `rasm.fabrication.probe.deviation` through `Process/telemetry#FACT_PROJECTION` as kind `probe` — because `ProbeReport` is file-scoped and the fact is its one telemetry projection; the fact fires through the `FabricationTap` the run spine passes, defaulting silent for headless callers, and the whole fold runs inside the `FabricationEngine.Probe` bracket the run spine's `SpanBand` opens — absent for a headless caller on the same law — with `EnginePhase.DatumRegistered` and `EnginePhase.FeaturesFitted` as its span marks; the settled datum alignment fires the `FabricationFact.Engine.Of` ICP-iteration row through the same tap, so probe-fit cost attribution rides the engine census with zero kernel writes.
+- Boundary: one residual tranche feeds both consumers — `Capability.Assess(new CapabilityStudy.Variables(...), tolerance)` for the SPC study and the kernel `AnalysisQuery.Conformance` measured arity for the run's own statistics, whose `Distribution` row nests the tolerance-stamped `Stat` and whose `Maximum` row names the worst sample; a package-local mean/RMS/quantile fold beside the kernel rows, and a local QIF-shaped record claiming a standard contract the package does not admit, are the deleted forms.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -453,25 +453,35 @@ public sealed partial class ProbeObservation {
             : new ValidationError("probe:observation");
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MeasurementSource {
-    private MeasurementSource() { }
+// Ingress modality is a ROW, not a case family: the three lanes carried a byte-identical window/rows/evidence
+// triple, every fold arm returned the same value, and no consumer read the discriminant — so a union bought three
+// case types, one pass-through fold, and three accessor re-switches for nothing. Admission owns the invariant the
+// old `Valid` member re-tested at every gate.
+[SmartEnum<string>]
+public sealed partial class MeasurementKind {
+    public static readonly MeasurementKind Telemetry = new("telemetry");
+    public static readonly MeasurementKind Manual = new("manual");
+    public static readonly MeasurementKind FixtureSynthetic = new("fixture-synthetic");
+}
 
-    public sealed record Telemetry(Interval Span, Seq<ProbeObservation> Observations, UInt128 Evidence) : MeasurementSource;
-    public sealed record Manual(Interval Span, Seq<ProbeObservation> Observations, UInt128 Evidence) : MeasurementSource;
-    public sealed record FixtureSynthetic(Interval Span, Seq<ProbeObservation> Observations, UInt128 Evidence) : MeasurementSource;
+[ComplexValueObject]
+public sealed partial class MeasurementSource {
+    public MeasurementKind Kind { get; }
+    public Interval Window { get; }
+    public Seq<ProbeObservation> Rows { get; }
+    public UInt128 EvidenceKey { get; }
 
-    private (Interval Window, Seq<ProbeObservation> Rows, UInt128 EvidenceKey) Payload => Switch(
-        telemetry: static row => (row.Span, row.Observations, row.Evidence),
-        manual: static row => (row.Span, row.Observations, row.Evidence),
-        fixtureSynthetic: static row => (row.Span, row.Observations, row.Evidence));
-
-    public Interval Window => Payload.Window;
-    public Seq<ProbeObservation> Rows => Payload.Rows;
-    public UInt128 EvidenceKey => Payload.EvidenceKey;
-
-    internal bool Valid => Window is not null && Rows is not null && EvidenceKey != 0
-        && Rows.ForAll(static row => row is not null && row.EvidenceKey != 0);
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref MeasurementKind kind,
+        ref Interval window,
+        ref Seq<ProbeObservation> rows,
+        ref UInt128 evidenceKey) =>
+        validationError = kind is not null && window is not null && evidenceKey != 0
+            && rows.ForAll(static row => row is not null && row.EvidenceKey != 0)
+                ? null
+                : new ValidationError("probe:measurement-source");
 }
 
 public readonly record struct ProbeLobe(int Harmonic, double AmplitudeMm, double PhaseRadians);
@@ -570,7 +580,7 @@ public sealed partial class InspectPolicy {
         ref Option<CapabilityTolerance> capability,
         ref IClock clock) =>
         validationError = !plans.IsEmpty && plans.ForAll(static row => row is not null)
-            && source is { Valid: true } && datum is not null && calibration is not null && repeat is not null && featureFit is not null
+            && source is not null && datum is not null && calibration is not null && repeat is not null && featureFit is not null
             && capability.ForAll(static row => row is not null) && clock is not null
                 ? null
                 : new ValidationError("probe:policy");
@@ -615,11 +625,11 @@ internal sealed partial class ProbeRejection {
     public static readonly ProbeRejection Overtravel = new("overtravel",
         static (at, limit) => FabricationFault.ProbeOvertravel(at, limit).ToError());
     public static readonly ProbeRejection ShortOfSurface = new("short-of-surface",
-        static (_, _) => new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:short-of-surface").ToError());
+        static (_, _) => new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:short-of-surface"));
     public static readonly ProbeRejection LateralDrift = new("lateral-drift",
-        static (_, _) => new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:lateral-drift").ToError());
+        static (_, _) => new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:lateral-drift"));
     public static readonly ProbeRejection ThermalScale = new("thermal-scale",
-        static (_, _) => new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:thermal-scale").ToError());
+        static (_, _) => new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:thermal-scale"));
 
     [UseDelegateFromConstructor]
     internal partial Error Fault(Point3d at, double limitMm);
@@ -665,6 +675,8 @@ file sealed record ProbeReport(
     Seq<ProbeCycleReceipt> Cycles,
     ProbeDatum Datum,
     Seq<MeasuredFeature> Features,
+    Distribution Residuals,
+    ResidualSample Worst,
     Option<CapabilityReport> Capability,
     Instant At);
 
@@ -690,7 +702,7 @@ public static class Probe {
                 .Apply(static (rows, _) => rows).As().ToFin()
             let unregistered = measured.Bind(static row => row.ToSeq())
             from datum in unregistered.Head
-                .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:no-measurements").ToError())
+                .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:no-measurements"))
                 .Bind(_ => Reconcile(admitted.Policy.Datum, unregistered, context))
             let _registered = FabricationTrace.Mark(span, EnginePhase.DatumRegistered)
             let _icp = datum.Alignment.Map(receipt =>
@@ -698,14 +710,18 @@ public static class Probe {
             let transformed = TransformFeatures(unregistered, datum)
             from features in Fits(transformed, admitted.Policy.FeatureFit, context)
             let _fitted = FabricationTrace.Mark(span, EnginePhase.FeaturesFitted)
+            let residuals = features.Map(static row => row.Residual)
             from capability in admitted.Policy.Capability
-                .Traverse(demand => Capability.Assess(new CapabilityStudy.Variables(features.Map(static row => row.Residual)), demand))
+                .Traverse(demand => Capability.Assess(new CapabilityStudy.Variables(residuals), demand))
                 .As()
+            from census in Census(residuals)
             let report = new ProbeReport(
                 admitted.Policy.Source.EvidenceKey,
                 cycles,
                 datum,
                 features,
+                census.Spread,
+                census.Worst,
                 capability,
                 admitted.Policy.Clock.GetCurrentInstant())
             from result in ToResult(report, admitted.Input.Sources + admitted.Input.ParentRuns, tap ?? FabricationTap.Silent)
@@ -738,14 +754,13 @@ public static class Probe {
             (map, row) => map.AddOrUpdate(key(row), existing => existing.Add(row), Seq(row)));
 
     private static Fin<(InspectPolicy Policy, FabricationInput Input)> Admit(InspectPolicy? policy, FabricationInput? input) =>
-        (Optional(policy).ToValidation(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:policy").ToError()),
-         Optional(input).ToValidation(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:input").ToError()))
+        (Optional(policy).ToValidation((Error)new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:policy")),
+         Optional(input).ToValidation((Error)new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:input")))
         .Apply(static (acceptedPolicy, acceptedInput) => (Policy: acceptedPolicy, Input: acceptedInput))
         .As()
         .ToFin()
         .Bind(admitted => (
-            Gate(admitted.Policy.Source.Valid
-                && admitted.Policy.Source.Rows.ForAll(row => admitted.Policy.Source.Window.Contains(row.At)), "probe:source-window"),
+            Gate(admitted.Policy.Source.Rows.ForAll(row => admitted.Policy.Source.Window.Contains(row.At)), "probe:source-window"),
             Gate(admitted.Policy.Source.Rows.ForAll(row => row.EvidenceKey == admitted.Policy.Source.EvidenceKey), "probe:evidence-identity"),
             Gate(admitted.Policy.Source.Rows.ForAll(row => admitted.Policy.Calibration.Validity.Contains(row.At)), "probe:calibration-window"),
             Gate(DatumValid(admitted.Policy.Datum) && admitted.Policy.Datum.Receipt.Traceable, "probe:datum-traceability"))
@@ -770,7 +785,7 @@ public static class Probe {
         .ToFin();
 
     private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
-        guard(valid, new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError()).ToFin().ToValidation();
+        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Verify, locus));
 
     private static bool DatumValid(DatumPolicy policy) => policy.Switch(
         setup: static row => row.Registration.IsValid,
@@ -788,7 +803,7 @@ public static class Probe {
         HashMap<ProbeTargetKey, Seq<ProbeObservation>> observed,
         InspectPolicy policy) {
         Seq<ProbeObservation> rows = observed.Find(target.Key)
-            .Map(static found => found.OrderBy(static row => row.Address.Attempt).ThenBy(static row => row.At).ToSeq())
+            .Map(static found => toSeq(found.OrderBy(static row => row.Address.Attempt).ThenBy(static row => row.At)))
             .IfNone(Seq<ProbeObservation>());
         return rows.IsEmpty
             ? Seq(new ProbeCycleReceipt(target, new ProbeOutcome.Missed()))
@@ -853,7 +868,7 @@ public static class Probe {
         double band = policy.Repeat.OutlierSigma * Math.Max(mad * MadConsistency, double.Epsilon);
         Seq<CompensatedContact> accepted = rows.Filter(row => row.Point.DistanceTo(centre) <= median + band);
         if (accepted.Count < policy.Repeat.MinimumAccepted)
-            return Fin.Fail<Option<UnregisteredFeature>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:repeatability").ToError());
+            return Fin.Fail<Option<UnregisteredFeature>>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:repeatability"));
         Point3d measured = Mean(accepted.Map(static row => row.Point));
         double repeatability = Math.Sqrt(accepted.Map(row => Math.Pow(row.Point.DistanceTo(measured), 2.0)).Sum() / accepted.Count);
         double thermal = accepted.Map(static row => row.ThermalUncertaintyMm).Fold(0.0, double.Max);
@@ -876,7 +891,7 @@ public static class Probe {
                 return cycles.Exists(static cycle => cycle.Outcome.Contact.IsSome)
                     ? Option<Error>.None
                     : Some(cycles.Choose(static cycle => cycle.Outcome.Fault).Head
-                        .IfNone(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:required-contact").ToError()));
+                        .IfNone(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:required-contact")));
             });
         return errors.Head.Match(
             None: static () => Fin.Succ(unit),
@@ -890,7 +905,7 @@ public static class Probe {
         state: (Features: features, Context: context),
         setup: static (_, row) => row.Registration.IsValid
             ? Fin.Succ(new ProbeDatum(row.Datum, row.Registration, None, None))
-            : Fin.Fail<ProbeDatum>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:setup-transform").ToError()),
+            : Fin.Fail<ProbeDatum>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:setup-transform")),
         bestFit: static (state, row) => Align(state.Features, state.Context, row.Kind, row.Policy)
             .Map(receipt => new ProbeDatum(row.Datum, receipt.Transform, Some(receipt.Receipt), None)),
         substitute: static (state, row) =>
@@ -953,18 +968,41 @@ public static class Probe {
                 row.Target.Nominal,
                 measured,
                 row.Target.SurfaceNormal,
-                new ResidualSample(index, row.Target.Nominal, deviation, row.Target.Plan.ToleranceMm, Math.Abs(deviation) <= row.Target.Plan.ToleranceMm),
+                Residual(index, row.Target.Nominal, deviation, row.Target.Plan.ToleranceMm),
                 uncertainty,
                 row.RepeatabilityMm,
                 row.At,
                 None);
         });
 
+    // Each sample carries the plan's tolerance band and DERIVES its own acceptance from it, so a Fabrication mint
+    // states the deviation and the band it was measured against, never a verdict that can disagree with either.
+    private static ResidualSample Residual(int index, Point3d nominal, double deviation, double tolerance) =>
+        new(index, nominal, deviation, tolerance);
+
+    // Residual statistics ride the kernel conformance rows, never a local fold: the measured arity of
+    // `AnalysisQuery.Conformance` takes the tranche the probe already holds, so the admission oracle, the band the
+    // samples were measured against, and the worst-sample ranking stay the kernel's single owner. `Distribution`
+    // nests its own `Stat`, so the spread answers count, extrema, mean, RMS, band verdict, median, and IQR in one
+    // row and no second summary reach stands beside it. Both reaches carry no scope because the band derives from
+    // each sample; a plan whose features disagree on tolerance refuses at the kernel rather than summarizing two
+    // populations under one verdict.
+    private static Fin<(Distribution Spread, ResidualSample Worst)> Census(Seq<ResidualSample> residuals) =>
+        from spread in Measured<Distribution>(ConformanceMetric.Distribution, residuals)
+        from worst in Measured<ResidualSample>(ConformanceMetric.Maximum, residuals)
+        select (spread, worst);
+
+    private static Fin<TOut> Measured<TOut>(ConformanceMetric metric, Seq<ResidualSample> residuals) where TOut : notnull =>
+        Analyze.Run<ResidualSample, TOut>(AnalysisQuery.Conformance(metric), residuals.ToArray())
+            .ToFin()
+            .Bind(values => values.Head.ToFin(
+                new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:residual-census")));
+
     // Wall-contact filtering can starve a group below the kind's own minimal set, and the solver answers a
     // short cloud with an accumulated admission fault; the group then carries no fit rather than a failure.
     private static Fin<Seq<MeasuredFeature>> Fits(Seq<MeasuredFeature> features, FitPolicy policy, Context context) =>
         toSeq(Index(features, static feature => feature.Plan.Key)).TraverseM(entry => entry.Value.Head
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:fit-group").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:fit-group"))
             .Bind(head => {
                 Seq<MeasuredFeature> fitGroup = entry.Value.Filter(row => head.Plan.Feature.FitEligible(row.SurfaceNormal));
                 return head.Plan.Feature.Spec.Fit
@@ -983,7 +1021,7 @@ public static class Probe {
             .As()
             .Map(static groups => groups.Bind(identity));
 
-    // The Probe fact mints beside the frozen result because `ProbeReport` is file-scoped; conformance and
+    // Probe facts mint beside the frozen result because `ProbeReport` is file-scoped; conformance and
     // worst deviation read off the projected atoms so the fact and the result derive from one fold.
     private static Fin<FabricationResult> ToResult(ProbeReport report, Seq<ContentKey> subjects, FabricationTap tap) =>
         report.Features.TraverseM(ToAtom).As()

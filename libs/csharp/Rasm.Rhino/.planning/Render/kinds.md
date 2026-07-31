@@ -14,7 +14,9 @@
 
 - Owner: `MaterialMint` carries each table address and admits it against the live material roster inside the document-aware mint seam. `MaterialBridge` bounds baked and physically based projections to one callback. `SlotUsage` detaches standard-slot state and its native texture-type correspondence, and `MaterialScent` derives classification from predicate rows.
 - Law: `MaterialBridge.Pbr` routes `ToMaterial`/`ConvertToPhysicallyBased` onto `Rhino.DocObjects.PhysicallyBasedMaterial`; each projection remains borrowed for one window.
-- Law: `Rhino.Render.PhysicallyBasedMaterial` is whole-class obsolete and never enters the design.
+- Law: `Rhino.Render.PhysicallyBasedMaterial` is whole-class obsolete and never enters the design — it exists, so the simple name is ambiguous under this prelude and the document type is spelled `global::`-qualified at every fence site.
+- Law: `SetChild(renderContent, childSlotName)` is the live host spelling; the `ChangeContexts` overload is obsolete and the reason already rides the enclosing `ChangeScope.Write`, so no attach carries a context argument.
+- Law: `TextureType` is `Rhino.DocObjects`', never a `RenderMaterial` nested type — `TextureTypeFromSlot`/`SlotFromTextureType` are statics on `RenderMaterial` returning and taking that document enum, so the qualified spelling resolves nothing.
 - Law: slot vocabulary is the native `StandardChildSlots` — the PBR slot roster including its aliasing rows is host truth the seam consumes; a wrapper row per slot is the deleted form, and `SlotFromTextureType`/`TextureTypeFromSlot` answer the type-to-slot correspondence where a consumer needs it.
 - Law: assignment is operation-rail work — `AssignTo` over resolved object references with its sub-face and block choices rides the registry page's `ContentOp.Assign` case, so this page carries no table mutation.
 - Growth: a new scent is one `MaterialScent` row with its two predicate columns; a new mint form is one `MaterialMint` case.
@@ -94,7 +96,7 @@ public sealed record ScentCensus(Seq<ScentMark> Rows) : IDetachedDocumentResult;
 
 public readonly record struct SlotUsage(
     RenderMaterial.StandardChildSlots Slot,
-    RenderMaterial.TextureType TextureType,
+    TextureType TextureType,
     Option<Guid> Texture,
     bool On,
     double Amount,
@@ -110,9 +112,9 @@ public static class MaterialBridge {
         });
 
     internal static Fin<TOut> Pbr<TOut>(
-        RenderMaterial material, RenderTexture.TextureGeneration generation, Func<PhysicallyBasedMaterial, Fin<TOut>> borrow, Op key) =>
+        RenderMaterial material, RenderTexture.TextureGeneration generation, Func<global::Rhino.DocObjects.PhysicallyBasedMaterial, Fin<TOut>> borrow, Op key) =>
         key.Catch(() => {
-            PhysicallyBasedMaterial projected = material.ConvertToPhysicallyBased(tg: generation);
+            global::Rhino.DocObjects.PhysicallyBasedMaterial projected = material.ConvertToPhysicallyBased(tg: generation);
             return Optional(projected).ToFin(Fail: key.InvalidResult()).Bind(active => {
                 using Material backing = active.Material;
                 return borrow(active);
@@ -362,7 +364,8 @@ public static class TextureExport {
 ## [04]-[ENVIRONMENT]
 
 - Owner: `EnvironmentState` detaches background color, projection, and image state. `Bake` contains the simulation lease, and `Mint` reconstructs the document-aware carriers before yielding an owned content lease.
-- Law: `EnvironmentState.Bake` is the only site holding a `SimulatedEnvironment`; the disposable carrier never crosses its window.
+- Law: `EnvironmentState.Bake` and `Mint` are the only sites holding a `SimulatedEnvironment`; the carrier has a public parameterless constructor, is `IDisposable`, and never crosses its window.
+- Law: environment image absence reads through `SimulatedTexture.ConstPointer()`, never `Optional` — the `BackgroundImage` getter mints a fresh parent-backed facsimile per read and is never null, so a null projection would admit an empty environment as an imaged one.
 - Law: environment duplication travels as one detached value; simulation-only transform provenance remains evidence while every host-writable image axis replays.
 
 ```csharp signature
@@ -375,6 +378,9 @@ public sealed record EnvironmentState(
         key.Catch(() => {
             using SimulatedEnvironment simulated = environment.SimulateEnvironment(isForDataOnly: isForDataOnly);
             return Optional(simulated).ToFin(Fail: key.InvalidResult()).Bind(active => {
+                // Host truth: `BackgroundImage` MINTS a parent-backed `SimulatedTexture` on every read and never answers
+                // null, so `Optional(image)` is always `Some`; the public `ConstPointer()` resolves through the parent and
+                // answers `IntPtr.Zero` when the environment holds no image, which is the only real absence discriminant.
                 using SimulatedTexture image = active.BackgroundImage;
                 Fin<Option<TextureFacsimile>> detached = image.ConstPointer() == IntPtr.Zero
                     ? Fin.Succ(Option<TextureFacsimile>.None)
@@ -482,7 +488,7 @@ public sealed record PhotometricWeb : IDetachedDocumentResult {
             from prior in key.Catch(() => Fin.Succ(value: live.ChildSlotOn(childSlotName: slot)))
             from _ in key.Catch(() => {
                 live.SetChildSlotOn(childSlotName: slot, bOn: true, cc: reason.Native);
-                return key.Confirm(success: live.SetChild(child: owned.Value, childSlotName: slot, cc: reason.Native));
+                return key.Confirm(success: live.SetChild(renderContent: owned.Value, childSlotName: slot));
             }).Match(
                 Succ: _ => transfer.Take(key).Map(static _ => unit),
                 Fail: fault => RestoreSlot(

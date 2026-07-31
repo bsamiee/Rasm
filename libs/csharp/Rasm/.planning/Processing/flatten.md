@@ -2,7 +2,7 @@
 
 `Flatten` solves UV parameterization from its variational energy: one `ParamOp` union folded by one `Flatten.Apply` lowers a disk-topology chart into the plane over the `Rasm.Meshing` discrete-exterior-calculus substrate. Every pinned solve eliminates the boundary rows, so the interior operator factors as an SPD system with exact constraints; a penalty or diagonal-shift formulation is the refused failure class.
 
-A rebuild composes the settled substrate: the `MeshAdjointSnapshot.Of` DEC handle for the cotangent `D0`/`Star1` operators, `CholeskySparse` and `SparseMatrix` for every direct and eigen solve, `Orient2D` the UV-flip floor, `FeatureEdge` the seam classifier, QuikGraph `WeaklyConnectedComponents` the island labeler. `ChartAtlas` is the structural carrier the reconciliation `Encode` content-addresses.
+Rebuild work composes the settled substrate: the `MeshAdjointSnapshot.Of` DEC handle for the cotangent `D0`/`Star1` operators, `CholeskySparse` and `SparseMatrix` for every direct and eigen solve, `Orient2D` the UV-flip floor, `FeatureEdge` the seam classifier, QuikGraph `WeaklyConnectedComponents` the island labeler. `ChartAtlas` is the structural carrier the reconciliation `Encode` content-addresses.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@ A rebuild composes the settled substrate: the `MeshAdjointSnapshot.Of` DEC handl
 
 - Owner: `Flatten` mints the static parameterization surface, and `ChartId` is the one chart identity the 2432 `ParameterizationFault` payload and every island share, never a parallel raw-int spelling.
 - Cases: each `ParamOp` case carries its chart, its constraint payload, and its policy row, so `Apply` discriminates on the value alone.
-- Entry: `Flatten.Apply(ParamOp, Op?)` rides the `Fin<ChartAtlas>` rail; the admitted `MeshSpace` is not re-validated, every genuine gate faults typed, and `ChartAtlas.ToMesh`/`ToTextureMesh` re-emit the chart with UV coordinates or the islands as 2D geometry.
+- Entry: `Flatten.Apply(ParamOp, Op?)` rides the `Fin<ChartAtlas>` rail; the admitted `MeshSpace` is not re-validated, every genuine gate faults typed, and `ChartAtlas.ToMesh`/`ToTextureMesh` re-emit the chart with UV coordinates or the islands as 2D geometry. `UvIsland.Boundary(Context, Op?)` projects the island's oriented boundary loops onto the `Meshing/intersect` `Chain` carrier — outer CCW, holes CW off face winding — so every downstream nesting or development consumer reads one walker instead of re-deriving the cycle walk.
 - Auto: modality dispatch is the union's total generated `Switch`, and every arm lowers the same `MeshDec.Of` DEC composition, differing only in the energy. `Assemble` scores distortion in one partition-disjoint parallel per-face pass, folds the receipt through `TensorPrimitives`, labels islands through QuikGraph over the face-dual, and refuses any flip typed.
 - Receipt: `DistortionReceipt` carries the conformal, area, and quasi-conformal distortion, the iteration and residual witnesses, the actual `CholeskySparse.FactorNonZeros` fill, and the exact-`Orient2D` bijectivity verdict — the evidence the `Rasm.Fabrication` nesting strain gate reads.
 - Packages: `Rasm.Meshing` (`MeshSpace`, `MeshAdjointSnapshot.Of` the DEC handle, `MeshEdit` soup + freeze), `Rasm.Processing` (`FeatureEdge`/`MeshFeatureKind` seam source), `Rasm.Numerics` (`SparseMatrix`/`CholeskySparse` solve owners, `Predicate.Orient2D` flip floor), `Rhino.Geometry`, QuikGraph (face-dual `WeaklyConnectedComponents`), System.Numerics.Tensors (`TensorPrimitives` distortion folds), CommunityToolkit.HighPerformance (`MemoryOwner`/`ParallelHelper`), Rasm.Domain, Thinktecture.Runtime.Extensions, LanguageExt.Core.
@@ -112,7 +112,50 @@ public sealed class ChartStore : IDisposable {
 }
 
 // Structural equality: Arr members, never reference-equal raw arrays.
-public sealed record UvIsland(ChartId Chart, Arr<int> Vertices, Arr<(int A, int B, int C)> Faces, Arr<Point2d> Uv);
+public sealed record UvIsland(ChartId Chart, Arr<int> Vertices, Arr<(int A, int B, int C)> Faces, Arr<Point2d> Uv) {
+    // Boundary IS the island boundary projection — oriented UV loops through the kernel's one loop carrier.
+    // Boundary edges are the once-counted undirected edges of the island's faces; the DIRECTED walk inherits face
+    // winding, so a flip-free island emits its outer loop CCW and every hole CW with no point-in-polygon pass.
+    // Boundaries stay projections, never layouts: packing stays the downstream owner's concern.
+    public Fin<Seq<Chain>> Boundary(Context tolerance, Op? key = null) {
+        Op op = key.OrDefault();
+        Dictionary<int, int> local = new(Vertices.Count);
+        for (int i = 0; i < Vertices.Count; i++) local[Vertices[i]] = i;
+        Dictionary<(int A, int B), int> census = new(Faces.Count * 3);
+        foreach ((int a, int b, int c) in Faces)
+            foreach ((int u, int v) in (ReadOnlySpan<(int, int)>)[(a, b), (b, c), (c, a)]) {
+                (int lo, int hi) = u < v ? (u, v) : (v, u);
+                census[(lo, hi)] = census.TryGetValue((lo, hi), out int count) ? count + 1 : 1;
+            }
+        Dictionary<int, int> successor = new();
+        foreach ((int a, int b, int c) in Faces)
+            foreach ((int u, int v) in (ReadOnlySpan<(int, int)>)[(a, b), (b, c), (c, a)]) {
+                if (census[u < v ? (u, v) : (v, u)] != 1) continue;
+                // Branching boundaries (two outgoing boundary edges at one vertex) mark a non-manifold island — typed.
+                if (!successor.TryAdd(u, v)) return Fin.Fail<Seq<Chain>>(new GeometryFault.DegenerateInput(Kind.Mesh, u, "island-boundary: branching").ToError());
+            }
+        Seq<Chain> loops = [];
+        HashSet<int> seen = new(successor.Count);
+        foreach (int seed in successor.Keys) {
+            if (!seen.Add(seed)) continue;
+            Polyline points = new();
+            int at = seed;
+            do {
+                Point2d uv = Uv[local[at]];
+                Point3d next = new(uv.X, uv.Y, 0.0);
+                // Coincident consecutive samples under the context floor collapse, so a degenerate stitch never
+                // fabricates a zero-length loop edge.
+                if (points.Count == 0 || points[^1].DistanceTo(next) > tolerance.Absolute.Value) points.Add(next);
+                if (!successor.TryGetValue(at, out at)) return Fin.Fail<Seq<Chain>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "island-boundary: open").ToError());
+                seen.Add(at);
+            } while (at != seed);
+            if (points.Count >= 3) loops = loops.Add(new Chain(points, Closed: true));
+        }
+        return loops.IsEmpty
+            ? Fin.Fail<Seq<Chain>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "island-boundary: empty").ToError())
+            : op.AcceptValue(value: loops);
+    }
+}
 
 // Area extrema run BOTH directions of the singular-value product: a uniformly compressed flip-free atlas cuts as badly as a stretched one.
 public sealed record DistortionReceipt(
@@ -128,16 +171,28 @@ public sealed record DistortionReceipt(
     bool FlipFreeBijective);
 
 public sealed record ChartAtlas(MeshSpace Source, Seq<UvIsland> Islands, Seq<FeatureEdge> Seams, DistortionReceipt Receipt) {
-    // Source topology carries ONE coordinate per vertex, so a shared seam vertex takes its last island's UV — wedge-faithful output is ToTextureMesh.
+    // Wedge-faithful: per-corner UVs land on the edit arena and the freeze splits a seam vertex once per distinct UV,
+    // so no island's UV overwrites another's — the per-vertex overwrite form is deleted.
     public Fin<MeshSpace> ToMesh(Op? key = null) {
-        Mesh native = Source.DuplicateNative();
-        foreach (UvIsland island in Islands) {
-            for (int i = 0; i < island.Vertices.Count; i++) {
-                native.TextureCoordinates.SetTextureCoordinate(island.Vertices[i], new Point2f((float)island.Uv[i].X, (float)island.Uv[i].Y));
+        MeshEdit edit = MeshEdit.Of(Source);
+        try {
+            Dictionary<(int, int, int), int> faceAt = new(edit.FaceCount);
+            for (int f = 0; f < edit.FaceCount; f++) { faceAt[Cyclic(edit.Face(f))] = f; }
+            foreach (UvIsland island in Islands) {
+                Dictionary<int, int> at = new(island.Vertices.Count);
+                for (int i = 0; i < island.Vertices.Count; i++) { at[island.Vertices[i]] = i; }
+                foreach ((int a, int b, int c) in island.Faces) {
+                    edit.SetCornerUv(faceAt[Cyclic((a, b, c))], island.Uv[at[a]], island.Uv[at[b]], island.Uv[at[c]]);
+                }
             }
+            return edit.ToSpace(Source.Tolerance, key);
         }
-        return MeshSpace.Of(native, Source.Tolerance, key: key);
+        finally { edit.Dispose(); }
     }
+
+    // Orientation-preserving cyclic normalization — island faces and arena faces share winding, not phase.
+    private static (int, int, int) Cyclic((int A, int B, int C) t) =>
+        t.A <= t.B && t.A <= t.C ? (t.A, t.B, t.C) : t.B <= t.C ? (t.B, t.C, t.A) : (t.C, t.A, t.B);
 
     // Arena soup + freeze, remap per-ISLAND: a seam vertex shared by two islands duplicates, which IS the cut.
     public Fin<MeshSpace> ToTextureMesh(Op? key = null) {
@@ -196,7 +251,7 @@ public static class Flatten {
     public static Fin<ChartAtlas> Apply(ParamOp op, Op? key = null) {
         Op token = key.OrDefault();
         if (!op.Policy.IsValid) {
-            return Fin.Fail<ChartAtlas>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "parameterization: invalid policy").ToError());
+            return Fin.Fail<ChartAtlas>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "parameterization: invalid policy").ToError());
         }
         return MeshDec.Of(op.Chart, op.Policy, token).Bind(dec =>
             op.Switch(
@@ -233,9 +288,10 @@ public static class Flatten {
             ? Fin.Fail<Solved>(new GeometryFault.ParameterizationFault(ChartId.Whole, 0.0).ToError())
             : SparseMatrix.FromTriplets(Dimension.Create(2 * dec.VertexCount), Dimension.Create(2 * dec.VertexCount), dec.ConformalTriplets(), key)
                 .Bind(conformal => conformal.SmallestEigenpairsDetailed(k: GaugeModes + 1, tolerance: policy.ResidualTolerance, maxIterations: policy.EigenBudget, key: key))
-                .Bind(eigen => eigen.Pairs.Count > GaugeModes
-                    ? Fin.Succ(SplitComplex(dec, eigen.Pairs[GaugeModes], eigen.Iterations.IfNone(0)))
-                    : Fin.Fail<Solved>(new GeometryFault.ParameterizationFault(ChartId.Whole, 0.0).ToError()));
+                .Bind(eigen => eigen.PairsIn(expected: EigenOrder.Ascending, key: key).Bind(pairs => pairs.Count > GaugeModes
+                    // Pairs[GaugeModes] is the first non-gauge mode ONLY under ascending order — demanded on the rail.
+                    ? Fin.Succ(SplitComplex(dec, pairs[GaugeModes], eigen.Evidence.Iterations.IfNone(0)))
+                    : Fin.Fail<Solved>(new GeometryFault.ParameterizationFault(ChartId.Whole, 0.0).ToError())));
 
     // Local-global alternation: the global step re-uses the ONE gauge-pinned reduced factor every iteration, and an exhausted budget faults typed.
     static Fin<Solved> FlattenArap(MeshDec dec, ParamPolicy policy, Op key) =>
@@ -439,7 +495,7 @@ file sealed class MeshDec {
 
     public static Fin<MeshDec> Of(MeshSpace chart, ParamPolicy policy, Op key) =>
         from snapshot in MeshAdjointSnapshot.Of(chart, key)
-        // A zero-face chart crashes the empty-span TensorPrimitives reductions downstream, so the admission refusal fires here.
+        // Zero-face charts crash the empty-span TensorPrimitives reductions downstream, so the admission refusal fires here.
         from _ in guard(snapshot.FaceCount > 0, new GeometryFault.DegenerateInput(Kind.Mesh, snapshot.FaceCount, "parameterization: faceless chart").ToError()).ToFin()
         from featurePolicy in MeshFeaturePolicy.Of(dihedralRadians: policy.SeamDihedralRadians, space: chart, faceRegions: Option<Arr<int>>.None, key: key)
         from intent in VectorIntent.Features(chart, featurePolicy, key)
@@ -634,7 +690,7 @@ file sealed class MeshDec {
 
     static (int, int) Order(int u, int v) => u < v ? (u, v) : (v, u);
 
-    // A directed half-edge with no reversed twin is a boundary half-edge whose direction is its face's winding, so
+    // Directed half-edges with no reversed twin are boundary half-edges whose direction is its face's winding, so
     // next[tail] = head is well-defined per manifold boundary vertex. Walk starts scan ASCENDING, so every loop begins
     // at its minimum vertex id — a set-order start would rotate the pin ring run-to-run and fork the content hash.
     static int[][] BoundaryLoops(Mesh mesh) {
@@ -671,6 +727,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Parameterization dispatch
+    accDescr: ParamOp folds over the DEC substrate through the eliminated pinned solve into the content-keyed chart atlas.
     Chart["MeshSpace chart"] -->|MeshAdjointSnapshot.Of| DEC["DiscreteCalculus D0/Star1"]
     DEC -->|eliminate pinned rows| Reduced["ReducedSystem (SPD, no shift)"]
     Reduced -->|CholeskySparse.Of once per pin set| Factor

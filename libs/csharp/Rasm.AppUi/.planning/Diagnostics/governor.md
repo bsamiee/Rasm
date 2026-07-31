@@ -9,13 +9,13 @@ Rasm.AppUi quality governance is one stateful fold over one cell: `PerfBudget` f
 
 ## [02]-[PERF_BUDGET]
 
-- Owner: `QualityTier` `[SmartEnum<string>]` the descending quality grades; `PerfSample` the folded telemetry observation; `GovernorState` the active-tier-plus-calm transition state; `QualityVerdict` the derived tier verdict; `PerfBudget` the pure transition policy; `Governor` the composition-scoped state cell.
+- Owner: `QualityTier` `[SmartEnum<string>]` the descending quality grades; `BudgetAxis` `[SmartEnum<string>]` the observation-and-ceiling pair per gated axis; `PerfSample` the folded telemetry observation; `GovernorState` the active-tier-plus-calm transition state; `QualityVerdict` the derived tier verdict naming the axis that moved it; `PerfBudget` the pure transition policy; `Governor` the composition-scoped state-and-decision cell.
 - Cases: `QualityTier` = ultra, high, balanced, conservative, floor — ultra runs the full pass list and full motion complexity, while floor runs the composite-and-overlay pass floor with static performance motion, the tightest residency watermark, and the strongest foveation; each row's `PassMask` column carries the degraded pass disposition as data, and `RenderGraph.Frame` folds it over the pass DAG. `MotionQuality` controls animation complexity only; the user-owned `ReducedMotion` accessibility preference remains an independent hard constraint.
 - Entry: `PerfBudget.Of` admits hysteresis and calm-window policy; `Govern` is the pure transition fold; `Governor.Observe` swaps its composition-scoped cell and returns `QualityDecision.Applied` or `Stale` according to the accepted sample instant.
-- Auto: `PerfSample` folds the viewport `FrameReceipt` frame-elapsed and GPU-elapsed, the residency-evict count, the VRAM watermark, and the layout-elapsed into one observation off the receipt stream the timeline already ingests, so the governor reads the settled evidence and mints no new instrument; samples at or before `GovernorState.LastAt` return `QualityDecision.Stale` without mutating the cell, so delayed telemetry cannot reverse a newer transition; the transition is asymmetric by design — a budget breach steps the tier down one grade immediately and zeroes the calm count, while recovery steps up one rung only after `CalmWindow` consecutive within-hysteresis samples; the verdict carries the degraded pass mask, residency watermark factor, `MotionQuality`, and XR foveation-plus-refresh pair while leaving `ReducedMotion` under the accessibility owner.
-- Receipt: `QualityVerdict` seals through its own `Diagnostics/evidence#RECEIPT_UNION` `EvidenceReceipt.Quality` case (`ToEvidence` on the verdict — tier key plus every degrade axis) so a tier transition is timeline-attributable; the evidence fan's quality arm swaps the shared quality-rank cell, so the `TierInstrument` level gauge reads the active rank with zero governor wiring.
+- Auto: `PerfSample` folds the viewport `FrameReceipt` frame-elapsed and GPU-elapsed, the residency-evict count, the VRAM watermark, and the layout-elapsed into one observation off the receipt stream the timeline already ingests, so the governor reads the settled evidence and mints no new instrument; every comparison rides the one `BudgetAxis` vocabulary carrying its own observation and its own ceiling, so breach and recovery read one row set, each phase gates on its own share rather than borrowing the whole-frame duration, and eviction gates on a per-frame rate because a byte-budgeted cache evicts continuously under camera motion; samples at or before `GovernorState.LastAt` return `QualityDecision.Stale` without mutating the cell, so delayed telemetry cannot reverse a newer transition and a duplicate instant reports the refusal rather than the tier it did not move; the transition is asymmetric by design — a budget breach steps the tier down one grade immediately and zeroes the calm count, while recovery steps up one rung only after `CalmWindow` consecutive within-hysteresis samples; the verdict carries the breaching axis beside the degraded pass mask, residency watermark factor, `MotionQuality`, and XR foveation-plus-refresh pair while leaving `ReducedMotion` under the accessibility owner.
+- Receipt: `QualityVerdict` seals through its own `Diagnostics/evidence#RECEIPT_UNION` `EvidenceReceipt.Quality` case (`ToEvidence` on the verdict — tier key, the breaching axis key where one moved it, and every degrade lever) so a tier transition is timeline-attributable and names its cause; the evidence fan's quality arm swaps the shared quality-rank cell, so the `TierInstrument` level gauge reads the active rank with zero governor wiring.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new quality grade is one `QualityTier` row; a new degrade axis is one `QualityTier` column plus one derived `QualityVerdict` projection; zero duplicated verdict storage.
+- Growth: a new quality grade is one `QualityTier` row at either rank extreme; a new gated axis is one `BudgetAxis` row plus its `FrameBudget` ceiling column, read by breach and recovery alike; a new degrade lever is one `QualityTier` column plus one derived `QualityVerdict` projection; zero duplicated verdict storage and no parallel comparison ladder.
 - Boundary: the governor is the one adaptive-quality owner — absent the governor the per-owner frame/VRAM/layout-elapsed instruments enforce locally with no cross-owner authority, and the `PerfBudget` folds that evidence telemetry back into one quality policy so a second meter, a per-pass ad-hoc throttle, or a caller-maintained tier state is the deleted form; the transition state lives in the one `Governor` cell; the governor consumes the settled `FrameReceipt`, residency instruments, and `HudSample`, then emits one `QualityVerdict` that degrades render passes, residency watermark, performance motion complexity, foveation, and refresh together. `ReducedMotion` remains a user preference composed as the stricter downstream selector, never a lever the performance governor mutates.
 
 ```csharp signature
@@ -51,11 +51,17 @@ public sealed partial class QualityTier {
     public double RefreshHz { get; }
     public Func<RenderPass, bool> PassMask { get; } // the degraded pass disposition AS DATA — RenderGraph.Frame folds it over the pass DAG
 
-    private static readonly Lazy<FrozenDictionary<int, QualityTier>> ByRank =
-        new(static () => Items.ToFrozenDictionary(static row => row.Rank));
+    // Clamp against the vocabulary's OWN rank extremes: the item count equals the top rank only while the
+    // ranks happen to run contiguously from zero, so a grade added at either end — the one growth move this
+    // vocabulary declares — turns the count-derived bound into a lookup for a rank no row carries.
+    private static readonly Lazy<(FrozenDictionary<int, QualityTier> ByRank, int Floor, int Ceiling)> Ranks =
+        new(static () => (
+            Items.ToFrozenDictionary(static row => row.Rank),
+            Items.Min(static row => row.Rank),
+            Items.Max(static row => row.Rank)));
 
     public static QualityTier Ranked(int rank) =>
-        ByRank.Value[Math.Clamp(rank, 0, ByRank.Value.Count - 1)];
+        Ranks.Value.ByRank[Math.Clamp(rank, Ranks.Value.Floor, Ranks.Value.Ceiling)];
 }
 
 public readonly record struct PerfSample(Duration FrameElapsed, Duration GpuElapsed, long VramBytes, long ResidencyEvicts, Duration LayoutElapsed, Instant At) {
@@ -63,7 +69,26 @@ public readonly record struct PerfSample(Duration FrameElapsed, Duration GpuElap
         new(hud.FrameElapsed, hud.GpuElapsed, hud.VramBytes, evicts, layout, at);
 }
 
-public readonly record struct QualityVerdict(QualityTier Tier, Instant At) {
+// The budget axes are ONE vocabulary carrying both halves of every comparison — what the sample observed and
+// what the budget allows — so a breach test and a recovery test read one row set instead of two parallel
+// boolean ladders an added axis must be edited into twice. Each axis owns its OWN ceiling: gating GPU and
+// layout on the whole-frame duration makes both terms unreachable, since a phase inside the frame can only
+// exceed the frame budget once the frame already has. Eviction is a RATE, not a presence — a budgeted
+// least-recently-touched cache evicts continuously under camera motion, so `> 0` pins the governor at floor
+// for the whole of any fly-through and the hysteresis the band buys never engages.
+[SmartEnum<string>]
+public sealed partial class BudgetAxis {
+    public static readonly BudgetAxis Frame = new("frame", static s => s.FrameElapsed.ToTimeSpan().TotalNanoseconds, static b => b.Frame.ToTimeSpan().TotalNanoseconds);
+    public static readonly BudgetAxis Gpu = new("gpu", static s => s.GpuElapsed.ToTimeSpan().TotalNanoseconds, static b => b.Gpu.ToTimeSpan().TotalNanoseconds);
+    public static readonly BudgetAxis Layout = new("layout", static s => s.LayoutElapsed.ToTimeSpan().TotalNanoseconds, static b => b.Layout.ToTimeSpan().TotalNanoseconds);
+    public static readonly BudgetAxis Vram = new("vram", static s => s.VramBytes, static b => b.VramBytes);
+    public static readonly BudgetAxis Evict = new("evict", static s => s.ResidencyEvicts, static b => b.EvictsPerFrame);
+
+    [UseDelegateFromConstructor] public partial double Observed(PerfSample sample);
+    [UseDelegateFromConstructor] public partial double Ceiling(FrameBudget budget);
+}
+
+public readonly record struct QualityVerdict(QualityTier Tier, Option<BudgetAxis> Breach, Instant At) {
     public Func<RenderPass, bool> PassMask => Tier.PassMask;
 
     public int PathTraceSamples => Tier.PathTraceSamples;
@@ -74,7 +99,7 @@ public readonly record struct QualityVerdict(QualityTier Tier, Instant At) {
     public int FoveationLevel => Tier.FoveationLevel;
     public double RefreshHz => Tier.RefreshHz;
 
-    public static QualityVerdict Of(QualityTier tier, Instant at) => new(tier, at);
+    public static QualityVerdict Of(QualityTier tier, Option<BudgetAxis> breach, Instant at) => new(tier, breach, at);
 }
 
 public readonly record struct GovernorState(QualityTier Active, int Calm, Option<Instant> LastAt) {
@@ -109,49 +134,48 @@ public sealed record PerfBudget {
             InstrumentSpec.Level(TierInstrument, "1", "active quality tier rank", MeasureForm.Whole));
 
     // Asymmetric hysteresis: a breach descends one grade immediately and zeroes calm; ascent takes
-    // CalmWindow consecutive within-hysteresis samples, so the tier never oscillates per frame.
+    // CalmWindow consecutive within-hysteresis samples, so the tier never oscillates per frame. The FIRST
+    // breaching axis rides the verdict, so a degrade is attributable — a tier that fell without naming what
+    // it fell on is a number the operator cannot act on, and the whole page exists to attribute cost.
     public (GovernorState Next, QualityVerdict Verdict) Govern(GovernorState state, PerfSample sample) =>
         (Breached(sample), Recovered(sample), state.Calm) switch {
-            (true, _, _) => Stepped(state.Active.Rank - 1, sample.At),
-            (false, true, var calm) when calm + 1 >= CalmWindow => Stepped(state.Active.Rank + 1, sample.At),
-            (false, true, var calm) => (state with { Calm = calm + 1, LastAt = Some(sample.At) }, QualityVerdict.Of(state.Active, sample.At)),
-            _ => (state with { Calm = 0, LastAt = Some(sample.At) }, QualityVerdict.Of(state.Active, sample.At)),
+            ({ IsSome: true } axis, _, _) => Stepped(state.Active.Rank - 1, axis, sample.At),
+            (_, true, var calm) when calm + 1 >= CalmWindow => Stepped(state.Active.Rank + 1, None, sample.At),
+            (_, true, var calm) => (state with { Calm = calm + 1, LastAt = Some(sample.At) }, QualityVerdict.Of(state.Active, None, sample.At)),
+            _ => (state with { Calm = 0, LastAt = Some(sample.At) }, QualityVerdict.Of(state.Active, None, sample.At)),
         };
 
-    private bool Breached(PerfSample sample) =>
-        sample.FrameElapsed > Budget.Frame
-            || sample.GpuElapsed > Budget.Frame
-            || sample.LayoutElapsed > Budget.Frame
-            || sample.VramBytes > Budget.VramBytes
-            || sample.ResidencyEvicts > 0;
+    private Option<BudgetAxis> Breached(PerfSample sample) =>
+        BudgetAxis.Items.Find(axis => axis.Observed(sample) > axis.Ceiling(Budget));
 
     private bool Recovered(PerfSample sample) =>
-        sample.FrameElapsed < Budget.Frame * (1.0 - HysteresisFraction)
-            && sample.GpuElapsed < Budget.Frame * (1.0 - HysteresisFraction)
-            && sample.LayoutElapsed < Budget.Frame * (1.0 - HysteresisFraction)
-            && sample.VramBytes < (long)(Budget.VramBytes * (1.0 - HysteresisFraction))
-            && sample.ResidencyEvicts == 0;
+        BudgetAxis.Items.ForAll(axis => axis.Observed(sample) < axis.Ceiling(Budget) * (1.0 - HysteresisFraction));
 
-    private static (GovernorState, QualityVerdict) Stepped(int rank, Instant at) =>
+    private static (GovernorState, QualityVerdict) Stepped(int rank, Option<BudgetAxis> breach, Instant at) =>
         QualityTier.Ranked(rank) switch {
-            var tier => (new GovernorState(tier, Calm: 0, Some(at)), QualityVerdict.Of(tier, at)),
+            var tier => (new GovernorState(tier, Calm: 0, Some(at)), QualityVerdict.Of(tier, breach, at)),
         };
 }
 
-public sealed record Governor(Atom<GovernorState> Cell) {
-    public static Governor Open() => new(Atom(GovernorState.Boot));
+// The cell holds the state AND the decision the swap that produced it reached. A swap returns only its new
+// value, so a decision re-derived by comparing that value against the sample cannot tell a rejected duplicate
+// instant from an accepted one — both leave LastAt equal to the sample instant — and the rejected sample then
+// reports Applied over a tier it never moved. Deciding INSIDE the swap makes the answer the transition's own.
+public sealed record Governor(Atom<(GovernorState State, QualityDecision Last)> Cell) {
+    public static Governor Open() =>
+        new(Atom((GovernorState.Boot, (QualityDecision)new QualityDecision.Applied(
+            QualityVerdict.Of(GovernorState.Boot.Active, None, Instant.MinValue)))));
 
-    public QualityTier Active => Cell.Value.Active;
+    public QualityTier Active => Cell.Value.State.Active;
 
-    // Govern is pure and Swap-safe under CAS retry; the verdict projects the post-transition state, so
-    // the tier a later observation reads is the preceding accepted transition's evidence.
+    // Govern is pure and Swap-safe under CAS retry: a losing writer re-runs the fold against the winner's
+    // state, so the accepted decision always describes the transition that actually landed.
     public QualityDecision Observe(PerfBudget policy, PerfSample sample) =>
-        Cell.Swap(state => state.LastAt.Exists(accepted => sample.At <= accepted)
-            ? state
-            : policy.Govern(state, sample).Next) switch {
-                var accepted when accepted.LastAt.Exists(at => at == sample.At) => new QualityDecision.Applied(QualityVerdict.Of(accepted.Active, sample.At)),
-                var accepted => new QualityDecision.Stale(sample.At, accepted.LastAt.IfNone(Instant.MinValue)),
-            };
+        Cell.Swap(held => held.State.LastAt.Exists(accepted => sample.At <= accepted)
+            ? (held.State, new QualityDecision.Stale(sample.At, held.State.LastAt.IfNone(Instant.MinValue)))
+            : policy.Govern(held.State, sample) switch {
+                var stepped => (stepped.Next, new QualityDecision.Applied(stepped.Verdict)),
+            }).Last;
 }
 ```
 
@@ -164,6 +188,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Frame-budget governor verdict fan
+    accDescr: Frame and HUD receipts folding into one performance sample measured against the budget, the governor state resolving one quality verdict, and that verdict driving the render pass mask, residency watermark, motion complexity, and immersive foveation.
     FrameReceipt --> PerfSample
     HudSample --> PerfSample
     PerfSample --> PerfBudget

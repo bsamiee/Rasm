@@ -11,11 +11,11 @@ Rasm.Compute stats monitor scores operational streams online: `StreamMonitor` is
 ## [02]-[MONITOR_LANE]
 
 - Owner: `StreamMonitor` `[Union]` the stateful capsule family whose cases carry their own advance state; `MonitorVerdict` the per-sample verdict carrier minting the `Drift` receipt case; `MonitorChannel` `[SmartEnum<string>]` the receipt-to-scalar extraction rows; `MonitorLane` the advance fold, stream observation, and the twin-detector projection.
-- Cases: `StreamMonitor` ewma (λ-smoothed level against time-varying control limits over a Welford baseline) · quantile (five-marker P² sketch tracking one probability against a policy bound) · detector (bounded residual window carrying one fitted `Stats/estimator` detector); `MonitorChannel` solve-residual · remote-seconds · backpressure-depth.
+- Cases: `StreamMonitor` ewma (λ-smoothed level against time-varying control limits over an admitted kernel `Stat` baseline) · quantile (five-marker P² sketch tracking one probability against a policy bound) · detector (bounded residual window carrying one fitted `Stats/estimator` detector); `MonitorChannel` solve-residual · remote-seconds · backpressure-depth.
 - Entry: `StreamMonitor.OfEwma(string monitorId, double lambda, double falseAlarm, int warmup)`, `OfQuantile(string monitorId, double probability, double limit)`, and `OfDetector(string monitorId, int capacity, FittedModel detector)` — validated mints, `Fin<T>` aborting an out-of-range policy or a non-detector carrier; `MonitorLane.Advance(StreamMonitor monitor, double sample, IClock clock)` — one sample in, the advanced capsule and its `MonitorVerdict` out through the generated total `Switch`; `MonitorLane.Observe(StreamMonitor monitor, MonitorChannel channel, Seq<ComputeReceipt> facts, IClock clock)` — extracts the channel and folds `Advance` across it; `MonitorLane.AsDetector(StreamMonitor.Detector seed, IClock clock)` — the stateful `Func<Matrix<double>, Fin<Prediction>>` projection the clash twin injects, admitting the detector capsule and exactly one evidence column before indexing.
-- Auto: the EWMA arm runs Welford mean/variance through its warmup, then smooths `level = λ·x + (1−λ)·level` and derives the time-varying limit `L·σ·√(λ/(2−λ)·(1−(1−λ)^{2t}))` so early samples meet tighter bands and the asymptote is the textbook control limit; `OfEwma` admits a two-sided false-alarm rate and derives `L = Φ⁻¹(1 − α/2)` through `Normal.InvCDF` at the gate, rejecting a non-finite derived limit (a sub-representable rate rounds the quantile argument to 1 and lands `+∞`), so the knob is a probability admitted exactly once on the `Fin` rail, never a bare multiplier; the quantile arm runs the five-marker P² update — sorted seeding over the first five samples, then marker increment, desired-position drift, and parabolic (linear-fallback) height adjustment — tracking the running quantile with O(1) state; the detector arm pushes into its bounded window and delegates scoring to the injected detector, reading the LAST row's score and change flag exactly as the twin does.
+- Auto: the EWMA arm advances the kernel `Stat` moment summary one admitted sample at a time through its warmup — inheriting the sentinel screen a local mean/M2/count triple drops — then smooths `level = λ·x + (1−λ)·level` and derives the time-varying limit `L·σ·√(λ/(2−λ)·(1−(1−λ)^{2t}))` so early samples meet tighter bands and the asymptote is the textbook control limit; `OfEwma` admits a two-sided false-alarm rate and derives `L = Φ⁻¹(1 − α/2)` through `Normal.InvCDF` at the gate, rejecting a non-finite derived limit (a sub-representable rate rounds the quantile argument to 1 and lands `+∞`), so the knob is a probability admitted exactly once on the `Fin` rail, never a bare multiplier; the quantile arm runs the five-marker P² update — sorted seeding over the first five samples, then marker increment, desired-position drift, and parabolic (linear-fallback) height adjustment — tracking the running quantile with O(1) state; the detector arm pushes into its bounded window and delegates scoring to the injected detector, reading the LAST row's score and change flag exactly as the twin does.
 - Receipt: `Drift` — monitor id, statistic, optional policy limit, level, breach flag, and window count, minted by `MonitorVerdict.Receipt` under the caller's correlation; detector verdicts carry `null` because their fitted model owns classification without exposing a scalar boundary. `[02]-[RECEIPT_UNION]` counts breaches onto `rasm.compute.monitor.breaches`, and `ReceiptFolds.Breaches` is the operational view, so monitor evidence rides the standing stream.
-- Packages: MathNet.Numerics (`Normal.InvCDF` static quantile), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Packages: MathNet.Numerics (`Normal.InvCDF` static quantile), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Stat` the one admitted moment summary and its sentinel screen), BCL inbox
 - Growth: a new online statistic is one `StreamMonitor` case whose arm the `Advance` `Switch` demands at compile time; a new operational stream is one `MonitorChannel` row with its extractor column; a new false-alarm posture is one `OfEwma` rate value at composition; zero new surface — an `EwmaMonitor`/`QuantileTracker`/`DriftDetector` sibling family, a second receipt-scanning loop beside `MonitorChannel`, or a monitor-local CUSUM recursion re-deriving the estimator rows is the rejected form.
 - Boundary: capsules are immutable — `Advance` returns the next capsule, the caller owns placement (an `Atom<StreamMonitor>` at a session boundary, a threaded fold in a batch view) per the cell-and-thread law; changepoint state, thresholds, and anomaly classification for the detector arm live on its fitted `Stats/estimator` model, while the monitor holds only the bounded evidence window. `AsDetector` emits one score and one change flag per evidence row, and the closure-held capsule advances across calls. Extraction reads the same `Seq<ComputeReceipt>` the dashboards fold — a monitor that taps `ReceiptSurface.Emit` directly or mints a second fact stream is the deleted form; warmup samples score `Breach: false` because a limit over an unestimated baseline is noise, and the verdict still lands so cadence stays observable.
 
@@ -29,7 +29,7 @@ Rasm.Compute stats monitor scores operational streams online: `StreamMonitor` is
 public abstract partial record StreamMonitor {
     private StreamMonitor() { }
 
-    public sealed record Ewma(string MonitorId, double Lambda, double ControlL, int Warmup, double Level, double Mean, double M2, long Count) : StreamMonitor;
+    public sealed record Ewma(string MonitorId, double Lambda, double ControlL, int Warmup, double Level, Option<Stat> Baseline, long Count) : StreamMonitor;
 
     public sealed record Quantile(string MonitorId, double Probability, double Limit, ImmutableArray<double> Heights, ImmutableArray<double> Positions, long Count) : StreamMonitor;
 
@@ -49,7 +49,7 @@ public abstract partial record StreamMonitor {
             || !double.IsFinite(falseAlarm) || falseAlarm is <= 0d or >= 1d || warmup < 2
             ? Fin.Fail<StreamMonitor>(ComputeFault.Create($"<monitor-ewma-policy:{monitorId}>"))
             : Normal.InvCDF(0d, 1d, 1d - falseAlarm / 2d) is var controlL && double.IsFinite(controlL)
-                ? Fin.Succ<StreamMonitor>(new Ewma(monitorId, lambda, controlL, warmup, Level: 0d, Mean: 0d, M2: 0d, Count: 0L))
+                ? Fin.Succ<StreamMonitor>(new Ewma(monitorId, lambda, controlL, warmup, Level: 0d, Baseline: None, Count: 0L))
                 : Fin.Fail<StreamMonitor>(ComputeFault.Create($"<monitor-ewma-limit-nonfinite:{monitorId}:{falseAlarm:R}>"));
 
     public static Fin<StreamMonitor> OfQuantile(string monitorId, double probability, double limit) =>
@@ -95,8 +95,8 @@ public static class MonitorLane {
         !double.IsFinite(sample)
             ? Fin.Fail<(StreamMonitor, MonitorVerdict)>(ComputeFault.Create($"<monitor-sample-nonfinite:{monitor.Id}>"))
             : monitor.Switch(
-                state: (Sample: sample, At: clock.GetCurrentInstant()),
-                ewma: static (s, held) => Fin.Succ(Smoothed(held, s.Sample, s.At)),
+                state: (Sample: sample, At: clock.GetCurrentInstant(), Key: Op.Of(nameof(Advance))),
+                ewma: static (s, held) => Fin.Succ(Smoothed(held, s.Sample, s.At, s.Key)),
                 quantile: static (s, held) => Fin.Succ(Sketched(held, s.Sample, s.At)),
                 detector: static (s, held) => Detected(held, s.Sample, s.At));
 
@@ -148,20 +148,31 @@ public static class MonitorLane {
                 : Fin.Fail<(StreamMonitor, MonitorVerdict)>(ComputeFault.Create($"<monitor-detector-carrier:{next.MonitorId}>")));
     }
 
-    static (StreamMonitor Next, MonitorVerdict Verdict) Smoothed(StreamMonitor.Ewma held, double sample, Instant at) {
+    // Baseline rides the KERNEL's admitted moment summary advanced one sample at a time, not a local
+    // mean/M2/count triple: `Stat.Update` carries the same Welford recurrence PLUS the `ValidityClaim.Finite`
+    // screen that rejects the host `RhinoMath.UnsetValue` sentinel a bare `double.IsFinite` admits as an ordinary
+    // value — a sentinel entering an operational baseline shifts every later control limit with no diagnostic. A
+    // rejected sample advances neither the baseline nor the count, so the warmup admits only measured samples.
+    static (StreamMonitor Next, MonitorVerdict Verdict) Smoothed(StreamMonitor.Ewma held, double sample, Instant at, Op key) {
+        bool warm = held.Count >= held.Warmup;
+        Option<Stat> advanced = warm
+            ? held.Baseline
+            : held.Baseline.Match(
+                Some: prior => Stat.Update(prior, sample, key).ToOption(),
+                None: () => Stat.Of(Seq1(sample), key).ToOption());
+        if (!warm && advanced.IsNone) {
+            return (held, new MonitorVerdict(held.MonitorId, "ewma-rejected", sample, sample, false, (int)Math.Min(held.Count, int.MaxValue), at));
+        }
+
         long count = held.Count + 1L;
-        bool warm = count > held.Warmup;
-        double delta = warm ? 0d : sample - held.Mean;
-        double mean = warm ? held.Mean : held.Mean + delta / count;
-        double m2 = warm ? held.M2 : held.M2 + delta * (sample - mean);
+        double mean = advanced.Map(static baseline => baseline.Mean).IfNone(0d);
+        double sigma = advanced.Map(static baseline => baseline.Count > 1 ? Math.Sqrt(baseline.Variance) : 0d).IfNone(0d);
         double level = warm ? held.Lambda * sample + (1d - held.Lambda) * held.Level : mean;
-        long baselineCount = Math.Min(count, held.Warmup);
-        double sigma = baselineCount > 1 ? Math.Sqrt(m2 / (baselineCount - 1)) : 0d;
         double band = held.ControlL * sigma * Math.Sqrt(
             held.Lambda / (2d - held.Lambda) * (1d - Math.Pow(1d - held.Lambda, 2d * Math.Max(1L, count - held.Warmup))));
         bool breach = warm && sigma > 0d && Math.Abs(level - mean) > band;
         return (
-            held with { Level = level, Mean = mean, M2 = m2, Count = count },
+            held with { Level = level, Baseline = advanced, Count = count },
             new MonitorVerdict(held.MonitorId, "ewma-level", level, mean + Math.Sign(level - mean) * band, breach, (int)Math.Min(count, int.MaxValue), at));
     }
 

@@ -16,7 +16,7 @@
 - Output: `DxfComposed` carries serialized `data`, `kind`, `dxfversion`, `units`, `counts`, `layers`, `blocks`, `errors`, `fixes`, and `extent`. Auditor counts become non-zero only for salvaged input. `DxfUnits` mirrors `ezdxf.units.InsertUnits`, so `DxfUnits(doc.units)` is total over conforming foreign documents.
 - Receipt: `_emit` maps the fold's rail onto ONE `ArtifactReceipt.Cad` case through the receipt owner's named flat-scalar mint — the `dxfversion`, units, `artifact` format (from `composed.kind`), byte count, layer/block roster counts, `Auditor` error+fix counts, and the `Counter(dxftype)` census — threading the PRE-RUN key; a failed production rides the `BoundaryFault` rail the lane boundary minted, never a zero-byte placeholder and never a second synchronous entry re-running the fold.
 - Packages: `ezdxf` owns read/write/recover/audit, builders, ACIS decode/export, hatch and multileader construction, xrefs, paths, math, rendering, queries, selection, GeoJSON, text paths, and import. `matplotlib.figure.Figure` owns EPS/PS egress. `apply_region(RegionOp.Serialize(...))` frames SVG. `Standard.seed` authors ISO tables. `visualization/diagram/glyphset` supplies the mark vocabulary and its shared lowering derivations (`DiagramGlyph.mark`, `Port.seat`, `AreaMark.centroid`, `ER_CAPS`, `ENTITY_BAND`). `numpy` carries `(N,3)` vertices. `expression` and `msgspec` own unions, rails, wires, and evidence derivation.
-- Growth: a new DXF version is one `DxfVersion` member; a new drawable is one `DxfEntity` case plus one `_build_entity` arm (the `assert_never` tail breaking the fold at type-check) plus its `_ENTITY_FLOOR` row when it postdates R12; a new hatch fill is one `DxfFill` case; a new dimension kind is one `DimKind` member plus one `_DIM` row; a new symbol-table row is one `TableEntry` case plus one `_table_entry` arm; a new ingestion source is one `DxfSource` case; a new render backend or format is one `DxfBackend`+`DxfArtifact` member plus one `_rendered` arm; a new egress encoding (the `r12writer` streaming fast-writer) is one `DxfFormat` member plus one `_serialize` arm; a new spatial refinement is one `Spatial` case; a new render policy is one `DxfRenderPolicy` field; a new affine mode is one `TransformMode` member; a new bridge direction is one `BridgeSpec` case over the existing `ezdxf.addons` surface; a new query refinement (`groupby`, the `EntityQuery` set-algebra) is one `Selection` field; a new diagram mark lowering is one `_glyph_entities` arm plus its `_GLYPH_TEXT` default-size row; a new node silhouette is one `_SILHOUETTE` row; a new terminator lowering is one `_cap_block` arm; a new label placement is one `TextAlign` member; a new receipt scalar is one `Cad` slot; a new admission invariant is one `DxfFault` case plus one `_checked` guard.
+- Growth: a new DXF version is one `DxfVersion` member; a new drawable is one `DxfEntity` case plus one `_build_entity` arm (the `assert_never` tail breaking the fold at type-check) plus its `_ENTITY_FLOOR` row when it postdates R12; a new hatch fill is one `DxfFill` case; a new dimension kind is one `DimKind` member plus one `_DIM` row; a new symbol-table row is one `TableEntry` case plus one `_table_entry` arm; a new ingestion source is one `DxfSource` case; a new render backend or format is one `DxfBackend`+`DxfArtifact` member plus one `_rendered` arm; a new egress encoding (the `r12writer` streaming fast-writer) is one `DxfFormat` member plus one `_serialize` arm; a new spatial refinement is one `Spatial` case; a new render policy is one `DxfRenderPolicy` field; a new affine mode is one `TransformMode` member; a new bridge direction is one `BridgeSpec` case over the existing `ezdxf.addons` surface; a new query refinement (`groupby`, the `EntityQuery` set-algebra) is one `Selection` field; a new diagram mark lowering is one `_glyph_entities` arm plus its `_GLYPH_TEXT` default-size row; a new node silhouette is one `_SILHOUETTE` row the import-time coverage gate proves reachable; a new terminator lowering is one `_cap_block` arm; a new label placement is one `TextAlign` member; a new receipt scalar is one `Cad` slot; a new admission invariant is one `DxfFault` case plus one `_checked` guard.
 - Boundary: `ezdxf` owns tag construction, affine/B-spline/OCS math, ACIS SAT/SAB decoding, rendering, querying, salvage, and DXF↔GeoJSON conversion. `DxfAttribs` replaces per-entity setters; `doc.query`/`select` replace lookup-method families; `recover.readfile` owns damaged input. `Standard.seed` owns ISO symbol-table derivation. `visualization/diagram/layout#LAYOUT` owns diagram coordinates and routes, `visualization/diagram/draw#DRAW` owns the SVG/.drawio egress, and the glyph vocabulary is `visualization/diagram/glyphset#GLYPHSET`'s — the `Diagram` arm owns only the entity lowering and the y-mirror seam. `graphic/vector/region#REGION` frames SVG, composition owns PDF assembly, typography owns shaping, and the geospatial owner owns CRS semantics.
 
 ```python signature
@@ -30,7 +30,7 @@ from collections.abc import Callable, Iterable, Iterator
 from enum import IntEnum, StrEnum
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, Final, Literal, Self, assert_never, cast
+from typing import TYPE_CHECKING, Final, Literal, Self, assert_never, cast, get_args
 
 import msgspec
 import numpy as np
@@ -1406,6 +1406,29 @@ _SILHOUETTE: frozendict[NodeShape, Silhouette] = frozendict({
         _xyseb(x, y + h * 0.12),
     ),
 })
+# shapes `_node_entities` bodies itself; every OTHER member falls to its catch-all and reads `_SILHOUETTE` by key.
+# RECTANGLE and DOCUMENT rejoin the required set because three of the armed shapes compose their rings.
+_ARMED: Final[frozenset[NodeShape]] = frozenset({
+    NodeShape.OVAL, NodeShape.CONNECTOR, NodeShape.ENTITY, NodeShape.PREDEFINED_PROCESS, NodeShape.MULTI_DOCUMENT
+})
+
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form, seated after the last table so every pair the page reads by key proves in one place — the sibling of the
+# scene worker's `_BOOL`/`_IMPORTER`/`_SOURCE` gate. Each unruled member is otherwise a runtime `KeyError` mid-fold,
+# one worker away from the caller that composed the document. `_UNITS` takes no pair (a comprehension over
+# `DxfUnits`, total by construction) and neither does `_ENTITY_FLOOR` (a deliberately PARTIAL map `DxfDocument.issue`
+# reads through `.get(tag, R12)`, its absent rows meaning "no floor past R12").
+_COVERED: Final[tuple[tuple[frozenset[object], frozenset[object]], ...]] = (
+    (frozenset(_SILHOUETTE) | _ARMED, frozenset(NodeShape)),
+    (frozenset(_SILHOUETTE) & {NodeShape.RECTANGLE, NodeShape.DOCUMENT}, frozenset({NodeShape.RECTANGLE, NodeShape.DOCUMENT})),
+    (frozenset(_DIM), frozenset(DimKind)),
+    (frozenset(_DIM_ARITY), frozenset(DimKind)),
+    (frozenset(_SPATIAL_TEST), frozenset(SpatialTest)),
+    (frozenset(_ANCHOR_ALIGN), frozenset(TextAnchor)),
+    (frozenset(_GLYPH_TEXT), frozenset(get_args(GlyphTag))),
+)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("dxf tables do not cover their vocabularies")
 
 
 def _label_entity(text: str, x: float, y: float, height: float, rotation: float, at: DxfAttribs, align: TextAlign = TextAlign.MIDDLE_CENTER, /) -> DxfEntity:

@@ -11,7 +11,7 @@
 
 ## [02]-[PIGMENT_EDGE]
 
-- Owner: `Pigment` is the sole `PerceptualColor` to `Color` projector; every brush, pen, and glyph ink on this surface quantizes through it.
+- Owner: `Pigment` is the sole `PerceptualColor`↔`Color` correspondence and carries both directions on the one owner — every brush, pen, and glyph ink quantizes out through it and every sampled pixel admits back in through it, so quantization and admission can never fork into two spellings of one conversion.
 - Law: this page mints no stroke, fill, dash, or path spec — the paint vocabulary is `Rasm.Rhino.Display` `Marks`, and paint reaches this surface only through the mounted `PaintProgram`.
 - Packages: Rasm (kernel — `PerceptualColor`), Eto.Drawing (host — `Color`).
 
@@ -27,10 +27,16 @@ namespace Rasm.Rhino.Eto;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Pigment {
-    public static Color ToColor(PerceptualColor colour) =>
-        colour.ToRgb() switch {
-            { } rgb => Color.FromArgb(red: rgb.Red, green: rgb.Green, blue: rgb.Blue, alpha: rgb.Alpha),
-        };
+    // Projection is direct, never a one-armed switch standing in for one: the host quadruple is a value tuple, so a
+    // non-null pattern decides nothing and only manufactures an unreachable `SwitchExpressionException` arm. Gamut
+    // policy rides through because bounding, not quantization, is what a caller varies.
+    public static Color ToColor(PerceptualColor colour, GamutPolicy? gamut = null) {
+        (byte red, byte green, byte blue, byte alpha) = colour.ToRgb(gamut: gamut);
+        return Color.FromArgb(red: red, green: green, blue: blue, alpha: alpha);
+    }
+
+    public static Fin<PerceptualColor> ToPerceptual(Color colour, Op? key = null) =>
+        PerceptualColor.OfRgb(red: (byte)colour.Rb, green: (byte)colour.Gb, blue: (byte)colour.Bb, alpha: colour.A, key: key);
 }
 ```
 
@@ -176,7 +182,8 @@ public sealed record PaintProgram(Func<Graphics, Fin<Unit>> Paint, Func<PointF, 
 - Law: `ScenePolicy.Use` brackets transform and clip state with the quality tuple, so every mounted or printed program leaves the caller's `Graphics` stream unchanged.
 - Law: the realized `Drawable` is its surface handle — `Surface.Of(host)` recovers the mounted owner, so an `Element.Painted` consumer swaps programs and hit-tests through the one control `Realize` returned, and a parallel surface registry is the deleted form.
 - Law: IME composition rides the host verbs — `CancelComposition`/`CommitComposition` project `CancelTextComposition`/`CommitTextComposition` — and a text-editing overlay that ignores composition state is the named defect.
-- Law: `Acquire` succeeds only where the host advertises it — `SupportsCreateGraphics` gates the lease with a typed `UiFault.Unavailable`, never a downstream null; the off-event handle `Flush`es queued commands before the lease disposes it, since an off-event `CreateGraphics` stream is not committed by the paint loop.
+- Law: `Acquire` probes `SupportsCreateGraphics` and DEGRADES where the handler refuses — the caller's `Redraw` policy invalidates and the mounted program paints on the next pass — so the backend answering `false` loses immediacy, never the capability; the off-event handle `Flush`es queued commands before the lease disposes it, since an off-event `CreateGraphics` stream is not committed by the paint loop, and `OffscreenDraw` carries which route ran because a bare refusal or a bare absence both read as a failure the fallback already answered.
+- Owner: `PixelLease` egress is leased — `Clone` hands back `Lease<Bitmap>` because a clone is a fresh host bitmap under caller custody, and a bare return is the leak the page's own lease law forecloses.
 - Growth: a new invalidation modality is one `Redraw` case; frame pacing, display-link cadence, and animation clocks are the Viewport unit's motion owner — this surface exposes swap-and-invalidate and nothing temporal.
 
 ```csharp signature
@@ -219,6 +226,13 @@ public abstract partial record Redraw {
         whole: static (surface, _) => Op.Side(surface.Invalidate),
         region: static (surface, bounded) => Op.Side(() => surface.Invalidate(rect: bounded.Bounds)),
         immediate: static (surface, bounded) => Op.Side(() => surface.Update(region: bounded.Bounds)));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record OffscreenDraw<TResult> {
+    private OffscreenDraw() { }
+    public sealed record DrawnCase(TResult Value) : OffscreenDraw<TResult>;
+    public sealed record InvalidatedCase : OffscreenDraw<TResult>;
 }
 
 [SmartEnum<int>]
@@ -318,14 +332,24 @@ public sealed class Surface : UiLease {
         return Live(op).Bind(_ => op.Catch(() => program.Value.Hit(point)));
     }
 
-    public Fin<TResult> Acquire<TResult>(Func<Graphics, TResult> draw, Op? key = null) =>
-        Live(key.OrDefault()).Bind(_ => Host.SupportsCreateGraphics
-            ? key.OrDefault().Catch(() => Fin.Succ(value: new Lease<Graphics>.Owned(Value: Host.CreateGraphics()).Use(project: graphics => {
-                TResult drawn = draw(graphics);
-                graphics.Flush();
-                return drawn;
-            })))
-            : Fin.Fail<TResult>(error: new UiFault.Unavailable(Key: key.OrDefault(), Capability: nameof(Host.SupportsCreateGraphics))));
+    // Degrade, never die: macOS answers `false`, so a refusal here makes the whole off-event path dead on that backend
+    // rather than slower. The refusing branch invalidates instead, the mounted program paints on the next pass, and the
+    // returned case tells the caller which happened — an absence carrier would read as failure at exactly the site that
+    // succeeded by another route.
+    public Fin<OffscreenDraw<TResult>> Acquire<TResult>(Func<Graphics, TResult> draw, Redraw fallback, Op? key = null) {
+        Op op = key.OrDefault();
+        return Live(op)
+            .Bind(_ => Optional(draw).ToFin(new UiFault.Rejected(Key: op, Field: nameof(draw), Reason: "draw projection is absent")))
+            .Bind(_ => Optional(fallback).ToFin(new UiFault.Rejected(Key: op, Field: nameof(fallback), Reason: "degradation policy is absent")))
+            .Bind(body => Host.SupportsCreateGraphics
+                ? op.Catch(() => Fin.Succ(value: new Lease<Graphics>.Owned(Value: Host.CreateGraphics()).Use(project: graphics => {
+                    TResult drawn = body(graphics);
+                    graphics.Flush();
+                    return (OffscreenDraw<TResult>)new OffscreenDraw<TResult>.DrawnCase(Value: drawn);
+                })))
+                : op.Catch(() => Fin.Succ(value: fallback.Apply(Host)))
+                    .Map(static _ => (OffscreenDraw<TResult>)new OffscreenDraw<TResult>.InvalidatedCase()));
+    }
 
     public Fin<Unit> CancelComposition(Op? key = null) => Composition(Host.CancelTextComposition, key);
 
@@ -348,29 +372,38 @@ public static class PixelLease {
         key.OrDefault().Catch(() => Fin.Succ(value: new Lease<BitmapData>.Owned(Value: bitmap.Lock()).Use(project: read)));
 
     public static Fin<PerceptualColor> Sample(Bitmap bitmap, Point at, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(value: bitmap.GetPixel(position: at))).Bind(colour =>
-            PerceptualColor.OfRgb(red: (byte)colour.Rb, green: (byte)colour.Gb, blue: (byte)colour.Bb, alpha: colour.A, key: key));
+        key.OrDefault().Catch(() => Fin.Succ(value: bitmap.GetPixel(position: at)))
+            .Bind(colour => Pigment.ToPerceptual(colour: colour, key: key));
 
     public static Fin<Unit> Write(Bitmap bitmap, Point at, PerceptualColor colour, Op? key = null) =>
         WriteLocked(bitmap, Seq((At: at, Colour: colour)), key);
 
+    // Bounds are ONE size read, never a per-pixel host probe: reading each pixel back merely to prove it addressable
+    // pays a full host round trip per point and then pays a second one writing it inside the lock.
     public static Fin<Unit> WriteLocked(Bitmap bitmap, Seq<(Point At, PerceptualColor Colour)> pixels, Op? key = null) {
         Op op = key.OrDefault();
-        return pixels
-            .Traverse(pixel => op.Catch(() => Fin.Succ(bitmap.GetPixel(position: pixel.At))).ToValidation().Map(_ => pixel))
+        return op.Catch(() => Fin.Succ(value: bitmap.Size)).Bind(extent => pixels
+            .Traverse(pixel => guard(
+                    pixel.At.X >= 0 && pixel.At.X < extent.Width && pixel.At.Y >= 0 && pixel.At.Y < extent.Height,
+                    op.InvalidInput())
+                .ToFin()
+                .Map(_ => pixel)
+                .ToValidation())
             .As()
             .ToFin()
             .Bind(admitted => Locked(
                 bitmap,
                 data => admitted.Iter(pixel => data.SetPixel(position: pixel.At, color: Pigment.ToColor(pixel.Colour))),
-                op));
+                op)));
     }
 
     public static Fin<byte[]> Encode(Bitmap bitmap, ImageFormat format, Op? key = null) =>
         key.OrDefault().Catch(() => Fin.Succ(value: bitmap.ToByteArray(imageFormat: format)));
 
-    public static Fin<Bitmap> Clone(Bitmap bitmap, Option<Rectangle> region, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(value: bitmap.Clone(rectangle: region.ToNullable())));
+    // Cloning mints a fresh host bitmap the caller now owns, so it leaves leased like every other pixel egress here.
+    public static Fin<Lease<Bitmap>> Clone(Bitmap bitmap, Option<Rectangle> region, Op? key = null) =>
+        key.OrDefault().Catch(() => Fin.Succ(
+            value: (Lease<Bitmap>)new Lease<Bitmap>.Owned(Value: bitmap.Clone(rectangle: region.ToNullable()))));
 }
 ```
 

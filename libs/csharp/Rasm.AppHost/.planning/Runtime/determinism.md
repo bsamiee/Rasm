@@ -17,11 +17,11 @@ The reproducibility kernel for the runtime spine: one determinism context pins t
 - Owner: `FloatMode` `[SmartEnum<string>]` the floating-point determinism mode; `DeterminismContext` the pinned-run context record; `EnvFingerprint` the environment-identity record; `DeterminismKernel` the static context-establishment surface.
 - Cases: 3 float modes — strict, fast, cross-platform — strict pins IEEE round-to-nearest with FMA disabled for bit-identity, fast admits vectorized reassociation, cross-platform pins the lowest-common-denominator mode every supported RID reproduces.
 - Entry: `Establish(ulong seed, FloatMode mode, HostFingerprint host, string runtimeVersion, string rid)` returns `DeterminismContext` — pins the RNG seed, sets the float mode, and captures the environment fingerprint over the host identity, runtime version, and RID so a run under the context is reproducible; `DeterminismContext.Rng(string stream)` returns a stream-keyed deterministic `Random` so each named random stream derives independently from the root seed.
-- Auto: the RNG is seeded from the root seed XOR the stream key's `XxHash3` (allocation hashing, the recorded carve-out — stream-key derivation is not content identity and stays raw `System.IO.Hashing`) so two named streams in one run are independent yet both reproduce from the same root seed; the environment fingerprint composes the `HostFingerprint` (the Compute benchmark-claim host identity) with the float mode and the runtime version so a replay on a divergent environment is detected before it produces a wrong result; the float mode binds the process's `System.Runtime` floating-point configuration at context establishment so a strict-mode run disables FMA contraction across the whole run, never per-call; the context stamps every command receipt's correlation so a recorded command carries its determinism context.
+- Auto: a named stream is the kernel `Deterministic.Source` splitmix generator keyed on the root seed plus the stream key's full `ContentHash.Of` digest carried as its two canonical 64-bit halves, so two named streams in one run are independent, both reproduce from the same root seed, and no part of either the seed or the key is discarded on the way in; the environment fingerprint composes the `HostFingerprint` (the Compute benchmark-claim host identity) with the float mode and the runtime version so a replay on a divergent environment is detected before it produces a wrong result; the float mode binds the process's `System.Runtime` floating-point configuration at context establishment so a strict-mode run disables FMA contraction across the whole run, never per-call; the context stamps every command receipt's correlation so a recorded command carries its determinism context.
 - Receipt: `DeterminismContext` carries the seed, float mode, and environment fingerprint; a determinism mismatch at replay surfaces as a typed replay fault, never a silent wrong result.
-- Packages: Rasm (kernel `ContentHash.Of`), Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing (`XxHash3` allocation hashing only), BCL inbox
+- Packages: Rasm (kernel `ContentHash.Of` the one digest entry and `Deterministic.Source` the one draw owner), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one float mode is one `FloatMode` row; one environment dimension is one field on `EnvFingerprint`; a new random stream is one stream key, never a second RNG owner; zero new surface.
-- Boundary: the determinism kernel is the only reproducibility owner — an ambient `Random.Shared`, a `DateTime.Now`-seeded RNG, and a per-call float-mode flip are the deleted forms; the kernel consumes the Compute `HostFingerprint` as the environment identity so determinism and benchmark-claim gating share one host-identity truth, never two; the cross-platform float mode is the reproducibility-across-RID guarantee — a run pinned to cross-platform mode reproduces bit-identically on osx-arm64, linux-x64, and win-x64, so a recorded run replays anywhere; the seed is the run's single entropy source so a reproducible run draws all randomness from the seed and the kernel forbids ambient entropy; the time source under a determinism context is the recorded run's clock, so a replay reads the recorded instants rather than the wall clock, composing the existing `ClockPolicy` test-clock seam.
+- Boundary: the determinism kernel is the only reproducibility owner — an ambient `Random.Shared`, a `DateTime.Now`-seeded RNG, and a per-call float-mode flip are the deleted forms; every draw under a context is the kernel `Deterministic` splitmix, so a BCL `new Random(...)` construction and a second hasher beside `ContentHash` are both deleted here — a digest narrowed to an `int` seed discards half the identity it was mint to carry and manufactures collisions that replay perfectly, which is precisely the failure this page's own gates cannot see; the kernel consumes the Compute `HostFingerprint` as the environment identity so determinism and benchmark-claim gating share one host-identity truth, never two; the cross-platform float mode is the reproducibility-across-RID guarantee — a run pinned to cross-platform mode reproduces bit-identically on osx-arm64, linux-x64, and win-x64, so a recorded run replays anywhere; the seed is the run's single entropy source so a reproducible run draws all randomness from the seed and the kernel forbids ambient entropy; the time source under a determinism context is the recorded run's clock, so a replay reads the recorded instants rather than the wall clock, composing the existing `ClockPolicy` test-clock seam.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -50,8 +50,20 @@ public sealed record DeterminismContext(
     ulong Seed,
     FloatMode Mode,
     EnvFingerprint Fingerprint) {
+    // The stream key's FULL 128-bit content digest enters the draw as its two canonical halves and the root seed
+    // rides the seed channel, so the whole of both survives into the stream state. The deleted form XOR-ed a
+    // 64-bit XxHash3 into the seed and narrowed the result to `int`: half the digest and half the root seed were
+    // discarded before the generator ever ran, so two stream keys agreeing in their low 32 bits after the XOR drew
+    // the identical sequence — a deterministic collision that reproduces perfectly and is therefore invisible to
+    // every replay gate this page owns. The kernel Deterministic splitmix is the ONE draw owner, so the AppHost
+    // carries no second hasher and no BCL `Random` construction beside it.
     public Random Rng(string stream) =>
-        new Random(unchecked((int)(Seed ^ System.IO.Hashing.XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(stream)))));
+        ContentHash.Of(Encoding.UTF8.GetBytes(stream)) switch {
+            var digest => Deterministic.Source(
+                unchecked((long)Seed),
+                unchecked((long)(ulong)digest),
+                unchecked((long)(ulong)(digest >> 64))),
+        };
 }
 
 public static class DeterminismKernel {
@@ -73,7 +85,7 @@ public static class DeterminismKernel {
 - Receipt: `LogEntry` carries the sequence index, the content hash, the predecessor hash, the command descriptor id, the arguments digest, the determinism digest, and the HLC stamp; the entry is the log's evidence, never a separate receipt.
 - Packages: Rasm (kernel `ContentHash.Of`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one entry field is one column on `LogEntry` plus its row projection; a new read shape is one window column on `ChangefeedWindow`; the hash algorithm is the kernel's, never a policy value here — an algorithm fork is the deleted form; zero new surface.
-- Boundary: the event log is the only command-log owner — an ad hoc audit table, a per-command log line, and a non-chained event store are the deleted forms; the chain rides the durable changefeed through the decode-only port so the command log and the changefeed are one stream — each `LogEntry` projects to one neutral row the adapter maps, and the windowed read decodes the rows back, so the suite has one event-sourcing truth, not a separate determinism log and not a write-only crossing; the content hash is the recompute-skip and replay-verify key so the same hash means the same command-under-context, deduplicating a re-executed identical command; the HLC stamp orders entries across processes so a multi-process command log merges by HLC, composing the existing `ReceiptEnvelope` causal primitive; the chain verify is the tamper-evidence guarantee, so a support bundle's command log proves its own integrity.
+- Boundary: the event log is the only command-log owner — an ad hoc audit table, a per-command log line, a non-chained event store, and any construction of the Persistence `OpLogEntry` interior here (the positional field-by-field `new` over hardcoded literals) are the deleted forms — `DeterminismLogPolicy` carries the entity-kind and column-family spellings as policy rows the adapter binds; the chain rides the durable changefeed through the decode-only port so the command log and the changefeed are one stream — each `LogEntry` projects to one neutral row the adapter maps, and the windowed read decodes the rows back, so the suite has one event-sourcing truth, not a separate determinism log and not a write-only crossing; the content hash is the recompute-skip and replay-verify key so the same hash means the same command-under-context, deduplicating a re-executed identical command; the HLC stamp orders entries across processes so a multi-process command log merges by HLC, composing the existing `ReceiptEnvelope` causal primitive; the chain verify is the tamper-evidence guarantee, so a support bundle's command log proves its own integrity.
 
 ```csharp signature
 // The typed chain-link value over the kernel UInt128 digest. The kernel reserves the ContentHash
@@ -160,8 +172,9 @@ public static class DeterminismLogCodec {
 }
 
 // The BIDIRECTIONAL decode-only Persistence PORT adapter (Version/ledger#CHANGEFEED): the write half
-// appends the neutral row, the read half rides the ReplayWindow windowed-read case (origin/sequence
-// window) and re-verifies the chain BEFORE any Replay/Bisect/Counterfact fold consumes it.
+// appends the neutral row, the read half rides the ledger's ONE ReplayWindow windowed-read case
+// (origin/sequence window) the AppUi edit-intent read and the egress CDC drain share, and re-verifies
+// the chain BEFORE any Replay/Bisect/Counterfact fold consumes it.
 public readonly record struct ChangefeedWindow(Guid OriginStoreId, long FromSequence, long ToSequence);
 
 public sealed record ChangefeedPort(
@@ -219,7 +232,7 @@ public static class ReplayVerify {
         DeterminismKernel.Reproduces(runtime.Recorded, live)
             ? EventLog.VerifyChain(log).Match(
                 Succ: _ => log.FoldM(Seq<ReplayOutcome>(), (acc, entry) =>
-                    acc.LastOrNone().Map(static last => last is ReplayOutcome.Diverged).IfNone(false)
+                    acc.Last.Map(static last => last is ReplayOutcome.Diverged).IfNone(false)
                         ? IO.pure(acc.Add(new ReplayOutcome.Skipped(entry.Sequence, "downstream-of-divergence")))
                         : Step(runtime, entry).Map(outcome => acc.Add(outcome))).As(),
                 Fail: error => IO.pure(Seq<ReplayOutcome>(new ReplayOutcome.Skipped(0L, error.Message))))
@@ -331,6 +344,8 @@ config:
     padding: 25
 ---
 flowchart TD
+    accTitle: Hash-gated recompute invalidation walk
+    accDescr: A changed input invalidating its dependents in topological order, each re-run node pruning downstream work when its hash holds and recomputing dependents when it changes.
     Change[input changed] --> Invalidate[Invalidate: walk dependents]
     Invalidate --> Topo[topological downstream order]
     Topo --> Recompute[re-run node]
@@ -457,6 +472,4 @@ type ReplayOutcomeWire =
 
 ## [09]-[RESEARCH]
 
-- [FLOAT_DETERMINISM]: the cross-platform floating-point determinism guarantee — a `FloatMode.CrossPlatform` run reproducing bit-identically across osx-arm64, linux-x64, and win-x64 — confirms against the runtime's floating-point configuration surface (FMA-contraction and vector-reassociation control) at the integrated host on each RID; the strict-mode FMA-disable and the cross-platform lowest-common-denominator mode carry settled member shapes and stay a tier-2 cross-RID harness probe.
-- [CHANGEFEED_PORT]: the `ChangefeedPort` is the BIDIRECTIONAL decode-only seam onto `Rasm.Persistence/Version/ledger#CHANGEFEED` — the write half maps the neutral `DeterminismLogRow` through the Persistence-owned changefeed vocabulary at the composition-root delegate binding (the Persistence `OpLogEntry` interior never constructs here — the positional 14-field `new` with hardcoded literals is the deleted form; `DeterminismLogPolicy` carries the entity-kind/family spellings as policy rows), and the read half rides the ledger's ONE windowed-read case (`ReplayWindow` origin/entity/family/window — shared with the AppUi edit-intent read and the egress CDC drain) so `Load` fetches by origin/sequence window, decodes, and re-verifies the chain through the kernel-composed digests before any replay fold consumes it; the HLC-ordered cross-process log merge reads the existing `ReceiptEnvelope` causal primitive; the seam is ledgered both directions (`Runtime/determinism -> Rasm.Persistence/Version/ledger#CHANGEFEED`).
-- [HOST_FINGERPRINT]: the `HostFingerprint` environment-identity record the determinism context composes resolves against the finalized Compute Rasm.Compute/Runtime/receipts#BENCHMARK_CLAIMS surface, so reproducibility and benchmark-claim gating share one host-identity truth; the fingerprint digest MINTS here (`EnvFingerprint.Digest` through the kernel entry) — the `HostFingerprintWire` ledger row anchors on this fence, and the TS identity gate inherits cross-runtime hash parity from the kernel's own TS seam.
+- [FLOAT_DETERMINISM]-[OPEN]: does a `FloatMode.CrossPlatform` run reproduce bit-identically across osx-arm64, linux-x64, and win-x64 when `FmaContraction`/`VectorReassociation` are the row's only columns and `Strict` already sets that pair identically, leaving the cross-RID guarantee this page asserts resting on two byte-identical rows; route: run the determinism harness on all three RIDs over an FMA-sensitive kernel and a vector-reduction kernel, comparing `EnvFingerprint.Digest`-stamped chain hashes, and seat the column the divergence names on the row.

@@ -120,13 +120,6 @@ class Watch(Struct, frozen=True):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-# one slot allocator per lane identity: the frozen hashable `LanePolicy` is the memo key, reused across every `drain` and INTERPRETER
-# `offload` — a fresh `CapacityLimiter` per call would bound nothing.
-@cache
-def _limiter(policy: "LanePolicy") -> CapacityLimiter:
-    return CapacityLimiter(policy.capacity)
-
-
 @cache
 def _pulse_manager() -> SyncManager:
     # one spawn-context broker per interpreter: every lane conduit's proxy rides this manager process, and spawn pins
@@ -135,8 +128,14 @@ def _pulse_manager() -> SyncManager:
 
 
 class LanePolicy(Struct, frozen=True):
+    # `limiter` is lane-LIFETIME state exactly as `pulses` is, so it mints at the scoped constructor and rides the
+    # value — never a `@cache` keyed on this struct. That memo pinned the whole policy, its conduit, and its manager
+    # queue proxy for the process's life: `of`'s `finally` retired the actor while the cache still held the proxy, so
+    # every lane a daemon opened leaked one limiter and one live broker handle with no eviction and no drain row. It
+    # also made hashability load-bearing on a struct carrying a proxy object, which is a constraint the field deletes.
     capacity: int
     pulses: "PulseConduit"
+    limiter: CapacityLimiter
     deadline: Option[float] = Nothing
 
     @classmethod
@@ -149,7 +148,8 @@ class LanePolicy(Struct, frozen=True):
         # cycle instead of replaying a finished drain's remainder, concurrent lanes under one composition sum into
         # that band alone, and a retired lane leaves none. Naming the band is what keeps a saturated lane readable
         # beside a saturated worker pool rather than folded into one number.
-        policy = cls(capacity=context.policy.lane_capacity, pulses=PulseConduit.opened(scope), deadline=context.budget)
+        capacity = context.policy.lane_capacity
+        policy = cls(capacity=capacity, pulses=PulseConduit.opened(scope), limiter=CapacityLimiter(capacity), deadline=context.budget)
         with Metrics.occupied(lambda: policy.limiter.borrowed_tokens, band="lane", scope=scope):
             async with anyio.create_task_group() as actors:
                 actors.start_soon(policy.pulses.drain)
@@ -157,10 +157,6 @@ class LanePolicy(Struct, frozen=True):
                     yield policy
                 finally:
                     await policy.pulses.close()
-
-    @property
-    def limiter(self) -> CapacityLimiter:
-        return _limiter(self)
 
     @property
     def scope(self) -> ScopeKey:
@@ -188,7 +184,7 @@ class LanePolicy(Struct, frozen=True):
         # every eagerly-minted clone is adopted by exactly one child whose `async with sink` closes it even on the cancellation unwind,
         # so the post-scope drain reaches `EndOfStream` — the deadline-trip case sends the buffered partial, not a hang.
         resolved = Block.of_seq([item async for item in receive])
-        return DrainReceipt.of(len(units), len(replayed), resolved, replayed, cache, cost=Cost.own().delta(opened))
+        return DrainReceipt.of(len(units), len(replayed), resolved, replayed, cache, cost=Cost.spent(Cost.own(), opened))
 
     async def offload[T](self, work: "Kernel[T] | Callable[..., T]", *args: object) -> RuntimeRail[T]:
         kernel = work if isinstance(work, Kernel) else Kernel.of(work)

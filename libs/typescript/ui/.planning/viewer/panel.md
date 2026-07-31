@@ -26,6 +26,8 @@ Panel materializes three shell vocabularies the AppUi shell produces: livewire e
 ```typescript
 import type { BindingStatus, CoercedValue, Hlc, WriteReceipt } from "@rasm/ts/core"
 import { Chunk, Duration, Effect, HashMap, Match, Option, Stream } from "effect"
+import type { Motion } from "../../src/system/act.ts"
+import type { Theme } from "../../src/system/token.ts"
 
 type PanelEvent = BindingStatus | CoercedValue | WriteReceipt
 
@@ -102,11 +104,11 @@ const _drain = (
 
 ```typescript
 const _tone = {
-  bound: { tone: "success", motion: Option.none<string>() },
-  coercing: { tone: "accent", motion: Option.none<string>() },
-  refused: { tone: "danger", motion: Option.some("pulse") },
-  detached: { tone: "neutral", motion: Option.none<string>() },
-} as const satisfies Record<Panel.Phase, { readonly tone: "neutral" | "accent" | "success" | "danger"; readonly motion: Option.Option<string> }>
+  bound: { tone: "success", motion: Option.none<Motion.Hold>() },
+  coercing: { tone: "accent", motion: Option.none<Motion.Hold>() },
+  refused: { tone: "danger", motion: Option.some<Motion.Hold>("pulse") },
+  detached: { tone: "neutral", motion: Option.none<Motion.Hold>() },
+} as const satisfies Record<Panel.Phase, { readonly tone: Theme.Tone; readonly motion: Option.Option<Motion.Hold> }>
 ```
 
 ## [04]-[CONTROL_SINKS]
@@ -153,18 +155,18 @@ const _route = (sinks: Panel.Sinks): ((intent: ControlIntent) => void) =>
 
 [LAYOUT_SOLVE]:
 - Owner: `Panel.solve(program)` — the one fold: walk `program.constraints` in received order, minting each `Variable` at FIRST APPEARANCE (an interior name→`Variable` ledger — first-appearance order is the wire's variable order by construction), fold each constraint's `terms` into an `Expression`, map the closed `relation` vocabulary onto `Operator` and the closed `strength` vocabulary onto the `Strength` constants, `addConstraint` in order, register `program.edits` as edit variables at `Strength.strong` (sub-required by kiwi's own law), run `updateVariables()`, and read every variable's `value()` into the positions map.
-- Law: `Panel.Fault` — an unsatisfiable required set throws inside kiwi; the fold catches it into the one tagged fault carrying the surface name and the offending constraint's zero-based rank (`-1` when the refusal lands past the constraint walk — edit registration, the initial solve, or a live `suggest`) — a program-construction defect surfaced as operator evidence, never retried. `maxIterations` stays at kiwi's default — a pathological program fails loud through the iteration cap; tuning it to make a bad program pass hides the upstream defect.
+- Law: `Panel.Fault` — an unsatisfiable required set throws inside kiwi; the fold catches it into the one tagged fault carrying the surface name and the offending constraint's zero-based rank (`-1` when the refusal lands past the constraint walk — edit registration, the initial solve, or a live `suggest`) — a program-construction defect surfaced as operator evidence, never retried. The fault is single-shape, so it states its one core `FaultClass` kind directly — `invalid`: caller-blamed, quarantined, never re-driven — and carries no taxonomy column of its own; `rank` is the constraint's position in the wire walk, never a severity rank. `maxIterations` stays at kiwi's default — a pathological program fails loud through the iteration cap; tuning it to make a bad program pass hides the upstream defect.
 - Law: the fold inserts, never authors — no constraint is synthesized, reordered, re-strengthened, or dropped; TS-side layout intelligence is the drift defect this cluster's existence guards against. Drag is suggestion, never structure — a pointer drag feeds `suggest(edit, value)` per frame (the gesture source is `system/act#CONTINUOUS_OWNER`), the frozen program re-optimizes incrementally, and only wire-enumerated edits are suggestible — a suggestion against a non-edit variable is a construction error kiwi rejects, surfaced through the same fault.
 - Law: the four determinism axes are fixed by construction — identical constraint SET, identical insertion ORDER, identical STRENGTHS, identical EDIT sequence — so the TS tableau converges to the C# tableau; equal-strength competition resolves identically because insertion order is preserved. Drift is evidence, not tolerance — a position mismatch against a C#-provided expectation reports with the variable name and both values (`probe` consumes it); a fuzzy-match re-solve loop is the named defect.
 - Law: positions flow to render as one atom write per settle — the returned map replaces the positions atom (`Atom.batch` coalesces multi-panel updates), and panel components read their own cell through a selector so a 60fps drag never re-renders the board.
 - Law: the live solver is a RESOURCE, not a kernel — kiwi's incremental `suggestValue` requires the solver and its variable ledger to persist for the `Solved` lifetime, so the draft lives inside one `SynchronizedRef` and every `suggest` routes through `SynchronizedRef.modifyEffect`: concurrent suggestions serialize by construction, no mutable reference escapes, and the sole egress is the immutable positions map; the construction walk is the marked boundary seam.
-- Packages: `@lume/kiwi` (`Variable`, `Expression`, `Operator`, `Constraint`, `Strength`, `Solver`); `@rasm/ts/core` (`LayoutProgram`); `effect` (`Data`, `Effect`, `HashMap`, `Iterable`, `SynchronizedRef`).
+- Packages: `@lume/kiwi` (`Variable`, `Expression`, `Operator`, `Constraint`, `Strength`, `Solver`); `@rasm/ts/core` (`LayoutProgram`, `FaultClass`); `effect` (`Effect`, `HashMap`, `Iterable`, `Schema`, `SynchronizedRef`).
 - Growth: a new constraint kind, variable class, or strength tier is a C# solver change mirrored at the codec — the fold's vocabulary maps grow a row each, nothing else moves.
 
 ```typescript
 import { Constraint, Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
-import type { LayoutProgram } from "@rasm/ts/core"
-import { Data, Effect, HashMap, Iterable, SynchronizedRef } from "effect"
+import { FaultClass, type LayoutProgram } from "@rasm/ts/core"
+import { Effect, HashMap, Iterable, Schema, SynchronizedRef } from "effect"
 
 const _relations = { le: Operator.Le, ge: Operator.Ge, eq: Operator.Eq } as const
 
@@ -175,11 +177,18 @@ const _strengths = {
   weak: Strength.weak,
 } as const
 
-class SolveFault extends Data.TaggedError("SolveFault")<{
-  readonly surface: string
-  readonly rank: number
-  readonly detail: string
-}> {}
+class SolveFault extends Schema.TaggedError<SolveFault>()("SolveFault", {
+  surface: Schema.String,
+  rank: Schema.Int, // the constraint's position in the wire walk, `-1` past it — never a severity rank
+  detail: Schema.String,
+}) {
+  get class(): FaultClass.Kind {
+    return "invalid"
+  }
+  override get message(): string {
+    return `<solve:${this.surface}#${this.rank}> ${this.detail}`
+  }
+}
 
 declare namespace Panel {
   type Positions = HashMap.HashMap<string, number>

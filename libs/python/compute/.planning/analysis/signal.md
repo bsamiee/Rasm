@@ -33,7 +33,7 @@ from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:
@@ -297,12 +297,12 @@ def _signal_kernel(samples: object, fs: float, op: SignalOp) -> "RuntimeRail[Sig
     )
 
 
-async def apply(samples: object, fs: float, op: SignalOp, lane: LanePolicy) -> "RuntimeRail[SignalReceipt]":
+async def apply(samples: object, fs: float, op: SignalOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SignalReceipt]":
     # weave owns span, fence, and the fenced contributor harvest.
     async def dispatch() -> RuntimeRail[SignalReceipt]:
         return (await lane.offload(Kernel.of(_signal_kernel, KernelTrait.RELEASING), samples, fs, op)).bind(lambda rail: rail)
 
-    return await evidence_run(EvidenceScope.SIGNAL, f"signal.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs})
+    return await evidence_run(EvidenceScope.SIGNAL, f"signal.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs}, composition=composition)
 
 
 def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalReceipt:

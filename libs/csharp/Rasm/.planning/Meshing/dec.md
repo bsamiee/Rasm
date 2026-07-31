@@ -18,7 +18,7 @@
 - Receipt: `SpectralAssemblyReceipt` per assembly (`Kind = Dec` with star, skip, and composition witnesses; `Kind = EdgeConnection` with block layout and symmetry residual); `HodgeDecompositionReceipt` folds one `ValidityClaim.All` over boundary-aware dimension agreement (`2g + max(0, b−1)`, admitting zero ⇔ `Harmonic` None), rank + nullity = edge count, and operator-scale-relative residuals; `SpectralBasisBundle` carries the eigen receipt with cache and skip witnesses.
 - Packages: `Rasm.Meshing` `Meshing/mesh` (`MeshSpace`, `LaplacianCache` accessors, `IntrinsicMesh`/`IntrinsicEdge`, `Cotangent`, `TopologyReceipt`, `MeshKernel.TopologyDetailed`, `SignpostTransportReceiptOf`), `Numerics/spectral` (`DiscreteCalculus`, `SpectralBasis`, `SpectralAssemblyReceipt`, `SpectralAssemblyKind`, `HarmonicOneFormBasis`/`HarmonicOneFormReceipt`), `Numerics/matrix` (`SparseMatrix.FromTriplets`/`SingularSolveDetailed`/`GeneralizedEigenpairsDetailed`, `SymmetricMatrix.Of`/`DecomposeEigenDetailed`, `CholeskySparse`, `MatrixKernel.AddHermitianRealBlockTriplets`, `GaugePolicy`/`GaugeShift`, `SolveReceipt`/`EigenSolveReceipt`/`GaugeReceipt`), `Domain/rails` (`Op`, the validity fold), RhinoCommon (`Mesh.Vertices`/`GetNakedEdges`, `Vector3d.CrossProduct` for the extrinsic scaffold and CR face-field sampling), LanguageExt.Core, BCL (`CollectionsMarshal`).
 - Growth: a new DEC operator is one field on `DiscreteCalculus` and one assembly fold arm; a new connection discretization is one member returning the same `(SparseMatrix, SpectralAssemblyReceipt)` pair under the same symmetry gate; a boundary-aware holonomy variant extends `DistributeHolonomy` behind its topology gate; a new basis normalization is one policy row on the settled spectral vocabulary — zero new receipt families.
-- Boundary: this page populates the settled `Numerics/spectral` carriers and routes every cotangent through `Cotangent.OfLengths`/`OfEdges` — the `Rasm.Compute` adjoint seam binds those `DiscreteCalculus` spellings, so a redeclaration here forks the wire. CR assembly rejects a flipped intrinsic snapshot as `Unsupported`: its edge sources are encoded against original-mesh edges, and the signpost lift that lifts this gate is recorded growth. Gauss-Bonnet stays count-independent and integer-anchored (`0.25` floor), admitting only cone prescriptions that round to the correct integer. `HodgeDecomposeDetailed` recovers `δβ` by orthogonality, the residual gates witnessing the recovery. Assembly folds and outer-product accumulations are named statement-kernel exemptions; the public surface stays `Fin`-railed and exception-free.
+- Boundary: this page populates the settled `Numerics/spectral` carriers and routes every cotangent through `Cotangent.OfLengths`/`OfEdges` — the `Rasm.Compute` adjoint seam binds those `DiscreteCalculus` spellings, so a redeclaration here forks the wire. CR assembly lifts a flipped intrinsic snapshot through the signpost seam — `LiftFlippedSources` re-anchors flipped edge sources onto original-mesh edges before assembly, and only a snapshot the transport cannot re-anchor stays the typed `Unsupported` refusal. Gauss-Bonnet stays count-independent and integer-anchored (`0.25` floor), admitting only cone prescriptions that round to the correct integer. `HodgeDecomposeDetailed` recovers `δβ` by orthogonality, the residual gates witnessing the recovery. Assembly folds and outer-product accumulations are named statement-kernel exemptions; the public surface stays `Fin`-railed and exception-free.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -53,8 +53,8 @@ public readonly record struct HodgeDecompositionReceipt(
         get {
             int basisCount = BasisCount; int edgeCount = EdgeCount;
             double gate = Harmonic
-                .Map(static h => Math.Max(h.SvdTolerance, RhinoMath.SqrtEpsilon * Math.Max(1.0, h.SpectralRadius)))
-                .IfNone(noneValue: RhinoMath.SqrtEpsilon) * 1.0e4;
+                .Map(static h => Math.Max(h.SvdTolerance, EpsilonPolicy.SqrtEpsilon * Math.Max(1.0, h.SpectralRadius)))
+                .IfNone(noneValue: EpsilonPolicy.SqrtEpsilon) * 1.0e4;
             return ValidityClaim.All(
                 ValidityClaim.CountExactly(count: ExpectedDimension, expected: (2 * ExpectedGenus) + Math.Max(0, ExpectedBoundaryComponents - 1)),
                 ValidityClaim.CountExactly(count: BasisCount, expected: ExpectedDimension),
@@ -157,7 +157,7 @@ internal static class DecAssembly {
             admitted++;
         }
         double boundaryResidual = BoundaryCompositionResidual(d0: d0, d1: d1);
-        double compositionTolerance = RhinoMath.SqrtEpsilon * d1.Aggregate(1.0, static (max, t) => Math.Max(max, Math.Abs(t.Value)));
+        double compositionTolerance = EpsilonPolicy.SqrtEpsilon * d1.Aggregate(1.0, static (max, t) => Math.Max(max, Math.Abs(t.Value)));
         int harmonicDimension = topology.Genus.Map(g => (2 * g) + Math.Max(0, topology.BoundaryComponents - 1)).IfNone(0);
         return admitted <= 0 || admitted + skippedDegenerate + skippedMissing != liveFaces.Length
             ? Fin.Fail<DiscreteCalculus>(key.Unsupported(geometryType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(DiscreteCalculus)))
@@ -171,7 +171,12 @@ internal static class DecAssembly {
               select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>([.. star2]), Receipt: receipt);
     }
     // compositionTolerance lands as SpectralAssemblyReceipt.BoundaryCompositionTolerance — the ENFORCED dd=0 band,
-    // so the receipt's conditional gate carries real enforcement, never the witness-only 0.0 default.
+    // so the receipt's conditional gate carries real enforcement, never the witness-only 0.0 default. The Dec arm
+    // holds the real topology measures, so the receipt publishes them: BoundaryEdgeCount = Some(imesh.BoundaryEdgeCount),
+    // NonManifoldEdgeCount = Some(topology.NonManifoldEdges), EulerCharacteristic = Some(topology.EulerCharacteristic)
+    // beside Genus = topology.Genus and BoundaryComponentCount = topology.BoundaryComponents — the chi = V-E+F and
+    // chi = 2-2g-b cross-source gates then have real operands; FlippedIntrinsicLifted stays false (the Dec arm walks
+    // no signpost lift), and the retired TopologyEulerValidated flag has no slot to fill.
     private static SpectralAssemblyReceipt DecReceiptOf(MeshKernel.IntrinsicMesh imesh, TopologyReceipt topology, SparseMatrix D0, SparseMatrix D1,
         Arr<double> mass, Arr<double> star1, List<double> star2, int admitted, int skippedDegenerate, int skippedMissing,
         double boundaryResidual, double compositionTolerance, int harmonicDimension);
@@ -235,6 +240,13 @@ internal static class DecAssembly {
     // Whitney lift of an edge 1-form: locate the containing face, fold W_ij = lambda_i*grad(lambda_j) -
     // lambda_j*grad(lambda_i) over its three edges with d0 signs. REJECTS a flipped snapshot — flipped edges no longer match embedded chords.
     internal static Fin<Vector3d> WhitneyVectorAt(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Arr<double> oneForm, Point3d sample, Op key);
+    // Signpost lift of a flipped snapshot — the recorded growth realized. CR edge sources are encoded against
+    // original-mesh edges, so the lift re-expresses each flipped intrinsic edge over embedded chords through the
+    // landed signpost seam (MeshKernel.ConnectionEntriesOf transports endpoints and length onto original-mesh
+    // coordinates), yielding an equivalent unflipped-SOURCED snapshot the assembly admits on re-entry. Any snapshot
+    // whose transport cannot re-anchor — an arrival residual past the SignpostTransportReceipt gate — stays the
+    // typed Unsupported refusal, and the lift never launders a broken triangulation into the operator.
+    private static Fin<MeshKernel.IntrinsicMesh> LiftFlippedSources(MeshKernel.IntrinsicMesh mesh, Op key);
 
     // --- [HODGE_POINT_EVALUATION] — the field-facing seat where Spatial/fields VectorField.Hodge and Processing/extract land.
     // Solve ONCE per (space, source): edge-integrate the field into omega, HodgeDecomposeDetailed over the selected
@@ -254,12 +266,13 @@ internal static class DecAssembly {
 
     // --- [CROUZEIX_RAVIART] — edge-based connection heat operator M = (mass + time*grad) as Hermitian-real blocks.
     // Transpose-paired off-diagonals make max|M - M^T| the orientation-sign / degeneracy witness, gated machine-epsilon
-    // scaled by the largest assembled magnitude. Flipped intrinsic snapshots are Unsupported.
-    internal static Fin<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)> BuildCrouzeixRaviartHeatSystemDetailed(MeshKernel.IntrinsicMesh mesh, double time, Op key) {
+    // scaled by the largest assembled magnitude. A flipped snapshot lifts through the signpost seam below.
+    internal static Fin<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)> BuildCrouzeixRaviartHeatSystemDetailed(MeshKernel.IntrinsicMesh mesh, double time, Op key, bool lifted = false) {
         if (!RhinoMath.IsValidDouble(x: time) || time <= 0.0 || !mesh.IsFrozen || mesh.EdgeCount == 0)
             return Fin.Fail<(SparseMatrix, SpectralAssemblyReceipt)>(key.InvalidInput());
         if (mesh.HasFlips)
-            return Fin.Fail<(SparseMatrix, SpectralAssemblyReceipt)>(key.Unsupported(geometryType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(SparseMatrix)));
+            return LiftFlippedSources(mesh: mesh, key: key)
+                .Bind(reanchored => BuildCrouzeixRaviartHeatSystemDetailed(mesh: reanchored, time: time, key: key, lifted: true));
         int eCount = mesh.EdgeCount;
         List<(int Row, int Col, double Value)> triplets = new(capacity: (2 * eCount) + (mesh.LiveFaceCount * 36));
         double[] mass = new double[eCount];
@@ -278,7 +291,7 @@ internal static class DecAssembly {
         return SymmetryGate(triplets: triplets, key: key)
             .Bind(residuals => SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2 * eCount), cols: Dimension.Create(value: 2 * eCount), triplets: triplets, key: key)
                 .Map(matrix => (Matrix: matrix, Receipt: EdgeConnectionReceiptOf(mesh: mesh, matrix: matrix, mass: mass,
-                    admitted: admitted, skippedDegenerate: skippedDegenerate, skippedMissing: skippedMissing, residuals: residuals))));
+                    admitted: admitted, skippedDegenerate: skippedDegenerate, skippedMissing: skippedMissing, residuals: residuals, lifted: lifted))));
     }
     private static void EmitCrouzeixRaviartPair(List<(int Row, int Col, double Value)> triplets, int eCount,
         (int I, int J, double Sign, double LA, double LB, double LOpp) pair, double area, double time) {
@@ -290,8 +303,11 @@ internal static class DecAssembly {
             real: weight * pair.Sign * cosTheta * time, imaginary: -weight * pair.Sign * sinTheta * time, diagonal: weight * time);
     }
     private static Fin<(double Residual, double Tolerance)> SymmetryGate(List<(int Row, int Col, double Value)> triplets, Op key);
+    // Publishes FlippedIntrinsicLifted from the threaded lift fact (the CR recursion is the only arm that walks
+    // LiftFlippedSources) and leaves BoundaryEdgeCount/NonManifoldEdgeCount/EulerCharacteristic None — the CR
+    // assembly runs no topology pass, and a None here is structural absence, never an unmeasured zero.
     private static SpectralAssemblyReceipt EdgeConnectionReceiptOf(MeshKernel.IntrinsicMesh mesh, SparseMatrix matrix, double[] mass,
-        int admitted, int skippedDegenerate, int skippedMissing, (double Residual, double Tolerance) residuals);
+        int admitted, int skippedDegenerate, int skippedMissing, (double Residual, double Tolerance) residuals, bool lifted);
     // Stacked CR solution -> per-face unit tangent field (edge tangent + in-plane perpendicular components).
     internal static Vector3d[] SampleCrouzeixRaviartFaceField(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> stacked);
     // Per-vertex integrated divergence of a face field — the ONE extrinsic cotangent scatter (Cotangent.OfEdges).
@@ -333,12 +349,14 @@ internal static class DecAssembly {
             < 1 => Fin.Fail<SpectralBasisBundle>(key.InvalidInput()),
             int count => from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
                          from receipt in laplacian.Stiffness.GeneralizedEigenpairsDetailed(mass: laplacian.MassConsistent, k: count, key: key)
+                         // Mode indices are positional low-to-high — PairsIn demands the ascending convention on the rail.
+                         from pairs in receipt.PairsIn(expected: EigenOrder.Ascending, key: key)
                          select new SpectralBasisBundle(
                              Basis: new SpectralBasis(
-                                 Eigenvalues: new Arr<double>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvalue)]),
-                                 Eigenvectors: new Arr<Arr<double>>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvector)])),
+                                 Eigenvalues: new Arr<double>([.. pairs.AsIterable().Select(static p => p.Eigenvalue)]),
+                                 Eigenvectors: new Arr<Arr<double>>([.. pairs.AsIterable().Select(static p => p.Eigenvector)])),
                              Eigen: receipt, CacheHit: false,
-                             SkippedDegenerateFaces: laplacian.SkippedDegenerateFaces, FactorNonZeros: receipt.FactorNonZeros),
+                             SkippedDegenerateFaces: laplacian.SkippedDegenerateFaces, FactorNonZeros: receipt.Evidence.FactorNonZeros),
         };
 }
 ```
@@ -352,6 +370,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: DEC assembly flow
+    accDescr: Mesh snapshots flow through the Laplacian row delegate into operator assembly, holonomy, Hodge decomposition, and the spectral eigenbasis carriers.
     MeshSpace -->|cache snapshot| IntrinsicMesh
     IntrinsicMesh -->|d0/d1 incidence + Cotangent star1| AssembleDecOperators
     AssembleDecOperators -->|dd=0 residual gate| DiscreteCalculus

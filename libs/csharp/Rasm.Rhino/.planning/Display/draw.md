@@ -15,8 +15,9 @@
 - Owner: style values carry backend-neutral width, color, cap, join, miter, dash, fill, and text policy.
 - Entry: each native style mints inside the paint call and releases before egress.
 - Law: color quantizes once through `Quant`; perceptual ramps resolve before the backend receives channel values.
+- Law: shaded appearance is `ShadedMaterial`, never a host `DisplayMaterial` — the native is disposable and carries eight raw screen colours that bypass both the one colour source and the one quantization, so it mints inside `ShadedMaterial.Use`, serves exactly the draw call inside that bracket, and releases on every exit; the second face is `Option`, so a one-sided material spells no back band rather than mirroring the front.
 - Law: typography composes the Eto owners — `TextStyle` carries the Eto `TypeRole` plus an optional point size, measurement and Eto text paint ride `GlyphBlock`, and the pipeline arm reads size and family facts off the role-resolved cached font; a font-role table or `FormattedText` shaping minted here is the deleted form.
-- Law: one `Dash` family serves both backends — standard cases mint the host dash style and the interval table from one owner, `Patterned` carries caller intervals with offset; `StrokePattern` stays the Rhino-pen pattern policy axis beside it.
+- Law: one `Dash` family serves both backends — standard cases mint the host dash style and the interval table from one owner, `Patterned` carries caller intervals with offset bounded by the host's own eight-entry pen cap; `StrokePattern` stays the Rhino-pen pattern policy axis beside it.
 - Growth: a style treatment is one vocabulary row, one `Dash` case, or one `FillStyle` case.
 - Boundary: no Eto or `System.Drawing` color becomes domain state.
 
@@ -24,6 +25,7 @@
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
+using Rasm.Parametric;
 using Rasm.Rhino.Eto;
 using Rasm.Rhino.Viewport;
 
@@ -58,8 +60,15 @@ public abstract partial record Dash {
     public sealed record DashDotDotted : Dash;
     public sealed record Patterned(float Offset, Seq<float> Intervals) : Dash;
 
+    // Host truth: `DisplayPen.SetPattern` accepts at most eight dash/gap entries, so a longer pattern refuses at admission
+    // rather than truncating or throwing inside the paint call.
+    internal const int MaxIntervals = 8;
+
     internal bool Valid => this is not Patterned row
-        || (!row.Intervals.IsEmpty && float.IsFinite(row.Offset) && row.Intervals.ForAll(static gap => float.IsFinite(gap) && gap > 0f));
+        || (!row.Intervals.IsEmpty
+            && row.Intervals.Count <= MaxIntervals
+            && float.IsFinite(row.Offset)
+            && row.Intervals.ForAll(static gap => float.IsFinite(gap) && gap > 0f));
 
     internal Seq<float> Pattern() => Switch(
         solid: static _ => Seq<float>(),
@@ -218,6 +227,59 @@ public sealed record Stroke {
     }
 }
 
+// `DisplayMaterial` is a disposable host native carrying eight raw `System.Drawing.Color` channels, so it is the one shaded
+// appearance vocabulary the slice cannot publish: `ShadedFace` states one side in `PerceptualColor` and the host's own
+// 0..1 shine and transparency axes, `ShadedMaterial` pairs the two sides, and the native mints and dies inside `Use`.
+[ComplexValueObject]
+public sealed partial class ShadedFace {
+    public PerceptualColor Diffuse { get; }
+    public PerceptualColor Specular { get; }
+    public PerceptualColor Ambient { get; }
+    public PerceptualColor Emission { get; }
+    public double Shine { get; }
+    public double Transparency { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref PerceptualColor diffuse,
+        ref PerceptualColor specular,
+        ref PerceptualColor ambient,
+        ref PerceptualColor emission,
+        ref double shine,
+        ref double transparency) =>
+        // Host truth: `DisplayMaterial.Shine` and `.Transparency` are BOTH unit-interval axes, unlike the attribute
+        // editor's `FrontMaterialShine`, which runs to `Material.MaxShine`.
+        validationError = double.IsFinite(shine) && shine is >= 0.0 and <= 1.0
+            && double.IsFinite(transparency) && transparency is >= 0.0 and <= 1.0
+                ? null
+                : new ValidationError(message: "Shaded face shine or transparency leaves the unit interval.");
+}
+
+public sealed record ShadedMaterial(ShadedFace Front, Option<ShadedFace> Back) {
+    internal bool Valid => Front is not null && Back.Match(Some: static face => face is not null, None: static () => true);
+
+    internal Fin<TResult> Use<TResult>(Func<DisplayMaterial, Fin<TResult>> project, Op key) {
+        ShadedMaterial self = this;
+        return key.Catch(() => {
+            using DisplayMaterial native = new(
+                diffuse: Quant.Sys(self.Front.Diffuse),
+                specular: Quant.Sys(self.Front.Specular),
+                ambient: Quant.Sys(self.Front.Ambient),
+                emission: Quant.Sys(self.Front.Emission),
+                shine: self.Front.Shine,
+                transparency: self.Front.Transparency);
+            _ = self.Back.Iter(face => {
+                native.IsTwoSided = true;
+                (native.BackDiffuse, native.BackSpecular) = (Quant.Sys(face.Diffuse), Quant.Sys(face.Specular));
+                (native.BackAmbient, native.BackEmission) = (Quant.Sys(face.Ambient), Quant.Sys(face.Emission));
+                (native.BackShine, native.BackTransparency) = (face.Shine, face.Transparency);
+            });
+            return project(native);
+        });
+    }
+}
+
 public sealed record TextStyle {
     private TextStyle(TypeRole role, Option<float> size) => (Role, Size) = (role, size);
 
@@ -270,13 +332,14 @@ internal static class Quant {
 
 ## [03]-[ASSETS]
 
-- Owner: `ScreenPath` builds and hit-tests one retained path; `Pose` brackets affine projection through host matrices; `SpriteSheet` owns both native bitmap caches; `IsoBanding` owns banded-shading data.
+- Owner: `ScreenPath` builds and hit-tests one retained path over the kernel-lowered primitive run it stores at admission; `Pose` brackets affine projection through host matrices; `SpriteSheet` owns both native bitmap caches; `IsoBanding` owns banded-shading data.
 - Law: sprite bytes or assets admitted by `ISpriteFiles` enter once through `SpriteRef.Of` with a stable key; raw paths never cross the asset boundary.
 - Law: path paint and hit-testing use the same `GraphicsPath`; sprite caches key source identity and blend policy together.
 - Law: `Pose.Use` brackets every materialized `IMatrix` — `Stacked` appends each bracketed child onto one owned identity matrix, `Inverted` disposes its source after `Matrix.Inverse`, and no matrix escapes its projection.
-- Law: rounded corners carry four independent radii on both backends — the Eto arm folds through the host `GetRoundRect` factory, the Rhino arm folds one corner table into line-arc pairs, and a zero radius drops its arc.
-- Law: `Spline` carries Eto cardinal-spline semantics on both backends — the Rhino arm converts tension to per-span cubic Bezier tangents (`tension/3` neighbor offsets, clamped ends), so zero tension draws chords and both backends trace one curve.
-- Law: every screen arc stays in world XY while its radial X axis preserves the Eto start angle; the tangent Y axis completes the in-plane basis.
+- Law: a composite screen segment is DERIVED ONCE and the derivation is the KERNEL's. `PathSegment.Lower` folds a rounded rectangle through `ParametricOp.RoundedRectangle` and a spline through `ParametricOp.CardinalSpline`, and maps the returned `ParametricResult.Outline` run onto `Line`/`Arc`/`Bezier`; the corner walk, the radius clamp, and the `tension / 3` neighbour offsets live in `Rasm.Parametric` alone, so this page carries no arithmetic a NURBS emission could disagree with. A primitive lowers to itself, so the fold is total and a zero radius drops its arc.
+- Law: the lowering runs ONCE, at `ScreenPath.Of`, and the resolved run rides the value as `Run`. A path paints and hit-tests from that stored run, so the kernel refusal folds onto the one admission rail every `ScreenPath` already crosses and neither backend re-derives per frame; `Segments` stays the authored request shape and `Run` the drawn truth.
+- Boundary: the seam hands the kernel the screen rectangle's own intervals on `Plane.WorldXY`, so frame-local coordinates ARE screen coordinates and the kernel's `Center + R·(cos θ, sin θ)` parameterization is the backend's own; the whole conversion is `ToDegrees` on `Start` and the signed `Angle`, and any sign correction here would mirror the arcs off the corner points the same kernel computed.
+- Law: every screen arc stays in world XY while its radial X axis preserves the Eto start angle; the tangent Y axis completes the in-plane basis — the corner walk emits ordinary `Arc` segments, so it inherits that one settled angle mapping rather than minting a second.
 - Boundary: cache disposal closes admission, drains every draw-scoped use, releases each native bitmap once, and clears both tables.
 
 ```csharp signature
@@ -307,20 +370,35 @@ public abstract partial record PathSegment {
         return Iterable<float>.FromSpan(radii).ForAll(radius => float.IsFinite(radius) && radius is >= 0f && radius <= cap);
     }
 
+    // The one lowering, and it is the KERNEL's: a composite segment becomes a `ParametricOp` whose `Outline` run
+    // this seam maps back onto primitives. Frame-local coordinates ARE screen coordinates because the frame is
+    // `Plane.WorldXY` over the screen rectangle's own intervals, so the mapping is coordinates 1:1 and `ToDegrees` on
+    // the two angles. A primitive lowers to itself, so the fold is total and only the two composite arms can refuse.
+    internal Fin<Seq<PathSegment>> Lower(Op key) => Switch(
+        key,
+        line: static (_, row) => Fin.Succ(Seq<PathSegment>(row)),
+        arc: static (_, row) => Fin.Succ(Seq<PathSegment>(row)),
+        bezier: static (_, row) => Fin.Succ(Seq<PathSegment>(row)),
+        ellipse: static (_, row) => Fin.Succ(Seq<PathSegment>(row)),
+        spline: static (op, row) => Outlined(new ParametricOp.CardinalSpline(
+            Frame: Plane.WorldXY,
+            Points: new Arr<Point2d>([.. row.Points]),
+            Tension: row.Tension,
+            Closed: false), op),
+        rectangle: static (op, row) => Cornered(row.Origin, row.Extent, 0f, 0f, 0f, 0f, op),
+        roundRectangle: static (op, row) => Cornered(row.Origin, row.Extent, row.NW, row.NE, row.SE, row.SW, op));
+
     internal Unit Add(GraphicsPath path) => Switch(
         path,
         line: static (target, row) => Op.Side(() => target.AddLine((float)row.From.X, (float)row.From.Y, (float)row.To.X, (float)row.To.Y)),
         arc: static (target, row) => Op.Side(() => target.AddArc((float)row.Center.X - row.Radius, (float)row.Center.Y - row.Radius, row.Radius * 2f, row.Radius * 2f, row.Start, row.Sweep)),
         bezier: static (target, row) => Op.Side(() => target.AddBezier(Quant.Eto(row.Start), Quant.Eto(row.Control1), Quant.Eto(row.Control2), Quant.Eto(row.End))),
-        spline: static (target, row) => Op.Side(() => target.AddCurve(row.Points.Map(Quant.Eto).AsEnumerable(), row.Tension)),
         ellipse: static (target, row) => Op.Side(() => target.AddEllipse((float)row.Origin.X, (float)row.Origin.Y, row.Extent.Width, row.Extent.Height)),
-        rectangle: static (target, row) => Op.Side(() => target.AddRectangle((float)row.Origin.X, (float)row.Origin.Y, row.Extent.Width, row.Extent.Height)),
-        roundRectangle: static (target, row) => Op.Side(() => {
-            using IGraphicsPath rounded = GraphicsPath.GetRoundRect(
-                new RectangleF((float)row.Origin.X, (float)row.Origin.Y, row.Extent.Width, row.Extent.Height),
-                nwRadius: row.NW, neRadius: row.NE, seRadius: row.SE, swRadius: row.SW);
-            target.AddPath(rounded);
-        }));
+        // Unreachable: `ScreenPath.Of` stores the lowered run and both backends draw from it, so no composite arm
+        // reaches a backend at all.
+        spline: static (_, _) => unit,
+        rectangle: static (_, _) => unit,
+        roundRectangle: static (_, _) => unit);
 
     internal Curve Rhino() => Switch(
         line: static row => (Curve)new LineCurve(new Point3d(row.From.X, row.From.Y, 0.0), new Point3d(row.To.X, row.To.Y, 0.0)),
@@ -332,51 +410,38 @@ public abstract partial record PathSegment {
             row.Radius,
             RhinoMath.ToRadians(row.Sweep))),
         bezier: static row => new BezierCurve([new(row.Start.X, row.Start.Y, 0.0), new(row.Control1.X, row.Control1.Y, 0.0), new(row.Control2.X, row.Control2.Y, 0.0), new(row.End.X, row.End.Y, 0.0)]).ToNurbsCurve(),
-        spline: static row => Cardinal(row.Points, row.Tension),
         ellipse: static row => new global::Rhino.Geometry.Ellipse(
             new Plane(new Point3d(row.Origin.X + (row.Extent.Width / 2.0), row.Origin.Y + (row.Extent.Height / 2.0), 0.0), Vector3d.ZAxis),
             row.Extent.Width / 2.0,
             row.Extent.Height / 2.0).ToNurbsCurve(),
-        rectangle: static row => Rounded(row.Origin, row.Extent, 0f, 0f, 0f, 0f),
-        roundRectangle: static row => Rounded(row.Origin, row.Extent, row.NW, row.NE, row.SE, row.SW));
+        spline: static row => throw new System.Diagnostics.UnreachableException(nameof(Spline)),
+        rectangle: static row => throw new System.Diagnostics.UnreachableException(nameof(Rectangle)),
+        roundRectangle: static row => throw new System.Diagnostics.UnreachableException(nameof(RoundRectangle)));
 
-    private static Curve Rounded(Point2d origin, Size2f extent, float nw, float ne, float se, float sw) {
-        (double left, double top, double right, double bottom) = (origin.X, origin.Y, origin.X + extent.Width, origin.Y + extent.Height);
-        Seq<(double R, Point3d Corner, Vector3d In, Vector3d Out)> corners = [
-            (ne, new Point3d(right, top, 0.0), new Vector3d(1.0, 0.0, 0.0), new Vector3d(0.0, 1.0, 0.0)),
-            (se, new Point3d(right, bottom, 0.0), new Vector3d(0.0, 1.0, 0.0), new Vector3d(-1.0, 0.0, 0.0)),
-            (sw, new Point3d(left, bottom, 0.0), new Vector3d(-1.0, 0.0, 0.0), new Vector3d(0.0, -1.0, 0.0)),
-            (nw, new Point3d(left, top, 0.0), new Vector3d(0.0, -1.0, 0.0), new Vector3d(1.0, 0.0, 0.0)),
-        ];
-        PolyCurve curve = new();
-        _ = corners.Fold(corners[3].Corner + (corners[3].R * corners[3].Out), (cursor, corner) => {
-            Point3d entry = corner.Corner - (corner.R * corner.In);
-            Point3d exit = corner.Corner + (corner.R * corner.Out);
-            _ = Op.SideWhen(cursor.DistanceTo(entry) > RhinoMath.ZeroTolerance, () => ignore(curve.Append(new LineCurve(cursor, entry))));
-            _ = Op.SideWhen(corner.R > 0.0, () => ignore(curve.Append(new ArcCurve(new global::Rhino.Geometry.Arc(
-                entry, corner.Corner + ((1.0 - Math.Sqrt(0.5)) * corner.R * (corner.Out - corner.In)), exit)))));
-            return exit;
-        });
-        return curve;
-    }
+    private static Fin<Seq<PathSegment>> Cornered(
+        Point2d origin, Size2f extent, float nw, float ne, float se, float sw, Op key) =>
+        Outlined(new ParametricOp.RoundedRectangle(
+            Frame: Plane.WorldXY,
+            X: new Interval(origin.X, origin.X + extent.Width),
+            Y: new Interval(origin.Y, origin.Y + extent.Height),
+            NW: nw, NE: ne, SE: se, SW: sw), key);
 
-    private static Curve Cardinal(Seq<Point2d> points, float tension) {
-        Seq<Point3d> seats = points.Map(static point => new Point3d(point.X, point.Y, 0.0)).Strict();
-        Seq<(Point3d Prior, Point3d From, Point3d To, Point3d Next)> spans = toSeq(Enumerable.Range(0, seats.Count - 1)
-            .Select(index => (
-                seats[Math.Max(index - 1, 0)],
-                seats[index],
-                seats[index + 1],
-                seats[Math.Min(index + 2, seats.Count - 1)])));
-        PolyCurve curve = new();
-        _ = spans.Iter(span => ignore(curve.Append(new BezierCurve([
-            span.From,
-            span.From + (tension / 3.0 * (span.To - span.Prior)),
-            span.To - (tension / 3.0 * (span.Next - span.From)),
-            span.To,
-        ]).ToNurbsCurve())));
-        return curve;
-    }
+    // The one seam: the kernel answers frame-local primitives in radians, this page draws screen primitives in
+    // degrees, and nothing else crosses. An `Outline` is the only result these two ops produce, so any other case is
+    // a kernel contract break rather than a shape this page can render.
+    private static Fin<Seq<PathSegment>> Outlined(ParametricOp op, Op key) =>
+        Parametric.Apply(op, key).Bind(result => result is ParametricResult.Outline outline
+            ? Fin.Succ(toSeq(outline.Run).Map(Screen).Strict())
+            : Fin.Fail<Seq<PathSegment>>(key.InvalidResult(detail: result.GetType().Name)));
+
+    private static PathSegment Screen(PlanarPrimitive primitive) => primitive.Switch(
+        segment: static row => (PathSegment)new Line(row.From, row.To),
+        sweep: static row => new Arc(
+            Center: row.Center,
+            Radius: (float)row.Radius,
+            Start: (float)RhinoMath.ToDegrees(row.Start),
+            Sweep: (float)RhinoMath.ToDegrees(row.Angle)),
+        cubic: static row => new Bezier(row.Start, row.Control1, row.Control2, row.End));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -435,6 +500,28 @@ public abstract partial record Pose {
     }
 }
 
+[SmartEnum<int>]
+public sealed partial class IsoMode {
+    public static readonly IsoMode Off = Row(0, IsoDrawMode.None);
+    public static readonly IsoMode Directional = Row(1, IsoDrawMode.DirectionalLight);
+    public static readonly IsoMode DirectionalXY = Row(2, IsoDrawMode.DirectionalLightXY);
+    public static readonly IsoMode DirectionalXYDots = Row(3, IsoDrawMode.DirectionalLightXYDots);
+    public static readonly IsoMode CameraX = Row(4, IsoDrawMode.DirectionalLightCameraX);
+    public static readonly IsoMode CameraY = Row(5, IsoDrawMode.DirectionalLightCameraY);
+    public static readonly IsoMode CameraXY = Row(6, IsoDrawMode.DirectionalLightCameraXY);
+    public static readonly IsoMode CameraXYDots = Row(7, IsoDrawMode.DirectionalLightCameraXYDots);
+    public static readonly IsoMode CameraZ = Row(8, IsoDrawMode.DirectionalLightCameraZ);
+    public static readonly IsoMode Point = Row(9, IsoDrawMode.PointLight);
+    public static readonly IsoMode PointCamera = Row(10, IsoDrawMode.PointLightCamera);
+    public static readonly IsoMode Cylindrical = Row(11, IsoDrawMode.CylindricalStatic);
+    public static readonly IsoMode Distance = Row(12, IsoDrawMode.DirectionalDistance);
+    public static readonly IsoMode DistanceCamera = Row(13, IsoDrawMode.DirectionalDistanceCamera);
+
+    private static IsoMode Row(int key, IsoDrawMode native) => new(key, native);
+
+    internal IsoDrawMode Native { get; }
+}
+
 public interface ISpriteFiles {
     Fin<ReadOnlyMemory<byte>> Read(string asset, Op key);
 }
@@ -475,23 +562,33 @@ public sealed record SpriteRef {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record ScreenPath {
-    internal ScreenPath(Seq<PathSegment> segments, bool closed) => (Segments, Closed) = (segments, closed);
+    private ScreenPath(Seq<PathSegment> segments, Seq<PathSegment> run, bool closed) =>
+        (Segments, Run, Closed) = (segments, run, closed);
 
+    // The authored request shape; `Run` is the kernel-lowered primitive run both backends actually draw.
     public Seq<PathSegment> Segments { get; }
+    public Seq<PathSegment> Run { get; }
     public bool Closed { get; }
 
-    internal bool Valid => ValidSegments(Segments);
+    // A `ScreenPath` exists only through `Of`, so validity is the stored evidence: an admitted request shape AND a
+    // non-empty lowered run, which is what the consuming `Mark` and `Shape` validity folds read.
+    internal bool Valid => ValidSegments(Segments) && !Run.IsEmpty;
 
-    public static Fin<ScreenPath> Of(Seq<PathSegment> segments, bool closed, Op? key = null) =>
-        guard(ValidSegments(segments), key.OrDefault().InvalidInput()).ToFin()
-            .Map(_ => new ScreenPath(segments, closed));
+    // Admission lowers once: the composite arithmetic is the kernel's, its refusal folds onto this rail, and neither
+    // backend re-derives a corner walk or a spline span per paint or per hit test.
+    public static Fin<ScreenPath> Of(Seq<PathSegment> segments, bool closed, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(ValidSegments(segments), op.InvalidInput()).ToFin()
+            .Bind(_ => segments.TraverseM(segment => segment.Lower(op)).As())
+            .Map(lowered => new ScreenPath(segments, lowered.Bind(static run => run).Strict(), closed));
+    }
 
     private static bool ValidSegments(Seq<PathSegment> segments) =>
         !segments.IsEmpty && segments.ForAll(static segment => segment is not null && segment.Valid);
 
     internal GraphicsPath Eto() {
         GraphicsPath path = new();
-        _ = Segments.Iter(segment => segment.Add(path));
+        _ = Run.Iter(segment => segment.Add(path));
         _ = Op.SideWhen(Closed, path.CloseFigure);
         return path;
     }
@@ -499,7 +596,7 @@ public sealed record ScreenPath {
     internal Fin<TResult> UseCurves<TResult>(Func<Seq<Curve>, Fin<TResult>> use, Op key) => key.Catch(() => {
         Seq<Curve> curves = Seq<Curve>();
         try {
-            _ = Segments.Iter(segment => curves = curves.Add(segment.Rhino()));
+            _ = Run.Iter(segment => curves = curves.Add(segment.Rhino()));
             return use(curves);
         }
         finally { _ = curves.Iter(static curve => curve.Dispose()); }
@@ -512,16 +609,6 @@ public sealed record ScreenPath {
                 Some: value => { using Pen pen = value.Eto(); return path.StrokeContains(pen, Quant.Eto(point)); },
                 None: static () => false);
     }
-}
-
-public sealed record IsoMode {
-    private IsoMode(int key, IsoDrawMode native) => (Key, Native) = (key, native);
-    public int Key { get; }
-    internal IsoDrawMode Native { get; }
-
-    public static Fin<IsoMode> Of(int key, Op? op = null) =>
-        guard(Enum.IsDefined(typeof(IsoDrawMode), key), op.OrDefault().InvalidInput()).ToFin()
-            .Map(_ => new IsoMode(key, (IsoDrawMode)key));
 }
 
 public sealed record IsoBanding(
@@ -648,6 +735,7 @@ public sealed class SpriteSheet : IDisposable {
 - Law: render order is the input order; the first failed draw aborts and preserves its typed fault.
 - Law: the pipeline screen arm is stroke-shaped — a `Path` fill, a `Written` block, a windowed `Sprite`, and a posed or clipped `Group` are Eto-surface capabilities and fail the pipeline with typed backend evidence before any partial draw.
 - Law: hit-testing returns source ordinals, so overlapping marks retain z-order evidence; topmost is the last ordinal.
+- Law: an arrowhead is a HOST primitive, never a re-derived triangle — `WorldMark.Arrowhead` folds `DisplayPipeline.DrawAnnotationArrowhead(Arrowhead, Transform, Color)` so head shape rides the `DimensionStyle.ArrowType` row or the user-block `BlockId` the `Arrowhead` carries, and scale, orientation, and position ride the one `Transform`; a dimension overlay, a direction grip, and a section-cut leader all draw through this case rather than each hand-rolling a path in `ScreenMark.Path`.
 - Law: `ScreenPath` is the sole retained screen geometry carrier; `ScreenMark.Path` applies stroke and fill once across paint, clip culling, and hit-testing.
 - Law: mark admission folds every nested path, pose, clip, style presence, coordinate, and extent before render or hit-test dispatch; no invalid child or non-finite screen scalar reaches a backend.
 - Law: `Group` poses, clips, and sequences children on the Eto backend; a posed or clipped group routed to the pipeline fails with typed backend evidence, while a bare group sequences on both backends.
@@ -716,18 +804,19 @@ public abstract partial record ScreenMark {
 public abstract partial record WorldMark {
     private WorldMark() { }
     public sealed record Curve(global::Rhino.Geometry.Curve Value, Stroke Stroke) : WorldMark;
-    public sealed record MeshShaded(Mesh Value, DisplayMaterial Material) : WorldMark;
+    public sealed record MeshShaded(Mesh Value, ShadedMaterial Material) : WorldMark;
     public sealed record MeshBanded(Mesh Value, PerceptualColor Color, IsoBanding Banding) : WorldMark;
     public sealed record MeshFalseColors(Mesh Value) : WorldMark;
-    public sealed record SubDShaded(SubD Value, DisplayMaterial Material) : WorldMark;
+    public sealed record SubDShaded(SubD Value, ShadedMaterial Material) : WorldMark;
     public sealed record SubDWires(SubD Value, PerceptualColor Color, float Width) : WorldMark;
-    public sealed record BrepShaded(Brep Value, DisplayMaterial Material) : WorldMark;
+    public sealed record BrepShaded(Brep Value, ShadedMaterial Material) : WorldMark;
     public sealed record BrepWires(Brep Value, PerceptualColor Color, int Density) : WorldMark;
-    public sealed record Block(InstanceDefinition Definition, DisplayMaterial Material, Transform Placement) : WorldMark;
+    public sealed record Block(InstanceDefinition Definition, ShadedMaterial Material, Transform Placement) : WorldMark;
     public sealed record Clipping(ClippingPlaneSurface Value, PerceptualColor Color) : WorldMark;
     public sealed record Hatch(global::Rhino.Geometry.Hatch Value, PerceptualColor Lines, PerceptualColor Fill) : WorldMark;
     public sealed record Text(TextEntity Value, PerceptualColor Color) : WorldMark;
     public sealed record Annotation(AnnotationBase Value, RhinoObject Owner, PerceptualColor Color) : WorldMark;
+    public sealed record Arrowhead(global::Rhino.Geometry.Arrowhead Value, Transform Placement, PerceptualColor Color) : WorldMark;
     public sealed record Sprite(SpriteRef Value, Point3d At, float Size, bool WorldSized, PerceptualColor Tint, BlendUse Source, BlendUse Destination) : WorldMark;
     public sealed record SpriteCloud(SpriteRef Sprite, Seq<Point3d> Points, float Size, bool WorldSized, Option<Seq<PerceptualColor>> Colors, BlendUse Source, BlendUse Destination) : WorldMark;
     public sealed record Direction(SurfaceDirectionIndicators Value) : WorldMark;
@@ -736,18 +825,19 @@ public abstract partial record WorldMark {
 
     internal bool Valid => Switch(
         curve: static row => row.Value is not null && row.Stroke is not null,
-        meshShaded: static row => row.Value is not null && row.Material is not null,
+        meshShaded: static row => row.Value is not null && row.Material is { Valid: true },
         meshBanded: static row => row.Value is not null && row.Banding is not null && row.Banding.Valid,
         meshFalseColors: static row => row.Value is not null,
-        subDShaded: static row => row.Value is not null && row.Material is not null,
+        subDShaded: static row => row.Value is not null && row.Material is { Valid: true },
         subDWires: static row => row.Value is not null && row.Width > 0f && float.IsFinite(row.Width),
-        brepShaded: static row => row.Value is not null && row.Material is not null,
+        brepShaded: static row => row.Value is not null && row.Material is { Valid: true },
         brepWires: static row => row.Value is not null && row.Density >= 0,
-        block: static row => row.Definition is not null && row.Material is not null,
+        block: static row => row.Definition is not null && row.Material is { Valid: true },
         clipping: static row => row.Value is not null,
         hatch: static row => row.Value is not null,
         text: static row => row.Value is not null,
         annotation: static row => row.Value is not null && row.Owner is not null,
+        arrowhead: static row => row.Value is not null && row.Placement.IsValid,
         sprite: static row => row.Value is not null && row.Source is not null && row.Destination is not null
             && row.Size > 0f && float.IsFinite(row.Size),
         spriteCloud: static row => row.Sprite is not null && row.Source is not null && row.Destination is not null
@@ -907,19 +997,25 @@ public static class Marks {
     private static Fin<Unit> WorldPipeline(ConduitFrame frame, SpriteSheet sprites, WorldMark mark, Op key) => mark.Switch(
         (Frame: frame, Sprites: sprites, Op: key),
         curve: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawCurve(row.Value, row.Stroke.Rhino())),
-        meshShaded: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawMeshShaded(row.Value, row.Material)),
+        // Every shaded arm mints its native inside `ShadedMaterial.Use`, draws within that bracket, and releases on exit.
+        meshShaded: static (ctx, row) => row.Material.Use(
+            material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawMeshShaded(row.Value, material)), ctx.Op),
         meshBanded: static (ctx, row) => row.Banding.Mint(ctx.Op).Bind(effect => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
             ctx.Frame.Pipeline.DrawMeshShaded(row.Value, Quant.Sys(row.Color), effect))))),
         meshFalseColors: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawMeshFalseColors(row.Value)),
-        subDShaded: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDShaded(row.Value, row.Material)),
+        subDShaded: static (ctx, row) => row.Material.Use(
+            material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDShaded(row.Value, material)), ctx.Op),
         subDWires: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDWires(row.Value, Quant.Sys(row.Color), row.Width)),
-        brepShaded: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepShaded(row.Value, row.Material)),
+        brepShaded: static (ctx, row) => row.Material.Use(
+            material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepShaded(row.Value, material)), ctx.Op),
         brepWires: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepWires(row.Value, Quant.Sys(row.Color), row.Density)),
-        block: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawInstanceDefinitionShaded(row.Definition, row.Material, row.Placement)),
+        block: static (ctx, row) => row.Material.Use(
+            material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawInstanceDefinitionShaded(row.Definition, material, row.Placement)), ctx.Op),
         clipping: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawClippingPlaneWires(row.Value, Quant.Sys(row.Color))),
         hatch: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawHatch(row.Value, Quant.Sys(row.Lines), Quant.Sys(row.Fill))),
         text: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawText(row.Value, Quant.Sys(row.Color))),
         annotation: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawAnnotation(row.Value, row.Owner, Quant.Sys(row.Color))),
+        arrowhead: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawAnnotationArrowhead(row.Value, row.Placement, Quant.Sys(row.Color))),
         sprite: static (ctx, row) => ctx.Sprites.Pipeline(row.Value, row.Source, row.Destination, bitmap => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
             ctx.Frame.Pipeline.DrawSprite(bitmap, row.At, row.Size, Quant.Sys(row.Tint), row.WorldSized)))), ctx.Op),
         spriteCloud: static (ctx, row) => ctx.Sprites.Pipeline(row.Sprite, row.Source, row.Destination, bitmap => ctx.Op.Catch(() => {

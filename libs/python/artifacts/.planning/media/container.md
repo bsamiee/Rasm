@@ -10,10 +10,10 @@ Container/codec spine of the media plane: the one `Media` owner over the closed-
 
 ## [02]-[CONTAINER]
 
-- Owner: `Media` discriminates modality over the closed `MediaOp` family, each case carrying its own typed payload — never a shared erased `params` bag, a per-modality subclass, or a parallel `encode_video`/`encode_audio`/`remux` trio; `Media.lane` is the `runtime/execution/lanes#LANE` `LanePolicy` every worker crossing rides; `ContainerFormat` keyed inside `MediaProfile`, its `segmented` predicate branching the sink-open to a `UPath` root (local or `s3://`/`gs://` through the admitted fsspec backends), never a parallel per-container owner; `MediaProfile` folds every muxer/codec/rate/color/segment/metadata knob into its `streamed`/`voiced`/`colored` projections, and `MEZZANINE` holds its archival preservation-master rows; `MediaEvidence` the typed encode receipt one `measure` constructor folds over the muxed/manifest bytes; the `av.open` `OutputContainer`/`InputContainer` one mux/demux capsule per op, always a context manager so the trailer writes and the native handle releases.
+- Owner: `Media` discriminates modality over the closed `MediaOp` family, each case carrying its own typed payload — never a shared erased `params` bag, a per-modality subclass, or a parallel `encode_video`/`encode_audio`/`remux` trio; `Media.lane` is the `runtime/execution/lanes#LANE` `LanePolicy` every worker crossing rides; `ContainerFormat` keyed inside `MediaProfile`, its `segmented` predicate branching the sink-open onto the runtime `runtime/transport/roots#STORE` `ObjectStoreLane` (`file://`, `s3://`, `gs://` — one code path over the branch's own `StoreBackend` roster), never a parallel per-container owner and never a second fsspec provider stack beside the branch's; `MediaProfile` folds every muxer/codec/rate/color/segment/metadata knob into its `streamed`/`voiced`/`colored` projections, and `MEZZANINE` holds its archival preservation-master rows; `MediaEvidence` the typed encode receipt one `measure` constructor folds over the muxed/manifest bytes; the `av.open` `OutputContainer`/`InputContainer` one mux/demux capsule per op, always a context manager so the trailer writes and the native handle releases.
 - Cases: `EncodeVideo(frames, profile)` the rgb24 (or DLPack device-tensor) sequence `scene/render#SCENE` hands across, segmented when `profile.segment` and keyed over the manifest bytes; `Mux(frames, samples, video, audio)` one interleave axis over two profiles, never a parallel A/V-combine surface; `EncodeAudio(samples, profile)` dispatched here, worked at `media/audio#MEDIA`; `Transcode(source, profile, nodes)` the read+write pair whose encoder stream mints on the first shaped frame so a scale/crop node's output geometry drives its config, the source's audio stream carried across as a packet copy over `add_stream_from_template` so a transcode never silently drops the soundtrack; `Remux(source, profile, bsf)` the quality-lossless container change, a packet copy over `add_stream_from_template` spanning EVERY source stream (video, audio, subtitles), never a re-decode — one total `match` recovers the modality from the discriminant. `media/filtergraph#FILTER` owns filter routing; this page composes its `wired` chain product, never re-implements a filter.
 - Entry: `Media.of` discriminates construction on input shape — a `MediaOp` passes through and a frame tuple becomes the `encode_video` case under the default profile — while non-default payloads construct the active `MediaOp` case directly, never through modality-named one-hop factories; `emit()` returns the `ArtifactWork` node; `_emit` is the `async_boundary` wrapper returning `RuntimeRail[ArtifactReceipt]`, the domain `MediaFault` folded into the boundary rail because `Work[ArtifactReceipt]` forbids an inner `Result`, the terminal receipt threading the PRE-RUN key; `_mux` is one total `match` handing each worker to `_crossed`, which awaits `self.lane.offload(Kernel.of(worker, KernelTrait.HOSTILE), ...)`, folds the crossing's terminal `BoundaryFault` onto `MediaFault` through `_lapsed`, and flattens the worker's inner rail — no raise ever bridges the two rails; `_keyed` threads the node key into the receipt case and demotes the output's content address to the `address` band fact.
-- Auto: `_key` folds the op's canonical byte stream through the bare `ContentIdentity.key` under the default `CANONICAL_POLICY` — profile bytes via one deterministic msgpack encoder, frame/sample bytes raw, every chunk length-framed and the tuple count-framed through `scene/spec#SPEC`'s `framed`/`CANON`, one owner and no local fork — so the PRE-RUN key is content-true over the input; codec admission is two probes, the build registry (`av.codecs_available`) before open and the muxer admission (`container.supported_codecs`) after, so a missing encoder and a codec the muxer refuses each rail `unregistered` rather than raising deep in the worker; `_hwaccel` probes `hwdevices_available()` (a callable, not a set) before minting the `HWAccel` context, with `HwPolicy` projecting the provider boolean; `_open_sink` is one axis keyed by `container.segmented` — a `BytesIO` blob (segment count 0) or the `io_open` UPath segment set staged under a run-scoped prefix, published segments-first manifest-last only after a clean mux and discarded whole on any failure path — and both arms stamp `profile.metadata` onto `container.metadata`; frame ingest, the AVCOL color stamp, and `pts` stamping ride `_lift`/`_drive`; a `MEZZANINE` row with `Verification.BYTE_EXACT` decodes its own blob back and compares frame bytes, the `"roundtrip"` verdict landing on the facts band.
+- Auto: `_key` folds the op's canonical byte stream through the bare `ContentIdentity.key` under the default `CANONICAL_POLICY` — profile bytes via one deterministic msgpack encoder, frame/sample bytes raw, every chunk length-framed and the tuple count-framed through `scene/spec#SPEC`'s `framed`/`CANON` — this page is the media plane's one import site for that pair and every media sibling composes it from here under the source spelling, never a page-local encoder — so the PRE-RUN key is content-true over the input; codec admission is two probes, the build registry (`av.codecs_available`) before open and the muxer admission (`container.supported_codecs`) after, so a missing encoder and a codec the muxer refuses each rail `unregistered` rather than raising deep in the worker; `_hwaccel` probes `hwdevices_available()` (a callable, not a set) before minting the `HWAccel` context, with `HwPolicy` projecting the provider boolean; `_open_sink` is one axis keyed by `container.segmented` — a `BytesIO` blob (segment count 0) or the `io_open` segment set staged on a worker-local tree and put through the one runtime object-store lane, published segments-first manifest-last only after a clean mux and discarded whole on any failure path, its lane refusal riding `_Lapse` onto `MediaFault.worker` because a synchronous provider callback can return no rail — and both arms stamp `profile.metadata` onto `container.metadata`; frame ingest, the AVCOL color stamp, and `pts` stamping ride `_lift`/`_drive`; a `MEZZANINE` row with `Verification.BYTE_EXACT` decodes its own blob back and compares frame bytes, the `"roundtrip"` verdict landing on the facts band.
 - Receipt: each op contributes `core/receipt#RECEIPT` `ArtifactReceipt.Media`, the eight-slot case `_keyed` mints under the PRE-RUN node key with the muxed/manifest content address on the `address` band fact, so the receipt owner imports no `MediaEvidence` value nor `av` handle — the flat-scalar-plus-`facts`-band shape forecloses the cycle; `MediaEvidence.facts` carries the `_deployment` libav/ffmpeg majors, encoding arms add their `ColorProfile`/format/rate policy, `_probe` measures every delivered video and audio stream, segmented output adds its segment count, and archival encode adds its round-trip verdict; `Remux` reports the copied stream codec and no unapplied encode policy. `media/audio#MEDIA`/`media/filtergraph#FILTER`/`media/timeline#TIMELINE` arms all fold onto this one case through the shared band, never a parallel receipt rail.
 - Growth: a new container is one `ContainerFormat` row (muxer name + `segmented` bit); a new codec one `MediaProfile.codec` string (a hardware encoder is a codec row, not a knob); a new HDR band one `ColorProfile` member plus one `_COLOR_CODES` row; a new encode or muxer knob one `options`/`container_options`/`SegmentSpec.options` entry; a new container tag one `metadata` entry; a new archival grade one `MEZZANINE` row; a new hardware device one `HwAccel.device_type` name; a new av fault leaf one `MediaFault` case plus one `_media_fault` arm; a new evidence fact one `_deployment` band key with zero receipt edit — every addition a row, field, case, or arm on one owner.
 
@@ -75,7 +75,7 @@ class ContainerFormat(StrEnum):
     OGG = "ogg"
     WAV = "wav"
     MP3 = "mp3"
-    HLS = "hls"  # segmented: io_open sinks the .m3u8 manifest + fMP4/TS segments to the UPath root
+    HLS = "hls"  # segmented: io_open stages the .m3u8 manifest + fMP4/TS segments the store lane then puts at the root
     DASH = "dash"
     SEGMENT = "segment"
     MPEGTS = "mpegts"  # one MPEG-TS blob; SegmentSpec selects MPEG-TS segments under HLS/segment
@@ -104,6 +104,18 @@ class Verification(StrEnum):
     BYTE_EXACT = "byte_exact"
 
 
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form: `MediaProfile.colored` indexes `_COLOR_CODES` by `self.color.value` on EVERY produced frame, so an unruled
+# `ColorProfile` is a runtime `KeyError` deep inside the encode loop. The pair keys on the VALUES because the AVCOL
+# table is spelled by token, matching what the projection reads. `ContainerFormat` needs no pair — `segmented` is a
+# derived predicate over the member set, never a parallel row a member could miss.
+_COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = (
+    (frozenset(_COLOR_CODES), frozenset(profile.value for profile in ColorProfile)),
+)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("container tables do not cover their vocabularies")
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -120,6 +132,17 @@ class MediaFault:
     contract: str = case()  # the rail-preserving worker aspect catches a beartype violation before offload return
 
 
+class _Lapse(Exception):
+    # the ONE raise that crosses a worker's own interior: `io_open` is a synchronous provider callback, so the
+    # segmented sink's store crossing cannot return a rail to the muxer that drives it. The lane's `BoundaryFault`
+    # rides this carrier to the worker aspect, which folds it onto `MediaFault.worker` — the same case a terminal
+    # offload fault lands on — so a store refusal stays structurally addressable and never re-classifies as
+    # `invalid` (caller data) or escapes the fault vocabulary as a bare provider exception.
+    def __init__(self, fault: BoundaryFault, /) -> None:
+        super().__init__(fault)
+        self.fault: BoundaryFault = fault
+
+
 class HwAccel(Struct, frozen=True):
     # `_hwaccel` probes device_type against the `hwdevices_available()` CALL before minting HWAccel; a missing device
     # degrades to software decode under `HwPolicy.FALLBACK` and rails under `HwPolicy.REQUIRED`.
@@ -134,12 +157,13 @@ class Attachment(Struct, frozen=True):
 
 
 class SegmentSpec(Struct, frozen=True):
-    # `_segment_sink` builds the `io_open(url, flags)` callback opening `UPath(root)/url`; `manifest` is the top-level
-    # playlist name av.open writes, `options` the muxer knobs (hls_time/hls_segment_type/seg_duration).
-    root: str  # a UPath url — file:///…, s3://bucket/prefix, gs://…
+    # `_segment_sink` builds the `io_open(url, flags)` callback opening a worker-local staging path per url and
+    # puts the settled set through the runtime object-store lane; `manifest` is the top-level playlist name av.open
+    # writes, `options` the muxer knobs (hls_time/hls_segment_type/seg_duration).
+    root: str  # the store root the runtime lane resolves — file:///…, s3://bucket/prefix, gs://…
     manifest: str = "index.m3u8"
     options: frozendict[str, str] = frozendict()
-    storage_options: frozendict[str, str] = frozendict()
+    storage_options: frozendict[str, str] = frozendict()  # forwarded whole as the lane's `config` carry; never a second provider's kwargs
 
 
 class MediaProfile(Struct, frozen=True):
@@ -315,21 +339,26 @@ from collections.abc import Callable, Iterable, Iterator
 from fractions import Fraction
 from functools import wraps
 from itertools import chain, takewhile, zip_longest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, BinaryIO
-from uuid import uuid4
+from urllib.parse import urlsplit
 
 from beartype import beartype
 from beartype.roar import BeartypeCallHintViolation
 from expression import Error, Ok, Result
 
-from rasm.artifacts.scene.spec import CANON, framed  # parse-floor identity-preimage discipline; loads no native provider
+# the branch's ONE object-store surface — scheme roster, reach matrix, retry envelope, and credential carry all
+# live at the runtime lane, so the segmented sink composes it rather than re-minting a second provider stack.
+from rasm.runtime.roots import ObjectStoreLane, ResourceRef, StoreOp
+
+from rasm.artifacts.scene.spec import CANON, framed  # parse-floor identity-preimage discipline re-exported as the media plane's one seam; loads no native provider
 
 # Workers stay module-level so the process lane dispatches them by qualified name; `av` is worker-scope only,
 # and the audio worker and filtergraph builder defer through `lazy from` so neither couples the container import.
 lazy import av
 lazy import av.error
 lazy import av.codec.hwaccel
-lazy from upath import UPath  # the segmented-sink egress root; module-scope (a lazy stmt inside a function is a SyntaxError)
 lazy from rasm.artifacts.media.audio import _encode_audio, _voiced
 lazy from rasm.artifacts.media.filtergraph import wired
 
@@ -349,6 +378,9 @@ def _worker[**P](operation: Callable[P, Result[Produced, MediaFault]], /) -> Cal
             return guarded(*args, **kwargs)
         except BeartypeCallHintViolation as violation:
             return Error(MediaFault(contract=str(violation)))
+        except _Lapse as lapse:
+            # the segmented sink's store crossing, folded onto the same case a terminal offload fault lands on
+            return Error(MediaFault(worker=str(lapse.fault)))
 
     return call
 
@@ -454,38 +486,54 @@ def _hwaccel(spec: "HwAccel | None") -> "av.codec.hwaccel.HWAccel | None":
 
 
 def _segment_sink(spec: SegmentSpec) -> tuple["Callable[[str, int], BinaryIO]", "Callable[[], tuple[bytes, int]]", "Callable[[], None]"]:
-    # io_open is the per-segment callback av.open calls once per segment/manifest url; every write lands under a
-    # run-scoped staging prefix on the same fsspec backend, so a mid-encode failure never exposes partial objects at
-    # the public prefix. `publish` moves the validated set into place segments-first and manifest-LAST — readers key
-    # on the manifest, so it never names a segment not yet in place — then reads the manifest back; `discard` removes
-    # the staging prefix whole and no-ops after a publish, so one `finally` serves every failure path.
-    root = UPath(spec.root, **dict(spec.storage_options))
-    staging = root / f".staging-{uuid4().hex}"
+    # io_open is the per-segment callback av.open calls once per segment/manifest url. Every write lands on a
+    # worker-LOCAL staging tree, so the muxer keeps the bounded-memory streaming the segmented sink exists for and
+    # a mid-encode failure never exposes a partial object at the public prefix. `publish` then crosses the ONE
+    # runtime object-store lane — the branch's whole store vocabulary, carrying the `StoreBackend` scheme roster,
+    # the reach matrix, the retry envelope, and the credential provider — so `file://`, `s3://`, and `gs://` roots
+    # are one code path and no second fsspec provider stack forms beside the branch's own. Segments put FIRST and
+    # the manifest LAST, because readers key on the manifest and it must never name a segment not yet in place;
+    # `discard` drops the staging tree whole and no-ops after a publish, so one `finally` serves every failure path.
+    staging = TemporaryDirectory(prefix="rasm-media-segments-")
+    root = Path(staging.name)
+    lane = ObjectStoreLane.of(
+        ResourceRef(scheme=urlsplit(spec.root).scheme or "file", root=spec.root, relative=spec.manifest, owner="artifacts.media.segment"),
+        config=dict(spec.storage_options) or None,
+    )
     opened: list[str] = []
 
     def io_open(url: str, flags: int, /) -> BinaryIO:
         if url != spec.manifest:
             opened.append(url)
-        target = staging / url
+        target = root / url
         target.parent.mkdir(parents=True, exist_ok=True)
         return target.open("wb")
 
+    def _put(url: str, /) -> bytes:
+        payload = (root / url).read_bytes()
+        match lane.run(StoreOp.Put(payload), url):
+            case Result(tag="error", error=fault):
+                raise _Lapse(fault)  # the lane's own BoundaryFault, never a re-classified provider raise
+            case _:
+                return payload
+
     def publish() -> tuple[bytes, int]:
-        for url in (*opened, spec.manifest):  # Exemption: the move walk is the publication seam; manifest-last is the ordering law
-            (staging / url).rename(root / url)
-        discard()
-        return (root / spec.manifest).read_bytes(), len(opened)
+        for url in opened:  # Exemption: the segment walk is the publication seam; manifest-last is the ordering law
+            _put(url)
+        return _put(spec.manifest), len(opened)
 
     def discard() -> None:
-        if staging.exists():
-            staging.fs.rm(staging.path, recursive=True)
+        if root.exists():
+            staging.cleanup()
 
     return io_open, publish, discard
 
 
 def _open_sink(profile: MediaProfile) -> tuple[object, "Callable[[], tuple[bytes, int]]", "Callable[[], None]"]:
-    # one sink axis keyed by `container.segmented`: a single in-memory blob, or the STAGED io_open UPath segment set
-    # whose publish is the read-back manifest bytes plus segment count; both arms stamp the profile's container tags,
+    # one sink axis keyed by `container.segmented`: a single in-memory blob, or the STAGED io_open segment set whose
+    # publish puts every member through the runtime store lane and returns the manifest bytes plus the segment
+    # count — the manifest bytes come off the staged member the put just settled, never a read-back round trip
+    # against a store whose consistency model owes no read-your-write; both arms stamp the profile's container tags,
     # and the blob arm's discard is the no-op its memory sink needs — every consumer runs publish-on-success,
     # discard-in-finally, one shape across the four encode/mux/transcode/remux arms.
     if profile.container.segmented and profile.segment is not None:
@@ -711,6 +759,8 @@ def _mux_av(frames: "Frames | Iterable[NDArray[np.uint8]]", blocks: "tuple[Pcm, 
         )
         facts = _deployment(video) | measured | {"sample_rate": float(audio.rate), "layout": audio.layout} | ({"segments": float(segments)} if video.container.segmented else {})
         return Ok((blob, MediaEvidence.measure(video.container, video.codec, duration, count, bit_rate, blob, facts)))
+    except _Lapse as lapse:  # `_mux_av` alone rides no `_worker` aspect, so it folds the store crossing itself
+        return Error(MediaFault(worker=str(lapse.fault)))
     except ImportError as exc:
         return Error(MediaFault(provision=str(exc)))
     except av.error.FFmpegError as exc:

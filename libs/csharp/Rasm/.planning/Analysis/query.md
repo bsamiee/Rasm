@@ -7,14 +7,14 @@ Every family union exposes `internal Operation<TGeometry, TOut> Operation<TGeome
 ## [01]-[INDEX]
 
 - [02]-[REQUEST_ALGEBRA]: `AnalysisQuery` `[Union]`, the arity-dispatched request cases, and the family-union seam.
-- [03]-[OPERATION_RUNTIME]: the `Operation<TGeometry, TOut>` effect algebra, the `Env` runtime, and the `Analyze` facade over `Validation`.
+- [03]-[OPERATION_RUNTIME]: `Operation<TGeometry, TOut>` the effect algebra, `Env` the runtime, and `Analyze` the facade over `Validation`.
 
 ## [02]-[REQUEST_ALGEBRA]
 
 - Owner: `AnalysisQuery` `[Union]` mints the one public request vocabulary across four bands — geometry, family, relation, spatial. Request cases are data, not operations, so the union carries no `[GenerateUnionOps]`.
-- Cases: geometry `Coerce` `CurveForm` `Vertices` `SamplePoints` `SurfaceUv` `Closest` `SignedDistance`; family `Bounds` `Measure` `Location` `Curves` `Faces` `Topologies` `Meshes` `Points`; relation `Intersections` `Classification` `CurveDeviation` `SelfIntersection` `Ray` `Conformance`; spatial `SearchBox` `SearchSphere` `Overlap` `PointPairs`.
+- Cases: geometry `Coerce` `CurveForm` `Vertices` `SamplePoints` `SurfaceUv` `Closest` `SignedDistance`; family `Bounds` `Measure` `Location` `Curves` `Faces` `Topologies` `Meshes` `Points`; relation `Intersections` `Classification` `CurveDeviation` `SelfIntersection` `Ray` `Conformance`; spatial `SearchBox` `SearchSphere` `Overlap` `PointPairs`. `Conformance` overrides two arities, the only case that does — the input shape, never a second case or a mode, decides whether the runtime samples a pair or folds a stream of residuals the consumer measured.
 - Entry: the three `internal virtual` dispatchers `Single`/`Pair`/`Service` each default to `key.Unsupported<…>()`, so a case consumed at the wrong arity rejects on the rail rather than throwing and a case overrides only the arities it owns; consumers reach dispatch through `Analyze.Query`/`Analyze.Run` alone, the union's dispatch surface staying internal.
-- Auto: `SurfaceForm` and `BrepForm` collapse onto `Coerce` and `Kind` onto `Selection(Topologies.Kind)` because those requests are the identical operation reached through a second spelling; parameterless `Bounds()` defaults to `Bounds.AxisAligned`, and the `Conformance` factory computes percentiles only under `ConformanceMetric.Distribution`, every other metric carrying the empty `Seq<double>`.
+- Auto: `SurfaceForm` and `BrepForm` collapse onto `Coerce` and `Kind` onto `Selection(Topologies.Kind)` because those requests are the identical operation reached through a second spelling; parameterless `Bounds()` defaults to `Bounds.AxisAligned`, and the `Conformance` factory computes percentiles only under `ConformanceMetric.Distribution`, every other metric carrying the empty `Seq<double>`, while its absent sampling budget is what a measured-residual caller spells — `Conformance(metric)` is the stream arity and `Conformance(metric, count)` the sampled pair, the raw `int` widening into the `Option` at the call.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` and generated `Switch`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Eff`), `Rasm.Domain` (the `Op`/`Fault`/`Requirement`/`Context` rail and the coercion-evaluation lattice), `Rasm.Spatial` (the `Spatial/neighbors` substrate), RhinoCommon (`Point3d`/`Point2d`/`BoundingBox`/`Sphere` payload values).
 - Growth: a new query modality is one case with one factory on the owning band; a family page gaining a capability adds a case to ITS union with this algebra untouched, a new relation forwards to an `Analysis/relations` builder, a new spatial probe is one `NeighborQuery` case on the `Spatial/neighbors` owner, and a new band is admitted only by charter amendment.
 - Boundary: output-type gates (`Output == typeof(TOut)`) reject at operation-build time onto `Fault.Unsupported` — code 9104, the host binding's probe discriminant — while spatial value defects reject `InvalidInput` at build, so 9104 stays a pure modality discriminant; the geometry band composes the `Domain/normalization` coercion lattice and the `Domain/evaluation` closest/sampling surface rather than re-implementing either locally; the spatial band rides one service spine forwarding to the `Spatial/neighbors` owner's `NeighborIndex.Query` and projecting its `NeighborAnswer` arms `Hits` and `PairsFound`, every other answer rejecting `InvalidResult` — pair-probe admission is the substrate's own law, so a query-side probe whitelist, RTree wrapper, or second answer vocabulary is the deleted parallel rail.
@@ -63,7 +63,13 @@ public abstract partial record AnalysisQuery {
     public sealed record CurveDeviationCase : AnalysisQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationDeviation<TA, TB, TOut>(key: key); }
     public sealed record SelfIntersectionCase : AnalysisQuery { internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Analyze.RelationSelfIntersection<TGeometry, TOut>(key: key); }
     public sealed record RayCase(RayQuery Query) : AnalysisQuery { internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Analyze.RelationRay<TGeometry, TOut>(query: Query, key: key); }
-    public sealed record ConformanceCase(ConformanceMetric Metric, int Count, Seq<double> Percentiles) : AnalysisQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationConformance<TA, TB, TOut>(metric: Metric, count: Count, percentiles: Percentiles, key: key); }
+    // Two arities on one case: a sampling budget means a (geometry, target) pair the runtime samples, its absence a
+    // stream of residuals the consumer measured. The input shape selects the dispatcher, so a budget riding a
+    // measured stream and a pair with no budget both reject at build rather than reading a slot the arity ignores.
+    public sealed record ConformanceCase(ConformanceMetric Metric, Option<int> Count, Seq<double> Percentiles) : AnalysisQuery {
+        internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Count.IsNone ? Analyze.MeasuredConformance<TGeometry, TOut>(metric: Metric, percentiles: Percentiles, key: key) : key.Unsupported<TGeometry, TOut>();
+        internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationConformance<TA, TB, TOut>(metric: Metric, count: Count, percentiles: Percentiles, key: key);
+    }
 
     // --- [SPATIAL_BAND]
     public sealed record SearchBoxCase(NeighborIndex Index, BoundingBox Box) : AnalysisQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Analyze.SpatialSearch<TOut>(index: Index, box: Box, key: key); }
@@ -95,7 +101,7 @@ public abstract partial record AnalysisQuery {
     public static AnalysisQuery CurveDeviation => new CurveDeviationCase();
     public static AnalysisQuery SelfIntersection => new SelfIntersectionCase();
     public static AnalysisQuery Ray(RayQuery query) => new RayCase(Query: query);
-    public static AnalysisQuery Conformance(ConformanceMetric metric, int count, params double[] percentiles) =>
+    public static AnalysisQuery Conformance(ConformanceMetric metric, Option<int> count = default, params double[] percentiles) =>
         new ConformanceCase(Metric: metric, Count: count, Percentiles: Optional(metric).Bind(m => m.Equals(ConformanceMetric.Distribution) ? Some(toSeq(percentiles)) : Option<Seq<double>>.None).IfNone(Seq<double>()));
     public static AnalysisQuery Search(NeighborIndex index, BoundingBox box) => new SearchBoxCase(Index: index, Box: box);
     public static AnalysisQuery Search(NeighborIndex index, Sphere sphere) => new SearchSphereCase(Index: index, Sphere: sphere);

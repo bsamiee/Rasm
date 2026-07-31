@@ -1326,6 +1326,38 @@ def _workbook(register: "Register", scope: RenderScope, /) -> bytes:
         if register.issued:  # an issued register is read-only; a draft stays editable under the validation dropdowns
             sheet.protect(options={"autofilter": True, "sort": True, "select_locked_cells": True})
     return sink.getvalue()
+
+# --- [EXPORTS] ----------------------------------------------------------------------------
+
+__all__ = (
+    "CONTRACTUAL_AUDIT",
+    "STANDARD_AUDIT",
+    "AuditPolicy",
+    "AuditRule",
+    "Classification",
+    "ClassificationSystem",
+    "ContainerDialect",
+    "ContainerMeta",
+    "ContainerPayload",
+    "ContainerState",
+    "DeltaChange",
+    "DialectProfile",
+    "InformationContainer",
+    "NamingContext",
+    "PublishedCode",
+    "PublishedPrefix",
+    "Register",
+    "RegisterEvidence",
+    "RegisterFault",
+    "RegisterOp",
+    "RenderScope",
+    "RevisionCode",
+    "RevisionKind",
+    "SheetContext",
+    "Suitability",
+    "SuitabilityCode",
+    "SuitabilityRow",
+)
 ```
 
 ## [03]-[RESEARCH]

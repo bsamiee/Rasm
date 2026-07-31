@@ -2,24 +2,25 @@
 
 `PolygonAlgebra` owns line-space fabrication geometry over `Clipper2`: one operation family admits line-only planar material, returns topology for region results and grouping for open runs, executes offset, Boolean, window, hygiene, morphology, inspection, and field projection, then emits one evidence-bearing result family. `Loop`, `Edge3`, and `Context` remain the boundary atoms, and `ArcAlgebra.Densify` remains the only bulge-to-line bridge.
 
-`PolygonAlgebra.Apply` mirrors `Parametric.Apply`: one request, one `Op?` resolved through `OrDefault()`, and one `Fin<PolygonTrace>` rail. Each arm names its case for provenance. Malformed policy routes `key.InvalidInput()`, degenerate geometry routes indexed `GeometryFault.DegenerateInput`, and provider throws route `key.InvalidResult(detail)`. Requests carry policy values, foreign carriers terminate inside the owner, and results re-enter at the admitted context and elevation.
+`PolygonAlgebra.Apply` mirrors `Parametric.Apply`: one request, one `Op?` resolved through `OrDefault()`, and one `Fin<PolygonTrace>` rail. Each arm names its case for provenance. Malformed policy routes `key.InvalidInput()`, degenerate geometry routes `GeometryFault.DegenerateInput` under the true `Kind` with the element ordinal where one exists, and provider throws route `key.InvalidResult(detail)`. Requests carry policy values, foreign carriers terminate inside the owner, and results re-enter at the admitted context and elevation.
 
 ## [01]-[INDEX]
 
-- [02]-[OPERATION_ALGEBRA]: `PolygonOp`, its policy families, one `Apply` dispatch, and the typed `PolygonTrace` egress.
-- [03]-[FIELD_PLANE]: `FieldGrid` and `FieldMetric` project occupancy, signed clearance, cutter engagement, cutter reachability, and local inscribed diameter into one finite-gated plane receipt.
+- [02]-[OPERATION_ALGEBRA]: `PolygonOp`, its policy families, one `Apply` dispatch, the `PolygonScan` reusable-subject handle, and the typed `PolygonTrace` egress.
+- [03]-[FIELD_PLANE]: `FieldMetric` projects occupancy, signed clearance, cutter engagement, cutter reachability, and local inscribed diameter over the kernel `CellLattice` into one finite-gated plane receipt.
 
 ## [02]-[OPERATION_ALGEBRA]
 
 - Owner: `PolygonOp` is the complete request family, and `PolygonAlgebra.Apply(PolygonOp?, Op?)` is its only public execution surface.
-- Cases: `PolygonOp` and its input-shape policies jointly discriminate uniform and per-vertex offset, closed and open clipping, closed and open windowing, four hygiene algorithms, morphology, measurement, containment, topology, and raster projection. Boolean, fill, join, and end rows carry their native `Clipper2` values.
+- Cases: `PolygonOp` and its input-shape policies jointly discriminate uniform and per-vertex offset, closed and open clipping, closed and open windowing, four hygiene algorithms, morphology, measurement, containment, topology, point-site cells, raster projection, and the minimum-area oriented envelope. Boolean, fill, join, and end vocabularies are the kernel `Rasm.Meshing` rows — a fabrication request is already a kernel request.
+- Owner: `EdgeSeparation` extends the `Edge3` atom with the pure pair grammar — `Crosses(Edge3, double)` the tolerance-signed crossing verdict, `Gap(Edge3, double)` the exact separation (zero on a crossing, else the least of the four clamped endpoint projections) — deliberately non-monadic so hot per-pair censuses fold it directly; a `Fin` rail per probe is the rejected shape, and the kernel `IntersectOp.SegmentSegment` stays the exact-predicate crossing-point owner this surface never re-derives.
 - Law: admission owns its vocabulary — `HygieneRule.Admit` and `FieldMetric.Admit` gate their own scalars on the case that declares them, so no arm dispatches the same discriminant twice, and `Op.Need`/`Finite`/`Positive` carry presence and scalar gates rather than page-local re-derivations.
 - Entry: `OffsetField` survives on scalar-versus-matrix arity, `PolygonSource` on region-versus-run admission, and `HygieneRule` on algorithm payload timing; every collection owns singular and plural arity, and each case carries only the evidence its arm consumes.
-- Auto: `ClipperD` owns precision-bearing Boolean, rectangle, containment, and topology work; one `ClipperOffset` engine owns both constant and callback offsets so `PreserveCollinear`, `ReverseSolution`, and `MergeGroups` bind identically on either arity; `Minkowski` owns morphology; one `Try` boundary lowers package exceptions onto `Fin<T>`.
-- Receipt: `PolygonTrace` distinguishes flat paths, region forests, grouped runs, split runs, measures, point relations, and sampled fields by evidence timing; `RegionNode.Parent` carries the pre-order ordinal the tree walk assigns, never a re-scanned reference match.
-- Packages: `Clipper2` supplies the line-space kernel; `Thinktecture` supplies generated owners and exhaustive dispatch; `LanguageExt` supplies admission, traversal, immutable carriers, and the exception rail; `Rasm.Domain` supplies the `Op` key rail and the `Kind` fault taxonomy.
+- Auto: offset, boolean, morphology, and cells lower onto the kernel owners — `Offsetting.Apply` wavefront offsets (per-vertex distances riding `OffsetPolicy.EdgeSpeed` through the `Weighted` case), `Arrangement.Apply` `PlanarOverlay` exact ring booleans, `OffsetOp.Minkowski` morphology with `MorphologyKind.ReflectPattern` as the lowering law, and `Tessellation.Build` + `VoronoiDual(boundary)` bounded point-site cells; `ClipperD` owns the surviving precision-bearing lanes — window, hygiene, open-clip, region topology, measurement, containment, raster forest projection — behind the one `FillOf` seam; a placement scan hoists its recurring subject set into one `ReuseableDataContainer64` and folds it per position through `AddReuseableData`, `Rect64.Intersects` rejecting a disjoint candidate before the overlay runs; one `Try` boundary lowers package exceptions onto `Fin<T>`.
+- Receipt: `PolygonTrace` distinguishes flat paths, region forests, grouped runs, split runs, measures, point relations, cell fields, sampled planes, and oriented envelopes by evidence timing; `RegionNode.Parent` carries the pre-order ordinal the tree walk assigns, never a re-scanned reference match. `Calipers` rests the optimum on a hull edge — its monotone-chain hull is a named statement kernel, structurally cheaper for a planar loop than the mesh-tier `Tessellation.LowerHull` or the host `CloudHullKind` rail, and an all-polygon-edges sweep under-searches a concave loop because the bridging hull edge is not a polygon edge.
+- Packages: `Rasm` (project) supplies the boolean/fill/join/end vocabularies, the `Offsetting`/`Arrangement`/`Tessellation` owners, and the `CellLattice` plane; `Clipper2` supplies the surviving line-space lanes and the reusable scan container; `Thinktecture` supplies generated owners and exhaustive dispatch; `LanguageExt` supplies admission, traversal, immutable carriers, and the exception rail; `Rasm.Domain` supplies the `Op` key rail and the `Kind` fault taxonomy.
 - Growth: a new operation is one `PolygonOp` case, one `PolygonTrace` case when its evidence differs, and one generated dispatch arm naming its own `Op`.
-- Boundary: `ClipperD`, `ClipperOffset`, region measurement, point relation, and `IAction2D` sampling are the statement-bearing native and numeric kernels. Inputs share one `Context` and elevation before XY projection; bulges, mixed contexts, mixed elevations, invalid open edges, and closure-policy conflicts fail before package execution, each naming the index of the first offending path.
+- Boundary: `ClipperD`, region measurement, and point relation are the statement-bearing native kernels; kernel-lowered arms terminate their `Chain` results back into `Loop` at the admitted context and elevation. Cells are Voronoi by definition, so a foreign bounded Fortune tessellator — with the third forked draw stream it carried — is the deleted form; relaxation and merge are folds over the kernel dual, never provider modes. Inputs share one `Context` and elevation before XY projection; bulges, mixed contexts, mixed elevations, invalid open edges, and closure-policy conflicts fail before execution, each naming the index of the first offending path.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -36,7 +37,9 @@ using LanguageExt.Common;
 using LanguageExt.Traits;
 using Rasm.Domain;
 using Rasm.Fabrication.Process;
+using Rasm.Meshing;
 using Rasm.Numerics;
+using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -44,51 +47,23 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Geometry2D;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class PolygonBoolean {
-    public static readonly PolygonBoolean Union = new("union", ClipType.Union);
-    public static readonly PolygonBoolean Intersection = new("intersection", ClipType.Intersection);
-    public static readonly PolygonBoolean Difference = new("difference", ClipType.Difference);
-    public static readonly PolygonBoolean Xor = new("xor", ClipType.Xor);
+// Boolean, fill, join, cap, and morphology vocabularies are the KERNEL'S — Rasm.Meshing BooleanOp
+// (Union/Difference/Intersection/Xor), PolygonFill (NonZero/EvenOdd/Positive/Negative), JoinType, EndType
+// (the joined open-ribbon row included), and OffsetOp.Minkowski. The second rosters this page carried
+// mapped Clipper2 natives one-to-one and deleted with the engine lanes; the FillRule seam below is the
+// one boundary map the SURVIVING Clipper2 lanes (window, hygiene, measure, contain, topology, open-clip,
+// raster forest projection) still cross.
 
-    internal ClipType Native { get; }
-}
-
-[SmartEnum<string>]
-public sealed partial class PolygonFill {
-    public static readonly PolygonFill EvenOdd = new("even-odd", FillRule.EvenOdd);
-    public static readonly PolygonFill NonZero = new("non-zero", FillRule.NonZero);
-    public static readonly PolygonFill Positive = new("positive", FillRule.Positive);
-    public static readonly PolygonFill Negative = new("negative", FillRule.Negative);
-
-    internal FillRule Native { get; }
-}
-
-[SmartEnum<string>]
-public sealed partial class OffsetJoin {
-    public static readonly OffsetJoin Miter = new("miter", JoinType.Miter);
-    public static readonly OffsetJoin Square = new("square", JoinType.Square);
-    public static readonly OffsetJoin Bevel = new("bevel", JoinType.Bevel);
-    public static readonly OffsetJoin Round = new("round", JoinType.Round);
-
-    internal JoinType Native { get; }
-}
-
-[SmartEnum<string>]
-public sealed partial class OffsetEnd {
-    public static readonly OffsetEnd Polygon = new("polygon", EndType.Polygon);
-    public static readonly OffsetEnd Joined = new("joined", EndType.Joined);
-    public static readonly OffsetEnd Butt = new("butt", EndType.Butt);
-    public static readonly OffsetEnd Square = new("square", EndType.Square);
-    public static readonly OffsetEnd Round = new("round", EndType.Round);
-
-    internal EndType Native { get; }
-}
-
+// Dilate-versus-erode is FABRICATION's discriminant, not the kernel's: both rows lower onto the ONE
+// kernel Minkowski walk — Sum convolves directly, Difference convolves the point-reflected pattern and
+// complements within the path region — so the engine the rows once selected is gone and the row data
+// is the lowering law.
 [SmartEnum<string>]
 public sealed partial class MorphologyKind {
-    public static readonly MorphologyKind Sum = new("sum");
-    public static readonly MorphologyKind Difference = new("difference");
+    public static readonly MorphologyKind Sum = new("sum", reflectPattern: false);
+    public static readonly MorphologyKind Difference = new("difference", reflectPattern: true);
+
+    internal bool ReflectPattern { get; }
 }
 
 [SmartEnum<string>]
@@ -96,83 +71,6 @@ public sealed partial class PointRelation {
     public static readonly PointRelation Outside = new("outside");
     public static readonly PointRelation Boundary = new("boundary");
     public static readonly PointRelation Inside = new("inside");
-}
-
-[ComplexValueObject]
-public sealed partial class OffsetPolicy {
-    public OffsetJoin Join { get; }
-    public OffsetEnd End { get; }
-    public double MiterLimit { get; }
-    public double ArcTolerance { get; }
-    public bool PreserveCollinear { get; }
-    public bool ReverseSolution { get; }
-    public bool MergeGroups { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref OffsetJoin join,
-        ref OffsetEnd end,
-        ref double miterLimit,
-        ref double arcTolerance,
-        ref bool preserveCollinear,
-        ref bool reverseSolution,
-        ref bool mergeGroups) =>
-        validationError = double.IsFinite(miterLimit) && miterLimit >= 1.0
-            && double.IsFinite(arcTolerance) && arcTolerance > 0.0
-                ? null
-                : new ValidationError(message: "Offset fidelity must carry a finite miter limit and positive arc tolerance.");
-
-    public static Fin<OffsetPolicy> Admit(
-        OffsetJoin join,
-        OffsetEnd end,
-        double miterLimit,
-        double arcTolerance,
-        bool preserveCollinear = false,
-        bool reverseSolution = false,
-        bool mergeGroups = true,
-        Op? key = null) =>
-        Validate(join, end, miterLimit, arcTolerance, preserveCollinear, reverseSolution, mergeGroups, out OffsetPolicy? policy) is null
-            ? Fin.Succ(policy!)
-            : Fin.Fail<OffsetPolicy>(key.OrDefault().InvalidInput());
-}
-
-[ComplexValueObject]
-public sealed partial class FieldGrid {
-    public BoundingBox Bounds { get; }
-    public double Cell { get; }
-    public int MaximumCells { get; }
-
-    public int Columns => (int)Math.Ceiling(Bounds.Diagonal.X / Cell);
-    public int Rows => (int)Math.Ceiling(Bounds.Diagonal.Y / Cell);
-
-    public Point3d Center(int row, int column) =>
-        new(Bounds.Min.X + (column + 0.5) * Cell, Bounds.Min.Y + (row + 0.5) * Cell, Bounds.Min.Z);
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref BoundingBox bounds,
-        ref double cell,
-        ref int maximumCells) {
-        double columns = bounds.IsValid && double.IsFinite(cell) && cell > 0.0
-            ? Math.Ceiling(bounds.Diagonal.X / cell)
-            : double.PositiveInfinity;
-        double rows = bounds.IsValid && double.IsFinite(cell) && cell > 0.0
-            ? Math.Ceiling(bounds.Diagonal.Y / cell)
-            : double.PositiveInfinity;
-        validationError = columns is >= 1.0 and <= int.MaxValue
-            && rows is >= 1.0 and <= int.MaxValue
-            && maximumCells is >= 1 and <= Array.MaxLength
-            && columns * rows <= maximumCells
-            ? null
-            : new ValidationError(message: "Field bounds and cell size must resolve to a finite non-empty plane.");
-    }
-
-    public static Fin<FieldGrid> Admit(BoundingBox bounds, double cell, int maximumCells, Op? key = null) =>
-        Validate(bounds, cell, maximumCells, out FieldGrid? grid) is null
-            ? Fin.Succ(grid!)
-            : Fin.Fail<FieldGrid>(key.OrDefault().InvalidInput());
 }
 
 [Union]
@@ -212,14 +110,8 @@ public abstract partial record FieldMetric {
         reachable: static (op, metric) => op.Positive(metric.ToolRadius).Map(static _ => unit),
         inscribedDiameter: static (_, _) => Fin.Succ(unit));
 
-    // Occupancy reads only the sign, so its cells skip the per-cell nearest-segment fold entirely.
-    internal bool NeedsClearance => Switch(
-        occupancy: static _ => false,
-        signedClearance: static _ => true,
-        engagement: static _ => true,
-        reachable: static _ => true,
-        inscribedDiameter: static _ => true);
-
+    // Every row is a projection of ONE signed clearance plane, so the metric never selects a sampling strategy —
+    // occupancy reads the sign, the cutter rows read the magnitude against their radius, and the plane is the kernel's.
     internal double Sample(double clearance) => Switch(
         state: clearance,
         occupancy: static (value, _) => value <= 0.0 ? 1.0 : 0.0,
@@ -235,10 +127,51 @@ public abstract partial record PolygonSource {
     public sealed record Edges(Seq<Seq<Edge3>> Paths, Context Tolerance, double Plane) : PolygonSource;
 }
 
+// Merge is DATA, never a caller delegate: a cell falls into its strongest surviving neighbour when its own area is
+// under the floor or its centroid sits inside the separation of one already kept, so an area-driven and a
+// distance-driven merge are one row apart and both replay from the receipt alone.
+[ComplexValueObject]
+public sealed partial class SiteMerge {
+    public double MinimumArea { get; }
+    public double MinimumSeparation { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError, ref double minimumArea, ref double minimumSeparation) =>
+        validationError = double.IsFinite(minimumArea) && minimumArea >= 0.0
+            && double.IsFinite(minimumSeparation) && minimumSeparation >= 0.0
+            ? null
+            : new ValidationError("site-merge:negative-or-non-finite");
+}
+
+// Relaxation is Lloyd's fold over the SAME kernel dual: each pass moves a seed toward its own cell centroid by the
+// strength fraction and re-tessellates, so iteration count and strength are the whole vocabulary and no provider
+// mode stands behind them. Strength one snaps to the centroid; zero leaves the seed field untouched.
+[ComplexValueObject]
+public sealed partial class SitePolicy {
+    public int Relaxations { get; }
+    public double RelaxationStrength { get; }
+    public Option<SiteMerge> Merge { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError, ref int relaxations, ref double relaxationStrength, ref Option<SiteMerge> merge) =>
+        validationError = relaxations >= 0 && double.IsFinite(relaxationStrength) && relaxationStrength is >= 0.0 and <= 1.0
+            ? null
+            : new ValidationError("site-policy:relaxation-out-of-range");
+
+    public static SitePolicy Canonical { get; } = Create(relaxations: 0, relaxationStrength: 0.0, merge: None);
+}
+
+// Offset and Boolean carry the KERNEL vocabularies whole — JoinType/EndType/OffsetPolicy and BooleanOp
+// with the kernel fill row — so a fabrication request is already a kernel request and no second policy
+// admission stands between them. Raster addresses its plane through the ONE CellLattice; the bounds,
+// cell, census, and budget-ceiling admission that the deleted FieldGrid re-derived are CellLattice.Of's,
+// each caller passing its own ceiling VALUE as the Of argument.
 [Union]
 public abstract partial record PolygonOp {
-    public sealed record Offset(Seq<Loop> Paths, OffsetField Field, OffsetPolicy Policy) : PolygonOp;
-    public sealed record Boolean(Seq<Loop> Subject, Seq<Loop> Clip, PolygonBoolean Kind, PolygonFill Fill) : PolygonOp;
+    public sealed record Offset(Seq<Loop> Paths, OffsetField Field, JoinType Join, EndType End, OffsetPolicy Policy) : PolygonOp;
+    public sealed record Boolean(Seq<Loop> Subject, Seq<Loop> Clip, BooleanOp Kind, PolygonFill Fill) : PolygonOp;
     public sealed record ClipOpen(Seq<Seq<Edge3>> Subject, Seq<Loop> Clip, PolygonFill Fill) : PolygonOp;
     public sealed record Window(PolygonSource Source, BoundingBox Bounds) : PolygonOp;
     public sealed record Hygiene(Seq<Loop> Paths, HygieneRule Rule) : PolygonOp;
@@ -246,7 +179,9 @@ public abstract partial record PolygonOp {
     public sealed record Measure(Seq<Loop> Paths, PolygonFill Fill) : PolygonOp;
     public sealed record Contains(Seq<Loop> Paths, Arr<Point3d> Points, PolygonFill Fill) : PolygonOp;
     public sealed record Topology(Seq<Loop> Paths, PolygonFill Fill) : PolygonOp;
-    public sealed record Raster(Seq<Loop> Paths, PolygonFill Fill, FieldGrid Grid, FieldMetric Metric) : PolygonOp;
+    public sealed record Cells(Arr<Point3d> Sites, Loop Boundary, SitePolicy Policy) : PolygonOp;
+    public sealed record Raster(Seq<Loop> Paths, PolygonFill Fill, CellLattice Grid, FieldMetric Metric) : PolygonOp;
+    public sealed record Calipers(Seq<Loop> Paths) : PolygonOp;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
@@ -270,9 +205,54 @@ public sealed record PolygonMeasure(
     int Outers,
     int Holes);
 
+// Each cell carries its seed, its clipped ring, and the two figures every consumer reads off that ring — the
+// centroid a relaxation pass moves the seed toward, and the area a merge rule tests. `Site` indexes the seed set the emitting
+// pass tessellated: relaxation moves seeds and keeps that index, a merge drops seeds and renumbers over the
+// survivors, so the receipt is the index authority and a caller re-keys off `Cells` rather than its own request.
+public sealed record SiteCell(int Site, Point3d Seed, Loop Ring, Point3d Centroid, double Area);
+
+// Adjacency carries the SHARED EDGE, not just the pair: the dual edge between two circumcentres IS the segment its
+// two cells share, so a traversal weight, a common-line cut, and a link midpoint read off the diagram rather than
+// re-deriving a boundary intersection the tessellation already computed.
+// The minimum-area enclosing rectangle: `Along` is the unit direction of the hull edge the optimum rests on,
+// `Anchor` the min-along/min-across corner at the loop's own elevation, `Length` the extent along, `Width`
+// across; `Area` and `Aspect` derive here, so a yield or remnant consumer never re-sweeps directions the
+// calipers already ranked.
+public sealed record OrientedEnvelope(Point3d Anchor, Vector3d Along, double Length, double Width) {
+    public double Area => Length * Width;
+    public double Aspect => Length <= 0.0 || Width <= 0.0 ? 0.0 : Math.Min(Length, Width) / Math.Max(Length, Width);
+}
+
+public sealed record SiteEdge(int A, int B, Point3d Start, Point3d End) {
+    public double Length => Start.DistanceTo(End);
+    public Point3d Mid => new((Start.X + End.X) * 0.5, (Start.Y + End.Y) * 0.5, Start.Z);
+}
+
+// Seeds is the kernel point index over the RELAXED seed field, built once at emission — a Voronoi cell IS the
+// nearest-seed region, so site lookup is that one query and never a ring walk, and a caller probing a whole scan
+// field pays one build rather than one fold per probe.
+public sealed record CellReceipt(
+    Arr<SiteCell> Cells,
+    Arr<SiteEdge> Adjacency,
+    SpatialIndex Seeds,
+    Loop Boundary,
+    Context Tolerance,
+    double Plane) {
+    public Fin<int> Locate(Point3d sample, Op? key = null) {
+        Op op = key.OrDefault();
+        return Spatial.Apply(new SpatialOp.Query(Seeds, new SpatialQuery.Nearest(sample, K: 1)), op).Bind(answer => answer.Switch(
+            state: op,
+            index: static (key, _) => Fin.Fail<int>(key.InvalidResult(detail: "cells:non-query-answer")),
+            wire: static (key, _) => Fin.Fail<int>(key.InvalidResult(detail: "cells:non-query-answer")),
+            result: static (key, admitted) => admitted.Value is QueryResult.Nearest { Ordered: [int site, ..] }
+                ? Fin.Succ(site)
+                : Fin.Fail<int>(key.InvalidResult(detail: "cells:empty-nearest"))));
+    }
+}
+
 public sealed record FieldReceipt(
     ReadOnlyMemory2D<double> Samples,
-    FieldGrid Grid,
+    CellLattice Grid,
     FieldMetric Metric,
     Context Tolerance,
     double Plane,
@@ -291,10 +271,106 @@ public abstract partial record PolygonTrace {
     public sealed record SplitRuns(Seq<Seq<Edge3>> Inside, Seq<Seq<Edge3>> Outside) : PolygonTrace;
     public sealed record Measured(PolygonMeasure Result) : PolygonTrace;
     public sealed record Related(Arr<PointRelation> Result) : PolygonTrace;
+    public sealed record Celled(CellReceipt Result) : PolygonTrace;
     public sealed record Field(FieldReceipt Result) : PolygonTrace;
+    public sealed record Enveloped(OrientedEnvelope Result) : PolygonTrace;
+}
+
+// --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
+// Scan shape beside the one-shot `Apply`: a placement scan re-tests ONE recurring subject set against every
+// candidate position, so its vertex structure precomputes once and each position folds over that structure rather
+// than rebuilding it. Precompute is integer-space by the container's own signature, so this capsule owns that
+// one scale crossing; `Rect64.Intersects` rejects a disjoint candidate before any overlay runs, which a per-position
+// `Execute` cannot express. A one-shot overlap is `PolygonOp.Boolean` — this handle earns its lifetime only when the
+// subject outlives the candidate.
+[BoundaryAdapter]
+public sealed class PolygonScan : IDisposable {
+    private readonly ReuseableDataContainer64 subject;
+    private readonly Rect64 bounds;
+    private readonly double scale;
+    private readonly FillRule fill;
+
+    private PolygonScan(ReuseableDataContainer64 subject, Rect64 bounds, double scale, FillRule fill) {
+        this.subject = subject; this.bounds = bounds; this.scale = scale; this.fill = fill;
+    }
+
+    public static Fin<PolygonScan> Of(Seq<Loop> paths, PolygonFill fill, Op? key = null) =>
+        from admitted in PolygonAlgebra.Regions(paths)
+        from resolved in key.OrDefault().Need(fill)
+        from scan in Try.lift(() => {
+            double scale = PolygonAlgebra.Scale(admitted[0].Tolerance);
+            Paths64 native = PolygonAlgebra.ToPaths64(admitted, scale);
+            ReuseableDataContainer64 container = new();
+            container.AddPaths(native, PathType.Subject, isOpen: false);
+            return new PolygonScan(container, Clipper.GetBounds(native), scale, PolygonAlgebra.FillOf(resolved));
+        }).Run().MapFail(error => key.OrDefault().InvalidResult(detail: error.Message)).As().ToFin()
+        select scan;
+
+    public Fin<bool> Intersects(Seq<Loop> candidate, Op? key = null) =>
+        from admitted in PolygonAlgebra.Regions(candidate)
+        from verdict in Try.lift(() => {
+            Paths64 native = PolygonAlgebra.ToPaths64(admitted, scale);
+            if (!bounds.Intersects(Clipper.GetBounds(native))) { return false; }
+            Clipper64 engine = new();
+            engine.AddReuseableData(subject);
+            engine.AddClip(native);
+            Paths64 result = [];
+            return engine.Execute(ClipType.Intersection, fill, result) && result.Count > 0;
+        }).Run().MapFail(error => key.OrDefault().InvalidResult(detail: error.Message)).As().ToFin()
+        select verdict;
+
+    public void Dispose() => subject.Clear();
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// Pure pair-separation surface over the `Edge3` atom — deliberately NON-monadic: per-pair censuses (scan-vector
+// election, nest proximity) fold it inside hot loops where a `Fin` rail per probe is the rejected shape. The
+// kernel `IntersectOp.SegmentSegment` stays the exact-predicate crossing-POINT owner; this surface answers the
+// crossing VERDICT and the separation DISTANCE only and never re-derives the intersection point.
+public static class EdgeSeparation {
+    extension(Edge3 edge) {
+        public bool Crosses(Edge3 other, double toleranceMm) {
+            double areaFloor = toleranceMm * Math.Max(1.0, Math.Max(edge.A.DistanceTo(edge.B), other.A.DistanceTo(other.B)));
+            int otherA = Orient(edge, other.A, areaFloor);
+            int otherB = Orient(edge, other.B, areaFloor);
+            int edgeA = Orient(other, edge.A, areaFloor);
+            int edgeB = Orient(other, edge.B, areaFloor);
+            return (otherA == 0 && Within(edge, other.A, toleranceMm))
+                || (otherB == 0 && Within(edge, other.B, toleranceMm))
+                || (edgeA == 0 && Within(other, edge.A, toleranceMm))
+                || (edgeB == 0 && Within(other, edge.B, toleranceMm))
+                || (otherA != otherB && edgeA != edgeB);
+        }
+
+        public double Gap(Edge3 other, double toleranceMm) =>
+            edge.Crosses(other, toleranceMm)
+                ? 0.0
+                : Math.Min(
+                    Math.Min(Projected(other.A, edge), Projected(other.B, edge)),
+                    Math.Min(Projected(edge.A, other), Projected(edge.B, other)));
+
+        // Point modality of the same grammar: non-crossing segment pairs meet at an endpoint projection, so the
+        // pair form folds this one and a consumer's vertex-against-edge census reads it directly.
+        public double Gap(Point3d probe) => Projected(probe, edge);
+    }
+
+    private static int Orient(Edge3 edge, Point3d probe, double areaFloor) {
+        double area = ((edge.B.X - edge.A.X) * (probe.Y - edge.A.Y)) - ((edge.B.Y - edge.A.Y) * (probe.X - edge.A.X));
+        return area > areaFloor ? 1 : area < -areaFloor ? -1 : 0;
+    }
+
+    private static bool Within(Edge3 edge, Point3d probe, double toleranceMm) =>
+        probe.X >= Math.Min(edge.A.X, edge.B.X) - toleranceMm && probe.X <= Math.Max(edge.A.X, edge.B.X) + toleranceMm
+     && probe.Y >= Math.Min(edge.A.Y, edge.B.Y) - toleranceMm && probe.Y <= Math.Max(edge.A.Y, edge.B.Y) + toleranceMm;
+
+    private static double Projected(Point3d probe, Edge3 edge) {
+        Vector3d span = edge.B - edge.A;
+        Vector3d offset = probe - edge.A;
+        double length = span * span;
+        return probe.DistanceTo(edge.A + (length <= 0.0 ? Vector3d.Zero : Math.Clamp((offset * span) / length, 0.0, 1.0) * span));
+    }
+}
+
 public static class PolygonAlgebra {
     public static Fin<PolygonTrace> Apply(PolygonOp? operation, Op? key = null) =>
         from admitted in key.OrDefault().Need(operation)
@@ -310,7 +386,9 @@ public static class PolygonAlgebra {
                 measure: static (op, request) => MeasureOf(request, op),
                 contains: static (op, request) => ContainsOf(request, op),
                 topology: static (op, request) => TopologyOf(request, op),
-                raster: static (op, request) => RasterOf(request, op)))
+                cells: static (op, request) => CellsOf(request, op),
+                raster: static (op, request) => RasterOf(request, op),
+                calipers: static (op, request) => CalipersOf(request, op)))
             .Run()
             .MapFail(error => resolved.InvalidResult(detail: error.Message))
             .Bind(static value => value)
@@ -326,18 +404,37 @@ public static class PolygonAlgebra {
         measure: static _ => Op.Of(name: nameof(PolygonOp.Measure)),
         contains: static _ => Op.Of(name: nameof(PolygonOp.Contains)),
         topology: static _ => Op.Of(name: nameof(PolygonOp.Topology)),
-        raster: static _ => Op.Of(name: nameof(PolygonOp.Raster)));
+        cells: static _ => Op.Of(name: nameof(PolygonOp.Cells)),
+        raster: static _ => Op.Of(name: nameof(PolygonOp.Raster)),
+        calipers: static _ => Op.Of(name: nameof(PolygonOp.Calipers)));
 
     private static Fin<PolygonTrace> OffsetOf(PolygonOp.Offset request, Op op) =>
         from paths in Lines(request.Paths, Kind.Polyline)
         from field in op.Need(request.Field)
         from policy in op.Need(request.Policy)
-        from _ in OffsetClosure(paths, policy)
-        from result in field.Switch(
-            state: (Paths: paths, Policy: policy, Op: op),
-            uniform: static (state, admitted) => UniformOffset(state.Paths, admitted.Distance, state.Policy, state.Op),
-            variable: static (state, admitted) => VariableOffset(state.Paths, admitted.Distances, state.Policy, state.Op))
-        from tree in TreeOf(result, PolygonFill.NonZero, paths[0].Tolerance, op)
+        from _ in OffsetClosure(paths, request.End)
+        from results in field.Switch(
+            state: (Paths: paths, Join: request.Join, End: request.End, Policy: policy, Op: op),
+            // Uniform distance: one kernel wavefront request per admitted path; join, cap, and policy pass whole.
+            uniform: static (state, admitted) =>
+                from delta in state.Op.Finite(admitted.Distance)
+                from runs in state.Paths.TraverseM(path => Offsetting.Apply(
+                    new OffsetOp.Offset(ToPolyline(path), delta, state.Join, state.End, state.Policy), state.Op)).As()
+                select runs,
+            // Per-vertex distances ride the kernel Weighted lane — each path's row IS its OffsetPolicy.EdgeSpeed table.
+            variable: static (state, admitted) =>
+                from sized in guard(
+                        admitted.Distances.Count == state.Paths.Count
+                        && admitted.Distances.ToSeq().Zip(state.Paths, static (row, path) => row.Count == path.Spans).ForAll(identity)
+                        && TensorPrimitives.IsFiniteAll(admitted.Distances.Bind(static row => row).ToArray()),
+                        state.Op.InvalidInput())
+                    .ToFin()
+                from runs in state.Paths.Zip(admitted.Distances.ToSeq()).TraverseM(item => Offsetting.Apply(
+                    new OffsetOp.Weighted(ToPolyline(item.First), state.Policy with { EdgeSpeed = item.Second }), state.Op)).As()
+                select runs)
+        from chains in results.TraverseM(result => ChainsOf(result, op)).As()
+        from loops in FromChains(chains.Bind(static c => c), paths[0].Tolerance, paths[0].Plane)
+        from tree in TreeOf(ToPaths(loops), PolygonFill.NonZero, paths[0].Tolerance, op)
         from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, PolygonFill.NonZero, op)
         select (PolygonTrace)new PolygonTrace.Regions(topology);
 
@@ -347,7 +444,14 @@ public static class PolygonAlgebra {
         from kind in op.Need(request.Kind)
         from fill in op.Need(request.Fill)
         from operands in Lines(subject.Concat(clip), Kind.Polyline)
-        from tree in TreeOf(ToPaths(subject), clip.IsEmpty ? null : ToPaths(clip), kind, fill, operands[0].Tolerance, op)
+        // Kernel exact overlay classifies signed winding under the request's own fill row; kept-region chains
+        // re-enter as loops at the admitted elevation and the surviving union walk derives the region forest.
+        from overlay in Arrangement.Apply(new ArrangementOp.PlanarOverlay(
+            subject.Map(ToPolyline), clip.Map(ToPolyline), kind, Axis.Z,
+            ArrangementPolicy.Canonical with { Fill = fill }), op)
+        from chains in OverlayChainsOf(overlay, op)
+        from loops in FromChains(chains, operands[0].Tolerance, operands[0].Plane)
+        from tree in TreeOf(ToPaths(loops), fill, operands[0].Tolerance, op)
         from topology in TopologyOf(tree, operands[0].Tolerance, operands[0].Plane, fill, op)
         select (PolygonTrace)new PolygonTrace.Regions(topology);
 
@@ -402,21 +506,82 @@ public static class PolygonAlgebra {
         from kind in op.Need(request.Kind)
         from operands in Lines(Seq(request.Pattern, request.Path), Kind.Polyline)
         from _ in guard(operands[0].Closed, new GeometryFault.DegenerateInput(Kind.Polyline, 0, "morphology:open-pattern").ToError()).ToFin()
-        let result = kind.Switch(
-            state: (Pattern: ToPath(operands[0]), Path: ToPath(operands[1]), Closed: operands[1].Closed, Precision: Precision(operands[0].Tolerance)),
-            sum: static state => Clipper2Lib.Minkowski.Sum(state.Pattern, state.Path, state.Closed, state.Precision),
-            difference: static state => Clipper2Lib.Minkowski.Diff(state.Pattern, state.Path, state.Closed, state.Precision))
-        from tree in TreeOf(result, PolygonFill.NonZero, operands[0].Tolerance, op)
+        // ReflectPattern IS the lowering law onto the ONE kernel Minkowski walk: Sum convolves the pattern
+        // directly; Difference convolves the point-reflected pattern, then complements within the path region
+        // through the same exact overlay the boolean arm crosses.
+        from pattern in kind.ReflectPattern ? Reflected(operands[0]) : Fin.Succ(operands[0])
+        from convolved in Offsetting.Apply(
+            new OffsetOp.Minkowski(ToPolyline(operands[1]), ToPolyline(pattern), OffsetPolicy.Canonical), op)
+        from chains in ChainsOf(convolved, op)
+        from hull in FromChains(chains, operands[0].Tolerance, operands[0].Plane)
+        from region in kind.ReflectPattern
+            ? Arrangement.Apply(new ArrangementOp.PlanarOverlay(
+                    Seq(ToPolyline(operands[1])), hull.Map(ToPolyline), BooleanOp.Difference, Axis.Z,
+                    ArrangementPolicy.Canonical), op)
+                .Bind(result => OverlayChainsOf(result, op))
+                .Bind(complement => FromChains(complement, operands[0].Tolerance, operands[0].Plane))
+            : Fin.Succ(hull)
+        from tree in TreeOf(ToPaths(region), PolygonFill.NonZero, operands[0].Tolerance, op)
         from topology in TopologyOf(tree, operands[0].Tolerance, operands[0].Plane, PolygonFill.NonZero, op)
         select (PolygonTrace)new PolygonTrace.Regions(topology);
 
     private static Fin<PolygonTrace> MeasureOf(PolygonOp.Measure request, Op op) =>
         from paths in Regions(request.Paths)
         from fill in op.Need(request.Fill)
-        from tree in TreeOf(ToPaths(paths), null, PolygonBoolean.Union, fill, paths[0].Tolerance, op)
+        from tree in TreeOf(ToPaths(paths), fill, paths[0].Tolerance, op)
         from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, fill, op)
-        from _ in guard(!topology.Nodes.IsEmpty, new GeometryFault.DegenerateInput(Kind.Polyline, -1, "measure:empty-fill").ToError()).ToFin()
+        from _ in guard(!topology.Nodes.IsEmpty, new GeometryFault.DegenerateInput(Kind.Polyline, None, "measure:empty-fill").ToError()).ToFin()
         select (PolygonTrace)new PolygonTrace.Measured(MeasureOf(topology));
+
+    private static Fin<PolygonTrace> CalipersOf(PolygonOp.Calipers request, Op op) =>
+        from paths in Lines(request.Paths, Kind.Polyline)
+        let hull = Hull(paths.Bind(static path => toSeq(path.Vertices)))
+        from _ in guard(hull.Count >= 3, new GeometryFault.DegenerateInput(Kind.Polyline, None, "calipers:collinear").ToError()).ToFin()
+        select (PolygonTrace)new PolygonTrace.Enveloped(Envelope(hull));
+
+    // Named statement kernel: Andrew monotone chain over the loop's own vertices. The mesh-tier exact
+    // `Tessellation.LowerHull` and the host `CloudHullKind` rail both answer point CLOUDS at mesh or native
+    // grain; a planar loop's O(n log n) chain is the structurally cheaper primitive here. The minimum-area
+    // theorem rests the optimum on a hull EDGE — a concave loop's own edge set does not contain the bridging
+    // hull edge, which is why an all-polygon-edges sweep under-searches and is the deleted form.
+    private static Seq<Point3d> Hull(Seq<Point3d> points) {
+        Arr<Point3d> sorted = points.Distinct().OrderBy(static point => point.X).ThenBy(static point => point.Y).ToArr();
+        if (sorted.Count < 3) { return toSeq(sorted); }
+        var chain = new Point3d[sorted.Count * 2];
+        int k = 0;
+        for (int i = 0; i < sorted.Count; i++) {
+            while (k >= 2 && Turn(chain[k - 2], chain[k - 1], sorted[i]) <= 0.0) { k--; }
+            chain[k++] = sorted[i];
+        }
+        for (int i = sorted.Count - 2, floor = k + 1; i >= 0; i--) {
+            while (k >= floor && Turn(chain[k - 2], chain[k - 1], sorted[i]) <= 0.0) { k--; }
+            chain[k++] = sorted[i];
+        }
+        return toSeq(chain.AsSpan(0, k - 1).ToArray());
+    }
+
+    private static double Turn(Point3d a, Point3d b, Point3d c) =>
+        ((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X));
+
+    private static OrientedEnvelope Envelope(Seq<Point3d> hull) {
+        Seq<OrientedEnvelope> candidates = toSeq(Enumerable.Range(0, hull.Count))
+            .Map(index => (A: hull[index], B: hull[(index + 1) % hull.Count]))
+            .Filter(static edge => edge.A.DistanceTo(edge.B) > 0.0)
+            .Map(edge => {
+                double span = edge.A.DistanceTo(edge.B);
+                (double ux, double uy) = ((edge.B.X - edge.A.X) / span, (edge.B.Y - edge.A.Y) / span);
+                Seq<double> along = hull.Map(point => (point.X * ux) + (point.Y * uy));
+                Seq<double> across = hull.Map(point => (point.Y * ux) - (point.X * uy));
+                (double a0, double a1) = (along.Min(), along.Max());
+                (double c0, double c1) = (across.Min(), across.Max());
+                return new OrientedEnvelope(
+                    Anchor: new Point3d((a0 * ux) - (c0 * uy), (a0 * uy) + (c0 * ux), hull[0].Z),
+                    Along: new Vector3d(ux, uy, 0.0),
+                    Length: a1 - a0,
+                    Width: c1 - c0);
+            });
+        return candidates.Tail.Fold(candidates[0], static (best, next) => next.Area < best.Area ? next : best);
+    }
 
     private static Fin<PolygonTrace> ContainsOf(PolygonOp.Contains request, Op op) =>
         from paths in Regions(request.Paths)
@@ -427,9 +592,38 @@ public static class PolygonAlgebra {
     private static Fin<PolygonTrace> TopologyOf(PolygonOp.Topology request, Op op) =>
         from paths in Regions(request.Paths)
         from fill in op.Need(request.Fill)
-        from tree in TreeOf(ToPaths(paths), null, PolygonBoolean.Union, fill, paths[0].Tolerance, op)
+        from tree in TreeOf(ToPaths(paths), fill, paths[0].Tolerance, op)
         from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, fill, op)
         select (PolygonTrace)new PolygonTrace.Regions(topology);
+
+    // Lloyd relaxation is the SAME dual re-read: tessellate, clip to the admitted ring, move each seed toward its
+    // own cell centroid by the strength fraction, repeat. A zero-relaxation request runs the dual exactly once, so
+    // relaxed and unrelaxed lanes stay one fold with no second entry and no provider mode behind either.
+    private static Fin<PolygonTrace> CellsOf(PolygonOp.Cells request, Op op) =>
+        from bounds in Regions(Seq(request.Boundary))
+        from policy in op.Need(request.Policy)
+        from _ in Defect(
+                request.Sites.ToSeq(),
+                point => !point.IsValid || Math.Abs(point.Z - bounds[0].Plane) > bounds[0].Tolerance.Absolute.Value,
+                Kind.Point,
+                "cells:off-plane")
+            .As()
+            .ToFin()
+        from __ in guard(
+                request.Sites.Count >= 3,
+                new GeometryFault.DegenerateInput(Kind.Point, None, "cells:site-floor").ToError())
+            .ToFin()
+        let ring = ToPolyline(bounds[0])
+        from relaxed in Range(0, policy.Relaxations).ToSeq().FoldM<Fin, Arr<Point3d>>(
+            request.Sites,
+            (seeds, _) => Dual(seeds, ring, bounds[0], op).Map(dual => Moved(seeds, dual.Cells, policy.RelaxationStrength))).As()
+        from dual in Dual(relaxed, ring, bounds[0], op)
+        from merged in policy.Merge.Match(
+            Some: rule => Merged(dual, rule, ring, bounds[0], op),
+            None: () => Fin.Succ(dual))
+        from index in SeedIndex(merged.Cells, op)
+        select (PolygonTrace)new PolygonTrace.Celled(new CellReceipt(
+            merged.Cells, merged.Adjacency, index, bounds[0], bounds[0].Tolerance, bounds[0].Plane));
 
     private static Fin<PolygonTrace> RasterOf(PolygonOp.Raster request, Op op) =>
         from paths in Regions(request.Paths)
@@ -440,19 +634,20 @@ public static class PolygonAlgebra {
                 Math.Abs(grid.Bounds.Min.Z - paths[0].Plane) <= paths[0].Tolerance.Absolute.Value
                 && Math.Abs(grid.Bounds.Max.Z - paths[0].Plane) <= paths[0].Tolerance.Absolute.Value,
                 Kind.Plane,
-                -1,
+                None,
                 "raster:grid-elevation")
             .As()
             .ToFin()
             .Bind(_ => metric.Admit(op))
-        let values = new double[grid.Rows, grid.Columns]
-        let kernel = new RasterKernel(values, ToPaths(paths), Segments(paths), fill, grid, Precision(paths[0].Tolerance), metric)
+        from clearance in Clearance(paths, grid, op)
+        let values = new double[grid.Rows.Value, grid.Columns.Value]
+        let kernel = new RasterKernel(values, clearance, ToPaths(paths), fill, grid, Precision(paths[0].Tolerance), metric)
         from receipt in Raster(kernel, values, grid, metric, paths[0].Tolerance, paths[0].Plane)
         select (PolygonTrace)new PolygonTrace.Field(receipt);
 
     // --- [BOUNDARIES] -------------------------------------------------------------------------------------------------------------------------------
-    private static K<Validation<Error>, Unit> Check(bool condition, Kind kind, int index, string witness) =>
-        guard(condition, new GeometryFault.DegenerateInput(kind, index, witness).ToError()).ToFin().ToValidation();
+    private static K<Validation<Error>, Unit> Check(bool condition, Kind kind, Option<int> index, string witness) =>
+        AdmissionSlots.Gate(condition, new GeometryFault.DegenerateInput(kind, index, witness).ToError());
 
     private static K<Validation<Error>, Unit> Defect<T>(Seq<T> values, Func<T, bool> offends, Kind kind, string witness) {
         Option<int> at = values
@@ -460,11 +655,11 @@ public static class PolygonAlgebra {
             .Filter(row => offends(row.Value))
             .Map(static row => row.Index)
             .Head;
-        return Check(at.IsNone, kind, at.IfNone(-1), witness);
+        return Check(at.IsNone, kind, at, witness);
     }
 
     private static Fin<Seq<Loop>> Lines(Seq<Loop> paths, Kind kind, bool admitEmpty = false) =>
-        (Check(admitEmpty || !paths.IsEmpty, kind, -1, "empty"),
+        (Check(admitEmpty || !paths.IsEmpty, kind, None, "empty"),
          Defect(paths, static path => path is null, kind, "null"),
          Defect(paths, static path => path is not null && path.Bulges.Exists(static bulge => bulge != 0.0), kind, "bulged"),
          Defect(paths, path => path is not null && paths[0] is not null && path.Tolerance != paths[0].Tolerance, kind, "mixed-context"),
@@ -474,14 +669,14 @@ public static class PolygonAlgebra {
             .As()
             .ToFin();
 
-    private static Fin<Seq<Loop>> Regions(Seq<Loop> paths, bool admitEmpty = false) =>
+    internal static Fin<Seq<Loop>> Regions(Seq<Loop> paths, bool admitEmpty = false) =>
         from admitted in Lines(paths, Kind.Polyline, admitEmpty)
         from _ in Defect(admitted, static path => !path.Closed, Kind.Polyline, "open").As().ToFin()
         select admitted;
 
     private static Fin<Seq<Seq<Edge3>>> Edges(Seq<Seq<Edge3>> paths, Context tolerance, double plane) =>
-        (Check(double.IsFinite(plane), Kind.Plane, -1, "non-finite-plane"),
-         Check(!paths.IsEmpty, Kind.Line, -1, "empty"),
+        (Check(double.IsFinite(plane), Kind.Plane, None, "non-finite-plane"),
+         Check(!paths.IsEmpty, Kind.Line, None, "empty"),
          Defect(paths, static path => path.IsEmpty, Kind.Line, "empty-run"),
          Defect(paths, static path => path.Exists(static edge => !edge.A.IsValid || !edge.B.IsValid), Kind.Line, "non-finite"),
          Defect(paths, path => path.Exists(edge => edge.A.DistanceTo(edge.B) <= tolerance.Absolute.Value), Kind.Line, "zero-length"),
@@ -493,8 +688,9 @@ public static class PolygonAlgebra {
             .As()
             .ToFin();
 
-    private static Fin<Unit> OffsetClosure(Seq<Loop> paths, OffsetPolicy policy) =>
-        Defect(paths, path => policy.End == OffsetEnd.Polygon ? !path.Closed : path.Closed, Kind.Polyline, "offset:closure-conflict")
+    // Closed is the ring lane and demands closed rings; every cap row is the open-path ribbon and demands open runs.
+    private static Fin<Unit> OffsetClosure(Seq<Loop> paths, EndType end) =>
+        Defect(paths, path => end == EndType.Closed ? !path.Closed : path.Closed, Kind.Polyline, "offset:closure-conflict")
             .As()
             .ToFin();
 
@@ -503,57 +699,144 @@ public static class PolygonAlgebra {
                 bounds.IsValid
                 && bounds.Diagonal.X > tolerance.Absolute.Value
                 && bounds.Diagonal.Y > tolerance.Absolute.Value,
-                new GeometryFault.DegenerateInput(Kind.BoundingBox, -1, "window:degenerate").ToError())
+                new GeometryFault.DegenerateInput(Kind.BoundingBox, None, "window:degenerate").ToError())
             .ToFin();
 
-    private static ClipperOffset Engine(OffsetPolicy policy, double scale) =>
-        new(policy.MiterLimit, policy.ArcTolerance * scale, policy.PreserveCollinear, policy.ReverseSolution) {
-            MergeGroups = policy.MergeGroups,
-        };
+    // Kernel Offset and Weighted arms return Curves by construction; any other case is a contract breach.
+    private static Fin<Seq<Chain>> ChainsOf(OffsetResult result, Op op) => result.Switch(
+        state: op,
+        graph: static (key, _) => Fin.Fail<Seq<Chain>>(key.InvalidResult(detail: "offset:non-curve-result")),
+        axis: static (key, _) => Fin.Fail<Seq<Chain>>(key.InvalidResult(detail: "offset:non-curve-result")),
+        curves: static (_, admitted) => Fin.Succ(admitted.Offset.Loops),
+        probe: static (key, _) => Fin.Fail<Seq<Chain>>(key.InvalidResult(detail: "offset:non-curve-result")));
 
-    private static Fin<PathsD> UniformOffset(Seq<Loop> paths, double distance, OffsetPolicy policy, Op op) =>
-        op.Finite(distance).Map(delta => Inflated(paths, delta, policy, Scale(paths[0].Tolerance)));
+    // PlanarOverlay requests answer Overlay by construction; the boolean and complex cases are mesh-lane results.
+    private static Fin<Seq<Chain>> OverlayChainsOf(ArrangementResult result, Op op) => result.Switch(
+        state: op,
+        boolean: static (key, _) => Fin.Fail<Seq<Chain>>(key.InvalidResult(detail: "boolean:non-overlay-result")),
+        overlay: static (_, admitted) => Fin.Succ(admitted.Loops),
+        complex: static (key, _) => Fin.Fail<Seq<Chain>>(key.InvalidResult(detail: "boolean:non-overlay-result")));
 
-    private static Fin<PathsD> VariableOffset(Seq<Loop> paths, Arr<Arr<double>> distances, OffsetPolicy policy, Op op) =>
-        from _ in guard(
-                distances.Count == paths.Count
-                && distances.Zip(paths, static (row, path) => row.Count == path.Count).ForAll(identity)
-                && TensorPrimitives.IsFiniteAll(distances.Bind(static row => row).ToArray()),
-                op.InvalidInput())
-            .ToFin()
-        let scale = Scale(paths[0].Tolerance)
-        let parts = toSeq(ToPaths64(paths, scale))
-            .Zip(distances.ToSeq())
-            .Map(item => Inflated(item.First, item.Second, policy, scale))
-        let merged = Clipper.Union(new Paths64(parts.Bind(static part => toSeq(part))), FillRule.NonZero)
-        select Clipper.ScalePathsD(merged, 1.0 / scale);
+    // Kernel seam adapters — a Loop rides its own 3D vertices into the kernel Polyline request (a closed ring
+    // re-closes explicitly), and a returned Chain re-enters as a Loop at the admitted context and elevation.
+    private static Polyline ToPolyline(Loop path) =>
+        new(path.Closed ? path.Vertices.Add(path.Vertices[0]) : path.Vertices);
 
-    private static PathsD Inflated(Seq<Loop> paths, double delta, OffsetPolicy policy, double scale) {
-        ClipperOffset engine = Engine(policy, scale);
-        Paths64 result = [];
-        engine.AddPaths(ToPaths64(paths, scale), policy.Join.Native, policy.End.Native);
-        engine.Execute(delta * scale, result);
-        return Clipper.ScalePathsD(result, 1.0 / scale);
+    private static Fin<Seq<Loop>> FromChains(Seq<Chain> chains, Context tolerance, double plane) =>
+        chains.TraverseM(chain => {
+            Arr<Point3d> points = toSeq(chain.Points).ToArr();
+            Arr<Point3d> vertices = chain.Closed && points.Count > 1
+                && points[0].DistanceTo(points[points.Count - 1]) <= tolerance.Absolute.Value
+                    ? points.RemoveAt(points.Count - 1)
+                    : points;
+            return Loop.Admit(vertices.Map(point => new Point3d(point.X, point.Y, plane)), chain.Closed, [], tolerance);
+        }).As();
+
+    // Point-reflection through the pattern's reference origin — the Minkowski-difference pattern the kernel walk convolves.
+    private static Fin<Loop> Reflected(Loop pattern) =>
+        Loop.Admit(
+            pattern.Vertices.Map(point => new Point3d(-point.X, -point.Y, point.Z)),
+            pattern.Closed,
+            [],
+            pattern.Tolerance);
+
+    // --- [SITE_CELLS]
+    // One kernel tessellation per pass: the bounded-cell overload clips each site's cell to the admitted ring and the
+    // plain dual carries the crossed Delaunay edge per dual edge, which IS cell adjacency in the same site-index
+    // space. Both projections read ONE store, so adjacency can never disagree with the rings it describes.
+    private static Fin<(Arr<SiteCell> Cells, Arr<SiteEdge> Adjacency)> Dual(
+        Arr<Point3d> seeds,
+        Polyline ring,
+        Loop boundary,
+        Op op) =>
+        from tessellation in Tessellation.Build(
+            new TessellationOp.Points(
+                TessellationKind.Triangulation,
+                [.. seeds.Map(static seed => new Implicit(seed))],
+                Seq<Constraint>(),
+                TessellationPolicy.Canonical,
+                Axis.Z),
+            op)
+        from bounded in tessellation.VoronoiDual(ring, op)
+        from graph in tessellation.VoronoiDual(op)
+        from cells in toSeq(bounded).TraverseM(cell => Loop.Admit(
+                toSeq(cell.Ring).Map(point => new Point3d(point.X, point.Y, boundary.Plane)).ToArr(),
+                closed: true,
+                Arr<double>(),
+                boundary.Tolerance)
+            .Map(loop => {
+                double signed = Clipper.Area(ToPath(loop));
+                return new SiteCell(cell.Site, seeds[cell.Site], loop, CentroidOf(Seq(loop), signed), Math.Abs(signed));
+            })).As()
+        // Any hull site whose cell the ring emptied leaves the diagram, so its dual edges leave with it. Edges and
+        // Across are index-parallel by the dual's own contract — entry i is one dual segment and the site pair whose
+        // bisector it lies on — so the shared segment travels with the pair rather than being re-derived downstream.
+        let surviving = cells.Map(static cell => cell.Site).ToHashSet()
+        select (cells.ToArr(), Range(0, graph.Across.Length).ToSeq()
+            .Filter(i => surviving.Contains(graph.Across[i].U) && surviving.Contains(graph.Across[i].V))
+            .Map(i => new SiteEdge(
+                Math.Min(graph.Across[i].U, graph.Across[i].V),
+                Math.Max(graph.Across[i].U, graph.Across[i].V),
+                Elevate(graph.Circumcenters[graph.Edges[i].A], boundary.Plane),
+                Elevate(graph.Circumcenters[graph.Edges[i].B], boundary.Plane)))
+            .DistinctBy(static edge => (edge.A, edge.B))
+            .ToArr());
+
+    private static Point3d Elevate(Point3d point, double plane) => new(point.X, point.Y, plane);
+
+    private static Arr<Point3d> Moved(Arr<Point3d> seeds, Arr<SiteCell> cells, double strength) =>
+        cells.Fold(seeds, (moved, cell) => moved.SetItem(
+            cell.Site,
+            moved[cell.Site] + ((cell.Centroid - moved[cell.Site]) * strength)));
+
+    // Merging is a SEED reduction, never a ring union: dropping a seed hands its region to the neighbours that
+    // already bound it, so the survivors still tessellate a true Voronoi diagram and every ring keeps its clearance
+    // meaning. One re-tessellation over the survivors closes the pass; a rule that empties the field faults typed.
+    private static Fin<(Arr<SiteCell> Cells, Arr<SiteEdge> Adjacency)> Merged(
+        (Arr<SiteCell> Cells, Arr<SiteEdge> Adjacency) dual,
+        SiteMerge rule,
+        Polyline ring,
+        Loop boundary,
+        Op op) {
+        Arr<SiteCell> kept = dual.Cells.Fold(Arr<SiteCell>(), (survivors, cell) =>
+            cell.Area < rule.MinimumArea
+            || survivors.Exists(prior => prior.Centroid.DistanceTo(cell.Centroid) < rule.MinimumSeparation)
+                ? survivors
+                : survivors.Add(cell));
+        return kept.Count == dual.Cells.Count
+            ? Fin.Succ(dual)
+            : kept.Count >= 3
+                ? Dual(kept.Map(static cell => cell.Seed), ring, boundary, op)
+                : Fin.Fail<(Arr<SiteCell>, Arr<SiteEdge>)>(
+                    new GeometryFault.DegenerateInput(Kind.Point, None, "cells:merge-exhausted").ToError());
     }
 
-    // One registered path binds the callback row, so `current` stays the vertex index into that path's own delta row.
-    private static Paths64 Inflated(Path64 path, Arr<double> distances, OffsetPolicy policy, double scale) {
-        ClipperOffset engine = Engine(policy, scale);
-        Paths64 result = [];
-        engine.AddPath(path, policy.Join.Native, policy.End.Native);
-        engine.Execute((_, _, current, _) => distances[current] * scale, result);
-        return result;
-    }
+    private static Fin<SpatialIndex> SeedIndex(Arr<SiteCell> cells, Op op) =>
+        Spatial.Apply(
+                new SpatialOp.Build(
+                    SpatialKind.Bvh,
+                    [.. cells.Map(static cell => new BoundingBox(cell.Seed, cell.Seed))],
+                    BuildPolicy.Canonical),
+                op)
+            .Bind(answer => answer.Switch(
+                state: op,
+                index: static (_, admitted) => Fin.Succ(admitted.Value),
+                result: static (key, _) => Fin.Fail<SpatialIndex>(key.InvalidResult(detail: "cells:non-index-answer")),
+                wire: static (key, _) => Fin.Fail<SpatialIndex>(key.InvalidResult(detail: "cells:non-index-answer"))));
 
-    private static Fin<PolyTreeD> TreeOf(PathsD paths, PolygonFill fill, Context tolerance, Op op) =>
-        TreeOf(paths, null, PolygonBoolean.Union, fill, tolerance, op);
+    // FillOf is the ONE FillRule seam the surviving Clipper2 lanes cross — kernel rows carry no engine ordinal, so a new
+    // PolygonFill row is a compile-visible missing arm at this map alone.
+    internal static FillRule FillOf(PolygonFill fill) => fill.Switch(
+        nonZero: static () => FillRule.NonZero,
+        evenOdd: static () => FillRule.EvenOdd,
+        positive: static () => FillRule.Positive,
+        negative: static () => FillRule.Negative);
 
-    private static Fin<PolyTreeD> TreeOf(PathsD subject, PathsD? clip, PolygonBoolean kind, PolygonFill fill, Context tolerance, Op op) {
+    private static Fin<PolyTreeD> TreeOf(PathsD paths, PolygonFill fill, Context tolerance, Op op) {
         ClipperD engine = new(Precision(tolerance));
         PolyTreeD result = new();
-        engine.AddSubject(subject);
-        if (clip is not null) engine.AddClip(clip);
-        return engine.Execute(kind.Native, fill.Native, result)
+        engine.AddSubject(paths);
+        return engine.Execute(ClipType.Union, FillOf(fill), result)
             ? Fin.Succ(result)
             : Fin.Fail<PolyTreeD>(op.InvalidResult(detail: "clipper:tree-execute"));
     }
@@ -595,8 +878,8 @@ public static class PolygonAlgebra {
         PathsD outside = [];
         engine.AddOpenSubject(ToOpenPaths(subject));
         engine.AddClip(ToPaths(clip));
-        return engine.Execute(ClipType.Intersection, fill.Native, insideClosed, inside)
-            && engine.Execute(ClipType.Difference, fill.Native, outsideClosed, outside)
+        return engine.Execute(ClipType.Intersection, FillOf(fill), insideClosed, inside)
+            && engine.Execute(ClipType.Difference, FillOf(fill), outsideClosed, outside)
             && insideClosed.Count == 0
             && outsideClosed.Count == 0
                 ? Fin.Succ((Runs(inside, clip[0].Plane), Runs(outside, clip[0].Plane)))
@@ -626,7 +909,7 @@ public static class PolygonAlgebra {
 
     private static Point3d CentroidOf(Seq<Loop> paths, double signedArea) {
         (double X, double Y, double Cross) moment = paths
-            .Bind(path => Range(0, path.Spans).Map(index => (A: path.At(index), B: path.At(index + 1))).ToSeq())
+            .Bind(path => Range(0, path.Spans).ToSeq().Map(index => (A: path.At(index), B: path.At(index + 1))).ToSeq())
             .Fold(
                 (X: 0.0, Y: 0.0, Cross: 0.0),
                 static (state, edge) => {
@@ -670,7 +953,7 @@ public static class PolygonAlgebra {
     private static Fin<FieldReceipt> Raster(
         RasterKernel kernel,
         double[,] values,
-        FieldGrid grid,
+        CellLattice grid,
         FieldMetric metric,
         Context tolerance,
         double plane) {
@@ -689,44 +972,43 @@ public static class PolygonAlgebra {
                 TensorPrimitives.StdDev(samples),
                 CellOf(grid, TensorPrimitives.IndexOfMin(samples)),
                 CellOf(grid, TensorPrimitives.IndexOfMax(samples))))
-            : Fin.Fail<FieldReceipt>(new GeometryFault.DegenerateInput(Kind.Plane, -1, "raster:non-finite-cell").ToError());
+            : Fin.Fail<FieldReceipt>(new GeometryFault.DegenerateInput(Kind.Plane, None, "raster:non-finite-cell").ToError());
     }
 
-    private static Point3d CellOf(FieldGrid grid, int index) => grid.Center(index / grid.Columns, index % grid.Columns);
+    private static Point3d CellOf(CellLattice grid, int index) => grid.Center(column: index % grid.Columns.Value, row: index / grid.Columns.Value);
 
+    // Clearance is the KERNEL field, swept once by the kernel's own lattice entry: one DistanceCase per admitted ring
+    // over the ONE proximity handle, unioned under the hard blend so the combination IS an exact minimum. The
+    // per-cell nearest-segment fold this owner once carried — and the metric's clearance-need gate that existed only
+    // to skip it — delete whole: every metric now projects the same plane, so there is nothing left to gate.
+    private static Fin<Arr<double>> Clearance(Seq<Loop> paths, CellLattice grid, Op op) =>
+        from sources in paths.TraverseM(path => SupportSpace.Of(ToPolyline(path).ToPolylineCurve(), op)).As()
+        from head in sources.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "raster:no-source").ToError())
+        let field = sources.Tail.Fold(
+            (ScalarField)new ScalarField.DistanceCase(head, BoundarySense.Toward),
+            static (blended, source) => (ScalarField)new ScalarField.CsgCase(
+                blended, new ScalarField.DistanceCase(source, BoundarySense.Toward), CsgKind.Union, BlendKind.Hard))
+        from plane in field.SampleLattice(grid, paths[0].Tolerance, op)
+        select plane;
+
+    // Kernel planes stay UNSIGNED — a ring set carries no interior until a fill rule names one — so the sign is this
+    // owner's fill classification at the same cell centre, a boundary cell reading exactly zero.
     private readonly struct RasterKernel(
         double[,] values,
+        Arr<double> clearance,
         PathsD paths,
-        Arr<(PointD A, PointD B)> segments,
         PolygonFill fill,
-        FieldGrid grid,
+        CellLattice grid,
         int precision,
         FieldMetric metric) : IAction2D {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Invoke(int row, int column) {
-            PointD point = ToPoint(grid.Center(row, column));
-            PointRelation relation = RelationOf(point, paths, fill, precision);
-            double magnitude = metric.NeedsClearance
-                ? Math.Sqrt(segments.Fold(double.PositiveInfinity, (least, segment) => Math.Min(least, SquaredDistance(point, segment))))
-                : 1.0;
-            double signed = relation == PointRelation.Boundary ? 0.0 : relation == PointRelation.Inside ? -magnitude : magnitude;
-            values[row, column] = metric.Sample(signed);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static double SquaredDistance(PointD point, (PointD A, PointD B) segment) {
-            double dx = segment.B.x - segment.A.x;
-            double dy = segment.B.y - segment.A.y;
-            double length = dx * dx + dy * dy;
-            double t = double.Clamp(((point.x - segment.A.x) * dx + (point.y - segment.A.y) * dy) / length, 0.0, 1.0);
-            double x = segment.A.x + t * dx - point.x;
-            double y = segment.A.y + t * dy - point.y;
-            return x * x + y * y;
+            PointRelation relation = RelationOf(ToPoint(grid.Center(column: column, row: row)), paths, fill, precision);
+            double magnitude = clearance[(int)grid.Linear(column: column, row: row, layer: 0)];
+            values[row, column] = metric.Sample(
+                relation == PointRelation.Boundary ? 0.0 : relation == PointRelation.Inside ? -magnitude : magnitude);
         }
     }
-
-    private static Arr<(PointD A, PointD B)> Segments(Seq<Loop> paths) =>
-        paths.Bind(path => Range(0, path.Spans).Map(index => (ToPoint(path.At(index)), ToPoint(path.At(index + 1)))).ToSeq()).ToArr();
 
     private static Fin<Loop> StripDuplicates(Loop path) {
         double scale = Scale(path.Tolerance);
@@ -737,11 +1019,11 @@ public static class PolygonAlgebra {
     private static int Precision(Context tolerance) =>
         int.Clamp((int)Math.Ceiling(-Math.Log10(tolerance.Absolute.Value)), -8, 8);
 
-    private static double Scale(Context tolerance) => Math.Pow(10.0, Precision(tolerance));
+    internal static double Scale(Context tolerance) => Math.Pow(10.0, Precision(tolerance));
 
     private static RectD RectOf(BoundingBox bounds) => new(bounds.Min.X, bounds.Min.Y, bounds.Max.X, bounds.Max.Y);
 
-    private static Paths64 ToPaths64(Seq<Loop> paths, double scale) => Clipper.ScalePaths64(ToPaths(paths), scale);
+    internal static Paths64 ToPaths64(Seq<Loop> paths, double scale) => Clipper.ScalePaths64(ToPaths(paths), scale);
 
     private static PathsD ToPaths(Seq<Loop> paths) => new(paths.Map(ToPath));
 
@@ -763,7 +1045,7 @@ public static class PolygonAlgebra {
             tolerance);
 
     private static Seq<Seq<Edge3>> Runs(PathsD paths, double plane) =>
-        toSeq(paths).Filter(static path => path.Count >= 2).Map(path => Range(0, path.Count - 1)
+        toSeq(paths).Filter(static path => path.Count >= 2).Map(path => Range(0, path.Count - 1).ToSeq()
             .Map(index => new Edge3(
                 new Point3d(path[index].x, path[index].y, plane),
                 new Point3d(path[index + 1].x, path[index + 1].y, plane)))
@@ -773,14 +1055,15 @@ public static class PolygonAlgebra {
 
 ## [03]-[FIELD_PLANE]
 
-- Owner: `FieldGrid` admits the sampled window and explicit cell budget once, then derives `Rows`, `Columns`, and `Center`; `FieldMetric` owns each cell's scalar interpretation.
-- Cases: occupancy derives fill membership; signed clearance derives boundary distance and sign; engagement derives cutter-radius overlap; reachability derives cutter-center admissibility at a tool radius; inscribed diameter doubles the nearest-boundary radius at interior cells — the last four from the same clearance field.
-- Law: `FieldMetric.NeedsClearance` gates the per-cell nearest-segment fold, so an occupancy plane costs one containment test per cell while a clearance-derived plane pays the distance reduction only where its interpretation reads it.
+- Owner: the kernel `CellLattice` carries the sampled window whole — extent, census, cell-center addressing, and the budget ceiling are `CellLattice.Of`'s, each caller passing its own ceiling value; `FieldMetric` owns each cell's scalar interpretation.
+- Cases: occupancy derives fill membership; signed clearance derives boundary distance and sign; engagement derives cutter-radius overlap; reachability derives cutter-center admissibility at a tool radius; inscribed diameter doubles the nearest-boundary radius at interior cells — every row a projection of the one signed plane.
+- Law: distance is the kernel's and the interior is this owner's — `ScalarField.DistanceCase` over `SupportSpace` measures each admitted ring, `CsgKind.Union` under `BlendKind.Hard` makes the ring fold an exact minimum, and the request's `PolygonFill` classification at the same cell centre supplies the sign a ring set cannot carry alone.
 - Entry: `PolygonOp.Raster` consumes one admitted region set, fill rule, grid, and metric through `PolygonAlgebra.Apply`.
-- Auto: `ParallelHelper.For2D` partitions cells over a package-required `IAction2D` kernel; `Memory2D<double>` materializes the plane, `ReadOnlyMemory2D<double>` publishes it, and `TensorPrimitives.IsFiniteAll`, `Min`, `Max`, `Average`, `StdDev`, `IndexOfMin`, and `IndexOfMax` derive the receipt statistics.
+- Auto: `ScalarField.SampleLattice` sweeps the unsigned clearance plane in one kernel pass; `ParallelHelper.For2D` partitions the signing and metric projection over a package-required `IAction2D` kernel; `Memory2D<double>` materializes the plane, `ReadOnlyMemory2D<double>` publishes it, and `TensorPrimitives.IsFiniteAll`, `Min`, `Max`, `Average`, `StdDev`, `IndexOfMin`, and `IndexOfMax` derive the receipt statistics.
 - Receipt: `FieldReceipt` keeps the plane, grid, metric, finite extrema, dispersion, and the model-space cells holding those extrema together, so engagement, additive masks, and layer audits consume one substrate value; `MinimumAt` over a signed-clearance plane is the deepest interior cell, the largest inscribed disc a cutter can occupy.
-- Growth: a new field interpretation is one `FieldMetric` case over the existing sampled clearance kernel, its admission row, and its clearance-need row.
-- Boundary: field storage remains owned by the receipt, provider paths remain private, and a non-finite cell fails the whole projection.
+- Packages: `Rasm` (project) supplies `CellLattice`, `ScalarField`/`SupportSpace`/`CsgKind`/`BlendKind`, and `BoundarySense`; `Clipper2` supplies the fill classification; `CommunityToolkit.HighPerformance` supplies the cell partition and the 2D memory carrier; `System.Numerics.Tensors` supplies the receipt statistics; `LanguageExt` and `Thinktecture` supply the rail and the generated metric family.
+- Growth: a new field interpretation is one `FieldMetric` case over the same signed plane with its admission row; a row needing a second sampling strategy belongs to the kernel field algebra, not here.
+- Boundary: field storage remains owned by the receipt, provider paths remain private, and a non-finite cell fails the whole projection. Page-local distance loops are the deleted form; the clearance plane is the kernel's by law.
 
 ## [04]-[RESEARCH]
 

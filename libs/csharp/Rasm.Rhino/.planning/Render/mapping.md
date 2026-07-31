@@ -525,7 +525,7 @@ public static class TextureCoordinates {
 - Law: a request admits target, channel, profile, spec, transforms, and redraw policy before the demand window; the host document and native mapping never leave it.
 - Law: bind resolves every object once, mints one mapping lease, applies one profile, records one undo bracket, restores redraw suppression on every exit, and appends `ContentSlot.Mapped` facts to `ContentReceipt`.
 - Law: census composes `ObjectAttributes.HasMapping` as the cheap attribute gate and `RhinoObject.HasTextureMapping` as the texture-specific gate before reading channels.
-- Law: channel-bearing requests reject a default-initialized `MappingChannel` at the request seam before any document grant opens.
+- Law: channel-bearing requests reject a default-initialized `MappingChannel` at the request seam before any document grant opens — the generated owner raises on the uninitialized key read rather than answering zero, so the seam traps that raise onto the rail instead of letting it escape `Admit`.
 - Law: the host reports no object motion as `Transform.Identity`, so a read carries the returned transform as `Some(motion)` and an invalid readback transform is malformed host data failing typed — never collapsed into `None`.
 - Boundary: `MappingSpec.Ocs` binds only to `ObjectAttributes.OCSMappingChannelId`; unsupported inverse kinds remain visible through `MappingSnapshot.Kind` and absent through `MappingSnapshot.Spec`.
 
@@ -556,8 +556,10 @@ public abstract partial record MappingRequest {
         decompose: static (op, request) => Channel(request.Channel, request, op),
         census: static (_, request) => Fin.Succ<MappingRequest>(request));
 
+    // A `default`-initialized generated struct owner THROWS on its key read rather than answering zero, so the ghost a
+    // public case constructor can still forge is trapped here and lands typed at the request seam, never at the host.
     private static Fin<MappingRequest> Channel(MappingChannel channel, MappingRequest request, Op key) =>
-        MappingChannel.Of(channel.Value, key).Map(_ => request);
+        key.Catch(() => MappingChannel.Of(channel.Value, key)).Map(_ => request);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

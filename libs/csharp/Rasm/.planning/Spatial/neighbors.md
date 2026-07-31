@@ -10,11 +10,11 @@
 
 ## [02]-[NEIGHBOR_INDEX]
 
-- Owner: `NeighborIndex` owns every index species as a case; its `Static` kd-tree tier serves exact repeated kNN over a frozen cloud, the `register.md` correspondence backend.
+- Owner: `NeighborIndex` owns every index species as a case; its `Static` kd-tree tier serves exact repeated kNN over a frozen cloud, the `register.md` correspondence backend; the distance metric rides the QUERY as a `NeighborMetric` row — one built tree answers every coordinate-monotone metric, and each row derives its own search-radius form.
 - Entry: `Of` admits every source and `Query` is the one dispatch; `SearchProbe` admits box and sphere validity at the build seam, ahead of execution.
 - Auto: `SearchCapsule` owns every native search and sorts hits and pairs before emission, keeping a result deterministic regardless of tree traversal order.
-- Packages: RhinoCommon (`RTree`), Supercluster.KDTree.Net (`KDTree`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
-- Growth: a new index species is one `NeighborIndex` case with its `NeighborSource` case and query arms; a new query is one `NeighborQuery` case and dispatch arm; a new backend is one `NeighborSearchBackend` row.
+- Packages: RhinoCommon (`RTree`), Supercluster.KDTree.Net (`KDTree`, `DistanceMetrics`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Growth: a new index species is one `NeighborIndex` case with its `NeighborSource` case and query arms; a new query is one `NeighborQuery` case and dispatch arm; a new backend is one `NeighborSearchBackend` row; a new coordinate-monotone metric is one `NeighborMetric` row.
 - Boundary: `SearchCapsule` confines every platform mutation and native lease; every kNN in the corpus reads `NeighborhoodGraph`, and deterministic index release wraps the index in `Lease<T>.Owned`.
 
 ```csharp signature
@@ -35,21 +35,35 @@ public sealed partial class NeighborSearchBackend {
     public static readonly NeighborSearchBackend KdTreeRadius = new(key: 3);
 }
 
+// Metrics belong on the QUERY — the kd-tree splits on coordinates, so one built tree serves every
+// coordinate-monotone metric with no rebuild. The Euclidean body returns SQUARED distance, so each row derives its
+// own search-radius form; a cosine row is excluded as unsound — the hyperrect prune assumes the coordinate
+// monotonicity it does not hold.
+[SmartEnum<int>]
+public sealed partial class NeighborMetric {
+    public static readonly NeighborMetric Euclidean = new(key: 0, body: DistanceMetrics.EuclideanDistance, squaredRadius: true);
+    public static readonly NeighborMetric Manhattan = new(key: 1, body: DistanceMetrics.ManhattanDistance, squaredRadius: false);
+    public static readonly NeighborMetric Chebyshev = new(key: 2, body: DistanceMetrics.ChebyshevDistance, squaredRadius: false);
+    internal Func<IReadOnlyList<double>, IReadOnlyList<double>, double> Body { get; }
+    internal bool SquaredRadius { get; }
+    internal double SearchRadius(double r) => SquaredRadius ? r * r : r;
+}
+
 [Union]
 public abstract partial record NeighborQuery {
     private NeighborQuery() { }
-    public sealed record NearestCase(int K) : NeighborQuery;
-    public sealed record RadiusCase(PositiveMagnitude R, Option<Dimension> Cap) : NeighborQuery;
+    public sealed record NearestCase(int K, NeighborMetric Metric) : NeighborQuery;
+    public sealed record RadiusCase(PositiveMagnitude R, Option<Dimension> Cap, NeighborMetric Metric) : NeighborQuery;
     public sealed record BoxCase(BoundingBox Bounds) : NeighborQuery;
     public sealed record BallCase(Sphere Ball) : NeighborQuery;
     public sealed record OverlapsCase(NeighborIndex Other, double Tolerance) : NeighborQuery;
     public sealed record PairsCase(Seq<Point3d> Needles, NeighborQuery Probe) : NeighborQuery;
-    public static Fin<NeighborQuery> Nearest(int k, Op? key = null) =>
-        guard(k > 0, key.OrDefault().InvalidInput()).ToFin().Map(_ => (NeighborQuery)new NearestCase(K: k));
-    public static Fin<NeighborQuery> Radius(double r, Option<int> cap = default, Op? key = null) =>
+    public static Fin<NeighborQuery> Nearest(int k, NeighborMetric? metric = null, Op? key = null) =>
+        guard(k > 0, key.OrDefault().InvalidInput()).ToFin().Map(_ => (NeighborQuery)new NearestCase(K: k, Metric: metric ?? NeighborMetric.Euclidean));
+    public static Fin<NeighborQuery> Radius(double r, Option<int> cap = default, NeighborMetric? metric = null, Op? key = null) =>
         from magnitude in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: r)
         from bound in cap.Match(Some: c => key.OrDefault().AcceptValidated<Dimension>(candidate: c).Map(Some), None: static () => Fin.Succ(Option<Dimension>.None))
-        select (NeighborQuery)new RadiusCase(R: magnitude, Cap: bound);
+        select (NeighborQuery)new RadiusCase(R: magnitude, Cap: bound, Metric: metric ?? NeighborMetric.Euclidean);
 
     internal Fin<(NeighborQuery Query, Point3d Anchor)> SearchProbe(Op key) => this switch {
         BoxCase { Bounds: var bounds } when bounds.IsValid => Fin.Succ((this, bounds.Center)),
@@ -136,6 +150,9 @@ public abstract partial record NeighborIndex {
                 .Map(tree => (NeighborIndex)new BoundsCase(Tree: tree, Count: b.Boxes.Count)),
             staticCase: static (k, s) =>
                 from points in s.Values.TraverseM(v => k.AcceptValue(value: v)).As().Map(static vs => vs.ToArray())
+                // KDTree.Create throws a raw ArgumentOutOfRangeException on an empty set — gate ahead so the
+                // admitted-but-empty cloud stays on the Fin rail.
+                from _ in guard(points.Length > 0, k.InvalidInput()).ToFin()
                 let coordinates = points.Select(IReadOnlyList<double> (p) => [p.X, p.Y, p.Z]).ToArray()
                 let payloads = Enumerable.Range(0, points.Length).ToArray()
                 select (NeighborIndex)new StaticCase(
@@ -150,11 +167,11 @@ public abstract partial record NeighborIndex {
                 state: (Self: self, Anchor: anchor, Key: key, Cancel: cancel),
                 nearestCase: static (s, q) =>
                     from _ in s.Key.AcceptValue(value: s.Anchor)
-                    from graph in NeighborKernel.GraphOf(index: s.Self, needles: [s.Anchor], count: Some(q.K), radius: Option<double>.None, key: s.Key)
+                    from graph in NeighborKernel.GraphOf(index: s.Self, needles: [s.Anchor], count: Some(q.K), radius: Option<double>.None, key: s.Key, metric: Some(q.Metric))
                     select (NeighborAnswer)new NeighborAnswer.Graph(Value: graph),
                 radiusCase: static (s, q) =>
                     from _ in s.Key.AcceptValue(value: s.Anchor)
-                    from graph in NeighborKernel.GraphOf(index: s.Self, needles: [s.Anchor], count: q.Cap.Map(static c => c.Value), radius: Some(q.R.Value), key: s.Key)
+                    from graph in NeighborKernel.GraphOf(index: s.Self, needles: [s.Anchor], count: q.Cap.Map(static c => c.Value), radius: Some(q.R.Value), key: s.Key, metric: Some(q.Metric))
                     select (NeighborAnswer)new NeighborAnswer.Graph(Value: graph),
                 boxCase: static (s, q) =>
                     from _ in guard(q.Bounds.IsValid, s.Key.InvalidInput()).ToFin()
@@ -178,8 +195,8 @@ public abstract partial record NeighborIndex {
                 pairsCase: static (s, q) =>
                     from needles in q.Needles.TraverseM(v => s.Key.AcceptValue(value: v)).As().Map(static vs => vs.ToArray())
                     from graph in q.Probe switch {
-                        NeighborQuery.NearestCase n => NeighborKernel.GraphOf(index: s.Self, needles: needles, count: Some(n.K), radius: Option<double>.None, key: s.Key),
-                        NeighborQuery.RadiusCase r => NeighborKernel.GraphOf(index: s.Self, needles: needles, count: r.Cap.Map(static c => c.Value), radius: Some(r.R.Value), key: s.Key),
+                        NeighborQuery.NearestCase n => NeighborKernel.GraphOf(index: s.Self, needles: needles, count: Some(n.K), radius: Option<double>.None, key: s.Key, metric: Some(n.Metric)),
+                        NeighborQuery.RadiusCase r => NeighborKernel.GraphOf(index: s.Self, needles: needles, count: r.Cap.Map(static c => c.Value), radius: Some(r.R.Value), key: s.Key, metric: Some(r.Metric)),
                         _ => Fin.Fail<NeighborhoodGraph>(s.Key.InvalidInput()),
                     }
                     let pairs = toSeq(graph.Ids.SelectMany(static (row, needle) => row.Select(id => new NeighborPair(A: needle, B: id)))
@@ -328,12 +345,16 @@ internal static partial class NeighborKernel {
         policy.Admit(key: key).Bind(admitted => GraphOf(index: index, needles: needles,
             count: Some(admitted.NeighborCount.Value), radius: admitted.Radius.Map(static r => r.Value), key: key));
 
-    internal static Fin<NeighborhoodGraph> GraphOf(NeighborIndex index, Point3d[] needles, Option<int> count, Option<double> radius, Op key) =>
+    internal static Fin<NeighborhoodGraph> GraphOf(NeighborIndex index, Point3d[] needles, Option<int> count, Option<double> radius, Op key, Option<NeighborMetric> metric = default) =>
         from gate in guard(needles.Length > 0
             && count.Map(static k => k > 0).IfNone(true)
             && radius.Map(static r => double.IsFinite(r) && r > 0.0).IfNone(count.IsSome), key.InvalidInput()).ToFin()
+        // Only the kd-tree species answers a non-Euclidean metric; an RTree-backed species with one requested is a
+        // typed refusal, never a silently-Euclidean answer.
+        from admitted in guard(metric.IfNone(NeighborMetric.Euclidean) == NeighborMetric.Euclidean || index is NeighborIndex.StaticCase,
+            key.Unsupported(geometryType: index.GetType(), outputType: typeof(NeighborMetric))).ToFin()
         from graph in index.Switch(
-            state: (Needles: needles, Count: count, Radius: radius, Key: key),
+            state: (Needles: needles, Count: count, Radius: radius, Metric: metric, Key: key),
             cloudCase: static (s, c) => c.Source.UseIndex(key: s.Key, project: cloud => Batch(needles: s.Needles, count: s.Count, radius: s.Radius, key: s.Key,
                 hayCount: c.Source.Vertices.Count, hayAt: i => c.Source.Vertices[i],
                 knnBackend: NeighborSearchBackend.RTreeKnn, radiusBackend: NeighborSearchBackend.RTreeRadius,
@@ -346,12 +367,17 @@ internal static partial class NeighborKernel {
                 radial: (r, _) => RTree.Point3dClosestPoints(hayPoints: p.Hay, needlePts: s.Needles, limitDistance: r)),
             meshFacesCase: static (s, _) => Fin.Fail<NeighborhoodGraph>(s.Key.Unsupported(geometryType: typeof(NeighborIndex.MeshFacesCase), outputType: typeof(NeighborhoodGraph))),
             boundsCase: static (s, _) => Fin.Fail<NeighborhoodGraph>(s.Key.Unsupported(geometryType: typeof(NeighborIndex.BoundsCase), outputType: typeof(NeighborhoodGraph))),
-            staticCase: static (s, t) => Batch(needles: s.Needles, count: s.Count, radius: s.Radius, key: s.Key,
-                hayCount: t.Points.Length, hayAt: i => t.Points[i],
-                knnBackend: NeighborSearchBackend.KdTreeKnn, radiusBackend: NeighborSearchBackend.KdTreeRadius,
-                knn: k => s.Needles.Select(needle => t.Tree.NearestNeighbors(point: Coordinate(needle), numNeighbors: k).Select(static hit => hit.Item2).ToArray()),
-                // KD-tree Euclidean distance is squared; radius squares only here.
-                radial: (r, cap) => s.Needles.Select(needle => t.Tree.RadialSearch(center: Coordinate(needle), radius: r * r, numNeighbors: cap).Select(static hit => hit.Item2).ToArray())))
+            staticCase: static (s, t) => {
+                // Metric is settable on the BUILT tree, so one build serves every coordinate-monotone metric; the
+                // radius transform is the row's own — Euclidean distance is squared, so its radius squares only here.
+                NeighborMetric row = s.Metric.IfNone(NeighborMetric.Euclidean);
+                t.Tree.Metric = row.Body;
+                return Batch(needles: s.Needles, count: s.Count, radius: s.Radius, key: s.Key,
+                    hayCount: t.Points.Length, hayAt: i => t.Points[i],
+                    knnBackend: NeighborSearchBackend.KdTreeKnn, radiusBackend: NeighborSearchBackend.KdTreeRadius,
+                    knn: k => s.Needles.Select(needle => t.Tree.NearestNeighbors(point: Coordinate(needle), numNeighbors: k).Select(static hit => hit.Item2).ToArray()),
+                    radial: (r, cap) => s.Needles.Select(needle => t.Tree.RadialSearch(center: Coordinate(needle), radius: row.SearchRadius(r), numNeighbors: cap).Select(static hit => hit.Item2).ToArray()));
+            })
         select graph;
 
     internal static Fin<Seq<Vector3d>> OrientNormals(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
@@ -428,7 +454,8 @@ internal static partial class NeighborKernel {
         row.Length < 6
             ? Fin.Succ(new QuadricAttempt(Sample: None, RankRejected: true))
             : from stats in CloudKernel.CovarianceOf(points: toSeq(row.Select(id => cluster.Vertices[id])), mass: Option<Arr<double>>.None, key: key)
-              from eigen in stats.Cov.DecomposeEigen(key: key)   // |λ| descending: [0]/[1] span the tangent, [2] is the normal
+              // The [0]/[1] tangent-span / [2] normal reads are positional — PairsIn DEMANDS the order on the rail.
+              from eigen in stats.Cov.DecomposeEigenDetailed(key: key).Bind(receipt => receipt.PairsIn(expected: EigenOrder.DescendingMagnitude, key: key))
               let frame = (U: AxisOf(eigen[0].Eigenvector), V: AxisOf(eigen[1].Eigenvector), N: AxisOf(eigen[2].Eigenvector))
               let center = cluster.Vertices[index]
               let local = row.Select(id => cluster.Vertices[id] - center).Select(d => (U: d * frame.U, V: d * frame.V, N: d * frame.N)).ToArray()
@@ -442,7 +469,7 @@ internal static partial class NeighborKernel {
                           ? Fin.Succ(new QuadricAttempt(Sample: None, RankRejected: false))
                           : SampleOf(index: index, point: center, frame: (frame.U, frame.V), fit: fit, neighborCount: row.Length, context: cluster.Tolerance, key: key)
                               .Map(static sample => new QuadricAttempt(Sample: Some(sample), RankRejected: false)),
-                  // A refused solve partitions the cloud, never aborts it.
+                  // Refused solves partition the cloud, never abort it.
                   Fail: _ => Fin.Succ(new QuadricAttempt(Sample: None, RankRejected: true)))
               select attempt;
 
@@ -450,7 +477,7 @@ internal static partial class NeighborKernel {
     private static Fin<CurvatureSample> SampleOf(int index, Point3d point, (Vector3d U, Vector3d V) frame, SolveReceipt fit, int neighborCount, Context context, Op key) =>
         from dim in key.AcceptValidated<Dimension>(candidate: 2)
         from shape in SymmetricMatrix.Of(dim: dim, upper: new Arr<double>([2.0 * fit.Solution[0], fit.Solution[1], 2.0 * fit.Solution[2]]), key: key)
-        from pairs in shape.DecomposeEigen(key: key)
+        from pairs in shape.DecomposeEigenDetailed(key: key).Map(static receipt => receipt.Pairs)   // order-independent: the ternary below re-orders by value itself
         let ordered = pairs[0].Eigenvalue >= pairs[1].Eigenvalue ? (Max: pairs[0], Min: pairs[1]) : (Max: pairs[1], Min: pairs[0])
         from e1 in Direction.Of(value: (ordered.Max.Eigenvector[0] * frame.U) + (ordered.Max.Eigenvector[1] * frame.V), context: context, key: key)
         from e2 in Direction.Of(value: (ordered.Min.Eigenvector[0] * frame.U) + (ordered.Min.Eigenvector[1] * frame.V), context: context, key: key)
@@ -507,7 +534,7 @@ internal static partial class NeighborKernel {
     internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud, Op key) => cloud.Switch(
         state: key,
         ringCase: static (k, r) =>
-            from seed in Direction.Of(value: NewellNormal(vertices: r.Vertices), context: r.Tolerance, key: k)
+            from seed in Direction.Of(value: VectorFrame.NewellNormal(ring: r.Vertices.ToArray()), context: r.Tolerance, key: k)
             from chain in BishopChain(points: r.Vertices, initialNormal: seed, closed: true, context: r.Tolerance, key: k)
             select chain,
         polylineCase: static (k, p) =>
@@ -515,7 +542,7 @@ internal static partial class NeighborKernel {
             from seed in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: p.Vertices[1] - p.Vertices[0]), context: p.Tolerance, key: k)
             from chain in BishopChain(points: p.Vertices, initialNormal: seed, closed: false, context: p.Tolerance, key: k)
             select chain,
-        // A cluster carries no chain order; transport over an unordered set is undefined.
+        // Clusters carry no chain order; transport over an unordered set is undefined.
         clusterCase: static (k, _) => Fin.Fail<Seq<Plane>>(k.Unsupported(geometryType: typeof(VectorCloud.ClusterCase), outputType: typeof(Seq<Plane>))));
 
     internal static Fin<Seq<Plane>> BishopChain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op key) =>
@@ -564,16 +591,6 @@ internal static partial class NeighborKernel {
         Vector3d transported = c2 <= floor ? rl : rl - (2.0 / c2 * (axis * rl) * axis);
         _ = transported.Unitize();
         return transported;
-    }
-
-    // Newell area-vector fold — orientation-true for any simple planar loop.
-    private static Vector3d NewellNormal(Seq<Point3d> vertices) {
-        Vector3d normal = Vector3d.Zero;
-        for (int i = 0; i < vertices.Count; i++) {
-            (Point3d a, Point3d b) = (vertices[i], vertices[(i + 1) % vertices.Count]);
-            normal += new Vector3d(x: (a.Y - b.Y) * (a.Z + b.Z), y: (a.Z - b.Z) * (a.X + b.X), z: (a.X - b.X) * (a.Y + b.Y));
-        }
-        return normal;
     }
 }
 ```

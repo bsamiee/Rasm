@@ -51,7 +51,9 @@ public sealed partial class QueryKind {
     public static readonly QueryKind Ray = new("ray");
     public static readonly QueryKind Nearest = new("nearest");
     public static readonly QueryKind Overlap = new("overlap");
+    public static readonly QueryKind SelfOverlap = new("self-overlap");
     public static readonly QueryKind Winding = new("winding");
+    public static readonly QueryKind Slab = new("slab");
 }
 
 // --- [CONSTANTS] --------------------------------------------------------------------------
@@ -102,7 +104,12 @@ public abstract partial record SpatialQuery {
     public sealed record Ray(Ray3d Probe, double MaxT) : SpatialQuery;
     public sealed record Nearest(Point3d Query, int K) : SpatialQuery;
     public sealed record Overlap(SpatialIndex Other, double Tolerance) : SpatialQuery;
+    // Unordered-pair enumeration within ONE index — the clash broad phase over a single model; the dual walk's
+    // self filter emits each pair once, so a downstream interference union never re-keys a second registry.
+    public sealed record SelfOverlap(double Tolerance) : SpatialQuery;
     public sealed record Winding(Point3d[] Queries, Point3d[] Triangles, double BetaSquared) : SpatialQuery;
+    // Rank-2 lattice instances ARE the plane slab the slice fold defers to; the rank-3 instance serves voxel sweeps.
+    public sealed record Slab(CellLattice Grid, int Layer) : SpatialQuery;
 
     public QueryKind Kind =>
         Switch(
@@ -110,7 +117,9 @@ public abstract partial record SpatialQuery {
             ray: static _ => QueryKind.Ray,
             nearest: static _ => QueryKind.Nearest,
             overlap: static _ => QueryKind.Overlap,
-            winding: static _ => QueryKind.Winding);
+            selfOverlap: static _ => QueryKind.SelfOverlap,
+            winding: static _ => QueryKind.Winding,
+            slab: static _ => QueryKind.Slab);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -162,7 +171,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     // Clone detaches the admitted set, so a frozen index never aliases a caller-mutable array.
     internal static Fin<BoundingBox[]> Admit(BoundingBox[] primitives) {
         if (primitives.Length == 0)
-            return Fin.Fail<BoundingBox[]>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.BoundingBox, -1, "empty").ToError());
+            return Fin.Fail<BoundingBox[]>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.BoundingBox, None, "empty").ToError());
         for (int i = 0; i < primitives.Length; i++)
             if (!primitives[i].IsValid)
                 return Fin.Fail<BoundingBox[]>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.BoundingBox, i, "non-finite-bound").ToError());
@@ -363,11 +372,48 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             overlap: static (s, q) =>
                 guard(double.IsFinite(q.Tolerance) && q.Tolerance >= 0.0, s.Key.InvalidInput()).ToFin()
                     .Map(_ => (QueryResult)new QueryResult.Pairs(OverlapPairs(s.Self, q.Other, q.Tolerance))),
+            selfOverlap: static (s, q) =>
+                guard(double.IsFinite(q.Tolerance) && q.Tolerance >= 0.0, s.Key.InvalidInput()).ToFin()
+                    .Map(_ => (QueryResult)new QueryResult.Pairs(OverlapPairs(s.Self, s.Self, q.Tolerance))),
             winding: static (s, q) =>
                 q.Triangles.Length != 3 * s.Self.Primitives.Length
                     ? Fin.Fail<QueryResult>(new GeometryFault.KindMismatch(s.Self.Kind, QueryKind.Winding).ToError())
                     : guard(q.Queries.Length > 0 && double.IsFinite(q.BetaSquared) && q.BetaSquared > 0.0, s.Key.InvalidInput()).ToFin()
-                        .Map(_ => (QueryResult)new QueryResult.Field(Winding(s.Self.Store, q))));
+                        .Map(_ => (QueryResult)new QueryResult.Field(Winding(s.Self.Store, q))),
+            slab: static (s, q) =>
+                guard(q.Layer >= 0 && q.Layer < q.Grid.Layers.Value, s.Key.InvalidInput()).ToFin()
+                    .Map(_ => (QueryResult)new QueryResult.Hits(SlabHits(s.Self.Store, s.Self.Primitives, q))));
+    }
+
+    // Plane-slab broad phase: a box crosses layer L iff the box's LOCAL Z range under the lattice inverse affine
+    // crosses [L, L+1] — exact for a rotated or sheared lattice, because local Z is affine in the corner and an
+    // AABB's extremal value of an affine functional is centre ± Σ|coefficient|·halfExtent, allocation-free.
+    static Seq<int> SlabHits(NodeStore store, BoundingBox[] primitives, SpatialQuery.Slab slab) {
+        Seq<int> hits = [];
+        Stack<int> stack = new();
+        stack.Push(0);
+        while (stack.Count > 0) {
+            int node = stack.Pop();
+            if (!CrossesLayer(store.Bound(node), slab.Grid, slab.Layer)) continue;
+            if (store.LeafCount[node] > 0) {
+                for (int s = 0; s < store.LeafCount[node]; s++) {
+                    int prim = store.Order[store.LeafStart[node] + s];
+                    if (CrossesLayer(primitives[prim], slab.Grid, slab.Layer)) hits = hits.Add(prim);
+                }
+                continue;
+            }
+            for (int c = 0; c < store.ChildCount[node]; c++) stack.Push(store.FirstChild[node] + c);
+        }
+        return hits;
+    }
+
+    static bool CrossesLayer(BoundingBox box, CellLattice grid, int layer) {
+        Transform w = grid.WorldToIndex;
+        Point3d centre = 0.5 * (box.Min + box.Max);
+        Vector3d half = 0.5 * (box.Max - box.Min);
+        double z = (w.M20 * centre.X) + (w.M21 * centre.Y) + (w.M22 * centre.Z) + w.M23;
+        double reach = (Math.Abs(value: w.M20) * half.X) + (Math.Abs(value: w.M21) * half.Y) + (Math.Abs(value: w.M22) * half.Z);
+        return z - reach <= layer + 1.0 && z + reach >= layer;
     }
 
     // Reverse index order is child-before-parent: one bottom-up moment pass per evaluation feeds every query point.
@@ -766,4 +812,4 @@ public static class Spatial {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [NODE_LINK_GOLDEN]-[BLOCKED]: what hex does the `[WIRE]` 160-byte stream carry once `Down`/`Up` rounding resolves each `float32`; mint it from a `[RhinoScenario("spatial")]` scenario at `tests/csharp/libs/Rasm/Spatial/Scenarios/`, no `Requires` capability since the path touches `BoundingBox` and `Point3d` alone, asserting the `[WIRE]` facts and `Certify`-ing the hex under `uv run python -m tools.assay bridge verify --evidence author spatial`; `Rasm.Scenarios.csproj` references no project and `Rasm.Tests.csproj` runs `AssayTestShell`, so nothing executes the build yet.
+- [NODE_LINK_GOLDEN]-[BLOCKED]: what hex does the `[WIRE]` 160-byte stream carry once `Down`/`Up` rounding resolves each `float32`; mint it from a `[RhinoScenario("spatial")]` scenario at `tests/csharp/libs/Rasm/Spatial/Scenarios/` (no `Requires` capability — the path touches `BoundingBox` and `Point3d` alone), `Certify` the hex under `uv run python -m tools.assay bridge verify --evidence author spatial`; blocked because nothing executes the build yet.

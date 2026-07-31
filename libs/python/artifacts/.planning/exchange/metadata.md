@@ -1,8 +1,8 @@
 # [PY_ARTIFACTS_METADATA]
 
-`Metadata` is the descriptive-metadata read/write owner at the exchange boundary — ONE `tagged_union` binding and recovering the EXIF/IPTC/XMP/ICC standards (title, creator, copyright, keyword, camera, exposure, GPS, rights, the full ICC profile header, the xmpMM asset identity/lineage, the raster container structure, and the media container structure) on an already-emitted raster, PDF, or media artifact, discriminating the `read`/`write` verb over its `(MetaCarrier, payload)` shape — the carrier riding as the verb payload's leading field, not a tag multiplier, so the op is two cases over three carriers, not six. EXIF/IPTC/XMP/ICC standards are field-namespace facets every carrier read folds into ONE `MetaFacts` through one `MetaFacts.from_logical` materialization keyed by the one `_FIELD_KEYS` logical→standard correspondence, never four parallel per-standard key tables.
+`Metadata` is the descriptive-metadata read/write owner at the exchange boundary — ONE `tagged_union` binding and recovering the EXIF/IPTC/XMP/ICC/KTX2 standards (title, creator, copyright, keyword, camera, exposure, GPS, rights, the full ICC profile header, the xmpMM asset identity/lineage, and the raster, media, and deep-texture container structures) on an already-emitted raster, PDF, media, or KTX2 artifact, discriminating the `read`/`write` verb over its `(MetaCarrier, payload)` shape — the carrier riding as the verb payload's leading field, not a tag multiplier, so the op is two cases over four carriers, not eight. Those standards are field-namespace facets every carrier read folds into ONE `MetaFacts` through one `MetaFacts.from_logical` materialization keyed by the one `_FIELD_KEYS` logical→standard correspondence, never five parallel per-standard key tables.
 
-Each carrier rides its admitted owner through the caller-threaded `LanePolicy.offload` seam at the runtime placement its package dictates: `pikepdf` resolves as a `KernelTrait.RELEASING` kernel on the thread arm, while the GIL-holding `av` carrier — the same engine ruling every `media/` crossing carries — and the raster cluster cross as `KernelTrait.HOSTILE` onto the warm process pool under their trait-row worker-death retry — the `CarrierPolicy` row carries `(reader, writer, trait)` so dispatch is one lookup, and the `pyexiftool` `-stay_open` driver is a worker-process-static resource acquired once per worker under a `stamina` spawn-retry, never a per-artifact respawn. `close(lane)` is the rich public egress — `RuntimeRail[tuple[ContentKey, bytes, MetaFacts]]`, the produced payload keyed by `ContentIdentity.key` over its OWN bytes beside the recovered/bound `MetaFacts` — and `emit(lane)` is the pipeline node whose `_emit` projects that triple onto the flat `core/receipt#RECEIPT` `ArtifactReceipt.Metadata(key, carrier, fields, byte_len)` case, exactly as `exchange/credential#CREDENTIAL` and `exchange/conformance#CONFORMANCE` project their `close` triples: a READ recovers the full field set over the source bytes, a WRITE returns the re-encoded artifact, and the receipt is a projection of the triple, never the sole egress.
+Each carrier rides its admitted owner through the caller-threaded `LanePolicy.offload` seam at the runtime placement its package dictates: `pikepdf` resolves as a `KernelTrait.RELEASING` kernel on the thread arm, while the GIL-holding `av` carrier — the same engine ruling every `media/` crossing carries — the raster cluster, and the `pyktx` deep-texture carrier the texture plane already crosses on that arm all cross as `KernelTrait.HOSTILE` onto the warm process pool under their trait-row worker-death retry — the `CarrierPolicy` row carries `(reader, writer, trait)` so dispatch is one lookup, and the `pyexiftool` `-stay_open` driver is a worker-process-static resource acquired once per worker under a `stamina` spawn-retry, never a per-artifact respawn. `close(lane)` is the rich public egress — `RuntimeRail[tuple[ContentKey, bytes, MetaFacts]]`, the produced payload keyed by `ContentIdentity.key` over its OWN bytes beside the recovered/bound `MetaFacts` — and `emit(lane)` is the pipeline node whose `_emit` projects that triple onto the flat `core/receipt#RECEIPT` `ArtifactReceipt.Metadata(key, carrier, fields, byte_len)` case, exactly as `exchange/credential#CREDENTIAL` and `exchange/conformance#CONFORMANCE` project their `close` triples: a READ recovers the full field set over the source bytes, a WRITE returns the re-encoded artifact, and the receipt is a projection of the triple, never the sole egress.
 
 ## [01]-[INDEX]
 
@@ -10,17 +10,18 @@ Each carrier rides its admitted owner through the caller-threaded `LanePolicy.of
 
 ## [02]-[METADATA]
 
-- Owner: `Metadata` IS the one owner — a `tagged_union` of exactly TWO cases discriminating the read/write verb directly (mirroring `exchange/credential#CREDENTIAL` `Provenance`): `read: tuple[MetaCarrier, bytes]` and `write: tuple[MetaCarrier, bytes, WriteSpec]` (the write instruction `facts`+`bind` bundled in one named `WriteSpec`, never a naked positional tuple decoded by index) — the carrier riding as each payload's leading field and the direction the tag, so a new carrier adds zero cases. `MetaCarrier` (`RASTER`/`PDF`/`MEDIA`) keys the `_CARRIER` `CarrierPolicy(reader, writer, trait)` row, so the operation routes by one lookup over `self.carrier`, never a per-standard reader/writer class family nor a `gated: bool` knob the body re-pairs to a trait the value already selects. `MetaBind` (`MERGE`/`REPLACE`/`STRIP`) is the write disposition. `MetaFacts` is the ONE composite value every read materializes and every write consumes — eight nested frozen facets plus the `conformance` PDF/A·PDF/X status, recovering the full field set across all four standards plus the container-structure read in one shape. Writable XMP/EXIF/IPTC facets fold through `_flat`; the read-only `Color` ICC header, `RasterInfo`, and `MediaInfo` are evidence-only siblings of `conformance` the writers never re-emit.
-- Cases: `read(carrier, payload)` and `write(carrier, payload, WriteSpec(facts, bind))` — one total `match` over `self` in `close`, the read arm one reader offload and the write arm one writer offload (the `WriteSpec` unpacked once to `spec.facts`/`spec.bind`), never a parallel reader/writer per carrier or standard. Each carrier's reader folds its native namespace into the one `MetaFacts`: RASTER reads EXIF + IPTC + XMP + ICC + GPS + maker-notes in ONE `pyexiftool` cross-format pass, PDF the full Dublin-Core/XMP/xmpMM/xmpRights namespace (the `pdf:Producer` converting-application fact and the `xmpMM:DocumentID`/`InstanceID` identity included) plus `pdfa_status`/`pdfx_status` plus the `/OutputIntents` ICC profile header through `pikepdf` + `PIL.ImageCms`, MEDIA the FFmpeg container tag set plus the container structure (chapters/tracks/duration) through `av`. Every reader emits one `dict[str, object]` keyed by logical field name — a provider list or LangAlt container reduced through `_scalar` before it reaches a scalar field — and folds it through the one `MetaFacts.from_logical`, so a carrier read is one logical projection plus one materialization.
+- Owner: `Metadata` IS the one owner — a `tagged_union` of exactly TWO cases discriminating the read/write verb directly (mirroring `exchange/credential#CREDENTIAL` `Provenance`): `read: tuple[MetaCarrier, bytes]` and `write: tuple[MetaCarrier, bytes, WriteSpec]` (the write instruction `facts`+`bind` bundled in one named `WriteSpec`, never a naked positional tuple decoded by index) — the carrier riding as each payload's leading field and the direction the tag, so a new carrier adds zero cases. `MetaCarrier` (`RASTER`/`PDF`/`MEDIA`/`TEXTURE`) keys the `_CARRIER` `CarrierPolicy(reader, writer, trait)` row, so the operation routes by one lookup over `self.carrier`, never a per-standard reader/writer class family nor a `gated: bool` knob the body re-pairs to a trait the value already selects. `MetaBind` (`MERGE`/`REPLACE`/`STRIP`) is the write disposition. `MetaFacts` is the ONE composite value every read materializes and every write consumes — nine nested frozen facets plus the `conformance` PDF/A·PDF/X status, recovering the full field set across every standard plus the three container-structure reads in one shape. Writable XMP/EXIF/IPTC/KTX facets fold through `_flat`; the read-only `Color` ICC header, `RasterInfo`, `MediaInfo`, and `TextureInfo` are evidence-only siblings of `conformance` the writers never re-emit. The three CONTAINER-structure facets ride `Option` because their scalars spell real container facts with zero — a KTX2 header carries `pixelHeight = 0` on a 1-D texture and `pixelDepth = 0` on a non-3-D one — so a defaulted facet on a carrier that read no container is indistinguishable from a header the container genuinely filled with zeros; presence is the discriminant, and every zero inside a `Some` facet is admitted as measured.
+- Cases: `read(carrier, payload)` and `write(carrier, payload, WriteSpec(facts, bind))` — one total `match` over `self` in `close`, the read arm one reader offload and the write arm one writer offload (the `WriteSpec` unpacked once to `spec.facts`/`spec.bind`), never a parallel reader/writer per carrier or standard. Each carrier's reader folds its native namespace into the one `MetaFacts`: RASTER reads EXIF + IPTC + XMP + ICC + GPS + maker-notes in ONE `pyexiftool` cross-format pass, PDF the full Dublin-Core/XMP/xmpMM/xmpRights namespace (the `pdf:Producer` converting-application fact and the `xmpMM:DocumentID`/`InstanceID` identity included) plus `pdfa_status`/`pdfx_status` plus the `/OutputIntents` ICC profile header through `pikepdf` + `PIL.ImageCms`, MEDIA the FFmpeg container tag set plus the container structure (chapters/tracks/duration) through `av`, TEXTURE the KTX2 key-value block plus the container structure (extent, pyramid depth, face count, `VkFormat`, transfer ordinal, supercompression scheme, orientation, swizzle) through `pyktx`. Every reader emits one `dict[str, object]` keyed by logical field name — a provider list or LangAlt container reduced through `_scalar` before it reaches a scalar field — and folds it through the one `MetaFacts.from_logical`, so a carrier read is one logical projection plus one materialization.
 - Auto: `close` lifts the carrier's `CarrierPolicy` row once, so the per-carrier body is data, never a six-arm enumeration. `_helper` is the worker-process-static `ExifToolHelper(common_args=["-G"])` — acquired once per PROCESS worker under `@stamina.retry(on=(RuntimeError, ExifToolVersionError))` (the spawn/version transient), `set_json_loads(msgjson.decode)` swapping the msgspec parser onto the `get_tags` decode path, `atexit`-terminated — so the Perl startup cost is paid once per worker, never per artifact. Reading a raster spills `payload` to a `NamedTemporaryFile`, reads the `_EXIFTOOL_TAGS` set once — each numeric-typed logical requested with the per-tag `#` ValueConv suffix (`_NUMERIC` derives the split from the facet field types, so string fields keep PrintConv words `convert(strict=False)` admits while numeric fields arrive machine-parsable; a global `-n` pushes integer codes into every string field) — projects every logical through `_FIELD_KEYS[logical].exiftool`, reads the signed `Composite:GPSLatitude#`/`Longitude#` decimals directly (no DMS fold), splits the keyword list through `_as_tuple`, and resolves the ICC header off the `ICC_Profile:` group tags directly. A raster write clears the DESCRIPTIVE namespace on `REPLACE`/`STRIP` (`-all=` group-wildcard scrub, REPLACE excluding `--icc_profile:all` so the profile survives the bind the enum promises, the keyword tuple bound as a `list` for the repeated `-IPTC:Keywords` directives) and returns the metadata-only re-encoded bytes — a container mutation WITHOUT a pixel re-encode, higher-fidelity than a raster re-encode, the provider owning the IFD-type round-trip. PDF arms open one `PdfMetadata` context, the read folding every present `_FIELD_KEYS` xmp qname plus `pdfa_status`/`pdfx_status` plus the `_icc` fold over the `/OutputIntents` `DestOutputProfile` bytes, the write deleting-then-assigning under the bind policy. MEDIA arms open the `av` container, the read folding the `_media_info` container-structure read (duration/chapters/tracks) while the container is still open, the write a `demux` → `add_stream_from_template` → `mux` bitstream-copy remux that rebinds `OutputContainer.metadata` without re-encoding while `set_chapters` and each templated stream's `metadata` carry the navigation and labelling structure across every bind. `_flat` is the one facts→logical projection every writer derives its bindings from (`structs.asdict` over the writable facets, dropping empties and tuples), and `from_logical` its inverse (one `msgspec.convert(strict=False)` per facet), so a field reaches every provider from one declared `_FIELD_KEYS` correspondence.
 - Receipt: `close(lane)` returns `RuntimeRail[tuple[ContentKey, bytes, MetaFacts]]` — the key minted by `ContentIdentity.key` over the PRODUCED bytes, so a metadata-bound artifact carries a fresh key the `csharp:Rasm.Persistence` store re-derives while a read keys the source bytes unchanged. `emit(lane, parents=...)` returns the `ArtifactWork` node under the PRE-RUN `_key` (the msgpack input canon `keyed` admission elides on) and `_emit` projects the triple onto `ArtifactReceipt.Metadata(key, carrier, fields, byte_len)` per the ARCHITECTURE `exchange/metadata → core/receipt` edge — the carrier the `MetaCarrier` value, the field count the `MetaFacts.populated` tally, the byte length the produced payload. `core/receipt#RECEIPT` carries the flat-scalar `Metadata` case (`tuple[ContentKey, str, int, int]`) mirroring `Credential`/`Media`, so the receipt owner imports no `MetaFacts` value object — the rich `MetaFacts` rides the `close` triple to the reading caller, the flat case lives on the receipt page.
-- Packages: `pyexiftool` (`ExifToolHelper.get_tags`/`set_tags`/`execute`/`run`/`running`/`terminate` the `-stay_open` cross-format driver over EXIF+IPTC+XMP+ICC+GPS+maker-notes, the per-tag `#` ValueConv request keyed off `_NUMERIC` with the response key staying bare, `set_json_loads` swapping the msgspec parser onto the `get_tags` decode path, `ExifToolVersionError` the spawn-retry target); `pikepdf` (`open`/`open_metadata`/`PdfMetadata` the XMP/docinfo namespace + `pdfa_status`/`pdfx_status`, `Pdf.Root` `/OutputIntents` the ICC profile bytes via `Object.read_bytes`, `save(deterministic_id=True)` the stable /ID); `av` (`open`/`Container.metadata`/`chapters()`/`streams`/`duration`/`bit_rate` the read, `add_stream_from_template`/`demux`/`mux` the no-re-encode remux, `set_chapters`/`Stream.metadata` the structure carried across it); `PIL.ImageCms` (`getOpenProfile` + `getProfile*`/`getDefaultIntent` the ICC header, `PyCMSError` the exact profile boundary); `msgspec` (`Struct(frozen=True[, gc=False])`, `convert(strict=False)` the per-facet materialization, `structs.asdict` the `_flat`/`populated` derivation, `json` the exiftool decode, `msgpack.encode` the `_key` canon); `expression` (`tagged_union`, `Map`, `extra.result.catch`); `beartype`; `stamina` (the helper spawn-retry weave); `pydantic-settings` (the `MetaSettings` `RASM_META_` exiftool-path owner); runtime (`identity.ContentIdentity.key`/`ContentKey`, `faults.FAULT_CONF`/`RuntimeRail`, `lanes.LanePolicy`, `workers.Kernel`/`KernelTrait`); core (`plan.ArtifactWork`/`Admission`, `receipt.ArtifactReceipt`).
-- Growth: a new metadata carrier is one `MetaCarrier` member plus one `_CARRIER` `CarrierPolicy` row plus its two carrier functions — zero new op cases; a new descriptive field one field on the owning `MetaFacts` facet plus one `_FIELD_KEYS` row, the `_flat`/`from_logical` derivation reaching every provider and `_NUMERIC` deriving its ValueConv-vs-PrintConv request from the declared type; a new provider spelling for a carrier is one more column on the `FieldKeys` row plus one fold in that carrier's reader/writer; a new write disposition one `MetaBind` member plus one writer arm; a new writable facet (the `History` xmpMM row) one nested `Struct` plus one `from_logical` convert leg plus its `_flat` rows; a new read-only structured facet (the `MediaInfo`/`RasterInfo` reads) one nested `Struct` plus its reader population plus one `from_logical` keyword and one `populated` term, never a `_flat` write leg; a new ICC-header fact one `Color` field plus one `ICC_Profile:` read; a new binary-path or worker knob one `MetaSettings` field; zero new surface.
+- Packages: `pyexiftool` (`ExifToolHelper.get_tags`/`set_tags`/`execute`/`run`/`running`/`terminate` the `-stay_open` cross-format driver over EXIF+IPTC+XMP+ICC+GPS+maker-notes, the per-tag `#` ValueConv request keyed off `_NUMERIC` with the response key staying bare, `set_json_loads` swapping the msgspec parser onto the `get_tags` decode path, `ExifToolVersionError` the spawn-retry target); `pikepdf` (`open`/`open_metadata`/`PdfMetadata` the XMP/docinfo namespace + `pdfa_status`/`pdfx_status`, `Pdf.Root` `/OutputIntents` the ICC profile bytes via `Object.read_bytes`, `save(deterministic_id=True)` the stable /ID); `av` (`open`/`Container.metadata`/`chapters()`/`streams`/`duration`/`bit_rate` the read, `add_stream_from_template`/`demux`/`mux` the no-re-encode remux, `set_chapters`/`Stream.metadata` the structure carried across it); `PIL.ImageCms` (`getOpenProfile` + `getProfile*`/`getDefaultIntent` the ICC header, `PyCMSError` the exact profile boundary); `msgspec` (`Struct(frozen=True[, gc=False])`, `convert(strict=False)` the per-facet materialization, `structs.asdict` the `_flat`/`populated` derivation, `json` the exiftool decode, `msgpack.encode` the `_key` canon); `expression` (`tagged_union`, `Map`, `Option`/`Some`/`Nothing` the container-structure presence discriminant, `extra.result.catch`); `beartype`; `stamina` (the helper spawn-retry weave); `pydantic-settings` (the `MetaSettings` `RASM_META_` exiftool-path owner); runtime (`identity.ContentIdentity.key`/`ContentKey`, `faults.FAULT_CONF`/`RuntimeRail`, `lanes.LanePolicy`, `workers.Kernel`/`KernelTrait`); core (`plan.ArtifactWork`/`Admission`, `receipt.ArtifactReceipt`).
+- Growth: a new metadata carrier is one `MetaCarrier` member plus one `_CARRIER` `CarrierPolicy` row plus its two carrier functions — zero new op cases; a new descriptive field one field on the owning `MetaFacts` facet plus one `_FIELD_KEYS` row, the `_flat`/`from_logical` derivation reaching every provider and `_NUMERIC` deriving its ValueConv-vs-PrintConv request from the declared type; a new provider spelling for a carrier is one more column on the `FieldKeys` row plus one fold in that carrier's reader/writer; a new write disposition one `MetaBind` member plus one writer arm; a new writable facet (the `History` xmpMM row) one nested `Struct` plus one `from_logical` convert leg plus its `_flat` rows; a new read-only structured facet (the `MediaInfo`/`RasterInfo` reads) one nested `Struct` plus its reader population plus one `Option`-typed `from_logical` keyword and one `map`/`default_value(0)` `populated` term, never a `_flat` write leg and never a defaulted facet whose zeros a reader cannot tell from the container's own; a new ICC-header fact one `Color` field plus one `ICC_Profile:` read; a new binary-path or worker knob one `MetaSettings` field; zero new surface.
 - Boundary: `Metadata` binds and recovers descriptive metadata over already-emitted bytes and owns no artifact production — it re-encodes no pixels (the raster writer mutates container metadata in place, higher-fidelity than a raster re-encode) and mints no content key beyond the produced-bytes `ContentIdentity.key` at `close`. A PDF signature/conformance close routes to `exchange/conformance#CONFORMANCE`, a signed C2PA content credential to `exchange/credential#CREDENTIAL`: the `Iptc4xmpExt:DigitalSourceType` this owner reads/writes is the UNSIGNED descriptive AI-provenance label, distinct from the SIGNED C2PA `DigitalSource` assertion. Rich `MetaFacts` rides the returned triple to the reading caller; the flat `ArtifactReceipt.Metadata` case lives on the receipt page, neither minted here. Signer key material never enters this plane, and the `_key` canon covers verb, carrier, bind, flattened facts, keywords, and payload — the provider binary path is deployment environment, declared non-identity.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import atexit
+import re
 import shutil
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -33,7 +34,7 @@ from typing import Final, Literal, Self, assert_never, get_args
 
 import stamina
 from beartype import beartype
-from expression import case, tag, tagged_union
+from expression import Nothing, Option, Some, case, tag, tagged_union
 from expression.collections import Map
 from expression.extra.result import catch
 from msgspec import Struct, convert, msgpack, structs
@@ -52,6 +53,7 @@ lazy from exiftool.exceptions import ExifToolVersionError  # typed spawn/version
 lazy from PIL import ImageCms  # ICC-header reader over recovered profile bytes (the PDF OutputIntent arm)
 lazy import pikepdf  # qpdf PDF metadata, THREAD in-process arm
 lazy import av  # FFmpeg container read/remux, THREAD in-process arm
+lazy from pyktx import KtxSupercmpScheme, KtxTexture2, KtxTextureCreateFlagBits  # libktx KTX2 key-value block, PROCESS worker band
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type MetaReader = Callable[[bytes], "MetaFacts"]
@@ -62,6 +64,7 @@ class MetaCarrier(StrEnum):
     RASTER = "raster"
     PDF = "pdf"
     MEDIA = "media"
+    TEXTURE = "texture"  # the KTX2 key-value block over the deep-pixel plane the 8-bit raster carrier never reaches
 
 
 class MetaBind(StrEnum):
@@ -74,6 +77,9 @@ class MetaBind(StrEnum):
 # ICC default-rendering-intent ordinal -> token (the liblcms2/ImageCms getDefaultIntent ordinal)
 _INTENT_NAME: Final[Map[int, str]] = Map.of_seq([(0, "perceptual"), (1, "relative"), (2, "saturation"), (3, "absolute")])
 _AV_TIME_BASE: Final[int] = 1_000_000  # `Container.duration` is AV_TIME_BASE microseconds; divide for seconds
+# `KTXwriterScParams` records the supercompression arguments VERBATIM (`--zstd 5`), so a re-deflate reads the level
+# its container was written at rather than fabricating one.
+_SC_PARAMS: Final[re.Pattern[str]] = re.compile(r"--zstd\s+(\d+)")
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -81,6 +87,7 @@ class FieldKeys(Struct, frozen=True, gc=False):  # the per-logical provider corr
     xmp: str = ""  # XMP qname for the pikepdf PDF carrier (`dc:title`, `pdf:Producer`)
     exiftool: str = ""  # exiftool `-G` grouped tag for the RASTER arm (`EXIF:Make`, `IPTC:Keywords`)
     media: str = ""  # FFmpeg container tag for the av MEDIA carrier
+    ktx: str = ""  # KTX2 key-value key for the pyktx TEXTURE carrier; the column IS that carrier's descriptive namespace
 
 
 class Descriptive(Struct, frozen=True):  # editorial: dc:* / xmp:* / photoshop:* / Iptc4xmpCore:* + FFmpeg container tags
@@ -184,6 +191,22 @@ class Track(Struct, frozen=True, gc=False):  # one container stream's descriptiv
     title: str = ""  # `Stream.metadata["title"]`
 
 
+class TextureInfo(Struct, frozen=True):  # KTX2 container structure, read-only (libktx header fields + the structural `KTX*` keys)
+    width: int = 0  # `base_width`/`base_height`/`base_depth` — the level-0 extent
+    height: int = 0
+    depth: int = 0
+    levels: int = 0  # `num_levels` — the pyramid the container carries whole
+    faces: int = 0  # `num_faces` — 6 on a cubemap
+    layered: bool = False  # `is_array`
+    block_compressed: bool = False  # `is_compressed` — a Basis/ASTC/BC payload rather than a plain texel store
+    vk_format: str = ""  # the `VkFormat` member NAME, the ONE format vocabulary a KTX2 declares
+    transfer: int = 0  # `oetf` — the KHR_DF transfer-function ordinal libktx reports as a bare int, never an enum
+    supercompression: str = ""  # the `KtxSupercmpScheme` member NAME, read on the payload-free load alone
+    orientation: str = ""  # `KTXorientation` — the axis convention the stored texels were written under
+    swizzle: str = ""  # `KTXswizzle` — the component remap a sampler applies
+    sc_params: str = ""  # `KTXwriterScParams` — the supercompression arguments the writer recorded verbatim
+
+
 class MediaInfo(Struct, frozen=True):  # media container structure, read-only (av `streams`/`chapters()`/`duration`/`bit_rate`)
     duration: float = 0.0
     bit_rate: int = 0  # `InputContainer.bit_rate` — overall container bit rate (bits/sec)
@@ -198,14 +221,29 @@ class MetaFacts(Struct, frozen=True):
     place: Place = Place()
     history: History = History()  # xmpMM identity/lineage — a writable XMP facet, folded by `_flat`
     color: Color = Color()  # ICC header evidence — read-only, excluded from `_flat`
-    raster: RasterInfo = RasterInfo()  # raster container structure — read-only, populated only by the RASTER reader
-    media: MediaInfo = MediaInfo()  # media container structure — read-only, populated only by `_read_media`
+    # The three container-structure facets ride `Option` because their own scalars spell absence with ZERO: a KTX2
+    # header legitimately carries `pixelHeight = 0` for a 1-D texture and `pixelDepth = 0` for a non-3-D one, and a
+    # media container with no chapters legitimately carries none. A default-constructed facet on a carrier that read
+    # NO container therefore reads identically to a real header the container filled with zeros — two states one
+    # probe cannot separate. Presence is the discriminant: `Nothing` means this carrier read no structure at all, and
+    # every zero INSIDE a `Some` facet is the container's own spelling, admitted as measured.
+    raster: Option[RasterInfo] = Nothing  # populated by the RASTER reader alone
+    media: Option[MediaInfo] = Nothing  # populated by `_read_media` alone
+    texture: Option[TextureInfo] = Nothing  # populated by `_ktx_read` alone
     conformance: str = ""  # pikepdf pdfa_status / pdfx_status
 
     @classmethod
-    def from_logical(cls, flat: Mapping[str, object], /, *, media: MediaInfo = MediaInfo(), raster: RasterInfo = RasterInfo()) -> Self:
+    def from_logical(
+        cls,
+        flat: Mapping[str, object],
+        /,
+        *,
+        media: Option[MediaInfo] = Nothing,
+        raster: Option[RasterInfo] = Nothing,
+        texture: Option[TextureInfo] = Nothing,
+    ) -> Self:
         # one logical dict -> the flat facets via per-facet `convert(strict=False)`; unknown keys fall away,
-        # `marked` lifts to bool. `media`/`raster` ride in already-materialized (binary/derived, not logical keys).
+        # `marked` lifts to bool. `media`/`raster`/`texture` ride in already-materialized (binary/derived, not logical keys).
         data = dict(flat)
         if isinstance(mark := data.get("marked"), str):
             data["marked"] = mark.strip().lower() in ("true", "1", "yes")
@@ -218,25 +256,30 @@ class MetaFacts(Struct, frozen=True):
             color=convert(data, Color, strict=False),
             raster=raster,
             media=media,
+            texture=texture,
             conformance=str(data.get("conformance", "")),
         )
 
     @property
     def populated(self) -> int:
-        # flat scalar tally + the non-scalar/read-only evidence each facet carries off the `_flat` path
+        # flat scalar tally + the non-scalar/read-only evidence each facet carries off the `_flat` path; a structure
+        # term counts only fields a container can genuinely omit, so a always-present head like a level count never
+        # inflates every artifact's tally by a constant. An ABSENT structure facet contributes nothing without a
+        # zero-valued term standing in for it, which is what the `Option` fold buys over a defaulted facet.
         color = sum(1 for value in structs.asdict(self.color).values() if value)
-        raster = bool(self.raster.width) + bool(self.raster.mime) + bool(self.raster.thumbnail)
         return (
             len(_flat(self))
             + bool(self.conformance)
             + bool(self.descriptive.keywords)
             + bool(self.place.gps)
             + color
-            + raster
-            + len(self.media.chapters)
-            + len(self.media.tracks)
-            + bool(self.media.duration)
-            + bool(self.media.bit_rate)
+            + self.raster.map(lambda info: bool(info.width) + bool(info.mime) + bool(info.thumbnail)).default_value(0)
+            + self.texture.map(
+                lambda info: bool(info.width) + bool(info.vk_format) + bool(info.orientation) + bool(info.swizzle) + bool(info.sc_params)
+            ).default_value(0)
+            + self.media.map(
+                lambda info: len(info.chapters) + len(info.tracks) + bool(info.duration) + bool(info.bit_rate)
+            ).default_value(0)
         )
 
 
@@ -446,7 +489,7 @@ def _exiftool_read(payload: bytes) -> MetaFacts:
         mime=str(grouped.get("File:MIMEType", "")),
         thumbnail=thumb if isinstance(thumb, bytes) else b"",
     )
-    return MetaFacts.from_logical(flat, raster=raster)
+    return MetaFacts.from_logical(flat, raster=Some(raster))
 
 
 def _exiftool_write(payload: bytes, facts: MetaFacts, bind: MetaBind) -> bytes:
@@ -527,7 +570,7 @@ def _read_media(payload: bytes) -> MetaFacts:
         media = _media_info(container)  # read while the container is open — streams/chapters die with it
     flat: dict[str, object] = {logical: tags[keys.media] for logical, keys in _FIELD_KEYS.items() if keys.media and keys.media in tags}
     flat["keywords"] = tuple(k.strip() for k in tags.get("keywords", "").split(",") if k.strip())
-    return MetaFacts.from_logical(flat, media=media)
+    return MetaFacts.from_logical(flat, media=Some(media))
 
 
 def _write_media(payload: bytes, facts: MetaFacts, bind: MetaBind) -> bytes:
@@ -554,6 +597,97 @@ def _write_media(payload: bytes, facts: MetaFacts, bind: MetaBind) -> bytes:
             packet.stream = streams[packet.stream.index]
             out.mux(packet)
     return sink.getvalue()
+
+
+# --- [TEXTURE_CARRIER] ------------------------------------------------------------------
+# libktx binds the KTX2 key-value block in-process as a HOSTILE process kernel beside the raster cluster. The block
+# is a STRUCTURAL namespace with one descriptive slot: `KTXwriter` names the emitting application and every other
+# `KTX*` key describes the payload itself, so orientation, swizzle, and the supercompression arguments read as
+# `TextureInfo` evidence and never bind — rewriting a swizzle over texels nobody re-swizzled asserts a layout the
+# pixels contradict. Descriptive fields beyond `KTXwriter` home on the set manifest `graphic/texture/set#EGRESS`
+# emits, never on a private key convention minted into a wire two peers already read.
+def _ktx_text(raw: bytes, /) -> str:
+    # every KTX2 key-value entry is NUL-terminated, so the stored bytes carry a trailing 0x00 the logical never does
+    return raw.decode("utf-8", "replace").rstrip("\x00")
+
+
+def _ktx_read(payload: bytes) -> MetaFacts:
+    with NamedTemporaryFile(suffix=".ktx2", delete_on_close=False) as tmp:  # Exemption: libktx reads a real path, not a stream
+        tmp.write(payload)
+        tmp.close()
+        # NO_FLAGS reads the header and the key-value block WITHOUT the image store, and it is the only load that
+        # reports the true `supercompression_scheme` — a LOAD_IMAGE_DATA_BIT read INFLATES the payload and answers NONE.
+        texture = KtxTexture2.create_from_named_file(tmp.name, KtxTextureCreateFlagBits.NO_FLAGS)
+        held = texture.kv_data.copy()
+        info = TextureInfo(
+            width=texture.base_width,
+            height=texture.base_height,
+            depth=texture.base_depth,
+            levels=texture.num_levels,
+            faces=texture.num_faces,
+            layered=texture.is_array,
+            block_compressed=texture.is_compressed,
+            vk_format=texture.vk_format.name,
+            transfer=texture.oetf,
+            supercompression=texture.supercompression_scheme.name,
+            orientation=_ktx_text(held.get("KTXorientation", b"")),
+            swizzle=_ktx_text(held.get("KTXswizzle", b"")),
+            sc_params=_ktx_text(held.get("KTXwriterScParams", b"")),
+        )
+    flat: dict[str, object] = {logical: _ktx_text(held[keys.ktx]) for logical, keys in _FIELD_KEYS.items() if keys.ktx and keys.ktx in held}
+    return MetaFacts.from_logical(flat, texture=Some(info))
+
+
+def _ktx_bound(held: Mapping[str, bytes], facts: MetaFacts, bind: MetaBind, /) -> dict[str, bytes]:
+    # This carrier's DESCRIPTIVE namespace IS the `ktx` column, derived from the correspondence rather than listed
+    # beside it, so REPLACE and STRIP clear that namespace and keep the structural `KTX*` keys the payload itself
+    # depends on — dropping an orientation or a supercompression parameter row renders the texels unreadable, which
+    # destroys the artifact rather than clearing its metadata bind.
+    structural = {key: value for key, value in held.items() if key not in _KTX_DESCRIPTIVE}
+    if bind is MetaBind.STRIP:
+        return structural
+    written = {
+        keys.ktx: f"{value}\x00".encode()
+        for logical, value in _flat(facts).items()
+        if (keys := _FIELD_KEYS.try_find(logical).default_value(None)) and keys.ktx
+    }
+    return {**(structural if bind is MetaBind.REPLACE else dict(held)), **written}
+
+
+def _redeflate(scheme: "KtxSupercmpScheme", held: Mapping[str, bytes], /) -> int:
+    # Loading the image store INFLATES a supercompressed payload, so a bind re-applies the scheme or returns a
+    # container its source never was. Zstd re-applies at the level `KTXwriterScParams` records; BasisLZ has no leg
+    # (`compress_basis` is an ENCODE, not a recompression) and ZLIB no deflate member at all, and a Zstd payload
+    # whose parameters the container never recorded leaves the level unrecoverable — each refuses as caller data
+    # rather than silently delivering a decompressed or re-levelled artifact.
+    match scheme:
+        case KtxSupercmpScheme.NONE:
+            return 0
+        case KtxSupercmpScheme.ZSTD if (recorded := _SC_PARAMS.search(_ktx_text(held.get("KTXwriterScParams", b"")))) is not None:
+            return int(recorded[1])
+        case _:
+            raise ValueError(f"ktx metadata bind cannot re-apply supercompression {scheme.name}")
+
+
+def _ktx_write(payload: bytes, facts: MetaFacts, bind: MetaBind) -> bytes:
+    # Nothing MUTATES the standing key-value list: `delete_kv_pair` drops the WHOLE block from the written
+    # container, and a bare `add_kv_pair` over an occupied key appends a shadow entry the spec forbids, after which
+    # libktx's own reader answers an empty block. So the probe pass reads the list, SKIP_KVDATA_BIT loads the image
+    # store beside an EMPTY one, and the merged set re-adds in SORTED key order — the layout KTX2 mandates.
+    with NamedTemporaryFile(suffix=".ktx2", delete_on_close=False) as tmp:  # Exemption: libktx reads a real path, not a stream
+        tmp.write(payload)
+        tmp.close()
+        probe = KtxTexture2.create_from_named_file(tmp.name, KtxTextureCreateFlagBits.NO_FLAGS)
+        held = probe.kv_data.copy()  # ONE snapshot: the level read and the bind fold are two reads of one block
+        level = _redeflate(probe.supercompression_scheme, held)
+        bound = _ktx_bound(held, facts, bind)
+        flags = KtxTextureCreateFlagBits.LOAD_IMAGE_DATA_BIT | KtxTextureCreateFlagBits.SKIP_KVDATA_BIT
+        texture = KtxTexture2.create_from_named_file(tmp.name, flags)
+        for key, value in sorted(bound.items()):  # Exemption: the hash list admits one entry per call and the block is key-ordered
+            texture.kv_data.add_kv_pair(key, value)
+        if level:
+            texture.deflate_zstd(level)
+        return texture.write_to_memory()
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -588,7 +722,10 @@ _FIELD_KEYS: Final[Map[str, FieldKeys]] = Map.of_seq([
     ("lens", FieldKeys(exiftool="EXIF:LensModel")),
     ("lens_make", FieldKeys(exiftool="EXIF:LensMake")),
     ("software", FieldKeys(xmp="xmp:CreatorTool", exiftool="EXIF:Software", media="encoder")),
-    ("producer", FieldKeys(xmp="pdf:Producer", exiftool="XMP-pdf:Producer")),
+    # `KTXwriter` is the KTX2 block's ONE descriptive slot and it names the emitting application, which is exactly
+    # `pdf:Producer`'s sense — libktx stamps its own identity onto the bound value at write, so the persisted string
+    # is the bound one plus the library leg and a read-back never equals what was written.
+    ("producer", FieldKeys(xmp="pdf:Producer", exiftool="XMP-pdf:Producer", ktx="KTXwriter")),
     ("digital_source_type", FieldKeys(xmp="Iptc4xmpExt:DigitalSourceType", exiftool="XMP-iptcExt:DigitalSourceType")),
     ("orientation", FieldKeys(exiftool="EXIF:Orientation")),
     ("exposure_time", FieldKeys(exiftool="EXIF:ExposureTime")),
@@ -624,6 +761,11 @@ _FIELD_KEYS: Final[Map[str, FieldKeys]] = Map.of_seq([
     ("icc_copyright", FieldKeys(exiftool="ICC_Profile:ProfileCopyright")),
 ])
 
+# `_FIELD_KEYS` DERIVES the TEXTURE carrier's descriptive namespace, so a new bindable KTX2 key is one
+# `ktx` column and the REPLACE/STRIP scrub widens with it — a namespace listed beside the table forks the moment
+# a row lands in one and not the other, and the scrub then either misses a key or clears structure it must keep.
+_KTX_DESCRIPTIVE: Final[frozenset[str]] = frozenset(keys.ktx for keys in _FIELD_KEYS.values() if keys.ktx)
+
 # exiftool binary path (discovery-env -> configured -> `shutil.which`) resolved once at module scope, and the
 # scoped `-G`-grouped tag set the read requests (every `exiftool` column plus the signed `Composite:GPS*` pair).
 _SETTINGS: Final[MetaSettings] = MetaSettings()
@@ -653,7 +795,34 @@ _CARRIER: Final[Map[MetaCarrier, CarrierPolicy]] = Map.of_seq([
     (MetaCarrier.RASTER, CarrierPolicy(reader=_exiftool_read, writer=_exiftool_write, trait=KernelTrait.HOSTILE)),
     (MetaCarrier.PDF, CarrierPolicy(reader=_read_pdf, writer=_write_pdf, trait=KernelTrait.RELEASING)),
     (MetaCarrier.MEDIA, CarrierPolicy(reader=_read_media, writer=_write_media, trait=KernelTrait.HOSTILE)),
+    (MetaCarrier.TEXTURE, CarrierPolicy(reader=_ktx_read, writer=_ktx_write, trait=KernelTrait.HOSTILE)),
 ])
+
+# --- [EXPORTS] ----------------------------------------------------------------------------
+
+__all__ = (
+    "Capture",
+    "CarrierPolicy",
+    "Chapter",
+    "Color",
+    "Descriptive",
+    "FieldKeys",
+    "History",
+    "MediaInfo",
+    "MetaBind",
+    "MetaCarrier",
+    "MetaFacts",
+    "MetaReader",
+    "MetaSettings",
+    "MetaWriter",
+    "Metadata",
+    "Place",
+    "RasterInfo",
+    "Rights",
+    "TextureInfo",
+    "Track",
+    "WriteSpec",
+)
 ```
 
 ## [03]-[RESEARCH]

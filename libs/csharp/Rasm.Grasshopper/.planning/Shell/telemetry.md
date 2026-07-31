@@ -33,25 +33,25 @@
 - Law: every row is a projection of a typed receipt already on disk — a metric minted beside this roster is a second truth, and a receipt field no row projects stays receipt-only by declaration.
 - Law: the kind table is the closed field-to-instrument correspondence; a new projected field is one table row, one instrument declaration, and one arm edit, never a call-site meter write.
 - Law: instrument names, tag keys, and the dimension VALUES an objective partitions on are consts the roster, every arm, and every pack row read, so a rename moves one line and a partition indicator can never grade a value no write produces.
+- Law: every tag axis carries a BOUNDED value space or it is not an axis — `op` admits only a generated `SelfOp` case identity, so `session.ack` and `session.commands` partition on the six `SessionOp` cases and nothing else. A caller-minted `Op` is per-entry-point identity, not a dimension: stamping `PaintReceipt.Operation` or `DispatchPulse.Operation` mints one series per calling member and the app root's cardinality caps then decide which paint runs a board can see. Those receipts keep their free-form `Op` as evidence, reaching the log line and the journal row where an unbounded key costs nothing, while their streams partition on the bounded axes they already carry — `gh.doc` for paint and `lane` for the marshal.
 - Law: one board tile is one `PanelSpec` row and one reliability target one `Objective` row on the same pack; a hand-built dashboard or an alert rule authored beside the pack is the drift the carriage deletes.
 
 Instrument cells and rasm-owned tag cells extend the `rasm.grasshopper.` prefix; a key outside the estate namespace spells whole.
 
 | [INDEX] | [FACT_FIELD]                      | [INSTRUMENT]       | [UNIT]        | [KIND]              | [TAGS]                     |
 | :-----: | :-------------------------------- | :----------------- | :------------ | :------------------ | :------------------------- |
-|  [01]   | `PaintReceipt.Latency`            | `paint.duration`   | `s`           | `Histogram<double>` | `gh.doc`, `op`             |
+|  [01]   | `PaintReceipt.Latency`            | `paint.duration`   | `s`           | `Histogram<double>` | `gh.doc`                   |
 |  [02]   | `PaintReceipt.Drawn`/`Culled`     | `paint.marks`      | `{mark}`      | `Counter<long>`     | `gh.doc`, `disposition`    |
 |  [03]   | `FrameWindow.Cost`                | `frame.window`     | `s`           | `Histogram<double>` | `gh.doc`                   |
 |  [04]   | `FramePulse` seven phase spans    | `frame.phase`      | `s`           | `Histogram<double>` | `gh.doc`, `phase`          |
 |  [05]   | `SessionReceipt.Latency`          | `session.ack`      | `s`           | `Histogram<double>` | `gh.doc`, `op`, `deferred` |
 |  [06]   | `SessionReceipt` per command      | `session.commands` | `{command}`   | `Counter<long>`     | `gh.doc`, `op`, `deferred` |
-|  [07]   | `RunPulse.InvalidCount`           | `solution.invalid` | `{parameter}` | `Histogram<long>`   | `gh.doc`                   |
+|  [07]   | `RunPulse.Invalid`                | `solution.invalid` | `{parameter}` | `Histogram<long>`   | `gh.doc`                   |
 |  [08]   | `RunEvidence` per completed run   | `solution.runs`    | `{run}`       | `Counter<long>`     | `gh.doc`, `culmination`    |
-|  [09]   | `RunEvidence.Solved`/`Expired`    | `solution.objects` | `{object}`    | `Counter<long>`     | `gh.doc`, `disposition`    |
 |  [10]   | `SolutionTrace.Pulses` per row    | `solution.pulses`  | `{pulse}`     | `Counter<long>`     | `gh.doc`, `signal`         |
 |  [11]   | drain drop evidence per shed fact | `drain.dropped`    | `{fact}`      | `Counter<long>`     | `source`                   |
-|  [12]   | `DispatchPulse.Elapsed`           | `dispatch.body`    | `s`           | `Histogram<double>` | `lane`, `op`               |
-|  [13]   | `DispatchPulse.Breached` per lane | `dispatch.stalls`  | `{stall}`     | `Counter<long>`     | `lane`, `op`               |
+|  [12]   | `DispatchPulse.Elapsed`           | `dispatch.body`    | `s`           | `Histogram<double>` | `lane`                     |
+|  [13]   | `DispatchPulse.Breached` per lane | `dispatch.stalls`  | `{stall}`     | `Counter<long>`     | `lane`                     |
 |  [14]   | `BudgetBreach` per judged subject | `frame.breach`     | `{breach}`    | `Counter<long>`     | `gh.doc`, `gate`           |
 |  [15]   | hook subscriber fault per point   | `hook.faults`      | `{fault}`     | `Counter<long>`     | `point`                    |
 
@@ -127,7 +127,8 @@ public sealed class GhInstruments {
 
     // Tag keys: series minted here carry their own operation discriminant, so each key spells this folder's
     // segment and borrowing the kernel slot tags a canvas paint with a kernel op no query joins. Keys outside
-    // this estate namespace spell whole.
+    // this estate namespace spell whole. `OpSlot` admits a generated `SelfOp` case identity ALONE — a bounded
+    // six-value space — never a caller-minted `Op`, whose value space is every entry point in the boundary.
     private const string DocSlot = "gh.doc";
     private const string OpSlot = Head + "op";
     private const string DispositionSlot = "disposition";
@@ -145,21 +146,21 @@ public sealed class GhInstruments {
     // partition indicator reporting a flat rate of zero against a value no write ever produces.
     private const string DrawnValue = "drawn";
     private const string CulledValue = "culled";
-    private const string SolvedValue = "solved";
-    private const string ExpiredValue = "expired";
 
     // Instrument names: the declaration roster below, every write site, and every panel and objective row
     // read these same consts, so a rename moves one line and a stream, its board tile, and its reliability
     // target cannot address three different series.
     public const string PaintDuration = Head + "paint.duration";
     public const string PaintMarks = Head + "paint.marks";
-    public const string FrameWindow = Head + "frame.window";
+    // The stream constants carry a `Stream` tail wherever the bare name would equal a feeder type's simple name:
+    // a member identifier equal to a type's simple name captures that name inside its declaring class, so
+    // `Windowed(string, FrameWindow)` below would read the const in type position.
+    public const string FrameWindowStream = Head + "frame.window";
     public const string FramePhase = Head + "frame.phase";
     public const string SessionAck = Head + "session.ack";
     public const string SessionCommands = Head + "session.commands";
     public const string SolutionInvalid = Head + "solution.invalid";
     public const string SolutionRuns = Head + "solution.runs";
-    public const string SolutionObjects = Head + "solution.objects";
     public const string SolutionPulses = Head + "solution.pulses";
     public const string DrainDropped = Head + "drain.dropped";
     public const string DispatchBody = Head + "dispatch.body";
@@ -174,10 +175,10 @@ public sealed class GhInstruments {
     // columns exports fifteen streams the branch naming gate never sees and the view predicate never projects.
     public static readonly Seq<InstrumentSpec> Rows = Seq(
         InstrumentSpec.Advised(PaintDuration, "s", "Paint plan execution wall time per receipt.",
-            MeasureForm.Real, Buckets.CanvasFrameSeconds, DocSlot, OpSlot),
+            MeasureForm.Real, Buckets.CanvasFrameSeconds, DocSlot),
         InstrumentSpec.Count(PaintMarks, "{mark}", "Paint marks by disposition, drawn against culled.",
             MeasureForm.Whole, DocSlot, DispositionSlot),
-        InstrumentSpec.Advised(FrameWindow, "s", "Motion draw-window cost per sampled frame.",
+        InstrumentSpec.Advised(FrameWindowStream, "s", "Motion draw-window cost per sampled frame.",
             MeasureForm.Real, Buckets.CanvasFrameSeconds, DocSlot),
         InstrumentSpec.Advised(FramePhase, "s", "Canvas frame cost per paint phase.",
             MeasureForm.Real, Buckets.CanvasFrameSeconds, DocSlot, PhaseSlot),
@@ -189,16 +190,14 @@ public sealed class GhInstruments {
             MeasureForm.Whole, DocSlot),
         InstrumentSpec.Count(SolutionRuns, "{run}", "Completed solution runs by culmination.",
             MeasureForm.Whole, DocSlot, CulminationSlot),
-        InstrumentSpec.Count(SolutionObjects, "{object}", "Solution objects by disposition, solved against expired.",
-            MeasureForm.Whole, DocSlot, DispositionSlot),
         InstrumentSpec.Count(SolutionPulses, "{pulse}", "Solution lifecycle pulses by signal ordinal.",
             MeasureForm.Whole, DocSlot, SignalSlot),
         InstrumentSpec.Count(DrainDropped, "{fact}", "Evidence facts shed by the bounded drain per source lane.",
             MeasureForm.Whole, SourceSlot),
         InstrumentSpec.Advised(DispatchBody, "s", "UI-thread marshal body wall time per lane.",
-            MeasureForm.Real, Buckets.AckSeconds, LaneSlot, OpSlot),
+            MeasureForm.Real, Buckets.AckSeconds, LaneSlot),
         InstrumentSpec.Count(DispatchStalls, "{stall}", "Dispatch bodies breaching their lane budget.",
-            MeasureForm.Whole, LaneSlot, OpSlot),
+            MeasureForm.Whole, LaneSlot),
         InstrumentSpec.Count(FrameBreach, "{breach}", "Frame-budget violations judged by the budget gate.",
             MeasureForm.Whole, DocSlot, GateSlot),
         InstrumentSpec.Count(HookFaults, "{fault}", "Contained hook-subscriber faults per point.",
@@ -219,28 +218,24 @@ public sealed class GhInstruments {
     public static readonly BoardPack Board = new(
         Wire: "grasshopper.fan", // the provenance key the deploy tuple admits this projection under; pack and key are one value
         Panels: Seq(
-            PanelSpec.Of("canvas frame window", FrameWindow, DocSlot),
+            PanelSpec.Of("canvas frame window", FrameWindowStream, DocSlot),
             PanelSpec.Of("frame cost by phase", FramePhase, DocSlot, PhaseSlot),
             PanelSpec.Of("frame budget breaches", FrameBreach, DocSlot, GateSlot),
-            PanelSpec.Of("paint duration", PaintDuration, DocSlot, OpSlot),
+            PanelSpec.Of("paint duration", PaintDuration, DocSlot),
             PanelSpec.Of("paint marks", PaintMarks, DocSlot, DispositionSlot),
             PanelSpec.Of("session acknowledgement", SessionAck, DocSlot, OpSlot, DeferredSlot),
             PanelSpec.Of("session commands", SessionCommands, DocSlot, OpSlot, DeferredSlot),
             PanelSpec.Of("solution runs", SolutionRuns, DocSlot, CulminationSlot),
-            PanelSpec.Of("solution objects", SolutionObjects, DocSlot, DispositionSlot),
             PanelSpec.Of("solution pulses", SolutionPulses, DocSlot, SignalSlot),
             PanelSpec.Of("invalid parameters", SolutionInvalid, DocSlot),
-            PanelSpec.Of("marshal body cost", DispatchBody, LaneSlot, OpSlot),
-            PanelSpec.Of("marshal stalls", DispatchStalls, LaneSlot, OpSlot),
+            PanelSpec.Of("marshal body cost", DispatchBody, LaneSlot),
+            PanelSpec.Of("marshal stalls", DispatchStalls, LaneSlot),
             PanelSpec.Of("shed evidence", DrainDropped, SourceSlot),
             PanelSpec.Of("contained hook faults", HookFaults, PointSlot)),
         Objectives: Seq(
-            Objective.Create("grasshopper.canvas.frame", new Sli.Latency(FrameWindow, FramePeriod, 0.95d), 0.99d, Duration.Zero),
+            Objective.Create("grasshopper.canvas.frame", new Sli.Latency(FrameWindowStream, FramePeriod, 0.95d), 0.99d, Duration.Zero),
             Objective.Create("grasshopper.dispatch.body", new Sli.Latency(DispatchBody, FramePeriod, 0.99d), 0.99d, Duration.Zero),
-            Objective.Create("grasshopper.session.ack", new Sli.Latency(SessionAck, AckCeiling, 0.99d), 0.99d, Duration.Zero),
-            // Expiry partitions the disposition dimension the counter already carries, so no solved-only twin
-            // counter mounts beside it and the denominator cannot strand on an arm edit.
-            Objective.Create("grasshopper.solution.objects", new Sli.Partition(SolutionObjects, DispositionSlot, Seq(SolvedValue)), 0.99d, Duration.Zero)));
+            Objective.Create("grasshopper.session.ack", new Sli.Latency(SessionAck, AckCeiling, 0.99d), 0.99d, Duration.Zero)));
 
     // Whole handle custody is the kernel `InstrumentSet`: it derives every create from the row's own
     // (kind x form) pair, de-duplicates by name inside the meter, and returns the typed write rail. Fifteen
@@ -277,13 +272,15 @@ public sealed class GhInstruments {
             breachCase: static (spine, evidence) => spine.Breached(doc: evidence.DocumentId.ToString("N"), breach: evidence.Breach),
             hookFaultCase: static (spine, evidence) => spine.Hooked(point: evidence.Point));
 
+    // `PaintReceipt.Operation` is the caller's own `Op`, so it is receipt evidence and a log-line field, never a tag:
+    // one series per calling member is unbounded cardinality on the busiest instrument the roster carries.
     private Fin<Unit> Painted(string doc, PaintReceipt receipt) =>
-        set.Write(PaintDuration, receipt.Latency.TotalSeconds, InstrumentSet.Tags((DocSlot, doc), (OpSlot, receipt.Operation.ToString())))
+        set.Write(PaintDuration, receipt.Latency.TotalSeconds, InstrumentSet.Tags((DocSlot, doc)))
             .Bind(_ => set.Write(PaintMarks, (long)receipt.Drawn, InstrumentSet.Tags((DocSlot, doc), (DispositionSlot, DrawnValue))))
             .Bind(_ => set.Write(PaintMarks, (long)receipt.Culled, InstrumentSet.Tags((DocSlot, doc), (DispositionSlot, CulledValue))));
 
     private Fin<Unit> Windowed(string doc, FrameWindow window) =>
-        set.Write(FrameWindow, window.Cost.TotalSeconds, InstrumentSet.Tags((DocSlot, doc)));
+        set.Write(FrameWindowStream, window.Cost.TotalSeconds, InstrumentSet.Tags((DocSlot, doc)));
 
     // Seven phase spans ride ONE instrument under a phase axis, so a new phase is one row in this fold and
     // never a sibling instrument the roster, the board, and the view predicate would each have to learn.
@@ -295,19 +292,21 @@ public sealed class GhInstruments {
 
     // The tag set binds ONCE for both writes through a single-arm switch: an `is var` test beside a conditional is
     // always true, so its else arm is a write path nothing can reach, and the arm form states the same binding with
-    // no unreachable leg to read as a real fallback.
+    // no unreachable leg to read as a real fallback. `SessionReceipt.Operation` is the generated `SelfOp` every
+    // `SessionOp` arm returns, so the `op` axis is the six-case command vocabulary and stays bounded by construction.
     private Fin<Unit> Settled(string doc, SessionReceipt receipt) =>
         InstrumentSet.Tags((DocSlot, doc), (OpSlot, receipt.Operation.ToString()), (DeferredSlot, receipt.Deferred)) switch {
             var tags => set.Write(SessionAck, receipt.Latency.TotalSeconds, tags).Bind(_ => set.Write(SessionCommands, 1L, tags)),
         };
 
     private Fin<Unit> Probed(string doc, RunPulse pulse) =>
-        set.Write(SolutionInvalid, (long)pulse.InvalidCount, InstrumentSet.Tags((DocSlot, doc)));
+        set.Write(SolutionInvalid, (long)pulse.Invalid, InstrumentSet.Tags((DocSlot, doc)));
 
+    // `SolutionRecord` assigns no per-object counters (host structural zeros), so the run write carries the
+    // culmination phase alone; per-object expiry accounting re-enters as one arm over the drained
+    // `UiSource.GraphExpired` rows the moment a consumer demands it — never off the record's unassigned fields.
     private Fin<Unit> Ran(string doc, RunEvidence evidence) =>
-        set.Write(SolutionRuns, 1L, InstrumentSet.Tags((DocSlot, doc), (CulminationSlot, evidence.Culmination)))
-            .Bind(_ => set.Write(SolutionObjects, (long)evidence.Solved, InstrumentSet.Tags((DocSlot, doc), (DispositionSlot, SolvedValue))))
-            .Bind(_ => set.Write(SolutionObjects, (long)evidence.Expired, InstrumentSet.Tags((DocSlot, doc), (DispositionSlot, ExpiredValue))));
+        set.Write(SolutionRuns, 1L, InstrumentSet.Tags((DocSlot, doc), (CulminationSlot, evidence.Culmination.ToString())));
 
     private Fin<Unit> Chronicled(string doc, SolutionTrace trace) =>
         trace.Pulses.TraverseM(row => set.Write(SolutionPulses, 1L,
@@ -317,9 +316,10 @@ public sealed class GhInstruments {
         set.Write(DrainDropped, dropped, InstrumentSet.Tags((SourceSlot, source)));
 
     // Breach counts on the SAME tag set the body write carries, so a stalled lane reads as a slice of its own
-    // duration series; a passing pulse counts nothing, keeping the stall population the breaches alone.
+    // duration series; a passing pulse counts nothing, keeping the stall population the breaches alone. `PulseLane`
+    // is the bounded axis here — the pulse's `Op` names whichever member submitted the body and stays on `LastStall`.
     private Fin<Unit> Marshalled(DispatchPulse pulse) =>
-        InstrumentSet.Tags((LaneSlot, pulse.Lane.Key), (OpSlot, pulse.Operation.ToString())) switch {
+        InstrumentSet.Tags((LaneSlot, pulse.Lane.Key)) switch {
             var tags => set.Write(DispatchBody, pulse.Elapsed.TotalSeconds, tags)
                 .Bind(_ => pulse.Breached ? set.Write(DispatchStalls, 1L, tags) : Fin.Succ(unit)),
         };

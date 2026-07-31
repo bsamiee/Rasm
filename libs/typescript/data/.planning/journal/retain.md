@@ -10,28 +10,59 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 
 ## [02]-[RETENTION_ROWS]
 
-- Owner: the `Retain.Class` vocabulary — one `as const` key tuple feeding `Schema.Literal` and the window-row table, so wire admission and the type derive from one anchor pair — with the frontier ledger recording the causal handoff and the partition rows that realize aging on the spine.
-- Packages: `effect` (`Duration`, `Schema`); `@effect/sql`; `@rasm/ts/core` (`Causal.Retention` — the `{floor, stamp}` compaction coordinate); the `partition` and `cron` grants gate execution.
-- Entry: every aging consumer reads one vocabulary — object references store a class key, ledger and outbox grooming read `Retain.Policy[clazz].window`, `journal/fact.md` keys its fact streams by the same classes, and the scheduled maintenance rows execute the drops; no window literal exists outside this table.
-- Growth: a new class is one row — every sweep, groom, and lifecycle rule inherits it; a new aging surface reads the table, never mints a window.
+- Owner: the `Retain.Class` vocabulary — one `as const` key tuple feeding `Schema.Literal` and the window-row table, so wire admission and the type derive from one anchor pair — with the frontier ledger recording the causal handoff, the `_GROOMS` roster naming every relation that ages by wall clock and its two renderings, and the partition rows that realize aging on the spine.
+- Packages: `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@effect/sql`; `@rasm/ts/core` (`Causal.Retention` — the `{floor, stamp}` compaction coordinate); the `partition` and `cron` grants gate execution.
+- Entry: every aging consumer reads one vocabulary — object references store a class key, `Retain.groom(key)` sweeps in process and `Retain.groomText(key)` renders the scheduled statements `read/fold#MAINTENANCE` registers, `journal/fact.md` keys its fact streams by the same classes, and the granted maintenance rows execute the partition drops; no window literal and no groom predicate exists outside this page.
+- Growth: a new class is one row — every sweep, groom, and lifecycle rule inherits it; a new aging surface reads the table, never mints a window; a new cost depth is one `_depths` entry the object plane's own storage-class map then answers.
+- Law: a class prices AGE and DEPTH in one row — `window` says how long the class lives and `transitions` says how its bytes get cheaper while they do, so the retention vocabulary is a cost tier rather than a delete timer and the object plane's lifecycle rules generate both halves from this one table with no window or class literal outside it.
+- Law: the depth vocabulary is retention's and the storage-class SPELLING is the object plane's — age is what selects a depth, so the rung names one, and `object/store.md` maps depth onto the engine's own class and filters the ladder against that engine's conformance cell; naming a vendor storage class here drags one engine's vocabulary into the aging owner every other plane reads.
+- Law: depth ascends with position, so an engine honouring one honours every shallower rung and the filter is an index compare rather than a per-engine roster; `ephemeral` carries no rung at all, because every archive class bills a thirty-day minimum and a rung under a seven-day window pays that floor on bytes already gone.
 - Law: the journal itself never ages by wall clock — partition drop is lawful only at-or-below a frontier the causality owner finalized AND a snapshot at-or-above it exists; `Retain.handoff` records the `Causal.Retention` coordinate into the frontier ledger under a monotonic guard (a stale handoff commits nothing), the drop statement generates from the recorded row, and compaction can never orphan unreplayable history.
 - Law: partitioning is a `pg_partman` image fact — the ensure registers `journal_event` as a partitioned parent only where the `partition` grant holds, and the drop itself is the granted maintenance row `lane/postgres.md` gates; the sqlite profiles never partition (their compaction is the export-snapshot-and-truncate posture `lane/sqlite.md` owns).
-- Law: ledger, outbox, and fact grooming are ordinary deletes on non-truth tables — `Retain.groom(relation, column)` sweeps every finite class window in one pass, the interval arithmetic spelled once per dialect through `sql.onDialectOrElse`, and `permanent` folds to a no-op by `Duration.isFinite`; the `incremental` grant upgrades large grooms to exactly-once checkpointed batch folds where it probes true.
+- Law: grooming is ONE roster and two renderings, never a relation pair a caller names — `_GROOMS` states each aging relation's age column, its eligibility gate, and where its class comes from, because only a relation CARRYING a `retention` column can be swept class by class: the ledger, the outbox, and the quarantine carry none, so a class-keyed predicate against them names a column no DDL declares and the sweep dies on its first run. A row whose whole content belongs to one class states that class instead, `permanent` folds to a no-op by `Duration.isFinite`, `Retain.groom(key)` renders bound fragments with the interval arithmetic spelled once per dialect through `sql.onDialectOrElse`, and `Retain.groomText(key)` renders the same row as the statement TEXT the scheduled plane's extension contract takes — every literal on both roads is sealed `Retain.Policy` material, so no caller value ever reaches a groom statement.
+- Law: the roster is the boundary the maintenance plane spends — `read/fold#MAINTENANCE` schedules `Retain.groomText` rows and spells no DELETE of its own, so a relation that starts aging is one row here rather than one sweep on each plane with a different predicate and no way to tell which one governs.
+- Law: the `incremental` grant upgrades large grooms to exactly-once checkpointed batch folds where it probes true.
 - RESEARCH: the `pg_partman` retention-apply statement pair — the `part_config` retention update the frontier row keys and the maintenance invocation that drops eligible partitions — is catalogued against the extension surface before the drop fence settles; until then the frontier ledger row is the sole drop input and no partition drops outside the granted maintenance row.
 
 ```typescript signature
-import { Duration, Effect, Schema } from "effect"
+import { Array, Duration, Effect, Option, pipe, Record, Schema } from "effect"
 import { SqlClient } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
 import { Journal, StreamKey } from "./append.ts"
 
 const _classes = ["ephemeral", "operational", "regulatory", "permanent"] as const
 
+// Cost depth ascends with position, so an engine honouring a depth honours every shallower one and the ladder filter
+// is an index compare rather than a per-engine roster: `cool` is reduced-access at millisecond reads, `cold` an
+// archive class that still answers immediately, `frozen` a deep archive answering in hours behind a restore verb.
+// Retention owns the vocabulary because AGE selects it; the object plane owns the storage-class SPELLING.
+const _depths = ["cool", "cold", "frozen"] as const
+
+// One ladder per class beside its window: how long the class lives, and how its bytes get cheaper while they do.
+// `ephemeral` carries no rung at all — every archive class bills a thirty-day minimum, so a rung under a seven-day
+// window pays the floor on bytes that are already gone. `permanent` runs the deepest ladder and emits no expiry.
 const _Policy = {
-  ephemeral: { window: Duration.decode("7 days") },
-  operational: { window: Duration.decode("90 days") },
-  regulatory: { window: Duration.decode("2555 days") },
-  permanent: { window: Duration.infinity },
+  ephemeral: { window: Duration.decode("7 days"), transitions: [] },
+  operational: {
+    window: Duration.decode("90 days"),
+    transitions: [{ after: Duration.decode("30 days"), depth: "cool" }],
+  },
+  regulatory: {
+    window: Duration.decode("2555 days"),
+    transitions: [
+      { after: Duration.decode("30 days"), depth: "cool" },
+      { after: Duration.decode("90 days"), depth: "cold" },
+      { after: Duration.decode("365 days"), depth: "frozen" },
+    ],
+  },
+  permanent: {
+    window: Duration.infinity,
+    transitions: [
+      { after: Duration.decode("30 days"), depth: "cool" },
+      { after: Duration.decode("90 days"), depth: "cold" },
+      { after: Duration.decode("365 days"), depth: "frozen" },
+    ],
+  },
 } as const
 
 const _Class = Schema.Literal(..._classes)
@@ -40,9 +71,13 @@ const _Subject = Schema.NonEmptyString.pipe(Schema.maxLength(200), Schema.brand(
 
 declare namespace Retain {
   type Class = (typeof _classes)[number]
+  type Depths = typeof _depths
+  type Depth = Depths[number]
+  type Rung = { readonly after: Duration.Duration; readonly depth: Depth }
   type Row = (typeof _Policy)[Class]
   type Subject = typeof _Subject.Type
-  type _Rows<T extends Record<Class, { readonly window: Duration.Duration }> = typeof _Policy> = T
+  type _Rows<T extends Record<Class, { readonly window: Duration.Duration; readonly transitions: ReadonlyArray<Rung> }> = typeof _Policy> = T
+  type _Depths<D extends Depth = Row["transitions"][number]["depth"]> = D // every rung's depth is a rostered one, both directions
 }
 
 const _frontierDdl: Capability.Ensure = {
@@ -84,21 +119,75 @@ const _handoff = (
       WHERE excluded.snapshotted > retain_frontier.snapshotted`
   })
 
-const _groom = (relation: string, column: string) =>
+// One row per relation that ages by wall clock, and the whole difference between them is data. `clazz` names where
+// a row's retention class comes from: `"row"` where the relation CARRIES a `retention` column and each class sweeps
+// under its own window, a class key where the relation's whole content belongs to one class. The distinction is
+// load-bearing rather than cosmetic — `idempotency_ledger`, `outbox`, and `projection_quarantine` declare no
+// `retention` column at all, so a class-keyed predicate against them names a column no DDL wrote. `live` is the
+// eligibility gate a relation states before age is even asked (an undelivered deliverable and an unreplayed
+// quarantine row are still owed, whatever their age), and it is sealed policy text, never a caller value.
+const _GROOMS = {
+  facts: { clazz: "row", column: "recorded_at", live: Option.none(), relation: "fact_journal" },
+  ledger: { clazz: "operational", column: "touched_at", live: Option.none(), relation: "idempotency_ledger" },
+  outbox: { clazz: "ephemeral", column: "delivered_at", live: Option.some("delivered_at IS NOT NULL"), relation: "outbox" },
+  quarantine: {
+    clazz: "operational",
+    column: "replayed_at",
+    live: Option.some("replayed_at IS NOT NULL"),
+    relation: "projection_quarantine",
+  },
+} as const satisfies Record.ReadonlyRecord<string, {
+  readonly clazz: Retain.Class | "row"
+  readonly column: string
+  readonly live: Option.Option<string>
+  readonly relation: string
+}>
+
+declare namespace Retain {
+  type Groomed = keyof typeof _GROOMS
+  type Groom = (typeof _GROOMS)[Groomed]
+}
+
+// A class-carrying relation sweeps once per FINITE class and a fixed-class relation sweeps once, so `permanent`
+// folds out of both by the same `Duration.isFinite` read and neither road spells the exclusion twice.
+const _windows = (row: Retain.Groom): ReadonlyArray<Retain.Class> =>
+  Array.filter(row.clazz === "row" ? _classes : [row.clazz], (clazz) => Duration.isFinite(_Policy[clazz].window))
+
+const _aged = (sql: SqlClient.SqlClient, row: Retain.Groom, window: Duration.Duration) =>
+  sql.onDialectOrElse({
+    orElse: () => sql`${sql(row.column)} < datetime('now', ${`-${Math.trunc(Duration.toSeconds(window))} seconds`})`,
+    pg: () => sql`${sql(row.column)} < now() - make_interval(secs => ${Duration.toSeconds(window)})`,
+  })
+
+const _swept = (sql: SqlClient.SqlClient, row: Retain.Groom, clazz: Retain.Class) =>
+  sql`DELETE FROM ${sql(row.relation)} WHERE ${
+    sql.and([
+      ...Option.match(row.live, { onNone: () => [], onSome: (gate) => [sql.literal(gate)] }),
+      ...(row.clazz === "row" ? [sql`retention = ${clazz}`] : []),
+      _aged(sql, row, _Policy[clazz].window),
+    ])
+  }`
+
+const _groom = (key: Retain.Groomed) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    Effect.forEach(_classes, (clazz) => {
-      const window = _Policy[clazz].window
-      return Duration.isFinite(window)
-        ? sql.onDialectOrElse({
-            orElse: () =>
-              sql`DELETE FROM ${sql(relation)} WHERE retention = ${clazz}
-                  AND ${sql(column)} < datetime('now', ${`-${Math.trunc(Duration.toSeconds(window))} seconds`})`,
-            pg: () =>
-              sql`DELETE FROM ${sql(relation)} WHERE retention = ${clazz}
-                  AND ${sql(column)} < now() - make_interval(secs => ${Duration.toSeconds(window)})`,
-          })
-        : Effect.void
-    }, { concurrency: 1, discard: true }))
+    Effect.forEach(_windows(_GROOMS[key]), (clazz) => _swept(sql, _GROOMS[key], clazz), { concurrency: 1, discard: true }))
+
+// The scheduled plane registers statement TEXT — its extension's own contract — where the in-process road binds
+// values, so the row renders twice and the ROSTER is what neither rendering may disagree with. Every literal here
+// reads off `_Policy` and `_GROOMS`, so the interpolation surface is sealed by construction.
+const _groomText = (key: Retain.Groomed): ReadonlyArray<string> =>
+  pipe(_GROOMS[key], (row) =>
+    Array.map(_windows(row), (clazz) =>
+      `DELETE FROM ${row.relation} WHERE ${
+        Array.join(
+          [
+            ...Option.toArray(row.live),
+            ...(row.clazz === "row" ? [`retention = '${clazz}'`] : []),
+            `${row.column} < now() - interval '${Math.trunc(Duration.toSeconds(_Policy[clazz].window))} seconds'`,
+          ],
+          " AND ",
+        )
+      }`))
 ```
 
 ## [03]-[SHREDDER]
@@ -348,8 +437,12 @@ const Retain = {
   Subject: _Subject,
   SubjectKey,
   Policy: _Policy,
+  depths: _depths, // ordered shallow-to-deep: the object plane's conformance filter reads position, never a roster
   handoff: _handoff,
+  grooms: _GROOMS,
   groom: _groom,
+  groomText: _groomText, // the scheduled plane's rendering of the same roster
+
   seal: _seal,
   open: _open,
   erase: _erase,

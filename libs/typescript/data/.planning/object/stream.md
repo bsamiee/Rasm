@@ -54,6 +54,7 @@ const _form = <A, I extends Partial<Multipart.Persisted>>(shape: Schema.Schema<A
 - Entry: `Rail.chunked(bytes, policy)` between ingress and the identity fold; the policy row carries `{ min, avg, max }` cut bounds; consumers that need whole-payload identity only skip the stage — chunking earns its cost where dedup or chunk-level proofs are real.
 - Receipt: `ChunkMark` — `{ seq, offset, bytes, sub }` — the sub-key is `Digest.mint("content", chunkBytes)`, the SAME algebra as the object key at finer grain, so chunk identity and object identity share one mint and a second hashing vocabulary is unspellable.
 - Law: the Merkle proof tree is one fold over the chunk receipts — `Rail.prove(marks)` folds the proven-non-empty mark set through the core digest's `proof` row (`createBLAKE3(256)`, the `ProofKey` brand): each leaf mints over its sub-key's decoded bytes under the leaf framing byte, pairs join under the node byte, an odd node promotes, and the receipt carries `{ root, leaves, depth, paths }`; every path is the ordered sibling-key and side sequence for its `ChunkMark.seq`, so a range consumer verifies any admitted leaf in `O(log n)` without rebuilding the tree.
+- Law: the leaf census has ONE source and it is the mark set — `_fold` answers the root, the height, and the paths a level determines and returns no `leaves` at all, while `_prove` supplies `marks.length` once at the mint; a count re-derived per level is both an O(n) walk the tree does not need and a second authority the mint would overwrite anyway.
 - Law: proof decoding stays on the object integrity rail — a malformed branded key or an impossible empty reduction is `ObjectFault { reason: "integrity" }`, never `die`, `orDie`, or an unchecked assertion hidden beneath the proof surface.
 - Law: the wasm module is capability, not code — instantiation is a scoped acquisition behind the Tag, cuts run through the marked kernel, and no linear-memory view escapes; the stage is a pure `Stream` transform above that seam.
 - Law: cut bounds are policy data — the row travels with the payload class (artifact, snapshot, media), and re-cutting with different bounds mints different sub-keys by construction, so the policy row is part of the dedup contract and never drifts silently.
@@ -122,15 +123,18 @@ const _joinedWith = (left: _ProofNode, pair: Array.NonEmptyReadonlyArray<_ProofN
 const _joined = (pair: Array.NonEmptyReadonlyArray<_ProofNode>): Effect.Effect<_ProofNode, ObjectFault> =>
   _joinedWith(Array.headNonEmpty(pair), pair)
 
-const _fold = (nodes: Array.NonEmptyReadonlyArray<_ProofNode>, depth: number): Effect.Effect<Rail.Proof, ObjectFault> =>
+// The fold answers the three facts a LEVEL determines — the surviving root, the height it climbed, and the paths it
+// threaded — and never the leaf census, which is a fact of the mark set the caller already holds; carrying it here
+// bought one O(n) walk per level whose every result the mint overwrote.
+const _fold = (
+  nodes: Array.NonEmptyReadonlyArray<_ProofNode>,
+  depth: number,
+): Effect.Effect<Omit<Rail.Proof, "leaves">, ObjectFault> =>
   nodes.length === 1
-    ? Effect.succeed({ root: Array.headNonEmpty(nodes).hash, leaves: nodes.length, depth, paths: Array.headNonEmpty(nodes).paths })
+    ? Effect.succeed({ root: Array.headNonEmpty(nodes).hash, depth, paths: Array.headNonEmpty(nodes).paths })
     : Effect.flatMap(Effect.forEach(Array.chunksOf(nodes, 2), _joined), (level) =>
         Array.isNonEmptyReadonlyArray(level)
-          ? Effect.map(_fold(level, depth + 1), (proof) => ({
-              ...proof,
-              leaves: Array.reduce(nodes, 0, (count, node) => count + node.paths.length),
-            }))
+          ? _fold(level, depth + 1)
           : Effect.fail(new ObjectFault({ reason: "integrity", key: "<proof>", detail: "<empty-level>" })))
 
 const _prove = (marks: Array.NonEmptyReadonlyArray<Rail.ChunkMark>): Effect.Effect<Rail.Proof, ObjectFault> =>

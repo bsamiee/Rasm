@@ -328,8 +328,9 @@ const _rate = (
 - Law: the drain is one pipeline — `Mailbox.toStream` over the intake, `Stream.groupedWithin(width, patience)` so a quiet surface still flushes on latency, the batch appended under an unbounded jittered retry whose delay caps through `Schedule.union` (evidence is never dropped: a dead database suspends the drain, the bounded intake suspends writers, and pressure propagates instead of silently losing billing truth), each deferral counted and logged, then the landing's ACCEPTED rows alone projecting their counters, log lines, and usage in the same pass; counter updates read those rows — each fact's stream, its audit verb and actor class where the stream carries them, and each meter fact's resource and tenant tags — so every axis the instrument census declares is stamped in the same fold and none rides a per-effect metric decorator.
 - Law: projection gates on the landing because the retry is unbounded — a batch re-offered after an unacknowledged commit projects nothing the second time, so a lost acknowledgement costs one duplicate INSERT the key absorbs rather than a doubled billing counter and a doubled audit log line. Matched redeliveries carry their own series instead of vanishing, which is what makes a wedged retry visible at all.
 - Law: the audit port is a projection, never a second write path — every security record folds onto one `Fact.AuditDraft` and enters through `record`, so the drain, the unbounded retry, the retention window, the subject index, and the DSAR fold serve breach evidence exactly as they serve every other fact; a security-side store is the forked plane this satisfaction deletes.
-- Law: the row table is mapped over the security union's own tag set, so a new point fails at the table rather than reaching the journal unclassified; `action` reads the record's registry point because that key already spells the dotted verb path the audit brand refines, and `retention` reads the point's own lane class, so neither is a column a row disagrees with. `occurred` carries the record's OWN instant across, because a breached-class record backpressures on its lane before this projection runs and the rail's stamp dates that breach to the drain admitting it, never to the arm that saw it.
+- Law: the row table is mapped over the security union's own tag set, so a new point fails at the table rather than reaching the journal unclassified; `action` DECODES the record's registry point through the audit brand on the rail the projection already carries — that key spells the dotted verb path the brand refines, and a cast onto a refinement forges the very evidence the fact exists to hold — and `retention` reads the point's own lane class, so neither is a column a row disagrees with. `occurred` carries the record's OWN instant across, because a breached-class record backpressures on its lane before this projection runs and the rail's stamp dates that breach to the drain admitting it, never to the arm that saw it.
 - Law: the diff render is total over the scalar shapes the security union admits — text, number, boolean, `bigint`, and an `Option` of any of them, the wrapper flattened rather than stringified — so a case widening with a counter, a version, or an attempt tally lands that value as evidence. Covering the string half alone drops the next non-text field silently, the one failure mode a compliance fold cannot detect from its own output; a structured value stays the seal's, never the diff's.
+- Law: a change path is an ESCAPED pointer, never an interpolated field name — the two reserved characters fold to their escapes before the brand admits the value, so a field carrying either lands one location rather than a path a reader resolves into a document that has no such nesting; the escape is what lets the admission be a decode, which is what keeps the brand's refinement true of every row this fold writes.
 - Law: the port layer declares AHEAD of the service — the service's static field reads that value at class evaluation, so a `const` seated after the class body is read inside its temporal dead zone and every composition importing this module dies at load rather than at the first append.
 - Law: custody is `(app, tenant, subject)` structurally, so a fact carrying no tenant coordinate has no custody row — its `bearing` fields are DROPPED rather than landed unsealed, and the verb, actor class, target, and instant still record the event; sealing runs before the draft leaves, so an identifier reaches the rail already unreadable.
 - Law: every audit fact also emits one structured log annotated with the convention's audit rows — observability beside durability; the meter's metric egress is deliberately lossy and bounded — resource tag always, tenant tag only where the resource row's posture admits it — and the journal remains the sole truth for both streams.
@@ -348,6 +349,9 @@ const _deferred = Convention.mount(Convention.metric.factDeferred)
 const _drained = Convention.mount(Convention.metric.factDrained)
 const _usage = Convention.mount(Convention.metric.meterUsage)
 
+// Deliberately UNBOUNDED — never a `Budget` row: every compiled budget exhausts, and the drain's own totality law
+// depends on a schedule that never does (an unsettled batch stays owed; `pending` names every row). The union caps
+// the delay at a 10s cadence, jitter decorrelates the fleet, and the price is stated here, not smuggled.
 const _RETRY = Schedule.exponential("100 millis").pipe(
   Schedule.jittered,
   Schedule.union(Schedule.spaced("10 seconds")),
@@ -459,14 +463,20 @@ const _rendered = (value: unknown): Option.Option<string> =>
         ? Option.some(String(value))
         : Option.none()
 
+// A field name is an identifier only by convention, so the pointer ESCAPES its two reserved characters before the
+// brand admits it: an unescaped `/` mints a path a compliance fold reads as a nested location the document has none
+// of, and `~` collides with the escape prefix itself. Escaping is what makes the admission a DECODE rather than an
+// assertion over a shape the field never promised — the brand is a refinement, and a cast onto one forges evidence.
+const _pointer = (field: string): Option.Option<typeof _Path.Type> =>
+  Schema.decodeOption(_Path)(`/${field.replaceAll("~", "~0").replaceAll("/", "~1")}`)
+
 // Non-identifying payload fields land as `Assigned` change rows so a compliance fold reads typed evidence rather than
 // a rendered blob; an identifying field never joins them, because a `Change` value survives key destruction.
 const _changed = (fact: SecurityFact, bearing: ReadonlyArray<string>): ReadonlyArray<Change> =>
   Array.filterMap(
     Record.toEntries(Record.filter(fact as Record.ReadonlyRecord<string, unknown>, (_value, field) =>
       field !== "_tag" && field !== "subject" && field !== "tenant" && !Array.contains(bearing, field))),
-    ([field, value]) =>
-      Option.map(_rendered(value), (next) => Assigned.make({ next, path: `/${field}` as typeof _Path.Type })),
+    ([field, value]) => Option.zipWith(_rendered(value), _pointer(field), (next, path) => Assigned.make({ next, path })),
   )
 
 // Custody is `(app, tenant, subject)` structurally, so a fact carrying no tenant coordinate has no custody row to key
@@ -480,6 +490,10 @@ const _audited = (
     const row = _AUDITED[record.fact._tag]
     const tenant = "tenant" in record.fact ? record.fact.tenant : Option.none()
     const shredder = yield* Shredder
+    // The registry point spells the dotted verb path this brand refines, so the projection DECODES it on the rail it
+    // already carries rather than asserting the refinement: a point that stops conforming refuses here as evidence
+    // instead of landing an unrefined string every downstream grouping then reads as a valid verb.
+    const action = yield* Schema.decodeUnknown(_Action)(record.point)
     // Each row's subject accessor already answers `Option`, so the decode runs INSIDE it: handing the wrapper
     // straight to `Schema.decodeOption` parses an `Option` value against a string schema and answers `none` for
     // every fact alike, which silently kills custody, sealing, the subject index, and the DSAR leg while every law
@@ -499,7 +513,7 @@ const _audited = (
     ))
     return {
       _tag: "AuditFact",
-      action: record.point as typeof _Action.Type,
+      action,
       actor: { key: Option.getOrElse(Option.map(custody, (key) => key.subject), () => record.app), kind: row.actor },
       change: _changed(record.fact, row.bearing),
       occurred: Option.some(record.at),

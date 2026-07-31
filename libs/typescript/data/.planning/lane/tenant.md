@@ -43,8 +43,8 @@ const _locus = (app: AppIdentity.Key, tenancy: Tenancy): _Locus =>
 
 ## [03]-[SCOPED_WRITE]
 
-- Owner: `_within(sql, locus)` — the transformer the `Tenant` service publishes: it opens the transaction, pins the tenancy coordinates, PROVIDES the captured client and commit registrar into the work, then drains registered effects only after commit; its input is modal — the ambient form reads the bound `TenantScope` reference, the explicit form takes a `TenantContext` value; plus `Tenancy.rls(relation)` — the idempotent RLS policy ensure every tenant-carrying relation registers, predicated on the `TENANT_GUC` anchor.
-- Packages: `@effect/sql` (`SqlClient`, `sql.withTransaction`, `sql.onDialectOrElse`); `effect` (`Context.Tag`, `Effect.context`, `Effect.provide`, `Option`, `Record`, `Ref`, `Schema`); `@rasm/ts/security` (`TenantScope`, `SessionCoordinate`, `TENANT_GUC`); `@rasm/ts/core` (`TenantContext`).
+- Owner: `_within(sql, locus)` — the transformer the `Tenant` service publishes: it opens the transaction, pins the tenancy coordinates, PROVIDES the captured client and commit registrar into the work, then drains registered effects only after commit; its input is modal — the ambient form reads the bound `TenantScope` reference, the explicit form takes a `TenantContext` value; plus `Tenancy.rls(relation)` — the idempotent RLS policy ensure every tenant-carrying relation registers, predicated on the `SessionCoordinate.tenant.guc` anchor.
+- Packages: `@effect/sql` (`SqlClient`, `sql.withTransaction`, `sql.onDialectOrElse`); `effect` (`Context.Tag`, `Effect.context`, `Effect.provide`, `Option`, `Record`, `Ref`, `Schema`); `@rasm/ts/security` (`TenantScope`, `SessionCoordinate`); `@rasm/ts/core` (`TenantContext`).
 - Entry: every tenant-scoped unit of work composes `Tenant.within` — the journal's atomic publish, the projection transactions, the fact drain; the requirement channel is the enforcement: `SqlClient` is satisfied only inside the transformer, so a statement cannot exist under a scope without the pin, and an unauthenticated principal pins nothing so RLS answers zero rows.
 - Growth: a new session coordinate (a shard key, a region pin) is one `SessionCoordinate` row at the declaring security owner — the fold here inherits it with zero edits, because the pin iterates the imported table instead of naming coordinates.
 - Law: the pin is the coordinate-table fold — `_pin` walks `SessionCoordinate` rows, projects each over the bound principal, and pins every `Some` through `set_config(row.guc, value, true)` plus the locus search path; the security page declares the vocabulary, this fold is its one write path, so tenant, scope, and audit subject travel together and a rename lands at the declaring owner.
@@ -57,7 +57,7 @@ const _locus = (app: AppIdentity.Key, tenancy: Tenancy): _Locus =>
 ```typescript signature
 import { Context, Effect, Option, Record, Ref, Schema } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
-import { type Principal, SessionCoordinate, TENANT_GUC, TenantScope } from "@rasm/ts/security"
+import { type Principal, SessionCoordinate, TenantScope } from "@rasm/ts/security"
 import type { TenantContext } from "@rasm/ts/core"
 
 const _pin = (sql: SqlClient.SqlClient, principal: Principal, locus: _Locus) =>
@@ -141,7 +141,7 @@ ALTER TABLE ${relation} FORCE ROW LEVEL SECURITY;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = current_schema() AND tablename = '${relation}' AND policyname = 'tenant_isolation') THEN
     CREATE POLICY tenant_isolation ON ${relation}
-      USING (tenant = current_setting('${TENANT_GUC}', true));
+      USING (tenant = current_setting('${SessionCoordinate.tenant.guc}', true));
   END IF;
 END $$;`
 }
@@ -197,14 +197,29 @@ class Wiring extends Context.Tag("data/Wiring")<Wiring, {
 }>() {}
 
 declare namespace Stores {
-  type Provided = Tenant | Capability
+  // The capability half carries the pg roster's own grant vocabulary, because the probe Tag is generic in `G` and a
+  // bare service type widens every `require`/`when` to `string`, erasing exactly the closure the roster provides.
+  type Provided = Tenant | Capability.Service<Pg.Grant>
 }
 
 const _verified = (
   locus: _Locus,
   ensures: ReadonlyArray<Capability.Ensure>,
-): Layer.Layer<Capability, SqlError.SqlError | ParseResult.ParseError | Capability.Fault, SqlClient.SqlClient> =>
-  Capability.Default({ rows: Pg.rows, ensures, core: Pg.core, demands: Pg.demands, schema: locus.schema })
+): Layer.Layer<
+  Capability.Service<Pg.Grant>,
+  SqlError.SqlError | ParseResult.ParseError | Capability.Fault,
+  SqlClient.SqlClient
+> =>
+  // `atomicity` is a demandable grant like any other: pg scopes seed `transaction`, so the generic journal publisher
+  // composes here and a row demanding it resolves in the same fixed point that resolves an extension grant.
+  Capability.Default({
+    rows: Pg.rows,
+    ensures,
+    core: Pg.core,
+    atomicity: "transaction",
+    demands: Pg.demands,
+    schema: locus.schema,
+  })
 
 const _lookup = (
   scope: ScopeKey,
@@ -241,9 +256,9 @@ class Stores extends LayerMap.Service<Stores>()("data/Stores", {
 - Packages: `effect` (`Layer`); the port Tags arrive from `@rasm/ts/security` at the composition root, never imported by the neutral rows.
 - Entry: the app root composes `Stores.port(scope, Tag, build)` per port; the builds are ordinary statement folds run through the scope's `Tenant.within`, their tables published as ensure rows in the roster.
 - Growth: a new security port is one table ensure plus one `port` composition at the root — the map, the verification, and the isolation dispatch are already settled.
-- Law: the satisfaction rows are the folder's standing obligations — `SessionStore`/`IdentityJournal` (session and identity state), `ClaimStore`/`RelationStore` (entitlement and relation tuples), `ApiKeyStore` (machine credentials), `WebAuthnStore`/`ChallengeStore` (passkey material and the `SingleUse` ceremony phase), `OAuthStateStore` (the `SingleUse` redirect snapshot), `PublicKeyStore`/`JwksLedger` (verification keys), and the `@effect/experimental` `RateLimiter.RateLimiterStore` (the credential-verify throttle budgets); each is a Tag the security folder declares — the `SingleUse` ports as TTL single-consume contracts a `Cache`/`PersistedCache` row satisfies — and a Layer this folder's scopes back.
+- Law: the satisfaction rows are the folder's standing obligations — `SessionStore`/`IdentityJournal` (session and identity state), `ClaimStore`/`RelationStore` (entitlement and relation tuples), `ApiKeyStore` (machine credentials), `WebAuthnStore`/`ChallengeStore` (passkey material and the `SingleUse` ceremony phase), `OAuthStateStore` (the `SingleUse` redirect snapshot), `PublicKeyStore`/`JwksLedger` (verification keys), and the `@effect/experimental` `RateLimiter.RateLimiterStore` (the credential-verify throttle budgets); each is a Tag the security folder declares — the `SingleUse` ports as TTL single-consume contracts a `Cache`/`PersistedCache` row satisfies — and a Layer this folder's scopes back. The `RelationStore` satisfier is shape-bound by the declaring page's own boundary: its Layer answers the port through ONE `RequestResolver.makeBatched` over this folder's tuple store, so an N-object render's relation probes settle as one batched read with duplicate triples deduplicated — a per-call lookup Layer satisfies the type and deletes the batching the port exists to buy.
 - Law: the per-subject `WrappedKey` persistence that drives crypto-shredding rides `journal/retain.md`'s subject ledger — the security `Shredder` mints and wraps, this folder stores and destroys; destruction is the erasure verb.
-- Law: security never imports data and data never imports the port implementations' callers — the Tags meet the Layers only at the app root, keeping the folder edge exactly one direction: `data → security` for `TenantScope`/`SessionCoordinate`/`TENANT_GUC`/`Shredder` values only.
+- Law: security never imports data and data never imports the port implementations' callers — the Tags meet the Layers only at the app root, keeping the folder edge exactly one direction: `data → security` for `TenantScope`/`SessionCoordinate`/`Shredder` values only.
 
 ```typescript signature
 // --- [EXPORTS] --------------------------------------------------------------------------

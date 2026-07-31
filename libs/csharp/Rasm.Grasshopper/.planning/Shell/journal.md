@@ -7,7 +7,7 @@ Journal consumption stays off the UI thread: one single-reader loop drains `Evid
 ## [01]-[INDEX]
 
 - [02]-[ROWS]: `JournalPolicy` + `JournalFact` + `JournalRow` — the bounded partition policy, the fact union, and the stamped row evidence.
-- [03]-[FOLD]: `JournalExport` + `SessionJournal` — the append fold, the drain mount, and the export projection.
+- [03]-[FOLD]: `JournalLedger` + `JournalExport` + `SessionJournal` — the committed fold state, the append gate, the drain mount, and the export projection.
 
 ## [02]-[ROWS]
 
@@ -20,7 +20,8 @@ Journal consumption stays off the UI thread: one single-reader loop drains `Evid
 
 ## [03]-[FOLD]
 
-- Owner: `SessionJournal` sealed `IDisposable` — partitions in one `Atom<HashMap<Guid, Seq<JournalRow>>>` cell keyed by document identity (the session partition rides `Guid.Empty`), appended and shed counters, and one owned `MonotonicTimeline`. `Append` stamps, sequences, and folds one fact into its partition, shedding the head past the policy bound; the fold is one CAS per append, and shed rows count as evidence, never silence.
+- Owner: `JournalLedger` readonly record struct — the committed fold state: the partitions keyed by document identity (the session partition rides `Guid.Empty`) beside the appended and shed tallies, folded by one pure `Folded` transition. `SessionJournal` sealed `IDisposable` — one `Atom<JournalLedger>` cell and one owned `MonotonicTimeline`. `Append` stamps, sequences, and folds one fact into its partition, shedding the head past the policy bound; the fold is one CAS per append, and shed rows count as evidence, never silence.
+- Law: the tallies live INSIDE the transition, never on sibling cells — a CAS body re-runs per contended retry, so a counter swapped from within it measures attempts instead of commits and over-reports exactly the loss evidence the page exists to publish; one committed value also makes an export's rows, appends, and sheds one snapshot rather than three racing reads.
 - Owner: `JournalExport` sealed record — the export projection: the selected rows in sequence order, total appended and shed counts, and the capture stamp, detached from every live cell so a support bundle serializes without holding the journal.
 - Entry: `SessionJournal.Of(Option<JournalPolicy> policy = default, TimeProvider? provider = null, Op? key = null)` → `Fin<SessionJournal>`; `Append(JournalFact fact, Option<Guid> document = default, Op? key = null)` → `Fin<JournalRow>`; `Export(Option<Guid> document = default, Op? key = null)` → `Fin<JournalExport>` — `Some` exports one partition, `None` merges every partition ordered by sequence; `Mount(EvidenceDrain drain, Option<JournalPolicy> policy = default, Op? key = null)` → `Fin<Lease<SessionJournal>>` — the off-thread drain consumer.
 - Law: `Mount` owns the single-reader contract — one retained consumer task drains `ReadAllAsync` under the journal's cancellation source and appends each event through the same `Append` gate. Disposal marks release before cancellation, and the consumer suppresses only the resulting append rejection while recording every live append fault; cancellation then joins the task before the journal releases, so no unowned consumer survives its lease.
@@ -60,13 +61,28 @@ public readonly record struct JournalRow(long Sequence, Option<Guid> Document, M
 
 public sealed record JournalExport(Seq<JournalRow> Rows, long Appended, long Shed, MonotonicStamp Captured);
 
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct JournalLedger(HashMap<Guid, Seq<JournalRow>> Partitions, long Appended, long Shed) {
+    public static readonly JournalLedger Empty = new(Partitions: HashMap<Guid, Seq<JournalRow>>(), Appended: 0L, Shed: 0L);
+
+    // Pure transition: `Swap` re-runs its body on every CAS retry, so a tally incremented on a sibling cell inside it
+    // counts once per contended ATTEMPT rather than once per commit (rails-and-effects [ATOM_STATE]) — and shed count
+    // is the page's declared loss evidence, so an over-report is a fabricated measurement. Folding rows, appends, and
+    // sheds into ONE committed value also makes an export read three figures that agree, where three cells tear.
+    internal JournalLedger Folded(Guid partition, JournalRow row, int capacity) =>
+        Partitions.Find(partition).IfNone(Seq<JournalRow>()).Add(row) switch {
+            var grown when grown.Count > capacity => new(
+                Partitions: Partitions.AddOrUpdate(partition, grown.Tail.Strict()), Appended: Appended + 1L, Shed: Shed + 1L),
+            var grown => new(
+                Partitions: Partitions.AddOrUpdate(partition, grown), Appended: Appended + 1L, Shed: Shed),
+        };
+}
+
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class SessionJournal : IDisposable {
     private readonly JournalPolicy policy;
     private readonly MonotonicTimeline timeline;
-    private readonly Atom<HashMap<Guid, Seq<JournalRow>>> partitions = Atom(HashMap<Guid, Seq<JournalRow>>());
-    private readonly Atom<long> appended = Atom(0L);
-    private readonly Atom<long> shed = Atom(0L);
+    private readonly Atom<JournalLedger> ledger = Atom(JournalLedger.Empty);
     private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
     private readonly CancellationTokenSource drain = new();
     private Task consuming = Task.CompletedTask;
@@ -78,8 +94,8 @@ public sealed class SessionJournal : IDisposable {
         this.timeline = timeline;
     }
 
-    public long Appended => appended.Value;
-    public long Shed => shed.Value;
+    public long Appended => ledger.Value.Appended;
+    public long Shed => ledger.Value.Shed;
     public Option<Error> LastFault => lastFault.Value;
 
     public static Fin<SessionJournal> Of(Option<JournalPolicy> policy = default, TimeProvider? provider = null, Op? key = null) {
@@ -119,18 +135,8 @@ public sealed class SessionJournal : IDisposable {
                    Document: document,
                    Stamp: stamp,
                    Fact: valid)
-               from folded in op.Catch(body: () => Fin.Succ(Op.Side(action: () => {
-                   Guid partition = document.IfNone(Guid.Empty);
-                   ignore(appended.Swap(static count => count + 1L));
-                   ignore(partitions.Swap(current => {
-                       Seq<JournalRow> rows = current.Find(partition).IfNone(Seq<JournalRow>()).Add(row);
-                       if (rows.Count > policy.Capacity) {
-                           ignore(shed.Swap(static count => count + 1L));
-                           rows = rows.Tail.Strict();
-                       }
-                       return current.AddOrUpdate(partition, rows);
-                   }));
-               })))
+               from folded in op.Catch(body: () => Fin.Succ(ignore(ledger.Swap(held =>
+                   held.Folded(partition: document.IfNone(Guid.Empty), row: row, capacity: policy.Capacity)))))
                from accepted in op.AcceptValue(value: row)
                select accepted;
     }
@@ -138,11 +144,16 @@ public sealed class SessionJournal : IDisposable {
     public Fin<JournalExport> Export(Option<Guid> document = default, Op? key = null) {
         Op op = key.OrDefault();
         return from stamp in timeline.Capture(key: op)
-               from rows in op.Catch(body: () => Fin.Succ(document.Match(
-                   Some: partition => partitions.Value.Find(partition).IfNone(Seq<JournalRow>()),
-                   None: () => toSeq(partitions.Value.Values).Bind(static rows => rows)
-                       .OrderBy(static row => row.Sequence).AsIterable().ToSeq())))
-               select new JournalExport(Rows: rows.Strict(), Appended: appended.Value, Shed: shed.Value, Captured: stamp);
+               from export in op.Catch(body: () => {
+                   JournalLedger held = ledger.Value;
+                   Seq<JournalRow> rows = document.Match(
+                       Some: partition => held.Partitions.Find(partition).IfNone(Seq<JournalRow>()),
+                       None: () => toSeq(toSeq(held.Partitions.Values).Bind(static rows => rows)
+                           .OrderBy(static row => row.Sequence).AsIterable()));
+                   return Fin.Succ(new JournalExport(
+                       Rows: rows.Strict(), Appended: held.Appended, Shed: held.Shed, Captured: stamp));
+               })
+               select export;
     }
 
     public void Dispose() => Op.SideWhen(
@@ -194,7 +205,7 @@ flowchart LR
 | [INDEX] | [CONCERN]         | [OWNER]                      | [RAIL]                                      | [CASES] |
 | :-----: | :---------------- | :--------------------------- | :------------------------------------------ | :-----: |
 |  [01]   | fact admission    | `JournalFact` + `JournalRow` | closed union → stamped row evidence         |    2    |
-|  [02]   | bounded fold      | `SessionJournal`             | `Append → Fin<JournalRow>`; ring per policy |    1    |
+|  [02]   | bounded fold      | `JournalLedger`              | `Append → Fin<JournalRow>`, one CAS commit  |    1    |
 |  [03]   | drain consumption | `SessionJournal.Mount`       | `Fin<Lease<SessionJournal>>`                |    1    |
 |  [04]   | export projection | `JournalExport`              | `Export → Fin<JournalExport>`               |    1    |
 

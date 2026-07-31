@@ -60,6 +60,27 @@ public sealed record SpatialWire(bool GeographyAsDefault, int Srid, Ordinates Ha
     public static readonly SpatialWire Canonical = new(GeographyAsDefault: false, Srid: 4326, Ordinates.XYZ);
 }
 
+// Profile-level tracing posture ([05] Npgsql admission), the SpatialWire peer on the same builder: the catalog
+// rules the NpgsqlTracingOptionsBuilder filters profile policy, never per-call-site, so the predicate values ride
+// this row — the binary-COPY spans the columnar importer emits per bulk load and the observability harvest's own
+// polling statements drop at the source, and the verification batch names one span instead of six. Every other
+// subscribed provider already carries a filter posture; the branch's highest-frequency lane no longer traces bare.
+public sealed record TraceWire(
+    Func<NpgsqlCommand, bool> CommandFilter,
+    Func<NpgsqlBatch, bool> BatchFilter,
+    bool CopySpans,
+    bool FirstResponseEvent,
+    bool PhysicalOpenSpans) {
+    // Harvest filtering keys on the pg_stat view names the [PG_STAT_HARVEST] statements read FROM — real
+    // statement text, never a minted comment marker a second page would have to remember to stamp.
+    public static readonly TraceWire Canonical = new(
+        CommandFilter: static command => !command.CommandText.Contains("pg_stat_", StringComparison.Ordinal),
+        BatchFilter: static _ => true,
+        CopySpans: false,
+        FirstResponseEvent: false,
+        PhysicalOpenSpans: true);
+}
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -496,9 +517,15 @@ public static class ClusterProvision {
     // (`string?`, get/set) assigns the logical-database identity here — the Persistence half of the PORT-peer
     // telemetry split: `db.client.connection.pool.name` keys stable pool dimensions on the `Npgsql` meter the
     // AppHost root subscribes, and an unnamed source collapses every pool into one anonymous series.
-    public static NpgsqlDataSource Source(string dsn, string name, SpatialWire wire) {
+    public static NpgsqlDataSource Source(string dsn, string name, SpatialWire wire, TraceWire trace) {
         NpgsqlDataSourceBuilder builder = new(dsn) { Name = name };
         builder.UseNetTopologySuite(handleOrdinates: wire.HandleOrdinates, geographyAsDefault: wire.GeographyAsDefault);
+        builder.ConfigureTracing(tracing => tracing
+            .ConfigureCommandFilter(trace.CommandFilter)
+            .ConfigureBatchFilter(trace.BatchFilter)
+            .ConfigureCopyOperationFilter(copy => trace.CopySpans)
+            .EnableFirstResponseEvent(trace.FirstResponseEvent)
+            .EnablePhysicalOpenTracing(trace.PhysicalOpenSpans));
         return builder.Build();
     }
 
@@ -615,7 +642,14 @@ public sealed record EmbeddedRitual(
             // any handle prepared ahead of the grant, and both orderings together make each unreachable.
             ("<stmt-registry>", static store => ignore(SqliteStatHarvest.Arm(store))),
             ("<uuid7>", static store => store.CreateFunction("uuid7", static () => Guid.CreateVersion7().ToString("N"), isDeterministic: false)),
-            ("<xxh128>", static store => store.CreateFunction("xxh128", static (byte[] bytes) => unchecked((long)(ulong)System.IO.Hashing.XxHash128.HashToUInt128(bytes)), isDeterministic: true)),
+            // Full-width content key as a 16-byte big-endian BLOB — the same encoding CloudRunKey.Content writes —
+            // so the UDF's output joins a stored ContentAddress column byte-for-byte; the codec law rules a 64-bit
+            // truncation the deleted form that collides distinct contents.
+            ("<xxh128>", static store => store.CreateFunction("xxh128", static (byte[] bytes) => {
+                byte[] key = new byte[16];
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt128BigEndian(key, System.IO.Hashing.XxHash128.HashToUInt128(bytes));
+                return key;
+            }, isDeterministic: true)),
             ("<instant-iso>", static store => store.CreateCollation("instant_iso", static (left, right) => string.CompareOrdinal(left, right))),
             ("<span-fold>", static store => store.CreateAggregate("span_fold", 0L, static (long held, long next) => long.Max(held, next), isDeterministic: true))]);
 }
@@ -779,7 +813,7 @@ public readonly record struct BlobBinding(string Table, string Column, string Pr
 // derives `Code => FaultBand.Embedded + n` through the registry pointer (a bare 771x literal beside the registry row is
 // decoupled form the sibling bands reject) and `Category` is the telemetry
 // label, so the case lifts BARE onto `Fin<T>` with no `.ToError()` hop. `IsTransient` stays an abstract per-case bit (the
-// retry gate — only Busy is transient) the nested records override.
+// retry gate — Busy always, Kv only on its ceiling-family column) the nested records override.
 [Union]
 public abstract partial record EmbeddedFault : Expected, IValidationError<EmbeddedFault> {
     private EmbeddedFault() : base() { }
@@ -788,7 +822,9 @@ public abstract partial record EmbeddedFault : Expected, IValidationError<Embedd
     public sealed record Corrupt(int Status, string Detail) : EmbeddedFault { public override bool IsTransient => false; }
     public sealed record Io(int Status, string Detail) : EmbeddedFault { public override bool IsTransient => false; }
     public sealed record Refused(string Detail) : EmbeddedFault { public override bool IsTransient => false; }
-    public sealed record Kv(string Engine, string Status, string Detail) : EmbeddedFault { public override bool IsTransient => false; }
+    // Transient rides the case as data: the LMDB ceiling family retries after its provisioning act (MapSize
+    // regrow), every other Kv verdict stays terminal — one case, the retry gate a column instead of a twin.
+    public sealed record Kv(string Engine, string Status, string Detail, bool Transient = false) : EmbeddedFault { public override bool IsTransient => Transient; }
 
     public override int Code => FaultBand.Embedded + Switch(
         busy:    static _ => 1,
@@ -945,7 +981,15 @@ public static class EngineOps {
 public abstract partial record KvEngine {
     private KvEngine() { }
     public sealed record Lsm(RocksDb Store) : KvEngine;
+    // Index opens under IndexConfiguration: dupsorted with fixed-width values — chunk ContentKey to the
+    // 16-byte owning ContentAddress dup set — so the reverse chunk-to-artifact question answers inside one
+    // store, and retention proves "still referenced" before reclaiming a chunk.
     public sealed record Mmap(LightningEnvironment Store, LightningDatabase Index) : KvEngine;
+    // DuplicatesFixed is exact because every dup value is one 16-byte content address; the page-sized
+    // GetMultiple bulk read rides the same flag.
+    public static readonly DatabaseConfiguration IndexConfiguration = new() {
+        Flags = DatabaseOpenFlags.Create | DatabaseOpenFlags.DuplicatesSort | DatabaseOpenFlags.DuplicatesFixed,
+    };
 }
 
 public static class KvFloor {
@@ -992,9 +1036,89 @@ public static class KvFloor {
             }).Bind(Mdb);
         });
 
-    static Fin<Unit> Mdb(MDBResultCode status) => status == MDBResultCode.Success
-        ? Fin.Succ(unit)
-        : Fin.Fail<Unit>(new EmbeddedFault.Kv("lmdb", status.ToString(), "<write>"));
+    // Ordered prefix scan — the verb both declared roles require: a spool DRAIN with only point Get demands a
+    // second key index outside the store the spool exists to be, and a content index with only point Get cannot
+    // enumerate a namespace for a sweep. The LSM arm walks a snapshot-pinned iterator so a drain never reads
+    // writes it is itself producing; the mmap arm walks SetRange inside one read transaction; both stop at the
+    // first key leaving the prefix.
+    public static Fin<Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)>> Scan(KvEngine engine, ReadOnlyMemory<byte> prefix) => engine.Switch(
+        state: prefix,
+        lsm: static (bound, l) => Guarded("rocksdb", () => {
+            using Snapshot pinned = l.Store.CreateSnapshot();
+            using Iterator cursor = l.Store.NewIterator(readOptions: new ReadOptions().SetSnapshot(pinned));
+            Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)> rows = default;
+            for (cursor.Seek(bound.Span); cursor.Valid() && cursor.GetKeySpan().StartsWith(bound.Span); cursor.Next()) {
+                rows = rows.Add(((ReadOnlyMemory<byte>)cursor.GetKeySpan().ToArray(), (ReadOnlyMemory<byte>)cursor.GetValueSpan().ToArray()));
+            }
+            return rows;
+        }),
+        mmap: static (bound, m) => Guarded("lmdb", () => {
+            using LightningTransaction transaction = m.Store.BeginTransaction(TransactionBeginFlags.ReadOnly);
+            using LightningCursor cursor = transaction.CreateCursor(m.Index);
+            Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)> rows = default;
+            if (cursor.SetRange(bound.Span) == MDBResultCode.Success) {
+                for ((MDBResultCode code, MDBValue key, MDBValue value) = cursor.GetCurrent();
+                     code == MDBResultCode.Success && key.AsSpan().StartsWith(bound.Span);
+                     (code, key, value) = cursor.Next()) {
+                    rows = rows.Add(((ReadOnlyMemory<byte>)key.CopyToNewArray(), (ReadOnlyMemory<byte>)value.CopyToNewArray()));
+                }
+            }
+            return rows;
+        }));
+
+    // Reverse chunk-to-artifact read: the mmap arm enumerates the dupsorted owner set under one key without a
+    // second index; the lsm arm answers the same question as the values under the composite-key prefix the spool
+    // writes, so the verb stays engine-polymorphic and retention asks one question either way.
+    public static Fin<Seq<ReadOnlyMemory<byte>>> Refs(KvEngine engine, ReadOnlyMemory<byte> key) => engine.Switch(
+        state: key,
+        lsm: static (bound, l) => Scan(new KvEngine.Lsm(l.Store), bound).Map(static rows => rows.Map(static row => row.Value)),
+        mmap: static (bound, m) => Guarded("lmdb", () => {
+            using LightningTransaction transaction = m.Store.BeginTransaction(TransactionBeginFlags.ReadOnly);
+            using LightningCursor cursor = transaction.CreateCursor(m.Index);
+            Seq<ReadOnlyMemory<byte>> owners = default;
+            foreach (MDBValue value in cursor.AllValuesFor(bound.Span.ToArray())) {
+                owners = owners.Add((ReadOnlyMemory<byte>)value.CopyToNewArray());
+            }
+            return owners;
+        }));
+
+    // WAL changefeed resume — the reconnect cursor SyncSession replays from after a partial upload; each entry is
+    // one atomic WriteBatch at its sequence number, the same watermark shape the server lane's StalenessWatermark
+    // reads. LMDB holds no WAL, so the mmap arm refuses typed rather than fabricating a stream.
+    public static Fin<Seq<(ulong Sequence, ReadOnlyMemory<byte> Batch)>> Since(KvEngine engine, ulong sequence) => engine.Switch(
+        state: sequence,
+        lsm: static (cursor, l) => Guarded("rocksdb", () => {
+            using TransactionLogIterator feed = l.Store.GetUpdatesSince(cursor);
+            Seq<(ulong Sequence, ReadOnlyMemory<byte> Batch)> updates = default;
+            for (; feed.Valid(); feed.Next()) {
+                using WriteBatch batch = feed.GetBatch(out ulong at);
+                updates = updates.Add((at, (ReadOnlyMemory<byte>)batch.ToBytes()));
+            }
+            return updates;
+        }),
+        mmap: static (_, _) => Fin.Fail<Seq<(ulong, ReadOnlyMemory<byte>)>>(new EmbeddedFault.Kv("lmdb", "<no-wal>", "<changefeed>")));
+
+    // Crash-consistent local durability at metadata cost — the lsm arm hard-links a checkpoint clone, the mmap
+    // arm runs the online compacting copy; one cheap durable act per engine, the same economics the SQLite
+    // floor's paged backup session earns its fence for.
+    public static Fin<Unit> Snap(KvEngine engine, string directory) => engine.Switch(
+        state: directory,
+        lsm: static (target, l) => Guarded("rocksdb", () => { using Checkpoint clone = l.Store.Checkpoint(); clone.Save(target); return unit; }),
+        mmap: static (target, m) => Guarded("lmdb", () => m.Store.CopyTo(target, compact: true)).Bind(Mdb));
+
+    // Typed LMDB verdict fold — the ceiling family is transient AFTER its provisioning act (MapSize regrow is a
+    // provisioning decision, never a write-time realloc), the corruption family routes terminal to recovery, and
+    // every other code carries its own name instead of one flattened string.
+    static Fin<Unit> Mdb(MDBResultCode status) => status switch {
+        MDBResultCode.Success => Fin.Succ(unit),
+        MDBResultCode.MapFull or MDBResultCode.MapResized or MDBResultCode.DbsFull or MDBResultCode.ReadersFull
+            or MDBResultCode.TLSFull or MDBResultCode.TxnFull or MDBResultCode.CursorFull or MDBResultCode.PageFull =>
+            Fin.Fail<Unit>(new EmbeddedFault.Kv("lmdb", status.ToString(), "<ceiling>", Transient: true)),
+        MDBResultCode.Corrupted or MDBResultCode.Panic or MDBResultCode.PageNotFound or MDBResultCode.VersionMismatch
+            or MDBResultCode.Invalid or MDBResultCode.InvalidData =>
+            Fin.Fail<Unit>(new EmbeddedFault.Corrupt((int)status, $"<lmdb:{status}>")),
+        _ => Fin.Fail<Unit>(new EmbeddedFault.Kv("lmdb", status.ToString(), "<write>")),
+    };
 
     static Fin<T> Guarded<T>(string engine, Func<T> call) {
         try { return Fin.Succ(call()); }
@@ -1003,15 +1127,17 @@ public static class KvFloor {
 }
 ```
 
-| [INDEX] | [POLICY]             | [VALUE]                                | [BINDING]                                                 |
-| :-----: | :------------------- | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | handle bridge        | `SqliteConnection.Handle` raw seam     | the one join to `sqlite3_*` the managed API omits         |
-|  [02]   | checkpoint receipt   | `sqlite3_wal_checkpoint_v2` out-params | typed frame counts; `SQLITE_BUSY` retries the schedule    |
-|  [03]   | consistent read      | `sqlite3_snapshot_*` pin bracket       | `_cmp` floor guard; `_free` only a held handle            |
-|  [04]   | backup               | paged `sqlite3_backup_*` session       | subsumes whole-file `BackupDatabase`; `quick_check` proof |
-|  [05]   | large payload        | `SqliteBlob` over `zeroblob(N)`        | streamed; whole-`byte[]` materialization deleted          |
-|  [06]   | fault discrimination | `EmbeddedFault` over the status int    | `Busy` transient; `Corrupt` terminal to recovery          |
-|  [07]   | embedded KV          | `KvFloor` over `KvEngine` (LSM/mmap)   | offline op spool + chunk index; one polymorphic surface   |
+| [INDEX] | [POLICY]             | [VALUE]                                | [BINDING]                                                         |
+| :-----: | :------------------- | :------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | handle bridge        | `SqliteConnection.Handle` raw seam     | the one join to `sqlite3_*` the managed API omits                 |
+|  [02]   | checkpoint receipt   | `sqlite3_wal_checkpoint_v2` out-params | typed frame counts; `SQLITE_BUSY` retries the schedule            |
+|  [03]   | consistent read      | `sqlite3_snapshot_*` pin bracket       | `_cmp` floor guard; `_free` only a held handle                    |
+|  [04]   | backup               | paged `sqlite3_backup_*` session       | subsumes whole-file `BackupDatabase`; `quick_check` proof         |
+|  [05]   | large payload        | `SqliteBlob` over `zeroblob(N)`        | streamed; whole-`byte[]` materialization deleted                  |
+|  [06]   | fault discrimination | `EmbeddedFault` over the status int    | `Busy` transient; `Corrupt` terminal to recovery                  |
+|  [07]   | embedded KV          | `KvFloor` over `KvEngine` (LSM/mmap)   | offline op spool + chunk index; one polymorphic surface           |
+|  [08]   | KV drain and sweep   | `Scan`/`Refs` snapshot-pinned walks    | prefix scan + dupsorted reverse refs; point-Get-only form deleted |
+|  [09]   | KV resume and clone  | `Since` WAL cursor, `Snap` clone/copy  | reconnect replay from a sequence; hard-link or compacting copy    |
 
 ## [05]-[STORE_AXIS_MAP]
 

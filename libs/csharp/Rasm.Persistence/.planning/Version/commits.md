@@ -588,7 +588,7 @@ public static class ContentParityCorpus {
     static byte[] Canonical(CrdtField state) {
         ArrayBufferWriter<byte> buffer = new();
         if (state is CrdtField.MvRegister mv) {
-            foreach ((ReadOnlyMemory<byte> value, VersionVector _, Hlc cell) in mv.Values.OrderBy(static held => held.Cell).ToSeq()) {
+            foreach ((ReadOnlyMemory<byte> value, VersionVector _, Hlc cell) in toSeq(mv.Values.OrderBy(static held => held.Cell))) {
                 cell.WriteTo(buffer);
                 buffer.Write(value.Span);
             }

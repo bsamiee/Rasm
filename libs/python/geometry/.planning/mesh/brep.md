@@ -2,7 +2,7 @@
 
 Exact B-rep evaluation on one `BrepOp` union: parametric solid construction, n-ary Boolean algebra, profile offset/loft generation, feature operations, and watertight tessellation — each operation kind carrying its inner verb as a closed `StrEnum` row bound to the owning OCCT `BRep*API` builder through an `expression.Map` dispatch, so a new primitive, set verb, offset mode, or feature is one row and one entry, never a new surface. Its `Offset` arm rides both kernels on one rail: `manifold3d.CrossSection` offsets and simplifies the 2D profile, `BRepBuilderAPI_MakeFace.Add` lifts it as a holed planar face, then extrusion/revolution/loft/thickening yields a `TopoDS_Shape`. No durable file persists — a live `TopoDS_Shape` is a pybind11 handle no pickler carries, so every shape crosses the worker seam as sealed STEP octets (`Brep`) through the `sealed`/`unsealed` codec pair, returning as `Brep` with optional `trimesh.Trimesh`.
 
-`TessellationPolicy` arrives from `mesh/cad`, minted there and imported downward; an evaluated solid graduates through the geometry-minted `GeometrySubject.MESH_ALGEBRA` rail. Its CPU-bound kernel rides `LanePolicy.offload` on the `HOSTILE` trait — the OCCT band holds process-global native state and imports under no isolated subinterpreter, so the warm process pool is the one substrate that composes — and `apply` returns through the graduation `evidence_run` weave seeded `EvidenceScope.MESH_BREP`, whose harvest streams the typed receipt on the `Ok` path. Consumers compose downward: the CAD-STEP hop (`mesh/cad#BRIDGE`), the mesh-algebra rail (`mesh/repair#MESH`), and the `ifc/structural` profile owner folding `Construct`/`Offset` to evaluate an `IfcProfileDef` cross-section into a `TopoDS_Face` before its section integral.
+`TessellationPolicy` arrives from `mesh/cad` and the `CLOSURE_CEILING` closure-agreement bar from `mesh/repair`, both minted there and imported downward; an evaluated solid graduates through the geometry-minted `GeometrySubject.MESH_ALGEBRA` rail on a key the receipt's own `spec` projection derives. Its CPU-bound kernel rides `LanePolicy.offload` on the `HOSTILE` trait — the OCCT band holds process-global native state and imports under no isolated subinterpreter, so the whole `OCP.*` band defers through module-scope `lazy from` and the warm process pool is the one substrate that composes — and `apply` returns through the graduation `evidence_run` weave seeded `EvidenceScope.MESH_BREP`, whose harvest streams the typed receipt on the `Ok` path. Egress is sealed STEP octets, so a consumer continuing its own OCCT work unseals where it computes while every other consumer reads the optional `trimesh.Trimesh` projection; the two mesh peers this evaluator meets — `mesh/cad#BRIDGE`'s XCAF reader-writer and `mesh/repair#MESH`'s robust triangle CSG — share only the `cadquery-ocp` band and never a function.
 
 ## [01]-[INDEX]
 
@@ -10,17 +10,19 @@ Exact B-rep evaluation on one `BrepOp` union: parametric solid construction, n-a
 
 ## [02]-[BREP]
 
-- Owner: `BrepOp` — one `@tagged_union` over the operation kinds with verbs as `StrEnum` rows, never a per-operation class family; `JoinPolicy` maps to `manifold3d.JoinType` through `_JOINS`, so the join is a policy value, never a verb-keyed hardcode; `BrepResult` carries the contributor and `BrepReceipt` the leaf evidence, the carrier/leaf split the mesh siblings share. Shape-bearing cases carry `Brep` sealed octets, never a live handle — `sealed`/`unsealed` is the one STEP `AsIs` codec pair both seam directions resolve through, so the union pickles whole across the process crossing and a native-floor consumer unseals where its own OCCT work begins.
+- Owner: `BrepOp` — one `@tagged_union` over the operation kinds with verbs as `StrEnum` rows, never a per-operation class family; `JoinPolicy` resolves to `manifold3d.JoinType` through the `_JOIN_NAME` row and `_join`, so the join is a policy value resolved at the 2D leg rather than a verb-keyed hardcode or a module-scope cell that reifies the deferred provider; `BrepResult` carries the contributor and `BrepReceipt` the leaf evidence, the carrier/leaf split the mesh siblings share. Shape-bearing cases carry `Brep` sealed octets, never a live handle — `sealed`/`unsealed` is the one STEP `AsIs` codec pair both seam directions resolve through, so the union pickles whole across the process crossing and a native-floor consumer unseals where its own OCCT work begins.
 - Cases: linear extrusion/revolution of a profile is the `Offset` arm's `EXTRUDE`/`REVOLVE` row, never a duplicate `Construct` primitive — `MakePrism`/`MakeRevol` are reached once, through the profile leg; `Boolean.section` yields a wire/edge result the consumer re-feeds as a profile, and no downstream owner re-discriminates the operation past this union.
+- Law: every factory reachable OUTSIDE `apply`'s weave returns the rail — `Boolean` re-proves its two-operand minimum and its finite non-negative fuzz as `Error(BoundaryFault)` and callers bind rather than construct, because a `raise` from a mint no enclosing fence converts escapes to its caller; inside `_dispatch`, under the offload fence, the typed `BrepFault` is the refusal and the lane's `async_boundary` converts it.
+- Law: `graduates` mints its own evidence key off the receipt's `spec` byte projection through the graduation spine, so no caller threads a key; the measured ledger grades the null-result residual every time and admits the `closure_gap` bar only where the tessellated agreement exists, since an open or unmeshed result records no agreement and grading a fabricated zero against a ceiling clears a bar that never ran.
 - Law: `benched` rides the graduation `bench_seam` fold over the whole `apply` crossing — sealed-brep codec, offload, OCCT kernel, weave — subject-keyed `rasm.geometry.mesh.brep.<tag>`, so a boolean row prices the STEP seal beside the solve; latency and throughput rows per operation kind, zero instrument rows, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Auto: `BRepAlgoAPI_*` is the robust BOPAlgo kernel (the legacy `BRepAlgo_*` family never enters) and its operators are n-ary — one `SetArguments`/`SetTools` build, never a pairwise fold rebuilding the kernel N-1 times; a Boolean operand requires triangulation absent, so a `Boolean` always precedes any `Tessellate` over its result.
-- Packages: `cadquery-ocp` (the `OCP.*` band — the retired conda-only `pythonocc-core` `OCC.Core.*` path never enters), `manifold3d` (`CrossSection`/`JoinType`, the 2D leg only — the 3D `Manifold` CSG backend belongs to `mesh/repair#MESH`), `trimesh`, `numpy`, `expression`, and `msgspec` per the fence imports; `TessellationPolicy`/`CANONICAL_TESSELLATION` and `GeometrySubject` arrive from the geometry owners, the rails from runtime.
-- Growth: a new primitive, set verb, offset mode, feature, or join is one `StrEnum` row and one `Map` entry; a spine-following `SWEEP` verb is the `BRepOffsetAPI_MakePipeShell` landing site, staged behind a real spine-wire payload field rather than aliased to the linear `EXTRUDE` prism it cannot distinguish without one.
+- Packages: `cadquery-ocp` (the `OCP.*` band, every name a module-scope `lazy from` because the distribution is interpreter-marked and a loop floor importing this module for the verb vocabulary must never load OCCT — the retired conda-only `pythonocc-core` `OCC.Core.*` path never enters), `manifold3d` (`CrossSection`/`JoinType` under the same deferral, the 2D leg only — the 3D `Manifold` CSG backend belongs to `mesh/repair#MESH`), `trimesh`, `numpy`, `expression`, and `msgspec` per the fence imports; `TessellationPolicy`/`CANONICAL_TESSELLATION`, `CLOSURE_CEILING`, and `GeometrySubject` arrive from the geometry owners, the rails from runtime.
+- Growth: a new primitive, set verb, offset mode, feature, or join is one `StrEnum` row and one `Map` entry, its cell a call-time thunk or a member NAME so the row never dereferences a deferred provider at import; a spine-following `SWEEP` verb lands as one `OffsetVerb` row over `BRepOffsetAPI_MakePipeShell` the moment a real spine-wire payload field carries its path — never aliased to the linear `EXTRUDE` prism it cannot distinguish without one, and never a prelude name the fence does not yet call.
 - Boundary: mesh-file/GLB codec is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`); scene/USD/GLTF/OBJ export is `artifacts` figures/scene; the STEP-read-to-GLB hop is `mesh/cad#BRIDGE`'s `StepBridge`, a distinct OCCT consumer meeting this evaluator only at the shared `cadquery-ocp` band, never a shared function; triangle-soup repair and mesh CSG are `mesh/repair#MESH`'s — exact OCCT B-rep Boolean here, robust triangle-mesh Boolean there, two kernels on two owners.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from enum import StrEnum
 from functools import partial
 from math import isfinite
@@ -30,17 +32,36 @@ from typing import Final, Literal, Protocol, Self, assert_never
 
 import numpy as np
 import trimesh
-from manifold3d import CrossSection, JoinType
 from msgspec import Struct
-from expression import case, tag, tagged_union
-from expression.collections import Block, Map
+from expression import Error, Ok, case, tag, tagged_union
+from expression.collections import Map
 
-from OCP.BRep import BRep_Tool
-from OCP.BRepAlgoAPI import BRepAlgoAPI_Common, BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse, BRepAlgoAPI_Section
-from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
-from OCP.IFSelect import IFSelect_ReturnStatus
-from OCP.STEPControl import STEPControl_Reader, STEPControl_StepModelType, STEPControl_Writer
-from OCP.BRepBuilderAPI import (
+from rasm.geometry.graduation import (
+    EvidenceScope,
+    GeometryHandoff,
+    GeometrySubject,
+    bench_seam,
+    bench_subject,
+    evidence_key,
+    evidence_run,
+)
+from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, TessellationPolicy
+from rasm.geometry.mesh.repair import CLOSURE_CEILING
+from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.profiles import BenchmarkReceipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
+from rasm.runtime.workers import Kernel, KernelTrait
+
+# the whole compiled band defers: `cadquery-ocp` is interpreter-marked and `manifold3d` is native, so a loop floor
+# importing this module for the `ConstructVerb`/`BooleanVerb`/`OffsetVerb`/`FeatureVerb`/`JoinPolicy` vocabulary
+# loads neither. Every table cell below is a call-time thunk or a member NAME, because a module-scope row that
+# dereferences one of these names reifies its proxy at import and defeats the deferral outright.
+lazy from manifold3d import CrossSection, JoinType
+
+lazy from OCP.BRep import BRep_Tool
+lazy from OCP.BRepAlgoAPI import BRepAlgoAPI_Common, BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse, BRepAlgoAPI_Section, BRepAlgoAPI_Splitter
+lazy from OCP.BRepBuilderAPI import (
     BRepBuilderAPI_MakeEdge,
     BRepBuilderAPI_MakeFace,
     BRepBuilderAPI_MakePolygon,
@@ -48,11 +69,11 @@ from OCP.BRepBuilderAPI import (
     BRepBuilderAPI_NurbsConvert,
     BRepBuilderAPI_Sewing,
 )
-from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
-from OCP.BRepGProp import BRepGProp
-from OCP.BRepMesh import BRepMesh_IncrementalMesh
-from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipeShell, BRepOffsetAPI_MakeThickSolid, BRepOffsetAPI_ThruSections
-from OCP.BRepPrimAPI import (
+lazy from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
+lazy from OCP.BRepGProp import BRepGProp
+lazy from OCP.BRepMesh import BRepMesh_IncrementalMesh
+lazy from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeThickSolid, BRepOffsetAPI_ThruSections
+lazy from OCP.BRepPrimAPI import (
     BRepPrimAPI_MakeBox,
     BRepPrimAPI_MakeCone,
     BRepPrimAPI_MakeCylinder,
@@ -61,23 +82,17 @@ from OCP.BRepPrimAPI import (
     BRepPrimAPI_MakeSphere,
     BRepPrimAPI_MakeTorus,
 )
-from OCP.GeomAPI import GeomAPI_PointsToBSpline
-from OCP.GProp import GProp_GProps
-from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Vec
-from OCP.TopAbs import TopAbs_ShapeEnum
-from OCP.TopExp import TopExp
-from OCP.TopLoc import TopLoc_Location
-from OCP.TopoDS import TopoDS, TopoDS_Face, TopoDS_Shape, TopoDS_Wire
-from OCP.TColgp import TColgp_Array1OfPnt
-from OCP.TopTools import TopTools_IndexedMapOfShape, TopTools_ListOfShape
-
-from rasm.geometry.graduation import EvidenceScope, GeometrySubject, bench_seam, evidence_run
-from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, TessellationPolicy
-from rasm.runtime.faults import RuntimeRail
-from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.profiles import BenchmarkReceipt
-from rasm.runtime.receipts import Phase, Receipt
-from rasm.runtime.workers import Kernel, KernelTrait
+lazy from OCP.GProp import GProp_GProps
+lazy from OCP.GeomAPI import GeomAPI_PointsToBSpline
+lazy from OCP.IFSelect import IFSelect_ReturnStatus
+lazy from OCP.STEPControl import STEPControl_Reader, STEPControl_StepModelType, STEPControl_Writer
+lazy from OCP.TColgp import TColgp_Array1OfPnt
+lazy from OCP.TopAbs import TopAbs_ShapeEnum
+lazy from OCP.TopExp import TopExp
+lazy from OCP.TopLoc import TopLoc_Location
+lazy from OCP.TopTools import TopTools_IndexedMapOfShape, TopTools_ListOfShape
+lazy from OCP.TopoDS import TopoDS, TopoDS_Face, TopoDS_Shape, TopoDS_Wire
+lazy from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Vec
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -138,12 +153,13 @@ class OcctBuilder(Protocol):
 # raised INTO the lane's `async_boundary`, never a domain `raise ValueError` the lane re-wraps.
 @tagged_union(frozen=True)
 class BrepFault(Exception):
-    tag: Literal["not_done", "empty_profile", "holed_profile", "unknown_verb", "invalid_operands"] = tag()
+    # every case is minted INSIDE `_dispatch` under the offload fence; the operand and fuzz refusals a caller can
+    # trigger before the weave opens ride `BrepOp.Boolean`'s rail instead, so no case here lacks a minting seam.
+    tag: Literal["not_done", "empty_profile", "holed_profile", "unknown_verb"] = tag()
     not_done: str = case()
     empty_profile: str = case()
     holed_profile: str = case()
     unknown_verb: str = case()
-    invalid_operands: str = case()
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -157,34 +173,38 @@ _PRIMITIVES: Final[Map[ConstructVerb, Callable[[Params], OcctBuilder]]] = Map.of
     (ConstructVerb.TORUS, lambda p: BRepPrimAPI_MakeTorus(p[0], p[1])),
 ])
 
+# nullary thunks, never bare class references: a row holding the class itself dereferences the deferred name at
+# module scope and reifies the whole OCCT band at import.
 _BOOLEANS: Final[Map[BooleanVerb, Callable[[], OcctBuilder]]] = Map.of_seq([
-    (BooleanVerb.FUSE, BRepAlgoAPI_Fuse),
-    (BooleanVerb.CUT, BRepAlgoAPI_Cut),
-    (BooleanVerb.COMMON, BRepAlgoAPI_Common),
-    (BooleanVerb.SECTION, BRepAlgoAPI_Section),
-    (BooleanVerb.SPLIT, BRepAlgoAPI_Splitter),
+    (BooleanVerb.FUSE, lambda: BRepAlgoAPI_Fuse()),
+    (BooleanVerb.CUT, lambda: BRepAlgoAPI_Cut()),
+    (BooleanVerb.COMMON, lambda: BRepAlgoAPI_Common()),
+    (BooleanVerb.SECTION, lambda: BRepAlgoAPI_Section()),
+    (BooleanVerb.SPLIT, lambda: BRepAlgoAPI_Splitter()),
 ])
 
 # edge-fold rows only: SEW/NURBS carry non-maker call shapes, matched ahead of this table in the feature arm.
 _FEATURES: Final[Map[FeatureVerb, Callable[[TopoDS_Shape], OcctBuilder]]] = Map.of_seq([
-    (FeatureVerb.FILLET, BRepFilletAPI_MakeFillet),
-    (FeatureVerb.CHAMFER, BRepFilletAPI_MakeChamfer),
+    (FeatureVerb.FILLET, lambda shape: BRepFilletAPI_MakeFillet(shape)),
+    (FeatureVerb.CHAMFER, lambda shape: BRepFilletAPI_MakeChamfer(shape)),
 ])
 
-_JOINS: Final[Map[JoinPolicy, JoinType]] = Map.of_seq([
-    (JoinPolicy.ROUND, JoinType.Round),
-    (JoinPolicy.MITER, JoinType.Miter),
-    (JoinPolicy.SQUARE, JoinType.Square),
-    (JoinPolicy.BEVEL, JoinType.Bevel),
+# join policy -> `JoinType` member NAME; `_join` resolves it at the 2D leg, so no cell holds a live enum member.
+_JOIN_NAME: Final[Map[JoinPolicy, str]] = Map.of_seq([
+    (JoinPolicy.ROUND, "Round"),
+    (JoinPolicy.MITER, "Miter"),
+    (JoinPolicy.SQUARE, "Square"),
+    (JoinPolicy.BEVEL, "Bevel"),
 ])
 
-# fixed 4-arity so the `vertex, edge, face, solid` unpack is statically total against the `Census` 4-tuple.
-_CENSUS: Final[tuple[TopAbs_ShapeEnum, TopAbs_ShapeEnum, TopAbs_ShapeEnum, TopAbs_ShapeEnum]] = (
-    TopAbs_ShapeEnum.TopAbs_VERTEX,
-    TopAbs_ShapeEnum.TopAbs_EDGE,
-    TopAbs_ShapeEnum.TopAbs_FACE,
-    TopAbs_ShapeEnum.TopAbs_SOLID,
-)
+
+def _join(policy: JoinPolicy) -> JoinType:
+    return getattr(JoinType, _JOIN_NAME.try_find(policy).default_with(lambda: _raise(BrepFault(unknown_verb=policy))))
+
+
+# fixed 4-arity of TopAbs member NAMES so the `vertex, edge, face, solid` unpack is statically total against the
+# `Census` 4-tuple while no cell dereferences the deferred enum.
+_CENSUS: Final[tuple[str, str, str, str]] = ("TopAbs_VERTEX", "TopAbs_EDGE", "TopAbs_FACE", "TopAbs_SOLID")
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -221,6 +241,21 @@ class BrepReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence; owns 
         }
         return phase, self.subject, facts
 
+    @property
+    def spec(self) -> bytes:
+        # the byte projection that DEFINES this evidence: the operation kind, the topological census, and the mass
+        # pair the kernel measured — two runs yielding the same solid key identically, so the crossing key derives
+        # from the result rather than arriving from a caller.
+        v, e, f, s = self.census
+        return f"{self.kind}|v{v}/e{e}/f{f}/s{s}|{self.volume:.17g}|{self.area:.17g}".encode()
+
+    def graduates(self) -> GeometryHandoff:
+        # ceilings derive PER MEASURE: an untessellated or open result measures no kernel-vs-mesh agreement, so the
+        # closure bar does not apply rather than grading `0.0` against it; the null-result residual grades always.
+        measured = {"null_result": 0.0 if self.valid else 1.0} | ({} if self.closure_gap is None else {"closure_gap": self.closure_gap})
+        ceilings: Mapping[str, float] = {"null_result": 0.0} | ({} if self.closure_gap is None else {"closure_gap": CLOSURE_CEILING})
+        return GeometryHandoff.of(self.subject, evidence_key(self.subject, self.spec), measured, ceilings)
+
 
 class BrepResult(Struct, frozen=True):
     brep: Brep
@@ -249,15 +284,16 @@ class BrepOp:
         return BrepOp(construct=(verb, params))
 
     @staticmethod
-    def Boolean(breps: tuple[Brep, ...], verb: BooleanVerb, fuzzy: float = 0.0) -> Self:
+    def Boolean(breps: tuple[Brep, ...], verb: BooleanVerb, fuzzy: float = 0.0) -> "RuntimeRail[BrepOp]":
         # positive fuzz drives SetFuzzyValue tolerant intersection for near-coincident operands. Every verb partitions
         # arguments-versus-tools, so the OCCT builder demands two operands minimum, and a negative or non-finite fuzz
-        # refuses at the mint — the constructor is the one seam, so an invalid boolean never reaches the worker.
+        # refuses at the mint — RETURNING the rail, because this factory runs BEFORE `apply` opens its weave and a
+        # raise no enclosing fence converts escapes to its caller; the caller binds, and `apply` is unchanged.
         if len(breps) < 2:
-            raise BrepFault(invalid_operands=f"{verb.value} needs at least 2 operands, got {len(breps)}")
+            return Error(BoundaryFault(config=("mesh.brep.boolean", f"operands:{len(breps)}<2")))
         if not (isfinite(fuzzy) and fuzzy >= 0.0):
-            raise BrepFault(invalid_operands=f"fuzzy must be finite and >= 0, got {fuzzy}")
-        return BrepOp(boolean=(breps, verb, fuzzy))
+            return Error(BoundaryFault(config=("mesh.brep.boolean", f"fuzzy:{fuzzy}")))
+        return Ok(BrepOp(boolean=(breps, verb, fuzzy)))
 
     @staticmethod
     def Offset(
@@ -278,18 +314,28 @@ class BrepOp:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def apply(op: BrepOp, lane: LanePolicy) -> "RuntimeRail[BrepResult]":
+async def apply(op: BrepOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[BrepResult]":
     # graduation weave seeded MESH_BREP: span, fence, and receipt harvest in one composition — the weave's harvest
     # streams the conforming BrepResult once on the cleared Ok, and an Error path carries no emit. HOSTILE is the
     # declared trait because the OCCT band holds process-global native state, so the kernel rides the warm process
     # pool with the WORKER death retry.
-    return await evidence_run(EvidenceScope.MESH_BREP, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op))
+    return await evidence_run(
+        EvidenceScope.MESH_BREP, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op), composition=composition
+    )
 
 
-def benched(op: BrepOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4) -> "RuntimeRail[BenchmarkReceipt]":
+def benched(
+    op: BrepOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4, composition: ScopeKey = DEFAULT_SCOPE
+) -> "RuntimeRail[BenchmarkReceipt]":
     # kernel macro-bench: each round drives the whole apply crossing — sealed-brep codec, offload, OCCT kernel,
     # weave — so a boolean row prices the STEP seal beside the solve; never an in-kernel probe (the pulse boundary).
-    return bench_seam(f"{EvidenceScope.MESH_BREP.value}.{op.tag}", partial(apply, op, lane), rounds=rounds, warmup=warmup)
+    return bench_seam(
+        bench_subject(EvidenceScope.MESH_BREP, op.tag),
+        partial(apply, op, lane, composition=composition),
+        rounds=rounds,
+        warmup=warmup,
+        composition=composition,
+    )
 
 
 def sealed(shape: TopoDS_Shape) -> Brep:
@@ -328,9 +374,9 @@ def _built(builder: OcctBuilder) -> TopoDS_Shape:
 
 
 def _census(shape: TopoDS_Shape) -> Census:
-    def extent(kind: TopAbs_ShapeEnum) -> int:
+    def extent(name: str) -> int:
         carrier = TopTools_IndexedMapOfShape()
-        TopExp.MapShapes_s(shape, kind, carrier)
+        TopExp.MapShapes_s(shape, getattr(TopAbs_ShapeEnum, name), carrier)
         return carrier.Extent()
 
     vertex, edge, face, solid = _CENSUS
@@ -402,8 +448,7 @@ def _sections(profile: Profile, dist: float, join: JoinPolicy) -> tuple[CrossSec
     if not profile:
         raise BrepFault(empty_profile="offset")
     base = CrossSection([list(profile)])
-    join_type = _JOINS.try_find(join).default_with(lambda: _raise(BrepFault(unknown_verb=join)))
-    offset = base.offset(dist, join_type, 2.0, 0).simplify(1e-6) if dist else base
+    offset = base.offset(dist, _join(join), 2.0, 0).simplify(1e-6) if dist else base
     return base, offset
 
 

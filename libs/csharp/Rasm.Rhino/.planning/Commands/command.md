@@ -53,7 +53,7 @@ public sealed partial class CommandPolicy {
 
 ## [02]-[PROGRAM]
 
-`Stage<TState>` is the closed transition family. Its manual generic hierarchy keeps `TState` free of the source generator's `allows ref struct` propagation, and its single parent dispatcher remains exhaustive.
+`Stage<TState>` is the closed transition family. Its manual generic hierarchy keeps `TState` free of the source generator's `allows ref struct` propagation. Closure is private constructors, which the compiler cannot prove across a record hierarchy, so every switch over `Stage<TState>` or `FlowStep<TState>` carries a terminal refusal arm — the discard is the exhaustiveness proof CS8509 demands, never a swallowed case, because an unreachable arm on a privately-closed family can only be reached by a case the family does not admit.
 
 `CommandFlow<TState>.Of` re-admits every struct-backed key at the outer storage seam and accumulates independent row defects before admitting topology: keys are distinct, the entry exists, every successor resolves, and the table carries a terminal. `Drive` folds a fixed budget monadically, so continuation carries state without recursion or a mutable loop. `Commit.Fold` is railed and rides `Tables.Commit` as its receipt projection inside the Document commit envelope, so a fold refusal fails the commit with the operation faults instead of surviving a sealed record.
 
@@ -86,6 +86,7 @@ public abstract record Stage<TState> {
             key.InvalidInput()).ToFin(),
         Commit row => guard(row.Plan is not null && row.Fold is not null, key.InvalidInput()).ToFin(),
         Halt row => guard(row.Verdict is not null, key.InvalidInput()).ToFin(),
+        _ => Fin.Fail<Unit>(error: key.InvalidInput()),
     };
 
     internal Fin<FlowStep<TState>> Apply(CommandTurn<TState> turn, Op key) => this switch {
@@ -113,6 +114,7 @@ public abstract record Stage<TState> {
                 project: receipt => commit.Fold(arg1: turn.State, arg2: receipt))
             select (FlowStep<TState>)new FlowStep<TState>.Advance(Key: commit.Next, State: state),
         Halt halt => Fin.Succ<FlowStep<TState>>(value: new FlowStep<TState>.Done(Verdict: halt.Verdict, State: turn.State)),
+        _ => Fin.Fail<FlowStep<TState>>(error: key.InvalidInput()),
     };
 }
 
@@ -180,6 +182,7 @@ public sealed record CommandFlow<TState> {
                     Some: frame => Fin.Succ(held with { Key = frame.Key, State = frame.State, Trail = held.Trail.Tail }),
                     None: () => Fin.Succ(held with { Verdict = Some(CommandVerdict.Cancelled) })),
                 FlowStep<TState>.Done terminal => Fin.Succ(held with { State = terminal.State, Verdict = Some(terminal.Verdict) }),
+                _ => Fin.Fail<FlowCursor<TState>>(error: op.InvalidResult()),
             })));
 
     private static Seq<StageKey> Successors(Stage<TState> stage) => stage switch {
@@ -210,8 +213,22 @@ public sealed record CommandFlow<TState> {
 
 `RasmCommand<TSelf,TState>` owns the only `Command` derivation. Session admission, deterministic release, flow execution, and native projection occur in the sealed callback; replay never escapes its host-owned callback window.
 
+Both host overrides collapse a typed rail into a bare native verdict, so both persist the `Error` into `CommandFaults` before the scalar returns — the console line is a presentation leg, never the sink. The site is recoverable from the error itself, because each override mints its `Op` with its own name, so the ledger needs no parallel site column. `Commands` is S1 and the `ObjectsTelemetry` egress is S2, so publishing there is the forbidden upward edge; the process-local cell is the S1 evidence surface, and a consumer above the boundary reads it.
+
 ```csharp signature
 // --- [BOUNDARIES] -------------------------------------------------------------------------
+public static class CommandFaults {
+    private static readonly Atom<Seq<Error>> Refusals = Atom(Seq<Error>());
+
+    public static Seq<Error> Faults => Refusals.Value;
+
+    internal static TNative Refused<TNative>(Error error, TNative native) {
+        _ = Refusals.Swap(held => held.Add(value: error));
+        RhinoApp.WriteLine(message: error.Message);
+        return native;
+    }
+}
+
 public abstract class RasmCommand<TSelf, TState> : Command
     where TSelf : RasmCommand<TSelf, TState> {
     protected abstract CommandPolicy Policy { get; }
@@ -233,7 +250,7 @@ public abstract class RasmCommand<TSelf, TState> : Command
             select verdict);
         return outcome.Match(
             Succ: static verdict => verdict.Native,
-            Fail: error => { RhinoApp.WriteLine(message: error.Message); return Result.Failure; });
+            Fail: static error => CommandFaults.Refused(error: error, native: Result.Failure));
     }
 
     protected sealed override bool ReplayHistory(ReplayHistoryData replayData) {
@@ -243,7 +260,7 @@ public abstract class RasmCommand<TSelf, TState> : Command
                 None: static () => false)))
             .Match(
                 Succ: static accepted => accepted,
-                Fail: error => { RhinoApp.WriteLine(message: error.Message); return false; });
+                Fail: static error => CommandFaults.Refused(error: error, native: false));
     }
 }
 ```
@@ -284,7 +301,7 @@ public abstract partial record CommandAnswer {
     public sealed record Id(Option<Guid> Value) : CommandAnswer;
     public sealed record NameValue(Option<string> Value) : CommandAnswer;
     public sealed record NameSet(Seq<string> Value) : CommandAnswer;
-    public sealed record RecentSet(Seq<MostRecentCommandDescription> Value) : CommandAnswer;
+    public sealed record RecentSet(Seq<RecentCommand> Value) : CommandAnswer;
     public sealed record StackSet(Seq<Guid> Value) : CommandAnswer;
     public sealed record Activity(bool InCommand, bool InScript) : CommandAnswer;
     public sealed record PromptValue(string Value) : CommandAnswer;
@@ -303,9 +320,10 @@ public abstract partial record CommandFact {
 public sealed record CommandEvent(Guid Id, string English, string Local, string Help, string Plugin, CommandVerdict Verdict, uint DocumentSerial);
 public sealed record UndoEvent(uint DocumentSerial, Guid CommandId, uint UndoSerial, UndoMoment Moment);
 public sealed record PromptEvent(string Prompt, string Default, Seq<CommandOptionEvent> Options);
+public sealed record RecentCommand(string Display, string Macro);
 public sealed record CommandOptionEvent(
     int Index,
-    CommandLineOptionType Type,
+    OptionKind Kind,
     string English,
     string Local,
     string Value,
@@ -440,14 +458,17 @@ public sealed partial class CommandPulse {
         new CommandFact.PromptChanged(Value: new PromptEvent(
             Prompt: args.Prompt,
             Default: args.PromptDefault,
-            Options: toSeq(args.Options ?? []).Map(option => new CommandOptionEvent(
-                Index: option.Index,
-                Type: option.OptionType,
-                English: option.EnglishName,
-                Local: option.LocalName,
-                Value: option.StringOptionValue,
-                ListIndex: option.CurrentListOptionIndex,
-                Toggle: Optional(option.CurrentToggleValue)))));
+            Options: toSeq(args.Options ?? []).Choose(option => OptionKind
+                .Of(native: option.OptionType, key: Op.Of(name: nameof(CommandOptionEvent)))
+                .ToOption()
+                .Map(kind => new CommandOptionEvent(
+                    Index: option.Index,
+                    Kind: kind,
+                    English: option.EnglishName,
+                    Local: option.LocalName,
+                    Value: option.StringOptionValue,
+                    ListIndex: option.CurrentListOptionIndex,
+                    Toggle: Optional(option.CurrentToggleValue))))));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -463,7 +484,8 @@ public static class CommandRegistry {
                 commandId: ask.Id, englishName: ask.Language.IsEnglish)).Filter(static value => value.Length > 0)),
             names: static ask => new CommandAnswer.NameSet(Value: toSeq(Command.GetCommandNames(
                 english: ask.Language.IsEnglish, loaded: ask.Roster.IsLoaded))),
-            recent: static _ => new CommandAnswer.RecentSet(Value: toSeq(Command.GetMostRecentCommands())),
+            recent: static _ => new CommandAnswer.RecentSet(Value: toSeq(Command.GetMostRecentCommands())
+                .Map(static row => new RecentCommand(Display: row.DisplayString, Macro: row.Macro))),
             stack: static _ => new CommandAnswer.StackSet(Value: toSeq(Command.GetCommandStack())),
             state: static _ => new CommandAnswer.Activity(InCommand: Command.InCommand(), InScript: Command.InScriptRunnerCommand()),
             prompt: static _ => new CommandAnswer.PromptValue(Value: RhinoApp.CommandPrompt))));
@@ -473,7 +495,7 @@ public static class CommandRegistry {
 
 ## [05]-[SCRIPT]
 
-`Scripting.Run` targets the admitted session document and preserves the native terminal. `Scripting.Proxy` dispatches one delegate-backed proxy inside the same document and thread grant. Script text, echo, and MRU display are case evidence; named dispatch validates registry membership before execution.
+`Scripting.Run` targets the admitted session document and preserves the native terminal. `Scripting.Proxy` dispatches one proxy inside the same document and thread grant: the caller supplies a typed body over the admitted `DocumentSession`, the re-closed `SessionMode`, and its own payload type, and the host `RunCommandDelegate`, `RhinoDoc`, `RunMode`, and `object data` stay inside the adapter. Script text, echo, and MRU display are case evidence; named dispatch validates registry membership before execution.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -513,21 +535,26 @@ public static class Scripting {
                select verdict;
     }
 
-    public static Fin<Unit> Proxy(
+    public static Fin<Unit> Proxy<TPayload>(
         DocumentSession session,
-        Command.RunCommandDelegate callback,
-        object data) {
+        Func<DocumentSession, SessionMode, TPayload, Fin<CommandVerdict>> body,
+        TPayload payload)
+        where TPayload : notnull {
         Op op = Op.Of();
         return from target in Optional(session).ToFin(Fail: op.InvalidInput())
-               from admittedCallback in Optional(callback).ToFin(Fail: op.InvalidInput())
-               from admittedData in Optional(data).ToFin(Fail: op.InvalidInput())
+               from run in Optional(body).ToFin(Fail: op.InvalidInput())
+               from data in Optional(payload).ToFin(Fail: op.InvalidInput())
                from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
                from dispatched in target.Demand(
                    use: document => op.Catch(() => {
                        Command.RunProxyCommand(
-                           commandCallback: admittedCallback,
+                           commandCallback: (_, mode, _) => SessionMode.OfRunMode(mode: mode, key: op)
+                               .Bind(lane => run(arg1: target, arg2: lane, arg3: data))
+                               .Match(
+                                   Succ: static verdict => verdict.Native,
+                                   Fail: static error => CommandFaults.Refused(error: error, native: Result.Failure)),
                            doc: document,
-                           data: admittedData);
+                           data: data);
                        return Fin.Succ(unit);
                    }),
                    key: op,

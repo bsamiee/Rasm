@@ -1,6 +1,6 @@
 # [MATERIALS_OBSERVABILITY]
 
-MATERIALS signal evidence starts with the closed `MaterialsFact` family: `MaterialsHooks` composes the kernel signal capsule into the folder's point rail, `MaterialsInstruments` projects the fact stream onto `rasm.materials.<domain>.<measure>` instruments as a rail subscriber, `MaterialsLog` and `MaterialsLatency` carry the fixed-severity fault projection and the checkpoint ledger, and `MaterialsDescriptors` binds the folder's board pack over that roster.
+MATERIALS signal evidence starts with the closed `MaterialsFact` family: `MaterialsHooks` composes the kernel signal capsule into the folder's point rail, `MaterialsInstruments` projects the fact stream onto `rasm.materials.<domain>.<measure>` instruments as a rail subscriber, `MaterialsLog` carries the fixed-severity fault projection beside the `LatencyPhase`/`LatencyMeasure` vocabularies `MaterialsLatency` contributes as one checkpoint, measure, and pivot roster, and `MaterialsDescriptors` binds the folder's board pack over that roster.
 
 Settled composition draws every mechanism from the kernel signal capsule — hook capsule, instrument capsule with its bucket advice and level cells, package-identity band, tenancy frame, and SLO algebra with its board-pack carrier; each fence prelude names the exact rows it binds, and fact payloads compose Component, Appearance, Properties, and seam receipts. Instrument names run dotted `rasm.materials.<domain>.<measure>` with UCUM units under the `TelemetrySource.Materials` scope the composing app admits by name, every work row carrying the kernel `rasm.tenant` partition.
 
@@ -9,18 +9,18 @@ Settled composition draws every mechanism from the kernel signal capsule — hoo
 - [02]-[FACT_FAMILY]: `MaterialsFact` closes the evidence union.
 - [03]-[HOOK_RAIL]: `MaterialsPoint` closes the point vocabulary on its kernel `Modality` column and `MaterialsHooks` composes that roster over the kernel capsule.
 - [04]-[INSTRUMENT_TAP]: `MaterialsInstruments` mounts the roster, the level bindings, the contributor port, and the rail projection.
-- [05]-[EVIDENCE_RECORDS]: `MaterialsLog` and `MaterialsLatency` carry the fixed-severity projection and the checkpoint ledger.
+- [05]-[EVIDENCE_RECORDS]: `MaterialsLog` carries the fixed-severity projection, `LatencyPhase` and `LatencyMeasure` close the bracket and quantity vocabularies over their `LatencyWrite` laws, and `MaterialsLatency` derives the contributed three-axis roster from them.
 - [06]-[BOARD_PACK]: `MaterialsDescriptors` binds the kernel pack over that roster.
 
 ## [02]-[FACT_FAMILY]
 
 - Owner: `MaterialsFact` — the closed evidence union every tap fires and every projection folds.
-- Cases: `CatalogueAdmit` (the row a veto gate may transform or refuse pre-freeze), `SectionSolve` (profile case, solved section, wall duration), `CapacityCheck` (the lifted `CapacityReceipt`, the `Utilisation` verdict, wall duration), `GraphCompile` (material, ordered node count, wall duration), `AcquisitionFit` (the measured `Provenance` receipt, wall duration), `WireMint` (material, `WireProvenance` receipt), `ProjectionGate` (the `GraphDelta` a veto may refuse pre-merge), `TexturePress` (the lifted `PressReceipt` and the material it baked for), `PlaneCodec` (container row, direction, stored bytes, wall duration), `StageInfer` (the issued `StageRequest` and the lifted `StageResult` — the request rides so the tap can see a provider DEGRADATION, which the result alone cannot show, and it already carries the grant class, so a second licence column would be two carriers for one value), `EnvironmentPrefilter` (light key, sky model, level count, wall duration).
+- Cases: `CatalogueAdmit` (the row a veto gate transforms or refuses pre-freeze), `SectionSolve` (profile case, solved section, wall duration), `CapacityCheck` (the lifted `CapacityReceipt`, the `Utilisation` verdict, wall duration), `GraphCompile` (material, ordered node count, wall duration), `AcquisitionFit` (the measured `Provenance` receipt, wall duration), `WireMint` (material, `WireProvenance` receipt), `ProjectionGate` (the `GraphDelta` a veto refuses or admits pre-merge), `TexturePress` (the lifted `PressReceipt` and the material it baked for), `TileSynth` (strategy, guide channel, and the lifted `TileReceipt` — the guide rides beside the receipt for the reason `StageInfer` carries its request: a refused grade names the channel it graded), `SetIngest` (the claimed-stem census, the typed refusal rows, and the resolved convention — the three columns `SetManifest` already carries), `PlaneCodec` (container row, direction, stored bytes, wall duration), `StageInfer` (the issued `StageRequest` and the lifted `StageResult` — the request rides so the tap can see a provider DEGRADATION, which the result alone cannot show, and it already carries the grant class, so a second licence column is two carriers for one value), `EnvironmentPrefilter` (light key, sky model, level count, wall duration).
 - Entry: each composition-root decorator fires one case after the owning entrypoint settles; veto cases fire before catalogue freeze or graph merge.
 - Auto: elapsed columns derive from one injected clock at the decorator boundary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new evidence shape is one `MaterialsFact` case, one point row at `[03]`, and one projection arm at `[04]`.
-- Boundary: facts carry receipts the owning pages already mint — `CapacityReceipt`, `Provenance`, `WireProvenance`, `ComputedSection`, `PressReceipt`, `StageResult` — and never re-derive their scalars, so a bake's texel census, backend, and elapsed millisecond come off the press's own receipt and an inference's provider, partition count, and golden residual off the executor's own result rather than off a second measurement this tap keeps honest. `PlaneCodec` and `EnvironmentPrefilter` own no receipt, so each carries the four columns its arm reads and nothing more.
+- Boundary: facts carry receipts the owning pages already mint — `CapacityReceipt`, `Provenance`, `WireProvenance`, `ComputedSection`, `PressReceipt`, `TileReceipt`, `StageResult` — and never re-derive their scalars, so a bake's texel census, backend, and elapsed millisecond come off the press's own receipt, a tiling run's two independent signals off the gate's own score, and an inference's provider, partition count, and golden residual off the executor's own result rather than off a second measurement this tap keeps honest. `PlaneCodec` and `EnvironmentPrefilter` own no receipt, so each carries the four columns its arm reads and nothing more. `SetIngest` carries the manifest's own three columns because `SetManifest` is an accumulating monoid rather than a receipt, and its refusal rows cross TYPED, since a formatted token keys a counter on file stems and hands the roster an unbounded dimension it cannot close.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -32,7 +32,8 @@ using Rasm.Element.Graph;                       // GraphDelta
 using Rasm.Materials.Appearance;                // Provenance
 using Rasm.Materials.Appearance.Interchange;    // WireProvenance
 using Rasm.Materials.Component;                 // ComponentRow, ComputedSection, CapacityReceipt, Utilisation
-using Rasm.Materials.Raster;                    // PressReceipt, RasterFormat — the bake and container receipts the texture facts lift
+using Rasm.Materials.Raster;                    // PressReceipt, RasterFormat, TileReceipt, TileStrategy, TextureChannel,
+                                                // IngestRefusal, NormalConvention — the bake, tiling, and ingest vocabularies the texture facts lift
 // Rasm.Materials.Appearance already in scope: StageRequest, StageResult, LicenseClass — the inference request, result, and grant class
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -58,6 +59,8 @@ public abstract partial record MaterialsFact {
     // arithmetic. Encoded is the binary direction axis the [04] arm publishes as its own two dimension values, the same
     // shape the adequacy verdict already takes.
     public sealed record TexturePress(Op Key, Option<MaterialId> Material, PressReceipt Receipt) : MaterialsFact;
+    public sealed record TileSynth(Op Key, TileStrategy Strategy, TextureChannel Guide, TileReceipt Receipt) : MaterialsFact;
+    public sealed record SetIngest(Op Key, int Claimed, Seq<(IngestRefusal Reason, string Detail)> Unresolved, Option<NormalConvention> Convention) : MaterialsFact;
     public sealed record PlaneCodec(Op Key, RasterFormat Format, bool Encoded, long Bytes, Duration Elapsed) : MaterialsFact;
     public sealed record StageInfer(Op Key, StageRequest Request, StageResult Result) : MaterialsFact;
     public sealed record EnvironmentPrefilter(Op Key, string LightKey, string SkyModel, int SpecularMips, Duration Elapsed) : MaterialsFact;
@@ -67,7 +70,7 @@ public abstract partial record MaterialsFact {
 ## [03]-[HOOK_RAIL]
 
 - Owner: `MaterialsPoint` the `[SmartEnum<string>]` point vocabulary keyed `rasm.materials.<domain>.<point>` with the kernel `HookModality` column; `MaterialsHooks` the per-composition point roster composing the kernel capsule — one `HookPoint<TFact>` field per row, one shared `IsolatedFault` evidence cell, no process-global registry, since Materials holds no plugin-identity grant custody; every declared point carries a projection arm at `[04]`, so a point firing into nothing has no landing.
-- Cases: point roster rows — `rasm.materials.catalogue.admit` veto (`CatalogueAdmit`), `rasm.materials.section.solve` observe (`SectionSolve`), `rasm.materials.capacity.check` observe (`CapacityCheck`), `rasm.materials.graph.compile` observe (`GraphCompile`), `rasm.materials.acquisition.fit` replay (`AcquisitionFit`), `rasm.materials.wire.mint` observe (`WireMint`), `rasm.materials.projection.project` veto (`ProjectionGate`), `rasm.materials.texture.press` observe (`TexturePress`), `rasm.materials.texture.codec` observe (`PlaneCodec`), `rasm.materials.neural.infer` replay (`StageInfer`), `rasm.materials.environment.prefilter` observe (`EnvironmentPrefilter`). `rasm.materials.neural.infer` takes REPLAY for the reason `rasm.materials.acquisition.fit` does: both settle a costly external computation whose evidence a later run re-reads rather than re-earns.
+- Cases: point roster rows — `rasm.materials.catalogue.admit` veto (`CatalogueAdmit`), `rasm.materials.section.solve` observe (`SectionSolve`), `rasm.materials.capacity.check` observe (`CapacityCheck`), `rasm.materials.graph.compile` observe (`GraphCompile`), `rasm.materials.acquisition.fit` replay (`AcquisitionFit`), `rasm.materials.wire.mint` observe (`WireMint`), `rasm.materials.projection.project` veto (`ProjectionGate`), `rasm.materials.texture.press` observe (`TexturePress`), `rasm.materials.texture.tile` observe (`TileSynth`), `rasm.materials.texture.ingest` observe (`SetIngest`), `rasm.materials.texture.codec` observe (`PlaneCodec`), `rasm.materials.neural.infer` replay (`StageInfer`), `rasm.materials.environment.prefilter` observe (`EnvironmentPrefilter`). `rasm.materials.neural.infer` takes REPLAY for the reason `rasm.materials.acquisition.fit` does: both settle a costly external computation whose evidence a later run re-reads rather than re-earns.
 - Entry: `MaterialsHooks.Live()` mints the roster once at composition by seating one kernel point per `MaterialsPoint` row; a decorator fires its declared point value, so a name-resolved lookup surface never exists; `Points` hands the point set to `HookRegistry.Mount` at the app root; the capsule's `Veto`/`Observe`/`Drain` are the subscriber entries.
 - Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new point is one `MaterialsPoint` row, one `MaterialsHooks` field with its `Live()` seat and `Points` entry, and one `MaterialsFact` case; delivery semantics are the kernel modality rows.
@@ -98,6 +101,8 @@ public sealed partial class MaterialsPoint {
     public static readonly MaterialsPoint WireMint = new("rasm.materials.wire.mint", modality: HookModality.Observe);
     public static readonly MaterialsPoint ProjectionGate = new("rasm.materials.projection.project", modality: HookModality.Veto);
     public static readonly MaterialsPoint TexturePress = new("rasm.materials.texture.press", modality: HookModality.Observe);
+    public static readonly MaterialsPoint TileSynth = new("rasm.materials.texture.tile", modality: HookModality.Observe);
+    public static readonly MaterialsPoint SetIngest = new("rasm.materials.texture.ingest", modality: HookModality.Observe);
     public static readonly MaterialsPoint PlaneCodec = new("rasm.materials.texture.codec", modality: HookModality.Observe);
     public static readonly MaterialsPoint StageInfer = new("rasm.materials.neural.infer", modality: HookModality.Replay);
     public static readonly MaterialsPoint EnvironmentPrefilter = new("rasm.materials.environment.prefilter", modality: HookModality.Observe);
@@ -115,6 +120,8 @@ public sealed record MaterialsHooks(
     HookPoint<MaterialsFact.WireMint> WireMint,
     HookPoint<MaterialsFact.ProjectionGate> ProjectionGate,
     HookPoint<MaterialsFact.TexturePress> TexturePress,
+    HookPoint<MaterialsFact.TileSynth> TileSynth,
+    HookPoint<MaterialsFact.SetIngest> SetIngest,
     HookPoint<MaterialsFact.PlaneCodec> PlaneCodec,
     HookPoint<MaterialsFact.StageInfer> StageInfer,
     HookPoint<MaterialsFact.EnvironmentPrefilter> EnvironmentPrefilter,
@@ -130,6 +137,8 @@ public sealed record MaterialsHooks(
             Seat<MaterialsFact.WireMint>(MaterialsPoint.WireMint, faults),
             Seat<MaterialsFact.ProjectionGate>(MaterialsPoint.ProjectionGate, faults),
             Seat<MaterialsFact.TexturePress>(MaterialsPoint.TexturePress, faults),
+            Seat<MaterialsFact.TileSynth>(MaterialsPoint.TileSynth, faults),
+            Seat<MaterialsFact.SetIngest>(MaterialsPoint.SetIngest, faults),
             Seat<MaterialsFact.PlaneCodec>(MaterialsPoint.PlaneCodec, faults),
             Seat<MaterialsFact.StageInfer>(MaterialsPoint.StageInfer, faults),
             Seat<MaterialsFact.EnvironmentPrefilter>(MaterialsPoint.EnvironmentPrefilter, faults),
@@ -140,7 +149,7 @@ public sealed record MaterialsHooks(
     // beside every sibling roster — duplicate ids across the whole composition are structurally fatal there.
     public Seq<IHookPoint> Points => Seq<IHookPoint>(
         CatalogueAdmit, SectionSolve, CapacityCheck, GraphCompile, AcquisitionFit, WireMint, ProjectionGate,
-        TexturePress, PlaneCodec, StageInfer, EnvironmentPrefilter);
+        TexturePress, TileSynth, SetIngest, PlaneCodec, StageInfer, EnvironmentPrefilter);
 
     private static HookPoint<TFact> Seat<TFact>(MaterialsPoint row, Atom<Seq<IsolatedFault>> faults) =>
         new(id: HookId.Create(value: row.Key), modality: row.Modality, faults: faults);
@@ -150,12 +159,12 @@ public sealed record MaterialsHooks(
 ## [04]-[INSTRUMENT_TAP]
 
 - Owner: `MaterialsInstruments` — the `rasm.materials.*` `InstrumentSpec` roster, the contributor port, and the rail-subscribed projection; the roster is composition-free data, so one declaration binds against any meter and any cells.
-- Cases: catalogue admissions by family off `CatalogueAdmit`; solve counts and duration off `SectionSolve`; capacity checks by adequacy verdict and governing utilisation off `CapacityCheck`; compile node census and duration off `GraphCompile`; fits by parameter-rank verdict and the residual off `AcquisitionFit`; wire mints by capture method off `WireMint`; projection admissions off `ProjectionGate`; press runs, texels, and duration by backend off `TexturePress`; plane bytes and codec duration by container and direction off `PlaneCodec`; inference runs, partitions, and golden residual by stage, provider, licence, and fidelity off `StageInfer`; prefilter runs and duration by sky model off `EnvironmentPrefilter`; catalogue and library row levels off composition-bound readers; fault counts off the rail's `IsolatedFault` cell banded by kernel category.
+- Cases: catalogue admissions by family off `CatalogueAdmit`; solve counts and duration off `SectionSolve`; capacity checks by adequacy verdict and governing utilisation off `CapacityCheck`; compile node census and duration off `GraphCompile`; fits by parameter-rank verdict and the residual off `AcquisitionFit`; wire mints by capture method off `WireMint`; projection admissions off `ProjectionGate`; press runs, texels, duration, downgraded channels, faulted texels, and the gated GPU divergence by backend and channel off `TexturePress`; tiling runs by strategy, guide channel, and grade verdict with the three-component tileability signal and the synthesis duration off `TileSynth`; ingested stems by classification verdict and typed refusal reason off `SetIngest`; plane bytes and codec duration by container and direction off `PlaneCodec`; inference runs, partitions, and golden residual by stage, provider, licence, and fidelity off `StageInfer`; prefilter runs and duration by sky model off `EnvironmentPrefilter`; catalogue and library row levels off composition-bound readers; fault counts off the rail's `IsolatedFault` cell banded by kernel category.
 - Entry: `MaterialsInstruments.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the one contributor port, carrying the `[06]` board pack beside these rows so board and reliability policy travel downward with the roster they name; `MaterialsInstruments.Tap(MaterialsHooks hooks, InstrumentSet set, params ReadOnlySpan<(string Name, Func<double> Read)> levels)` binds the pulled readers and mounts the observe subscriptions at composition, so create and write calls live only inside this spine.
 - Auto: every histogram row binds its named kernel `Buckets` row as the explicit-bucket fallback under the base2-exponential wire default, so no bound array is spelled here; every dimension key is a declared slot const carried on its own row's `Dimensions` column, so the governance leg derives view tag keys from the mounted roster rather than a second table; every write materializes its tag set through the kernel `InstrumentSet.Tags` entry, which folds the ambient `TenantContext` partition in beside the arm's own slots, so a partitioned host attributes every work row and a single-tenant one mints no dimension at all; each share indicator's outcome verdict rides the same write that counts the occurrence, so a good half can never miss an occurrence its denominator recorded and no second counter carries the numerator; a supplied reader binds through its own row's declared `MeasureForm`, so one supply shape serves a whole-count population and a real-valued level.
 - Packages: Rasm, LanguageExt.Core, BCL inbox (`System.Diagnostics.Metrics`).
-- Growth: a histogram policy change is one kernel `Buckets` row reference; a new instrument is one `InstrumentSpec` row and one tap arm carrying its own UCUM unit string — `{texel}`, `By`, `{partition}`, `{inference}` — so a magnitude states what it counts and a board never infers a scale from an instrument name; a new pulled level is one `Level` row and one reader at the call site, never a signature edit.
-- Boundary: throughput rides MONOTONE COUNTERS in UCUM units and latency rides the histograms — a bake spans four orders of magnitude between a preview and a production plane, so a bucket ladder over texel or byte volume grades nothing while the counter's own derivative is exactly the rate a board reads. `MaterialId` and the solved `ComputedSection` stay fact evidence with no arm — material identity is identifier-grade and belongs on spans and typed receipts, never on a metric series, and a solved section's column set is receipt truth the owning page already mints; tenancy is the kernel `TenantContext` projection every work-row write folds and every work row declares, so this page holds no tenant key, no baggage read, and no zero sentinel, while the two pulled population rows stay untenanted because a scalar level carries no call-site tag and a frozen catalogue is process-scoped reference data no tenant owns; every projection arm returns the kernel write rail and subscribes through the capsule's rail-shaped `Observe`, so a refused write parks as `IsolatedFault` beside every other tap fault and no folder-local lift aspect exists; level readers are composition-supplied and bound through the kernel `LevelCells`, so app-scoped isolation holds by construction; `Tap` proves the supply a bijection against the roster's own `Pulled` column — a name outside the pulled rows refuses, a pulled row with no reader refuses, and a name supplied twice refuses before its second bind shadows the first — so a population gauge reads the live catalogue and a cell nobody writes has no construction path; a whole-number level crosses the domain gate its cell declares, so a non-finite or out-of-range reading refuses rather than casting to an undefined value the series carries as a population; live facts and replay envelopes remain mutually exclusive evidence paths at the composition root; instrument custody stays the composing app's — this spine binds and subscribes against a mounted `InstrumentSet` and mints no meter, so the fan that materializes the port is the one creation site.
+- Growth: a histogram policy change is one kernel `Buckets` row reference; a new instrument is one `InstrumentSpec` row and one tap arm carrying its own UCUM unit string — `{texel}`, `By`, `{partition}`, `{inference}`, `{tile}`, `{stem}`, `{channel}` — so a magnitude states what it counts and a board never infers a scale from an instrument name; a new tileability signal is one `ScoreComponents` row and no arm edit at all; a new pulled level is one `Level` row and one reader at the call site, never a signature edit.
+- Boundary: throughput rides MONOTONE COUNTERS in UCUM units and latency rides the histograms — a bake spans four orders of magnitude between a preview and a production plane, so a bucket ladder over texel or byte volume grades nothing while the counter's own derivative is exactly the rate a board reads. `MaterialId` and the solved `ComputedSection` stay fact evidence with no arm — material identity is identifier-grade and belongs on spans and typed receipts, never on a metric series, and a solved section's column set is receipt truth the owning page already mints; tenancy is the kernel `TenantContext` projection every work-row write folds and every work row declares, so this page holds no tenant key, no baggage read, and no zero sentinel, while the two pulled population rows stay untenanted because a scalar level carries no call-site tag and a frozen catalogue is process-scoped reference data no tenant owns; every projection arm returns the kernel write rail and subscribes through the capsule's rail-shaped `Observe`, so a refused write parks as `IsolatedFault` beside every other tap fault and no folder-local lift aspect exists; level readers are composition-supplied and bound through the kernel `LevelCells`, so app-scoped isolation holds by construction; `Tap` proves the supply a bijection against the roster's own `Pulled` column — a name outside the pulled rows refuses, a pulled row with no reader refuses, and a name supplied twice refuses before its second bind shadows the first — so a population gauge reads the live catalogue and a cell nobody writes has no construction path; a whole-number level crosses the domain gate its cell declares, so a non-finite or out-of-range reading refuses rather than casting to an undefined value the series carries as a population; a REFUSAL is counted and never measured — an unmeasured run enters its counter's own verdict partition while every histogram gates on the evidence that proves a measurement was taken (a finite seam ratio, a present parity delta), because a sentinel admitted into a distribution reads to a board as the best value in it; live facts and replay envelopes remain mutually exclusive evidence paths at the composition root; instrument custody stays the composing app's — this spine binds and subscribes against a mounted `InstrumentSet` and mints no meter, so the fan that materializes the port is the one creation site.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -164,6 +173,7 @@ using Rasm.Domain;                              // Buckets, Fault, HookDetacher,
                                                 // InstrumentSpec, IsolatedFault, KernelInstruments, MeasureForm,
                                                 // TelemetryContributorPort, TelemetryIdentity, TelemetrySource,
                                                 // TenantContext, FaultExtensions extension property Category
+using Rasm.Materials.Raster;                    // TileScore, IngestRefusal — the two fanned dimensions this tap reads
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Projection;
@@ -178,6 +188,15 @@ public static class MaterialsInstruments {
     public const string RankSlot = "rasm.materials.acquisition.rank";
     public const string MethodSlot = "rasm.materials.capture.method";
     public const string BackendSlot = "rasm.materials.press.backend";
+    public const string AxisSlot = "rasm.materials.press.axis";
+    // ONE texture-channel dimension across every texture row that names a channel — the tiling guide the gate
+    // graded and the press channel that degraded are one axis under one key, so a board joins a tile verdict to
+    // a press downgrade on the channel column; a second guide-named key forks that join the day either moves.
+    public const string ChannelSlot = "rasm.materials.texture.channel";
+    public const string VerdictSlot = "rasm.materials.texture.verdict";
+    public const string StrategySlot = "rasm.materials.tile.strategy";
+    public const string ComponentSlot = "rasm.materials.tile.component";
+    public const string ReasonSlot = "rasm.materials.ingest.reason";
     public const string ContainerSlot = "rasm.materials.plane.container";
     public const string DirectionSlot = "rasm.materials.plane.direction";
     public const string StageSlot = "rasm.materials.neural.stage";
@@ -197,6 +216,10 @@ public static class MaterialsInstruments {
     public const string Decode = "decode";
     public const string Honoured = "honoured";
     public const string Degraded = "degraded";
+    public const string Graded = "graded";
+    public const string Refused = "refused";
+    public const string Claimed = "claimed";
+    public const string Unresolved = "unresolved";
 
     public const string CatalogueAdmits = "rasm.materials.catalogue.admits";
     public const string CatalogueRows = "rasm.materials.catalogue.rows";
@@ -214,6 +237,14 @@ public static class MaterialsInstruments {
     public const string PressRuns = "rasm.materials.texture.presses";
     public const string PressTexels = "rasm.materials.texture.texels";
     public const string PressDuration = "rasm.materials.texture.press.duration";
+    public const string PressDowngraded = "rasm.materials.texture.press.downgraded";
+    public const string PressFaulted = "rasm.materials.texture.press.faulted";
+    public const string PressGpuDelta = "rasm.materials.texture.press.gpu.delta";
+    public const string PressAgeCoverage = "rasm.materials.texture.press.aging.coverage";
+    public const string TileRuns = "rasm.materials.texture.tiles";
+    public const string TileScore = "rasm.materials.texture.tile.score";
+    public const string TileDuration = "rasm.materials.texture.tile.duration";
+    public const string IngestStems = "rasm.materials.texture.ingest.stems";
     public const string PlaneBytes = "rasm.materials.texture.plane.bytes";
     public const string CodecDuration = "rasm.materials.texture.codec.duration";
     public const string InferRuns = "rasm.materials.neural.infers";
@@ -259,6 +290,29 @@ public static class MaterialsInstruments {
         // and a 16k production plane runs past the 60 s objective, so the 2 s-ceiling compile ladder and the
         // 250 ms-ceiling solve ladder both saturate their top bucket exactly where the distribution matters.
         InstrumentSpec.Advised(PressDuration, "s", "texture press wall duration by backend", MeasureForm.Real, Buckets.DecodeSeconds, TenantContext.TenantSlot, BackendSlot),
+        // Channel keys the two quality decisions the press makes silently, so an operator reads which plane
+        // degraded rather than that something did. Faulted counts TEXELS off the per-channel tally the receipt
+        // carries, since a channel count grades a one-texel fault and a whole-plane fault as one event.
+        // GpuDeltaMax is ABSENT for a single-lane press, so its histogram arm gates on presence and an
+        // unconditional write publishes a perfect parity match no lane measured.
+        InstrumentSpec.Count(PressDowngraded, "{channel}", "channels whose paired mip policy fell back to the box floor, by backend and channel", MeasureForm.Whole, TenantContext.TenantSlot, BackendSlot, ChannelSlot),
+        InstrumentSpec.Count(PressFaulted, "{texel}", "texels neutral-filled by a failed band kernel, by backend and channel", MeasureForm.Whole, TenantContext.TenantSlot, BackendSlot, ChannelSlot),
+        InstrumentSpec.Advised(PressGpuDelta, "1", "worst per-channel CPU-versus-GPU divergence on a two-lane press, by backend", MeasureForm.Real, Buckets.ResidualDecades, TenantContext.TenantSlot, BackendSlot),
+        // Aging coverage is ABSENT for every non-Aged program, so the arm gates on presence exactly as the gpu
+        // delta does; the value is visited-over-declared per ladder axis, and an under-exercised dimension reads
+        // as a share below one rather than as a silent re-press question.
+        InstrumentSpec.Advised(PressAgeCoverage, "1", "ladder rungs visited over rungs declared, by backend and ladder axis", MeasureForm.Real, Buckets.ResidualDecades, TenantContext.TenantSlot, BackendSlot, AxisSlot),
+        // Tileability is TWO independent measurements against one verdict, so the signal fans on a COMPONENT
+        // dimension rather than publishing the product alone: a seam ratio alone passes a blurred border and a
+        // lattice leak alone passes a sharp-but-quiet seam, and an operator told only that a tiling failed cannot
+        // read which half failed. The counter partitions every run; only a graded run reaches the histogram.
+        InstrumentSpec.Count(TileRuns, "{tile}", "tiling runs settled by strategy, guide channel, and grade verdict", MeasureForm.Whole, TenantContext.TenantSlot, StrategySlot, ChannelSlot, VerdictSlot),
+        InstrumentSpec.Advised(TileScore, "1", "tileability signal by strategy and score component", MeasureForm.Real, Buckets.ResidualDecades, TenantContext.TenantSlot, StrategySlot, ComponentSlot),
+        InstrumentSpec.Advised(TileDuration, "s", "tiling synthesis wall duration by strategy", MeasureForm.Real, Buckets.DecodeSeconds, TenantContext.TenantSlot, StrategySlot),
+        // Refusal reasons cross as BOUNDED rows rather than the formatted token the manifest once carried, so one
+        // series answers both operator questions an asset-library ingest raises — how much of a vendor set this
+        // estate's alias table claims, and why the remainder did not classify.
+        InstrumentSpec.Count(IngestStems, "{stem}", "ingested plane stems by classification verdict and refusal reason", MeasureForm.Whole, TenantContext.TenantSlot, VerdictSlot, ReasonSlot),
         InstrumentSpec.Count(PlaneBytes, "By", "plane bytes encoded or decoded by container and direction", MeasureForm.Whole, TenantContext.TenantSlot, ContainerSlot, DirectionSlot),
         InstrumentSpec.Advised(CodecDuration, "s", "plane codec wall duration by container and direction", MeasureForm.Real, Buckets.DecodeSeconds, TenantContext.TenantSlot, ContainerSlot, DirectionSlot),
         // Licence rides the inference POPULATION because a fleet operator's first question about a model estate is
@@ -329,6 +383,14 @@ public static class MaterialsInstruments {
     // tenancy partition — empty on the root row, so a single-tenant composition mints no `rasm.tenant` entry
     // and a partitioned one stamps it on every work row uniformly. A hand-spelled `KeyValuePair` array beside
     // it re-mints the one materialization the capsule owns and drops the partition on the arm that forgets it.
+    // Tileability components fan ONE histogram off one row table rather than three named writes: the score's own
+    // column set is the dimension, so a fourth signal lands as a row here and no arm grows an arm.
+    static readonly Seq<(Func<TileScore, double> Read, string Value)> ScoreComponents =
+        Seq<(Func<TileScore, double>, string)>(
+            (static score => score.SeamRatio, "seam"),
+            (static score => score.LatticeLeak, "lattice"),
+            (static score => score.Value, "value"));
+
     static Seq<IDisposable> Mounted(MaterialsHooks hooks, InstrumentSet set) {
         // Re-parking a refused fault-count write on the rail cell would re-enter this handler, so the refusal is
         // discarded here and nowhere else on the page.
@@ -350,7 +412,7 @@ public static class MaterialsInstruments {
                 KeyValuePair<string, object?>[] scope = InstrumentSet.Tags(TenantContext.Current,
                     (KindSlot, fact.Receipt.Kind), (GoverningSlot, fact.Verdict.Governing.Key));
                 return set.Write(CapacityChecks, 1L, [.. scope, new(AdequacySlot, fact.Verdict.Adequate ? Adequate : Inadequate)])
-                    // Overcapacity carries no bounded ratio, so the verdict counts and records nothing; the capacity
+                    // Unbounded carries no bounded ratio, so the verdict counts and records nothing; the capacity
                     // owner projects which cases hold one, so this arm never re-enumerates its case set.
                     .Bind(_ => fact.Verdict.Ratio.Match(
                         Some: value => set.Write(CapacityUtilisation, value, scope),
@@ -372,14 +434,65 @@ public static class MaterialsInstruments {
             hooks.WireMint.Observe(fact =>
                 set.Write(WireMints, 1L, InstrumentSet.Tags(TenantContext.Current, (MethodSlot, fact.Receipt.Method)))),
             hooks.ProjectionGate.Observe(_ => set.Write(ProjectionAdmits, 1L, InstrumentSet.Tags(TenantContext.Current))),
-            // Backend keys all three press rows: a CPU-minted set and a GPU preview differ in what their bytes MEAN
+            // Backend keys every press row: a CPU-minted set and a GPU preview differ in what their bytes MEAN
             // (only the CPU lane is content-authoritative), so folding their throughput onto one series would grade
             // an accelerator's speed as if it were the estate's own bake rate.
             hooks.TexturePress.Observe(fact => {
                 KeyValuePair<string, object?>[] backend = InstrumentSet.Tags(TenantContext.Current, (BackendSlot, fact.Receipt.Backend.Key));
                 return set.Write(PressRuns, 1L, backend)
-                    .Bind(_ => set.Write(PressTexels, (long)Math.Min(fact.Receipt.Texels, long.MaxValue), backend))
-                    .Bind(_ => set.Write(PressDuration, fact.Receipt.ElapsedMs / 1000.0, backend));
+                    // Saturation rides the UNSIGNED minimum: `Math.Min` over a ulong and a long binds the double
+                    // overload, so a census past 2^53 rounds before it is ever counted.
+                    .Bind(_ => set.Write(PressTexels, (long)ulong.Min(fact.Receipt.Texels, (ulong)long.MaxValue), backend))
+                    .Bind(_ => set.Write(PressDuration, fact.Receipt.ElapsedMs / 1000.0, backend))
+                    .Bind(_ => fact.Receipt.Downgraded.TraverseM(channel =>
+                        set.Write(PressDowngraded, 1L, [.. backend, new(ChannelSlot, channel.Key)])).As())
+                    .Bind(_ => fact.Receipt.Faulted.ToSeq().TraverseM(row =>
+                        set.Write(PressFaulted, (long)ulong.Min(row.Value, (ulong)long.MaxValue),
+                            [.. backend, new(ChannelSlot, row.Key.Key)])).As())
+                    // GpuDeltaMax is a TYPED ABSENCE on a single-lane press, never a zero the parity gate would
+                    // read as a perfect match, so presence alone admits the write.
+                    .Bind(_ => fact.Receipt.GpuDeltaMax.Match(
+                        Some: delta => set.Write(PressGpuDelta, delta, backend),
+                        None: static () => Fin.Succ(unit)))
+                    // Aging rides the same typed-absence gate: only the Aged program mints a coverage census, and
+                    // each axis writes its own share so an unexercised cavity dimension is attributable by key.
+                    .Bind(_ => fact.Receipt.Aging.Match(
+                        Some: coverage => set.Write(PressAgeCoverage, coverage.AgeRungsVisited / (double)coverage.AgeRungs, [.. backend, new(AxisSlot, "age")])
+                            .Bind(_ => set.Write(PressAgeCoverage, coverage.CavityRungsVisited / (double)coverage.CavityRungs, [.. backend, new(AxisSlot, "cavity")])),
+                        None: static () => Fin.Succ(unit)));
+            }),
+            hooks.TileSynth.Observe(fact => {
+                KeyValuePair<string, object?>[] plan = InstrumentSet.Tags(TenantContext.Current,
+                    (StrategySlot, fact.Strategy.Key), (ChannelSlot, fact.Guide.Key));
+                // Verdict recovers STRUCTURALLY: `TileScore.Refused` alone spells a non-finite seam ratio, so the
+                // gate's own acceptance threshold never lands here as a literal a caller's `TilePolicy` re-tuning
+                // forks. Every run COUNTS and only a graded run MEASURES — a refusal carries a 0.0 product that is
+                // a sentinel, and a histogram admitting it reads one unmeasured run as perfect tileability.
+                // Duration measures on both halves, so it writes on both.
+                bool graded = double.IsFinite(fact.Receipt.Score.SeamRatio);
+                return set.Write(TileRuns, 1L, [.. plan, new(VerdictSlot, graded ? Graded : Refused)])
+                    .Bind(_ => set.Write(TileDuration, fact.Receipt.ElapsedMs / 1000.0,
+                        InstrumentSet.Tags(TenantContext.Current, (StrategySlot, fact.Strategy.Key))))
+                    .Bind(_ => graded
+                        ? ScoreComponents.TraverseM(row => set.Write(TileScore, row.Read(fact.Receipt.Score),
+                            [.. plan, new(ComponentSlot, row.Value)])).As().Map(static _ => unit)
+                        : Fin.Succ(unit));
+            }),
+            hooks.SetIngest.Observe(fact => {
+                KeyValuePair<string, object?>[] partition = InstrumentSet.Tags(TenantContext.Current);
+                // Claimed stems carry the EMPTY reason the SkySlot precedent already established, since a
+                // synthesized "none" value mints a second vocabulary this arm keeps aligned with the refusal
+                // roster forever. Refusals fold to ONE write per reason carrying its own tally, so a vendor
+                // library dropping four hundred stems for one cause is four hundred on one series point.
+                return set.Write(IngestStems, fact.Claimed,
+                        [.. partition, new(VerdictSlot, Claimed), new(ReasonSlot, string.Empty)])
+                    .Bind(_ => fact.Unresolved
+                        .Fold(HashMap<IngestRefusal, long>.Empty, static (tally, row) =>
+                            tally.AddOrUpdate(row.Reason, static held => held + 1L, 1L))
+                        .ToSeq()
+                        .TraverseM(row => set.Write(IngestStems, row.Value,
+                            [.. partition, new(VerdictSlot, Unresolved), new(ReasonSlot, row.Key.Key)])).As()
+                        .Map(static _ => unit));
             }),
             hooks.PlaneCodec.Observe(fact => {
                 KeyValuePair<string, object?>[] container = InstrumentSet.Tags(TenantContext.Current,
@@ -399,7 +512,10 @@ public static class MaterialsInstruments {
                         new(LicenceSlot, fact.Request.LicenseClass.Key),
                         new(FidelitySlot, fact.Result.ProviderUsed == fact.Request.Provider ? Honoured : Degraded)])
                     .Bind(_ => set.Write(InferPartitions, (long)fact.Result.PartitionCount, lane))
-                    .Bind(_ => set.Write(InferGolden, fact.Result.GoldenDelta, lane));
+                    // ParityFresh gates the histogram write: the golden delta is memoized per triple while the tap
+                    // fires per inference, so only the run that TOOK the measurement writes it — N-observations-
+                    // where-one-was-taken is the forged-measure form this gate deletes.
+                    .Bind(_ => fact.Result.ParityFresh ? set.Write(InferGolden, fact.Result.GoldenDelta, lane) : Fin.Succ(unit));
             }),
             // INGESTED domes carry no sky model, so the series keys on the empty string the environment row itself
             // publishes rather than on a synthesized "none" this arm keeps aligned.
@@ -415,22 +531,92 @@ public static class MaterialsInstruments {
 
 ## [05]-[EVIDENCE_RECORDS]
 
-- Owner: `MaterialsLog` — the fixed-severity generated emission grammar over the folder's banded faults and the rail's isolated evidence; `MaterialsLatency` — the checkpoint vocabulary and measured bracket over eager constructions.
-- Entry: `MaterialsLog.Logged` rides `MapFail` on any Materials rail so a refusal logs once at the seam that produced it; `MaterialsLog.Drain(ILogger, Seq<IsolatedFault>)` projects a snapshot of the rail's parked evidence; `MaterialsLatency.Measured(ILatencyContext ledger, CheckpointToken started, CheckpointToken settled, Func<Fin<T>> body)` brackets one eager construction between two checkpoints.
-- Auto: severity is declaration data on the attribute, so no call site chooses a level and no runtime switch over named severity verbs exists; `EventId` allocates from this owner's declared band and `EventName` is the dashboard-stable half; the generated `IsEnabled` gate precedes payload construction; checkpoint names register once at the app root through `RegisterCheckpointNames` and tokens resolve once through `ILatencyContextTokenIssuer.GetCheckpointToken`, so an unregistered name is a composition-time refusal.
-- Packages: Microsoft.Extensions.Logging.Abstractions, Microsoft.Extensions.Telemetry.Abstractions, LanguageExt.Core.
-- Growth: a new eager construction is one checkpoint pair in `Checkpoints`; a new event family is one partial in this band, never a per-fault-family verb.
-- Boundary: libraries take the logger and the latency ledger by injection and a logger-less composition binds `NullLogger.Instance`, never a nullable handle; the `Code` and `Category` holes read the `Rasm.Element` band registry and the kernel `Error` projection, so a reader groups records by the same band a fault counter groups its series by and no fault text is re-formatted here; the instrument counts at `[04]` and the records here are disjoint mandates over one refusal, never two shapes of one record; settlement records in `finally`, so failed or throwing constructions close the same bracket as successful constructions.
+- Owner: `MaterialsLog` — the fixed-severity generated emission grammar over the folder's banded faults and the rail's isolated evidence; `LatencyPhase` — the bracketed-construction vocabulary, each row owning BOTH of its checkpoint names; `LatencyMeasure` — the accumulated-quantity vocabulary, each row owning its accumulation law; `LatencyWrite` — the two accumulation laws those rows carry; `PhaseBracket`/`MeasureSlot` — the resolved token carriers the ledger entries accept; `MaterialsLatency` — the folder's contributed three-axis name roster and the entries that write under it.
+- Cases: `LatencyWrite.Accrue` sums a quantity one request reaches many times — texels across every channel of one press, bytes across every encoded plane; `LatencyWrite.Pin` states a quantity measured once — the landed plane census a fold reports at its close. `LatencyPhase` rows are the folder's three bracketed constructions (catalogue build, interaction solve, texture press) and `LatencyMeasure` rows its three quantities, each binding its own law.
+- Entry: `MaterialsLog.Logged` rides `MapFail` on any Materials rail so a refusal logs once at the seam that produced it; `MaterialsLog.Drain(ILogger, Seq<IsolatedFault>)` projects a snapshot of the rail's parked evidence; `LatencyPhase.Resolve(ILatencyContextTokenIssuer)` and `LatencyMeasure.Resolve(ILatencyContextTokenIssuer)` are the ONE token-resolution pair a composition runs at boot; `MaterialsLatency.Measured(ILatencyContext, in PhaseBracket, Func<Fin<T>>)` brackets one eager construction; `MaterialsLatency.Measure(ILatencyContext, in MeasureSlot, long)` folds one quantity under the slot's own law; `MaterialsLatency.Attributed(ILatencyContext, TagToken, string)` stamps one pivot last-write-wins; `MaterialsLatency.Sealed(ILatencyContext)` freezes the ledger and hands back its `LatencyData` for the composition's exporter.
+- Auto: severity is declaration data on the attribute, so no call site chooses a level and no runtime switch over named severity verbs exists; `EventId` allocates from this owner's declared band and `EventName` is the dashboard-stable half; the generated `IsEnabled` gate precedes payload construction; `Checkpoints` and `Measures` DERIVE from the two row families rather than restating them, so a phase or quantity added to a vocabulary reaches the contributed roster by construction and a hand-listed roster cannot drift behind the names its own folds stamp.
+- Packages: Microsoft.Extensions.Logging.Abstractions, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a new bracketed construction is one `LatencyPhase` row and its two names derive from the stem; a new accumulated quantity is one `LatencyMeasure` row naming its law; a new accumulation law is one `LatencyWrite` row; a new pivot is one entry in `Tags`; a new event family is one partial in this band, never a per-fault-family verb — no roster edit accompanies any of them.
+- Boundary: this folder CONTRIBUTES a latency vocabulary and never registers one — `Checkpoints`, `Measures`, and `Tags` leave as one contributed roster the app root's single `LatencySpine.Register` fold folds beside its own and every peer contributor's, so no package reaches `RegisterCheckpointNames` and splits the table. That registration arms `LatencyContextOptions.ThrowOnUnregisteredNames`, which makes an unregistered name a BOOT FAILURE rather than a positionless token whose writes drop unseen: a name this folder stamps and never contributed refuses the composition, so the derivation of both rosters from their row families is the structural half of that guarantee and a hand-listed roster is the failure mode it forecloses. Libraries take the logger and the latency ledger by injection and a logger-less composition binds `NullLogger.Instance`, never a nullable handle; the `Code` and `Category` holes read the `Rasm.Element` band registry and the kernel `Error` projection, so a reader groups records by the same band a fault counter groups its series by and no fault text is re-formatted here; the instrument counts at `[04]` and the records here are disjoint mandates over one refusal, never two shapes of one record; settlement records in `finally`, so failed or throwing constructions close the same bracket as successful constructions. Pivots COMPOSE the `[04]` slot consts rather than re-spelling them, so a ledger pivot and a metric dimension naming one axis are one string and a join from a slow request to its own series holds; `Freeze` seals, so it runs at the composition edge after the last write and never inside a bracket a retry re-enters, where a frozen context refuses every later checkpoint, measure, and tag in silence. Duration NEVER derives from a stamp difference — the checkpoint pair is the ledger's own elapsed, and the causal stamp orders events without measuring them.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using LanguageExt;
-using Microsoft.Extensions.Diagnostics.Latency; // CheckpointToken, ILatencyContext
+using Microsoft.Extensions.Diagnostics.Latency; // CheckpointToken, ILatencyContext, ILatencyContextTokenIssuer,
+                                                // LatencyData, MeasureToken, TagToken
 using Microsoft.Extensions.Logging;             // ILogger, LogLevel, LoggerMessageAttribute
-using Rasm.Domain;                              // IsolatedFault, Op, FaultExtensions extension property Category
+using Rasm.Domain;                              // IsolatedFault, Op, TenantContext, FaultExtensions extension property Category
+using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Projection;
+
+// --- [TYPES] ----------------------------------------------------------------------------------
+// Rows carry the ledger's two accumulation laws, each holding its own write rather than a call-site branch:
+// AddMeasure sums across a request and RecordMeasure states one value absolutely, and choosing between them with
+// a bool at every fold re-derives what the row already encodes. Both members return void, so each row's body
+// takes the named statement seam this file's generated-emission projection already carries.
+[SmartEnum]
+public sealed partial class LatencyWrite {
+    public static readonly LatencyWrite Accrue = new(static (ledger, token, value) => { ledger.AddMeasure(token, value); return unit; });
+    public static readonly LatencyWrite Pin = new(static (ledger, token, value) => { ledger.RecordMeasure(token, value); return unit; });
+
+    [UseDelegateFromConstructor]
+    public partial Unit Apply(ILatencyContext ledger, MeasureToken token, long value);
+}
+
+// Each phase row owns BOTH of its checkpoint names, derived from the stem so the pair cannot drift apart. Two
+// loose name constants let a bracket open on the press and settle on the catalogue build with nothing raised,
+// publishing an elapsed that spans two unrelated constructions and still reads measured.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class LatencyPhase {
+    public static readonly LatencyPhase Catalogue = Bracketed("rasm.materials.catalogue.build");
+    public static readonly LatencyPhase Interaction = Bracketed("rasm.materials.interaction.solve");
+    public static readonly LatencyPhase Press = Bracketed("rasm.materials.texture.press");
+
+    public string Started { get; }
+    public string Settled { get; }
+
+    private LatencyPhase(string key, string started, string settled) : this(key) =>
+        (Started, Settled) = (started, settled);
+
+    private static LatencyPhase Bracketed(string stem) => new(stem, $"{stem}.started", $"{stem}.settled");
+
+    public static Seq<string> Names => toSeq(Items).Bind(static row => Seq(row.Started, row.Settled));
+
+    // Tokens resolve ONCE per composition and the row hands back BOTH at once, so the bracket a call site holds is
+    // a pair the vocabulary minted rather than two arguments a call site chose. A resolution per invocation is the
+    // deleted form — the issuer's lookup is a dictionary read the ledger exists to avoid on a measured path.
+    public PhaseBracket Resolve(ILatencyContextTokenIssuer issuer) =>
+        new(issuer.GetCheckpointToken(Started), issuer.GetCheckpointToken(Settled));
+}
+
+// Each measure row owns its accumulation LAW, because the law belongs to the quantity and never to the call:
+// texels and encoded bytes accrue across every channel of one request, while the landed plane census states once.
+// Passing the law beside the token lets one fold Pin an accruing quantity and publish one channel's tally as the
+// whole request's.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class LatencyMeasure {
+    public static readonly LatencyMeasure TexelsShaded = new("rasm.materials.texture.texels.shaded", LatencyWrite.Accrue);
+    public static readonly LatencyMeasure PlaneBytesEncoded = new("rasm.materials.texture.plane.bytes.encoded", LatencyWrite.Accrue);
+    public static readonly LatencyMeasure PlanesLanded = new("rasm.materials.texture.planes.landed", LatencyWrite.Pin);
+
+    public LatencyWrite Write { get; }
+
+    private LatencyMeasure(string key, LatencyWrite write) : this(key) => Write = write;
+
+    public MeasureSlot Resolve(ILatencyContextTokenIssuer issuer) => new(Write, issuer.GetMeasureToken(Key));
+}
+
+// --- [MODELS] --------------------------------------------------------------------------------
+// Both resolved carriers spell what the ledger entries accept: a bracket reaches a fold as the token PAIR one
+// phase row issued and a quantity reaches it beside the law its own row declares. Compositions resolve each once
+// at boot and hold the value; a fold assembling either from loose tokens is the deleted form.
+public readonly record struct PhaseBracket(CheckpointToken Started, CheckpointToken Settled);
+
+public readonly record struct MeasureSlot(LatencyWrite Write, MeasureToken Token);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public static partial class MaterialsLog {
@@ -462,19 +648,40 @@ public static partial class MaterialsLog {
 }
 
 public static class MaterialsLatency {
-    public const string CatalogueBuildStarted = "rasm.materials.catalogue.build.started";
-    public const string CatalogueBuildSettled = "rasm.materials.catalogue.build.settled";
-    public const string InteractionSolveStarted = "rasm.materials.interaction.solve.started";
-    public const string InteractionSolveSettled = "rasm.materials.interaction.solve.settled";
+    // Both rosters DERIVE from the two row families and the [04] slot consts, so a phase or measure
+    // added to a roster reaches the one registration by construction. Under the app root's boot-strict fold a name
+    // this folder stamps and never contributed is a composition FAILURE rather than a positionless token whose
+    // writes drop, so a hand-listed roster drifting behind its own vocabulary is the shape this derivation deletes.
+    public static readonly Seq<string> Checkpoints = LatencyPhase.Names;
 
-    // RegisterCheckpointNames rows the app root registers before any token resolves.
-    public static readonly Seq<string> Checkpoints =
-        Seq(CatalogueBuildStarted, CatalogueBuildSettled, InteractionSolveStarted, InteractionSolveSettled);
+    public static readonly Seq<string> Measures = toSeq(LatencyMeasure.Items).Map(static row => row.Key);
 
-    public static Fin<T> Measured<T>(ILatencyContext ledger, CheckpointToken started, CheckpointToken settled, Func<Fin<T>> body) {
-        ledger.AddCheckpoint(started);
+    // Pivots COMPOSE the [04] slot consts: a ledger tag and a metric dimension naming one axis under two strings
+    // strand every join from a slow request to the series that explains it.
+    public static readonly Seq<string> Tags = Seq(
+        TenantContext.TenantSlot, MaterialsInstruments.BackendSlot, MaterialsInstruments.ChannelSlot);
+
+    public static Fin<T> Measured<T>(ILatencyContext ledger, in PhaseBracket phase, Func<Fin<T>> body) {
+        ledger.AddCheckpoint(phase.Started);
         try { return body(); }
-        finally { ledger.AddCheckpoint(settled); }
+        finally { ledger.AddCheckpoint(phase.Settled); }
+    }
+
+    public static Unit Measure(ILatencyContext ledger, in MeasureSlot slot, long value) =>
+        slot.Write.Apply(ledger, slot.Token, value);
+
+    // Last write wins per pivot, so a degraded press stamps the backend it FELL BACK to and the ledger keeps
+    // whichever lane produced the latency rather than whichever lane the caller asked for.
+    public static Unit Attributed(ILatencyContext ledger, TagToken token, string value) {
+        ledger.SetTag(token, value);
+        return unit;
+    }
+
+    // Seals at the composition edge: a frozen ledger refuses every later checkpoint, measure, and tag silently,
+    // so freezing inside a retried bracket loses the attempt the retry exists to record.
+    public static LatencyData Sealed(ILatencyContext ledger) {
+        ledger.Freeze();
+        return ledger.LatencyData;
     }
 }
 ```
@@ -520,6 +727,10 @@ public static class MaterialsDescriptors {
             PanelSpec.Of("Projection admissions", MaterialsInstruments.ProjectionAdmits),
             PanelSpec.Of("Press throughput", MaterialsInstruments.PressTexels, MaterialsInstruments.BackendSlot),
             PanelSpec.Of("Press latency", MaterialsInstruments.PressDuration, MaterialsInstruments.BackendSlot),
+            PanelSpec.Of("Press quality decisions", MaterialsInstruments.PressDowngraded, PanelKind.Table, MaterialsInstruments.ChannelSlot),
+            PanelSpec.Of("Tile verdicts", MaterialsInstruments.TileRuns, PanelKind.Table, MaterialsInstruments.StrategySlot, MaterialsInstruments.VerdictSlot),
+            PanelSpec.Of("Tileability signal", MaterialsInstruments.TileScore, MaterialsInstruments.ComponentSlot),
+            PanelSpec.Of("Ingest classification", MaterialsInstruments.IngestStems, PanelKind.Table, MaterialsInstruments.VerdictSlot, MaterialsInstruments.ReasonSlot),
             PanelSpec.Of("Plane codec volume", MaterialsInstruments.PlaneBytes, MaterialsInstruments.ContainerSlot, MaterialsInstruments.DirectionSlot),
             PanelSpec.Of("Inference mix by licence", MaterialsInstruments.InferRuns, PanelKind.Table, MaterialsInstruments.LicenceSlot),
             PanelSpec.Of("Inference residual", MaterialsInstruments.InferGolden, MaterialsInstruments.StageSlot),
@@ -567,6 +778,21 @@ public static class MaterialsDescriptors {
                 name: "materials.texture.press.latency",
                 sli: new Sli.Latency(Metric: MaterialsInstruments.PressDuration, Ceiling: Duration.FromSeconds(60), Quantile: 0.95d),
                 target: 0.95d,
+                window: default),
+            // materials.texture.tile grades the one texture OUTCOME the estate owns end to end: a share over the
+            // verdict dimension the tile counter already fans, so no roster edit and no good-half twin. The target
+            // sits at the provider-fidelity figure because both grade a decision the estate can actually move —
+            // a tiling refusal is a synthesizer or a source problem, never a caller's. NO objective binds the
+            // ingest counter: a vendor library's alias coverage is a property of the library, so a share over it
+            // grades a population against no ceiling this estate controls, the same reason the catalogue and
+            // library populations carry none.
+            Objective.Create(
+                name: "materials.texture.tile",
+                sli: new Sli.Partition(
+                    Metric: MaterialsInstruments.TileRuns,
+                    By: MaterialsInstruments.VerdictSlot,
+                    Good: Seq(MaterialsInstruments.Graded)),
+                target: 0.90d,
                 window: default),
             // materials.neural.provider grades PROVIDER FIDELITY, never latency and never the residual: an admitted result
             // already cleared its card's residual ceiling at the ingestion gate, so a residual objective grades a

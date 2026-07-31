@@ -431,7 +431,7 @@ public static class FrameEdge {
     }
 
     public static Fin<T> Reassemble<T>(StreamPool pool, CorrelationId correlation, MessageParser<T> parser, Seq<ArtifactFrame> frames) where T : class, IMessage<T> =>
-        Admit(frames.OrderBy(static frame => frame.Offset).ToSeq())
+        Admit(toSeq(frames.OrderBy(static frame => frame.Offset)))
             .Bind(ordered => Drain(pool, correlation, parser, ordered.Head.ArtifactId, ordered));
 
     public static bool Valid(ArtifactFrame frame) =>

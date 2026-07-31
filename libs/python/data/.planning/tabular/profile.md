@@ -22,8 +22,8 @@ The plan rides the agnostic `tabular/interop#INTEROP` frame and the DuckDB/parqu
 - Auto: a passing interrogation yields an `Interrogation` whose `ProfileReceipt.of` grades `PASSED` with `all_passed()` true; a breach grades through `Grade.of` and folds per-step evidence into the receipt. `Grade` is ordered by severity rank so the overall grade is the maximum breached level; `_LEVELS` is the ascending breach ladder both the breach sweep and the breach-set projection read, DERIVED from the member roster in definition order rather than hand-spelled beside it, so a fifth severity is one enum member and no parallel tuple drifts. `Grade.breaches` sweeps `_LEVELS` through `plan.above_threshold(level=, i=)` (`i=None` plan-wide, an `int` per-step) and `Grade.of` reads `plan.all_passed()` then returns the max breached level or `PASSED` — one fold, never a per-level boolean tail. The receipt carries the graded `(rows, columns)` off `pb.get_row_count`/`get_column_count` (never a degenerate step-count tuple), the step count, per-step `n_passed`/`n_failed`/`f_passed`/`f_failed` off `plan.*(scalar=False)` as a `dict` keyed by step index, and the per-severity breach set — one typed evidence stream, never re-derived from the raw frame. Each step pushes its own predicate into the backend scan on the polars/DuckDB/ibis path, so pointblank's Narwhals engine grades without pulling the frame into Python; the interrogation still drives every step to completion against that backend, which is the blocking leg the banded hop exists for.
 - Output: `report` emits one `ProfileFrame` carrying the `great_tables.GT` on its `frame` slot as opaque `Any` plus the `kind` discriminant and the `grade` — `None` exactly where nothing was interrogated, so a plan-free report reached with no run threaded in publishes no verdict rather than a fabricated `PASSED`, and one reached WITH a run reports that run's already-graded level for free — data never imports `great_tables`, never re-renders to HTML, never reaches into `GT` internals; the `python:artifacts/visualization/table` tier renders it through its `TablePlan.rendered` opaque-GT egress and reads the `[SHAPE]` value, exactly as the `tabular/columnar#SCAN` corpus wire hands a flat record to the documents tier. The `json`/`dataframe`/`sundered` cases carry the `str`/native-frame wire value on the same slot, so the publication report, the machine-readable JSON, the grade frame, and the passing/failing row split all leave through one `ProfileFrame` rail, never four emitters.
 - Receipt: `ProfileReceipt.contribute` yields one emitted-phase row through the two-argument `Receipt.of(owner, evidence)` factory decomposing the `(phase, subject, facts)` triple — never the four-positional form the owner does not expose — satisfying the `ReceiptContributor.contribute -> Iterable[Receipt]` Protocol, never a bare single `Receipt`; the `rows`/`columns`/`steps` counts ride as native `int` scalars. The receipt keys by `ContentIdentity` over the plan-content fingerprint: `QualityProfile.fingerprint` folds one deterministic msgspec-JSON row per `ProbeStep` (tag, payload, and every override field) plus one plan-level row over the sampling bound and every policy field — both field rosters DERIVED from the owning `Struct` through `msgspec.structs.fields`, so a fifth knob lands in the key with zero edits where a hand-listed subset had silently dropped `final_actions`, `tbl_name`, and `brief` — a callable projected to its stable code identity `(module, qualname, marshalled bytecode)` so two distinct `<lambda>` predicates never collide, returning the railed `RuntimeRail[ContentKey]` the `interrogate` rail threads through `.bind`/`.map` rather than collapsing into a field. An unchanged probe set, threshold policy, and sampling bound reuses its key byte-stable; a changed threshold, a tightened override, an added probe, or a widened sampling bound flips it — the graded-evidence identity a bare `(label, step-count, grade)` string cannot carry, since a changed threshold leaves all three untouched while the counts and grade shift. `contribute` projects the worst per-step failed fraction onto the runtime `Metrics.record` arm under `domain="quality"` keyed by grade, and `interrogate` opens the one profile span around its blocking materialization — the "observability owner" claim realized as instrument and trace, never receipt-only.
-- Packages: `pointblank` (`Validate(data, thresholds=, actions=, final_actions=, label=, tbl_name=, brief=)`/`col_vals_gt`/`ge`/`lt`/`le`/`eq`/`ne`/`col_vals_between(left=, right=, inclusive=)`/`col_vals_outside`/`col_vals_in_set(set=)`/`col_vals_not_in_set`/`col_vals_not_null`/`col_vals_null`/`col_vals_regex(pattern=, inverse=)`/`col_vals_within_spec(spec=)`/`col_vals_increasing(allow_stationary=, decreasing_tol=)`/`col_vals_decreasing(allow_stationary=, increasing_tol=)`/`col_{avg,sum,sd}_{gt,ge,lt,le,eq}`/`col_vals_expr(expr=)`/`col_exists`/`col_schema_match(schema=, complete=, in_order=)`/`col_count_match(count=, inverse=)`/`row_count_match(count=, tol=, inverse=)`/`col_pct_null(p=, tol=)`/`rows_distinct(columns_subset=)`/`rows_complete`/`conjointly`/`tbl_match(tbl_compare=)`/`specially(expr=)`/the `thresholds=`/`actions=`/`brief=`/`active=` policy tail every step method carries against the `pre=`/`segments=` pair only some do/`interrogate(sample_n=, sample_frac=, get_first_n=, extract_limit=)`/`all_passed()`/`above_threshold(level=, i=)`/`n_passed`/`n_failed`/`f_passed`/`f_failed(i=, scalar=)`/`get_tabular_report(title=, incl_header=, incl_footer=) -> GT`/`get_step_report(i=, columns_subset=, limit=) -> GT`/`get_json_report(use_fields=, exclude_fields=) -> str`/`get_dataframe_report(tbl_type=)`/`get_sundered_data(type=)`/`Thresholds(warning=, error=, critical=)`/`Actions(warning=, error=, critical=, default=, highest_only=)`/`FinalActions`/`Schema`/`col`/`ref`/`starts_with`/`ends_with`/`contains`/`matches`/`everything`/`first_n`/`last_n`/`get_row_count`/`get_column_count`/`DataScan(data, tbl_name=)`/`col_summary_tbl`/`missing_vals_tbl`/`preview(data, columns_subset=, n_head=, n_tail=, limit=)`, bound at module scope through `lazy import pointblank as pb` — the deferral IS the heavy-engine gate the transitive `polars`/`great_tables` load earns, so the cost falls on first use with no function-local import and no suppression, and every table row and policy value here stays free of a provider dereference that reifies the proxy at import), `tabular/interop#INTEROP` (`FieldShape` projected to a `pb.Schema` for the `schema` probe, imported downward; the agnostic `nw.DataFrame`/`nw.LazyFrame` passes through unmodified into pointblank's own Narwhals `data` admission, never lowered through `FrameInterop.translate`), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `of`/`interrogate`/`report` seams so a malformed `ProbeStep`/`ProfileReport`/`data` argument raises the `BeartypeCallHintViolation` root the `runtime/reliability/faults#FAULT` `api` row folds onto the rail; the internal folds and kernels over already-admitted values carry none), runtime (`RuntimeRail`/`boundary`/`async_boundary`/`on_thread`/`FAULT_CONF`/`ContentIdentity`/`ContentKey`/`ReceiptContributor`/`Receipt`).
-- Growth: a new comparison/range/membership/uniqueness check is one `ProbeStep` threading its `ProbeTables` polarity map; a new column-aggregate stat is one `_STATS` row the `aggregate` comprehension folds; a new column selector is one `Selector` literal, `_SELECTORS` and the `cols` fold both deriving from it; a new report kind is one `ProfileReport` case (plan-consuming reads `graded()`, plan-free reads the raw table); a new run-scoped fact is one `Interrogation` field beside the plan and the receipt; a new plan-level policy or per-step override lands in the content key free, both fingerprint rosters deriving from their owning `Struct`; a new severity level is one `Grade` member plus one `Thresholds`/`Actions` field, the breach ladder deriving; a per-step threshold, action, brief, or activation override is the existing `ProbeStep` field, and a knob the provider spells on only some step methods stays off that wrapper and lands on its own arms; a post-interrogation summary callback is the existing `final_actions` field; a sampling or extract-limit knob is a call row on `interrogate`; the AI-driven `prompt` step is admitted as a `ProbeStep` only when an LLM handle arrives through the runtime host seam, never a module-top dependency; a second backend `data` path is admitted free by pointblank's Narwhals engine.
+- Packages: `pointblank` — the two `get_tabular_report` surfaces are DISTINCT classes with disjoint keyword sets, `Validate.get_tabular_report(title=, incl_header=, incl_footer=, incl_footer_timings=, incl_footer_notes=) -> GT` over the interrogated plan and `DataScan(data, tbl_name=).get_tabular_report(show_sample_data=) -> GT` over the raw table, so the two report arms bind two members and neither roster entry covers the other — (`Validate(data, thresholds=, actions=, final_actions=, label=, tbl_name=, brief=)`/`col_vals_gt`/`ge`/`lt`/`le`/`eq`/`ne`/`col_vals_between(left=, right=, inclusive=)`/`col_vals_outside`/`col_vals_in_set(set=)`/`col_vals_not_in_set`/`col_vals_not_null`/`col_vals_null`/`col_vals_regex(pattern=, inverse=)`/`col_vals_within_spec(spec=)`/`col_vals_increasing(allow_stationary=, decreasing_tol=)`/`col_vals_decreasing(allow_stationary=, increasing_tol=)`/`col_{avg,sum,sd}_{gt,ge,lt,le,eq}`/`col_vals_expr(expr=)`/`col_exists`/`col_schema_match(schema=, complete=, in_order=)`/`col_count_match(count=, inverse=)`/`row_count_match(count=, tol=, inverse=)`/`col_pct_null(p=, tol=)`/`rows_distinct(columns_subset=)`/`rows_complete`/`conjointly`/`tbl_match(tbl_compare=)`/`specially(expr=)`/the `thresholds=`/`actions=`/`brief=`/`active=` policy tail every step method carries against the `pre=`/`segments=` pair only some do/`interrogate(sample_n=, sample_frac=, get_first_n=, extract_limit=)`/`all_passed()`/`above_threshold(level=, i=)`/`n_passed`/`n_failed`/`f_passed`/`f_failed(i=, scalar=)`/`get_step_report(i=, columns_subset=, limit=) -> GT`/`get_json_report(use_fields=, exclude_fields=) -> str`/`get_dataframe_report(tbl_type=)`/`get_sundered_data(type=)`/`Thresholds(warning=, error=, critical=)`/`Actions(warning=, error=, critical=, default=, highest_only=)`/`FinalActions`/`Schema`/`col`/`ref`/`starts_with`/`ends_with`/`contains`/`matches`/`everything`/`first_n`/`last_n`/`get_row_count`/`get_column_count`/`col_summary_tbl(data, tbl_name=)`/`missing_vals_tbl(data)`/`preview(data, columns_subset=, n_head=, n_tail=, limit=)`, bound at module scope through `lazy import pointblank as pb` — the deferral IS the heavy-engine gate the transitive `polars`/`great_tables` load earns, so the cost falls on first use with no function-local import and no suppression, and every table row and policy value here stays free of a provider dereference that reifies the proxy at import), `tabular/interop#INTEROP` (`FieldShape` projected to a `pb.Schema` for the `schema` probe, imported downward; the agnostic `nw.DataFrame`/`nw.LazyFrame` passes through unmodified into pointblank's own Narwhals `data` admission, never lowered through `FrameInterop.translate`), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `of`/`interrogate`/`report` seams so a malformed `ProbeStep`/`ProfileReport`/`data` argument raises the `BeartypeCallHintViolation` root the `runtime/reliability/faults#FAULT` `api` row folds onto the rail; the internal folds and kernels over already-admitted values carry none), runtime (`RuntimeRail`/`boundary`/`async_boundary`/`on_thread`/`FAULT_CONF`/`ContentIdentity`/`ContentKey`/`ReceiptContributor`/`Receipt`).
+- Growth: a new comparison/range/membership/uniqueness check is one `ProbeStep` threading its `ProbeTables` polarity map; a new column-aggregate stat is one `_STATS` row the `aggregate` comprehension folds; a new column selector is one `Selector` literal, `_SELECTORS` and the `cols` fold both deriving from it; a new report kind is one `ProfileReport` case (plan-consuming reads `graded()`, plan-free reads the raw table), its payload the knobs its own provider member offers and a unit `None` where that member offers none; a new run-scoped fact is one `Interrogation` field beside the plan and the receipt; a new plan-level policy or per-step override lands in the content key free, both fingerprint rosters deriving from their owning `Struct`; a new severity level is one `Grade` member plus one `Thresholds`/`Actions` field, the breach ladder deriving; a per-step threshold, action, brief, or activation override is the existing `ProbeStep` field, and a knob the provider spells on only some step methods stays off that wrapper and lands on its own arms; a post-interrogation summary callback is the existing `final_actions` field; a sampling or extract-limit knob is a call row on `interrogate`; the AI-driven `prompt` step is admitted as a `ProbeStep` only when an LLM handle arrives through the runtime host seam, never a module-top dependency; a second backend `data` path is admitted free by pointblank's Narwhals engine.
 - Boundary: pointblank owns the validation plan, the warning/error/critical threshold grading, the severity-action callbacks, and the `great_tables.GT` emission; `great_tables` owns the renderable frame downstream and stays `python:artifacts/visualization/table`-owned; Narwhals owns the frame normalization inside pointblank; runtime owns the identity, the receipt rail, and the LLM/host seam. No raising in domain logic — the profile records and grades, never enforces; `assert_below_threshold` is pointblank's raising gate and stays unbound on this page. No second frame translator beside pointblank's Narwhals admission, no `great_tables` import here, no HTML re-render where the `GT` frame needs none, no function-local provider import carrying a lint suppression where the module-scope `lazy` form states the same deferral as law, no hand-spelled roster beside a closed vocabulary or a `Struct` field set that already holds it, no bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp that binds the version and semconv triple, and no re-interrogation of a plan the caller already holds — a `report` that discards a threaded `Interrogation` and re-runs the backend is the deleted form the carrier exists to foreclose.
 
 ```python signature
@@ -57,6 +57,8 @@ if TYPE_CHECKING:
 # faults-owned scope stamp: `scoped` binds the version and semconv triple, so no page re-spells the pin.
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.tabular.profile")
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
 type Selector = Literal["starts_with", "ends_with", "contains", "matches", "everything", "first_n", "last_n"]
 type Columns = str | Sequence[str] | tuple[Selector, tuple[Any, ...]] | "Column"
 type Comparand = float | int | str | "Column" | "ReferenceColumn"
@@ -66,6 +68,8 @@ type AggOp = Literal["gt", "ge", "lt", "le", "eq"]
 type Stat = Literal["avg", "sum", "sd"]
 type ReportKind = Literal["tabular", "step", "json", "dataframe", "sundered", "probe", "summary", "missing", "preview"]
 type Inclusive = Literal["both", "neither", "left", "right"]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _INCLUSIVE: Final[Map[Inclusive, tuple[bool, bool]]] = Map.of_seq([
     ("both", (True, True)),
@@ -77,6 +81,8 @@ _INCLUSIVE: Final[Map[Inclusive, tuple[bool, bool]]] = Map.of_seq([
 # failing-row extract cap, read by BOTH the declared `interrogate` default and the lazy `graded()` fallback a
 # plan-free `report` forces, so a report that had to interrogate for itself grades on the same evidence bound.
 _EXTRACT_LIMIT: Final[int] = 500
+
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Grade(IntEnum):
@@ -215,14 +221,21 @@ class ProbeStep(Struct, frozen=True):
 @tagged_union(frozen=True)
 class ProfileReport:
     tag: ReportKind = tag()
-    tabular: tuple[str, bool | None, bool | None] = case()
+    # the publication report's whole knob set: `Validate.get_tabular_report` carries the header/footer pair AND the
+    # two footer sub-knobs (`incl_footer_timings`/`incl_footer_notes`), so the case threads all four rather than
+    # stopping at the pair — a knob the provider offers and the case drops is capability this plane cannot reach.
+    tabular: tuple[str, bool | None, bool | None, bool | None, bool | None] = case()
     step: tuple[int, tuple[str, ...] | None, int] = case()
     json: tuple[tuple[str, ...] | None, tuple[str, ...] | None] = case()
     dataframe: Literal["polars", "pandas", "duckdb"] = case()
     sundered: Literal["pass", "fail"] = case()
     probe: bool = case()
-    summary: bool = case()
-    missing: bool = case()
+    # UNIT cases: `col_summary_tbl(data, tbl_name=)` and `missing_vals_tbl(data)` take no report knob at all, so a
+    # `bool` payload here was settable to either value with identical behavior — a knob with no effect on a public
+    # union. `probe` keeps its `bool` because `show_sample_data=` reads it; a knob these two gain lands as their own
+    # payload then.
+    summary: None = case()
+    missing: None = case()
     preview: tuple[tuple[str, ...] | None, int, int, int] = case()
 
 
@@ -294,6 +307,9 @@ class Interrogation(Struct, frozen=True):
     # module scope, exactly as `ProfileFrame.frame` holds its `GT` opaquely.
     plan: Any
     receipt: ProfileReceipt
+
+
+# --- [SERVICES] -------------------------------------------------------------------------
 
 
 class QualityProfile(Struct, frozen=True):
@@ -392,8 +408,14 @@ class QualityProfile(Struct, frozen=True):
         graded = cache(lambda: interrogated.map(lambda run: run.plan).default_with(partial(self._lazily, data)))
         carried = interrogated.map(lambda run: run.receipt.grade).default_value(None)
         match report:
-            case ProfileReport(tag="tabular", tabular=(title, header, footer)):
-                return ProfileFrame(report.tag, Grade.of(graded()), graded().get_tabular_report(title=title, incl_header=header, incl_footer=footer))
+            case ProfileReport(tag="tabular", tabular=(title, header, footer, timings, notes)):
+                return ProfileFrame(
+                    report.tag,
+                    Grade.of(graded()),
+                    graded().get_tabular_report(
+                        title=title, incl_header=header, incl_footer=footer, incl_footer_timings=timings, incl_footer_notes=notes
+                    ),
+                )
             case ProfileReport(tag="step", step=(i, subset, limit)):
                 return ProfileFrame(report.tag, Grade.of(graded()), graded().get_step_report(i=i, columns_subset=subset, limit=limit))
             case ProfileReport(tag="json", json=(use_fields, exclude_fields)):
@@ -434,6 +456,8 @@ class QualityProfile(Struct, frozen=True):
         return reduce(lambda plan, step: step.append(plan, tables), self.steps, root)
 
 
+# --- [TABLES] ---------------------------------------------------------------------------
+
 # fingerprint field rosters DERIVED from the owning `Struct` declarations: a fifth plan-level policy field or a
 # fifth per-step override lands in the content key with zero edits, where a hand-listed subset drifts silently
 # once the owner grows. `steps` and `kind` stay excluded because each folds through its own row.
@@ -444,6 +468,8 @@ _STEP_FIELDS: Final[tuple[str, ...]] = tuple(row.name for row in struct_fields(P
 `ProbeTables.bind` resolves each closed polarity onto the unbound `pb.Validate` step method once per plan — `compare["gt"]` is `Validate.col_vals_gt` invoked as `(plan, columns, value=, **policy)`, threading `plan` as `self` and the shared per-step policy kwargs, exactly as the sibling `tabular/contract#QUALITY` `_CMP` binds `Check.ge`, so no `lambda` forwards a rename. It reads the module-scope `lazy import pointblank as pb` name directly: the deferral IS the heavy-engine gate, so the bind carries no namespace field and no call site re-imports. `cols` resolves a selector against the `_SELECTORS` set derived from the closed `Selector` vocabulary — a `hasattr` probe over the whole provider namespace admits any public attribute as a column selector — `schema` projects the `FieldShape` tuple to a `pb.Schema`, and the `aggregate` cross-product is one comprehension over `_STATS × _AGG_OPS` resolving each `col_{stat}_{op}` off the class.
 
 ```python signature
+# --- [TABLES] ---------------------------------------------------------------------------
+
 _STATS: Final[tuple[Stat, ...]] = ("avg", "sum", "sd")
 _OPS: Final[tuple[Operator, ...]] = ("gt", "ge", "lt", "le", "eq", "ne")
 _AGG_OPS: Final[tuple[AggOp, ...]] = ("gt", "ge", "lt", "le", "eq")

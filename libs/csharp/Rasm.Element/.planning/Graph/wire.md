@@ -88,6 +88,7 @@ message ObjectWire {
   map<string, bytes> representations = 8;  // RepresentationIdentifier -> 16-byte BE content key
   optional OwnerHistoryWire history = 9;
   SchemaSpanWire span = 10;
+  optional string object_type = 11;        // the USERDEFINED label pairing with predefined_type; absent otherwise
 }
 
 message ClassificationWire {
@@ -281,11 +282,34 @@ message MaterialCompositionWire {
 }
 message SingleWire { string material_key = 1; }
 message LayerSetWire { repeated MaterialLayerWire layers = 1; }
-message MaterialLayerWire { string material_key = 1; MeasureValueWire thickness = 2; string layer_name = 3; }
-message ProfileSetWire { string material_key = 1; ProfileRefWire profile = 2; optional SectionPropertiesWire section = 3; }
+// The IFC per-row columns ride explicit presence: an unset priority is UNSET (never a numeric sentinel) and an unset
+// ventilated flag is the IfcLogical UNKNOWN the seam Option<bool> carries, so absence and FALSE never alias.
+message MaterialLayerWire {
+  string material_key = 1;
+  MeasureValueWire thickness = 2;
+  string layer_name = 3;
+  optional int32 priority = 4;
+  string category = 5;
+  optional bool ventilated = 6;
+}
+// The primary material_key and profile RETIRED into the row spread — the seam derives both off the rows, so carrying them
+// beside row zero was the double-store the compound arm deletes; composite is the set-level built-up outline.
+message ProfileSetWire {
+  reserved 1, 2;
+  optional SectionPropertiesWire section = 3;
+  repeated MaterialProfileWire profiles = 4;
+  optional ProfileRefWire composite = 5;
+}
+message MaterialProfileWire {
+  string material_key = 1;
+  ProfileRefWire profile = 2;
+  optional int32 priority = 3;
+  string category = 4;
+  repeated MeasureValueWire offsets = 5;
+}
 message ProfileRefWire { string standard = 1; string designation = 2; bytes content_key = 3; }
 message ConstituentSetWire { repeated MaterialConstituentWire constituents = 1; }
-message MaterialConstituentWire { string material_key = 1; string category = 2; double fraction = 3; }
+message MaterialConstituentWire { string material_key = 1; string category = 2; double fraction = 3; string part_name = 4; }
 
 message SectionPropertiesWire {
   MeasureValueWire area = 1;
@@ -481,31 +505,34 @@ message SeriesStatisticsWire {
 
 // --- [COVERAGE_WIRE] ---
 message CoverageWire {
+  reserved 3;                              // retired six-coefficient GridDescriptorWire — the placement is the kernel lattice
   string kind = 1;                         // CoverageKind key
   bytes raster_key = 2;                    // 16-byte BE — the blob rides the object store, never the wire
-  GridDescriptorWire grid = 3;
   repeated CoverageBandWire bands = 4;
   GeoReferenceWire crs = 5;
-  repeated OverviewLevelWire overviews = 6;
+  repeated OverviewLevelWire overviews = 6; // the Coarsen chain in decimation order — position IS the level ordinal
   sint32 base_block_x = 7;
   sint32 base_block_y = 8;
   repeated TimeSliceWire slices = 9;
+  CellLatticeWire grid = 10;
 }
 message TimeSliceWire { google.protobuf.Timestamp at = 1; bytes raster_key = 2; }
-message GridDescriptorWire {
-  double origin_x = 1;
-  double cell_size_x = 2;
-  double row_rotation = 3;
-  double origin_y = 4;
-  double column_rotation = 5;
-  double cell_size_y = 6;
-  sint32 width = 7;
-  sint32 height = 8;
+// The kernel CellLattice placement: the TWELVE index-to-world affine coefficients in row-major order (the fourth
+// matrix row is the invariant [0 0 0 1] and never crosses) plus the three-axis census and the cell budget the
+// decoder re-admits through CellLattice.Of. A level's lattice crosses whole rather than as a decimation factor,
+// so a peer runtime reconstructs the exact affine the content key was taken over.
+message CellLatticeWire {
+  repeated double affine = 1;              // exactly 12 — m00..m03, m10..m13, m20..m23
+  sint32 columns = 2;
+  sint32 rows = 3;
+  sint32 layers = 4;
+  sint64 ceiling = 5;
 }
 message CoverageBandWire {
+  reserved 3;                              // retired RasterSampleType string key — storage is the kernel ChannelDtype roster
   sint32 index = 1;
   string name = 2;
-  string sample_type = 3;                  // RasterSampleType key
+  sint32 sample_type = 12;                 // kernel ChannelDtype key
   string role = 4;                         // BandRole key
   optional double no_data = 5;
   string units = 6;
@@ -515,14 +542,15 @@ message CoverageBandWire {
   optional double range_max = 10;
   repeated ColorBinWire palette = 11;
 }
+// The legend colour crosses as its display-byte quadruple — the same ToRgb projection the content key takes, so the
+// wire and the key agree by construction — and the decoder re-admits through PerceptualColor.OfRgb.
 message ColorBinWire { sint32 index = 1; uint32 r = 2; uint32 g = 3; uint32 b = 4; uint32 a = 5; string category = 6; }
 message OverviewLevelWire {
-  sint32 width = 1;
-  sint32 height = 2;
-  double cell_size = 3;
+  reserved 1, 2, 3;                        // retired width/height/cell_size — the level carries its own lattice
   bytes raster_key = 4;
   sint32 block_x = 5;
   sint32 block_y = 6;
+  CellLatticeWire grid = 7;
 }
 
 // --- [GEOREFERENCE_WIRE] ---
@@ -561,6 +589,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
 using Rasm.Domain;
+using Rasm.Drawing;
 using Rasm.Element.Assessment;
 using Rasm.Element.Classification;
 using Rasm.Element.Composition;
@@ -569,6 +598,8 @@ using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Rasm.Element.Wire;
+using Rasm.Numerics;
+using Rhino.Geometry;
 using Riok.Mapperly.Abstractions;
 using static LanguageExt.Prelude;
 
@@ -745,7 +776,24 @@ internal static partial class WireCodec {
   CoverageBandWire w = new() { Index = band.Index, Name = band.Name, SampleType = band.SampleType.Key, Role = band.Role.Key, Units = band.Units, Offset = band.Offset, Scale = band.Scale };
   band.NoData.IfSome(v => w.NoData = v);
   band.Range.IfSome(r => { w.RangeMin = r.Min; w.RangeMax = r.Max; });
-  w.Palette.AddRange(band.Palette.Map(static c => new ColorBinWire { Index = c.Index, R = c.R, G = c.G, B = c.B, A = c.A, Category = c.Category }));
+  // The legend colour crosses through the SAME ToRgb quantizer CanonicalBytes takes, so the wire quadruple and the
+  // content key are one projection — a second quantization here would let two runtimes agree on the key and disagree
+  // on the swatch. The decoder re-admits through PerceptualColor.OfRgb, never a stored perceptual triple, because the
+  // display quadruple is the only form both the key and every host palette surface already speak.
+  w.Palette.AddRange(band.Palette.Map(static c => {
+   (byte r, byte g, byte b, byte a) = c.Colour.ToRgb();
+   return new ColorBinWire { Index = c.Index, R = r, G = g, B = b, A = a, Category = c.Category };
+  }));
+  return w;
+ }
+
+ // The kernel placement crosses as its twelve index-to-world coefficients plus the census and ceiling the decoder
+ // re-admits with — the fourth matrix row is the invariant [0 0 0 1] and carries no information, so twelve IS the
+ // whole affine and a thirteenth column would be a value the receiver already knows.
+ [UserMapping] internal static CellLatticeWire ToWire(CellLattice lattice) {
+  Transform t = lattice.IndexToWorld;
+  CellLatticeWire w = new() { Columns = lattice.Columns.Value, Rows = lattice.Rows.Value, Layers = lattice.Layers.Value, Ceiling = lattice.Ceiling };
+  w.Affine.AddRange([t.M00, t.M01, t.M02, t.M03, t.M10, t.M11, t.M12, t.M13, t.M20, t.M21, t.M22, t.M23]);
   return w;
  }
 
@@ -888,11 +936,32 @@ internal static partial class WireCodec {
   layerSet: u => { LayerSetUsageWire wire = new() { Direction = u.Direction.Key, Sense = u.Sense.Key }; u.OffsetFromReferenceLine.IfSome(value => wire.OffsetFromReferenceLine = ToWire(value)); u.ReferenceExtent.IfSome(value => wire.ReferenceExtent = ToWire(value)); return new() { LayerSet = wire }; },
   profileSet: u => { ProfileSetUsageWire wire = new(); u.CardinalPoint.IfSome(value => wire.CardinalPoint = value.Key); u.ReferenceExtent.IfSome(value => wire.ReferenceExtent = ToWire(value)); return new() { ProfileSet = wire }; });
 
+ // Every optional row column writes through explicit protobuf presence — an IfSome assignment, never a defaulted zero or
+ // false that a decoder cannot distinguish from an author's real value.
  internal static MaterialCompositionWire ToWire(MaterialComposition composition) => composition.Switch<MaterialCompositionWire>(
   single: c => new() { Single = new SingleWire { MaterialKey = c.Material.Value } },
-  layerSet: c => { LayerSetWire w = new(); w.Layers.AddRange(c.Layers.Map(static l => new MaterialLayerWire { MaterialKey = l.Material.Value, Thickness = ToWire(l.Thickness), LayerName = l.LayerName })); return new() { LayerSet = w }; },
-  profileSet: c => { ProfileSetWire w = new() { MaterialKey = c.Material.Value, Profile = new ProfileRefWire { Standard = c.Profile.Standard, Designation = c.Profile.Designation, ContentKey = ToWire(c.Profile.ContentKey) } }; c.Section.IfSome(s => w.Section = ToWire(s)); return new() { ProfileSet = w }; },
-  constituentSet: c => { ConstituentSetWire w = new(); w.Constituents.AddRange(c.Constituents.Map(static x => new MaterialConstituentWire { MaterialKey = x.Material.Value, Category = x.Category, Fraction = x.Fraction })); return new() { ConstituentSet = w }; });
+  layerSet: c => { LayerSetWire w = new(); w.Layers.AddRange(c.Layers.Map(static l => ToWire(l))); return new() { LayerSet = w }; },
+  profileSet: c => { ProfileSetWire w = new(); w.Profiles.AddRange(c.Profiles.Map(static p => ToWire(p))); c.Composite.IfSome(r => w.Composite = ToWire(r)); c.Section.IfSome(s => w.Section = ToWire(s)); return new() { ProfileSet = w }; },
+  constituentSet: c => { ConstituentSetWire w = new(); w.Constituents.AddRange(c.Constituents.Map(static x => new MaterialConstituentWire { MaterialKey = x.Material.Value, Category = x.Category, Fraction = x.Fraction, PartName = x.PartName })); return new() { ConstituentSet = w }; });
+
+ internal static MaterialLayerWire ToWire(MaterialLayer layer) {
+  MaterialLayerWire w = new() { MaterialKey = layer.Material.Value, Thickness = ToWire(layer.Thickness), LayerName = layer.LayerName, Category = layer.Category };
+  layer.Priority.IfSome(p => w.Priority = p);
+  layer.Ventilated.IfSome(v => w.Ventilated = v);
+  return w;
+ }
+
+ internal static MaterialProfileWire ToWire(MaterialProfile profile) {
+  MaterialProfileWire w = new() { MaterialKey = profile.Material.Value, Profile = ToWire(profile.Profile), Category = profile.Category };
+  profile.Priority.IfSome(p => w.Priority = p);
+  w.Offsets.AddRange(profile.Offsets.Map(static o => ToWire(o)));
+  return w;
+ }
+
+ // ONE ProfileRef projection serves the row and the set-level composite — a second inline construction is the fork
+ // that lets one leg drop the content key the Rehydrate gate re-checks.
+ internal static ProfileRefWire ToWire(ProfileRef profile) =>
+  new() { Standard = profile.Standard, Designation = profile.Designation, ContentKey = ToWire(profile.ContentKey) };
 
  // Evidence rides the envelope (the base-class column), each arm its generated flat mapping; the Acoustic/Damping/
  // Hygrothermal arms carry Option columns, so their bodies are owned here beside the fold.
@@ -1057,7 +1126,7 @@ internal static partial class WireCodec {
     toSeq(w.Classifications).TraverseM(c => ToClassification(c, key)).As().Bind(secondary =>
      ToSpan(w.Span, key).Map(span => (Node)new Node.Object(
       id, kind!, w.HasExternalId ? Some(w.ExternalId) : None, primary, PredefinedType.Create(w.PredefinedType),
-      w.Name, w.Tag,
+      w.HasObjectType ? Some(w.ObjectType) : None, w.Name, w.Tag,
       new RepresentationContentHash(w.Representations.Aggregate(Map<string, UInt128>(), static (m, p) => m.Add(p.Key, ToKey(p.Value)))),
       w.History is null ? None : Some(new OwnerHistory(w.History.OwningUser, w.History.OwningApplication, w.History.Created.ToInstant(),
        w.History.Modified is null ? None : Some(w.History.Modified.ToInstant()), w.History.ChangeAction, w.History.State)),
@@ -1068,19 +1137,40 @@ internal static partial class WireCodec {
    toSeq(w.PropertySets).TraverseM(p => ToPropertySet(p, key)).As().Map(sets =>
     (Node)new Node.Material(id, MaterialId.Of(w.MaterialKey), composition, sets)));
 
+ // Every arm re-enters the seam Of* admission (the row-count, thickness, priority-range, offset-arity, and normalization
+ // gates hold for hostile wire bytes exactly as for an in-process author), and each optional row column reads through the
+ // generated Has* presence probe — a defaulted zero priority or false ventilation never forges an author's value. The
+ // ProfileSet arm admits the rows FIRST and stamps the baked section afterwards through WithSection, so the private-ctor
+ // case is never constructed directly and the head-row derivation stays total.
  static Fin<MaterialComposition> ToComposition(MaterialCompositionWire w, Op key) => w.CompositionCase switch {
   MaterialCompositionWire.CompositionOneofCase.Single => Fin.Succ(MaterialComposition.OfSingle(MaterialId.Of(w.Single.MaterialKey))),
   MaterialCompositionWire.CompositionOneofCase.LayerSet =>
-   toSeq(w.LayerSet.Layers).TraverseM(l => ToMeasure(l.Thickness, key).Map(t => new MaterialLayer(MaterialId.Of(l.MaterialKey), t, l.LayerName))).As()
+   toSeq(w.LayerSet.Layers).TraverseM(l => ToMeasure(l.Thickness, key).Map(t => new MaterialLayer(
+     MaterialId.Of(l.MaterialKey), t, l.LayerName,
+     l.HasPriority ? Some(l.Priority) : Option<int>.None, l.Category,
+     l.HasVentilated ? Some(l.Ventilated) : Option<bool>.None))).As()
     .Bind(layers => MaterialComposition.OfLayerSet(layers, key)),
   MaterialCompositionWire.CompositionOneofCase.ProfileSet =>
-   (w.ProfileSet.Section is null ? Fin.Succ(Option<SectionProperties>.None) : ToSection(w.ProfileSet.Section, key).Map(Some))
-    .Bind(section => ProfileRef.Rehydrate(w.ProfileSet.Profile.Standard, w.ProfileSet.Profile.Designation, ToKey(w.ProfileSet.Profile.ContentKey), key)
-     .Map(profile => (MaterialComposition)new MaterialComposition.ProfileSet(MaterialId.Of(w.ProfileSet.MaterialKey), profile, section))),
+   from profiles in toSeq(w.ProfileSet.Profiles).TraverseM(p => ToProfile(p, key)).As()
+   from composite in w.ProfileSet.Composite is null ? Fin.Succ(Option<ProfileRef>.None) : ToProfileRef(w.ProfileSet.Composite, key).Map(Some)
+   from admitted in MaterialComposition.OfProfileSet(profiles, key, composite)
+   from section in w.ProfileSet.Section is null ? Fin.Succ(Option<SectionProperties>.None) : ToSection(w.ProfileSet.Section, key).Map(Some)
+   select section.Match(Some: admitted.WithSection, None: () => admitted),
   MaterialCompositionWire.CompositionOneofCase.ConstituentSet => MaterialComposition.OfConstituentSet(
-   toSeq(w.ConstituentSet.Constituents).Map(c => new MaterialConstituent(MaterialId.Of(c.MaterialKey), c.Category, c.Fraction)), key),
+   toSeq(w.ConstituentSet.Constituents).Map(c => new MaterialConstituent(MaterialId.Of(c.MaterialKey), c.Category, c.Fraction, c.PartName)), key),
   _ => ElementFault.ValueRejected(key, "<wire-composition-none>"),
  };
+
+ // One compound-profile row: every offset re-crosses the MeasureValue finite gate beside the row's own ProfileRef admission.
+ static Fin<MaterialProfile> ToProfile(MaterialProfileWire w, Op key) =>
+  from profile in ToProfileRef(w.Profile, key)
+  from offsets in toSeq(w.Offsets).TraverseM(o => ToMeasure(o, key)).As()
+  select new MaterialProfile(MaterialId.Of(w.MaterialKey), profile, w.HasPriority ? Some(w.Priority) : Option<int>.None, w.Category, offsets);
+
+ // ONE ProfileRef admission serves the row and the set-level composite: Rehydrate re-derives the content key off the
+ // normalized (standard, designation) and rails when a persisted key disagrees, so no wire leg trusts a carried digest.
+ static Fin<ProfileRef> ToProfileRef(ProfileRefWire w, Op key) =>
+  ProfileRef.Rehydrate(w.Standard, w.Designation, ToKey(w.ContentKey), key);
 
  // SectionProperties decode is hand-owned Fin — nineteen measure columns re-cross the OfSi finite gate, which a
  // Mapperly partial cannot thread — the traversal order mirroring the wire field order exactly (positional by the
@@ -1205,23 +1295,43 @@ internal static partial class WireCodec {
   from kind in Row(CoverageKind.TryGet(w.Kind, out CoverageKind? row), row, w.Kind, key)
   from crs in ToGeoReference(w.Crs, key)
   from bands in toSeq(w.Bands).TraverseM(band => ToBand(band, key)).As()
+  from grid in ToLattice(w.Grid, key)
+  from overviews in toSeq(w.Overviews).TraverseM(overview =>
+   ToLattice(overview.Grid, key).Map(lattice => new OverviewLevel(lattice, ToKey(overview.RasterKey), overview.BlockX, overview.BlockY))).As()
   from coverage in CoverageGrid.Of(
-   kind, ToKey(w.RasterKey),
-   new GridDescriptor(w.Grid.OriginX, w.Grid.CellSizeX, w.Grid.RowRotation, w.Grid.OriginY, w.Grid.ColumnRotation, w.Grid.CellSizeY, w.Grid.Width, w.Grid.Height),
-   bands, crs, key,
-   toSeq(w.Overviews).Map(overview => new OverviewLevel(overview.Width, overview.Height, overview.CellSize, ToKey(overview.RasterKey), overview.BlockX, overview.BlockY)),
+   kind, ToKey(w.RasterKey), grid, bands, crs, key,
+   overviews,
    toSeq(w.Slices).Map(slice => new TimeSlice(slice.At.ToInstant(), ToKey(slice.RasterKey))),
    w.BaseBlockX, w.BaseBlockY)
   select coverage;
 
+ // The placement RE-ADMITS through the kernel's own gate rather than crossing as trusted state: a wire whose affine
+ // is non-invertible or whose census breaches the ceiling rails here, so a foreign encoder cannot hand this runtime
+ // a lattice its own CellLattice.Of would refuse. The arity gate is the wire's, because a repeated field carries no
+ // fixed length and a short affine would otherwise index past its own array.
+ static Fin<CellLattice> ToLattice(CellLatticeWire? w, Op key) =>
+  w is { Affine.Count: 12 } wire
+   ? CellLattice.Of(
+      new Transform {
+       M00 = wire.Affine[0], M01 = wire.Affine[1], M02 = wire.Affine[2], M03 = wire.Affine[3],
+       M10 = wire.Affine[4], M11 = wire.Affine[5], M12 = wire.Affine[6], M13 = wire.Affine[7],
+       M20 = wire.Affine[8], M21 = wire.Affine[9], M22 = wire.Affine[10], M23 = wire.Affine[11],
+       M30 = 0.0, M31 = 0.0, M32 = 0.0, M33 = 1.0,
+      },
+      LatticeAxis.Create(value: wire.Columns), LatticeAxis.Create(value: wire.Rows), LatticeAxis.Create(value: wire.Layers),
+      wire.Ceiling, key)
+   : ElementFault.ValueRejected(key, $"<wire-lattice-affine-arity:{w?.Affine.Count ?? 0}>");
+
  static Fin<CoverageBand> ToBand(CoverageBandWire w, Op key) =>
-  Row(RasterSampleType.TryGet(w.SampleType, out RasterSampleType? st), st, w.SampleType, key).Bind(sampleType =>
+  Row(ChannelDtype.TryGet(w.SampleType, out ChannelDtype? st), st, w.SampleType, key).Bind(sampleType =>
    Row(BandRole.TryGet(w.Role, out BandRole? br), br, w.Role, key).Bind(role =>
     w.HasRangeMin != w.HasRangeMax ? ElementFault.ValueRejected(key, "<wire-band-range-half-open>")
     : !w.Palette.All(static p => (p.R | p.G | p.B | p.A) <= 255u) ? ElementFault.ValueRejected(key, "<wire-band-palette-channel-overflow>")
-    : Fin.Succ(new CoverageBand(w.Index, w.Name, sampleType, role, Opt(w.HasNoData, w.NoData), w.Units, w.Offset, w.Scale,
-       w.HasRangeMin ? Some((w.RangeMin, w.RangeMax)) : None,
-       toSeq(w.Palette).Map(static p => new ColorBin(p.Index, (byte)p.R, (byte)p.G, (byte)p.B, (byte)p.A, p.Category))))));
+    : toSeq(w.Palette).TraverseM(bin => PerceptualColor
+       .OfRgb((byte)bin.R, (byte)bin.G, (byte)bin.B, alpha: bin.A / 255.0, key: key)
+       .Map(colour => new ColorBin(bin.Index, colour, bin.Category))).As()
+      .Map(palette => new CoverageBand(w.Index, w.Name, sampleType, role, Opt(w.HasNoData, w.NoData), w.Units, w.Offset, w.Scale,
+       w.HasRangeMin ? Some((w.RangeMin, w.RangeMax)) : None, palette))));
 
  // A seam GeoReference is Identity (no CRS) or Admit-resolved (Some CRS) — the wire mirrors the closed pair: an
  // absent crs decodes ONLY to the exact Identity tuple (junk columns rail), a present crs re-admits in full; the

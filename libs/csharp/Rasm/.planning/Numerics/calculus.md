@@ -13,14 +13,14 @@ Every operator threads `Op` and gates finite input through the Domain validation
 
 ## [02]-[DIFFERENTIAL_STENCIL]
 
-- Owner: `Nabla` the `static` differential-calculus owner; `SampleAxes` evaluates the six axis-offset samples `f(p ± ε·eᵢ)` through one traversal every first- and second-order operator composes.
-- Cases: gradient, curl, curl-noise, divergence, Laplacian, and strain-magnitude over the shared stencil, with the periodic `ToroidalWrap`.
-- Entry: every operator takes `(sampler, point, eps, key)`; `eps` is the caller's scale-derived stencil width, gated finite and above `EpsilonPolicy.ZeroTolerance` — this floor never guesses a scale.
-- Auto: every operator shares the one `SampleAxes` traversal, and a failed tap short-circuits the rail with the sampler's own typed fault.
+- Owner: `Nabla` the `static` differential-calculus owner; `SampleAxes` evaluates the six axis-offset samples `f(p ± ε·eᵢ)` through one traversal every first- and second-order operator composes; `LatticeAxes` is its TOTAL lattice twin — six taps by index with the border reflected — that `LatticeGradientAt`/`LatticeLaplacianAt`/`LatticeHessianAt` read.
+- Cases: gradient, curl, curl-noise, divergence, Laplacian, and strain-magnitude over the shared stencil, with the periodic `ToroidalWrap`; the lattice arm carries gradient, Laplacian, and packed-upper Hessian over a `CellLattice`-addressed value span.
+- Entry: every ambient operator takes `(sampler, point, eps, key)`; `eps` is the caller's scale-derived stencil width, gated finite and above `EpsilonPolicy.ZeroTolerance` — this floor never guesses a scale. Every lattice operator takes `(values, grid, column, row, layer)` — non-`Fin` and allocation-free, the spacing read off `CellLattice.CellSize` per axis so an anisotropic lattice differentiates true.
+- Auto: every ambient operator shares the one `SampleAxes` traversal, and a failed tap short-circuits the rail with the sampler's own typed fault; every lattice operator is total on an admitted lattice — the reflected border makes an out-of-census tap read its mirror cell, and a rank-2 lattice degenerates the Z taps so one body serves both ranks.
 - Receipt: none — the operators are pure projections, evidence owned by the composing field or solver.
 - Packages: LanguageExt.Core (`Fin`, query expressions), Rasm.Domain (`Op`), RhinoCommon (`Point3d`/`Vector3d` value structs).
 - Growth: a new differential operator is one member over the `SampleAxes` stencil; a higher-order stencil is one alternative member the operators re-bind to, never a per-field re-implementation.
-- Boundary: mesh-aware Laplacians over connectivity are `Meshing/mesh`'s, this page differentiating ambient ℝ³ samplers alone; `ToroidalWrap` is a total pure fold over an admitted strictly-positive period the Domain `Period` guard gates upstream.
+- Boundary: mesh-aware Laplacians over connectivity are `Meshing/mesh`'s, this page differentiating ambient ℝ³ samplers and `CellLattice`-addressed value spans alone; the lattice arm addresses and never stores — the value span is the consumer's, the lattice the `Numerics/atoms` owner; `ToroidalWrap` is a total pure fold over an admitted strictly-positive period the Domain `Period` guard gates upstream.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -85,17 +85,76 @@ public static class Nabla {
         new(x: sample.X - (Math.Floor(d: (sample.X / period.X) + 0.5) * period.X),
             y: sample.Y - (Math.Floor(d: (sample.Y / period.Y) + 0.5) * period.Y),
             z: sample.Z - (Math.Floor(d: (sample.Z / period.Z) + 0.5) * period.Z));
+
+    // --- [LATTICE_STENCIL]
+    // TOTAL lattice arm beside the ambient sampler: a lattice-backed value differentiates by INDEX with the border
+    // reflected — non-Fin and allocation-free, because a texel or voxel plane can neither supply a
+    // Func<Point3d, Fin<T>> sampler nor afford one Fin allocation per tap. CellSize scales each axis independently,
+    // so an anisotropic, rotated, or sheared lattice reads its own true spacing. Rank 2 degenerates the Z taps to
+    // the centre so every operator is one body over both ranks.
+    public static (double X1, double X0, double Y1, double Y0, double Z1, double Z0) LatticeAxes(
+        ReadOnlySpan<double> values, CellLattice grid, int column, int row, int layer = 0) {
+        (int columns, int rows, int layers) = (grid.Columns.Value, grid.Rows.Value, grid.Layers.Value);
+        static int Reflect(int index, int count) =>
+            count is 1 ? 0 : index < 0 ? -index : index >= count ? (2 * count) - index - 2 : index;
+        double At(int c, int r, int l) =>
+            values[(int)grid.Linear(column: Reflect(index: c, count: columns), row: Reflect(index: r, count: rows), layer: Reflect(index: l, count: layers))];
+        return (X1: At(c: column + 1, r: row, l: layer), X0: At(c: column - 1, r: row, l: layer),
+                Y1: At(c: column, r: row + 1, l: layer), Y0: At(c: column, r: row - 1, l: layer),
+                Z1: At(c: column, r: row, l: layer + 1), Z0: At(c: column, r: row, l: layer - 1));
+    }
+    public static Vector3d LatticeGradientAt(ReadOnlySpan<double> values, CellLattice grid, int column, int row, int layer = 0) {
+        (double x1, double x0, double y1, double y0, double z1, double z0) =
+            LatticeAxes(values: values, grid: grid, column: column, row: row, layer: layer);
+        Vector3d cell = grid.CellSize;
+        return new Vector3d(x: (x1 - x0) / (2.0 * cell.X), y: (y1 - y0) / (2.0 * cell.Y),
+            z: grid.Rank is 3 ? (z1 - z0) / (2.0 * cell.Z) : 0.0);
+    }
+    public static double LatticeLaplacianAt(ReadOnlySpan<double> values, CellLattice grid, int column, int row, int layer = 0) {
+        (double x1, double x0, double y1, double y0, double z1, double z0) =
+            LatticeAxes(values: values, grid: grid, column: column, row: row, layer: layer);
+        double center = values[(int)grid.Linear(column: column, row: row, layer: layer)];
+        Vector3d cell = grid.CellSize;
+        double planar = ((x1 + x0 - (2.0 * center)) / (cell.X * cell.X)) + ((y1 + y0 - (2.0 * center)) / (cell.Y * cell.Y));
+        return grid.Rank is 3 ? planar + ((z1 + z0 - (2.0 * center)) / (cell.Z * cell.Z)) : planar;
+    }
+    // Packed-upper (Xx, Xy, Xz, Yy, Yz, Zz) second differences — diagonal off the six-tap axes, mixed partials off
+    // the four corner taps per pair — so a SymmetricMatrix admission downstream is repack-free. Eigenvalue
+    // projection, physical scaling, and signed packing stay the consumer's.
+    public static (double Xx, double Xy, double Xz, double Yy, double Yz, double Zz) LatticeHessianAt(
+        ReadOnlySpan<double> values, CellLattice grid, int column, int row, int layer = 0) {
+        (int columns, int rows, int layers) = (grid.Columns.Value, grid.Rows.Value, grid.Layers.Value);
+        static int Reflect(int index, int count) =>
+            count is 1 ? 0 : index < 0 ? -index : index >= count ? (2 * count) - index - 2 : index;
+        double At(int c, int r, int l) =>
+            values[(int)grid.Linear(column: Reflect(index: c, count: columns), row: Reflect(index: r, count: rows), layer: Reflect(index: l, count: layers))];
+        (double x1, double x0, double y1, double y0, double z1, double z0) =
+            LatticeAxes(values: values, grid: grid, column: column, row: row, layer: layer);
+        double center = At(c: column, r: row, l: layer);
+        Vector3d cell = grid.CellSize;
+        double xy = (At(c: column + 1, r: row + 1, l: layer) - At(c: column + 1, r: row - 1, l: layer)
+                   - At(c: column - 1, r: row + 1, l: layer) + At(c: column - 1, r: row - 1, l: layer)) / (4.0 * cell.X * cell.Y);
+        (double xz, double yz, double zz) = grid.Rank is 3
+            ? (Xz: (At(c: column + 1, r: row, l: layer + 1) - At(c: column + 1, r: row, l: layer - 1)
+                  - At(c: column - 1, r: row, l: layer + 1) + At(c: column - 1, r: row, l: layer - 1)) / (4.0 * cell.X * cell.Z),
+               Yz: (At(c: column, r: row + 1, l: layer + 1) - At(c: column, r: row + 1, l: layer - 1)
+                  - At(c: column, r: row - 1, l: layer + 1) + At(c: column, r: row - 1, l: layer - 1)) / (4.0 * cell.Y * cell.Z),
+               Zz: (z1 + z0 - (2.0 * center)) / (cell.Z * cell.Z))
+            : (Xz: 0.0, Yz: 0.0, Zz: 0.0);
+        return (Xx: (x1 + x0 - (2.0 * center)) / (cell.X * cell.X), Xy: xy, Xz: xz,
+                Yy: (y1 + y0 - (2.0 * center)) / (cell.Y * cell.Y), Yz: yz, Zz: zz);
+    }
 }
 ```
 
 ## [03]-[WEIGHT_PROFILES]
 
-- Owner: `KernelProfile` carries value, first and second derivative, and a `KernelProfileStatus` smoothness verdict, so a consumer reads a kernel's derivative off the profile instead of re-differencing; `KernelKind` mints the compact-support kernels, each row folding value and its two derivatives through one `SupportProfile` clamp and carrying `DerivativeSupremum`, its dimensionless slope-bound numerator; `WeightKernelFamily` mints the reconstruction-weight profiles with the `Interpolating` column the MLS dispatches on; `Falloff` the radial-decay `[Union]` whose anisotropic case takes a `SymmetricMatrix` metric sampler driving the Mahalanobis distance.
-- Cases: the `KernelProfileStatus` verdicts, the compact-support `KernelKind` rows, the `WeightKernelFamily` weights, and the `Falloff` decay cases including the metric-sampler anisotropic one.
+- Owner: `KernelProfile` carries value, first and second derivative, and a `KernelProfileStatus` smoothness verdict, so a consumer reads a kernel's derivative off the profile instead of re-differencing; `KernelKind` mints the kernel bases in three bands — compact-support rows through one `SupportProfile` clamp, band-limited `Lanczos`/`Jinc` reconstruction rows whose profiles evaluate at 106-bit through the `ddouble` cardinal ladder and narrow once, and globally-supported RBF rows through the clamp-free `GlobalProfile` twin — each row carrying `DerivativeSupremum`, its dimensionless slope-bound numerator, and `PolynomialOrder`, the reproduction-tail order the conditionally-positive-definite bases demand; `WeightKernelFamily` mints the reconstruction-weight profiles with the `Interpolating` column the MLS dispatches on; `Falloff` the radial-decay `[Union]` whose anisotropic case takes a `SymmetricMatrix` metric sampler driving the Mahalanobis distance.
+- Cases: the `KernelProfileStatus` verdicts, the compact, band-limited, and global `KernelKind` rows, the `WeightKernelFamily` weights including the band-limited interpolating row, and the `Falloff` decay cases including the metric-sampler anisotropic one.
 - Entry: `KernelKind.Profile(distance, radius, key)` returns the full gated profile and `Weight` the bare fast path; `WeightKernelFamily.Weight` zeros outside support; `Falloff.Weight` discriminates bare distance, offset vector, and offset-plus-sample-point through one `WeightCore` gated by `Admit.FalloffInput`.
 - Auto: `SupportProfile` is the one clamp/status fold every kernel shares, banded on the dimensionless `q = d/r` so classification is scale-invariant with exact zeros outside support; the metric falloff proves the sampled tensor SPD by leading principal minors before forming the quadratic, allocation-free, so an indefinite metric fails typed instead of producing `√negative`.
 - Receipt: `KernelProfile` is the per-evaluation receipt — value, both derivatives, and status.
-- Packages: Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` columns), LanguageExt.Core, `SymmetricMatrix` the metric carrier, Rasm.Domain (`Op`, the `Admit.KernelInput`/`FalloffInput` gates, the `AcceptValidated<TVO>` bridge).
+- Packages: Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` columns), LanguageExt.Core, `SymmetricMatrix` the metric carrier, TYoshimura.DoubleDouble (`ddouble.Sinc`/`CosPi`/`BesselJ` behind the band-limited rows), Rasm.Domain (`Op`, the `Admit.KernelInput`/`FalloffInput` gates, the `AcceptValidated<TVO>` bridge).
 - Growth: a new kernel is one `KernelKind` row with its three delegate columns and `DerivativeSupremum`; a new reconstruction weight is one `WeightKernelFamily` row; a new decay law is one `Falloff` case, one `WeightCore` arm, and its `SlopeBound` column.
 - Boundary: `Spatial/fields` wraps `Falloff.Metric` over its `TensorField` by passing the tensor sampler, so the tensor-field type never appears here; `Meshing/reconstruct` composes `KernelKind` and `WeightKernelFamily` for its RBF, MLS, and Levin windows — one profile mathematics, zero copies.
 
@@ -116,14 +175,40 @@ public readonly record struct KernelProfile(double Value, double FirstDerivative
 
 [SmartEnum<int>]
 public sealed partial class KernelKind {
-    public static readonly KernelKind Wendland = new(key: 0, derivativeSupremum: 135.0 / 64.0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => Pow1(q: q, power: 4) * (1.0 + (4.0 * q)), first: static (q, r) => ((-20.0 * q) + (60.0 * q * q) - (60.0 * q * q * q) + (20.0 * q * q * q * q)) / r, second: static (q, r) => (-20.0 + (120.0 * q) - (180.0 * q * q) + (80.0 * q * q * q)) / (r * r)));
-    public static readonly KernelKind Quintic = new(key: 1, derivativeSupremum: 5.0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => Pow1(q: q, power: 5), first: static (q, r) => -5.0 * Pow1(q: q, power: 4) / r, second: static (q, r) => 20.0 * Pow1(q: q, power: 3) / (r * r)));
-    public static readonly KernelKind Cosine = new(key: 2, derivativeSupremum: Math.PI / 2.0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => 0.5 * (1.0 + Math.Cos(d: Math.PI * q)), first: static (q, r) => -0.5 * Math.PI * Math.Sin(a: Math.PI * q) / r, second: static (q, r) => -0.5 * Math.PI * Math.PI * Math.Cos(d: Math.PI * q) / (r * r)));
-    public static readonly KernelKind Cubic = new(key: 3, derivativeSupremum: 3.0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => Pow1(q: q, power: 3), first: static (q, r) => -3.0 * Pow1(q: q, power: 2) / r, second: static (q, r) => 6.0 * (1.0 - q) / (r * r)));
-    public static readonly KernelKind Linear = new(key: 4, derivativeSupremum: 1.0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => 1.0 - q, first: static (_, r) => -1.0 / r, second: static (_, _) => 0.0));
-    public static readonly KernelKind Epanechnikov = new(key: 5, derivativeSupremum: 2.0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => 1.0 - (q * q), first: static (q, r) => -2.0 * q / r, second: static (_, r) => -2.0 / (r * r)));
-    // DerivativeSupremum = sup_{q∈[0,1]}|value′(q)|, the slope-bound numerator; Wendland peaks at q=1/4, odd-power kernels at the origin, cosine at q=1/2.
+    public static readonly KernelKind Wendland = new(key: 0, derivativeSupremum: 135.0 / 64.0, polynomialOrder: 0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => Pow1(q: q, power: 4) * (1.0 + (4.0 * q)), first: static (q, r) => ((-20.0 * q) + (60.0 * q * q) - (60.0 * q * q * q) + (20.0 * q * q * q * q)) / r, second: static (q, r) => (-20.0 + (120.0 * q) - (180.0 * q * q) + (80.0 * q * q * q)) / (r * r)));
+    public static readonly KernelKind Quintic = new(key: 1, derivativeSupremum: 5.0, polynomialOrder: 0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => Pow1(q: q, power: 5), first: static (q, r) => -5.0 * Pow1(q: q, power: 4) / r, second: static (q, r) => 20.0 * Pow1(q: q, power: 3) / (r * r)));
+    public static readonly KernelKind Cosine = new(key: 2, derivativeSupremum: Math.PI / 2.0, polynomialOrder: 0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => 0.5 * (1.0 + Math.Cos(d: Math.PI * q)), first: static (q, r) => -0.5 * Math.PI * Math.Sin(a: Math.PI * q) / r, second: static (q, r) => -0.5 * Math.PI * Math.PI * Math.Cos(d: Math.PI * q) / (r * r)));
+    public static readonly KernelKind Cubic = new(key: 3, derivativeSupremum: 3.0, polynomialOrder: 0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => Pow1(q: q, power: 3), first: static (q, r) => -3.0 * Pow1(q: q, power: 2) / r, second: static (q, r) => 6.0 * (1.0 - q) / (r * r)));
+    public static readonly KernelKind Linear = new(key: 4, derivativeSupremum: 1.0, polynomialOrder: 0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => 1.0 - q, first: static (_, r) => -1.0 / r, second: static (_, _) => 0.0));
+    public static readonly KernelKind Epanechnikov = new(key: 5, derivativeSupremum: 2.0, polynomialOrder: 0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => 1.0 - (q * q), first: static (q, r) => -2.0 * q / r, second: static (_, r) => -2.0 / (r * r)));
+    // Band-limited reconstruction rows — the sinc/jinc family every resampling tap table re-derives. Value and both
+    // derivatives evaluate at 106-bit through the ddouble cardinal ladder and narrow ONCE at the row edge: the
+    // (cos − sinc)/x near-zero cancellation that bars a double closed form is exactly what ddouble absorbs.
+    public static readonly KernelKind Lanczos = new(key: 6, derivativeSupremum: 2.8097867788012820, polynomialOrder: 0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false,
+        value: static (q, _) => (double)(Sinc(x: 2.0 * q) * Sinc(x: q)),
+        first: static (q, r) => (double)((2.0 * SincPrime(x: 2.0 * q) * Sinc(x: q)) + (Sinc(x: 2.0 * q) * SincPrime(x: q))) / r,
+        second: static (q, r) => (double)((4.0 * SincSecond(x: 2.0 * q) * Sinc(x: q)) + (4.0 * SincPrime(x: 2.0 * q) * SincPrime(x: q)) + (Sinc(x: 2.0 * q) * SincSecond(x: q))) / (r * r)));
+    public static readonly KernelKind Jinc = new(key: 7, derivativeSupremum: 1.3791295785936520, polynomialOrder: 0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false,
+        value: static (q, _) => q <= EpsilonPolicy.SqrtEpsilon ? 1.0 : (double)(2.0 * ddouble.BesselJ(1, (ddouble)(BesselFirstZero * q)) / (ddouble)(BesselFirstZero * q)),
+        first: static (q, r) => q <= EpsilonPolicy.SqrtEpsilon ? -BesselFirstZero * BesselFirstZero * q / (4.0 * r) : (double)(-2.0 * ddouble.BesselJ(2, (ddouble)(BesselFirstZero * q)) / (ddouble)q) / r,
+        second: static (q, r) => q <= EpsilonPolicy.SqrtEpsilon
+            ? -BesselFirstZero * BesselFirstZero / (4.0 * r * r)
+            : (double)(-(ddouble)(BesselFirstZero * BesselFirstZero) * ((((ddouble.BesselJ(1, (ddouble)(BesselFirstZero * q)) - ddouble.BesselJ(3, (ddouble)(BesselFirstZero * q))) * (ddouble)(BesselFirstZero * q)) - (2.0 * ddouble.BesselJ(2, (ddouble)(BesselFirstZero * q)))) / ((ddouble)(BesselFirstZero * q) * (ddouble)(BesselFirstZero * q)))) / (r * r)));
+    // Globally-supported and conditionally-positive-definite RBF bases — no support clamp, so these rows evaluate
+    // through GlobalProfile; PolynomialOrder is the reproduction-tail degree+1 the augmented design [Φ P; Pᵀ 0]
+    // appends for conditional positive definiteness — 0 spells an unconditional basis.
+    public static readonly KernelKind Gaussian = new(key: 8, derivativeSupremum: 0.8577638849607068, polynomialOrder: 0, evaluate: static (d, r) => GlobalProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => Math.Exp(d: -(q * q)), first: static (q, r) => -2.0 * q * Math.Exp(d: -(q * q)) / r, second: static (q, r) => ((4.0 * q * q) - 2.0) * Math.Exp(d: -(q * q)) / (r * r)));
+    public static readonly KernelKind Multiquadric = new(key: 9, derivativeSupremum: 1.0, polynomialOrder: 1, evaluate: static (d, r) => GlobalProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => Math.Sqrt(d: 1.0 + (q * q)), first: static (q, r) => q / (r * Math.Sqrt(d: 1.0 + (q * q))), second: static (q, r) => 1.0 / (Math.Pow(x: 1.0 + (q * q), y: 1.5) * r * r)));
+    public static readonly KernelKind InverseMultiquadric = new(key: 10, derivativeSupremum: 0.3849001794597505, polynomialOrder: 0, evaluate: static (d, r) => GlobalProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => 1.0 / Math.Sqrt(d: 1.0 + (q * q)), first: static (q, r) => -q / (Math.Pow(x: 1.0 + (q * q), y: 1.5) * r), second: static (q, r) => ((2.0 * q * q) - 1.0) / (Math.Pow(x: 1.0 + (q * q), y: 2.5) * r * r)));
+    public static readonly KernelKind PolyharmonicCubic = new(key: 11, derivativeSupremum: double.PositiveInfinity, polynomialOrder: 2, evaluate: static (d, r) => GlobalProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => q * q * q, first: static (q, r) => 3.0 * q * q / r, second: static (q, r) => 6.0 * q / (r * r)));
+    public static readonly KernelKind ThinPlateSpline = new(key: 12, derivativeSupremum: double.PositiveInfinity, polynomialOrder: 2, evaluate: static (d, r) => GlobalProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => q <= EpsilonPolicy.ZeroTolerance ? 0.0 : q * q * Math.Log(d: q), first: static (q, r) => q <= EpsilonPolicy.ZeroTolerance ? 0.0 : q * ((2.0 * Math.Log(d: q)) + 1.0) / r, second: static (q, r) => q <= EpsilonPolicy.ZeroTolerance ? 0.0 : ((2.0 * Math.Log(d: q)) + 3.0) / (r * r)));
+    // DerivativeSupremum = sup_q|value′(q)|, the slope-bound numerator; compact rows bound on [0,1] (Wendland peaks at
+    // q=1/4, odd-power kernels at the origin, cosine at q=1/2), global rows on [0,∞) — the polyharmonic pair carries
+    // PositiveInfinity because no tolerance-free bound exists, and Falloff.SlopeBound degrades to None through it.
     public double DerivativeSupremum { get; }
+    // Reproduction-tail order for the conditionally-positive-definite bases: BuildRbf appends the degree-(order-1)
+    // polynomial block exactly when this column is nonzero.
+    public int PolynomialOrder { get; }
     [UseDelegateFromConstructor] private partial KernelProfile Evaluate(double distance, double radius);
     public Fin<KernelProfile> Profile(double distance, double radius, Op key) =>
         from _ in Admit.KernelInput(distance: distance, radius: radius, key: key)
@@ -134,6 +219,24 @@ public sealed partial class KernelKind {
         select profile;
     public double Weight(double distance, double radius) => Evaluate(distance: distance, radius: radius).Value;
     private static double Pow1(double q, int power) => Math.Pow(x: 1.0 - q, y: power);
+    // First zero of J1 — the jinc row's support normalization, so value(1) is exactly the reconstruction null.
+    private const double BesselFirstZero = 3.8317059702075123;
+    // 106-bit cardinal-sine ladder: sinc'(x) = (cos(πx) − sinc(x))/x and sinc''(x) = −π²·sinc(x) − 2·sinc'(x)/x,
+    // with the x→0 limits −π²x/3 and −π²/3 closing the removable singularity before the one narrowing to double.
+    private static ddouble Sinc(double x) => ddouble.Sinc((ddouble)x, normalized: true);
+    private static ddouble SincPrime(double x) => Math.Abs(value: x) <= EpsilonPolicy.SqrtEpsilon
+        ? (ddouble)(-Math.PI * Math.PI / 3.0) * (ddouble)x
+        : (ddouble.CosPi((ddouble)x) - Sinc(x: x)) / (ddouble)x;
+    private static ddouble SincSecond(double x) =>
+        (-(ddouble)(Math.PI * Math.PI) * Sinc(x: x)) - (2.0 * (Math.Abs(value: x) <= EpsilonPolicy.SqrtEpsilon
+            ? (ddouble)(-Math.PI * Math.PI / 3.0)
+            : SincPrime(x: x) / (ddouble)x));
+    // Global twin of SupportProfile — no clamp, no boundary band: a globally-supported basis is finite everywhere.
+    private static KernelProfile GlobalProfile(double distance, double radius, bool nonsmoothAtOrigin, Func<double, double, double> value, Func<double, double, double> first, Func<double, double, double> second) {
+        double q = distance / radius;
+        return new KernelProfile(Value: value(arg1: q, arg2: radius), FirstDerivative: first(arg1: q, arg2: radius), SecondDerivative: second(arg1: q, arg2: radius),
+            Status: nonsmoothAtOrigin && q <= EpsilonPolicy.SqrtEpsilon ? KernelProfileStatus.NonsmoothOrigin : KernelProfileStatus.Smooth);
+    }
     private static KernelProfile SupportProfile(double distance, double radius, bool nonsmoothAtOrigin, Func<double, double, double> value, Func<double, double, double> first, Func<double, double, double> second) {
         double q = distance / radius;
         return q > 1.0
@@ -151,6 +254,9 @@ public sealed partial class WeightKernelFamily {
     public static readonly WeightKernelFamily Gaussian = new(key: 2, interpolating: false, profile: static t => Math.Exp(d: -(t * t) / GaussianBandwidthSquared));
     public static readonly WeightKernelFamily CompactExp = new(key: 3, interpolating: false, profile: static t => t >= 1.0 ? 0.0 : Math.Exp(d: -(t * t) / Math.Max(val1: 1.0 - (t * t), val2: EpsilonPolicy.ZeroTolerance)));
     public static readonly WeightKernelFamily Singular = new(key: 4, interpolating: true, profile: static t => 1.0 / Math.Max(val1: t * t, val2: EpsilonPolicy.SqrtEpsilon));
+    // Band-limited interpolating weight — sinc is 1 at the sample and 0 at every integer lattice offset, the one
+    // MLS window that interpolates at bounded support without the singular row's pole.
+    public static readonly WeightKernelFamily Lanczos = new(key: 5, interpolating: true, profile: static t => (double)(ddouble.Sinc((ddouble)(2.0 * t), normalized: true) * ddouble.Sinc((ddouble)t, normalized: true)));
     private const double GaussianBandwidthSquared = 1.0 / 9.0;
     public bool Interpolating { get; }
     [UseDelegateFromConstructor] private partial double Profile(double t);
@@ -269,9 +375,13 @@ internal static class FieldNoise {
                              let nx = cx + dx
                              let ny = cy + dy
                              let nz = cz + dz
+                             // Three INDEPENDENT per-axis jitter draws — each channel hashes the CELL under its
+                             // own seed offset. The prior chain (hashY = Perm(hashX + 17), hashZ = Perm(hashY + 31))
+                             // made y a function of x's hash and z of y's through one table, so the "decorrelated"
+                             // feature-point jitter axes were correlated by construction.
                              let hashX = Perm(x: Perm(x: Perm(x: nx & 0xFF, seed: seed) + (ny & 0xFF), seed: seed) + (nz & 0xFF), seed: seed)
-                             let hashY = Perm(x: hashX + 17, seed: seed)
-                             let hashZ = Perm(x: hashY + 31, seed: seed)
+                             let hashY = Perm(x: Perm(x: Perm(x: nx & 0xFF, seed: seed + 17) + (ny & 0xFF), seed: seed + 17) + (nz & 0xFF), seed: seed + 17)
+                             let hashZ = Perm(x: Perm(x: Perm(x: nx & 0xFF, seed: seed + 31) + (ny & 0xFF), seed: seed + 31) + (nz & 0xFF), seed: seed + 31)
                              let ddx = nx + (hashX / 255.0) - px
                              let ddy = ny + (hashY / 255.0) - py
                              let ddz = nz + (hashZ / 255.0) - pz
@@ -352,7 +462,10 @@ public readonly record struct SunPosition(double AzimuthDeg, double AltitudeDeg)
 // --- [OPERATIONS] -------------------------------------------------------------------------
 // Apparent-solar closed form at the branch's one truncation order: nutation on the ecliptic longitude, quadratic
 // mean longitude, nested obliquity, and pressure-corrected refraction — the strongest of the two folds this owner
-// collapsed, so every consumer reads one answer for one instant.
+// collapsed, so every consumer reads one answer for one instant. The truncation holds arc-minute apparent
+// position across the four centuries around J2000 and degrades outside; refraction dominates the error budget
+// inside that span (worst near the horizon), which is why site elevation is a parameter and a higher-order
+// ephemeris term is not.
 public static class SolarPosition {
     public static SunPosition At(SolarSite site, Instant instant) {
         double jd = 2440587.5 + instant.ToUnixTimeTicks() / (double)NodaConstants.TicksPerDay;

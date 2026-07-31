@@ -2,7 +2,7 @@
 
 `ToolAssembly` is the provider-detached physical-tool owner. Stable `Identity` survives lifecycle refreshes; `Snapshot` changes with measurements, edges, status, process ranges, reconditioning, measured offset wear, and life evidence. `ToolMagazine` admits machine-specific layout data, kits crib tools into typed slot states, schedules changes against every reserve-adjusted life basis under one selection policy, and projects the holder envelope consumed by Guard.
 
-MTConnect types stop at `ToolCatalog.Admit`. Frozen correspondence tables carry provider measurement, status, life-basis, and placement vocabularies into domain owners, so an unmapped provider value fails typed rather than defaulting to a domain row. `MetricDimension` rows own unit admission and canonical projection, so every measurement lands as one `ToolMetric` in millimetres, degrees, grams, or decimal fractions.
+MTConnect types stop at `ToolCatalog.Admit`, and this page is the package's ONLY provider decode: `ToolCatalog.Cutter` and `ToolCatalog.Evidence` project an admitted assembly onto the atoms floor's `CutterForm` and `ToolEvidence`, so no parallel measurement stack sits under the vocabulary floor. Frozen correspondence tables carry provider measurement, status, life-basis, and placement vocabularies into domain owners, so an unmapped provider value fails typed rather than defaulting to a domain row. `MetricDimension` rows own unit admission and canonical projection, so every measurement lands as one `ToolMetric` in millimetres, degrees, grams, or decimal fractions.
 
 Wire posture: HOST-LOCAL. `ToolAssembly`, `ToolMagazine.Schedule`, and `ToolMagazine.HolderEnvelope` are in-process wires; provider types and controller enums stop at `ToolCatalog.Admit`. `ToolWear` life and offset evidence re-enters through `ToolIngress.Refresh` under monotone observation and consumed-life guards, so scheduling reads one `ToolSnapshot` rather than a parallel wear map.
 
@@ -14,11 +14,11 @@ Wire posture: HOST-LOCAL. `ToolAssembly`, `ToolMagazine.Schedule`, and `ToolMaga
 
 - Owner: `ToolKey` carries stable physical identity; `ToolSnapshot` carries mutable truth and owns metric and remaining-life lookup; `ToolAssembly` composes them with `Tool` and the controller offset registers; `MagazineLayout` carries admitted capacity, pot envelope, index timing, and clearance; `SlotMap` carries total placement state; `MagazinePolicy` carries reserve, retract, controller behavior, and the selection row.
 - Cases: `MetricDimension` rows carry unit admission and canonical restoration delegates; `ToolTarget` distinguishes body and edge budgets; `SlotState` distinguishes empty, loaded, reserved, quarantined, and manual staging; `MagazineBehavior` is the frozen controller-capability set; `ToolSelection` rows generate the mounted-preference and life-direction ordering space; `ShortfallReason` names why a demand went unkitted; `CatalogSource` distinguishes provider digest from telemetry content; `ToolIngress` distinguishes asset admission and telemetry refresh.
-- Entry: `ToolCatalog.Admit(ToolIngress)` is the one catalog boundary; `ToolMagazine.Kit(SlotMap, Seq<WorkItem>, MagazinePolicy)`, `ToolMagazine.Schedule(SlotMap, Seq<WorkItem>, MagazinePolicy)`, and `ToolMagazine.HolderEnvelope(ToolAssembly)` are one entry per distinct receipt consumer. Layout and magazine kind derive from `SlotMap`; holder allowance derives from `ToolAssembly`.
+- Entry: `ToolCatalog.Admit(ToolIngress)` is the one catalog boundary and `ToolCatalog.Cutter`/`ToolCatalog.Evidence` are the one crossing onto the atoms floor; `ToolMagazine.Kit(SlotMap, Seq<WorkItem>, MagazinePolicy)`, `ToolMagazine.Schedule(SlotMap, Seq<WorkItem>, MagazinePolicy)`, and `ToolMagazine.HolderEnvelope(ToolAssembly)` are one entry per distinct receipt consumer. Layout and magazine kind derive from `SlotMap`; holder allowance derives from `ToolAssembly`.
 - Auto: generated factories reject blank identity, invalid ranges, duplicate edge keys, duplicate metric kinds, non-positive geometry, partial slot maps, duplicate physical tools, and inconsistent lifecycle evidence. Kitting and scheduling use state folds; a refresh advances the observation instant, preserves the exact target-basis and edge-key sets, never lowers consumed life, and retains every terminal body or edge state. Snapshot content excludes observation instants and validity windows while those fields remain on evidence. Every requested life basis resolves on the candidate or that candidate is not selectable; reserve is committed with demand; preselection resolves against the next change's slot within `PreselectDistance`.
 - Receipt: `CatalogReceipt` carries admitted assembly, optional slot, typed source evidence, and observation time; `KittingReceipt` carries loaded, staged, quarantined, and reason-bearing shortfall rows over a slot map holding real reservations; `ToolChange` carries physical and controller bindings, both offset registers, geometry and measured wear offsets, magazine traverse duration, limiting-life evidence, and the next slot to preselect. `FabricationFact.ToolRefresh.Of` projects a telemetry-sourced receipt's refresh interval onto `rasm.fabrication.tool.refresh.age` through `Process/telemetry#FACT_PROJECTION` as kind `tool-refresh`; a provider-digest source projects nothing. `MagazineSlots` names the `store.fabrication.magazine.<verb>` streams committed slot-map mutations and the re-admitted placement census ride on the Persistence slot registry, so crib state survives restart without a parallel in-memory registry.
 - Packages: MTConnect.NET-Common cutting-tool model, `UnitsNet` dynamic quantity admission, `NodaTime` evidence windows and durations, `FrozenDictionary` correspondence tables, `ContentHash.Of`, `PolygonAlgebra`, LanguageExt.Core, Thinktecture.Runtime.Extensions, and RhinoCommon compose directly.
-- Growth: a provider measurement is one `ToolMeasure` row and one `ProviderMeasure` table row; a physical dimension is one `MetricDimension` row carrying its own admission and restoration; a provider life basis is one `ProviderLife` table row targeting `ToolLifeBasis`; a provider placement is one `ProviderSlot` table row targeting `SlotKind`; a slot topology is one `Magazine` row with admitted `MagazineLayout` data; a lifecycle state is one `ToolAvailability` row; a controller capability is one `MagazineBehavior` row; a scheduling preference is one `ToolSelection` row.
+- Growth: a provider measurement is one `ToolMeasure` row and one `ProviderMeasure` table row; a lifecycle correspondence onto the atoms floor is the `ToolAvailability` row's own `State` column; a physical dimension is one `MetricDimension` row carrying its own admission and restoration; a provider life basis is one `ProviderLife` table row targeting `ToolLifeBasis`; a provider placement is one `ProviderSlot` table row targeting `SlotKind`; a slot topology is one `Magazine` row with admitted `MagazineLayout` data; a lifecycle state is one `ToolAvailability` row; a controller capability is one `MagazineBehavior` row; a scheduling preference is one `ToolSelection` row.
 - Boundary: provider enums, provider hashes as identity, dimension-per-case metric siblings, hand-written provider switches beside generated owners, unmapped provider values defaulting to a domain row, mutable snapshot identity, parallel wear state, single-basis scheduling, absent life budgets read as exhausted, tool groups substituting for geometric interchangeability, preselection naming its own slot, reserve that is checked but not committed, invented infinite capacity, fixed magazine dimensions, and shortfall rows without a reason are deleted forms. `CanonicalHash` is the length-framing statement kernel.
 
 ```csharp signature
@@ -37,6 +37,7 @@ using NodaTime;
 using Rasm.Domain;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
+using Rasm.Meshing;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
@@ -106,17 +107,22 @@ public sealed partial class SlotKind {
 
 [SmartEnum<string>]
 public sealed partial class ToolAvailability {
-    public static readonly ToolAvailability Ready = new("ready", false, false);
-    public static readonly ToolAvailability Allocated = new("allocated", false, false);
-    public static readonly ToolAvailability Measured = new("measured", false, false);
-    public static readonly ToolAvailability Reconditioned = new("reconditioned", false, false);
-    public static readonly ToolAvailability Quarantined = new("quarantined", true, false);
-    public static readonly ToolAvailability Expired = new("expired", true, true);
-    public static readonly ToolAvailability Broken = new("broken", true, true);
-    public static readonly ToolAvailability Retired = new("retired", true, true);
+    public static readonly ToolAvailability Ready = new("ready", false, false, ToolState.Available);
+    public static readonly ToolAvailability Allocated = new("allocated", false, false, ToolState.Allocated);
+    public static readonly ToolAvailability Measured = new("measured", false, false, ToolState.Measured);
+    public static readonly ToolAvailability Reconditioned = new("reconditioned", false, false, ToolState.Reconditioned);
+    public static readonly ToolAvailability Quarantined = new("quarantined", true, false, ToolState.Unavailable);
+    public static readonly ToolAvailability Expired = new("expired", true, true, ToolState.Expired);
+    public static readonly ToolAvailability Broken = new("broken", true, true, ToolState.Broken);
+    public static readonly ToolAvailability Retired = new("retired", true, true, ToolState.Expired);
 
     public bool BlocksUse { get; }
     public bool Terminal { get; }
+
+    // The atoms floor keeps its own lifecycle vocabulary, so each availability row names the `ToolState` it lowers
+    // to rather than leaving a projector to re-derive the correspondence: this page admits the provider's finer
+    // NEW/AVAILABLE/USED/UNALLOCATED split into one `Ready`, and the column declares where that collapse lands.
+    public ToolState State { get; }
 }
 
 [SmartEnum<string>]
@@ -311,10 +317,11 @@ public sealed partial class ToolSnapshot {
         Metrics.Find(row => row.Kind == kind).Map(static row => row.Canonical);
 
     public Option<double> Remaining(ToolLifeBasis basis) =>
-        Life.Filter(row => row.Basis == basis)
-            .Concat(Edges.Filter(static edge => !edge.Spent)
-                .Bind(edge => edge.Life.Filter(row => row.Basis == basis)))
-            .Map(static row => row.Remaining).OrderBy(static value => value).HeadOrNone();
+        toSeq(Life.Filter(row => row.Basis == basis)
+                .Concat(Edges.Filter(static edge => !edge.Spent)
+                    .Bind(edge => edge.Life.Filter(row => row.Basis == basis)))
+                .Map(static row => row.Remaining).OrderBy(static value => value))
+            .Head;
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ToolAvailability> status,
         ref Seq<LifeBudget> life, ref Arr<ToolEdge> edges, ref Seq<ToolMetric> metrics, ref ProcessRange feed,
@@ -451,7 +458,7 @@ public sealed partial class SlotMap {
     public Seq<ToolAssembly> Crib { get; }
 
     public Option<SlotAddress> SlotOf(ToolAssembly assembly) => Slots.AsIterable().Choose(row =>
-        Assembly(row.Value).Filter(value => value.Identity == assembly.Identity).Map(_ => row.Key)).HeadOrNone();
+        Assembly(row.Value).Filter(value => value.Identity == assembly.Identity).Map(_ => row.Key)).Head;
 
     public static Option<ToolAssembly> Assembly(SlotState state) => state switch {
         SlotState.Loaded row => Some(row.Assembly), SlotState.Manual row => Some(row.Assembly),
@@ -514,7 +521,7 @@ public sealed partial class LifeDemand {
         HashMap<(UInt128 Tool, ToolLifeBasis Basis), double> committed, MagazinePolicy policy) =>
         Required.AsIterable().Map(static row => row.Key).ToSeq()
             .Traverse(basis => Spare(assembly, basis, committed, policy).Map(spare => (Basis: basis, Spare: spare)))
-            .As().Bind(static rows => rows.OrderBy(static row => row.Spare).HeadOrNone());
+            .As().Bind(static rows => toSeq(rows.OrderBy(static row => row.Spare)).Head);
 }
 
 [ComplexValueObject]
@@ -666,13 +673,21 @@ public static class ToolCatalog {
         (LocationType.SPINDLE, SlotKind.Spindle))
         .ToFrozenDictionary(static row => row.Item1, static row => row.Item2);
 
+    // The provider answers validity and its diagnostic in one value; reading it once keeps the two halves of the
+    // same verdict from drifting across two calls.
+    private static Fin<Unit> Schema(CuttingToolAsset asset) {
+        AssetValidationResult validation = asset.IsValid(MTConnectVersions.Version24);
+        return validation.IsValid
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Error.New(message: $"tool-asset-schema:{validation.Message}"));
+    }
+
     private static Fin<CatalogReceipt> AdmitAsset(CuttingToolAsset asset, Tool tool, Loop holder,
         OffsetPolicy envelopePolicy, Length holderAllowance, int lengthRegister, int radiusRegister,
         Instant observedAt) =>
-        let validation = asset.IsValid(MTConnectVersions.Version24)
-        from _ in validation.IsValid
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(Error.New(message: $"tool-asset-schema:{validation.Message}"))
+        // Validity and its message arrive together from the provider, so the schema gate is the query's FIRST clause:
+        // one boundary read lifted onto the rail by `Schema`, never a `let` the query grammar cannot open with.
+        from _ in Schema(asset)
         from lifecycle in Optional(asset.CuttingToolLifeCycle).ToFin(Error.New(message: "tool-lifecycle"))
         from metrics in toSeq(lifecycle.Measurements).Traverse(AdmitMetric).As()
         from edges in toSeq(lifecycle.CuttingItems).Traverse(item => AdmitEdge(item, observedAt)).As().Map(static rows => rows.ToArr())
@@ -716,6 +731,73 @@ public static class ToolCatalog {
             state, stable).ToFin(Error.New(message: "tool-assembly-admission"))
         select new CatalogReceipt(assembly, placement.Map(static row => row.Address),
             new CatalogSource.Provider(asset.GenerateHash(includeTimestamp: false)), observedAt);
+
+    // `Process/owner` reads no provider surface, so THIS page is where an admitted assembly becomes the atoms
+    // floor's cutter geometry and tool evidence. Both project off `ToolMetric` rows this catalog already admitted
+    // into canonical millimetres, degrees, and grams, so the crossing is one lookup per column rather than a second
+    // measurement decode under the vocabulary floor — the parallel S0 stack this page's own law forbade.
+    public static Fin<CutterForm> Cutter(ToolAssembly assembly, CutterFamily family) =>
+        Optional(family).ToFin(Error.New(message: "tool-cutter-family")).Bind(row =>
+            assembly.Snapshot.Metric(ToolMeasure.CuttingDiameter)
+                .ToFin(Error.New(message: "tool-cutter-diameter"))
+                .Bind(diameter => (assembly.Snapshot.Metric(ToolMeasure.CuttingEdgeLength)
+                        | assembly.Snapshot.Metric(ToolMeasure.MaximumUsableLength))
+                    .ToFin(Error.New(message: "tool-cutter-flute"))
+                    .Bind(flute => Evidence(assembly).Bind(evidence => CutterForm.Admit(new CutterIngress(
+                        row,
+                        diameter,
+                        assembly.Snapshot.Metric(ToolMeasure.CornerRadius).IfNone(0.0),
+                        Taper(row, assembly.Snapshot),
+                        flute,
+                        Some(evidence),
+                        assembly.Snapshot.Metric(ToolMeasure.MaximumUsableLength),
+                        assembly.Snapshot.Metric(ToolMeasure.FunctionalLength),
+                        assembly.Snapshot.Metric(ToolMeasure.OverallLength),
+                        assembly.Snapshot.Metric(ToolMeasure.ShankDiameter),
+                        assembly.Snapshot.Metric(ToolMeasure.MaximumDepthOfCut),
+                        assembly.Snapshot.Metric(ToolMeasure.LeadAngle),
+                        assembly.Snapshot.Metric(ToolMeasure.PointAngle),
+                        assembly.Snapshot.Metric(ToolMeasure.ToolOrientation),
+                        Option<int>.None,
+                        assembly.Snapshot.Metric(ToolMeasure.Weight).Map(static grams => grams / 1000.0),
+                        assembly.Snapshot.Metric(ToolMeasure.ProtrudingLength),
+                        assembly.Snapshot.Metric(ToolMeasure.MaximumBodyDiameter)))))));
+
+    public static Fin<ToolEvidence> Evidence(ToolAssembly assembly) =>
+        ToolEvidence.Admit(
+            assembly.SerialNumber,
+            assembly.SerialNumber,
+            assembly.Identity.ToString("x32", CultureInfo.InvariantCulture),
+            assembly.Snapshot.Status.Map(static row => row.State).ToSet(),
+            // `LifeBudget` normalizes every provider count direction to used-ascending from zero, so the floor's
+            // evidence carries that one orientation and the body budgets alone — an edge budget keys to its insert,
+            // which the floor's per-basis uniqueness rule cannot express.
+            assembly.Snapshot.Life
+                .Filter(static row => row.Target is ToolTarget.Body)
+                .Map(static row => new ToolLifeEvidence(
+                    row.Basis, row.Used, Some(0.0), Some(row.Limit), Some(row.Warning), CountsUp: true)),
+            Some(new FeedEnvelope(
+                assembly.Feed.Minimum.Map(Speed.FromMillimetersPerMinutes),
+                assembly.Feed.Maximum.Map(Speed.FromMillimetersPerMinutes),
+                assembly.Feed.Nominal.Map(Speed.FromMillimetersPerMinutes))),
+            Some(new SpindleEnvelope(
+                assembly.Spindle.Minimum.Map(RotationalSpeed.FromRevolutionsPerMinute),
+                assembly.Spindle.Maximum.Map(RotationalSpeed.FromRevolutionsPerMinute),
+                assembly.Spindle.Nominal.Map(RotationalSpeed.FromRevolutionsPerMinute))),
+            Some(assembly.ProgramTool.ToString(CultureInfo.InvariantCulture)),
+            assembly.ToolGroup,
+            Some(assembly.Snapshot.ReconditionCount),
+            assembly.Snapshot.ReconditionLimit,
+            assembly.Snapshot.Edges.Map(static edge => edge.Key.ToString()).ToSeq(),
+            assembly.Snapshot.Edges.ToSeq().Choose(static edge => edge.Grade));
+
+    // The family declares which measurement its taper reads, so a drill's half point angle and a chamfer's edge
+    // angle resolve off one row rather than a per-family branch at the crossing.
+    private static double Taper(CutterFamily family, ToolSnapshot snapshot) => family.TaperFrom.Switch(
+        state: snapshot,
+        flat: static _ => 0.0,
+        edgeAngle: static row => row.Metric(ToolMeasure.CuttingEdgeAngle).IfNone(0.0),
+        halfPointAngle: static row => row.Metric(ToolMeasure.PointAngle).Map(static angle => angle * 0.5).IfNone(0.0));
 
     private static Fin<CatalogReceipt> Refresh(ToolAssembly current, Seq<LifeBudget> life,
         Seq<ToolAvailability> status, Arr<ToolEdge> edges, Length lengthWear, Length radiusWear,
@@ -908,10 +990,11 @@ public static class ToolMagazine {
         assembly.Holder.Closed && assembly.GaugeLength > 0.0 && assembly.Stickout > 0.0
             ? PolygonAlgebra.Apply(new PolygonOp.Offset(Seq(assembly.Holder),
                     new OffsetField.Uniform(Math.Max(assembly.ShankDiameter * 0.5
-                        + assembly.HolderAllowance.Millimeters, 0.0)), assembly.EnvelopePolicy))
+                        + assembly.HolderAllowance.Millimeters, 0.0)),
+                    JoinType.Round, EndType.Closed, assembly.EnvelopePolicy))
                 .Bind(static trace => trace is PolygonTrace.Regions regions
                     ? regions.Result.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary)
-                        .HeadOrNone().ToFin(Error.New(message: "holder-envelope"))
+                        .Head.ToFin(Error.New(message: "holder-envelope"))
                     : Fin.Fail<Loop>(Error.New(message: "holder-envelope-trace")))
             : Fin.Fail<Loop>(Error.New(message: "holder-envelope-input"));
 
@@ -964,7 +1047,7 @@ public static class ToolMagazine {
     private static Option<ToolAssembly> Mounted(SlotMap slots, WorkItem demand) =>
         slots.Slots.AsIterable().Choose(row => SlotMap.Assembly(row.Value)
             .Filter(tool => row.Value is not SlotState.Quarantined
-                && tool.InterchangeableWith(demand.Assembly) && !tool.Spent)).HeadOrNone();
+                && tool.InterchangeableWith(demand.Assembly) && !tool.Spent)).Head;
 
     private static Option<SlotAddress> Free(SlotMap slots, ToolAssembly tool, MagazinePolicy policy) =>
         policy.Behaviors.Contains(MagazineBehavior.FixedPot)
@@ -1016,15 +1099,15 @@ public static class ToolMagazine {
 
     private static Fin<(ToolAssembly Tool, ToolLifeBasis Basis, double Spare)> Select(SlotMap slots, WorkItem item,
         ScheduleState state, MagazinePolicy policy) =>
-        slots.Slots.AsIterable().Choose(row => SlotMap.Assembly(row.Value)
-                .Filter(tool => row.Value is not SlotState.Quarantined && !state.Retired.Contains(tool.Identity)
-                    && !tool.Spent && tool.InterchangeableWith(item.Assembly))
-                .Bind(tool => item.Demand.Limiting(tool, state.Committed, policy)
-                    .Filter(static life => life.Spare >= 0.0)
-                    .Map(life => (Tool: tool, life.Basis, life.Spare))))
-            .OrderBy(row => policy.Selection.Order(
-                state.Current.Exists(current => current.Identity == row.Tool.Identity), row.Spare))
-            .HeadOrNone().ToFin(Error.New(message: $"tool-life:{item.Op.Key}"));
+        toSeq(slots.Slots.AsIterable().Choose(row => SlotMap.Assembly(row.Value)
+                    .Filter(tool => row.Value is not SlotState.Quarantined && !state.Retired.Contains(tool.Identity)
+                        && !tool.Spent && tool.InterchangeableWith(item.Assembly))
+                    .Bind(tool => item.Demand.Limiting(tool, state.Committed, policy)
+                        .Filter(static life => life.Spare >= 0.0)
+                        .Map(life => (Tool: tool, life.Basis, life.Spare))))
+                .OrderBy(row => policy.Selection.Order(
+                    state.Current.Exists(current => current.Identity == row.Tool.Identity), row.Spare)))
+            .Head.ToFin(Error.New(message: $"tool-life:{item.Op.Key}"));
 }
 ```
 

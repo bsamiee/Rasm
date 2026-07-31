@@ -17,7 +17,7 @@
 - Receipt: `SparseLaplacian` carries the stiffness/mass/witness bundle under dimension-agreement claims; `TuftedLaplacianReceipt` witnesses the full cover construction with the cover-law conjunction as a claim row; `TopologyReceipt` is the total un-gated topology witness — every field is evidence and a new witness is one field — carrying the validated-genus derivation and its typed `(Euler, Genus, BoundaryComponents)` projection row; `SignpostTransportReceipt`, `CommonSubdivision`, and `RestrictedPowerReceipt` witness transport, overlay partition-of-unity, and radical-clip degeneracy. Every gated receipt is one `ValidityClaim.All` fold over the rails claim rows declaring which claims hold, never re-deriving a predicate inline; `TopologyReceipt` alone stays gate-free.
 - Packages: RhinoCommon is a genuine Rhino boundary here per the Tier-0 capture law, never thinned; `Numerics/matrix` owns sparse assembly and the Cholesky factor, `Numerics/spectral` the `DiscreteCalculus` carrier, `Numerics/atoms` the projection and magnitude value objects, `Spatial/neighbors` the one k-NN substrate the power-incident seed rides rather than a private RTree; `Domain/rails` owns `Op` and the `ValidityClaim` fold, `Domain/context` the `Context`; Thinktecture.Runtime.Extensions, LanguageExt.Core, and BCL concurrency complete the floor.
 - Growth: a fourth Laplacian discretization is one `MeshLaplacian` row, one cache memo, and one assembly member, every call site untouched; a new memoized solver artifact is zero cache edits — the owning page mints its key record and calls `Memoized`; a new signpost gauge, power-density model, or topology witness is one row or one field. Zero new public surface.
-- Boundary: cache identity keys on the snapshot `Mesh` reference and memoizes success only — a keyed dictionary leaks across snapshot lifetimes and re-keys on value equality, so the `ConditionalWeakTable` is the load-bearing contract. `Cotangent` arithmetic lives in one owner; a consumer re-deriving `(a·b)/(2A)` or the law-of-cosines form inline re-opens the collapsed duplication. `IntrinsicMesh` stays `internal` and the cross-package surface is `MeshAdjointSnapshot` carrying the public `DiscreteCalculus`, so no consumer mutates a frozen snapshot mid-cache. Aspect-ratio guard and intrinsic mollification are policy rows on `MeshAssemblyPolicy`/`TuftedCoverPolicy`, and `MeshAssemblyPolicy` travels on `MeshSpace.Of` one value per snapshot, so per-run variation means a fresh snapshot rather than a per-call knob aliasing the Unit-keyed memos. Two solver families sharing one `(key-record, artifact)` pair alias one `Memoized` slot, so every family declares its own key record beside its kernel. `PowerFacet.OffsetI` stays `None` at construction — the BNOT driver recomputes the weighted offset from live dual weights each outer iteration, and `A_ij == A_ji` holds because the FIFO incident-pair frontier pushes both cell views. Euclidean k-NN seeds the power-incident set through `Spatial/neighbors`, so non-trivial weights can under-clip the k-th neighbour; `KNearest` is a policy row and `IncidentPairCount`/`IntegrationResidual`/`QueuePeakDepth` make any under-clip observable. A degenerate mesh routes an `Op` fault over `Fin<T>`, never a throw.
+- Boundary: cache identity keys on the snapshot `Mesh` reference and memoizes success only — a keyed dictionary leaks across snapshot lifetimes and re-keys on value equality, so the `ConditionalWeakTable` is the load-bearing contract. `Cotangent` arithmetic lives in one owner; a consumer re-deriving `(a·b)/(2A)` or the law-of-cosines form inline re-opens the collapsed duplication. `IntrinsicMesh` stays `internal` and the cross-package surface is `MeshAdjointSnapshot` carrying the public `DiscreteCalculus`, so no consumer mutates a frozen snapshot mid-cache. Aspect-ratio guard and intrinsic mollification are policy rows on `MeshAssemblyPolicy`/`TuftedCoverPolicy`, and `MeshAssemblyPolicy` travels on `MeshSpace.Of` one value per snapshot, so per-run variation means a fresh snapshot rather than a per-call knob aliasing the Unit-keyed memos. Two solver families sharing one `(key-record, artifact)` pair alias one `Memoized` slot, so every family declares its own key record beside its kernel. `PowerFacet.OffsetI` stays `None` at construction — the BNOT driver recomputes the weighted offset from live dual weights each outer iteration, and `A_ij == A_ji` holds because the FIFO incident-pair frontier pushes both cell views. Euclidean k-NN seeds the power-incident set through `Spatial/neighbors`, so non-trivial weights can under-clip the k-th neighbour; `KNearest` is a policy row and `IncidentPairCount`/`IntegrationResidual`/`QueuePeakDepth` make any under-clip observable. Degenerate meshes route an `Op` fault over `Fin<T>`, never a throw.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -94,7 +94,7 @@ public readonly record struct TuftedCoverPolicy(
     Dimension MaxFlipsPerEdge, UnitInterval EnergyScaleFactor, bool LaplacianReplace, bool MassReplace) {
     public static readonly TuftedCoverPolicy Default = new(
         MollifyFactor: PositiveMagnitude.Create(value: 1.0e-5), MollifyEnabled: true,
-        DelaunayTolerance: PositiveMagnitude.Create(value: RhinoMath.SqrtEpsilon),
+        DelaunayTolerance: PositiveMagnitude.Create(value: EpsilonPolicy.SqrtEpsilon),
         MaxFlipsPerEdge: Dimension.Create(value: 16), EnergyScaleFactor: UnitInterval.Create(value: 0.5),
         LaplacianReplace: true, MassReplace: true);
     public static Fin<TuftedCoverPolicy> Of(double mollifyFactor, bool mollifyEnabled, double delaunayTolerance,
@@ -108,8 +108,8 @@ public readonly record struct SignpostPolicy(
     bool CommonSubdivisionTriangulate) {
     public static readonly SignpostPolicy Default = new(
         Encoding: SignpostEncoding.Both, LawOfCosinesClamp: UnitInterval.Create(value: 1.0),
-        DegenerateAreaFloor: PositiveMagnitude.Create(value: RhinoMath.SqrtEpsilon), TraceMaxIters: Option<Dimension>.None,
-        VertexAngleRescaleFloor: PositiveMagnitude.Create(value: RhinoMath.SqrtEpsilon),
+        DegenerateAreaFloor: PositiveMagnitude.Create(value: EpsilonPolicy.SqrtEpsilon), TraceMaxIters: Option<Dimension>.None,
+        VertexAngleRescaleFloor: PositiveMagnitude.Create(value: EpsilonPolicy.SqrtEpsilon),
         ReferenceDirectionGauge: SignpostGauge.FirstHalfedge, CommonSubdivisionTriangulate: true);
     // None = edge-derived cap; the record carries no zero-sentinel. Of maps a nonpositive boundary arg to None.
     internal int TraceCapFor(int edgeCount) => TraceMaxIters.Map(static cap => cap.Value).IfNone(noneValue: Math.Max(1, edgeCount) * 16);
@@ -179,8 +179,8 @@ public readonly record struct TuftedLaplacianReceipt(
         ValidityClaim.Positive(EnergyScaleApplied),
         ValidityClaim.Of(!CoverAware || (CoverFaces == 2 * IntrinsicFaces && GluingMapIsBijection && GluingSymmetryViolations == 0
             && CoverIsEdgeManifold && CoverIsClosed && NonDelaunayEdgesRemaining == 0 && !MaxFlipsHit
-            && SymmetryResidual <= RhinoMath.SqrtEpsilon && RowSumResidual <= RhinoMath.SqrtEpsilon && MinLumpedMass > 0.0
-            && MinCotanEdgeWeight >= -RhinoMath.SqrtEpsilon && MinBoundaryEdgeWeight >= -RhinoMath.SqrtEpsilon)),
+            && SymmetryResidual <= EpsilonPolicy.SqrtEpsilon && RowSumResidual <= EpsilonPolicy.SqrtEpsilon && MinLumpedMass > 0.0
+            && MinCotanEdgeWeight >= -EpsilonPolicy.SqrtEpsilon && MinBoundaryEdgeWeight >= -EpsilonPolicy.SqrtEpsilon)),
         ValidityClaim.Of(!CollapsedToOriginalVertices || IntrinsicVertices == OriginalVertices));
 }
 
@@ -248,8 +248,8 @@ public readonly record struct CommonSubdivision(
         ValidityClaim.CountExactly(count: InterpolationA.Cols.Value, expected: InterpolationB.Cols.Value),
         ValidityClaim.CountExactly(count: SourceFaceA.Count, expected: SubdivisionFaceCount),
         ValidityClaim.CountExactly(count: SourceFaceB.Count, expected: SubdivisionFaceCount),
-        ValidityClaim.Of(RowSumResidualA <= RhinoMath.SqrtEpsilon),
-        ValidityClaim.Of(RowSumResidualB <= RhinoMath.SqrtEpsilon),
+        ValidityClaim.Of(RowSumResidualA <= EpsilonPolicy.SqrtEpsilon),
+        ValidityClaim.Of(RowSumResidualB <= EpsilonPolicy.SqrtEpsilon),
         ValidityClaim.Finite(EdgeLengthInterpolationResidual));
 }
 
@@ -343,7 +343,7 @@ internal sealed class LaplacianCache {
     internal double MeanEdgeLength => meanEdgeLength.Value;
     // (mean edge)^2 * SqrtEpsilon gated at ZeroTolerance; travels on the owning receipt.
     internal double SpdMassShift =>
-        Math.Max(MeanEdgeLength, RhinoMath.ZeroTolerance) * Math.Max(MeanEdgeLength, RhinoMath.ZeroTolerance) * RhinoMath.SqrtEpsilon;
+        Math.Max(MeanEdgeLength, EpsilonPolicy.ZeroTolerance) * Math.Max(MeanEdgeLength, EpsilonPolicy.ZeroTolerance) * EpsilonPolicy.SqrtEpsilon;
     internal Fin<SparseLaplacian> Cotangent(Op key) =>
         cotangent.Of(probe: unit, compute: () => MeshKernel.AssembleCotangent(mesh: space.Native, key: key));
     internal Fin<SparseLaplacian> IntrinsicDelaunay(Op key) =>
@@ -394,7 +394,7 @@ internal static class Cotangent {
     internal static double OfEdges(Vector3d u, Vector3d v, double twoArea) => u * v / twoArea;
     internal static double AngleOfLengths(double opposite, double adjacent1, double adjacent2) {
         double denom = 2.0 * adjacent1 * adjacent2;
-        double cos = denom > RhinoMath.ZeroTolerance
+        double cos = denom > EpsilonPolicy.ZeroTolerance
             ? ((adjacent1 * adjacent1) + (adjacent2 * adjacent2) - (opposite * opposite)) / denom : 1.0;
         return Math.Acos(d: Math.Clamp(value: cos, min: -1.0, max: 1.0));
     }
@@ -458,8 +458,27 @@ internal static class MeshKernel {
         }
         return triplets.Build(key: key);
     }
-    // Intrinsic path over frozen edge lengths: Heron area, Cotangent.OfLengths per corner, same accumulator.
-    internal static Fin<SparseLaplacian> AssembleCotangentFromIntrinsic(IntrinsicMesh imesh, Op key);
+    // Intrinsic path over frozen edge lengths: Heron area, Cotangent.OfLengths per corner, the SAME LaplacianTriplets
+    // accumulator as the extrinsic path — SkippedDegenerateFaces counts against the scale-derived floor,
+    // NegativeCotangentCount counts from the emitted weights, and lumped mass accrues AreaOfFace/3 per corner, so
+    // both MeshLaplacian intrinsic rows terminate in one assembly and its witnesses ride SparseLaplacian unchanged.
+    internal static Fin<SparseLaplacian> AssembleCotangentFromIntrinsic(IntrinsicMesh imesh, Op key) {
+        LaplacianTriplets triplets = new(vertexCount: imesh.VertexCount);
+        double mean = Enumerable.Range(start: 0, count: imesh.EdgeCount).Average(selector: i => imesh.EdgeAt(index: i).Length);
+        double floor = DegenerateAreaFloorOf(scale: mean);
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
+            (double lab, double lbc, double lca) = (imesh.EdgeLengthOf(i: a, j: b), imesh.EdgeLengthOf(i: b, j: c), imesh.EdgeLengthOf(i: c, j: a));
+            double area = imesh.AreaOfFace(faceIdx: f);
+            if (area < floor) { triplets.SkippedDegenerateFaces++; continue; }
+            double cotA = Cotangent.OfLengths(adjacent1: lab, adjacent2: lca, opposite: lbc, area: area);
+            double cotB = Cotangent.OfLengths(adjacent1: lab, adjacent2: lbc, opposite: lca, area: area);
+            double cotC = Cotangent.OfLengths(adjacent1: lca, adjacent2: lbc, opposite: lab, area: area);
+            triplets.NegativeCotangentCount += (cotA < 0.0 ? 1 : 0) + (cotB < 0.0 ? 1 : 0) + (cotC < 0.0 ? 1 : 0);
+            triplets.AddTriangle(va: a, vb: b, vc: c, area: area, cotA: cotA, cotB: cotB, cotC: cotC);
+        }
+        return triplets.Build(key: key);
+    }
     internal static Fin<SparseLaplacian> AssembleTuftedCotangentFromIntrinsic(IntrinsicMesh imesh, TuftedCoverPolicy policy, Op key) =>
         TuftedCoverMesh.Construct(imesh: imesh, policy: policy, key: key).Bind(cover => cover.Assemble(policy: policy, key: key));
 
@@ -473,8 +492,37 @@ internal static class MeshKernel {
         kind.PreservesInputTriangulation
             ? IntrinsicMesh.FromMesh(mesh: mesh, key: key).Map(static source => source.Freeze())
             : BuildIntrinsicMesh(mesh: mesh, assembly: assembly, key: key);
-    // Deterministic edge queue, assembly.FlipCapPerEdge budget, IsDelaunay cos-sum gate; total re-check proves the invariant.
-    private static Fin<IntrinsicMesh> FlipToDelaunay(IntrinsicMesh imesh, MeshAssemblyPolicy assembly, Op key);
+    // Deterministic (Lo, Hi)-ascending seed order makes the flip sequence replay-stable across runs and runtimes.
+    // Each flip re-queues only the four edges of the two rebuilt faces, and the per-edge budget bounds a cycling
+    // pathological metric. The TERMINAL re-check proves the invariant instead of trusting the queue's exit.
+    private static Fin<IntrinsicMesh> FlipToDelaunay(IntrinsicMesh imesh, MeshAssemblyPolicy assembly, Op key) {
+        int cap = assembly.FlipCapPerEdge.Value;
+        Dictionary<(int Lo, int Hi), int> spent = new(capacity: imesh.EdgeCount);
+        HashSet<(int Lo, int Hi)> queued = new(capacity: imesh.EdgeCount);
+        Queue<(int Lo, int Hi)> pending = new(capacity: imesh.EdgeCount);
+        foreach ((int lo, int hi) in Enumerable.Range(start: 0, count: imesh.EdgeCount)
+                     .Select(imesh.EdgeAt).Where(static edge => edge.IsInterior)
+                     .Select(static edge => (edge.Lo, edge.Hi))
+                     .OrderBy(static edge => edge.Lo).ThenBy(static edge => edge.Hi)) {
+            if (queued.Add((lo, hi))) pending.Enqueue((lo, hi));
+        }
+        while (pending.Count > 0) {
+            (int i, int j) = pending.Dequeue();
+            _ = queued.Remove((i, j));
+            if (!imesh.IsInterior(i: i, j: j) || imesh.IsDelaunay(i: i, j: j)) continue;
+            ref int budget = ref CollectionsMarshal.GetValueRefOrAddDefault(dictionary: spent, key: (i, j), exists: out _);
+            if (budget >= cap) continue;
+            budget++;
+            foreach ((int a, int b) in imesh.Flip(i: i, j: j))
+                if (imesh.IsInterior(i: a, j: b) && queued.Add((a, b))) pending.Enqueue((a, b));
+        }
+        // Budget-exhausted remainders are EVIDENCE, not failures: the cap exists to bound a pathological metric,
+        // and AssembleCotangentFromIntrinsic carries the count onto SparseLaplacian.NegativeCotangentCount. A parity
+        // error is different in kind — the integer kernel has lost its invariant, so nothing downstream is trustable.
+        return imesh.ParityErrorCount is 0
+            ? Fin.Succ(imesh)
+            : Fin.Fail<IntrinsicMesh>(key.InvalidResult(detail: $"idt-parity:{imesh.ParityErrorCount}"));
+    }
 
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct IntrinsicEdge(int Lo, int Hi, double Length, int Face0, int Face1, int NormalCoord = -1) {
@@ -523,19 +571,37 @@ internal static class MeshKernel {
         private int FlipNormalCoordinate(int nij, int njk, int nki, int nil, int nlj);
     }
 
-    // Sharp-Crane tufted double cover: front sheet 2t, orientation-reversed back sheet 2t+1, per-base-edge fans glued into
-    // one cyclic chain (boundary edges front-to-back) so the cover is closed and edge-manifold; GLOBAL mollification adds one
-    // epsilon = max corner triangle-inequality deficit to every cover edge. Admission requires the structural-guard conjunction the receipt witnesses.
+    // Sharp-Crane double cover. Front sheet 2t, orientation-reversed back sheet 2t+1; every base edge's incident
+    // half-edge fan glues into ONE cyclic chain (front-to-back at a boundary edge), so the cover is closed and
+    // edge-manifold whatever the base's manifoldness. GLOBAL mollification adds one epsilon to EVERY cover edge —
+    // per-edge mollification would break the gluing's length agreement across sheets.
     internal sealed class TuftedCoverMesh {
         internal static Fin<TuftedCoverMesh> Construct(IntrinsicMesh imesh, TuftedCoverPolicy policy, Op key);
+        //  (1) Emit 2·LiveFaceCount cover faces: face t keeps its (a,b,c) winding, face t+LiveFaceCount reverses to
+        //      (a,c,b). Vertices are SHARED — the cover collapses to the original vertex set, which is exactly the
+        //      receipt's CollapsedToOriginalVertices claim.
+        //  (2) For each base edge, order its incident half-edges by FaceAcrossEdge and glue them into one cyclic
+        //      chain, front sheet forward and back sheet reverse; a boundary edge closes front-to-back. Record
+        //      GluingMapIsBijection and GluingSymmetryViolations from the chain walk itself.
+        //  (3) MollificationEpsilon = max over cover corners of the triangle-inequality DEFICIT
+        //      max(0, lOpp - lA - lB), scaled by policy.MollifyFactor and applied to EVERY cover edge at once when
+        //      policy.MollifyEnabled. MinTriangleInequalitySlack witnesses the post-mollification margin.
+        //  (4) FlipToDelaunay over the cover under policy.MaxFlipsPerEdge; NonDelaunayEdgesRemaining and MaxFlipsHit
+        //      witness the outcome, and the receipt's cover-law conjunction requires BOTH zero.
         internal Fin<SparseLaplacian> Assemble(TuftedCoverPolicy policy, Op key);
+        //  (5) Cotangent.OfLengths per cover corner into the vertex-indexed stiffness; every base vertex accumulates
+        //      from BOTH sheets, which is the whole point — the cover's Laplacian is SPD where the base's is not.
+        //  (6) Scale the assembled energy by policy.EnergyScaleFactor (0.5 by default: each base triangle appears
+        //      twice), and take LaplacianReplace/MassReplace as the substitution rows into SparseLaplacian.
+        //  (7) SymmetryResidual = max |L[i,j] - L[j,i]|, RowSumResidual = max |Σ_j L[i,j]|; the receipt gates both
+        //      at EpsilonPolicy.SqrtEpsilon, so an assembly that drifted is refused rather than published.
     }
 
     // --- [METRICS]
     internal static double MeanEdgeLengthOf(Mesh mesh);
     // ONE scale-relative degenerate floor: max(scale, ZeroTolerance)^2 * SqrtEpsilon — the same form SpdMassShift uses.
     internal static double DegenerateAreaFloorOf(double scale) =>
-        Math.Max(scale, RhinoMath.ZeroTolerance) * Math.Max(scale, RhinoMath.ZeroTolerance) * RhinoMath.SqrtEpsilon;
+        Math.Max(scale, EpsilonPolicy.ZeroTolerance) * Math.Max(scale, EpsilonPolicy.ZeroTolerance) * EpsilonPolicy.SqrtEpsilon;
     // Total diagnostic; validated genus only when manifold+oriented and the Euler numerator is even>=0.
     internal static Fin<TopologyReceipt> TopologyDetailed(MeshSpace space) {
         Mesh mesh = space.Native;
@@ -576,7 +642,7 @@ internal static class MeshKernel {
     // g_ij(x) = 2(p_j'-p_i')·x - (|p_j'|^2 - w_j - |p_i'|^2 + w_i) evaluated at lifted 3D polygon vertices.
     internal static Fin<RestrictedPowerDiagram> RestrictedPowerCells(MeshSpace space, Seq<Point3d> sites, Option<Arr<double>> weights, Option<ScalarField> density, Op key) {
         BoundingBox box = space.Native.GetBoundingBox(accurate: true);
-        return !box.IsValid || box.Diagonal.Length <= RhinoMath.ZeroTolerance || sites.Count < 1
+        return !box.IsValid || box.Diagonal.Length <= EpsilonPolicy.ZeroTolerance || sites.Count < 1
             ? Fin.Fail<RestrictedPowerDiagram>(key.InvalidInput())
             : from weightsActive in AdmitPowerWeights(sites: sites, weights: weights, key: key)
               from policy in PowerClipPolicy.Of(diagonal: box.Diagonal.Length, meanEdge: MeanEdgeLengthOf(mesh: space.Native),
@@ -601,6 +667,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Mesh substrate flow
+    accDescr: Meshes flow through snapshot admission, the Laplacian row cache, and the intrinsic triangulation into solver-facing carriers.
     Mesh -->|Of: validate + DuplicateMesh| MeshSpace
     MeshSpace -->|ConditionalWeakTable by Mesh identity| LaplacianCache
     MeshLaplacian -->|select delegate| LaplacianCache
@@ -648,7 +716,6 @@ Each `[RAIL]` cell names the one return rail; the per-axis kind rides the indexe
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [INTRINSIC_DELAUNAY]-[OPEN]: which transcription-complete `FlipToDelaunay`/`Flip` bodies restore the intrinsic Delaunay property under the deterministic queue and `FlipCapPerEdge` budget while preserving the FLIP-N integer normal-coordinate update and its parity invariant; verify the terminal re-check and `CommonSubdivisionSegments == SumNormalCoordinates` against the `SignpostTransportReceipt` gates.
-- [TUFTED_COVER]-[OPEN]: which transcription-complete `TuftedCoverMesh.Construct`/`Assemble` body builds the Sharp-Crane closed edge-manifold double cover with global mollification and admits only under the structural guards; verify bijection, edge-manifold, closure, zero non-Delaunay remainder, and the symmetry/row-sum residual bounds against `TuftedLaplacianReceipt`.
+- [FLIP_N_UPDATE]-[OPEN]: which exact integer expression closes `IntrinsicMesh.FlipNormalCoordinate(nij, njk, nki, nil, nlj)` for the new diagonal under the page's DOUBLED corner-coordinate convention, and which term makes `(quadrupled & 3) == 2` the orientation-defect discriminant; verify the result against `SumNormalCoordinates == CommonSubdivisionSegments` on a flipped snapshot through the `SignpostTransportReceipt` gates.
 - [SIGNPOST_OVERLAY]-[OPEN]: which transcription-complete signpost-transport and `BuildCommonSubdivision` bodies rescale each one-ring to `2π`/`π`, order fans by `FaceAcrossEdge`, and place one crossing vertex per normal-coordinate unit; verify the partition-of-unity rows and the arrival residual against `CommonSubdivision.IsValid`.
 - [RESTRICTED_POWER]-[OPEN]: which transcription-complete `RestrictedPowerCells` body clips each triangle against the affine radical half-planes, floods the FIFO incident-pair frontier, and integrates density by the fan quadrature; verify `A_ij == A_ji` and Euclidean-k-NN under-clip observability against `RestrictedPowerReceipt`.

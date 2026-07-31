@@ -17,7 +17,8 @@
 - Law: `FileInquiry` carries filter text, every selected path crosses as `FileLocation`, and no exchange package enters the Host UI surface.
 - Law: `MessagePolicy` is the only foreign message-enum seam, and `MenuMode` keys derive the host context-menu mode array.
 - Law: `MessagePolicy` admits only an existing default button and one mutually exclusive delivery target; decorative flags remain an independent frozen set.
-- Boundary: typed Eto dialogs use `ShellWindows.Present`; this owner retains host-native and platform chooser intents only.
+- Boundary: EVERY Eto dialog crosses through `ShellWindows.Present` — the `Dialog<TResult>` range picker, and the `CommonDialog` font and folder pickers whose `DialogResult` verdict the overload folds — so this owner retains host-native and platform chooser intents alone and no arm reaches raw `ShowDialog`.
+- Boundary: `Rhino.UI.SaveFileDialog`/`OpenFileDialog` are plain host classes with no disposer, so they mint bare while every Eto dialog brackets; the asymmetry is the base contract, not an omission.
 - Boundary: native `ref`/`out` calls remain statement-shaped inside the terminal fold; color-preview faults accumulate and replace any nominal dialog result with typed failure.
 
 ```csharp signature
@@ -634,10 +635,15 @@ public static class Inquiries {
                         },
                         font: static (held, ask) => {
                             using FontDialog dialog = new() { Font = ask.Seed.Resolve() };
-                            return Accepted(
-                                accepted: dialog.ShowDialog(parent: held.Parent) == DialogResult.Ok,
-                                op: held.Op,
-                                answer: () => Fin.Succ<InquiryAnswer>(value: new InquiryAnswer.Font(Value: dialog.Font)));
+                            return ShellWindows.Present(
+                                    dialog: dialog,
+                                    session: held.Session,
+                                    parent: Some<Control>(held.Parent),
+                                    key: held.Op)
+                                .Bind(verdict => Accepted(
+                                    accepted: verdict == DialogResult.Ok,
+                                    op: held.Op,
+                                    answer: () => Fin.Succ<InquiryAnswer>(value: new InquiryAnswer.Font(Value: dialog.Font))));
                         },
                         files: static (held, ask) => ask.Request.Switch(
                             held,
@@ -673,9 +679,14 @@ public static class Inquiries {
                                     Title = prompt.Title.Resolve(),
                                     Directory = prompt.Directory.Map(static value => value.ToValue()).IfNone(string.Empty),
                                 };
-                                return dialog.ShowDialog(parent: held.Parent) == DialogResult.Ok
-                                    ? Paths(raw: Seq(dialog.Directory), op: held.Op)
-                                    : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op));
+                                return ShellWindows.Present(
+                                        dialog: dialog,
+                                        session: held.Session,
+                                        parent: Some<Control>(held.Parent),
+                                        key: held.Op)
+                                    .Bind(verdict => verdict == DialogResult.Ok
+                                        ? Paths(raw: Seq(dialog.Directory), op: held.Op)
+                                        : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)));
                             }))),
             key: op));
     }
@@ -889,7 +900,7 @@ public static class Inquiries {
 - Law: `AssetSource`, `AssetSize`, and `PreviewScale` reject invalid ingress once; `AssetSize` admits both a maximum dimension and an overflow-safe pixel budget before provider allocation.
 - Law: `PreviewPolarity.Host` reads dark mode at execution time, while `Light` and `Dark` are explicit policy rows rather than a tri-state optional boolean.
 - Law: pixel planes and preview strokes materialize into strict `Seq` values inside `Op.Catch` before leaving the host fold.
-- Boundary: callers own disposal of returned `Bitmap`, `Icon`, and `Image` answers.
+- Boundary: every disposable host asset leaves inside `Lease<T>.Owned`, so the answer case states its own custody and the input-side `PanelIcon.Use` bracket has a symmetric output form; a bare `Bitmap`, `Icon`, or `Image` crossing the boundary is the deleted shape.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -1026,9 +1037,9 @@ public abstract partial record AssetRequest {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AssetAnswer {
     private AssetAnswer() { }
-    public sealed record Bitmap(DrawingBitmap Value) : AssetAnswer;
-    public sealed record Icon(DrawingIcon Value) : AssetAnswer;
-    public sealed record Image(DrawingImage Value) : AssetAnswer;
+    public sealed record Bitmap(Lease<DrawingBitmap> Value) : AssetAnswer;
+    public sealed record Icon(Lease<DrawingIcon> Value) : AssetAnswer;
+    public sealed record Image(Lease<DrawingImage> Value) : AssetAnswer;
     public sealed record NamedColors(Seq<NamedColor> Values) : AssetAnswer;
     public sealed record TextMetrics(global::Eto.Drawing.SizeF Value) : AssetAnswer;
     public sealed record Pixels(Seq<byte> Value) : AssetAnswer;
@@ -1059,18 +1070,18 @@ public static class HostAssets {
                         name: ask.Name, size: ask.Size, assembly: ask.Assembly, scale: ask.Scale, op: held.Op,
                         native: DrawingUtilities.BitmapFromIconResource,
                         down: DrawingUtilities.LoadBitmapWithScaleDown,
-                        answer: static bitmap => new AssetAnswer.Bitmap(Value: bitmap)),
+                        answer: static bitmap => new AssetAnswer.Bitmap(Value: new Lease<DrawingBitmap>.Owned(Value: bitmap))),
                     resourceIcon: static (held, ask) => Loaded(
                         name: ask.Name, size: ask.Size, assembly: ask.Assembly, scale: ask.Scale, op: held.Op,
                         native: DrawingUtilities.IconFromResource,
                         down: DrawingUtilities.LoadIconWithScaleDown,
-                        answer: static icon => new AssetAnswer.Icon(Value: icon)),
+                        answer: static icon => new AssetAnswer.Icon(Value: new Lease<DrawingIcon>.Owned(Value: icon))),
                     resourceImage: static (held, ask) =>
                         from image in held.Op.Catch(() => Optional(DrawingUtilities.ImageFromResource(
                                 resourceName: ask.Name.ToValue(),
                                 assembly: ask.Assembly))
                             .ToFin(Fail: held.Op.InvalidResult()))
-                        select (AssetAnswer)new AssetAnswer.Image(Value: image),
+                        select (AssetAnswer)new AssetAnswer.Image(Value: new Lease<DrawingImage>.Owned(Value: image)),
                     namedColors: static (_, ask) => Fin.Succ<AssetAnswer>(value: new AssetAnswer.NamedColors(
                         Values: toSeq(ask.Source.IfNone(() => NamedColorList.Default)).Strict())),
                     textMeasure: static (held, ask) => held.Op.Catch(() =>
@@ -1081,7 +1092,8 @@ public static class HostAssets {
                             height: ask.Size.Value.Height,
                             adjustForDarkMode: ask.Polarity.Resolve()))
                         .ToFin(Fail: held.Op.InvalidResult())
-                        .Map(static bitmap => (AssetAnswer)new AssetAnswer.Bitmap(Value: bitmap))),
+                        .Map(static bitmap => (AssetAnswer)new AssetAnswer.Bitmap(
+                            Value: new Lease<DrawingBitmap>.Owned(Value: bitmap)))),
                     svgPixels: static (held, ask) => held.Op.Catch(() => Optional(DrawingUtilities.PixelsFromSvg(
                             svg: ask.Source.ToValue(),
                             width: ask.Size.Value.Width,
@@ -1110,7 +1122,7 @@ public static class HostAssets {
                                 colors: colors,
                                 size: size))
                             .ToFin(Fail: held.Op.InvalidResult()))
-                        select (AssetAnswer)new AssetAnswer.Bitmap(Value: bitmap),
+                        select (AssetAnswer)new AssetAnswer.Bitmap(Value: new Lease<DrawingBitmap>.Owned(Value: bitmap)),
                     curvePreview: static (held, ask) => held.Op.Catch(() => Optional(DrawingUtilities.CreateCurvePreviewGeometry(
                             curve: ask.Curve,
                             linetype: ask.Linetype,

@@ -1,6 +1,6 @@
 # [RASM_CLOUD]
 
-`VectorCloud` owns the point-cloud union under one admission that deduplicates by tolerance, renormalizes mass, and carries a copy-safe shared native index per cluster. `VectorCloudMetric` folds every cloud measurement behind one `Project<TOut>`, each row naming the `CloudKernel` fold that answers it. A new cloud capability lands as a metric row, a hull-kind row, or a shape column.
+`VectorCloud` owns the point-cloud union under one admission that deduplicates by tolerance, renormalizes mass, and carries a copy-safe shared native index per cluster. `VectorCloudMetric` folds every cloud measurement behind one `Project<TOut>`, each row naming the `CloudKernel` fold that answers it, so a new cloud capability lands as a metric row, a hull-kind row, or a shape column.
 
 `CloudKernel.CovarianceOf` is the corpus's one covariance fold, composing `Domain/stats.md` `SampleMoment` into a `matrix.md` `SymmetricMatrix` every PCA consumer reads.
 
@@ -251,14 +251,14 @@ public sealed partial class VectorCloudMetric {
             (false, _) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: cloud.GetType(), outputType: typeof(TOut))),
             (_, false) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloudMetric), outputType: typeof(TOut))),
             _ => Measure(cloud: cloud, policy: policy, key: key).Bind(value => value switch {
-                Seq<Vector3d> vs => ProjectSeq<Vector3d, TOut>(values: vs, key: key),
-                Seq<double> ds => ProjectSeq<double, TOut>(values: ds, key: key),
-                Seq<Plane> ps => ProjectSeq<Plane, TOut>(values: ps, key: key),
+                // One-dispatch-site law holds corpus-wide: the sequence arms ride AtomProjection.Values, so no
+                // page-local reflection-branching helper stands beside the sanctioned dispatch site.
+                Seq<Vector3d> vs => AtomProjection.Values<Vector3d, TOut>(values: vs, key: key, owner: typeof(VectorCloudMetric)),
+                Seq<double> ds => AtomProjection.Values<double, TOut>(values: ds, key: key, owner: typeof(VectorCloudMetric)),
+                Seq<Plane> ps => AtomProjection.Values<Plane, TOut>(values: ps, key: key, owner: typeof(VectorCloudMetric)),
                 _ => key.AcceptValue(value: value).Map(static v => (TOut)v),
             }),
         };
-    private static Fin<TOut> ProjectSeq<TItem, TOut>(Seq<TItem> values, Op key) =>
-        values.TraverseM(v => key.AcceptValue(value: v)).As().Map(static valid => (TOut)(object)valid);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -318,7 +318,7 @@ internal static class CloudKernel {
     }
     internal static Fin<PrincipalStats> PrincipalStatsOf(VectorCloud.ClusterCase cluster, Op key) =>
         from stats in CovarianceOf(cluster: cluster, key: key)
-        from eigen in stats.Cov.DecomposeEigen(key: key)
+        from eigen in stats.Cov.DecomposeEigenDetailed(key: key).Bind(receipt => receipt.PairsIn(expected: EigenOrder.DescendingMagnitude, key: key))
         from full in eigen.Count >= 3
             ? Fin.Succ(new PrincipalStats(Mean: stats.Mean, Eigen: eigen))
             : Fin.Fail<PrincipalStats>(key.InvalidResult())
@@ -340,7 +340,7 @@ internal static class CloudKernel {
 - Owner: `CloudHullKind` names the hull species, `FootprintWrapper` the 2D fallback a rejected 3D hull degrades to; concave columns `Alpha` and `Lambda` derive from the cluster's mean spacing when the caller supplies neither.
 - Entry: `ComputeHullDetailed` is cluster-only, and every declared kind computes, so `CloudHullStatus` discriminates outcome alone.
 - Auto: `Convex3D` routes native through `Mesh.CreateConvexHull3D` behind a coplanar preflight, duplicating the mesh out of its `using` window; `ConvexFootprint2D` and `FootprintWrapper` fit the PCA plane, run `PolylineCurve.CreateConvexHull2d`, verify containment within tolerance, and mesh via `Mesh.CreateFromClosedPolyline`. `AlphaShape` keeps every triangle whose circumradius stays within `Alpha`; `ConcaveOutline` erodes the longest boundary edge while it exceeds `Lambda` and removal preserves regularity, abandoning no vertex and leaving the boundary a single simple cycle.
-- Packages: RhinoCommon (native convex hull, plane fitting, polyline meshing), MIConvexHull (`Triangulation.CreateDelaunay<DefaultVertex>`; planar rows enter as `DefaultVertex{ Position }` per its `IVertex` contract), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon (native convex hull, plane fitting, polyline meshing), MIConvexHull (`Triangulation.CreateDelaunay<CloudVertex, CloudCell>` — the index-carrying `IVertex` and circumradius-carrying `TriangulationCell` generics, `PlaneDistanceTolerance` threaded from the admitted policy), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new hull species is one kind row and one arm in the hull fold, or one filter predicate over the shared Delaunay fold; a new concave criterion is one policy column.
 - Boundary: both concave kinds share ONE Delaunay fold over `MIConvexHull`'s complex, the filter predicate their only difference; `Triangulation.CreateDelaunay` is the one foreign-exception seam on this page, funneled through `key.Catch` into `Rejected` evidence. This rail owns the native-first host and concave hull kinds; the predicate-exact envelope fold homes at `Meshing/delaunay` `LowerHull`.
 
@@ -414,8 +414,21 @@ public readonly record struct CloudHullResult(Option<Mesh> Mesh, CloudHullReceip
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// CloudKernel concave fold: project(PCA plane) -> DefaultVertex{Position} -> Triangulation.CreateDelaunay
-//   -> filter(cells) -> boundary(one-incident edges) -> orient CCW -> lift -> Mesh.CreateFromClosedPolyline
+// CloudKernel concave fold: project(PCA plane) -> CloudVertex{Index, Position} ->
+//   Triangulation.CreateDelaunay<CloudVertex, CloudCell>(PlaneDistanceTolerance: policy.Tolerance.Value)
+//   -> filter(cells by cluster INDEX + per-cell circumradius) -> boundary(one-incident edges) -> orient CCW
+//   -> lift -> Mesh.CreateFromClosedPolyline
+// Vertices CARRY the cluster index — cell.Vertices[j].Index reads it directly, because a position re-match is
+// unsafe on a deduplicated index-stable cluster — and the threaded tolerance ends the package-default 1e-10
+// degeneracy verdict that judged metres and millimetres identically. The cell caches the circumradius the alpha
+// filter otherwise recomputes per triangle, and ConcaveOutline's erosion keys on the same indices.
+internal sealed class CloudVertex(int index, double[] position) : IVertex {
+    public int Index { get; } = index;
+    public double[] Position { get; } = position;
+}
+internal sealed class CloudCell : TriangulationCell<CloudVertex, CloudCell> {
+    internal double Circumradius { get; set; }
+}
 ```
 
 ## [05]-[RESEARCH]

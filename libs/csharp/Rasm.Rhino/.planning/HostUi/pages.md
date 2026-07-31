@@ -16,7 +16,7 @@
 - Cases: `Stacked` carries `PageSeat` and `StackedIdentity`; `Properties` carries `ObjectIdentity`, `ObjectScope`, and its visibility predicate.
 - Owner: `PageSeat` is the host registration and reveal vocabulary for options, document-properties, preferences, and child pages.
 - Law: `PageButton` is a frozen capability set, so button combinations are data and no boolean pair reaches a leaf.
-- Boundary: `PagePlan.Admit` revalidates identity, scope, content, and delegates before realization; `ObjectKind` remains the sole foreign `ObjectType` admission table.
+- Boundary: `PagePlan.Admit` revalidates identity, scope, content, and delegates before realization; the object-type vocabulary is `Document`'s `ObjectKind`/`ObjectKinds`, composed here and never re-declared, so the same set serves this page scope and the S1 modal object asks that share the concept.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -112,53 +112,6 @@ public sealed partial class ObjectPageSeat {
     public static readonly ObjectPageSeat View = new(key: PropertyPageType.View);
 }
 
-[SmartEnum<ObjectType>]
-public sealed partial class ObjectKind {
-    public static readonly ObjectKind Point = new(key: ObjectType.Point);
-    public static readonly ObjectKind PointSet = new(key: ObjectType.PointSet);
-    public static readonly ObjectKind Curve = new(key: ObjectType.Curve);
-    public static readonly ObjectKind Surface = new(key: ObjectType.Surface);
-    public static readonly ObjectKind Brep = new(key: ObjectType.Brep);
-    public static readonly ObjectKind Mesh = new(key: ObjectType.Mesh);
-    public static readonly ObjectKind Light = new(key: ObjectType.Light);
-    public static readonly ObjectKind Annotation = new(key: ObjectType.Annotation);
-    public static readonly ObjectKind InstanceDefinition = new(key: ObjectType.InstanceDefinition);
-    public static readonly ObjectKind InstanceReference = new(key: ObjectType.InstanceReference);
-    public static readonly ObjectKind TextDot = new(key: ObjectType.TextDot);
-    public static readonly ObjectKind Grip = new(key: ObjectType.Grip);
-    public static readonly ObjectKind Detail = new(key: ObjectType.Detail);
-    public static readonly ObjectKind Hatch = new(key: ObjectType.Hatch);
-    public static readonly ObjectKind MorphControl = new(key: ObjectType.MorphControl);
-    public static readonly ObjectKind SubD = new(key: ObjectType.SubD);
-    public static readonly ObjectKind BrepLoop = new(key: ObjectType.BrepLoop);
-    public static readonly ObjectKind BrepVertex = new(key: ObjectType.BrepVertex);
-    public static readonly ObjectKind Polysurface = new(key: ObjectType.PolysrfFilter);
-    public static readonly ObjectKind Edge = new(key: ObjectType.EdgeFilter);
-    public static readonly ObjectKind Polyedge = new(key: ObjectType.PolyedgeFilter);
-    public static readonly ObjectKind MeshVertex = new(key: ObjectType.MeshVertex);
-    public static readonly ObjectKind MeshEdge = new(key: ObjectType.MeshEdge);
-    public static readonly ObjectKind MeshFace = new(key: ObjectType.MeshFace);
-    public static readonly ObjectKind Cage = new(key: ObjectType.Cage);
-    public static readonly ObjectKind Phantom = new(key: ObjectType.Phantom);
-    public static readonly ObjectKind ClipPlane = new(key: ObjectType.ClipPlane);
-    public static readonly ObjectKind Extrusion = new(key: ObjectType.Extrusion);
-}
-
-[ComplexValueObject]
-public sealed partial class ObjectKinds {
-    public FrozenSet<ObjectKind> Values { get; }
-
-    internal ObjectType Mask => toSeq(Values).Fold(ObjectType.None, static (mask, kind) => mask | kind.Key);
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref FrozenSet<ObjectKind> values) =>
-        validationError = values is null || values.Count is 0 || values.Any(static kind => kind is null)
-            ? new ValidationError(message: "Object selection is empty.")
-            : null;
-}
-
 [SmartEnum]
 public sealed partial class SelectionPolicy {
     public static readonly SelectionPolicy AnyObject = new(all: false, subobjects: false);
@@ -250,7 +203,7 @@ public abstract partial record PagePlan {
 
 - Owner: `PageSignal` closes every callback the host page bases expose.
 - Cases: activation, apply, cancel, script, defaults, help, native-parent lifecycle, selection visibility, and selection refresh.
-- Receipt: `SelectionEvidence` detaches document, object, view, and viewport identity plus event ordinal and selection count before callback exit.
+- Receipt: `SelectionEvidence` detaches document, object, view, and viewport identity with event ordinal and selection count before callback exit.
 - Law: `Scripted` carries admitted `SessionMode`; a foreign `RunMode` never crosses the leaf.
 - Boundary: callback evidence retains object identities only; typed or filtered native handles remain pull-based through host leaves.
 
@@ -655,7 +608,7 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
 - Owner: `PageNav` is the stacked-page operation algebra.
 - Cases: activation, named or document-page reveal, removal, dirty state, retitle, child adoption, style, and sequence.
 - Entry: `HostPage.Navigate` applies one case or traverses a sequence through the same fold.
-- Law: `Adopt` claims child custody before host registration, records the child after landing, and removes plus unclaims it when landing fails.
+- Law: `Adopt` claims child custody before host registration, records the child after landing, and both removes and unclaims it when landing fails.
 - Boundary: `Styled` rejects outside Windows because the host exposes the navigation-style members only there.
 
 ```csharp signature
@@ -843,9 +796,9 @@ internal sealed class PageMountLease {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class PageMount {
-    public static Fin<PageMountReceipt> Land(PageBasket basket, Op? key = null, params ReadOnlySpan<HostPage> pages) {
+    public static Fin<PageMountReceipt> Land(PageBasket basket, params ReadOnlySpan<HostPage> pages) {
         ArgumentNullException.ThrowIfNull(basket);
-        Op op = key.OrDefault();
+        Op op = Op.Of(name: nameof(PageMount));
         Seq<HostPage> batch = toSeq(pages.ToArray()).Strict();
         return HostThread.Run(
             work: new HostWork<PageMountReceipt>.Required(Body: () => batch

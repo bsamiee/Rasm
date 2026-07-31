@@ -6,22 +6,22 @@
 
 ## [01]-[INDEX]
 
-- [02]-[FILTER_ALGEBRA]: the `[SmartEnum<int>]` policy vocabularies and `SpectralFilter`, the closed transfer-function `[Union]` with its eigenvalue weight law and partial-monoid `Compose`.
+- [02]-[FILTER_ALGEBRA]: `[SmartEnum<int>]` policy vocabularies and `SpectralFilter`, the closed transfer-function `[Union]` with its eigenvalue weight law and partial-monoid `Compose`.
 - [03]-[DEC_CARRIERS]: `DiscreteCalculus` the frozen adjoint seam, `SpectralBasis`, and the assembly/harmonic receipt family `Meshing/dec` mints and `Rasm.Compute` consumes.
-- [04]-[DESCRIPTOR_ALGEBRA]: the descriptor policy, receipt, and carrier family and `SpectralKernel` filtered-signature evaluation, normalization, and ranking.
+- [04]-[DESCRIPTOR_ALGEBRA]: descriptor policy, receipt, and carrier family and `SpectralKernel` filtered-signature evaluation, normalization, and ranking.
 
 ## [02]-[FILTER_ALGEBRA]
 
 - Owner: `SpectralAssemblyKind`, `SpectralScaleNormalization`, `SpectralEnergyNormalization`, `SpectralZeroModePolicy`, and `SpectralDistanceKind` are the `[SmartEnum<int>]` policy vocabularies, the distance row carrying its `[UseDelegateFromConstructor]` compute column over `MathNet.Numerics.Distance`; `SpectralFilter` is the closed `[Union]` whose `Weight(eigenvalue)` is the spectral transfer function and whose `Compose` is a partial monoid — composable pairs fuse, `Identity` is the unit, every other pair is `None` by law.
-- Cases: `HeatCase(time)`, `WaveCase(energy, bandwidth)`, `BiharmonicCase`, `DiffusionCase(time)`, `CommuteTimeCase`, `IdentityCase`.
-- Entry: the `SpectralFilter.Heat`/`Wave`/`Biharmonic`/`Diffusion`/`CommuteTime`/`Identity` factories take their parameters as `PositiveMagnitude`, so a filter in hand is admitted; `ApplyDetailed(basis, sources, policy, key)` evaluates the filtered descriptor through `SpectralKernel`.
+- Cases: `HeatCase(time)`, `WaveCase(energy, bandwidth)`, `DiffusionCase(time)`, `PowerCase(exponent)`, `AmplifyCase(rate)`, `IdentityCase`.
+- Entry: the `SpectralFilter.Heat`/`Wave`/`Diffusion`/`Amplify`/`Identity` factories take their magnitudes as `PositiveMagnitude` while `Power` takes the signed exponent whole, so a filter in hand is admitted; `Biharmonic` (λ^−2) and `CommuteTime` (λ^−1) are canonical `Power` mints, never sibling cases; `ApplyDetailed(basis, sources, policy, key)` evaluates the filtered descriptor through `SpectralKernel`.
 - Auto: `Weight` carries `[MethodImpl(AggressiveInlining)]` for the descriptor kernel's per-eigenpair-per-vertex hot loop; the wave weight floors its bandwidth at `SpectralKernel.WaveBandwidthFloor` so a degenerate band never divides to infinity.
 - Receipt: none at this layer — the filter is policy, and evidence lands on the [04] descriptor receipts.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: MathNet.Numerics (`Distance` — the twelve metric rows, split across its `Vector<T>` and `double[]` carriers; `CreateVector.DenseOfArray` the lift), System.Numerics.Tensors (`TensorPrimitives` — the energy and span reductions), `Rasm.Numerics` `atoms.md` (`EpsilonPolicy`, `PositiveMagnitude`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new transfer function is one case, one `Weight` arm, and at most one `Compose` pair, the kernel and every consumer untouched; a new normalization or distance is one vocabulary row.
 - Boundary: filters weight eigenvalues alone — never a mesh, a basis matrix, or a vertex — so the one filter value drives `Meshing/dec` heat scaffolds, `Processing/segment` descriptors, and `Spatial/fields` spectral-distance cases from this floor.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics.Tensors;
 using Rasm.Domain;
@@ -58,44 +58,73 @@ public sealed partial class SpectralZeroModePolicy {
 
 [SmartEnum<int>]
 public sealed partial class SpectralDistanceKind {
-    public static readonly SpectralDistanceKind Euclidean = new(key: 0, compute: static (a, b) => MathNet.Numerics.Distance.Euclidean(a, b));
-    public static readonly SpectralDistanceKind Manhattan = new(key: 1, compute: static (a, b) => MathNet.Numerics.Distance.Manhattan(a, b));
+    // MathNet's full distance owner lands as rows — a descriptor-matching consumer picks its metric here, never a
+    // page-local fold. Minkowski rides the SAD/SSD-adjacent p = 3 row; a further p is one more row, never a knob.
+    // The CARRIER splits inside the package and the row owns its adaptation: Cosine, Canberra, Hamming, and
+    // Jaccard are `double[]` surfaces, every other row is `Vector<T>` only, so a bare array handed to the eight
+    // names a member the assembly does not export. Each Vector row lifts through the rostered
+    // `CreateVector.DenseOfArray`, keeping ONE column signature the descriptor kernel hands its dense buffers to.
+    public static readonly SpectralDistanceKind Euclidean = new(key: 0, compute: static (a, b) => MathNet.Numerics.Distance.Euclidean(Lift(a), Lift(b)));
+    public static readonly SpectralDistanceKind Manhattan = new(key: 1, compute: static (a, b) => MathNet.Numerics.Distance.Manhattan(Lift(a), Lift(b)));
     public static readonly SpectralDistanceKind Cosine = new(key: 2, compute: static (a, b) => MathNet.Numerics.Distance.Cosine(a, b));
+    public static readonly SpectralDistanceKind Chebyshev = new(key: 3, compute: static (a, b) => MathNet.Numerics.Distance.Chebyshev(Lift(a), Lift(b)));
+    public static readonly SpectralDistanceKind Canberra = new(key: 4, compute: static (a, b) => MathNet.Numerics.Distance.Canberra(a, b));
+    public static readonly SpectralDistanceKind Minkowski3 = new(key: 5, compute: static (a, b) => MathNet.Numerics.Distance.Minkowski(3.0, Lift(a), Lift(b)));
+    public static readonly SpectralDistanceKind Hamming = new(key: 6, compute: static (a, b) => MathNet.Numerics.Distance.Hamming(a, b));
+    public static readonly SpectralDistanceKind Jaccard = new(key: 7, compute: static (a, b) => MathNet.Numerics.Distance.Jaccard(a, b));
+    public static readonly SpectralDistanceKind MeanAbsolute = new(key: 8, compute: static (a, b) => MathNet.Numerics.Distance.MAE(Lift(a), Lift(b)));
+    public static readonly SpectralDistanceKind MeanSquared = new(key: 9, compute: static (a, b) => MathNet.Numerics.Distance.MSE(Lift(a), Lift(b)));
+    public static readonly SpectralDistanceKind SumAbsolute = new(key: 10, compute: static (a, b) => MathNet.Numerics.Distance.SAD(Lift(a), Lift(b)));
+    public static readonly SpectralDistanceKind SumSquared = new(key: 11, compute: static (a, b) => MathNet.Numerics.Distance.SSD(Lift(a), Lift(b)));
+
     [UseDelegateFromConstructor] internal partial double Compute(double[] a, double[] b);
+
+    private static MathNet.Numerics.LinearAlgebra.Vector<double> Lift(double[] values) =>
+        MathNet.Numerics.LinearAlgebra.CreateVector.DenseOfArray(values);
 }
 
 [Union]
 public abstract partial record SpectralFilter {
     public sealed record HeatCase(PositiveMagnitude Time) : SpectralFilter;
     public sealed record WaveCase(PositiveMagnitude Energy, PositiveMagnitude Bandwidth) : SpectralFilter;
-    public sealed record BiharmonicCase : SpectralFilter;
     public sealed record DiffusionCase(PositiveMagnitude Time) : SpectralFilter;
-    public sealed record CommuteTimeCase : SpectralFilter;
+    public sealed record PowerCase(double Exponent) : SpectralFilter;
+    public sealed record AmplifyCase(PositiveMagnitude Rate) : SpectralFilter;
     public sealed record IdentityCase : SpectralFilter;
     private SpectralFilter() { }
     public static SpectralFilter Heat(PositiveMagnitude time) => new HeatCase(Time: time);
     public static SpectralFilter Wave(PositiveMagnitude energy, PositiveMagnitude bandwidth) => new WaveCase(Energy: energy, Bandwidth: bandwidth);
-    public static SpectralFilter Biharmonic => new BiharmonicCase();
     public static SpectralFilter Diffusion(PositiveMagnitude time) => new DiffusionCase(Time: time);
-    public static SpectralFilter CommuteTime => new CommuteTimeCase();
+    // λ^p is ONE parameterized family — sqrt (p = ½), inv-sqrt (p = −½), commute time (p = −1), and biharmonic
+    // (p = −2) are exponent values, never sibling cases; a zero exponent normalizes to the unit.
+    public static SpectralFilter Power(double exponent) => exponent == 0.0 ? Identity : new PowerCase(Exponent: exponent);
+    public static SpectralFilter Amplify(PositiveMagnitude rate) => new AmplifyCase(Rate: rate);
+    public static SpectralFilter Biharmonic => Power(exponent: -2.0);
+    public static SpectralFilter CommuteTime => Power(exponent: -1.0);
     public static SpectralFilter Identity => new IdentityCase();
-    // Partial monoid: composable pairs fuse, Identity is the unit, every other pair is None.
+    // Partial monoid: composable pairs fuse, Identity is the unit, every other pair is None. The power family
+    // composes by exponent addition, so a commute-time∘biharmonic chain fuses to Power(-3) with no case growth.
     public Option<SpectralFilter> Compose(SpectralFilter other) =>
         (this, other) switch {
             (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Heat(time: time)),
             (DiffusionCase a, DiffusionCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Diffusion(time: time)),
+            (PowerCase a, PowerCase b) => Some(Power(exponent: a.Exponent + b.Exponent)),
+            (AmplifyCase a, AmplifyCase b) => Positive(value: a.Rate.Value + b.Rate.Value).Map(static rate => Amplify(rate: rate)),
             (IdentityCase, _) when other is not null => Some(other),
             (_, IdentityCase) => Some(this),
             _ => Option<SpectralFilter>.None,
         };
+    // Public: the transfer weight is the family's one evaluation and a second package (the Compute eigen-filter
+    // consumer) composes it directly, so the assembly boundary widens rather than a downstream twin re-spelling
+    // the transfer forms.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal double Weight(double eigenvalue) => Switch(
+    public double Weight(double eigenvalue) => Switch(
         state: eigenvalue,
         heatCase: static (lambda, c) => Math.Exp(d: -c.Time.Value * lambda),
         waveCase: static (lambda, c) => RawWaveWeight(eigenvalue: lambda, energy: c.Energy.Value, bandwidth: c.Bandwidth.Value),
-        biharmonicCase: static (lambda, _) => lambda > EpsilonPolicy.SqrtEpsilon ? 1.0 / (lambda * lambda) : 0.0,
         diffusionCase: static (lambda, c) => Math.Exp(d: -2.0 * c.Time.Value * lambda),
-        commuteTimeCase: static (lambda, _) => lambda > EpsilonPolicy.SqrtEpsilon ? 1.0 / lambda : 0.0,
+        powerCase: static (lambda, c) => lambda > EpsilonPolicy.SqrtEpsilon ? Math.Pow(x: lambda, y: c.Exponent) : 0.0,
+        amplifyCase: static (lambda, c) => Math.Exp(d: c.Rate.Value * lambda),
         identityCase: static (_, _) => 1.0);
     internal Fin<SpectralDescriptor> ApplyDetailed(SpectralBasis basis, Option<Seq<int>> sources, Op key) =>
         ApplyDetailed(basis: basis, sources: sources, policy: SpectralDescriptorPolicy.Raw, key: key);
@@ -116,21 +145,24 @@ public abstract partial record SpectralFilter {
 - Owner: `DiscreteCalculus` is the DEC operator bundle — incidence and curl operators, the diagonal Hodge stars, its `SpectralAssemblyReceipt`, and the optional `Transport` and `Harmonic` evidence slots — with `Project<TOut>` routing the evidence family through typed `ProjectionRow` rows. `SpectralBasis` is the eigenpair carrier with `Truncate(k)` and the ONE scale-relative `ZeroBand` (`SqrtEpsilon` × spectral radius) the descriptor kernel reuses to classify zero modes, so one threshold declaration carries every consumer with zero drift. `SpectralAssemblyReceipt`, `HarmonicOneFormReceipt`, and `HarmonicOneFormBasis` are the assembly and harmonic evidence, their semantic gates scale-relative against `max(1, spectralRadius)` rather than any bare absolute.
 - Entry: carriers are constructed by `Meshing/dec` (assembly) and `Meshing/mesh` (caching); this page owns their shape, validity law, and projection, and consumers — the `Rasm.Compute` adjoint surface, `Processing/geodesics`, `Processing/segment`, `Spatial/fields` — read them from here.
 - Auto: `DiscreteCalculus.IsValid` cross-couples the stars to the operator shapes, requires strictly positive vertex and face stars, and admits edge stars down to a scale-relative negative band, where near-degenerate intrinsic cotan weights legitimately dip below zero within roundoff of the `Star1` scale.
-- Receipt: all three receipts fold `ValidityClaim.All` with `IValidityEvidence` registration; the semantic gates carry the harmonic dimension law, the `Rank + Nullity == EdgeCount` partition, and the residual-tolerance ladder.
+- Receipt: all three receipts fold `ValidityClaim.All` with `IValidityEvidence` registration; the semantic gates carry the harmonic dimension law, the `Rank + Nullity == EdgeCount` partition, and the residual-tolerance ladder. Every field is read by a conjunct, so a slot no gate consumes is false evidence and never lands; a measure one assembly arm cannot take rides `Option` and reads as an absent claim, never a zero the gate mistakes for a measurement.
 - Packages: `matrix.md` owners (`SparseMatrix`, `EigenSolveReceipt`), LanguageExt.Core, Rasm.Domain (`IValidityEvidence` + `ValidityClaim`, `Op`).
 - Growth: a new DEC operator is one field, one validity coupling, and one `ProjectionRow`; a new assembly witness is one receipt field.
 - Boundary: `DiscreteCalculus` is the `Rasm.Compute` adjoint seam; `SignpostTransportReceipt` is declared by `Meshing/mesh`, the intrinsic-triangulation owner, and carried here only as optional evidence, so each DDG receipt has exactly one declaration site with this page owning the mesh-free members.
 
-```csharp
+```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
+// Topology measures ride Option because the connection arm assembles from a frozen intrinsic mesh and runs no
+// topology pass — a zero default there would publish a measurement no producer took. A present Euler characteristic
+// IS its own validation, so the value and the "validated" flag are one slot, never a flag beside a forged zero.
 public readonly record struct SpectralAssemblyReceipt(
     int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges,
-    bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros,
+    bool FlippedIntrinsicLifted, int MatrixRows, int MatrixCols, int NonZeros,
     int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count,
     double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind,
-    int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0,
-    bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0,
+    Option<int> BoundaryEdgeCount = default, int BoundaryComponentCount = 0, Option<int> NonManifoldEdgeCount = default,
+    Option<int> EulerCharacteristic = default, int ComponentCount = 1, int PositiveMassCount = 0,
     double SymmetryResidual = 0.0, double SymmetryTolerance = 0.0, Option<int> FactorNonZeros = default,
     double BoundaryCompositionTolerance = 0.0) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -142,6 +174,21 @@ public readonly record struct SpectralAssemblyReceipt(
         // Tolerance 0 = witness-only (the minting assembly gated the residual itself); positive enforces.
         ValidityClaim.Of(BoundaryCompositionTolerance <= 0.0 || BoundaryCompositionResidual <= BoundaryCompositionTolerance),
         ValidityClaim.Of(FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)),
+        // The signpost lift re-anchors flipped intrinsic edge sources onto embedded chords, which only the
+        // connection assembly performs — a Dec receipt claiming one names a path its arm cannot walk.
+        ValidityClaim.Of(!FlippedIntrinsicLifted || (Kind is not null && Kind.Equals(SpectralAssemblyKind.EdgeConnection))),
+        // Each boundary component closes an edge cycle, so components and boundary edges vanish together and
+        // three edges is the smallest cycle a triangulation admits.
+        ValidityClaim.Of(BoundaryEdgeCount.Map(count =>
+            count >= 0 && count <= EdgeCount && (count == 0) == (BoundaryComponentCount == 0) && count >= 3 * BoundaryComponentCount).IfNone(noneValue: true)),
+        ValidityClaim.Of(NonManifoldEdgeCount.Map(count => count >= 0 && count <= EdgeCount).IfNone(noneValue: true)),
+        // A measured Euler characteristic closes V-E+F against the assembly's own counts — the cross-source
+        // agreement between the topology pass and the triplet sweep — presupposes a manifold complex, and with a
+        // genus closes the boundary-aware surface identity chi = 2 - 2g - b.
+        ValidityClaim.Of(EulerCharacteristic.Map(chi =>
+            chi == VertexCount - EdgeCount + FaceCount
+            && NonManifoldEdgeCount.IfNone(noneValue: 0) == 0
+            && Genus.Map(genus => chi == 2 - (2 * genus) - BoundaryComponentCount).IfNone(noneValue: true)).IfNone(noneValue: true)),
         ValidityClaim.Of(Kind is not null
             && (Kind.Equals(SpectralAssemblyKind.EdgeConnection)
                 ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
@@ -250,7 +297,7 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 - Growth: a new signature family is one filter case and policy rows, the kernel loop already generic over the weight function; a new distance is one `SpectralDistanceKind` row, the compute column IS the arm.
 - Boundary: `EvaluateFilteredDetailed`'s dense `double[]` loop is the named statement-kernel exemption; the kernel is mesh-free, seeing vertex COUNT as its only topology, so it serves tet, grid, and mesh bases identically, while mesh-side basis computation and caching (`SpectralBasisBundle`) are `Meshing/dec`'s.
 
-```csharp
+```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalization ScaleNormalization, SpectralEnergyNormalization EnergyNormalization, SpectralZeroModePolicy ZeroModePolicy, Option<Dimension> CropCount) {

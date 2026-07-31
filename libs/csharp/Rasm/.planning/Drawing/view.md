@@ -14,11 +14,11 @@ This page founds nothing: every silhouette, crossing, seed, section, crease, and
 - Cases: `outline` is the visible slice of the SAME silhouette walk and QI solve (visible silhouette + boundary, no hidden set), never a parallel outliner; the four kinds differ ONLY in which slice of the shared solve they project and in `Section`'s cut delegation — one walk, one lattice, one solve.
 - Entry: `public static Fin<DrawingProjection> View.Apply(ViewOp op, Op? key = null)` — the ONE entrypoint discriminating by op case, no `ExtractSilhouette`/`RemoveHiddenLines`/`SectionCut`/`ProjectOutline` sibling family. Admission refusals ride the `Op` channel (`key.InvalidInput()` on a degenerate camera), geometry defects ride band 2400 (`DegenerateInput` on an empty or non-finite mesh), an empty locus or non-chain section routes `ProjectionFault` 2436, and a composed sibling fault surfaces unchanged — the fold never re-labels a sibling's typed fault.
 - Auto: `Admit` materializes the soup ONCE through `MeshEdit.Of` and gates emptiness/finiteness/camera; `Silhouettes` walks the edge-incidence fold once — a boundary edge is always a silhouette, a two-face edge a silhouette exactly where `FacesOppose` reads opposite nonzero `SideOf` signs, and a crease above the dihedral threshold lifts `EdgeKind.Crease` from the `FeatureReceipt` classification with the lift failure propagating; `Resolve` owns the QI solve — QuikGraph-component labeling, the exact `SegmentSegment` crossing lattice, exact ±1 deltas off the eye–silhouette plane, and two-stage seeding (a batched `Winding` culls buried components, the exact `SegmentTriangle` battery counts the rest); `Emit` splits each edge at its crossings, threads the running count, rounds coordinates ONCE, and links same-visibility successors, retaining hidden runs under `EmitsHidden`; `Section` partitions the `PlaneMesh` chains closed/open, emitting an open chain as a typed row, never silently closed.
-- Receipt: `DrawingProjection` (visible/hidden `Seq<ProjectedSegment>` + `EdgeHistogram`) IS the typed result — each segment carries its exact `Invisibility` and `EdgeKind`, so a dashed-hidden render reads the full set from one carrier; this owner mints no second identity, content-addressing through the `Polyline`/`Line` projection.
+- Receipt: `DrawingProjection` (visible/hidden `Seq<ProjectedSegment>` + `EdgeHistogram`) IS the typed result — each segment carries its exact `Invisibility`, `EdgeKind`, and per-endpoint `Depth` cue, so a dashed-hidden render or depth-weighted line weight reads the full set from one carrier; this owner mints no second identity, content-addressing through the `Polyline`/`Line` projection.
 - Packages: `Rasm.Meshing` (`MeshEdit.Of` soup adapter, `Intersection.Apply` for `PlaneMesh`/`SegmentSegment`/`SegmentTriangle`, `Arrangement.Apply`/`ArrangementOp.PlanarOverlay` fill), `Rasm.Processing` (the `FeatureReceipt` dihedral vocabulary through `VectorIntent.Features`), `Rasm.Spatial` (`Spatial.Apply` — `Build`/`Overlap`/`Range`/`Winding`), `Rasm.Numerics` (`Predicate.Orient3D`, `Sign`, `Axis`, `GeometryFault` band 2400), `Rasm.Domain` (`Op`, `Kind`, `Context`), QuikGraph (`ConnectedComponents` component walk), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new view modality is one `ViewKind` row and one `ViewOp` case reading the SAME walk and solve — `outline` is this leaf's executed precedent; a new edge classification is one `EdgeKind` row and one `Silhouettes` arm reading the `FeatureReceipt` lift; a new camera projection is one column on `Camera`; a per-segment depth-cue is one field on `ProjectedSegment`; a fifth view kind enters only by charter amendment; zero new surface.
+- Growth: a new view modality is one `ViewKind` row and one `ViewOp` case reading the SAME walk and solve — `outline` is this leaf's executed precedent; a new edge classification is one `EdgeKind` row and one `Silhouettes` arm reading the `FeatureReceipt` lift; a new camera projection is one column on `Camera`; a new per-segment render cue is one field on `ProjectedSegment` beside `Depth`; a fifth view kind enters only by charter amendment; zero new surface.
 - Law: `ProjectionLaws` is the tier-2 law matrix over this owner — `FacesOppose` agrees with a rational eye-vs-plane determinant oracle, the silhouette set is rigid-transform invariant and closed on a closed manifold, the emitted visibility agrees with a brute-force per-face occlusion oracle and is permutation-deterministic, a partially-occluded edge yields both runs with the hidden run retained, and the section curve lies on both the cutting plane and the mesh.
-- Boundary: the projection owner is the ONE polymorphic `ViewOp` `[Union]` folded by one `Apply`, and a `SilhouetteExtractor`/`HiddenLineRemover`/`Sectioner`/`OutlineProjector` sibling-class family is the named density defect. Visibility is EXACT ANALYTIC: the silhouette locus composes `Predicate.Orient3D` (an epsilon-tolerant float dot test is the non-determinism defect), every crossing/delta/seed is an exact sign through the intersect and predicate owners, candidate-component labeling composes QuikGraph `ConnectedComponents` (a page-local union-find is deleted), the `Section` cut composes `IntersectOp.PlaneMesh` (an inline plane-mesh test or a host `Make2D` round-trip is deleted), the crease composes the `FeatureReceipt` dihedral (a local re-derivation is the deleted double owner), region fill composes `ArrangementOp.PlanarOverlay` (a local filler is deleted), the soup is `MeshEdit.Of` (a page-local `Soup`/`BuildNative` pair is the deleted third carrier), and `ToPolylines` walks successor links per visibility set (a `GroupBy(kind)` concat merging visible with hidden is the deleted lie). `Apply` is total over the `Fin` rail — a thrown exception on a degenerate camera or empty locus is forbidden, admission refusals ride the `Op` channel and geometry defects ride band 2400, neither family absorbing the other. Screen coordinates operate on raw `double` only inside the projection kernels; a bare `double` crossing the public surface outside `Point3d`/`Plane`/`Polyline`/`Line` is the seam violation. A hidden run is classified and RETAINED under `EmitsHidden`, never discarded to satisfy a budget. `ViewConvention` seats at THIS drawing tier as drafting-presentation policy — a geometry-rail seat or a host-folder recipe catalog with inline multipliers is the killed form; the host viewport rail consumes `ViewPose` while this page's exact drawing consumes `ToCamera`.
+- Boundary: the projection owner is the ONE polymorphic `ViewOp` `[Union]` folded by one `Apply`, and a `SilhouetteExtractor`/`HiddenLineRemover`/`Sectioner`/`OutlineProjector` sibling-class family is the named density defect. Visibility is EXACT ANALYTIC: the silhouette locus composes `Predicate.Orient3D` (an epsilon-tolerant float dot test is the non-determinism defect), every crossing/delta/seed is an exact sign through the intersect and predicate owners, candidate-component labeling composes QuikGraph `ConnectedComponents` (a page-local union-find is deleted), the `Section` cut composes `IntersectOp.PlaneMesh` (an inline plane-mesh test or a host `Make2D` round-trip is deleted), the crease composes the `FeatureReceipt` dihedral (a local re-derivation is the deleted double owner), region fill composes `ArrangementOp.PlanarOverlay` (a local filler is deleted), the soup is `MeshEdit.Of` (a page-local `Soup`/`BuildNative` pair is the deleted third carrier), and `ToPolylines` walks successor links per visibility set (a `GroupBy(kind)` concat merging visible with hidden is the deleted lie). `Apply` is total over the `Fin` rail — a thrown exception on a degenerate camera or empty locus is forbidden, admission refusals ride the `Op` channel and geometry defects ride band 2400, neither family absorbing the other. Screen coordinates operate on raw `double` only inside the projection kernels; a bare `double` crossing the public surface outside `Point3d`/`Plane`/`Polyline`/`Line` is the seam violation. Hidden runs classify and RETAIN under `EmitsHidden`, never discarded to satisfy a budget. `ViewConvention` seats at THIS drawing tier as drafting-presentation policy — a geometry-rail seat or a host-folder recipe catalog with inline multipliers is the killed form; the host viewport rail consumes `ViewPose` while this page's exact drawing consumes `ToCamera`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -131,10 +131,18 @@ public sealed record ViewPolicy(double CreaseDihedralRadians, double BetaSquared
 // --- [MODELS] -----------------------------------------------------------------------------
 // ToCamera lowers the SAME pose onto the exact projection frame — one catalog, two altitudes.
 public readonly record struct ViewPose(VectorFrame Frame, Point3d Eye, Point3d Target, BoundingBox Subject, ViewProjectionIntent Projection, double Lens) {
+    // A perspective camera admits only a WHOLLY-IN-FRONT subject: every Subject corner strictly ahead of the eye
+    // plane, or the pose refuses on the Op channel. The gate is the ONE seat that keeps Camera.Depth divide-safe —
+    // a behind-eye point once clamped to double.Epsilon and projected to a finite astronomically-scaled screen
+    // coordinate that no downstream probe caught; an interior eye now refuses here, and the caller clips to the
+    // front frustum before re-posing. Parallel projection has no eye side, so the gate is perspective-only.
     public Fin<Camera> ToCamera(Context tolerance, Op? key = null) {
         Op op = key.OrDefault();
         ViewPose self = this;
         return from look in Direction.Of(value: self.Target - self.Eye, context: tolerance, key: op)
+               from _ in guard(!self.Projection.Perspective
+                       || self.Subject.GetCorners().AsIterable().ForAll(c => (c - self.Eye) * look.Value > EpsilonPolicy.ZeroTolerance),
+                   op.InvalidInput()).ToFin()
                from screen in Admit.Plane(basis: new Plane(origin: self.Target, normal: look.Value), key: op)
                select new Camera(Eye: self.Eye, Direction: look.Value, Screen: screen, Perspective: self.Projection.Perspective, Tolerance: tolerance);
     }
@@ -147,17 +155,20 @@ public sealed record Camera(Point3d Eye, Vector3d Direction, Plane Screen, bool 
         return new Point3d(u / depth, v / depth, 0.0);
     }
 
-    public double Depth(Point3d world) {
-        double d = (world - Eye) * Direction;
-        return d <= 0.0 ? double.Epsilon : d;
-    }
+    // RAW signed axial distance — positive by ToCamera's perspective admission over the subject, and an honest
+    // signed fade cue under parallel projection where nothing sits "behind" a directional eye. The prior
+    // `d <= 0 ? double.Epsilon : d` clamp forged both: an unprojectable perspective point became a finite
+    // astronomically-scaled coordinate, and a legitimate negative parallel cue became an epsilon.
+    public double Depth(Point3d world) => (world - Eye) * Direction;
 
     // Exact view-side verdict — Orient3D of the eye against the face's supporting plane.
     public Sign SideOf(Point3d a, Point3d b, Point3d c) => Predicate.Orient3D(a, b, c, Eye);
 }
 
 // Invisibility is the Appel count; Next = same-set successor (-1 ends the chain); coordinates round ONCE at emission.
-public sealed record ProjectedSegment(Point3d ScreenA, Point3d ScreenB, EdgeKind Edge, int Invisibility, int Next, int SourceA, int SourceB) {
+// Depth is the per-endpoint camera-axial cue Camera.Depth computes — a line-weight or atmospheric fade reads the
+// pair directly and a mid-segment cue interpolates it, so no consumer re-projects world geometry for a render cue.
+public sealed record ProjectedSegment(Point3d ScreenA, Point3d ScreenB, EdgeKind Edge, int Invisibility, int Next, int SourceA, int SourceB, (double A, double B) Depth) {
     public Visibility State => Invisibility == 0 ? Visibility.Visible : Visibility.Hidden;
 }
 
@@ -267,7 +278,7 @@ public static class View {
     static Fin<(Point3d[] V, (int A, int B, int C)[] F)> Admit(MeshSpace mesh, Op key) {
         using MeshEdit edit = MeshEdit.Of(mesh);
         if (edit.VertexCount == 0 || edit.FaceCount == 0)
-            return Fin.Fail<(Point3d[], (int, int, int)[])>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "empty").ToError());
+            return Fin.Fail<(Point3d[], (int, int, int)[])>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "empty").ToError());
         Point3d[] vertices = new Point3d[edit.VertexCount];
         for (int v = 0; v < vertices.Length; v++) {
             vertices[v] = edit.Position(v);
@@ -421,6 +432,7 @@ public static class View {
             (int a, int b, EdgeKind kind, _) = edges[e];
             Point3d pa = camera.Project(soup.V[a]);
             Point3d pb = camera.Project(soup.V[b]);
+            (double da, double db) = (camera.Depth(soup.V[a]), camera.Depth(soup.V[b]));
             (double prevT, int count, int prevRun, bool prevHidden) = (0.0, edgeSeed[e], -1, false);
             foreach ((double t, int delta) in lattice[e].OrderBy(static row => row.T).Append((T: 1.0, Delta: 0))) {
                 double at = Math.Clamp(t, 0.0, 1.0);
@@ -433,7 +445,8 @@ public static class View {
                         int run = set.Count;
                         ProjectedSegment segment = new(
                             ScreenA: pa + (prevT * (pb - pa)), ScreenB: pa + (at * (pb - pa)), Edge: kind, Invisibility: count,
-                            Next: -1, SourceA: prevT == 0.0 ? a : -1, SourceB: at == 1.0 ? b : -1);
+                            Next: -1, SourceA: prevT == 0.0 ? a : -1, SourceB: at == 1.0 ? b : -1,
+                            Depth: (da + (prevT * (db - da)), da + (at * (db - da))));
                         set.Add(segment);
                         histogram = histogram.Add(segment);
                         if (prevRun >= 0 && prevHidden == hiddenRun) set[prevRun] = set[prevRun] with { Next = run };
@@ -472,7 +485,8 @@ public static class View {
                 bool last = i + 2 >= chain.Points.Count;
                 ProjectedSegment segment = new(
                     camera.Project(chain.Points[i]), camera.Project(chain.Points[i + 1]), EdgeKind.Intersection,
-                    Invisibility: 0, Next: last ? (chain.Closed ? first : -1) : visible.Count + 1, SourceA: -1, SourceB: -1);
+                    Invisibility: 0, Next: last ? (chain.Closed ? first : -1) : visible.Count + 1, SourceA: -1, SourceB: -1,
+                    Depth: (camera.Depth(chain.Points[i]), camera.Depth(chain.Points[i + 1])));
                 visible.Add(segment);
                 histogram = histogram.Add(segment);
             }
@@ -585,6 +599,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Drawing view projection flow
+    accDescr: View.Apply folds ViewOp cases through the silhouette walk and QI solve into DrawingProjection segments, composing arrangement fill, plane-mesh intersection, and the spatial broad phase.
     ViewOp -->|"MeshEdit.Of — the ONE soup adapter"| Soup["vertex/face arrays"]
     Soup -->|exact eye-side Orient3D| Locus["silhouette / boundary / crease locus"]
     Locus -->|"FeatureReceipt dihedral lift"| Crease["VectorIntent.Features"]
@@ -596,6 +612,7 @@ flowchart LR
     Emit -->|visible / hidden retained per EmitsHidden| DrawingProjection
     ViewOp -->|"Section: ONE IntersectOp.PlaneMesh"| DrawingProjection
     DrawingProjection -->|"ToPolylines / ToSegments / Fill(PlanarOverlay)"| Seam["Fabrication Documentation/projection"]
+    DrawingProjection -->|"Fill loops → HatchOp.Projection"| Hatch["hatch.md pattern synthesis"]
     Seam -->|"HiddenLineResult receipt"| AppUi["AppUi drafting"]
     ViewOp -.->|"DegenerateInput 2400 / InvalidInput / ProjectionFault 2436"| GeometryFault
 ```
@@ -620,7 +637,7 @@ flowchart LR
 - [03]-[EDGE_CLASSIFICATION]: `[SmartEnum<int>]` silhouette/crease/boundary/intersection — the 2436 fault payload vocabulary.
 - [04]-[SEGMENT_VISIBILITY]: `[SmartEnum<int>]` visible/hidden DERIVED from the Appel count.
 - [05]-[SOLVE_POLICY]: crease dihedral · winding β² · composed `IntersectPolicy`/`BuildPolicy` rows.
-- [06]-[RESULT_CARRIER]: successor-linked visible/hidden sets + histogram + `ToPolylines`/`ToSegments`/`Fill` projections.
+- [06]-[RESULT_CARRIER]: successor-linked visible/hidden sets + histogram + `ToPolylines`/`ToSegments`/`Fill` projections; the `Fill` loops seed `Drawing/hatch` pattern synthesis through `HatchOp.Projection`.
 - [07]-[VIEW_CONVENTIONS]: `[SmartEnum<int>]` six drafting rows, placement as column data, one derived `Pose` body, `ViewPose.ToCamera` the exact-drawing lowering.
 - [08]-[PROJECTION_INTENT]: `[SmartEnum<int>]` host-agnostic projection rows with the `Perspective` camera-derivation column.
 

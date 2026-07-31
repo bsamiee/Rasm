@@ -12,8 +12,8 @@ A declarative forms-and-selection owner family delivers schema-driven forms with
 ## [02]-[FORM_SCHEMA]
 
 - Owner: `FormField` the typed field row; `FormSchema` the field-row sequence; `FormFault` the typed fault family on the `AppUiFaultBand.Form` registry row (6310); `FormSurface` the schema-to-control-intent fold.
-- Cases: `FormFault` = Text | FieldInvalid | StepIncomplete | SubmitRejected — codes derive through the `AppUiFaultBand.Form` registry row.
-- Entry: `FormSchema.Create` accumulates schema-identity, dependency, step-membership, and DAG faults; `FormSchema.With` admits one erased `JsonElement` through the addressed field's `AdmitValue` rail before state mutation; `FormSchema.Admit` accumulates every visible field rule; `FormSurface.Layout` projects admitted field rows onto `ControlIntent` values materialized through `ControlFactory`.
+- Cases: `FormFault` = Text | FieldInvalid | StepIncomplete | SubmitRejected | SchemaInvalid — codes derive through the `AppUiFaultBand.Form` registry row, and `SchemaInvalid` is the one fault `FormSchema.Create` raises.
+- Entry: `FormSchema.Create` accumulates schema-identity, dependency, step-membership, and DAG faults; `FormSchema.With` admits one erased `JsonElement` through the addressed field's `AdmitValue` rail before state mutation; `FormSchema.Admit` accumulates every visible field rule; `FormSurface.Layout(string panelKey, FormState state, Option<WizardState> cursor = default)` projects admitted field rows onto `ControlIntent` values materialized through `ControlFactory` — one signature serving both the flat form and the wizard, the cursor narrowing the roster to the current step's fields before the visibility filter.
 - Auto: a `FormField` carries its key, label key, `ControlIntent`, dependency edges, visibility predicate, erased-boundary `AdmitValue` validator, and state-level rule. `FormSchema.Create` rejects duplicate identities, unknown dependency or step references, and cyclic dependency graphs before a form exists. `FormSchema.With` resolves the field and validates the serialized value before the internal state write, so heterogeneous storage never becomes untyped admission. `FormSchema.Affected` selects exactly the fields whose `DependsOn` edges touch the changed key, and `FormSchema.Admit` traverses visible rules applicatively so independent failures accumulate.
 - Packages: bodong.PropertyModels, ReactiveUI.Validation, QuikGraph (shared tier), Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new field type is one `FormField` shape reusing the `ControlIntent` vocabulary; a new validation rule is one `Validation<Error,T>` on the field; zero new surface — a settings-dialog or form framework is deleted by this schema over the one control vocabulary.
@@ -112,10 +112,15 @@ public sealed record FormSchema {
 
 public static class FormSurface {
     extension(FormSchema schema) {
-        public ControlIntent Layout(string panelKey, FormState state) =>
+        // One materialization for both shapes: the roster is the whole schema for a flat form and the
+        // current step's fields for a wizard, so `WizardFold.StepFields` is the narrowing the step law
+        // declares rather than a projection nothing reads, and visibility filters the roster in both.
+        public ControlIntent Layout(string panelKey, FormState state, Option<WizardState> cursor = default) =>
             new ControlIntent.Panel(
                 panelKey,
-                schema.Fields.Filter(field => field.Visible(state)).Map(static field => field.Control),
+                cursor.Match(Some: step => schema.StepFields(step), None: () => schema.Fields)
+                    .Filter(field => field.Visible(state))
+                    .Map(static field => field.Control),
                 ConstraintProgram: $"form-stack:{schema.Key}",
                 new IntentBinding(schema.Key, "surface", None, None));
     }
@@ -125,8 +130,8 @@ public static class FormSurface {
 ## [03]-[WIZARD_FLOW]
 
 - Owner: `WizardStep` the wizard-step row; `WizardState` the step-cursor state; `WizardFold` the step-transition fold.
-- Entry: `public Fin<WizardState> Advance(WizardState cursor, FormState state)` — advances only when the current step's field rules validate through `AdmitStep`, sealing the accumulated failures as one `StepIncomplete` fault otherwise; `public WizardState Retreat(WizardState cursor, FormState state)` — steps back to the nearest earlier non-skipped step with no validation gate; a flow whose every earlier step is bypassed holds its position.
-- Auto: a `WizardStep` carries its field-key set and its `Skip` predicate, so a wizard is a sequence of field groups over the one `FormSchema` rather than a parallel multi-page model; `Advance` gates the forward transition on `AdmitStep` — the form validation rail narrowed to the current step's visible field keys, traversed applicatively so EVERY invalid step field reports at once — and `FieldKeys` is therefore behaviorally consumed by the transition, never a UI-only grouping; the visible field set narrows to the current step's keys so the wizard materializes only the current step's controls through `ControlFactory`; cross-step dependencies ride the same `DependsOn` edges — an earlier step's write re-evaluates exactly the later-step fields declaring it through `FormSchema.Affected`, no second propagation scheme.
+- Entry: `public Fin<WizardState> Advance(WizardState cursor, FormState state)` — advances only when the current step's field rules validate through `AdmitStep`, sealing the accumulated failures as one `StepIncomplete` fault otherwise; `public WizardState Retreat(WizardState cursor, FormState state)` — steps back to the nearest earlier non-skipped step with no validation gate; a flow whose every earlier step is bypassed holds its position; `public Seq<FormField> StepFields(WizardState cursor)` — the current step's field roster `FormSurface.Layout` narrows its materialization to.
+- Auto: a `WizardStep` carries its field-key set and its `Skip` predicate, so a wizard is a sequence of field groups over the one `FormSchema` rather than a parallel multi-page model; `Advance` gates the forward transition on `AdmitStep` — the form validation rail narrowed to the current step's visible field keys, traversed applicatively so EVERY invalid step field reports at once — and `FieldKeys` is therefore behaviorally consumed by the transition, never a UI-only grouping; the visible field set narrows to the current step's keys through `StepFields`, which `FormSurface.Layout` reads off its optional cursor, so the wizard materializes only the current step's controls through `ControlFactory` and the flat form takes the same signature with no cursor; cross-step dependencies ride the same `DependsOn` edges — an earlier step's write re-evaluates exactly the later-step fields declaring it through `FormSchema.Affected`, no second propagation scheme.
 - Packages: bodong.PropertyModels, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new wizard step is one `WizardStep` row on the schema; zero new surface.
 - Boundary: a wizard is steps over the one `FormSchema` — a parallel wizard framework is the rejected form, so a step is a field-key group and the wizard materializes through the same `ControlFactory` fold; the forward gate IS the one `Validation<Error,T>` rail narrowed to the step's keys — a boolean completion predicate standing in for validation is the deleted form, and `Skip` marks only the conditional step the flow bypasses, never a validation substitute; the step cursor is a typed value the `ControlIntent.Tab`/`Accordion` wizard chrome reads so the wizard chrome is itself a materialized control.
@@ -184,18 +189,23 @@ public static class WizardFold {
 ## [04]-[SELECTION_MODEL]
 
 - Owner: `Selection<TItem>` the selection model over the admitted `ICheckedList` — the ONE selection backing, whose own `Select` verbs carry the exclusive modality; `SelectionMode` the single/multi axis carrying its own apply behavior; `SelectionSet` the durable named element set with its `SelectionAlgebra` composition rows.
-- Entry: `Apply` and `Range` return `Fin<Selection<TItem>>`, reject values outside `Backing.Items`, and then route admitted gestures through the `SelectionMode` delegate columns; `Selected` traverses every checked value through `Admit`; `Payload` rejects empty or duplicate stable identities before constructing `CommandPayload.Many`; `Capture` seals the checked projection as a named `SelectionSet` and `ApplySet` re-applies a set's members over the live item roster.
+- Entry: `Apply` and `Range` return `Fin<Selection<TItem>>`, reject values outside `Backing.SourceItems` — the candidate roster, never `Items`, which is the already-selected projection — and then route admitted gestures through the `SelectionMode` delegate columns; `Selected` traverses `Backing.Items` through `Admit`; `Payload` rejects empty or duplicate stable identities before constructing `CommandPayload.Many`; `Capture` seals the checked projection as a named `SelectionSet` and `ApplySet` re-applies a set's members over the live item roster as one exact projection.
 - Auto: `Selection` wraps the admitted `ICheckedList` so the selection state rides the package collection, never a parallel selection list — the exclusive single-select modality is the SAME backing's `Select(object)` verb, so no second collection contract exists to bind; the mode row carries the apply delegate, so a click gesture is one `Apply` call and the exclusive-versus-toggle split is a policy value, never a caller branch; the checked set drives the batch-edit intent set and the selection-count availability input (`Shell/commands#AVAILABILITY_ALGEBRA` `Availability.Selected`); the selection projects into the screen-state snapshot `Selection` field so a restored screen re-applies its selection.
 - Packages: bodong.PropertyModels, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new selection mode is one `SelectionMode` row with its apply delegate; a new set operation is one `SelectionAlgebra` row; zero new surface — the admitted `ICheckedList` is the selection collection.
-- Boundary: selection rides the admitted `ICheckedList`; single mode applies only the first range item through `Select`, multi mode applies the whole range through `SetRangeChecked`, and `Count` counts checked items rather than source items. The selection count feeds command availability, selection persists on the screen-state snapshot, and the checked-list editor materializes through the inspector/control rail without a second control or backing collection. A `SelectionSet` persists as one policy row through the Persistence store port, and its `Members` projection is the one scope vocabulary batch edit, issue component selection, visibility isolation, and dashboard cross-filter consume; element-set queries stay Bim-owned receipts, so a saved query set stores the receipt's member identities and AppUi runs no query engine.
+- Boundary: selection rides the admitted `ICheckedList`; single mode applies only the first range item — `Select` for the exclusive check and `SetChecked(item, false)` for the clear, so the range delegate is TOTAL over its flag — multi mode applies the whole range through `SetRangeChecked`, and `Count` reads `Items`, the selected projection, because membership IS the selection. The selection count feeds command availability, selection persists on the screen-state snapshot, and the checked-list editor materializes through the inspector/control rail without a second control or backing collection. A `SelectionSet` persists as one policy row through the Persistence store port, and its `Members` projection is the one scope vocabulary batch edit, issue component selection, visibility isolation, and dashboard cross-filter consume; element-set queries stay Bim-owned receipts, so a saved query set stores the receipt's member identities and AppUi runs no query engine.
 
 ```csharp signature
+// The range delegate is TOTAL over its flag in BOTH rows: a single-mode row that discarded `selected` made
+// the clear half of an exact projection SELECT its first non-member, so restoring an empty set left an item
+// checked. `Select` is the exclusive check verb and `SetChecked(item, false)` its inverse.
 [SmartEnum]
 public sealed partial class SelectionMode {
     public static readonly SelectionMode Single = new(
         static (backing, item) => backing.Select(item),
-        static (backing, items, _) => items.HeadOrNone.Iter(backing.Select));
+        static (backing, items, selected) => items.Head.Iter(item => {
+            if (selected) { backing.Select(item); } else { backing.SetChecked(item, false); }
+        }));
     public static readonly SelectionMode Multi = new(
         static (backing, item) => backing.SetChecked(item, !backing.IsChecked(item)),
         static (backing, items, selected) => backing.SetRangeChecked(items, selected));
@@ -212,32 +222,41 @@ public sealed record Selection<TItem>(
     SelectionMode Mode,
     Func<object, Option<TItem>> Admit,
     Func<TItem, string> Identity) where TItem : notnull {
+    // Admission reads `SourceItems` — the CANDIDATE roster — never `Items`, which is the already-selected
+    // set: guarding a check against the selected set makes selecting an unselected item refuse by
+    // construction and makes deselecting the only reachable operation. `Items` is the right read for the
+    // selected projection alone, where it needs no `IsChecked` filter because membership IS the selection.
     public Fin<Selection<TItem>> Apply(TItem item) =>
-        Backing.Items.Contains(item)
+        Backing.SourceItems.Contains(item)
             ? Fin.Succ((fun(() => Mode.Apply(Backing, item))(), this).Item2)
             : Fin.Fail<Selection<TItem>>(new FormFault.FieldInvalid("selection", "item is outside the backing"));
 
     public Fin<Selection<TItem>> Range(Seq<TItem> items, bool checkedState) =>
-        items.ForAll(item => Backing.Items.Contains(item))
+        items.ForAll(item => Backing.SourceItems.Contains(item))
             ? Fin.Succ((fun(() => Mode.ApplyRange(Backing, items.Cast<object>().ToSeq(), checkedState))(), this).Item2)
             : Fin.Fail<Selection<TItem>>(new FormFault.FieldInvalid("selection", "range contains an item outside the backing"));
 
-    public Fin<Seq<TItem>> Selected() => toSeq(Backing.Items).Filter(Backing.IsChecked)
+    public Fin<Seq<TItem>> Selected() => toSeq(Backing.Items)
         .Traverse(item => Admit(item).ToFin(new FormFault.FieldInvalid("selection", item.GetType().Name)))
         .As();
 
-    public int Count => Backing.Items.Count(Backing.IsChecked);
+    // `Items` and `SourceItems` are `object[]`, so the count is `Length` — `ICollection.Count` is an explicit
+    // implementation on `System.Array` and unreachable off the array reference.
+    public int Count => Backing.Items.Length;
 
     public Fin<SelectionSet> Capture(string key, string name) =>
         !string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(name)
             ? Selected().Map(items => new SelectionSet(key, name, toSet(items.Map(Identity))))
             : Fin.Fail<SelectionSet>(new FormFault.FieldInvalid("selection-set", "key and name are required"));
 
-    // Set application is an EXACT projection: members check true and every other live item checks false
-    // in one pass, so restoration can never union with stale pre-existing selection.
+    // Set application is an EXACT projection: ONE partition of the live roster feeds both halves through the
+    // mode's own flag-honouring range delegate — members check true, every other live item checks false — so
+    // restoration can never union with stale pre-existing selection and an empty member set clears the roster
+    // whole. Two filter scans re-deriving the same predicate are the deleted form.
     public Fin<Selection<TItem>> ApplySet(SelectionSet set, Seq<TItem> items) =>
-        Range(items.Filter(item => !set.Members.Contains(Identity(item))), checkedState: false)
-            .Bind(_ => Range(items.Filter(item => set.Members.Contains(Identity(item))), checkedState: true));
+        items.Partition(item => set.Members.Contains(Identity(item))) switch {
+            var split => Range(split.Second, checkedState: false).Bind(_ => Range(split.First, checkedState: true)),
+        };
 }
 
 // The durable selection noun: manual picks and Bim-owned query receipts seal to the same named member
@@ -264,9 +283,9 @@ public sealed record SelectionSet(string Key, string Name, Set<string> Members) 
 - Owner: `BatchEdit<TItem>` the batch-edit fold; `BatchReceipt` the combined-edit evidence projecting the one `CommandReceipt`.
 - Entry: `public IO<Fin<BatchReceipt>> Execute(string verbIntent, CommandDeck deck, CorrelationId correlation)` — the one composed batch transaction: `Payload` snapshots the immutable identity set, `Combine` resolves the one admitted command row, the command executes once with `CommandPayload.Many`, and `Seal` derives the receipt from the same snapshot; repeated identical children multiplying the same many-item mutation are rejected.
 - Auto: a batch verb over N selected items materializes one child through `CommandExecution.Combine` so its existing availability, execution, and receipt law remain authoritative; the batch availability additionally gates on non-empty selection, and an unknown verb key aborts on `Fin` rather than dropping silently. The many-item payload is the batch discriminant, so a second macro registry and N duplicated command children are deleted forms.
-- Receipt: the one command execution seals one `CommandReceipt`, and `BatchReceipt` derives item count from the executed `CommandPayload.Many` snapshot rather than mutable selection state, then adds correlation without inventing N synthetic child receipts; `TelemetryRow` contributes the batch-applied and batch-rejected instruments inward through the AppHost `TelemetryContributorPort`.
+- Receipt: the one command execution seals one `CommandReceipt`, and `BatchReceipt` derives item count from the executed `CommandPayload.Many` snapshot rather than mutable selection state, then adds correlation without inventing N synthetic child receipts; `TelemetryRow` contributes the batch-applied and batch-rejected instruments inward through the AppHost `TelemetryContributorPort`, both written by the one `Observe` projection composition binds at the `Execute` outcome.
 - Packages: ReactiveUI, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new batch verb is one `CommandIntent` row the selection folds over; one batch instrument is one `InstrumentSpec` row on `BatchEdit.TelemetryRow`; zero new surface.
+- Growth: a new batch verb is one `CommandIntent` row the selection folds over; one batch instrument is one `InstrumentSpec` row on `BatchEdit.TelemetryRow` with its write in the same `Observe` projection; zero new surface.
 - Boundary: batch editing folds through the one `CommandExecution.Combine` algebra with one intent key and one `CommandPayload.Many`; a per-macro registry, a batch payload case beside the closed four-case `CommandPayload` union, and repeated identical command children are rejected. An unknown verb key aborts the macro on the `Fin` rail through the same `TryGetValue` probe `Combine` uses; the batch correlates under one `CorrelationId` so a multi-item edit is one traceable transaction. Host-mutating batch edits route through the abstract `DocumentTransaction` surface-host port so the undo scope batches the N edits as one host transaction, and the revertible op-log records the batch as one `RevertScope` (`Editing/history`); the batch verbs derive from the command table so a coordination/inspector batch action is an intent key, never a batch-local command.
 
 ```csharp signature
@@ -280,8 +299,15 @@ public static class BatchEdit {
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
-            InstrumentSpec.Count(AppliedInstrument, "{batch}", "batch edits applied", MeasureForm.Whole),
-            InstrumentSpec.Count(RejectedInstrument, "{batch}", "batch edits rejected", MeasureForm.Whole));
+            InstrumentSpec.Count(AppliedInstrument, "{batch}", "batch edits applied by verb intent", MeasureForm.Whole, AppUiTelemetry.IntentSlot),
+            InstrumentSpec.Count(RejectedInstrument, "{batch}", "batch edits rejected by verb intent", MeasureForm.Whole, AppUiTelemetry.IntentSlot));
+
+    // `Execute` is the one fold holding both dispositions, so composition binds this projection at its
+    // outcome: an applied batch and a refused one count under the same verb key, and the returned rail parks
+    // at the composition's evidence cell rather than discarding a refused measurement at the edge.
+    public static Fin<Unit> Observe(InstrumentSet set, string verbIntent, Fin<BatchReceipt> outcome) =>
+        set.Write(outcome.IsSucc ? AppliedInstrument : RejectedInstrument, 1L,
+            InstrumentSet.Tags((AppUiTelemetry.IntentSlot, verbIntent)));
 
     extension<TItem>(Selection<TItem> selection) where TItem : notnull {
         public Fin<CombinedReactiveCommand<CommandPayload, CommandReceipt>> Combine(string verbIntent, CommandDeck deck) =>
@@ -310,7 +336,7 @@ public static class BatchEdit {
                     Succ: staged => IO.liftAsync(async () => {
                         System.Collections.Generic.IList<CommandReceipt> receipts =
                             await staged.Command.Execute(staged.Payload).ToTask().ConfigureAwait(false);
-                        return toSeq(receipts).HeadOrNone().Match(
+                        return toSeq(receipts).Head.Match(
                             Some: receipt => Fin.Succ(selection.Seal(verbIntent, correlation, staged.Payload, receipt)),
                             None: () => Fin.Fail<BatchReceipt>(new FormFault.SubmitRejected($"{verbIntent}: combined execution returned no receipt")));
                     }),
@@ -342,4 +368,4 @@ flowchart LR
 
 ## [06]-[RESEARCH]
 
-- [CHECKED_LIST_BACKING]: `ICheckedList.IsChecked` returns `bool`; `SetChecked`, `Select`, `SelectRange`, and `SetRangeChecked` return `void`; `Items` and `SourceItems` are `object[]`; and `SelectionChanged` is the change event. `CheckedListEdit`/`RadioButtonListEdit`, schema and wizard folds, dependency visibility, `Validation<Error,T>`, and `CommandExecution.Combine` are settled.
+(none)

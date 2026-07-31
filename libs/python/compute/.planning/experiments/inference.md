@@ -32,7 +32,7 @@ from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, Ha
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:
@@ -273,9 +273,17 @@ class InferenceReceipt(Struct, frozen=True):
         }
         return (Receipt.of(EvidenceScope.INFERENCE.value, ("emitted", self.subject(), facts)),)
 
-    def graduates(self) -> RuntimeRail[GraduationReceipt]:
+    def graduates(self, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GraduationReceipt]:
+        # `composition` is the caller's custody key threaded onto the hub, so an embedded composition's admission and
+        # refusal facts reach the points IT registered rather than firing into the root scope; `ConvergenceBar` is the
+        # governed ceiling row the `_RESIDUALS` table projects, so no ad-hoc bar is spelled at this call site.
         return GraduationReceipt.graduates(
-            EvidenceScope.INFERENCE.value, HandoffAxis(uncertainty_law=self.subject()), self.model_key, self.measured, self.ceiling
+            EvidenceScope.INFERENCE.value,
+            HandoffAxis(uncertainty_law=self.subject()),
+            self.model_key,
+            self.measured,
+            self.ceiling,
+            composition=composition,
         )
 
 
@@ -302,7 +310,7 @@ def _fit_kernel(spec: "InferenceSpec") -> "RuntimeRail[InferenceReceipt]":
 
 class Inference:
     @staticmethod
-    async def run(spec: InferenceSpec, lane: LanePolicy) -> RuntimeRail[InferenceReceipt]:
+    async def run(spec: InferenceSpec, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[InferenceReceipt]:
         # weave owns span, fence, and the fenced contributor harvest. Trait keys on the backend tag: the pytensor-C
         # native path releases the GIL (thread), an external_nuts engine is JAX-backed whose x64 flag is process-global
         # native state (process) — one fixed trait cannot serve both arms. A seeded draw re-runs identically, so the
@@ -314,7 +322,7 @@ class Inference:
             return (await lane.offload(Kernel.of(_fit_kernel, trait), spec)).bind(lambda rail: rail)
 
         facts = {"engine": engine, "likelihood": spec.likelihood.tag, "draws": spec.plan.draws, "chains": spec.plan.chains}
-        return await evidence_run(EvidenceScope.INFERENCE, f"inference.{engine}", dispatch, facts=facts)
+        return await evidence_run(EvidenceScope.INFERENCE, f"inference.{engine}", dispatch, facts=facts, composition=composition)
 
     @staticmethod
     @beartype(conf=FAULT_CONF)

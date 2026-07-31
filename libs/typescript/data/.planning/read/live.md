@@ -5,7 +5,7 @@ Reactivity-keyed reactive reads: read-your-writes is one coordinate vocabulary w
 ## [01]-[INDEX]
 
 - [02]-[KEY_COORDINATES]: `Live.Keys` — field refinements, admissions, merge, the stamp/consume law.
-- [03]-[LIVE_READS]: `Live.of` — the decoded read, the reactive stream, the mailbox twin.
+- [03]-[LIVE_READS]: `Live.of` — the decoded read, the reactive stream, the mailbox twin, the emission-coordinate projection.
 - [04]-[FOREIGN_EDGE]: mutation wrapping and bare invalidation for writes outside the publish transaction.
 
 ## [02]-[KEY_COORDINATES]
@@ -55,17 +55,19 @@ const _merged = (coordinates: ReadonlyArray<Live.Keys>): Live.Keys =>
 
 ## [03]-[LIVE_READS]
 
-- Owner: `Live.of(spec)` — one binding over `{ keys, query }` yielding the three read modalities: `read` (the decoded one-shot), `changes` (the reactive stream re-running on every overlapping mutation), `mailbox` (the pull-model twin whose consumer drains on its own cadence).
-- Packages: `@effect/sql` (`SqlClient` — `sql.reactive`, `sql.reactiveMailbox`); `effect` (`Effect`, `Stream`, `Mailbox`).
+- Owner: `Live.of(spec)` — one binding over `{ keys, query }` yielding the three read modalities — `read` (the decoded one-shot), `changes` (the reactive stream re-running on every overlapping mutation), `mailbox` (the pull-model twin whose consumer drains on its own cadence) — and `coordinate`, the optional emission-identity projection the serving plane's SSE fold reads as its dedupe token.
+- Packages: `@effect/sql` (`SqlClient` — `sql.reactive`, `sql.reactiveMailbox`); `effect` (`Effect`, `Stream`, `Mailbox`, `Option`).
 - Entry: a projection lane publishes `Live.of` bindings beside its table (the lane's `read` composed with the lane's band); the runtime branch serves `changes` over sockets and server-sent events, and the browser's persistence lane pulls `mailbox` — both consume the bound value, never the bus.
 - Receipt: every `changes` emission is a fresh run of the same decoded query — the stream carries decoded values only, so a subscriber holds domain shapes and re-render diffing is the consumer's fold over equal-by-construction values.
 - Growth: a new live view is one `Live.of` with its own query and coordinates; a parameterized view (per-cell, per-window) is a constructor argument closing over the query, never a second modality.
 - Law: the query inside a binding is a decoded read — a `SqlSchema` accessor from `read/query.md` or a lane's own decoded load — so the reactive stream can never emit an untyped row; the decode failure of a stale-schema row surfaces as `ParseError` on the stream and the repair is the rebuild lane, never an in-place patch.
-- Law: `changes` is push-exact and `mailbox` is pull-exact — the stream re-emits once per overlapping mutation batch, the mailbox holds the re-run for the consumer's next take; choosing by consumer geometry is the whole decision, and a cadence poll beside either restates delivery the keys already own.
+- Law: `changes` is push-exact and `mailbox` is pull-exact — the stream re-emits once per overlapping mutation batch and the mailbox holds the re-run for the consumer's next take; choosing by consumer geometry is the whole decision, and a cadence poll beside either restates delivery the keys already own.
 - Law: TTL is not freshness — a cached read that must follow writes composes these coordinates, never a shorter cache window; the tier table in `lane/cache.md` already bans that smuggle and this page is the lawful alternative.
+- Law: resume identity over a re-running feed is DEDUPE, not replay — `changes` re-runs the whole decoded query on every overlapping mutation, so each emission already carries the complete answer and a reconnecting client proves what it has already rendered rather than naming a backlog to ship; `coordinate` is therefore an `Option` projection off the bound's own decoded value (a lane carries its `AsOf` sequence, a coordinate-free bound answers none), and a bound with no coordinate serves frames a client cannot dedupe but never misses, which is the honest degradation — never a forged ordinal a client would trust as a resume point.
+- Boundary: wire rendering is the serving plane's — `serve/live#SSE_ROW`'s one endpoint fold frames every feed family through the branch's single `Sse` encode seam, reading `coordinate` as the event `id`, so this folder ships decoded values plus their identity projection and no frame string, route, content type, or connection lifetime enters it.
 
 ```typescript signature
-import { Effect, type Mailbox, Stream, type Scope } from "effect"
+import { Effect, type Mailbox, Option, Stream, type Scope } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
 import type { ParseResult } from "effect"
 
@@ -73,7 +75,11 @@ declare namespace Live {
   type Spec<A, R> = {
     readonly keys: Keys
     readonly query: Effect.Effect<A, SqlError.SqlError | ParseResult.ParseError, R>
+    readonly coordinate?: (value: A) => Option.Option<string>
   }
+  // One caller decision rides the binding — how an emission identifies itself so a reconnecting client proves what
+  // it already rendered. A bound whose read carries no durable coordinate answers `Option.none()`, never a forged
+  // ordinal a client would trust as a resume point; the serving plane reads this as the SSE event id.
   type Bound<A, R> = {
     readonly read: Effect.Effect<A, SqlError.SqlError | ParseResult.ParseError, R>
     readonly changes: Stream.Stream<A, SqlError.SqlError | ParseResult.ParseError, R | SqlClient.SqlClient>
@@ -82,16 +88,21 @@ declare namespace Live {
       never,
       R | SqlClient.SqlClient | Scope.Scope
     >
+    readonly coordinate: (value: A) => Option.Option<string>
   }
 }
 
-const _of = <A, R>(spec: Live.Spec<A, R>): Live.Bound<A, R> => ({
-  read: spec.query,
-  changes: Stream.unwrap(
+const _of = <A, R>(spec: Live.Spec<A, R>): Live.Bound<A, R> => {
+  const changes = Stream.unwrap(
     Effect.map(SqlClient.SqlClient, (sql) => sql.reactive(spec.keys.coordinates, spec.query)),
-  ),
-  mailbox: Effect.flatMap(SqlClient.SqlClient, (sql) => sql.reactiveMailbox(spec.keys.coordinates, spec.query)),
-})
+  )
+  return {
+    read: spec.query,
+    changes,
+    mailbox: Effect.flatMap(SqlClient.SqlClient, (sql) => sql.reactiveMailbox(spec.keys.coordinates, spec.query)),
+    coordinate: spec.coordinate ?? (() => Option.none()),
+  }
+}
 ```
 
 ## [04]-[FOREIGN_EDGE]

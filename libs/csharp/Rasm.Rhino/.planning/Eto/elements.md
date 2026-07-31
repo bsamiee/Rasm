@@ -27,7 +27,6 @@ using Eto.Forms.ThemedControls;
 using Rasm.Csp;
 using Rasm.Domain;
 using System.Collections.Frozen;
-using EtoThread = Eto.Threading.Thread;
 
 namespace Rasm.Rhino.Eto;
 
@@ -116,7 +115,7 @@ public static class FaultRail {
 
 ## [03]-[SPEC]
 
-- Owner: `ElementSpec` applies identity, state, tooltip, style, and binding plans once; `ElementReceipt` owns the realized subtree; `UiLease` is the one release gate — every Eto capsule derives it, so the interlocked one-shot release, the `Released` probe, and the throw-on-fault `Dispose` terminal exist exactly once.
+- Owner: `ElementSpec` applies identity, state, tooltip, style, and binding plans once; `ElementReceipt` owns the realized subtree; `UiLease` is the one release gate — every Eto capsule derives it, so the interlocked one-shot release, the `Released` probe, the `ReleaseFaults` ledger, and the non-throwing `Dispose` terminal exist exactly once and no capsule overrides the terminal to route its own faults.
 - Entry: `Element.Realize` admits its shared `ElementSpec` and runtime before dispatch; `ElementReceipt.Mint` brackets construction, and `ElementReceipt.Create` admits the host without returning a live control outside its owner.
 - Auto: binding plans fold fail-fast and release earlier receipts on failure; styles enroll through the injected `ThemeSeam`.
 - Receipt: `ElementReceipt` exposes the host control and accumulates every binding, child, resource, and host release fault before terminating.
@@ -174,17 +173,24 @@ public sealed record ElementRuntime(ThemeSeam Themes, IntentTable Intents);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public abstract class UiLease : IDisposable {
+    private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
     private int released;
 
     protected bool Released => Volatile.Read(ref released) != 0;
 
+    // Release faults land on the lease's own ledger, never on the unwinding stack: `Dispose` fires from `finally` and
+    // from a `using` unwind, where a throw REPLACES the primary exception with a teardown fault — and `ElementReceipt`,
+    // which folds bindings, children, resources, and the host, is exactly the accumulating case that produces one.
+    // `Release` still returns the rail, so an owner wanting the fault reads it there or on `ReleaseFaults`.
+    public Seq<Error> ReleaseFaults => teardown.Value;
+
     protected abstract Fin<Unit> Free();
 
-    public Fin<Unit> Release() => Interlocked.Exchange(ref released, 1) == 0 ? Free() : Fin.Succ(unit);
+    public Fin<Unit> Release() => Interlocked.Exchange(ref released, 1) == 0
+        ? Free().MapFail(fault => (ignore(teardown.Swap(held => held.Add(fault))), fault).Item2)
+        : Fin.Succ(unit);
 
-    public virtual void Dispose() => _ = Release().Match(
-        Succ: static released => released,
-        Fail: static fault => throw fault.ToException());
+    public void Dispose() => ignore(Release());
 }
 
 public sealed class ElementReceipt : UiLease {
@@ -219,7 +225,7 @@ public sealed class ElementReceipt : UiLease {
         Op key,
         HostCustody custody,
         Seq<IDisposable> resources) =>
-        key.Catch(() => Apply(host, spec, runtime).Map(receipts => new ElementReceipt(host, receipts, children, resources, custody, key)))
+        key.Catch(() => Apply(host, spec, runtime, key).Map(receipts => new ElementReceipt(host, receipts, children, resources, custody, key)))
             .MapFail(fault => fault.Also((
                 children.Rev().Map(static child => (Func<Fin<Unit>>)child.Release)
                 + resources.Rev().Map(resource => Step(resource.Dispose, key))
@@ -261,7 +267,10 @@ public sealed class ElementReceipt : UiLease {
             return Fin.Succ(unit);
         });
 
-    private static Fin<Seq<BindReceipt>> Apply(Control host, ElementSpec spec, ElementRuntime runtime) {
+    // Realization threads its own key in: minting a fresh key off the element name keys every binding fault to that
+    // element rather than to the `Realize`/`Mount` call that produced it, so a tree-wide failure loses correlation
+    // exactly where a reader needs it, and two throwaway mints disagree with each other inside one fold.
+    private static Fin<Seq<BindReceipt>> Apply(Control host, ElementSpec spec, ElementRuntime runtime, Op key) {
         host.ID = spec.Key.Value;
         host.Visible = spec.State.Visible;
         host.Enabled = spec.State.Enabled;
@@ -269,10 +278,10 @@ public sealed class ElementReceipt : UiLease {
         _ = spec.Style.Iter(value => host.Style = value.Value);
         _ = runtime.Themes.Track(host);
         return spec.Bindings.Fold(Fin.Succ(Seq<BindReceipt>()), (rail, plan) =>
-            rail.Bind(held => plan.Rig(host, Op.Of(spec.Key.Value))
+            rail.Bind(held => plan.Rig(host, key)
                 .Map(held.Add)
                 .MapFail(fault => fault.Also(
-                    held.Rev().Map(static receipt => (Func<Fin<Unit>>)receipt.Release).Drained(Op.Of(spec.Key.Value))))));
+                    held.Rev().Map(static receipt => (Func<Fin<Unit>>)receipt.Release).Drained(key)))));
     }
 }
 ```
@@ -534,7 +543,7 @@ public abstract partial record ControlSpec {
 - Law: `Inspector` owns both property-grid skins on one case — the native skin binds one subject, the themed skin binds one or many with a description pane — and a multi-subject native request is a typed rejection, never a silent first-subject pick.
 - Receipt: every arm returns `ElementReceipt`; child receipts survive only inside the parent receipt, and the collection editor's extra content nests as an owned child.
 - Growth: another element modality is one case and one dispatch arm.
-- Boundary: `Custom` carries the foreign extension seam and still passes through `ElementSpec` admission; `EtoThread` answers only the Eto-level main-thread test and never replaces the host marshal seam.
+- Boundary: `Custom` carries the foreign extension seam and still passes through `ElementSpec` admission; `Application.Instance.IsUIThread` is the ONE affinity test in the folder — the same probe `UiThread` dispatches on — so this prologue re-proves what a crossing already established rather than answering the question a second way, and it never replaces the outer Rhino command-thread seam.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -572,7 +581,7 @@ public abstract partial record Element {
 
     public Fin<ElementReceipt> Realize(ElementRuntime runtime, Op? key = null) {
         Op op = key.OrDefault();
-        if (!EtoThread.IsMainThread) return Fin.Fail<ElementReceipt>(error: new UiFault.OffThread(Key: op));
+        if (!Application.Instance.IsUIThread) return Fin.Fail<ElementReceipt>(error: new UiFault.OffThread(Key: op));
         return FaultRail.Admit(
             (Specification, Runtime: runtime),
             op,
@@ -701,7 +710,7 @@ public abstract partial record Element {
 
 ## [06]-[GRID]
 
-- Owner: `GridPlan<TRow>` retains typed rows through flat or tree shape, lowers to host `object[]` only at `GridItem` construction, and routes callback faults through its injected error sink.
+- Owner: `GridPlan<TRow>` retains typed rows through flat or tree shape, lowers to host `object[]` only at `GridItem` construction, and routes callback faults through its injected error sink; it is a class because that sink is live state, and a structural-equality carrier holding divergent fault history is a value lying about its own identity.
 - Cases: `GridRows<TRow>` distinguishes flat rows from a tree carrying child projection, expansion policy, node budget, and identity equality; `CellSpec` covers host cell modalities through one guarded callback sink.
 - Entry: `IGridPlan.Realize` rejects default expansion limits, absent equality, repeated identities, and budget exhaustion before returning a host tree.
 - Output: grid realization returns one unadmitted host control; `ElementReceipt.Create` applies the caller's `ElementSpec` exactly once, and `GridPlan.Failures` retains callback and reporter faults.
@@ -815,15 +824,25 @@ public interface IGridPlan {
     Fin<Control> Realize(Op key);
 }
 
-public sealed record GridPlan<TRow>(
-    Seq<GridColumnPlan<TRow>> Columns,
-    GridRows<TRow> Rows,
-    GridChrome Chrome,
-    GridLines Lines,
-    BorderType Border,
-    GridSelection Selection,
-    Action<Error> Report) : IGridPlan {
+// Class, never record: this plan carries a live failure sink, and structural equality over the declared payload makes
+// two plans holding different accumulated faults compare equal and hash alike.
+public sealed class GridPlan<TRow>(
+    Seq<GridColumnPlan<TRow>> columns,
+    GridRows<TRow> rows,
+    GridChrome chrome,
+    GridLines lines,
+    BorderType border,
+    GridSelection selection,
+    Action<Error> report) : IGridPlan {
     private readonly Atom<Seq<Error>> failures = Atom(Seq<Error>());
+
+    public Seq<GridColumnPlan<TRow>> Columns { get; } = columns;
+    public GridRows<TRow> Rows { get; } = rows;
+    public GridChrome Chrome { get; } = chrome;
+    public GridLines Lines { get; } = lines;
+    public BorderType Border { get; } = border;
+    public GridSelection Selection { get; } = selection;
+    public Action<Error> Report { get; } = report;
 
     public Seq<Error> Failures => failures.Value;
 
@@ -945,10 +964,14 @@ public abstract partial record LayoutPlan {
             _ = plan.Items.Zip(children).Iter(pair => layout.Items.Add(new StackLayoutItem(pair.Second.Host, pair.First.Stretch.HostExpand)));
             return layout;
         }, held.Spec, held.Runtime, children, held.Key)),
+        // Row offset is fold state, never a captured mutable cursor: children arrive in one flattened order, so this
+        // fold carries the running offset and each cell indexes it by its own column ordinal.
         table: static (held, plan) => ElementReceipt.Gather(plan.Rows.Bind(static row => row.Map(static cell => cell.Item)), held.Runtime, held.Key).Bind(children => ElementReceipt.Mint(() => {
-            int cursor = 0;
             TableLayout layout = new() { Padding = plan.Padding, Spacing = plan.Spacing };
-            _ = plan.Rows.Iter(row => layout.Rows.Add(new TableRow([.. row.Map(cell => new TableCell(children[cursor++].Host, cell.Stretch.HostExpand))])));
+            _ = plan.Rows.Fold(0, (offset, row) => (
+                Op.Side(() => layout.Rows.Add(new TableRow([.. row.Map((cell, column) =>
+                    new TableCell(children[offset + column].Host, cell.Stretch.HostExpand))]))),
+                offset + row.Count).Item2);
             return layout;
         }, held.Spec, held.Runtime, children, held.Key)),
         absolute: static (held, plan) => ElementReceipt.Gather(plan.Items.Map(static item => item.Item), held.Runtime, held.Key).Bind(children => ElementReceipt.Mint(() => {

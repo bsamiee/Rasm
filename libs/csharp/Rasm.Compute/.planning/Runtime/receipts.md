@@ -2,11 +2,11 @@
 
 `ComputeReceipt` is the package's only fact vocabulary for measured execution: every operational view folds over that one stream, NodaTime-protobuf bridges own the temporal wire edge, fingerprint-gated claims decide every performance-motivated route, and the cost ledger and dashboard descriptor derive from that stream and the one spec roster — no second fact truth, no second panel truth.
 
-Kernel vocabulary arrives whole from the signal capsule — the causal frame (`TelemetrySource`, `CorrelationId`, `TenantContext`, `ReceiptEnvelope`, `ReceiptSinkPort`), the instrument mechanism (`TelemetryContributorPort`, `InstrumentSpec` over `InstrumentKind` x `MeasureForm`, `InstrumentSet`, `LevelCells`, `Buckets`, `TelemetryIdentity`), the trace band (`SpanBand`, `TraceScope`, `Op`), the SLO algebra (`Sli`, `Objective`, `SloSample`, `BurnRow`, `AlertSeverity`, `AlertSpec`, `PanelKind`, `PanelSpec`, `BoardPack`, `Slo`), the hook vocabulary (`HookPoint<TFact>`, `HookId`, `HookModality`, `HookRegistry`, `IsolatedFault`) — beside the AppHost `ScheduleEntry` and the settled Persistence benchmark and artifact-index contracts. `Assessment` alone declares elsewhere, a `partial` the `Analysis/assessment` page seats on this owner while its `[JsonDerivedType]` row and wire projection stay here, so `ComputeWireContext` round-trips the whole union through the one Strict resolver: polymorphic `kind` discriminator, Thinktecture key scalars, `Seq<string>` intact, `UnmappedMemberHandling.Disallow` refusing drift at the edge.
+Kernel vocabulary arrives whole from the signal capsule — the causal frame (`TelemetrySource`, `CorrelationId`, `TenantContext`, `ReceiptEnvelope`, `ReceiptSinkPort`), the instrument mechanism (`TelemetryContributorPort`, `InstrumentSpec` over `InstrumentKind` x `MeasureForm`, `InstrumentSet`, `LevelCells`, `Buckets`, `TelemetryIdentity`), the trace band (`SpanBand`, `TraceScope`, `Op`), the SLO algebra (`Sli`, `Objective`, `SloSample`, `BurnRow`, `AlertSeverity`, `AlertSpec`, `PanelKind`, `PanelSpec`, `BoardPack`, `Slo`), the hook vocabulary (`HookPoint<TFact>`, `HookId`, `HookModality`, `HookRegistry`, `IsolatedFault`) — beside the AppHost `ScheduleEntry` and the settled Persistence benchmark and artifact-index contracts. Three cases declare elsewhere — `Assessment` on the `Analysis/assessment` spine, `Quadrature` and `Trajectory` on the `Tensor/quadrature` integration lane — each a `partial` its owning page seats on this union while its `[JsonDerivedType]` row and wire projection stay here, so `ComputeWireContext` round-trips the whole union through the one Strict resolver: polymorphic `kind` discriminator, Thinktecture key scalars, `Seq<string>` intact, `UnmappedMemberHandling.Disallow` refusing drift at the edge.
 
 ## [01]-[INDEX]
 
-- [02]-[RECEIPT_UNION]: Fact union (inline cases and the `Analysis/assessment` `Assessment` partial), its Strict-resolver round-trip context, the instrument roster, and sink-port emission.
+- [02]-[RECEIPT_UNION]: Fact union (inline cases beside the `Analysis/assessment` and `Tensor/quadrature` partials), its Strict-resolver round-trip context, the instrument roster, and sink-port emission.
 - [03]-[TELEMETRY_PROJECTION]: Receipt-to-instrument fan and the dispatch span spine over the kernel trace band.
 - [04]-[FOLD_PROJECTIONS]: Operational views derive as folds over the fact stream; content-keyed verdicts re-derive and diff under the determinism tag.
 - [05]-[WIRE_STAMPS]: NodaTime-protobuf bridges own the temporal wire edge.
@@ -19,13 +19,13 @@ Kernel vocabulary arrives whole from the signal capsule — the causal frame (`T
 ## [02]-[RECEIPT_UNION]
 
 - Owner: `ReceiptScope`, `SelectionDecision`, `SelectionMode`, `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the scope and selection evidence families, fact union, strict serializer context, and the sink-bound emission-plus-telemetry surface carrying the Compute instrument roster, name vocabulary, and dimension slots over the kernel declaration mechanism.
-- Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · copy · cache · unit-projection · backpressure · drain · conflict · factorization · generate · embedding · discretization · solve · coupling · optimization · sweep · clash · twin · uncertainty · fit · governor · drift · assessment (the last declared as a partial on this owner by `Analysis/assessment`)
+- Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · copy · cache · unit-projection · backpressure · drain · conflict · refusal · factorization · generate · embedding · discretization · solve · coupling · optimization · sweep · clash · twin · uncertainty · fit · governor · drift · assessment · quadrature · trajectory (the last three declared as partials on this owner — assessment by `Analysis/assessment`, the integration pair by `Tensor/quadrature`)
 - Entry: `public IO<ReceiptEnvelope> ReceiptSurface.Emit(ComputeReceipt fact)` — the surface binds sink, serializer, and mounted-instrument aspects once at composition; `IO` carries the sink effect and returns the envelope evidence.
 - Auto: wire kind derives from the polymorphic metadata pinned on the union; the HLC stamp and `SkewBound` derive inside `Send`, and `Emit` reads `TenantContext.Current` exactly once — the same tenant prices the fact through `ComputeInstrumentFan.Charge` and rides into `Send` so the envelope `Tenant` field partitions evidence by the kernel tenancy primitive; instrument rows register once at composition through `TelemetryContributorPort`, which carries the `[10]-[DASHBOARD_DESCRIPTOR]` pack beside them so the composing root proves board and objectives against the set it mounts and this folder ships no probe entry, `Emit` folds every typed fact through the `[03]-[TELEMETRY_PROJECTION]` fan before serialization, and the `[03]-[TELEMETRY_PROJECTION]` `ComputeTraces` spine opens the dispatch span through the kernel `SpanBand` at the admitted `Dispatch` scope so receipt correlation joins the OTel rail with zero call-site ceremony.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free.
 - Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), Rasm.AppHost (project), BCL inbox
-- Growth: a new measured concern is one case row on `ComputeReceipt`, one `[JsonDerivedType]` row, one TS payload row, and one `[03]-[TELEMETRY_PROJECTION]` projection arm, zero new surface; a discipline rail in another folder declares its case as a `partial` record on this owner (the `Analysis/assessment` `Assessment` case) while this owning index keeps the `[JsonDerivedType]` registration and the TS payload row so the polymorphic registry stays single-sited — the `[JsonDerivedType]` roster is the ONE primary correspondence: `ReceiptSurface.Kinds` projects it from the context's polymorphism metadata, the TS `ComputeReceiptKind` union generates from `Kinds` during descriptor emit under the suite schema hash, and `ReceiptSurface.Probe` proves roster-versus-case bijection at boot, so a parallel receipt union, a second discriminator registry, or a hand-maintained TS mirror that can silently go stale is the deleted form; `Specs` is the SECOND primary correspondence — one kernel `InstrumentSpec` row per instrument carrying name, unit, description, kind, measurement form, bounds, and dimension slots, from which the mounted `InstrumentSet` and the `[10]-[DASHBOARD_DESCRIPTOR]` panel projection both derive, so a bucket boundary reachable only inside a bind delegate is the repaired facade and a second panel-truth roster is the deleted form; a folder-local spec record or instrument-kind vocabulary beside it re-mints the mechanism the capsule owns.
-- Boundary: receipts are HLC-correlated through the envelope and emit only through the sink-bound `ReceiptSurface`. `ReceiptScope.Execution` carries lane, substrate, allocation, and elapsed evidence, while `Process` carries only correlation and allocation; process facts never fabricate execution context or bypass the union. Every solver, statistical-learning, generative, residency, allocation, governance, and monitor-drift outcome rides this union. `Selection` projects ordered hops onto `SelectionDecision` and forced presence onto `SelectionMode`, avoiding parallel rosters and nullable policy. `Allocation` carries the complete `AllocationEvidence` projection, including typed `StagingEventKind`, requested/granted bytes, detail, allocator, reservation, and pool gauges. `Uncertainty` carries distribution moments, sensitivity indices, interactions, reliability search coordinates, and explicit null moments for methods that do not estimate them. `Factorization` optional wire evidence remains case-local. Spine values serialize as Thinktecture key scalars and format without runtime format strings.
+- Growth: a new measured concern is one case row on `ComputeReceipt`, one `[JsonDerivedType]` row, one TS payload row, and one `[03]-[TELEMETRY_PROJECTION]` projection arm, zero new surface; a rail in another folder declares its case as a `partial` record on this owner (the `Analysis/assessment` `Assessment` case, the `Tensor/quadrature` `Quadrature`/`Trajectory` pair) while this owning index keeps the `[JsonDerivedType]` registration and the TS payload row so the polymorphic registry stays single-sited — the `[JsonDerivedType]` roster is the ONE primary correspondence: `ReceiptSurface.Kinds` projects it from the context's polymorphism metadata, the TS `ComputeReceiptKind` union generates from `Kinds` during descriptor emit under the suite schema hash, and `ReceiptSurface.Probe` proves roster-versus-case bijection at boot, so a parallel receipt union, a second discriminator registry, or a hand-maintained TS mirror that can silently go stale is the deleted form; `Specs` is the SECOND primary correspondence — one kernel `InstrumentSpec` row per instrument carrying name, unit, description, kind, measurement form, bounds, and dimension slots, from which the mounted `InstrumentSet` and the `[10]-[DASHBOARD_DESCRIPTOR]` panel projection both derive, so a bucket boundary reachable only inside a bind delegate is the repaired facade and a second panel-truth roster is the deleted form; a folder-local spec record or instrument-kind vocabulary beside it re-mints the mechanism the capsule owns.
+- Boundary: receipts are HLC-correlated through the envelope and emit only through the sink-bound `ReceiptSurface`. `ReceiptScope.Execution` carries lane, substrate, allocation, and elapsed evidence, while `Process` carries only correlation and allocation; process facts never fabricate execution context or bypass the union. Every solver, statistical-learning, generative, residency, allocation, governance, and monitor-drift outcome rides this union. `Selection` projects ordered hops onto `SelectionDecision` and forced presence onto `SelectionMode`, avoiding parallel rosters and nullable policy. `Allocation` carries the complete `AllocationEvidence` projection, including typed `StagingEventKind`, requested/granted bytes, detail, allocator, reservation, and pool gauges. `Uncertainty` carries distribution moments, sensitivity indices, interactions, reliability search coordinates, the surrogate-fit calibration pair, and explicit null slots for every column a method does not estimate. `Factorization` optional wire evidence remains case-local. `Refusal` is the interior gate's evidence — process-scoped because a refusal precedes execution, minted from the typed `ComputeFault` itself so the reason is the fault's own slug rather than a hand-typed literal, and never a substitute for the rail: the fault still travels, the receipt is what makes it readable. Spine values serialize as Thinktecture key scalars and format without runtime format strings.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -81,6 +81,7 @@ public abstract partial record SelectionMode {
 [JsonDerivedType(typeof(Backpressure), "backpressure")]
 [JsonDerivedType(typeof(Drain), "drain")]
 [JsonDerivedType(typeof(Conflict), "conflict")]
+[JsonDerivedType(typeof(Refusal), "refusal")]
 [JsonDerivedType(typeof(Factorization), "factorization")]
 [JsonDerivedType(typeof(Generate), "generate")]
 [JsonDerivedType(typeof(Embedding), "embedding")]
@@ -96,6 +97,8 @@ public abstract partial record SelectionMode {
 [JsonDerivedType(typeof(Governor), "governor")]
 [JsonDerivedType(typeof(Drift), "drift")]
 [JsonDerivedType(typeof(Assessment), "assessment")]
+[JsonDerivedType(typeof(Quadrature), "quadrature")]
+[JsonDerivedType(typeof(Trajectory), "trajectory")]
 public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanFormattable {
     private ComputeReceipt() { }
 
@@ -194,6 +197,29 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
 
     public sealed record Conflict(string Subject, string Evidence) : ComputeReceipt;
 
+    // Compute-INTERIOR refusals — a warm-bucket cap, a bucket-shape conflict, an unmeasured partition census —
+    // are typed faults the executing rail returns and no reader ever sees, so a fleet refusing every stage for
+    // want of a warm pulse stays invisible to Compute's own board. Reason reads the fault's OWN leading slug and
+    // Subject its residual payload off the `<slug:payload>` detail grammar every ComputeFault message spells, so
+    // a refusing site names no reason literal and a renamed slug moves the panel with it. Reason ALONE tags the
+    // instrument — the slug set is closed by the fault declarations — while Subject carries a bucket key or a
+    // card id whose cardinality no meter may fan on, which is why it stays a payload column.
+    public sealed record Refusal(string Reason, string Subject, int Code) : ComputeReceipt {
+        // Exemption: the span split is the language-forced statement seam — a `ReadOnlySpan<char>` crosses no
+        // lambda, so no fold expresses it; the rail resumes on the returned case. Scope is Process because a
+        // refusal precedes execution and has no lane, substrate, or elapsed to report honestly.
+        public static Refusal Of(ComputeFault fault, CorrelationId correlation, AllocationClass allocation) {
+            ReadOnlySpan<char> detail = fault.Message.AsSpan().Trim("<>");
+            int cut = detail.IndexOf(':');
+            return new Refusal(
+                Reason: (cut < 0 ? detail : detail[..cut]).ToString(),
+                Subject: cut < 0 ? string.Empty : detail[(cut + 1)..].ToString(),
+                Code: fault.Code) {
+                Scope = new ReceiptScope.Process(correlation, allocation),
+            };
+        }
+    }
+
     public sealed record Factorization(string Provider, string Decomposition, int Rows, int Cols, long Nnz, string Format) : ComputeReceipt {
         public string? RouteVariant { get; init; }
         public string? DeterminismTag { get; init; }
@@ -232,6 +258,12 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
         Seq<double> SobolTotal,
         Seq<double> Interaction,
         Seq<double> MostProbablePoint,
+        // Surrogate calibration measured off the Vandermonde the spectral fit already built — one GEMV, never a
+        // second solve. A sampling, reliability, or subset run fits no surrogate and carries null in both, and an
+        // exactly-determined basis interpolates with no residual degrees of freedom, so its standard error is null
+        // rather than an infinity: the absence IS the measurement.
+        double? FitQuality,
+        double? ResidualStandardError,
         double FailureProbability,
         double ReliabilityIndex) : ComputeReceipt;
 
@@ -360,10 +392,15 @@ public sealed class ReceiptSurface(
     public const string BackpressureAdmitted = "rasm.compute.backpressure.admitted";
     public const string AssessmentVerdicts = "rasm.compute.assessment.verdicts";
     public const string AssessmentRatio = "rasm.compute.assessment.ratio";
+    public const string TrajectoryRuns = "rasm.compute.trajectory.runs";
+    public const string TrajectoryResolved = "rasm.compute.trajectory.resolved";
+    public const string TrajectorySteps = "rasm.compute.trajectory.steps";
+    public const string QuadratureSkips = "rasm.compute.quadrature.skips";
     public const string ProgressMarks = "rasm.compute.progress.marks";
     public const string ProgressCadence = "rasm.compute.progress.cadence";
     public const string CostUnits = "rasm.compute.cost.units";
     public const string MonitorBreaches = "rasm.compute.monitor.breaches";
+    public const string Refusals = "rasm.compute.refusals";
 
     // --- [DIMENSION_SLOTS] — the declared Dimensions column and the fan's tag keys are this one vocabulary,
     // so the governance view derives its tag-key set off the mounted row.
@@ -389,6 +426,8 @@ public sealed class ReceiptSurface(
     public const string DisciplineSlot = "rasm.compute.discipline";
     public const string VerdictSlot = "rasm.compute.verdict";
     public const string PhaseSlot = "rasm.compute.phase";
+    public const string ReasonSlot = "rasm.compute.refusal.reason";
+    public const string TerminalSlot = "rasm.compute.trajectory.terminal";
 
     // Ratio indicators need BOTH series mounted as counters, so each SLO subject carries a population row and
     // a good row beside its shape measure; the fold in [10] and the store-side burn rule then read one truth.
@@ -416,10 +455,15 @@ public sealed class ReceiptSurface(
         InstrumentSpec.Count(BackpressureAdmitted, "{verdict}", "backpressure verdicts admitting queued work without shedding", MeasureForm.Whole),
         InstrumentSpec.Count(AssessmentVerdicts, "{assessment}", "discipline assessments by discipline and verdict", MeasureForm.Whole, DisciplineSlot, VerdictSlot),
         InstrumentSpec.Advised(AssessmentRatio, "1", "governing utilization ratio per assessment by discipline", MeasureForm.Real, Buckets.GoverningRatio, DisciplineSlot),
+        InstrumentSpec.Count(TrajectoryRuns, "{trajectory}", "trajectories traced through the adaptive integration driver", MeasureForm.Whole),
+        InstrumentSpec.Count(TrajectoryResolved, "{trajectory}", "trajectories reaching their horizon inside every driver budget", MeasureForm.Whole),
+        InstrumentSpec.Advised(TrajectorySteps, "{step}", "accepted trajectory steps per run by terminal marker", MeasureForm.Whole, Buckets.IterationCounts, TerminalSlot),
+        InstrumentSpec.Count(QuadratureSkips, "{evaluation}", "integrand evaluations the kernel quadrature guard skipped as non-finite", MeasureForm.Whole),
         InstrumentSpec.Count(ProgressMarks, "{mark}", "progress marks delivered through the cadence gate by phase", MeasureForm.Whole, PhaseSlot),
         InstrumentSpec.Advised(ProgressCadence, "s", "interval between consecutive delivered progress marks by phase", MeasureForm.Real, Buckets.CadenceSeconds, PhaseSlot),
         InstrumentSpec.Advised(CostUnits, "1", "priced cost units attributed per tenant and substrate", MeasureForm.Real, Buckets.CostUnitDecades, TenantContext.TenantSlot, SubstrateSlot),
-        InstrumentSpec.Count(MonitorBreaches, "{breach}", "streaming-monitor control-limit and drift breaches by monitor", MeasureForm.Whole, MonitorSlot));
+        InstrumentSpec.Count(MonitorBreaches, "{breach}", "streaming-monitor control-limit and drift breaches by monitor", MeasureForm.Whole, MonitorSlot),
+        InstrumentSpec.Count(Refusals, "{refusal}", "typed refusals raised on the Compute interior rails by reason", MeasureForm.Whole, ReasonSlot));
 
     // Rows and the `[10]` pack derived from them leave as ONE downward fact, so the mounting root proves the
     // pack in the fold that binds these handles; the pack's own init reads this roster and never this method.
@@ -451,7 +495,7 @@ public sealed class ReceiptSurface(
 - Receipt: none — the fan is a projection of receipts; an instrument write beside it is a second truth. Every write returns the kernel rail and a refusal parks on the composition's cell at `ReceiptSurface.Emit`, so a mount defect is evidence rather than a silently dropped measurement or an emit abort.
 - Packages: LanguageExt.Core, Rasm (kernel signal capsule), BCL inbox
 - Growth: a new receipt case breaks the projection `Switch` at compile time, so every new kind decides its instrument writes or returns the succeeding rail explicitly; a new instrument is one `[02]-[RECEIPT_UNION]` roster row and one arm edit; a level-shaped fact is one `set.Level` write and one `Level` declaration row.
-- Boundary: instruments stay curated aggregates, never 1:1 with cases — remote latency reads the scope `Elapsed` off `RemoteCall`, clash counts split hard and clearance on a severity tag, assessment rows carry discipline and verdict dimensions, and every tag fan rides the AppHost tenant cardinality cap; a ratio indicator's population and good series are BOTH mounted counters written from the same arm, so the in-process burn fold and the store-side burn rule read one truth and neither re-derives the other's numerator; the span opens at dispatch and closes on the arm's own rail through the band's IO bracket, `SetStatus(ActivityStatusCode.Error)` the typed verdict on the fail leg, and a package-local `ActivitySource` beside the band is the deleted form; profile correlation rides trace identity — the AppHost-composed `PyroscopeSpanProcessor` stamps `pyroscope.profile.id` on the trace's root span alone and clears the profiler span context at `OnEnd`, so a `rasm.compute.dispatch.*` `ActivityKind.Internal` span joins its flame-graph slice through the `TraceId` it shares with that stamped root, and Compute stamps no profile tag and holds zero OTel package reference — a Compute-side re-stamp of interior spans is the deleted form; receipt payload identifiers — checksums, content keys, artifact ids, provider names — sit in the `Operational`/`Internal` classification tiers whose redactor rows pass, so per-field `DataClassification` attributes never land on receipt cases and redaction custody stays at the AppHost egress seam; the cost write is the lossy channel — the `[09]-[COST_LEDGER]` ledger folds over the envelope-joined journal stay billing truth, a zero-priced fact skips the write, and the tenant tag rides the same AppHost cardinality cap every tag fan obeys.
+- Boundary: instruments stay curated aggregates, never 1:1 with cases — remote latency reads the scope `Elapsed` off `RemoteCall`, clash counts split hard and clearance on a severity tag, assessment rows carry discipline and verdict dimensions, and every tag fan rides the AppHost tenant cardinality cap — the refusal reason is bounded by the fault declarations that spell each slug, so its fan is closed by construction while the refusal subject carries a bucket key or a card id and stays a payload column no meter reads; a ratio indicator's population and good series are BOTH mounted counters written from the same arm, so the in-process burn fold and the store-side burn rule read one truth and neither re-derives the other's numerator; the span opens at dispatch and closes on the arm's own rail through the band's IO bracket, `SetStatus(ActivityStatusCode.Error)` the typed verdict on the fail leg, and a package-local `ActivitySource` beside the band is the deleted form; profile correlation rides trace identity — the AppHost-composed `PyroscopeSpanProcessor` stamps `pyroscope.profile.id` on the trace's root span alone and clears the profiler span context at `OnEnd`, so a `rasm.compute.dispatch.*` `ActivityKind.Internal` span joins its flame-graph slice through the `TraceId` it shares with that stamped root, and Compute stamps no profile tag and holds zero OTel package reference — a Compute-side re-stamp of interior spans is the deleted form; receipt payload identifiers — checksums, content keys, artifact ids, provider names — sit in the `Operational`/`Internal` classification tiers whose redactor rows pass, so per-field `DataClassification` attributes never land on receipt cases and redaction custody stays at the AppHost egress seam; the cost write is the lossy channel — the `[09]-[COST_LEDGER]` ledger folds over the envelope-joined journal stay billing truth, a zero-priced fact skips the write, and the tenant tag rides the same AppHost cardinality cap every tag fan obeys.
 
 ```csharp signature
 public static class ComputeInstrumentFan {
@@ -488,6 +532,8 @@ public static class ComputeInstrumentFan {
                     .Bind(_ => b.Dropped is null ? s.Write(ReceiptSurface.BackpressureAdmitted, 1L) : Fin.Succ(unit)),
                 drain: static (_, _) => Fin.Succ(unit),
                 conflict: static (_, _) => Fin.Succ(unit),
+                refusal: static (s, r) => s.Write(ReceiptSurface.Refusals, 1L,
+                    new KeyValuePair<string, object?>(ReceiptSurface.ReasonSlot, r.Reason)),
                 factorization: static (s, f) => s.Write(ReceiptSurface.SolveFactorizations, 1L,
                     new KeyValuePair<string, object?>(ReceiptSurface.ProviderSlot, f.Provider),
                     new KeyValuePair<string, object?>(ReceiptSurface.DecompositionSlot, f.Decomposition)),
@@ -515,7 +561,13 @@ public static class ComputeInstrumentFan {
                 drift: static (s, d) => d.Breach
                     ? s.Write(ReceiptSurface.MonitorBreaches, 1L, new KeyValuePair<string, object?>(ReceiptSurface.MonitorSlot, d.MonitorId))
                     : Fin.Succ(unit),
-                assessment: static (s, a) => Assessed(s, a)));
+                assessment: static (s, a) => Assessed(s, a),
+                // Fixed-order rows skip nothing, so the write gates on a measured skip rather than recording a
+                // zero that reads as coverage the kernel guard never granted.
+                quadrature: static (s, q) => q.Skipped > 0
+                    ? s.Write(ReceiptSurface.QuadratureSkips, (long)q.Skipped)
+                    : Fin.Succ(unit),
+                trajectory: static (s, t) => Traced(s, t)));
 
     static Fin<Unit> Called(InstrumentSet set, ComputeReceipt.RemoteCall call) {
         KeyValuePair<string, object?> transport = new(ReceiptSurface.TransportSlot, call.Transport);
@@ -552,6 +604,15 @@ public static class ComputeInstrumentFan {
                 new KeyValuePair<string, object?>(ReceiptSurface.SeveritySlot, row.Severity), index))
             .As().Map(static _ => unit);
     }
+
+    // Population and good series are BOTH counters written from this one arm, so the burn fold and the store-side
+    // rule divide one truth; the terminal marker tags the step distribution alone, where it discriminates rather
+    // than splitting the ratio pair the burn rule divides series against series.
+    static Fin<Unit> Traced(InstrumentSet set, ComputeReceipt.Trajectory run) =>
+        set.Write(ReceiptSurface.TrajectoryRuns, 1L)
+            .Bind(_ => run.Resolved ? set.Write(ReceiptSurface.TrajectoryResolved, 1L) : Fin.Succ(unit))
+            .Bind(_ => set.Write(ReceiptSurface.TrajectorySteps, (long)run.Steps,
+                new KeyValuePair<string, object?>(ReceiptSurface.TerminalSlot, run.Terminal)));
 
     static Fin<Unit> Assessed(InstrumentSet set, ComputeReceipt.Assessment assessment) {
         KeyValuePair<string, object?> discipline = new(ReceiptSurface.DisciplineSlot, assessment.Discipline);
@@ -656,6 +717,12 @@ public static class ReceiptFolds {
 
         public Seq<ComputeReceipt.Conflict> Conflicts =>
             facts.Bind(static fact => fact is ComputeReceipt.Conflict conflict ? Seq(conflict) : Seq<ComputeReceipt.Conflict>());
+
+        // Refusal taxonomy folds by the fault's own slug, the same reason-keyed shape DiscardTaxonomy takes over
+        // pool discards — one view answering which interior gate is refusing, where the meter answers only how often.
+        public HashMap<string, long> RefusalTaxonomy =>
+            facts.Choose(static fact => fact is ComputeReceipt.Refusal refusal ? Some(refusal.Reason) : None)
+                .Fold(HashMap<string, long>(), static (acc, reason) => acc.AddOrUpdate(reason, static count => count + 1L, 1L));
 
         public Seq<ComputeReceipt.Solve> Diverged =>
             facts.Bind(static fact => fact is ComputeReceipt.Solve { Converged: false } stalled ? Seq(stalled) : Seq<ComputeReceipt.Solve>());
@@ -1085,8 +1152,8 @@ type ReceiptScopeWire =
   | { kind: "execution"; correlation: string; lane: string; substrate: string; allocationClass: string; elapsed: string }
   | { kind: "process"; correlation: string; allocationClass: string };
 
-// The spine PINS its own discriminator: each payload passes the literal its `[JsonDerivedType]` row declares, so
-// the roster lives exactly once — in the payload set — and `ComputeReceiptKind` derives off that union below.
+// Spine PINS its own discriminator: each payload passes the literal its `[JsonDerivedType]` row declares, so that
+// roster lives exactly once — in the payload set — and `ComputeReceiptKind` derives off the union below.
 interface ComputeReceiptSpineWire<K extends string> { kind: K; scope: ReceiptScopeWire; }
 
 type SelectionDecisionWire = { outcome: "chosen"; row: string } | { outcome: "rejected"; row: string; reason: string };
@@ -1124,6 +1191,8 @@ interface DrainWire extends ComputeReceiptSpineWire<"drain"> { drained: number; 
 
 interface ConflictWire extends ComputeReceiptSpineWire<"conflict"> { subject: "retry-owner" | "contract-checksum"; evidence: string; }
 
+interface RefusalWire extends ComputeReceiptSpineWire<"refusal"> { reason: string; subject: string; code: number; }
+
 interface FactorizationWire extends ComputeReceiptSpineWire<"factorization"> { provider: string; decomposition: string; rows: number; cols: number; nnz: string; format: string; routeVariant: string | null; determinismTag: string | null; symbolicFill: number | null; residualCap: number | null; trueResidual: number | null; }
 
 interface GenerateWire extends ComputeReceiptSpineWire<"generate"> { modelChecksum: string; ep: string; modelType: string; mode: string; adapter: string | null; tokens: number; tokensPerSecond: number; guidanceKind: string; constrainedTokens: number; toolCalls: number; }
@@ -1144,7 +1213,7 @@ interface ClashWire extends ComputeReceiptSpineWire<"clash"> { indexKind: "bvh" 
 
 interface TwinWire extends ComputeReceiptSpineWire<"twin"> { signalId: string; predicted: number; measured: number; residual: number; anomaly: boolean; controlDelta: number; }
 
-interface UncertaintyWire extends ComputeReceiptSpineWire<"uncertainty"> { method: string; samples: number; mean: number | null; variance: number | null; skewness: number | null; kurtosis: number | null; quantiles: number[]; sobolFirst: number[]; sobolTotal: number[]; interaction: number[]; mostProbablePoint: number[]; failureProbability: number; reliabilityIndex: number; }
+interface UncertaintyWire extends ComputeReceiptSpineWire<"uncertainty"> { method: string; samples: number; mean: number | null; variance: number | null; skewness: number | null; kurtosis: number | null; quantiles: number[]; sobolFirst: number[]; sobolTotal: number[]; interaction: number[]; mostProbablePoint: number[]; fitQuality: number | null; residualStandardError: number | null; failureProbability: number; reliabilityIndex: number; }
 
 interface FitWire extends ComputeReceiptSpineWire<"fit"> { family: string; method: string; parameters: string; iterations: number; residual: number; converged: boolean; quality: number; qualityMetric: string; retainedRank: number; }
 
@@ -1154,10 +1223,17 @@ interface DriftWire extends ComputeReceiptSpineWire<"drift"> { monitorId: string
 
 interface AssessmentWire extends ComputeReceiptSpineWire<"assessment"> { discipline: string; route: string; key: string; verdict: string; governingRatio: number; admitted: boolean; phase: string | null; failureKind: string | null; transient: boolean; attempt: number; participation: number | null; combination: string | null; }
 
+// Batch-worst error and cancellation channels cross as explicit null on a batch of fixed-order rows, where no
+// route reported either — a zero would read as a measurement.
+interface QuadratureWire extends ComputeReceiptSpineWire<"quadrature"> { domains: number; skipped: number; errorBound: number | null; conditioning: number | null; }
+
+interface TrajectoryWire extends ComputeReceiptSpineWire<"trajectory"> { methodOrder: number; embeddedOrder: number | null; terminal: string; resolved: boolean; retryable: boolean; achieved: number; steps: number; rejects: number; rejectBudget: number; samples: number; lastError: number | null; }
+
 type ComputeReceiptWire =
   | SelectionWire | TensorRunWire | ModelLoadWire | WarmupWire | ModelRunWire | RemoteCallWire | StreamSegmentWire
-  | AllocationWire | CopyWire | CacheWire | UnitProjectionWire | BackpressureWire | DrainWire | ConflictWire | FactorizationWire | GenerateWire | EmbeddingWire
-  | DiscretizationWire | SolveWire | CouplingWire | OptimizationWire | SweepWire | ClashWire | TwinWire | UncertaintyWire | FitWire | GovernorWire | DriftWire | AssessmentWire;
+  | AllocationWire | CopyWire | CacheWire | UnitProjectionWire | BackpressureWire | DrainWire | ConflictWire | RefusalWire | FactorizationWire | GenerateWire | EmbeddingWire
+  | DiscretizationWire | SolveWire | CouplingWire | OptimizationWire | SweepWire | ClashWire | TwinWire | UncertaintyWire | FitWire | GovernorWire | DriftWire | AssessmentWire
+  | QuadratureWire | TrajectoryWire;
 
 // Derived off the payload union the descriptor build emits, never re-typed: a landed case widens the kind with no
 // second list to edit, so the mirror that can silently go stale has nowhere to live.
@@ -1290,6 +1366,7 @@ public sealed record CostPolicy {
             backpressure: static (_, _) => CostVector.Zero,
             drain: static (_, _) => CostVector.Zero,
             conflict: static (_, _) => CostVector.Zero,
+            refusal: static (_, _) => CostVector.Zero,
             factorization: static (_, _) => CostVector.Zero,
             generate: static (policy, run) => CostVector.Zero with { TokenUnits = run.Tokens * policy.TokenRate },
             embedding: static (_, _) => CostVector.Zero,
@@ -1304,7 +1381,11 @@ public sealed record CostPolicy {
             fit: static (_, _) => CostVector.Zero,
             governor: static (_, _) => CostVector.Zero,
             drift: static (_, _) => CostVector.Zero,
-            assessment: static (_, _) => CostVector.Zero);
+            assessment: static (_, _) => CostVector.Zero,
+            // Both integration legs are managed CPU folds, so the substrate-rated elapsed prefix prices them whole
+            // and neither carries a token, staged-byte, or remote-node charge of its own.
+            quadrature: static (_, _) => CostVector.Zero,
+            trajectory: static (_, _) => CostVector.Zero);
 }
 
 public sealed record ChargebackRow(TenantContext Tenant, Option<Substrate> Route, CostVector Vector, long Facts);
@@ -1405,7 +1486,10 @@ public static class ComputeDescriptors {
             static shed => shed.Dropped is not null),
         Bound<ComputeReceipt.Twin>("compute.twin-anomaly",
             new Sli.Ratio(ReceiptSurface.TwinNominal, ReceiptSurface.TwinVerdicts), 0.95d,
-            static twin => twin.Anomaly));
+            static twin => twin.Anomaly),
+        Bound<ComputeReceipt.Trajectory>("compute.trajectory-resolution",
+            new Sli.Ratio(ReceiptSurface.TrajectoryResolved, ReceiptSurface.TrajectoryRuns), 0.99d,
+            static run => !run.Resolved));
 
     // One derivation from the spec roster: the kernel policy row and its wire projection are two reads of the
     // same pair, so a panel cannot sit on the pack and be missing from the wire or carry a different widget on

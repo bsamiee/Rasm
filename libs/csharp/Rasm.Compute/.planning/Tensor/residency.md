@@ -4,17 +4,17 @@ ONNX C-data residency classifies every `OrtValue` by backing location and owners
 
 ## [01]-[INDEX]
 
-- [02]-[ORT_BRIDGE]: `OrtResidency` lattice; carrier-keyed C-data ingress and dtype-keyed egress; `DeviceMemory` shared-allocator descriptor and residency probe; `BoundFlow` gate-aware `OrtIoBinding` steady-state.
+- [02]-[ORT_BRIDGE]: `OrtResidency` lattice; carrier-keyed C-data ingress and dtype-keyed egress; `PinnedPlane<T>` handle-rooted pin for the crossings outliving their statement; `DeviceMemory` shared-allocator descriptor and residency probe; `BoundFlow` gate-aware `OrtIoBinding` steady-state.
 - [03]-[GEOMETRY_ENCODING]: `EncodedGeometry` wraps the kernel payload host-neutral; `EncodedTensor` slices per channel and `PackKind` fixes wire shape, layout, and free-dimension names.
 
 ## [02]-[ORT_BRIDGE]
 
-- Owner: `OrtResidency` `[SmartEnum<string>]` the five-gate residency lattice; `TensorBridge` the static `OrtValue` C-data factory surface (carrier-keyed ingress, dtype-keyed egress, the device descriptor, the residency probe); `BoundFlow` the ONE `OrtIoBinding` steady-state residency capsule the `Model/inference#INFERENCE_MODES` run-mode fold composes.
-- Entry: `public static Fin<OrtValue> Ingress<T>(Tensor<T> source)` and its `MemoryOwner<T>`, foreign-pointer, and `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` overloads discriminate ingress by carrier shape; `public static Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(DeviceMemory device, TensorDtype row, ReadOnlySpan<long> shape)` mints a device sink; `public static Fin<Unit> Egress<T>(OrtValue value, in TensorSpan<T> destination)` and its flat `Span<T>` overload project an output by the dtype row; `public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena)` leases the steady-state capsule (the bound input and sink allocate from the supplied shared arena — the `Model/sessions#SESSION_CAPSULE` `SharedAllocator` for the model lane — never a managed staging plane), with the `TensorDtype`-row overload binding any dtype the vocabulary admits so the capsule is dtype-polymorphic and the row-less form is the float32 convenience — `Fin<T>` aborts when the egress destination is undersized against the `GetTensorSizeInBytes` count, ingress shape volume fails to cover its payload (`ingress-cover-gap`), or a native mint rejects (`ingress-rejected` — every C-data factory call crosses `Try.lift` once); the leased flow is a disposable capsule whose `Dispose` is the bound backing's release point, and `Lease` releases every already-acquired native handle on its own failure path so a `lease-rejected` fault strands nothing.
+- Owner: `OrtResidency` `[SmartEnum<string>]` the five-gate residency lattice; `TensorBridge` the static `OrtValue` C-data factory surface (carrier-keyed ingress, dtype-keyed egress, the device descriptor, the residency probe); `PinnedPlane<T>` the ONE handle-rooted pin capsule every crossing that outlives its own statement takes; `BoundFlow` the ONE `OrtIoBinding` steady-state residency capsule the `Model/inference#INFERENCE_MODES` run-mode fold composes.
+- Entry: `public static Fin<OrtValue> Ingress<T>(Tensor<T> source)` and its `MemoryOwner<T>`, foreign-pointer, and `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` overloads discriminate ingress by carrier shape; `public static Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(DeviceMemory device, TensorDtype row, ReadOnlySpan<long> shape)` mints a device sink; `public static Fin<Unit> Relay(DeviceMemory device, OrtValue produced, OrtValue consumed)` moves a device-resident pair whole on the producing device's own sync stream; `public static Fin<PinnedPlane<T>> Pin<T>(Tensor<T> source, TensorDtype row)` roots a managed plane on a `MemoryHandle` for a crossing outliving its statement and the paired `Ingress(OrtMemoryInfo, TensorDtype, ReadOnlySpan<long>, PinnedPlane<T>)` overload hands that rooted pointer to the C-data factory; `public static Fin<Unit> Egress<T>(OrtValue value, in TensorSpan<T> destination)` and its flat `Span<T>` overload project an output by the dtype row; `public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena)` leases the steady-state capsule (the bound input and sink allocate from the supplied shared arena — the `Model/sessions#SESSION_CAPSULE` `SharedAllocator` for the model lane — never a managed staging plane), with the `TensorDtype`-row overload binding any dtype the vocabulary admits so the capsule is dtype-polymorphic and the row-less form is the float32 convenience — `Fin<T>` aborts when the egress destination is undersized against the `GetTensorSizeInBytes` count, ingress shape volume fails to cover its payload (`ingress-cover-gap`), or a native mint rejects (`ingress-rejected` — every C-data factory call crosses `Try.lift` once); the leased flow is a disposable capsule whose `Dispose` is the bound backing's release point, and `Lease` releases every already-acquired native handle on its own failure path so a `lease-rejected` fault strands nothing.
 - Receipt: `CopyPoint` stamps the `OrtResidency` gate, native byte count, device name, instant, and `CorrelationId`; `CopyPoint.Receipt` projects that evidence onto `ComputeReceipt.Copy`, and `ReceiptFolds.Crossings` aggregates it by gate.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule)
-- Growth: a new accelerator is one `DeviceMemory` descriptor over its `OrtEpDevice` reaching the existing `Allocate`/device-pointer ingress, never a per-call marshal helper; a new carrier is one `TensorBridge.Ingress` overload discriminating by carrier shape (the `Model/inference#INFERENCE_MODES` `RunInput` cases compose these overloads, never re-spelling a factory); the `DeviceResident` row is the one residency gate the `Runtime/admission#SUBSTRATE_AXIS` `Substrate.DeviceWgpu` row and the `Tensor/dispatch#DEVICE_KERNELS` `DeviceDispatch` both bind — a WGPU compute buffer and an ORT device value share this one residency row so device-ness is a residency discriminant, never a second tensor owner or a parallel device-residency lattice; the resolved shared `ONE_WGPU_DEVICE` adapter is what a composition root folds into the `device-wgpu` substrate-capability key on `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Providers` (present iff the adapter resolves), so the same device-presence fact the `DeviceResident` gate observes contributes the substrate key the `Substrate.DeviceWgpu` `!Providers.Contains(Key)` gate reads, never a raw `Device`/adapter handle pushed into `Providers`; zero new surface.
-- Boundary: `OrtValue` is the sole model-boundary carrier. Every ingress shape proves non-negative extents, checked volume, payload coverage, and native construction on `Fin`; zero-sized tensors remain representable. Every egress proves dtype identity, native byte count, and destination density where raw-byte projection requires it. `BoundFlow.Write<T>` and framed-byte `Write` return `Fin<Unit>`, enforce exact dtype and length, and let `Flow` abort before `Drive`. Rebind operations allocate replacements before clearing current bindings, restore prior CPU bindings on failure, and transfer ownership only after successful binding. `Dispose` releases each owned native handle once. Gate selection derives from the session's own `OrtMemoryInfo` through `OrtResidency.Classify` — a caller-declared gate the model contradicts is the deleted form, and the allocator name stays receipt evidence rather than a discriminant.
+- Growth: a new accelerator is one `DeviceMemory` descriptor over its `OrtEpDevice` reaching the existing `Allocate`/device-pointer ingress, never a per-call marshal helper; a new carrier is one `TensorBridge.Ingress` overload discriminating by carrier shape (the `Model/inference#INFERENCE_MODES` `RunInput` cases compose these overloads, never re-spelling a factory); the `DeviceResident` row is the one residency gate the `Runtime/admission#SUBSTRATE_AXIS` `Substrate.DeviceWgpu` row and the `Tensor/dispatch#DEVICE_KERNELS` `DeviceDispatch` both bind — a WGPU compute buffer and an ORT device value share this one residency row so device-ness is a residency discriminant, never a second tensor owner or a parallel device-residency lattice; the resolved shared `ONE_WGPU_DEVICE` adapter is what a composition root folds into the `device-wgpu` substrate-capability key on `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Providers` (present iff the adapter resolves), so the same device-presence fact the `DeviceResident` gate observes contributes the substrate key the `Substrate.DeviceWgpu` `!Providers.Contains(Key)` gate reads, never a raw `Device`/adapter handle pushed into `Providers`; a device-resident chain link is one `Relay` call over the pair the residency lattice already classifies, never a second copy owner; zero new surface.
+- Boundary: `OrtValue` is the sole model-boundary carrier. Every ingress shape proves non-negative extents, checked volume, payload coverage, and native construction on `Fin`; zero-sized tensors remain representable. Buffer ROOTING splits by ownership: `Tensor<T>.GetPinnableReference` roots a `fixed` region and serves the in-statement copy alone, so a managed plane whose pointer an `OrtValue` or a device submission holds past that region roots on `PinnedPlane<T>` instead, and the raw-`nint` ingress overload is reserved for genuinely FOREIGN memory (a device allocation, an ORT arena block) the caller can neither own nor pin — a managed buffer reaching that overload is the deleted unrooted form. A strided plane hands no contiguous pointer, so the pin repacks once through the non-throwing `TryFlattenTo` into a rental the capsule releases with the handle; a plane with no dense dimension flattens element-wise, so that walk carries a stated ceiling and refuses `pin-strided-oversize` past it rather than paying an unannounced traversal. Every egress proves dtype identity, native byte count, and destination density where raw-byte projection requires it. `BoundFlow.Write<T>` and framed-byte `Write` return `Fin<Unit>`, enforce exact dtype and length, and let `Flow` abort before `Drive`. Rebind operations allocate replacements before clearing current bindings, restore prior CPU bindings on failure, and transfer ownership only after successful binding. `Dispose` releases each owned native handle once. Gate selection derives from the session's own `OrtMemoryInfo` through `OrtResidency.Classify` — a caller-declared gate the model contradicts is the deleted form, and the allocator name stays receipt evidence rather than a discriminant. A relay proves BOTH ends device-resident through `OrtResidency.Classify` before any native copy — a caller-declared residency the model contradicts is the deleted form the gate already names.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -70,6 +70,70 @@ public readonly record struct DeviceMemory(OrtEpDevice Device, OrtDeviceMemoryTy
     }
 }
 
+// Handle-rooted pin for a native crossing that OUTLIVES its statement. `GetPinnableReference` roots a `fixed`
+// region alone, so an `OrtValue` holding the pointer past that region, or a device submit draining after the
+// frame, reads freed memory; `GetPinnedHandle` roots the same buffer on a `MemoryHandle` this capsule releases
+// at its own end. A strided plane hands no contiguous pointer at all, so it repacks once through the
+// non-throwing `TryFlattenTo` into a pooled rental the capsule also owns — never a stride-ignoring reinterpret.
+public sealed class PinnedPlane<T> : IDisposable where T : unmanaged {
+    // Flattening a fully strided plane walks element-wise, so the repack ceiling bounds that walk rather than paying it
+    // silently over a plane sized in gigabytes.
+    private const long StridedRepackCeiling = 1L << 26;
+
+    private readonly MemoryHandle handle;
+    private readonly MemoryOwner<T>? rental;
+    private bool disposed;
+
+    private PinnedPlane(MemoryHandle handle, MemoryOwner<T>? rental, long elements, long bytes, bool repacked) =>
+        (this.handle, this.rental, Elements, Bytes, Repacked) = (handle, rental, elements, bytes, repacked);
+
+    public long Elements { get; }
+    public long Bytes { get; }
+    public bool Repacked { get; }
+
+    public unsafe nint Pointer => (nint)handle.Pointer;
+
+    public static Fin<PinnedPlane<T>> Of(Tensor<T> plane, TensorDtype row) {
+        if (plane is null || row is null) { return TensorFault.Fail<PinnedPlane<T>>("pin-null"); }
+        if (row.Clr != typeof(T)) { return TensorFault.Fail<PinnedPlane<T>>("pin-dtype", row.Key, typeof(T).Name); }
+        if (row.OrtElementBytes <= 0) { return TensorFault.Fail<PinnedPlane<T>>("pin-byte-stride", row.Key); }
+        long elements = plane.FlattenedLength;
+        if (elements > long.MaxValue / row.OrtElementBytes) { return TensorFault.Fail<PinnedPlane<T>>("pin-volume-overflow", row.Key); }
+        long bytes = elements * row.OrtElementBytes;
+        return plane.IsDense
+            ? Rooted(() => new PinnedPlane<T>(plane.GetPinnedHandle(), null, elements, bytes, repacked: false), row)
+            : Repack(plane, row, elements, bytes);
+    }
+
+    // Dense-run screening decides the repack COST: a plane with no dense dimension walks scalar strides, and
+    // that walk is bounded rather than discovered at the copy.
+    static Fin<PinnedPlane<T>> Repack(Tensor<T> plane, TensorDtype row, long elements, long bytes) {
+        if (elements > int.MaxValue) { return TensorFault.Fail<PinnedPlane<T>>("pin-strided-width", row.Key, elements.ToString(CultureInfo.InvariantCulture)); }
+        if (!plane.HasAnyDenseDimensions && elements > StridedRepackCeiling) {
+            return TensorFault.Fail<PinnedPlane<T>>("pin-strided-oversize", row.Key, $"{elements}>{StridedRepackCeiling}");
+        }
+
+        MemoryOwner<T> rental = MemoryOwner<T>.Allocate((int)elements);
+        if (!plane.TryFlattenTo(rental.Span)) {
+            rental.Dispose();
+            return TensorFault.Fail<PinnedPlane<T>>("pin-flatten", row.Key, $"rank={plane.Rank}");
+        }
+
+        return Rooted(() => new PinnedPlane<T>(rental.Memory.Pin(), rental, elements, bytes, repacked: true), row)
+            .MapFail(fault => { rental.Dispose(); return fault; });
+    }
+
+    static Fin<PinnedPlane<T>> Rooted(Func<PinnedPlane<T>> root, TensorDtype row) =>
+        Try.lift(root).Run().MapFail(error => TensorFault.Symbol("pin-rejected", $"{row.Key}:{error.Message}"));
+
+    public void Dispose() {
+        if (disposed) { return; }
+        disposed = true;
+        handle.Dispose();
+        rental?.Dispose();
+    }
+}
+
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class TensorBridge {
     public static Fin<OrtValue> Ingress<T>(Tensor<T> source) where T : unmanaged =>
@@ -81,15 +145,44 @@ public static class TensorBridge {
     public static Fin<OrtValue> Ingress<T>(MemoryOwner<T> backing, ReadOnlySpan<long> shape) where T : unmanaged =>
         Covered(shape, backing.Length).Bind(admitted => Minted(() => OrtValue.CreateTensorValueFromMemory(OrtMemoryInfo.DefaultInstance, backing.Memory, admitted)));
 
+    // Foreign pointer: memory the caller does not own and cannot pin — a device allocation or an ORT arena
+    // block. A MANAGED buffer reaches the same factory only through `Pin`, whose handle outlives the value.
     public static Fin<OrtValue> Ingress(OrtMemoryInfo memory, TensorDtype row, ReadOnlySpan<long> shape, nint data, long sizeInBytes) =>
         CoveredBytes(shape, row, sizeInBytes).Bind(admitted =>
             Minted(() => OrtValue.CreateTensorValueWithData(memory, row.Element, admitted, data, sizeInBytes)));
+
+    public static Fin<PinnedPlane<T>> Pin<T>(Tensor<T> source, TensorDtype row) where T : unmanaged =>
+        PinnedPlane<T>.Of(source, row);
+
+    public static Fin<OrtValue> Ingress<T>(OrtMemoryInfo memory, TensorDtype row, ReadOnlySpan<long> shape, PinnedPlane<T> pinned) where T : unmanaged =>
+        pinned is null
+            ? TensorFault.Fail<OrtValue>("ingress-unpinned", row.Key)
+            : CoveredBytes(shape, row, pinned.Bytes).Bind(admitted =>
+                Minted(() => OrtValue.CreateTensorValueWithData(memory, row.Element, admitted, pinned.Pointer, pinned.Bytes)));
 
     public static Fin<OrtValue> Ingress(Microsoft.ML.OnnxRuntime.Tensors.Tensor<string> tokens) =>
         Minted(() => OrtValue.CreateFromStringTensor(tokens));
 
     public static Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(DeviceMemory device, TensorDtype row, ReadOnlySpan<long> shape) =>
         Shape(shape).Bind(admitted => device.Allocate(row, admitted.Shape));
+
+    // Device-to-device handoff for a chain whose links stay RESIDENT. `CopyTensors` moves whole values on the
+    // device under one sync stream the producing device itself mints, so a producer sink and a consumer bound input
+    // sharing an `OrtMemoryInfo` never cross device→host→device between links. Residency is PROVED, never declared:
+    // both ends classify through `OrtResidency.Classify`, and a pair whose memory descriptors disagree is a
+    // `relay-residency` refusal rather than a silent host round trip. The stream disposes with the copy, because a
+    // stream outliving its transfer is a device handle no capsule owns.
+    public static Fin<Unit> Relay(DeviceMemory device, OrtValue produced, OrtValue consumed) =>
+        (OrtResidency.Classify(produced.GetTensorMemoryInfo()), OrtResidency.Classify(consumed.GetTensorMemoryInfo())) switch {
+            (OrtResidency source, OrtResidency sink) when source.Device && sink.Device =>
+                Try.lift(() => {
+                    using OrtSyncStream stream = device.Device.CreateSyncStream(FrozenDictionary<string, string>.Empty);
+                    OrtEnv.Instance().CopyTensors([produced], [consumed], stream);
+                    return unit;
+                }).Run().MapFail(static error => TensorFault.Symbol("relay-rejected", error.Message)),
+            (OrtResidency source, OrtResidency sink) =>
+                TensorFault.Fail<Unit>("relay-residency", source.Key, sink.Key),
+        };
 
     // Shape covers the payload before any native mint, and every C-data factory call crosses once into the
     // rail — a native rejection lands as a typed fault, never an exception under an announced Succ.

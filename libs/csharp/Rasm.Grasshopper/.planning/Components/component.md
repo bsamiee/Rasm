@@ -5,8 +5,8 @@
 ## [01]-[INDEX]
 
 - [02]-[EXECUTION]: topology dispatch, output declarations, process scope, and partial-emission receipts
-- [03]-[SPEC]: the component declaration, lifecycle policy, and accumulating admission
-- [04]-[HOST_PROJECTION]: the constructor-safe generic host adapter and run ledger
+- [03]-[SPEC]: `ComponentSpec` declares identity, lifecycle policy, and accumulating admission
+- [04]-[HOST_PROJECTION]: `SpecComponent<TSelf>` adapts the host constructor-safely and owns the run ledger
 - [05]-[PLUGIN]: plugin declarations, public load ingress, and catalogue admission
 
 ## [02]-[EXECUTION]
@@ -66,12 +66,14 @@ public sealed record ProcessReceipt(Op Operation, int Iteration, Seq<OutputPlan>
 
 public sealed record ProcessRun(ProcessReceipt Receipt, Fin<Unit> Result);
 
-public sealed record RunReceipt(Seq<ProcessReceipt> Processes, Seq<Error> Faults) {
-    public static readonly RunReceipt Empty = new([], []);
+public sealed record RunReceipt(Seq<ProcessReceipt> Processes, Seq<BakeReceipt> Bakes, Seq<Error> Faults) {
+    public static readonly RunReceipt Empty = new([], [], []);
 
     public RunReceipt Add(ProcessRun process) => process.Result.Match(
         Succ: _ => this with { Processes = Processes.Add(process.Receipt) },
         Fail: fault => this with { Processes = Processes.Add(process.Receipt), Faults = Faults.Add(fault) });
+
+    public RunReceipt Add(BakeReceipt bake) => this with { Bakes = Bakes.Add(bake) };
 
     public RunReceipt Add(Error fault) => this with { Faults = Faults.Add(fault) };
 }
@@ -162,13 +164,46 @@ public static class Executions {
 ## [03]-[SPEC]
 
 - Owner: `ComponentSpec` carries identity, pin declarations, topology execution, iteration policy, lifecycle, threading, maintenance, bake, fleeting persistence, icon, panel, and chrome as one immutable declaration.
+- Owner: `BakePolicy` is the whole document-emission declaration — capability, `BakeUpdateMode`, the `UserPattern` attribute defaults, and the `MetaPattern` per-axis override mask — with `Added`, `Updated`, and `Refused` as its rows and `Context` minting the host `BakeContext` against either a live `RhinoDoc` or a `File3dm`. `SpecComponent.Emit(BakeContext, Op?)` calls the host's own `BakeShapes` and returns a `BakeReceipt` carrying the process id, the mode, the emitted shape ids, and the context's accumulated `BakeIdentifiers`.
 - Entry: `Admit` accumulates pin-side legality, topology coherence, iteration/threading coherence, and persistent identity before the static component declaration reaches the host constructor.
-- Receipt: fleeting persistence consumes the whole `RunReceipt`, so lifecycle faults, custom-array faults, process faults, and partial output evidence cross the post-process boundary together.
-- Growth: a component capability is a policy value or an existing declaration row; the record never grows a builder family.
-- Boundary: `OutputPlan` owns output obligation beside its `PinPlan`; no second raw-index emission roster exists.
+- Law: `BakeCapable` is `virtual` and `BakeShapes` is NOT — the gate overrides and the emitter is a CALL site whose host body folds every output `IBakeAware` parameter — so a bare `Option<bool> Bakeable` publishes bakeability to the host with nothing behind it, and the policy row is what makes the declaration and the emission one fact. Its `string[]` return is the baked-object identity roster the run ledger attributes a bake back to its solution by.
+- Law: bake attributes are declaration data, never caller literals — `UserPattern` carries the mode, group, name, layer, colour, linetype, plot, and section defaults the process applies, and `MetaPattern` carries the per-axis opt-in deciding which of those a value's own metadata may override, so two components differing only in bake attribution differ by one row and the emitter body is identical.
+- Receipt: fleeting persistence consumes the whole `RunReceipt`, so lifecycle faults, custom-array faults, process faults, and partial output evidence cross the post-process boundary together; `Emit` seals each `BakeReceipt` into that same ledger through `RunReceipt.Bakes`, so the emission half is a stored run fact rather than a caller-held return, and its `Shapes.Count <= Identifiers.Count` claim proves the context accumulated at least what this component emitted. `BakeUpdateMode` rides `BakePolicy.Update` inside `ComponentSpec.Bakeable`, never a second spec column, because the mode and the capability are one declaration.
+- Growth: a component capability is a policy value or an existing declaration row; a new bake posture is one `BakePolicy` row; the record never grows a builder family.
+- Boundary: `OutputPlan` owns output obligation beside its `PinPlan`; no second raw-index emission roster exists. `BakeKey` coordinates, `BakeDataState` re-find filtering, and layer pre-creation stay `Grasshopper2.Bake`'s and are reached through the minted context, never re-derived here.
 
 ```csharp signature
 // --- [MODELS] ----------------------------------------------------------------------------
+
+public sealed record BakePolicy(
+    bool Capable, Grasshopper2.Bake.BakeUpdateMode Update,
+    Grasshopper2.Bake.UserPattern Defaults, Grasshopper2.Bake.MetaPattern Overrides) {
+    public static readonly BakePolicy Added = new(
+        Capable: true, Update: Grasshopper2.Bake.BakeUpdateMode.Add, Defaults: default,
+        Overrides: new Grasshopper2.Bake.MetaPattern(enableAll: true, embed: true));
+
+    public static readonly BakePolicy Updated = Added with { Update = Grasshopper2.Bake.BakeUpdateMode.Update };
+
+    public static readonly BakePolicy Refused = Added with { Capable = false };
+
+    public Grasshopper2.Bake.BakeContext Context(
+        string process, Guid id, Rhino.RhinoDoc document, Option<Rhino.DocObjects.ObjectAttributes> attributes = default) =>
+        new(name: process, id: id, document: document,
+            attributes: attributes.IfNoneUnsafe(static () => null!), user: Defaults, meta: Overrides);
+
+    public Grasshopper2.Bake.BakeContext Context(
+        string process, Guid id, Rhino.FileIO.File3dm file, Option<Rhino.DocObjects.ObjectAttributes> attributes = default) =>
+        new(name: process, id: id, file: file,
+            attributes: attributes.IfNoneUnsafe(static () => null!), user: Defaults, meta: Overrides);
+}
+
+public sealed record BakeReceipt(
+    Guid Process, Grasshopper2.Bake.BakeUpdateMode Mode, Seq<string> Shapes, Seq<string> Identifiers) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(holds: Process != Guid.Empty),
+        ValidityClaim.Of(holds: Shapes.ForAll(static id => !string.IsNullOrWhiteSpace(id))),
+        ValidityClaim.Of(holds: Shapes.Count <= Identifiers.Count));
+}
 
 public sealed record Lifecycle(
     Option<Func<Grasshopper2.Doc.Solution, Fin<Unit>>> Before,
@@ -197,7 +232,7 @@ public sealed record ComponentSpec {
 
     public Option<Func<ComponentParameters, Fin<Unit>>> Maintain { get; init; } = default;
 
-    public Option<bool> Bakeable { get; init; } = default;
+    public Option<BakePolicy> Bakeable { get; init; } = default;
 
     public Seq<Action<Grasshopper2.Doc.FleetingCustomData, RunReceipt>> Fleeting { get; init; } = [];
 
@@ -270,7 +305,19 @@ public abstract class SpecComponent<TSelf> : ModularComponent
         ready = true;
     }
 
-    public override bool BakeCapable => Definition.Bakeable.IfNone(base.BakeCapable);
+    public override bool BakeCapable => Definition.Bakeable.Match(Some: static row => row.Capable, None: () => base.BakeCapable);
+
+    public Fin<BakeReceipt> Emit(Grasshopper2.Bake.BakeContext context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from row in Definition.Bakeable.ToFin(op.Unsupported(geometryType: GetType(), outputType: typeof(BakeReceipt)))
+               from _capable in guard(BakeCapable, op.InvalidState()).ToFin()
+               from shapes in op.Catch(body: () => Fin.Succ(BakeShapes(context: context, mode: row.Update)))
+               select Sealed(new BakeReceipt(
+                   Process: context.ProcessGuid, Mode: row.Update, Shapes: toSeq(shapes), Identifiers: toSeq(context.BakeIdentifiers)));
+    }
+
+    // Emission joins the same ledger the process fold writes, so fleeting persistence reads one run.
+    private BakeReceipt Sealed(BakeReceipt receipt) => (run.Swap(ledger => ledger.Add(receipt)), receipt).Item2;
 
     protected override Grasshopper2.UI.Icon.IIcon IconInternal => Definition.Icon.IfNone(base.IconInternal);
 

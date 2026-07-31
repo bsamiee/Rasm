@@ -13,11 +13,12 @@
 
 - Owner: `TiffCompression` carries the TIFF encoder vocabulary. `RasterCodec` carries image format, alpha capability, and the owning `FileCodec`. `RasterPolicy` is the closed encoder-program family: opaque and transparent PNG/TIFF cases, `JpegCase`, and `BmpCase` carry only parameters their codec consumes and derive codec, transparency, and encoder rows exhaustively.
 - Law: `RasterPolicy.Transparent` exists only on alpha-capable cases — a structural fact of the case set, so admission never re-tests alpha. JPEG quality and TIFF compression cannot coexist, and neither can leak into PNG or BMP admission; codec, transparency, and encoder parameters derive from one `Row` correspondence, never three parallel case walks.
-- Law: the artifact extension derives from the encoder row's `Extension` column, so an extension/encoder mismatch is unrepresentable and a dispatch re-mapping encoder rows onto codec rows beside the column is the deleted form.
+- Law: the artifact extension derives from the encoder row's `Extension` column, so an extension/encoder mismatch is unrepresentable and a dispatch re-mapping encoder rows onto codec rows beside the column is the deleted form; `Artifact` is that column's one reader and admits it against `CodecAbility.Raster`, so a row re-pointed at a non-pixel codec refuses at delivery rather than landing a raster under a modelling extension.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Drawing.Imaging;
+using System.Runtime.CompilerServices;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -49,6 +50,9 @@ public sealed partial class RasterCodec {
     public ImageFormat Image { get; }
     public bool Alpha { get; }
     public FileCodec Extension { get; }
+
+    internal Fin<FileCodec> Artifact(Op key) =>
+        guard(Extension.Has(CodecAbility.Raster), key.InvalidResult()).ToFin().Map(_ => Extension);
 }
 
 [ValueObject<int>]
@@ -185,9 +189,14 @@ public sealed partial class PdfImageBudget {
     public Dimension EncodedBytes { get; }
     public Dimension Pixels { get; }
 
-    public static PdfImageBudget Standard { get; } = Create(
-        encodedBytes: Dimension.Create(value: 16 * 1024 * 1024),
-        pixels: Dimension.Create(value: 100_000_000));
+    // Both bounds gate an in-process decode of caller-supplied bytes before any PDF page allocates: 16 MiB is the
+    // encoded ceiling above which a stamp image is a document asset rather than a mark, and 100 megapixels is the
+    // decoded ceiling at which a single 32-bit surface still fits one contiguous managed allocation.
+    public static Dimension EncodedCeiling { get; } = Dimension.Create(value: 16 * 1024 * 1024);
+
+    public static Dimension PixelCeiling { get; } = Dimension.Create(value: 100_000_000);
+
+    public static PdfImageBudget Standard { get; } = Create(encodedBytes: EncodedCeiling, pixels: PixelCeiling);
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -301,6 +310,7 @@ public abstract partial record PdfMark {
 - Law: `ScaleText` evidence is per-source — a detail page carries the detail's `SheetScale.Format` (`GetFormattedScale`) string so `%scale%` renders the live detail scale, while whole-page, named-view, viewport, and blank sources carry no single scale and leave the token empty.
 - Law: a multi-page raster or vector target lands one atomic artifact per page — the page's file name derives from the target stem through the token fold (`stem-%pagenumber%`), and `OutputPolicy` settles each destination before a same-directory temporary artifact replaces it.
 - Law: frame modality is structural. `Plan` accepts only `SettingsCase`, and `TransparentSpec` accepts only `TransparentCase`; no boolean or absent field reconstructs capture intent.
+- Law: resolution is the admitted `CaptureDpi` the capture rail owns, carried on both frame cases and read once — every downstream site consumes the admitted value instead of re-running `CaptureDpi.Of` over a raw double, and `PageFrame.Print` seats the named print-resolution row through the same admission rather than constructing past it, so the one DPI a frameless request inherits is the one DPI the gate proved.
 - Boundary: named-view publication captures the named view's addressed viewport as it stands; a restore-then-capture sequence is the camera rail composed BEFORE publication, never a hidden restore inside the page resolver.
 
 ```csharp signature
@@ -309,23 +319,29 @@ public abstract partial record PdfMark {
 public abstract partial record PageFrame {
     private PageFrame() { }
     internal sealed record SettingsCase(
-        double DotsPerInch,
+        CaptureDpi DotsPerInch,
         Option<Size2i> ViewportExtent,
         Option<CaptureArea> Area,
         Option<CaptureScale> Scale,
         Option<MediaLayout> Layout,
         Option<CaptureDecor> Decor) : PageFrame;
     internal sealed record TransparentCase(
-        double DotsPerInch,
+        CaptureDpi DotsPerInch,
         Size2i Extent,
         Option<TransparentDecor> Facade) : PageFrame;
 
-    public static PageFrame Print { get; } = new SettingsCase(
-        DotsPerInch: 300.0, ViewportExtent: None, Area: None, Scale: None, Layout: None, Decor: None);
+    // Plate-standard print resolution: 300 dpi is the floor at which hairline linework and stamped text stay
+    // unresampled on a plotted sheet, and it is the one default every frameless PublishRequest inherits.
+    public static CaptureDpi PrintResolution { get; } = CaptureDpi.Create(value: 300.0);
 
-    public double Dpi => Switch(
+    public static PageFrame Print { get; } = new SettingsCase(
+        DotsPerInch: PrintResolution, ViewportExtent: None, Area: None, Scale: None, Layout: None, Decor: None);
+
+    public CaptureDpi Dpi => Switch(
         settingsCase: static frame => frame.DotsPerInch,
         transparentCase: static frame => frame.DotsPerInch);
+
+    internal int Dots => checked((int)(double)Dpi);
 
     public Option<Size2i> Pixels => Switch(
         settingsCase: static frame => frame.ViewportExtent,
@@ -342,11 +358,11 @@ public abstract partial record PageFrame {
         Option<CaptureDecor> decor = default,
         Op? key = null) {
         Op op = key.OrDefault();
-        return from _dpi in CaptureDpi.Of(value: dpi, key: op)
+        return from admitted in CaptureDpi.Of(value: dpi, key: op)
                from _pixels in pixels.Map(value => guard(value.IsValid, op.InvalidInput()).ToFin())
                    .IfNone(Fin.Succ(value: unit))
                select (PageFrame)new SettingsCase(
-                   DotsPerInch: dpi,
+                   DotsPerInch: admitted,
                    ViewportExtent: pixels,
                    Area: area,
                    Scale: scale,
@@ -360,9 +376,9 @@ public abstract partial record PageFrame {
         Option<TransparentDecor> decor = default,
         Op? key = null) {
         Op op = key.OrDefault();
-        return from _dpi in CaptureDpi.Of(value: dpi, key: op)
+        return from admitted in CaptureDpi.Of(value: dpi, key: op)
                from _pixels in guard(pixels.IsValid, op.InvalidInput()).ToFin()
-               select (PageFrame)new TransparentCase(DotsPerInch: dpi, Extent: pixels, Facade: decor);
+               select (PageFrame)new TransparentCase(DotsPerInch: admitted, Extent: pixels, Facade: decor);
     }
 
     internal Fin<CapturePlan> Plan(CaptureSubject subject, Op key) => Switch(
@@ -434,7 +450,7 @@ public abstract partial record PageSource {
     internal Fin<Seq<PublishPage>> Resolve(RhinoDoc document, PageFrame frame, DateTimeOffset instant, Op op) => Switch(
         (Document: document, Frame: frame, Instant: instant, Op: op),
         sheetsCase: static (ctx, source) =>
-            from dpi in CaptureDpi.Of(value: ctx.Frame.Dpi, key: ctx.Op)
+            let dpi = ctx.Frame.Dpi
             from pages in source.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
             from captured in pages.Map(static (page, index) => (Page: page, Index: index)).TraverseM(row =>
                 from target in ViewportTarget.Page(pageViewId: row.Page.MainViewport.Id, key: ctx.Op)
@@ -446,7 +462,7 @@ public abstract partial record PageSource {
                     ordinal: row.Index + 1, count: pages.Count, instant: ctx.Instant)).As()
             select captured,
         detailsCase: static (ctx, source) =>
-            from dpi in CaptureDpi.Of(value: ctx.Frame.Dpi, key: ctx.Op)
+            let dpi = ctx.Frame.Dpi
             from pixels in ctx.Frame.Pixels.ToFin(Fail: ctx.Op.InvalidInput())
             from pages in source.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
             from rows in pages
@@ -467,7 +483,7 @@ public abstract partial record PageSource {
                     ordinal: entry.Index + 1, count: flat.Count, instant: ctx.Instant)).As()
             select captured,
         namedCase: static (ctx, source) =>
-            from dpi in CaptureDpi.Of(value: ctx.Frame.Dpi, key: ctx.Op)
+            let dpi = ctx.Frame.Dpi
             from pixels in ctx.Frame.Pixels.ToFin(Fail: ctx.Op.InvalidInput())
             from captured in source.Names.Map(static (name, index) => (Name: name, Index: index)).TraverseM(row =>
                 from target in ViewportTarget.Named(name: row.Name, key: ctx.Op)
@@ -479,7 +495,7 @@ public abstract partial record PageSource {
                     ordinal: row.Index + 1, count: source.Names.Count, instant: ctx.Instant)).As()
             select captured,
         viewportCase: static (ctx, source) =>
-            from dpi in CaptureDpi.Of(value: ctx.Frame.Dpi, key: ctx.Op)
+            let dpi = ctx.Frame.Dpi
             from pixels in ctx.Frame.Pixels.ToFin(Fail: ctx.Op.InvalidInput())
             from subject in CaptureSubject.View(target: source.Target, pixels: pixels, dpi: dpi, key: ctx.Op)
             select Seq(Page(
@@ -561,9 +577,11 @@ public abstract partial record PublishTarget {
 - Owner: `PdfPolicy` carries optional-content grouping, one parameterized image budget, page marks, final marks, and custom printed-page definitions. `PublishRequest` admits source, target, frame modality, and one render instant. `PageEvidence` closes landed-artifact and printer proof without optional payload reconstruction.
 - Law: `PageEvidence` is the package's one printer- and landed-artifact proof family — the Eto chrome print driver returns raw page facts only, and the composing app root folds them into this family; a second printer-evidence vocabulary beside it is the deleted form.
 - Entry: `Publishing.Run(DocumentSession, PublishRequest, Op?) : Fin<PublishReceipt>` — page resolution proves `SessionNeed.Read` plus `SessionNeed.Export` once, and each page capture proves `SessionNeed.Redraw` through the capture rail's own demand.
-- Law: the PDF arm owns `FilePdf.Create`, host-minted page indices, page marks, custom pages, final marks, and `Write`. `LayersAsOptionalContentGroups` is document-level state on the `FilePdf` instance — the policy value is hoisted once after `Create`, before any page mints, because a per-page set inside the page fold leaves only the last write effective and silently strips earlier pages' layer groups. A captured page derives one `CapturePlan`, enters `Captures.Stage`, and consumes the sole prepared settings row through `PreparedCapture.Use` before that lease closes; blank pages use only the dots overload.
+- Law: the PDF arm owns `FilePdf.Create`, host-minted page indices, page marks, custom pages, final marks, and `Write`. `FilePdf` is a plain abstract host class the plug-in lookup vends and never an `IDisposable`, so the arm holds it as an ordinary value across the page fold — its one custody obligation is the null return the lookup can give, which `Optional(...).ToFin(...)` refuses; bracketing it leases a type with nothing to release. `LayersAsOptionalContentGroups` is document-level state on the `FilePdf` instance — the policy value is hoisted once after `Create`, before any page mints, because a per-page set inside the page fold leaves only the last write effective and silently strips earlier pages' layer groups. A captured page derives one `CapturePlan`, enters `Captures.Stage`, and consumes the sole prepared settings row through `PreparedCapture.Use` before that lease closes; blank pages use only the dots overload.
 - Law: printer publication derives the complete `Seq<CapturePlan>`, admits one printer `CaptureSink`, and sends the program through one `CaptureRequest`/`Captures.Run` call; the returned dispatched-page count must equal the plan count. Raster and SVG pair each plan with the matching scalar sink through the same request rail; alpha raster uses only `TransparentCaptureSpec`.
 - Law: every file delivery stages through `OutputPolicy.Land` — the operations rail's one atomic staging kernel — so temporary write, nonempty verification, byte-identical commit, and content keying are the folder's single spelling. A failed encoder, PDF write, SVG write, empty artifact, or move leaves no new partial destination and emits no landed evidence.
+- Law: publication proves `Read` and `Export` and mutates no document, so landed evidence carries the native landing row and `PageEvidence.LandedCase` alone — an `ExchangeEvidence.MutationCase` on a filesystem landing claims a document change with no undo serial behind it and is the deleted form; the document-mutation rows stay on the exchange rail, where a real `DocumentCommit.Sealed` bracket supplies the serial.
+- Law: request admission accumulates — the five source, target, and frame contracts fold applicatively through `Validation`, each rule minting its own `Op`-keyed refusal from its own name, so a caller learns every contract it broke instead of one collapsed input fault.
 - Boundary: `PdfGate` serializes the process-global custom-page roster across replace, write, and restore. `Restored` attempts roster restoration after every body outcome and combines a write fault with a restoration fault instead of replacing either failure.
 
 ```csharp signature
@@ -610,21 +628,41 @@ public sealed class PublishRequest {
         return from carrier in Optional(target).ToFin(Fail: op.InvalidInput()).Bind(candidate => candidate.Admit(op: op))
                from origin in Optional(source).ToFin(Fail: op.InvalidInput()).Bind(candidate => candidate.Admit(op: op))
                let resolvedFrame = frame.IfNone(PageFrame.Print)
-               from _contract in guard(
-                   (origin is not PageSource.BlankCase
-                       || (carrier is PublishTarget.PdfCase
-                           && resolvedFrame.Dpi <= int.MaxValue
-                           && resolvedFrame.Dpi == Math.Truncate(resolvedFrame.Dpi)))
-                   && (origin is not (PageSource.DetailsCase or PageSource.NamedCase or PageSource.ViewportCase)
-                       || resolvedFrame.Pixels.IsSome)
-                   && (carrier is PublishTarget.RasterCase raster
-                       ? raster.Policy.Transparent == resolvedFrame.IsTransparent
-                       : !resolvedFrame.IsTransparent)
-                   && (carrier is not PublishTarget.PdfCase { Policy.CustomPages.IsEmpty: false }
-                       || origin is PageSource.BlankCase),
-                   op.InvalidInput()).ToFin()
+               from _contract in Contract(carrier: carrier, origin: origin, frame: resolvedFrame)
                select new PublishRequest(target: carrier, source: origin, frame: resolvedFrame, instant: instant);
     }
+
+    private static Fin<Unit> Contract(PublishTarget carrier, PageSource origin, PageFrame frame) => (
+            BlankPagesTakeIntegralPdf(carrier: carrier, origin: origin, frame: frame),
+            ViewSourcesDeclarePixels(origin: origin, frame: frame),
+            RasterAlphaMatchesFrame(carrier: carrier, frame: frame),
+            TransparencyTakesRaster(carrier: carrier, frame: frame),
+            CustomPagesTakeBlankSource(carrier: carrier, origin: origin))
+        .Apply(static (_, _, _, _, _) => unit)
+        .As()
+        .ToFin();
+
+    private static K<Validation<Error>, Unit> BlankPagesTakeIntegralPdf(PublishTarget carrier, PageSource origin, PageFrame frame) =>
+        Rule(origin is not PageSource.BlankCase
+            || (carrier is PublishTarget.PdfCase
+                && (double)frame.Dpi <= int.MaxValue
+                && (double)frame.Dpi == Math.Truncate((double)frame.Dpi)));
+
+    private static K<Validation<Error>, Unit> ViewSourcesDeclarePixels(PageSource origin, PageFrame frame) =>
+        Rule(origin is not (PageSource.DetailsCase or PageSource.NamedCase or PageSource.ViewportCase)
+            || frame.Pixels.IsSome);
+
+    private static K<Validation<Error>, Unit> RasterAlphaMatchesFrame(PublishTarget carrier, PageFrame frame) =>
+        Rule(carrier is not PublishTarget.RasterCase raster || raster.Policy.Transparent == frame.IsTransparent);
+
+    private static K<Validation<Error>, Unit> TransparencyTakesRaster(PublishTarget carrier, PageFrame frame) =>
+        Rule(carrier is PublishTarget.RasterCase || !frame.IsTransparent);
+
+    private static K<Validation<Error>, Unit> CustomPagesTakeBlankSource(PublishTarget carrier, PageSource origin) =>
+        Rule(carrier is not PublishTarget.PdfCase { Policy.CustomPages.IsEmpty: false } || origin is PageSource.BlankCase);
+
+    private static K<Validation<Error>, Unit> Rule(bool held, [CallerMemberName] string rule = "") =>
+        guard(held, Op.Of(name: rule).InvalidInput()).ToFin().ToValidation();
 }
 
 [SmartEnum<int>]
@@ -705,7 +743,7 @@ public static class Publishing {
             CaptureArtifact.PrintedCase dispatched => Fin.Succ(value: dispatched.Pages),
             _ => Fin.Fail<int>(error: op.InvalidResult()),
         }
-        from _exact in guard(printed == plans.Count, op.InvalidResult())
+        from _exact in guard(printed == plans.Count, op.InvalidResult()).ToFin()
         select new PublishReceipt(
             Pages: captured.Map(page => (PageEvidence)new PageEvidence.PrintedCase(
                 Scope: page.Stamp,
@@ -761,15 +799,15 @@ public static class Publishing {
         OutputPolicy output,
         RasterPolicy policy,
         Op op) => capture switch {
-            CaptureArtifact.RasterCase raster => Deliver(
+            CaptureArtifact.RasterCase raster => policy.Codec.Artifact(key: op).Bind(codec => Deliver(
                 target: target,
                 scope: page.Stamp,
                 output: output,
-                codec: policy.Codec.Extension,
+                codec: codec,
                 surface: nameof(Rasters.Save),
                 write: temporary => raster.Pixels.Use(bitmap =>
                     Rasters.Save(bitmap: bitmap, policy: policy, path: temporary, key: op)),
-                op: op),
+                op: op)),
             _ => Fin.Fail<LandedArtifact>(error: op.InvalidResult()),
         };
 
@@ -814,13 +852,7 @@ public static class Publishing {
             Surface: surface,
             Succeeded: true,
             Detail: "The temporary artifact was verified nonempty and byte-identical before commit.",
-            Target: Some(target)),
-        new ExchangeEvidence.MutationCase(
-            Surface: nameof(OutputPolicy.Land),
-            Attempted: true,
-            Committed: true,
-            MayRemain: false,
-            UndoRecord: None));
+            Target: Some(target)));
 
     private static string PageStem(DocumentPath target, int count) =>
         count <= 1
@@ -877,7 +909,7 @@ public static class Publishing {
                 int minted = ctx.Pdf.AddPage(
                     widthInDots: blank.Extent.Width,
                     heightInDots: blank.Extent.Height,
-                    dotsPerInch: checked((int)ctx.Frame.Dpi));
+                    dotsPerInch: ctx.Frame.Dots);
                 return guard(minted >= 0, ctx.Op.InvalidResult()).ToFin().Map(_ => minted);
             }),
             capturedCase: static (ctx, captured) =>

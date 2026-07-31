@@ -14,7 +14,6 @@ This page also owns the ONE section-computation spine: `SectionSolver.Solve` is 
 - [07]-[QUANTITY_ROW]: the one typed-mint `[SmartEnum]` the seam lift and the property ingress compose.
 - [08]-[COMPONENT_DETAIL]: the relocated bag constructors (`Joint`/`Token`/`Measured`/`RealizationRows`/`ProductRows`).
 - [09]-[COMPONENT_RESOLUTION]: `ResolvedComponent` + the frozen `Build`/`Resolve` M7 cache, byte-identical.
-- [10]-[RESEARCH]: realized decisions.
 
 ## [02]-[COMPONENT_OWNER]
 
@@ -91,47 +90,51 @@ public sealed partial class ComponentClass {
 // IGU builds). Component.Of enforces lane/detail consistency as a type law — the deleted Detail switch's totality.
 public enum DetailLane : byte { None = 0, Realization = 1, Product = 2 }
 
-// The ASTM C652 / C90 net-area threshold a SolidFraction falls into: C652 fixes the hollow classes (H40V <=25% void at
-// <=40% net, H60V) and C62/C216 the solid (>=75% net); NetAreaFloor is the minimum net-area ratio the class admits.
+// The ASTM C652 / C90 net-area FAMILY a void class belongs to — a pure classification token the IFC profile lane and
+// the appearance readers key on. It stores no net-area floor: the C652/C216/C90 band thresholds live inside the two
+// derivations that compare against them (`masonry#MASONRY_FAMILY` `MasonryVoids.Bucket`, `cmu#CMU_FAMILY`
+// `CmuPhysics.CoringOf`), each reading the unit's TRUE lattice geometry, and every capacity path reads the solved
+// `ComputedSection.AreaMm2` — a stored fraction beside that geometry could only contradict it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CoringClass {
-    public static readonly CoringClass Solid      = new("solid",      netAreaFloor: 0.75);   // ASTM C62/C216 solid clay
-    public static readonly CoringClass Frogged    = new("frogged",    netAreaFloor: 0.80);   // single-face indentation, solid for net-area
-    public static readonly CoringClass Cored      = new("cored",      netAreaFloor: 0.75);   // <=25% coring, structurally solid
-    public static readonly CoringClass Cellular   = new("cellular",   netAreaFloor: 0.60);   // closed cavity one bed face
-    public static readonly CoringClass Perforated = new("perforated", netAreaFloor: 0.50);   // through-perforations, net 50-75%
-    public static readonly CoringClass Hollow     = new("hollow",     netAreaFloor: 0.00);   // ASTM C652 H40V/H60V hollow brick / C90 CMU
-    public double NetAreaFloor { get; }
+    public static readonly CoringClass Solid      = new("solid");        // ASTM C62/C216 solid clay
+    public static readonly CoringClass Frogged    = new("frogged");      // single-face indentation, solid for net-area
+    public static readonly CoringClass Cored      = new("cored");        // <=25% coring, structurally solid
+    public static readonly CoringClass Cellular   = new("cellular");     // closed cavity one bed face
+    public static readonly CoringClass Perforated = new("perforated");   // through-perforations, net 50-75%
+    public static readonly CoringClass Hollow     = new("hollow");       // ASTM C652 H40V/H60V hollow brick / C90 CMU
 }
 
 // The void-class row a Component carries: the shared vocabulary spanning clay-brick (frog/cored/perforated/cellular)
-// AND concrete-masonry (hollow 2-cell / 3-cell) geometry. VoidFraction stays a double in [0,1): Component.Of guards it
-// with a relational pattern over the raw key. A non-masonry/non-cmu Component carries Coring.None, total across the axis.
+// AND concrete-masonry (hollow 2-cell / 3-cell) geometry, each row naming its C652/C90 family. A non-masonry/non-cmu
+// Component carries Coring.None, total across the axis.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Coring {
-    public static readonly Coring None             = new("none",                voidFraction: 0.00, classification: CoringClass.Solid);
-    public static readonly Coring Frog             = new("frog",                voidFraction: 0.10, classification: CoringClass.Frogged);
-    public static readonly Coring Cored3Hole       = new("cored-3-hole",        voidFraction: 0.20, classification: CoringClass.Cored);
-    public static readonly Coring Cellular         = new("cellular",            voidFraction: 0.35, classification: CoringClass.Cellular);
-    public static readonly Coring Perforated10Cell = new("perforated-10-cell",  voidFraction: 0.42, classification: CoringClass.Perforated);
-    public static readonly Coring Hollow3Cell      = new("hollow-3-cell",       voidFraction: 0.47, classification: CoringClass.Hollow);   // 12-in 3-cell CMU — more web material than the 2-cell unit
-    public static readonly Coring Hollow2Cell      = new("hollow-2-cell",       voidFraction: 0.50, classification: CoringClass.Hollow);
-    public double VoidFraction { get; }
+    public static readonly Coring None             = new("none",               classification: CoringClass.Solid);
+    public static readonly Coring Frog             = new("frog",               classification: CoringClass.Frogged);
+    public static readonly Coring Cored3Hole       = new("cored-3-hole",       classification: CoringClass.Cored);
+    public static readonly Coring Cellular         = new("cellular",           classification: CoringClass.Cellular);
+    public static readonly Coring Perforated10Cell = new("perforated-10-cell", classification: CoringClass.Perforated);
+    public static readonly Coring Hollow3Cell      = new("hollow-3-cell",      classification: CoringClass.Hollow);   // 12-in 3-cell CMU — more web material than the 2-cell unit
+    public static readonly Coring Hollow2Cell      = new("hollow-2-cell",      classification: CoringClass.Hollow);
     public CoringClass Classification { get; }
-    public double NetAreaFraction => 1.0 - VoidFraction;   // the C90 net-area ratio the structural capacity scales by
 }
 
 // The published standards body a regional ComponentStandard cites — a bounded vocabulary, never a free Authority string.
+// JackingProofFactor is the body's PRESTRESSING proof-stress ceiling coefficient the reinforcement#REINFORCEMENT_FAMILY
+// TendonBasis.Jacking row reads (ACI 318 Table 20.3.2.5.1 min(0.80·fpu, 0.94·fpy) / EC2 §5.10.2.1 min(0.80·fpk,
+// 0.90·fp0,1k)); a body publishing no jacking rule carries None, so a tendon it stamps projects ABSENCE rather than a
+// fabricated ceiling — the same Option posture ForceBasis takes on a grade with no registered producer.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ComponentAuthority {
-    public static readonly ComponentAuthority Astm = new("ASTM", region: "us");          // ASTM C90/C216/C652 masonry & CMU, A615/A706 rebar, F3125 bolts
+    public static readonly ComponentAuthority Astm = new("ASTM", region: "us",  jackingProofFactor: Some(0.94));   // ASTM C90/C216/C652 masonry & CMU, A615/A706 rebar, F3125 bolts, A416 strand (ACI 318 jacking)
     public static readonly ComponentAuthority Aisc = new("AISC", region: "us");          // AISC Shapes Database
     public static readonly ComponentAuthority Aisi = new("AISI", region: "us");          // AISI S100 cold-formed
     public static readonly ComponentAuthority Aws  = new("AWS",  region: "us");          // AWS A5.1/D1.1 weld consumables
-    public static readonly ComponentAuthority En   = new("EN",   region: "eu");          // EN 10365/338/14080/1279/10080/898-1/ISO 261
+    public static readonly ComponentAuthority En   = new("EN",   region: "eu",  jackingProofFactor: Some(0.90));   // EN 10365/338/14080/1279/10080/898-1/ISO 261, EN 10138-3 strand (EC2 jacking)
     public static readonly ComponentAuthority Bs   = new("BS",   region: "uk");          // BS EN 771 masonry, BS 8666 rebar schedule
     public static readonly ComponentAuthority Din  = new("DIN",  region: "din");         // DIN 105 masonry
     public static readonly ComponentAuthority As   = new("AS",   region: "au");          // AS 4773 masonry
@@ -140,6 +143,7 @@ public sealed partial class ComponentAuthority {
     public static readonly ComponentAuthority Csa  = new("CSA",  region: "ca");          // CSA G30.18 rebar
     public static readonly ComponentAuthority Sdi  = new("SDI",  region: "us");          // ANSI/SDI steel deck
     public string Region { get; }
+    public Option<double> JackingProofFactor { get; }
 }
 
 // The Materials-side IFC pair as ROW DATA (was two 10-arm switches). Strings stay neutral here; the Bim generated
@@ -153,14 +157,19 @@ public readonly record struct IfcBinding(string Entity, string Predefined) {
 // The ONE family axis as a POLICY ROW: class, detail lane, the admission predicate (was the family/section mismatch
 // guard), the cross-nominal selector (was the 10-arm switch), and the seed-row fold. The catalogue folds Items, so a
 // NEW FAMILY is this row plus one seed page — no central edit anywhere. Seed owners are named <Family>Seed.
+// Steel admits every FABRICATED open-thin-walled arm beside the catalogued and hollow ones — a welded plate girder is
+// AsymmetricIShape, a cranked mono-I an IShape, a fabricated channel/tee/angle its own arm, a cold-formed purlin Zed,
+// and a rolled-corner bar RoundedRectangle — so the Forms.OpenI/MonoI/OpenChannel/MonoTee/OpenAngle/PointSymmetricZ/
+// SolidRounded algebra the solver already prices is reachable from an admitted Component; Timber admits
+// RoundedRectangle for the eased-arris glulam. An arm no family admits is capability the catalogue cannot seed.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ComponentFamily {
     public static readonly ComponentFamily Masonry       = new("masonry",       ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.Rectangle or SectionProfile.CellularRectangle,                                    crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: MasonrySeed.Rows);
     public static readonly ComponentFamily Cmu           = new("cmu",           ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.CellularRectangle,                                                                crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: CmuSeed.Rows);
-    public static readonly ComponentFamily Steel         = new("steel",         ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Catalogued or SectionProfile.RectangleHollow or SectionProfile.CircleHollow or SectionProfile.ColdFormedC or SectionProfile.BuiltUp, crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: SteelSeed.Rows);
-    public static readonly ComponentFamily Timber        = new("timber",        ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Rectangle || p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Longitudinal || ply.Role == PlyRole.Transverse), crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: TimberSeed.Rows);
+    public static readonly ComponentFamily Steel         = new("steel",         ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Catalogued or SectionProfile.RectangleHollow or SectionProfile.CircleHollow or SectionProfile.ColdFormedC or SectionProfile.BuiltUp or SectionProfile.IShape or SectionProfile.AsymmetricIShape or SectionProfile.Channel or SectionProfile.Tee or SectionProfile.Angle or SectionProfile.Zed or SectionProfile.RoundedRectangle, crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: SteelSeed.Rows);
+    public static readonly ComponentFamily Timber        = new("timber",        ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Rectangle or SectionProfile.RoundedRectangle || p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Longitudinal || ply.Role == PlyRole.Transverse), crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: TimberSeed.Rows);
     public static readonly ComponentFamily Glazing       = new("glazing",       ComponentClass.Minor,   DetailLane.Product,     admits: static p => p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Pane || ply.Role == PlyRole.Interlayer || ply.Role == PlyRole.Cavity),               crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: GlazingSeed.Rows);
     public static readonly ComponentFamily Reinforcement = new("reinforcement", ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.Circle,                                                                            crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: ReinforcementSeed.Rows);
     public static readonly ComponentFamily Fastener      = new("fastener",      ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.Circle,                                                                            crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: FastenerSeed.Rows);
@@ -178,8 +187,8 @@ public sealed partial class ComponentFamily {
 // --- [ERRORS] ------------------------------------------------------------------------------
 // The component fault band: Expected-derived so a typed case lifts BARE onto Fin<T>/Validation<Error,T>; Code is the
 // FaultBand.Component registry read (band disjointness type-enforced at FaultBand initialization, never prose). Nine
-// disjoint slots by Category: Dimension a non-positive/non-finite length or degenerate geometry, Coring a void fraction
-// outside [0,1), Family a family/profile/registration mismatch, Bond a masonry COURSE-PATTERN fault, Mortar a masonry
+// disjoint slots by Category: Dimension a non-positive/non-finite length or degenerate geometry, Coring a DERIVED void
+// fraction outside [0,1) at its bucket owner, Family a family/profile/registration mismatch, Bond a masonry COURSE-PATTERN fault, Mortar a masonry
 // MORTAR-SPEC fault, Section a section-INTEGRAL failure, Capacity a capacity-SOLVE failure, Designation a malformed
 // ComponentId, Grade a registered-grade-band miss. No [GenerateUnionOps] (the kernel union-ops generator is strictly
 // opt-in; every case carries an explicit Op, wanting no generated SelfOp); [Union] generates Switch/Map, never
@@ -236,9 +245,10 @@ public readonly record struct ComponentStandard(string Region, double StandardJo
 
 // The ONE standardized-type owner — profile + IFC stamp + seed-built detail replace the section union; every former
 // switch is a field read or a family-delegate read. Of guards Component-owned invariants only: the ComponentId format,
-// the family/profile admission, the coring range, and the lane/detail consistency (a None-lane
-// family carries no bag; a Realization/Product-lane family always carries one). Dimensional admission already happened
-// in the SectionProfile Of factories — a Component never re-proves a PositiveMagnitude the kernel admitted.
+// the family/profile admission, and the lane/detail consistency (a None-lane family carries no bag; a
+// Realization/Product-lane family always carries one). Dimensional admission already happened in the SectionProfile Of
+// factories, and the void fraction is proven at its DERIVATION owner (MasonryVoids.Bucket) where the lattice geometry
+// lives — a Component never re-proves a PositiveMagnitude the kernel admitted nor a fraction no column stores.
 public sealed record Component(
     ComponentFamily Family, ComponentId Designation, SectionProfile Profile, IfcBinding Ifc,
     Coring Coring, ComponentStandard Standard, MaterialId SubstanceId, MaterialId AppearanceId,
@@ -260,7 +270,6 @@ public sealed record Component(
         from owned in guard(id.Value.StartsWith($"{family.Key}.", StringComparison.Ordinal),
             ComponentFault.Designation(key, $"<designation-family-mismatch:{family.Key}:{id.Value}>"))
         from admitted in guard(family.Admits(profile), ComponentFault.Family(key, $"<family-profile-mismatch:{family.Key}>"))
-        from voided in guard(coring.VoidFraction is >= 0.0 and < 1.0, ComponentFault.Coring(key, $"<void-fraction-out-of-range:{coring.VoidFraction:R}>"))
         from laned in guard(detail.IsSome == (family.Lane != DetailLane.None),
             ComponentFault.Family(key, $"<detail-lane-mismatch:{family.Key}:{family.Lane}>"))
         select new Component(family, id, profile, ifc, coring, standard, substanceId, appearanceId, detail);
@@ -535,6 +544,7 @@ file static class Admit {
 - Owner: `SectionSolver` — ONE solver replaces every per-family perimeter builder: one generated exhaustive `Switch` over the closed profile axis routes the ONE `new SectionProperties((IProfile)…)` Green's-theorem integral (decompile-verified: both `SectionProperties(IProfile)` and `SectionProperties(ISection)` constructors exist) through the ONE twenty-column `Admit` lift plus a `SectionSupplement` topology row; `Curves` the per-arm profile table; `Forms` the per-arm supplement table.
 - Cases: `Curves` lowers each arm onto a verified `VividOrange.IProfiles` contract or a typed `Perimeter`. The `Perimeter` path owns multi-void, corrugated, asymmetric-trapezium, triangle, and free-outline geometry; `Trapezium.TopOffsetMm` therefore changes the integrated centroid and moments instead of disappearing through the symmetric `ITrapezoid` contract.
 - Entry: `SectionSolver.Solve(profile, key)` the one dispatch; `SectionSolver.ProfileOf(profile, key)` the PROFILE-FAITHFUL RC-outline entry the `reinforcement#RC_SECTION` consumer feeds — one generated total Switch over the closed `SectionProfile` axis reusing the `Curves` table, so a circular column feeds its true `ICircle` and every arm its own typed contract (the retired `ParametricSection` width×depth bounding-rectangle entry is the deleted narrowing).
+- Boundary: `SectionSolver.Solve` is the `Projection/observability#SIGNAL_FACTS` `MaterialsFact.SectionSolve(Key, Profile, Section, Elapsed)` tap SUBJECT and the `Projection/benchmarks#BENCH_CORPUS` `BenchKernel.SectionSolve` measured kernel; the tap is a composition-root decorator over `MaterialsHooks.SectionSolve`, so this owner emits nothing, carries no `Duration`, and references no signal type — the seam is declared at both ends and instrumented at neither.
 - Boundary: `Forms` carries the RELOCATED `steel#STEEL_FAMILY` `SteelStiffness` open-thin-walled algebra (`OpenI`/`MonoI`/`OpenChannel`/`OpenCee`/`MonoTee`/`OpenAngle`/`PointSymmetricZ` fill `Iw` and the asymmetry columns; `FromCatalogue` keys the same cores by `SteelClass`); the singly-symmetric arms source elastic moduli from the carrier-free `.Utility` kernels (`SectionModuli.CalculateSectionModulusYy/Zz`, `Inertiae`, `Areas`) — the direct static path the catalogue documents — never a second carrier. `Layered`/`Nominal` are unsectioned by design and fault loudly if a mis-flagged `Sectioned` row reaches them. A supplement column that is non-positive or non-finite rails `ComponentFault.Section` at the lift, and the lazy carrier reads trap in ONE `Try` lift so a degenerate `Outline` perimeter's THROW rails the same slot (NaN and throw alike) — a degenerate section never seeds the seam and no `VividOrange` exception escapes the boundary.
 
 ```csharp signature
@@ -663,13 +673,13 @@ public static class SectionSolver {
     // interpolated inside its segment at the segment's summed density.
     static double EqualAreaAxis(Seq<(double A, double Off, double Ext, double OwnZ)> bands) {
         double half = bands.Sum(static band => band.A) / 2.0;
-        Seq<double> edges = bands.Bind(static band => Seq(band.Off - band.Ext / 2.0, band.Off + band.Ext / 2.0)).Distinct().OrderBy(static e => e).ToSeq();
+        Seq<double> edges = toSeq(bands.Bind(static band => Seq(band.Off - band.Ext / 2.0, band.Off + band.Ext / 2.0)).Distinct().OrderBy(static e => e));
         double At(double t) => bands.Sum(band => Math.Clamp(t, band.Off - band.Ext / 2.0, band.Off + band.Ext / 2.0) is var c && c > band.Off - band.Ext / 2.0
             ? (c - (band.Off - band.Ext / 2.0)) * band.A / band.Ext : 0.0);
         return toSeq(Enumerable.Range(0, edges.Count - 1))
             .Map(i => (Lo: edges[i], Hi: edges[i + 1]))
             .Filter(seg => At(seg.Hi) >= half)
-            .HeadOrNone()
+            .Head
             .Map(seg => At(seg.Hi) - At(seg.Lo) is var rate && rate > 0.0
                 ? seg.Lo + (half - At(seg.Lo)) / rate * (seg.Hi - seg.Lo)
                 : seg.Lo)
@@ -1014,6 +1024,7 @@ public readonly record struct ComputedSection(
 
 - Owner: `ComponentRow` the campaign row currency (`[ROW_CURRENCIES]`); `ComponentCatalogue` the ONE fold computing BOTH frozen maps in one pass.
 - Cases: `Sectioned` freezes the section-map membership per ROW — every steel/cmu row true, timber `!CrossPly`, panel true only for structural deck rows, everything else false — so `graph.SectionOf` `Some`/`None` results are value-identical to the prior per-family selection; membership changes only through the owning seed row.
+- Boundary: `ComponentCatalogue.Of` is the `Projection/observability#SIGNAL_FACTS` `MaterialsFact.CatalogueAdmit(Row)` VETO subject — a composition-root decorator over `MaterialsHooks.CatalogueAdmit` may transform or refuse each row pre-freeze, so this owner emits nothing and the frozen maps see only admitted rows.
 - Entry: `ComponentCatalogue.Of(context)` — the ten-way and four-way `.Concat` folds are DELETED into the `ComponentFamily.Items` fold; `Traverse` is the rail (a seed row `Component.Of` rejects, a `Sectioned` row `SectionSolver.Solve` cannot solve, or a cross-seed `ComponentId` collision, ABORTS the build TYPED — never a `Choose`/`ToOption` swallow and never the raw frozen-map duplicate-key throw); `Lookup` preserved. The composition root binds `Of`'s `Fin` ONCE and passes `catalogue.Rows`/`catalogue.Sections` into `ComponentResolution.Build`.
 
 ```csharp signature
@@ -1108,7 +1119,7 @@ public static class ComponentDetail {
 ## [09]-[COMPONENT_RESOLUTION]
 
 - Owner: `ResolvedComponent` the one-hop `(Component, Option<ComputedSection>)` receipt; `ComponentResolution` the seam-`ProfileRef` resolver and frozen cache — BYTE-IDENTICAL (`[FROZEN_INVARIANTS]`): only catalogue CONSTRUCTION went `Fin` (`ComponentCatalogue.Of`), bound once at composition; `graph.SectionOf` and every downstream signature are untouched.
-- Cases: a `ProfileRef` keys exactly one `ResolvedComponent`; a component present in BOTH maps joins `Some(section)`, one present only in the row map joins `None` — the seam-honest absence (a `PositiveMagnitude` rejects zero, so a forged all-zero `ComputedSection` is unrepresentable), total over every registered ref. The `Option` mirrors the seam `MaterialComposition.ProfileSet(Material, Profile, Option<SectionProperties>)` the projector bakes.
+- Cases: a `ProfileRef` keys exactly one `ResolvedComponent`; a component present in BOTH maps joins `Some(section)`, one present only in the row map joins `None` — the seam-honest absence (a `PositiveMagnitude` rejects zero, so a forged all-zero `ComputedSection` is unrepresentable), total over every registered ref. The `Option` mirrors the seam `MaterialComposition.ProfileSet` `Option<SectionProperties>` the projector bakes.
 - Entry: `Build(rows, sections)` the O(1)-total build-time JOIN (no fault rail, no `Op` — every row resolves; the integral ran once at catalogue build); `Resolve(reference, table, key)` the one-hop dereference the `capacity#SECTION_CAPACITY` and `Rasm.Compute` structural routes call, `Fin<T>` aborting on an unregistered ref (`ComponentFault.Family` — distinct from the `Section` integral failure that already aborted the build).
 - Boundary: the resolver owns NO section math and NO seam type — the section is DATA captured at the catalogue-build site that owns the geometry, never a `Func<Component, Op, Fin<ComputedSection>>` re-invoked at resolution (the deleted phantom). `ProfileRef` stays seam-canonical.
 
@@ -1136,10 +1147,4 @@ public static class ComponentResolution {
 
 ## [10]-[RESEARCH]
 
-- [SECTION_PROFILE_ALGEBRA]: REALIZED — `ComponentSection` and its ten bespoke payload records are DELETED with zero column loss: geometry landed as `SectionProfile` named `PositiveMagnitude` dims (gross facts base-constructor state), vocabulary stayed on the seed-page SmartEnums, realization columns ride seed rows and seed-built bags. The five lockstep switches and the cross-file `Detail` switch are field reads, family delegates, or type law. Each arm's railed `Of` factory routes `key.AcceptValidated<PositiveMagnitude>` (R8 spelling) and guards the non-magnitude slots inline — `NonNegativeMagnitude` verified ABSENT from `Rasm.Numerics`, so the fillet/edge slots carry the inline `Edge` guard (R8 resolved by verification).
-- [TYPED_CONTRACT_CURVES]: REALIZED — `Curves` lowers every arm onto a decompile-verified `VividOrange.IProfiles` contract or the package `Perimeter` contract. The `IPerimeter` path carries `CellularRectangle`, `Corrugated`, offset `Trapezium`, `FilletTriangle`, and `Outline`; its offset trapezium preserves the authored top translation in gross width, centroid, inertia, and modulus.
-- [STEEL_ALGEBRA_RELOCATION]: REALIZED — the `steel#STEEL_FAMILY` `SteelStiffness` open-thin-walled algebra lands in `Forms` (`OpenI`/`OpenChannel`/`MonoTee`/`OpenAngle` cores verbatim; `MonoI`/`OpenCee`/`PointSymmetricZ` the widened singly-symmetric/point-symmetric arms; `FromCatalogue` keys the same cores by `SteelClass` over the admitted `SectionDims`), and the singly-symmetric factors ride policy values over the carrier-free `.Utility` kernel moduli (`SectionModuli.CalculateSectionModulusYy/Zz`). The catalogued profile floor does not fill cold-formed C/Z shear-centre and warping columns, so `OpenCee` and `PointSymmetricZ` own them.
-- [CATALOGUE_ONE_PASS]: REALIZED — `ComponentCatalogue.Of` folds `ComponentFamily.Items` through `Traverse` (fail-loud: a malformed seed row, an unsolvable `Sectioned` row, or a cross-seed designation collision aborts the build typed — the frozen-map duplicate-key throw never escapes the rail); the ten-way/four-way `.Concat` folds and the per-family `ComponentCatalogue` static classes are DELETED. `ComponentResolution` byte-identical; `Sectioned` pins today's `graph.SectionOf` membership.
-- [QUANTITY_AND_DETAIL_OWNERS]: REALIZED — `QuantityRow` is the one typed-mint table (`SeamSection` locals and Properties triples deleted at their pages), and its `OfSi` preserves the seam's finite-gated `Fin<MeasureValue>`; `ComponentDetail` is the relocated public bag-constructor owner every `Realization`/`Product` seed composes at seed time, with `Measured` preserving the same rail through the `(PropertyName, PropertyValue)` row. Both live HERE because Projection and Properties compose them and this owner is their shared parent.
-- [BUILT_UP_COMPOSITION]: REALIZED — `SectionProfile.BuiltUp` carries the `IfcCompositeProfileDef` modality as a positioned member set (admitted arms + signed centroid offsets, one composition level, unsectioned members rejected at `Of`), and `SectionSolver.Composed` is its compiler-forced `Solve` arm: members solve through their own arms, the composite folds by parallel axis (ΣA, weighted centroid, Steiner inertias, extreme-fibre elastic moduli), the plastic pair folds about the equal-area axis (`PlasticFold`/`EqualAreaAxis` — exact area transfer one side, own-modulus plus uniform-band `A/Ext·d²` correction straddling), `J`/shear areas/perimeter sum on the open-composition law, and `Iw`/shear-centre/βy stay engineering-zero so the F2 `rts` read degrades to `ry`. `ProfileOf` faults the arm (`<built-up-profile-no-single-outline>` — a composition is not an RC outline), and `ComponentFamily.Steel.Admits` admits it so a fabricated girder seeds as one steel row.
-- [SEED_NAMESPACE]: every seed page declares the flat `Rasm.Materials.Component` namespace — the `Component/` folder is ONE namespace under `dotnet_style_namespace_match_folder = true:error`, the `<Family>Seed` naming keeps owners collision-free, and the policy rows bind `<Family>Seed.Rows` by bare name; the child-leaf split and its prelude aliases are the deleted form.
+(none)

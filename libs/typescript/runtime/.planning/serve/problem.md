@@ -37,7 +37,8 @@ const _rows: { readonly [K in FaultClass.Kind]: _Grade } = {
   invalid: { status: 422, title: "unprocessable input", grace: Option.none() },
   malformed: { status: 400, title: "malformed request", grace: Option.none() },
   denied: { status: 403, title: "access denied", grace: Option.none() },
-  expired: { status: 401, title: "credential expired", grace: Option.none() },
+  // the 401 row spans every credential the door will not accept: absent, unverifiable, revoked, or lapsed
+  expired: { status: 401, title: "credential not accepted", grace: Option.none() },
   exhausted: { status: 429, title: "quota exhausted", grace: Option.some(Duration.seconds(30)) },
   unavailable: { status: 503, title: "temporarily unavailable", grace: Option.some(Duration.seconds(10)) },
   breached: { status: 500, title: "internal fault", grace: Option.none() },
@@ -114,7 +115,8 @@ const _hop = (facts: { readonly retryable: boolean; readonly terminal: boolean }
 [RESPONDABLE_OWNER]:
 - Owner: `Problem` — a `Schema.Class` carrying exactly the RFC members (`type`, `title`, `status`, `detail`, `instance` as `Option`) plus the CLOSED `extensions` band and the `retry` seconds the grace ladder resolved; the class is the value, the encode anchor, the fold entry, and the self-rendering respondable under one import, and its encoded twin is the wire body verbatim.
 - Law: the symbol implementation IS the egress projection — `Problem` implements `[HttpServerRespondable.symbol]()` as its own `respond`: `Schema`-encoded body under `application/problem+json` at the problem's own `status`, the `retry-after` header stamped exactly when `retry` is inhabited, `instance` and the `requestId` extension stamped from the ambient `Current.Stamp` inside the render so every egress path carries correlation; encoding the branch's own `Problem` failing is a defect (`Effect.orDie`), never a channel member — the fault altitude cannot itself fault.
-- Law: the probe ladder is ordered by evidence specificity — (1) an existing `Problem` passes through; (2) `FaultDetail` by tag probe projects through the upstream rows; (3) `ParseError` lands on `malformed`, `RouteNotFound` on `absent`; (4) the residue classifies through `FaultClass.of`, a fault also carrying a `policy.status` row keeps that status over the class default, detail obeys exposure, the grace hint probes the fault's own `retryAfter` field before the class default, and `tag`/`reason` extensions populate then pass the redact fold in one construction — total over `unknown`, so an over-shared member is structurally impossible downstream.
+- Law: the probe ladder is ordered by evidence specificity — (1) an existing `Problem` passes through; (2) `FaultDetail` by tag probe projects through the upstream rows; (3) `ParseError` lands on `malformed`, `RouteNotFound` on `absent`; (4) the residue classifies through `FaultClass.of` alone, detail obeys exposure, the grace hint probes the fault's own `retryAfter` field before the class default, and `tag`/`reason` extensions populate then pass the redact fold in one construction — total over `unknown`, so an over-shared member is structurally impossible downstream.
+- Law: the class ALONE answers the status — a folder fault reaching this ladder carries `class` and nothing else of the taxonomy, so no per-fault status override exists to read and `[02]`'s record is the branch's one class-to-status site in fact, not only in claim; a refusal needing a code the record does not spell is a missing core class, never a serve-local column.
 - Law: `Problem.fromCause` discriminates in interrupt-first order — `Cause.isInterruptedOnly` folds to the `unavailable` row (the seam only observes an interrupt under shed or shutdown), a typed failure re-enters the ladder, a defect lands on the `defect` row — the same order every telemetry outcome fold uses.
 - Law: the net is self-rendering-first, never a mapper — `Problem.net(cause)` folds the cause once, then renders: a failure that implements the symbol resolves through `HttpServerRespondable.toResponse` (a folder fault opting in owns its own projection; `Problem` itself is the standing instance), and everything else rides the total ladder into `Problem.respond` — the two arms split on `HttpServerRespondable.isRespondable` because the ladder's render is effectful (it reads the ambient stamp) where the platform's `toResponseOrElse` demands a settled response value — so the route seam carries zero recovery arms, the served app's error channel is `never` by construction, and an unmapped fault cannot escape as a naked 500. Declared endpoint faults keep their `HttpApiEndpoint.addError` status at the spec altitude; this net is the floor under everything undeclared.
 - Boundary: attachment is `route#SEAM_ROWS`'s one composition; log/OTLP emission of the folded cause is `otel/crash#CAPTURE`'s, fed from the same seam; the class table and blame axis are `core/value/fault#CLASS_VOCABULARY`'s.
@@ -141,11 +143,6 @@ const _isFaultDetail = (fault: unknown): fault is {
   Predicate.hasProperty(fault, "terminal") &&
   Predicate.isBoolean(fault.terminal)
 
-const _statused = (fault: unknown): Option.Option<number> =>
-  Predicate.hasProperty(fault, "policy") && Predicate.hasProperty(fault.policy, "status") && Schema.is(_Status)(fault.policy.status)
-    ? Option.some(fault.policy.status)
-    : Option.none()
-
 const _graced = (fault: unknown): Option.Option<Duration.Duration> =>
   Predicate.hasProperty(fault, "retryAfter") && Option.isOption(fault.retryAfter)
     ? Option.filter(fault.retryAfter, Duration.isDuration)
@@ -163,7 +160,7 @@ const _classed = (fault: unknown): Problem => {
   return new Problem({
     type: _type(kind),
     title: grade.title,
-    status: Option.getOrElse(_statused(fault), () => grade.status),
+    status: grade.status,
     detail: _expose(kind) ? _text(fault) : grade.title,
     instance: Option.none(),
     retry: _retryAfter(grade.grace, _graced(fault)),

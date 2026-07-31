@@ -13,7 +13,7 @@ The terminal entry family under the one front-door assembly law: a verb family i
 ## [02]-[ASSEMBLY_LAW]
 
 [ASSEMBLY_LAW]:
-- Owner: `Verb.main` — the run rail the lib genuinely adds: `ValidationError.isHelpRequested` folds to a clean exit (help and version are outcomes, not faults), every other `ValidationError` propagates for the boot edge to report. The FOLD itself is app code by law — `Command.make(name).pipe(Command.withSubcommands([familyA, familyB, Ops.family(sources)]), Command.run({ name, version }))` — because the package's own combinators ARE the assembly surface and a lib member re-wrapping them is the one-hop forward this corpus deletes; an app's CLI entry is `row.main(Verb.main(built)(argv))` under `proc/exec#ROOT_SELECT`'s one-`main` law, and `Command.run` demands the platform `Environment` the runtime row's `context` satisfies — one runtime choice covers server and CLI.
+- Owner: `Verb.main` — the run rail the lib genuinely adds: `ValidationError.isHelpRequested` and a prompt's `Terminal.QuitException` both fold to a clean exit (help, version, and an operator aborting an interactive prompt are outcomes, not faults), every other `ValidationError` propagates for the boot edge to report. The FOLD itself is app code by law — `Command.make(name).pipe(Command.withSubcommands([familyA, familyB, Ops.family(sources)]), Command.run({ name, version }))` — because the package's own combinators ARE the assembly surface and a lib member re-wrapping them is the one-hop forward this corpus deletes; an app's CLI entry is `row.main(Verb.main(built)(argv))` under `proc/exec#ROOT_SELECT`'s one-`main` law, and `Command.run` demands the platform `Environment` the runtime row's `context` satisfies — one runtime choice covers server and CLI.
 - Law: the bridge rows are the boundary decode — `Options.withFallbackConfig(config)` unifies a flag with its `proc/config#SETTING_OWNER` provider value in one declaration (flag wins, config fills, so an env var and a flag are never two sources), `Options.withSchema(schema)` decodes a flag into a core-branded value at parse time, `Args.fileSchema(schema)` admits a file's content through a schema, and `Options.withFallbackPrompt(prompt)` prompts exactly when the flag is absent on an interactive terminal — the terminal boundary decodes once, a handler never re-validates its inputs, and `ConfigFile.layer(name)` mounts file-resolved flags into the same provider chain at the root.
 - Law: completion and wizard are derivation rows — `Verb.completions(root)` folds the shell literal through the `_shells` table (`getBashCompletions` | `getFishCompletions` | `getZshCompletions` over the built root) and prints the lines; `Verb.wizard(root)` surfaces `Command.wizard`, walking the parse tree interactively and printing the assembled invocation — both derive from the one assembled value, so neither can drift from the parse tree.
 - Law: subtree capability is scoped provision — `Command.provide(family, layer)` scopes a Layer to one verb family so the ops family carries its exec runtime without leaking it to app verbs; parser policy is one root `CliConfig.layer` value.
@@ -25,18 +25,24 @@ import { Args, Command, Options, Prompt, ValidationError } from "@effect/cli"
 import { FileSystem, type PlatformError, Terminal } from "@effect/platform"
 import { Doc, Optimize } from "@effect/printer"
 import { Ansi, AnsiDoc } from "@effect/printer-ansi"
-import { Array, Config, Context, Data, Effect, Option, Pretty, Record, Schema, Struct } from "effect"
+import { Array, Config, Context, Data, Effect, Layer, Option, Predicate, Pretty, Record, Schema, Struct } from "effect"
+import { FaultClass } from "@rasm/ts/core"
 import { Envelope, Fanout } from "../net/pubsub.ts"
 import { Life } from "../proc/life.ts"
 
 const _main = <E, R>(
-  built: (args: ReadonlyArray<string>) => Effect.Effect<void, E | ValidationError.ValidationError, R>,
+  built: (
+    args: ReadonlyArray<string>,
+  ) => Effect.Effect<void, E | ValidationError.ValidationError | Terminal.QuitException, R>,
 ) =>
   (args: ReadonlyArray<string>): Effect.Effect<void, E | ValidationError.ValidationError, R> =>
     built(args).pipe(
+      // help, version, and a quit at any prompt are OUTCOMES: each folds to a clean exit, and every other
+      // ValidationError propagates for the boot edge to report
       Effect.catchIf(
-        (fault): fault is ValidationError.HelpRequested =>
-          ValidationError.isValidationError(fault) && ValidationError.isHelpRequested(fault),
+        (fault): fault is ValidationError.HelpRequested | Terminal.QuitException =>
+          (ValidationError.isValidationError(fault) && ValidationError.isHelpRequested(fault)) ||
+          Predicate.isTagged(fault, "QuitException"),
         () => Effect.void,
       ),
     )
@@ -48,11 +54,21 @@ const _shells = {
 } as const
 
 const _completions = <Name extends string, R, E, A>(root: Command.Command<Name, R, E, A>) =>
-  Command.make("completions", { shell: Args.choice(Struct.keys(_shells), { name: "shell" }) }, ({ shell }) =>
-    Effect.gen(function* () {
-      const lines = yield* _shells[shell](root)
-      yield* _out(Doc.vsep(Array.map(lines, Doc.string)))
-    }))
+  Command.make(
+    "completions",
+    {
+      // `choice` admits label/value PAIRS, so the key roster maps into tuples rather than handing it bare keys
+      shell: Args.choice(
+        Array.map(Struct.keys(_shells), (shell): [string, keyof typeof _shells] => [shell, shell]),
+        { name: "shell" },
+      ),
+    },
+    ({ shell }) =>
+      Effect.gen(function* () {
+        const lines = yield* _shells[shell](root)
+        yield* _out(Doc.vsep(Array.map(lines, Doc.string)))
+      }),
+  )
 
 const _wizard = <Name extends string, R, E, A>(root: Command.Command<Name, R, E, A>) =>
   Command.make("wizard", {}, () =>
@@ -65,24 +81,42 @@ const Verb = { completions: _completions, main: _main, wizard: _wizard } as cons
 
 [OPS_FAMILY]:
 - Owner: `Ops.family(sources)` — the lib runbook family built over app-supplied capability sources so the verbs stay composition-free: `doctor` folds the health anchor and the app's check rows, `replay` re-publishes a captured fanout envelope, `inspect` emits the canonical spec artifact — one record, three verbs, every handler rendering through the role and structure rows.
-- Law: `doctor` accumulates, never aborts — the shipped floor probes are the `proc/life#PROBE_ROUTES` report per kind plus the app's `checks` rows (each a named `Effect<string, OpsCheckFault>` verdict — config resolution, engine reachability, dependency versions through `Proc.run`), folded with `Effect.partition` so every probe runs and the rendered table shows the whole verdict surface in one pass; the three independent life reports run concurrently, and the exit is non-zero when any probe failed, which makes the command a CI gate. A primitive string error would reopen an ungoverned fault rail at the public contribution boundary.
-- Law: `replay` re-drives a captured delivery — `Args.fileSchema(Schema.parseJson(Envelope))` admits the capture file through the `Envelope` schema at the argv boundary and the handler publishes straight through `Fanout.publish`, the receipt's `duplicate` flag rendered as the idempotent-noop evidence; a missing topic prompts through `Prompt.select` over the app's declared topic roster, and the mutation gates on `Prompt.confirm` through the same fallback bridge — a `--yes`/`-y` flag pre-answers both for CI, so interactive safety costs scripts nothing.
+- Law: `doctor` accumulates, never aborts — the shipped floor probes are the `proc/life#PROBE_ROUTES` report per kind plus the app's `checks` rows (each a named `Effect<string, OpsFault>` verdict — config resolution, engine reachability, dependency versions through `Proc.run`), folded with `Effect.partition` so every probe runs and the rendered table shows the whole verdict surface in one pass; the three independent life reports run concurrently, and the exit is non-zero when any probe failed, which makes the command a CI gate. The engine census reads are check rows, never new verbs — a fanout row folds `Fanout.consumers(topic)` (the durable-consumer census with its reap arm withheld from CI), and a coordination row folds `Accord.census(filter)` whose record answers `names` beside `Option<Accord.Health>`, so a name-list render folds the record rather than assuming a bare list. One reason-discriminated `OpsFault` carries both refusal routes off one core family mint — `probe` classifies `unavailable` (the dependency answered no), `gate` classifies `breached` (this process refusing its own run) — because a primitive, class-less, or literal-asserted error reopens an ungoverned rail that folds to `defect` at the public contribution boundary.
+- Law: narrowing never costs the gate its default — `--check` repeats to name probes and an EMPTY roster is the whole surface, so a script and CI pass nothing and are never prompted, while `--pick` opens `Prompt.multiSelect` over the same resolved probe names for an operator narrowing at a terminal; an abort at that prompt is a clean exit through `Verb.main`'s quit fold, not a doctor failure.
+- Law: `replay` re-drives a captured delivery — `Args.fileSchema(Envelope, { format: "json" })` reads, parses, and validates the capture file at the argv boundary in one declaration (the member parses by the declared format then validates the PARSED value, so a `parseJson` wrapper would hand a decoded object to a string decoder) and the handler publishes straight through `Fanout.publish`, the receipt's `duplicate` flag rendered as the idempotent-noop evidence; a missing topic prompts through `Prompt.select` over the app's declared topic roster, and the mutation gates on `Prompt.confirm` through the same fallback bridge — a `--yes`/`-y` flag pre-answers both for CI, so interactive safety costs scripts nothing.
 - Law: `inspect` emits derivations — the `api#EMIT` artifact to a path or stdout — so the served contract's canonical bytes are one verb away for diffing; the `--out` flag falls back to the `INSPECT_OUT` config row through the bridge, this page's own demonstration of the flag-config law.
 - Law: runbooks are code — a new runbook is one `Command` row in this family with its probe or effect, never a document; the family is `Command.provide`-scoped with its exec Layer by the app when it needs elevated capability.
 - Boundary: process execution mechanics are `proc/exec#COMMAND_SPEC`'s; fanout semantics are `net/pubsub#PORT_SHAPE`'s; what checks exist beyond the shipped floor is app data through `sources.checks`.
-- Packages: `@effect/cli` (`Command`, `Options`, `Args`, `Prompt`); `../proc/life.ts` (`Life`); `../net/pubsub.ts` (`Fanout`, `Envelope`); `effect` (`Effect`, `Option`, `Schema`); app check rows compose `proc/exec#COMMAND_SPEC`'s `Proc.run` at their own seam.
+- Packages: `@effect/cli` (`Command`, `Options`, `Args`, `Prompt`); `../proc/life.ts` (`Life`); `../net/pubsub.ts` (`Fanout`, `Envelope`); `effect` (`Effect`, `Option`, `Array`, `Schema`); `@rasm/ts/core` (`FaultClass`); app check rows compose `proc/exec#COMMAND_SPEC`'s `Proc.run` at their own seam.
 
 ```typescript
-class OpsFault extends Data.TaggedError("OpsFault")<{ readonly verb: string; readonly failed: number }> {
-  get class(): "breached" {
-    return "breached"
+// One family, two refusal routes: a probe verdict is the dependency answering no, the verb gate is this process
+// refusing its own run. The class PROJECTS off the roster — asserting a literal beside the reason is the second
+// taxonomy the branch ruling forecloses, and without any column `FaultClass.of` folds both to `defect`, which
+// reads a failed doctor row as an internal fault.
+const _ops = FaultClass.family(["probe", "gate"] as const, {
+  probe: { class: "unavailable" },
+  gate: { class: "breached" },
+})
+
+declare namespace OpsFault {
+  type Reason = (typeof _ops.reasons)[number]
+}
+
+class OpsFault extends Data.TaggedError("OpsFault")<{
+  readonly reason: OpsFault.Reason
+  readonly detail: string
+}> {
+  get class(): FaultClass.Kind {
+    return _ops.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<ops:${this.reason}> ${this.detail}`
   }
 }
 
-class OpsCheckFault extends Data.TaggedError("OpsCheckFault")<{ readonly detail: string }> {}
-
 declare namespace Ops {
-  type Check = { readonly name: string; readonly run: Effect.Effect<string, OpsCheckFault> }
+  type Check = { readonly name: string; readonly run: Effect.Effect<string, OpsFault> }
   type Sources = {
     readonly artifact: Effect.Effect<string>
     readonly checks: ReadonlyArray<Check>
@@ -111,8 +145,18 @@ const _confirmFlag = Options.boolean("yes").pipe(
   Options.withFallbackPrompt(Prompt.confirm({ message: "re-publish the captured envelope?" })),
 )
 
+const _checkFlag = Options.text("check").pipe(
+  Options.withAlias("c"),
+  Options.withDescription("probe name to run; repeat to narrow, omit for the whole surface"),
+  Options.repeated,
+)
+
+const _pickFlag = Options.boolean("pick").pipe(
+  Options.withDescription("choose the probe set interactively; a script narrows with --check instead"),
+)
+
 const _doctor = (sources: Ops.Sources) =>
-  Command.make("doctor", {}, () =>
+  Command.make("doctor", { check: _checkFlag, pick: _pickFlag }, ({ check, pick }) =>
     Effect.gen(function* () {
       const kinds = ["started", "ready", "live"] as const
       const reports = yield* Effect.forEach(kinds, (kind) => Life.report(kind), { concurrency: "unbounded" })
@@ -120,17 +164,29 @@ const _doctor = (sources: Ops.Sources) =>
         Array.map(report.rows, (row): Ops.Check => ({
           name: `${report.kind}:${row.label}`,
           run: row.grade === "fail"
-            ? Effect.fail(new OpsCheckFault({ detail: Option.getOrElse(row.detail, () => "fail") }))
+            ? Effect.fail(new OpsFault({ reason: "probe", detail: Option.getOrElse(row.detail, () => "fail") }))
             : Effect.succeed(row.grade),
         })))
-      const [failed, passed] = yield* Effect.partition([...anchor, ...sources.checks], (check) =>
-        check.run.pipe(
-          Effect.map((detail) => [check.name, detail] as const),
-          Effect.mapError((fault) => [check.name, fault.detail] as const),
+      const every = [...anchor, ...sources.checks]
+      // the narrowing never prompts on its own: absence IS the whole surface, so the CI gate passes no flag
+      const named = pick
+        ? yield* Prompt.run(Prompt.multiSelect({
+            message: "probes to run",
+            choices: Array.map(every, (probe) => ({ title: probe.name, value: probe.name })),
+            selectAll: "every probe",
+          }))
+        : check
+      const selected = Array.isEmptyReadonlyArray(named)
+        ? every
+        : Array.filter(every, (probe) => Array.contains(named, probe.name))
+      const [failed, passed] = yield* Effect.partition(selected, (probe) =>
+        probe.run.pipe(
+          Effect.map((detail) => [probe.name, detail] as const),
+          Effect.mapError((fault) => [probe.name, fault.detail] as const),
         ))
       yield* _out(_verdicts({ passed, failed }))
       return yield* Effect.when(
-        Effect.fail(new OpsFault({ verb: "doctor", failed: failed.length })),
+        Effect.fail(new OpsFault({ reason: "gate", detail: `doctor: ${failed.length} refused` })),
         () => failed.length > 0,
       )
     }))
@@ -139,7 +195,9 @@ const _replay = (sources: Ops.Sources) =>
   Command.make(
     "replay",
     {
-      capture: Args.fileSchema(Schema.parseJson(Envelope), { name: "capture" }),
+      // `fileSchema` PARSES the file by the declared format then validates the parsed value, so the schema
+      // is the envelope itself: a `parseJson` wrapper would hand a decoded object to a string decoder
+      capture: Args.fileSchema(Envelope, { name: "capture", format: "json" }),
       topic: _topicFlag(sources.topics),
       yes: _confirmFlag,
     },
@@ -263,31 +321,45 @@ const _pretty = <A, I, R>(schema: Schema.Schema<A, I, R>): ((value: A) => AnsiDo
 ## [06]-[PRINT_SEAM]
 
 [PRINT_SEAM]:
-- Owner: the one fold from document to terminal — `_MODES` is the render-policy vocabulary: each mode row CARRIES its fold (`tty` renders escape codes through `AnsiDoc.render({ style: "pretty" })`, `plain` strips annotations with `Doc.unAnnotate` then renders pretty, `wire` strips and renders `compact` for single-line machine form), so `Print.text(doc, mode)` is one keyed lookup and a new mode is one row whose missing fold fails at the vocabulary declaration, never a conditional arm; `Print.Mode` is a `Context.Reference` row (`tty` default; `plain` for `--no-color` and non-TTY pipes; `wire` for machine emission) the app root or a global flag overrides once; `Print.out(doc)` reads the ambient mode and writes through the platform `Terminal.display` — the only print site, so output is testable as data everywhere above it.
-- Law: mode is ambient, never a parameter — verbs call `Print.out(doc)` with zero knowledge of the egress form, `--no-color` is one root-level `Effect.provideService(Print.Mode, "plain")`, and CI inherits `plain` by the same provision; a per-call mode argument smuggles the knob back into every verb and is the rejected form.
+- Owner: the one fold from document to terminal — `_MODES` is the render-policy vocabulary: each mode row CARRIES its fold over the document AND the measured width (`tty` renders escape codes pretty, `plain` strips annotations with `Doc.unAnnotate` then renders pretty, `wire` strips and renders `compact` for single-line machine form and takes no width because its output is one line), so `Print.text(doc, mode, width)` is one keyed lookup and a new mode is one row whose missing fold fails at the vocabulary declaration, never a conditional arm; `Print.Mode` is a `Context.Reference` row (`tty` default; `plain` for `--no-color` and non-TTY pipes; `wire` for machine emission); `Print.out(doc)` reads the ambient mode, measures the terminal, and writes through the platform `Terminal.display` — the only print site, so output is testable as data everywhere above it.
+- Law: the seam renders at the terminal's OWN width — `terminal.columns` feeds `PageWidth.AvailablePerLine` through each mode row's `{ lineWidth, ribbonFraction: 1 }` options, so `Print.table`, `Print.prose`'s `Doc.reflow`, and `@effect/cli`'s `HelpDoc` all break against the real viewport instead of the printer's 80-column default; the page's own width-is-policy law then holds for the page itself, not only for its columns.
+- Law: mode is ambient, never a parameter — verbs call `Print.out(doc)` with zero knowledge of the egress form, `--no-color` is one root-level `Effect.provideService(Print.Mode, "plain")`, and `Print.detected` is the Layer deriving the default from `Terminal.isTTY` so a pipe or a CI runner lands `plain` without any root provision at all; a per-call mode argument smuggles the knob back into every verb and is the rejected form.
 - Law: live redraw is a directive row over the same seam — `Print.sweep(rows)` writes `Ansi.stringify(Ansi.eraseLines(rows))` through the terminal before the next `out`, so a progress loop is erase-then-render with zero cursor arithmetic in verbs, and the directive short-circuits to a plain newline outside `tty` mode so piped output stays append-only.
 - Law: deeply nested structures compose through `Print.deep` — `Optimize.optimize(doc, FusionDepth.Deep)` fuses associativity while preserving `AnsiDoc`; the ambient mode row still performs the only render, so optimization never opens a second terminal seam.
 - Boundary: `@effect/cli`'s own `HelpDoc` lowers onto this same `AnsiDoc` rail, so parse-error help and verb output share one render seam; the `Terminal` binding is the runtime row's.
-- Packages: `@effect/printer-ansi` (`AnsiDoc`, `Ansi`); `@effect/printer` (`Doc`); `@effect/platform` (`Terminal`); `effect` (`Context`, `Effect`).
+- Packages: `@effect/printer-ansi` (`AnsiDoc`, `Ansi`); `@effect/printer` (`Doc`, `Optimize`); `@effect/platform` (`Terminal`); `effect` (`Context`, `Effect`, `Layer`).
 
 ```typescript
 const _MODES = {
-  tty: (doc: AnsiDoc.AnsiDoc): string => AnsiDoc.render(doc, { style: "pretty" }),
-  plain: (doc: AnsiDoc.AnsiDoc): string => Doc.render(Doc.unAnnotate(doc), { style: "pretty" }),
+  tty: (doc: AnsiDoc.AnsiDoc, width: number): string =>
+    AnsiDoc.render(doc, { style: "pretty", options: { lineWidth: width, ribbonFraction: 1 } }),
+  plain: (doc: AnsiDoc.AnsiDoc, width: number): string =>
+    Doc.render(Doc.unAnnotate(doc), { style: "pretty", options: { lineWidth: width, ribbonFraction: 1 } }),
+  // the machine form is one line by construction, so a measured width has nothing to bound
   wire: (doc: AnsiDoc.AnsiDoc): string => Doc.render(Doc.unAnnotate(doc), { style: "compact" }),
-} as const satisfies Record<string, (doc: AnsiDoc.AnsiDoc) => string>
+} as const satisfies Record<string, (doc: AnsiDoc.AnsiDoc, width: number) => string>
 
 class _Mode extends Context.Reference<_Mode>()("runtime/serve/Print/Mode", {
   defaultValue: (): keyof typeof _MODES => "tty",
 }) {}
 
-const _text = (doc: AnsiDoc.AnsiDoc, mode: keyof typeof _MODES): string => _MODES[mode](doc)
+// the mode DERIVES from the attached terminal, so a pipe or a CI runner inherits `plain` with no root provision
+const _detected: Layer.Layer<_Mode, never, Terminal.Terminal> = Layer.effect(
+  _Mode,
+  Effect.map(
+    Effect.flatMap(Terminal.Terminal, (terminal) => terminal.isTTY),
+    (tty): keyof typeof _MODES => tty ? "tty" : "plain",
+  ),
+)
+
+const _text = (doc: AnsiDoc.AnsiDoc, mode: keyof typeof _MODES, width: number): string => _MODES[mode](doc, width)
 
 const _out = (doc: AnsiDoc.AnsiDoc): Effect.Effect<void, PlatformError.PlatformError, Terminal.Terminal> =>
   Effect.gen(function* () {
     const mode = yield* _Mode
     const terminal = yield* Terminal.Terminal
-    yield* terminal.display(`${_text(doc, mode)}\n`)
+    const width = yield* terminal.columns
+    yield* terminal.display(`${_text(doc, mode, width)}\n`)
   })
 
 const _sweep = (rows: number): Effect.Effect<void, PlatformError.PlatformError, Terminal.Terminal> =>
@@ -302,6 +374,7 @@ const _deep = (doc: AnsiDoc.AnsiDoc): AnsiDoc.AnsiDoc =>
 
 const Print = {
   Mode: _Mode,
+  detected: _detected,
   modes: Struct.keys(_MODES),
   roles: _roles,
   role: _role,
@@ -322,7 +395,7 @@ const Print = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Ops, OpsCheckFault, OpsFault, Print, Verb }
+export { Ops, OpsFault, Print, Verb }
 ```
 
 ## [07]-[RESEARCH]

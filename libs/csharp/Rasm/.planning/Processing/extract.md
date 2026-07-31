@@ -1,6 +1,6 @@
 # [RASM_VECTORS_EXTRACT]
 
-`ExtractionDomain` owns the extraction/projection rail: one polymorphic `Of` ingress admits any raw Rhino geometry into a typed sampling domain, `ContourPolicy` sections every domain native-first through RhinoCommon's own contour and iso adapters, and typed projection rows fold probe, contour, iso-surface, and sampled requests to any requested output type. Native routing is law — the one local marching-triangles kernel exists solely for the per-vertex scalar contouring RhinoCommon carries no surface for.
+`ExtractionDomain` owns the extraction/projection rail: one polymorphic `Of` ingress admits raw Rhino geometry or an admitted `CellLattice` into a typed sampling domain, `ContourPolicy` sections every domain native-first through RhinoCommon's contour and iso adapters — the lattice domain routes scalar levels through the `reconstruct.md` marching-squares owner — and typed projection rows fold every request shape to any output type. Native routing is law — the one local marching-triangles kernel serves only the per-vertex scalar contouring RhinoCommon carries no surface for.
 
 Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; receipt validity folds through `Domain/rails.md`'s `ValidityClaim` under the `Op` value key. Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rails, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this rail re-implements none of them.
 
@@ -115,6 +115,7 @@ public abstract partial record ExtractionDomain {
     public sealed record SupportCase : ExtractionDomain { internal SupportCase(SupportSpace value) => Value = value; public SupportSpace Value { get; } }
     public sealed record MeshCase : ExtractionDomain { internal MeshCase(MeshSpace value) => Value = value; public MeshSpace Value { get; } }
     public sealed record CloudCase : ExtractionDomain { internal CloudCase(VectorCloud value) => Value = value; public VectorCloud Value { get; } }
+    public sealed record LatticeCase : ExtractionDomain { internal LatticeCase(CellLattice value) => Value = value; public CellLattice Value { get; } }
     private ExtractionDomain() { }
     public static Fin<ExtractionDomain> Support(SupportSpace value, Op? key = null) =>
         Optional(value).ToFin(key.OrDefault().InvalidInput()).Map(valid => (ExtractionDomain)new SupportCase(value: valid));
@@ -127,6 +128,9 @@ public abstract partial record ExtractionDomain {
             .Bind(cloud => cloud.Admit(key: op))
             .Map(static valid => (ExtractionDomain)new CloudCase(value: valid));
     }
+    // Lattices are their own admission evidence — construction-gated at CellLattice.Of — so the factory only lifts.
+    public static Fin<ExtractionDomain> Lattice(CellLattice value, Op? key = null) =>
+        key.OrDefault().AcceptValue(value: (ExtractionDomain)new LatticeCase(value: value));
     public static Fin<ExtractionDomain> Of(object? value, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(value).ToFin(op.InvalidInput()).Bind(source => source switch {
@@ -134,6 +138,7 @@ public abstract partial record ExtractionDomain {
             Mesh mesh => MeshSpace.Of(native: mesh, context: context, key: op).Bind(space => Mesh(value: space, key: op)),
             VectorCloud cloud => Cloud(value: cloud, key: op),
             PointCloud cloud => VectorCloud.Cluster(points: toSeq(cloud.GetPoints()), context: context, key: op).Bind(active => Cloud(value: active, key: op)),
+            CellLattice lattice => Lattice(value: lattice, key: op),
             object candidate => SupportSpace.Of(value: candidate, key: op).Bind(space => Support(value: space, key: op)),
         });
     }
@@ -141,7 +146,8 @@ public abstract partial record ExtractionDomain {
         state: key,
         supportCase: static (op, domain) => Support(value: domain.Value, key: op),
         meshCase: static (op, domain) => Mesh(value: domain.Value, key: op),
-        cloudCase: static (op, domain) => Cloud(value: domain.Value, key: op));
+        cloudCase: static (op, domain) => Cloud(value: domain.Value, key: op),
+        latticeCase: static (op, domain) => Lattice(value: domain.Value, key: op));
 
     internal Fin<CurveBatch> Contours(ContourPolicy policy, Context context, Op key) => Switch(
         state: (Policy: policy, Context: context, Key: key),
@@ -155,7 +161,8 @@ public abstract partial record ExtractionDomain {
         meshCase: static (state, domain) => CurvesFromMesh(mesh: domain.Value.Native, policy: state.Policy, context: state.Context, key: state.Key),
         cloudCase: static (state, domain) => domain.Value is VectorCloud.ClusterCase cloud
             ? CurvesFromCloud(cloud: cloud, policy: state.Policy, context: state.Context, key: state.Key)
-            : Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: domain.Value.GetType(), outputType: typeof(Seq<Curve>))));
+            : Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: domain.Value.GetType(), outputType: typeof(Seq<Curve>))),
+        latticeCase: static (state, domain) => CurvesFromLattice(grid: domain.Value, policy: state.Policy, context: state.Context, key: state.Key));
 
     private static Fin<CurveBatch> CurvesFromBrep(Brep brep, ContourPolicy policy, Op key) =>
         key.Catch(() => policy.Switch(
@@ -196,6 +203,24 @@ public abstract partial record ExtractionDomain {
             IsoStatus.North => Fin.Succ((Direction: 0, Parameter: domain(1).T1)),
             _ => Fin.Fail<(int Direction, double Parameter)>(key.Unsupported(geometryType: typeof(Surface), outputType: typeof(ContourPolicy.SurfaceIsoCase))),
         };
+    private static Fin<CurveBatch> CurvesFromLattice(CellLattice grid, ContourPolicy policy, Context context, Op key) =>
+        key.Catch(() => policy.Switch(
+            state: (Grid: grid, Context: context, Key: key),
+            meshScalarCase: static (state, p) => LatticeIsolines(grid: state.Grid, values: p.Values, levels: p.Levels, context: state.Context, key: state.Key),
+            planeCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(CellLattice), outputType: typeof(ContourPolicy.PlaneCase))),
+            axisCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(CellLattice), outputType: typeof(ContourPolicy.AxisCase))),
+            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(CellLattice), outputType: typeof(ContourPolicy.SurfaceIsoCase)))));
+    // Here the 2D iso family closes: per level one ScalarField.Lattice admission and the reconstruct.md managed
+    // marching-squares fold, its oriented Chain loops (outer CCW, holes CW) leaving as polyline curves — the rank
+    // gate is IsoContour's own, so a rank-3 lattice answers a typed fault, never a silent flattening.
+    private static Fin<CurveBatch> LatticeIsolines(CellLattice grid, Arr<double> values, Seq<double> levels, Context context, Op key) =>
+        from field in ScalarField.Lattice(grid: grid, values: values, key: key)
+        from results in levels.TraverseM(level => IsoContour.Detailed(field: field, grid: grid, policy: new IsoContourPolicy(IsoValue: level), context: context, key: key)).As()
+        from batch in AcceptCurves(
+            curves: results.Bind(static result => result.Loops.Map(static chain => (Curve)chain.Points.ToPolylineCurve())),
+            attempted: results.Map(static result => result.Loops.Count).Sum(),
+            nativeRouted: false, tolerance: ExtractionTolerance.FromContext(context.Absolute.Value), key: key)
+        select batch;
     private static Fin<CurveBatch> CurvesFromCloud(VectorCloud.ClusterCase cloud, ContourPolicy policy, Context context, Op key) =>
         key.Catch(() => policy.Switch(
             state: (Cloud: cloud, Context: context, Key: key),
@@ -388,6 +413,9 @@ public abstract partial record SampledExtraction {
     public sealed record GlyphCase(VectorField Field, PositiveMagnitude Scale) : SampledExtraction;
     public sealed record GridCase(ScalarField Field) : SampledExtraction;
     public sealed record StreamBundleCase(VectorField Field, PositiveMagnitude InitialStep, FieldIntegrator Integrator, Termination Termination) : SampledExtraction;
+    // Directional drape — the one non-closest projection mode; Spatial/support owns the closest-point rail and this
+    // case owns "project this sample set down an axis onto the mesh band", which no closest-point read expresses.
+    public sealed record DrapeCase(Vector3d Direction) : SampledExtraction;
     private SampledExtraction() { }
     public static Fin<SampledExtraction> Glyph(VectorField field, double scale, Op? key = null) {
         Op op = key.OrDefault();
@@ -397,6 +425,12 @@ public abstract partial record SampledExtraction {
     }
     public static Fin<SampledExtraction> Grid(ScalarField field, Op? key = null) =>
         Admit.NotNull(value: field, key: key.OrDefault()).Map(static source => (SampledExtraction)new GridCase(Field: source));
+    // Unit admission runs at the spine where Context flows; the factory gates finiteness and non-degeneracy.
+    public static Fin<SampledExtraction> Drape(Vector3d direction, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(direction.IsValid && direction.Length > 0.0, op.InvalidInput()).ToFin()
+            .Map(_ => (SampledExtraction)new DrapeCase(Direction: direction));
+    }
     public static Fin<SampledExtraction> StreamBundle(VectorField field, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) {
         Op op = key.OrDefault();
         return from source in Admit.NotNull(value: field, key: op)
@@ -488,7 +522,29 @@ public abstract partial record Extraction {
                 project: static (traces, rejected, receipt, op) => AtomProjection.Rows<ExtractionReceipt, TOut>(self: receipt, key: op, owner: typeof(SampledExtraction.StreamBundleCase),
                     ProjectionRow.Of<Seq<StreamlineTrace>>(() => rejected == 0 ? traces.TraverseM(trace => FlowKernel.ProjectTrace<StreamlineTrace>(trace: trace, key: op)).As() : Fin.Fail<Seq<StreamlineTrace>>(op.InvalidResult())),
                     ProjectionRow.Of<Seq<Polyline>>(() => rejected == 0 ? traces.TraverseM(trace => FlowKernel.ProjectTrace<Polyline>(trace: trace, key: op)).As() : Fin.Fail<Seq<Polyline>>(op.InvalidResult())),
-                    ProjectionRow.Of<Seq<Curve>>(() => rejected == 0 ? traces.TraverseM(trace => FlowKernel.ProjectTrace<Curve>(trace: trace, key: op)).As() : Fin.Fail<Seq<Curve>>(op.InvalidResult()))))));
+                    ProjectionRow.Of<Seq<Curve>>(() => rejected == 0 ? traces.TraverseM(trace => FlowKernel.ProjectTrace<Curve>(trace: trace, key: op)).As() : Fin.Fail<Seq<Curve>>(op.InvalidResult())))),
+            // Drapes are BATCH-shaped by the host member and a miss is DATA, not failure — a sample beyond the
+            // mesh footprint legitimately drops, so the receipt census carries the uncovered count and the pair row
+            // carries the Ex overload's source-index correspondence instead of a zero-rejection gate.
+            drapeCase: static (s, mode) => s.Domain is ExtractionDomain.MeshCase meshDomain
+                ? from samples in s.Seeds.Evaluate(domain: s.Domain, context: s.Context, key: s.Key)
+                  from direction in Direction.Of(value: mode.Direction, context: s.Context, key: s.Key)
+                  from hits in s.Key.Catch(() => {
+                      Point3d[] projected = Rhino.Geometry.Intersect.Intersection.ProjectPointsToMeshesEx(
+                          meshes: [meshDomain.Value.Native], points: samples.Points, direction: direction.Value,
+                          tolerance: s.Context.Absolute.Value, indices: out int[] indices);
+                      return s.Key.AcceptValue(value: (Projected: projected, Indices: indices));
+                  })
+                  let covered = toSeq(hits.Indices).Distinct().Count
+                  from receipt in ExtractionReceipt.Of(
+                      route: ExtractionRoute.Native, attempted: samples.Points.Count, emitted: hits.Projected.Length,
+                      tolerance: ExtractionTolerance.FromContext(s.Context.Absolute.Value), parallelCallback: false, key: s.Key,
+                      sample: Some(samples.Receipt), itemFailures: Some(samples.Points.Count - covered))
+                  from output in AtomProjection.Rows<ExtractionReceipt, TOut>(self: receipt, key: s.Key, owner: typeof(SampledExtraction.DrapeCase),
+                      ProjectionRow.Of<Seq<Point3d>>(() => Fin.Succ(toSeq(hits.Projected))),
+                      ProjectionRow.Of<Seq<(int Source, Point3d Point)>>(() => Fin.Succ(toSeq(hits.Indices.Zip(hits.Projected, static (source, point) => (Source: source, Point: point))))))
+                  select output
+                : Fin.Fail<TOut>(s.Key.Unsupported(geometryType: s.Domain.GetType(), outputType: typeof(SampledExtraction.DrapeCase)))));
 
     // Items gate on zero rejections: any per-item failure fails the whole projection, never a truncated success.
     private static Fin<TOut> ProjectSamples<TOut, TItem>(SampleKind seeds, ExtractionDomain domain, Context context, Op key, Func<Point3d, Context, Op, Fin<TItem>> sample, Func<Seq<TItem>, int, ExtractionReceipt, Op, Fin<TOut>> project) =>

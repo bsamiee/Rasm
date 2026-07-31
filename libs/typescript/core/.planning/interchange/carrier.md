@@ -23,8 +23,8 @@ W3C propagation crosses the interchange plane as ONE typed `traceparent`/`traces
 ```typescript signature
 import { decodeBinaryHeader, encodeBinaryHeader } from "@connectrpc/connect"
 import type { DescMessage, Message, MessageShape } from "@bufbuild/protobuf"
-import type { Codec } from "./codec.ts" // type-only: the census family union, carrying no runtime edge to the codec owner
-import { Headers } from "@effect/platform"
+import type { Wire } from "./codec.ts" // type-only: the census family union, carrying no runtime edge to the codec owner
+import { Headers, HttpTraceContext } from "@effect/platform"
 import { Array, Context, Effect, Either, Option, Predicate, Record, Schema, String, pipe } from "effect"
 import { Convention } from "../observe/convention.ts"
 import { TenantContext } from "../value/identity.ts"
@@ -180,19 +180,26 @@ const _tenant = (context: Carrier.Context): Option.Option<TenantContext> =>
 - Owner: the transport table — `_KEYS`, the three W3C header names every dialect shares; `Carrier.Frame`, the mapped per-dialect frame vocabulary (`fanout`/`http`/`nats` over string header records, `connect` over platform `Headers`, `kafka` over the byte-valued record-header map, `mqtt` over the v5 `userProperties` map, `cloudevents` over the extension-attribute record); `_dialects`, the mapped read/write handler record; the generic indexed `inject`/`extract` pair; and `_BIN` with the `bin` lane — the Connect `-bin` typed-metadata rows riding `encodeBinaryHeader`/`decodeBinaryHeader`.
 - Law: one value, many frames — every row carries the same three keys, variation is exactly the frame's value codec (string on `http`/`connect`/`nats`, first-of-array on a repeated `mqtt` user property, UTF-8 bytes on `kafka`, a string-filtered `unknown` on `cloudevents`) and nothing else, so the table is data and a per-transport propagation fork has no authoring surface; the runtime clients realize each row against their live surfaces — `http` reads the normalized request-header record, `mqtt` prints into `opts.properties.userProperties` and reads the delivered packet's property block, `cloudevents` sets extension attributes the binary `Binding` emits as `ce-` headers, `kafka` lands record headers, `nats` lands `MsgHdrs` rows — and a raw header read past a row is the untyped-leak defect.
 - Law: inject writes only what the context claims — an absent parent writes no `traceparent`, empty lists write nothing, so a hop never mints an empty header; extract composes the total folds, so a partially-malformed frame yields the surviving members and the context is always constructible.
+- Law: parent recovery has a Zipkin fallback and the platform owns its parse — an absent or malformed `traceparent` falls through to the single-header then multi-header B3 decoders over a `Headers` projection of the same frame, each hit lifting through the structural span lift, so a peer emitting B3 (a service mesh, a JVM stack, a Zipkin-native hop) continues the trace instead of extracting to absence indistinguishable from a genuinely absent parent. The B3 names are READ keys alone — inject prints the W3C triple and nothing else, because the platform decoders carry no `tracestate` and no baggage and so can never own the print fold this page exists for; the fallback is an arm, never a replacement.
+- Law: the B3 keys ride the row's OWN value codec — the projection reads them through the same per-dialect `read` the W3C names take and assembles one header frame ONCE per extract, so every transport inherits the fallback, no dialect carves out of it, and a W3C-absent hop pays one projection rather than one per decoder; a per-transport B3 arm is the fork the one table forecloses.
+- Law: the read and write halves carry different key types — `read` spans every ingress name including the Zipkin roster while `write` takes `Injected`, the W3C three alone — so "inject prints the W3C triple and nothing else" is a parameter type a dialect row cannot violate rather than a discipline every row restates.
 - Law: the `-bin` lane is the TYPED metadata dialect beside the W3C rows, never a second context spelling — `_BIN` names the protobuf metadata families the invoke lanes attach (`rasm-tenant-bin` carrying `TenantContextWire`, `rasm-stamp-bin` carrying `HlcStampWire`), `bin.set` encodes a message through `encodeBinaryHeader(message, desc)` onto the `-bin`-suffixed name, and `bin.get` decodes through `decodeBinaryHeader(value, type)` with the codec's `DataLoss` throw folded to absence by the same restart posture the text folds hold; a new typed family is one `_BIN` row and its wire class, and `appendHeaders` remains the kit merge where a hand-assembled lane joins carrier headers with call headers.
 - Law: the byte crossing is one marked seam — the `kafka` row's UTF-8 pair is the module's `TextEncoder`/`TextDecoder` kernel, constructed once and never escaping, so every dialect stays runtime-neutral under node, bun, and the browser.
-- Growth: a new transport is one `Frame` field with its `_dialects` row; a new typed `-bin` family is one `_BIN` row.
+- Growth: a new transport is one `Frame` field with its `_dialects` row; a new typed `-bin` family is one `_BIN` row; a further ingress dialect is one read-key tuple with its platform decoder in the fallback chain.
 - Boundary: live clients, broker connections, and binding serialization are the runtime wave's; the Connect lanes' per-call composition is `invoke#DIAL_AXIS`'s — its `_stamped` fold reads `Carrier.current`, promotes tenancy, prints the `connect` row, and leaves typed `_BIN` attachment to its interceptors.
-- Packages: `@connectrpc/connect` (`encodeBinaryHeader`, `decodeBinaryHeader`); `@bufbuild/protobuf` (`DescMessage`, `Message`, `MessageShape`); `@effect/platform` (`Headers`); `effect` (`Array`, `Either`, `Option`, `Predicate`, `Record`).
+- Packages: `@connectrpc/connect` (`encodeBinaryHeader`, `decodeBinaryHeader`); `@bufbuild/protobuf` (`DescMessage`, `Message`, `MessageShape`); `@effect/platform` (`Headers`, `HttpTraceContext`); `effect` (`Array`, `Either`, `Option`, `Predicate`, `Record`).
 
 ```typescript signature
 const _KEYS = ["traceparent", "tracestate", "baggage"] as const
 
+// The Zipkin ingress names, READ-only: the single-header form and the multi-header form the platform decoders parse.
+const _B3 = ["b3", "x-b3-traceid", "x-b3-spanid", "x-b3-sampled", "x-b3-parentspanid"] as const
+
 const _utf8 = { read: new TextDecoder(), write: new TextEncoder() } as const // BOUNDARY ADAPTER: the kafka row's byte-to-text kernel; neither instance escapes
 
 declare namespace Carrier {
-  type Key = (typeof _KEYS)[number]
+  type Key = (typeof _KEYS)[number] | (typeof _B3)[number] // every header name a row READS
+  type Injected = (typeof _KEYS)[number] // the write half is the W3C three alone, so "inject prints nothing else" is a parameter type rather than a discipline
   type State = { readonly key: string; readonly value: string }
   type Member = { readonly key: string; readonly value: string; readonly properties: ReadonlyArray<string> }
   type Context = {
@@ -212,7 +219,7 @@ declare namespace Carrier {
   type Dialect = keyof Frame
   type Row<F> = {
     readonly read: (frame: F, key: Key) => Option.Option<string>
-    readonly write: (frame: F, key: Key, value: string) => F
+    readonly write: (frame: F, key: Injected, value: string) => F
   }
   type Bin = keyof typeof _BIN
   type Shape = {
@@ -249,9 +256,11 @@ declare namespace Carrier {
 const _BIN = {
   "rasm-stamp-bin": "HlcStampWire",
   "rasm-tenant-bin": "TenantContextWire",
-} as const satisfies Record.ReadonlyRecord<`rasm-${string}-bin`, Codec.Family>
+} as const satisfies Record.ReadonlyRecord<`rasm-${string}-bin`, Wire.Family>
 
 const _dialects: { readonly [K in Carrier.Dialect]: Carrier.Row<Carrier.Frame[K]> } = {
+  // extension attributes, which the binary binding emits under `CONSTANTS.EXTENSIONS_PREFIX` — the prefix is the
+  // package's own constant, so a spec change breaks at one named member rather than in a hand-spelled header literal
   cloudevents: {
     read: (frame, key) => Option.filter(Option.fromNullable(frame[key]), Predicate.isString),
     write: (frame, key, value) => ({ ...frame, [key]: value }),
@@ -297,10 +306,26 @@ const _inject = <K extends Carrier.Dialect>(dialect: K, context: Carrier.Context
   )
 }
 
+// The platform B3 decoders read a header frame, so the Zipkin names project off the row's own value codec into one
+// `Headers` map — the dialect stays a value codec, and the two Zipkin grammars stay the platform's own parse.
+const _zipkin = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K]): Headers.Headers =>
+  Headers.fromInput(
+    Record.fromEntries(
+      Array.filterMap(_B3, (key) => Option.map(_dialects[dialect].read(frame, key), (value) => [key, value] as const)),
+    ),
+  )
+
 const _extract = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K]): Carrier.Context => {
   const row = _dialects[dialect]
   return {
-    parent: Option.flatMap(row.read(frame, "traceparent"), _parent),
+    // one projection feeds both Zipkin grammars: the fallback is already lazy, so re-projecting per decoder would
+    // rebuild the same header map twice on every W3C-absent hop
+    parent: Option.orElse(Option.flatMap(row.read(frame, "traceparent"), _parent), () =>
+      pipe(_zipkin(dialect, frame), (zipkin) =>
+        Option.flatMap(
+          Option.orElse(HttpTraceContext.b3(zipkin), () => HttpTraceContext.xb3(zipkin)),
+          (external) => _span(external).parent, // the recovered external span lifts through the one structural span fold
+        ))),
     state: Option.match(row.read(frame, "tracestate"), { onNone: () => [], onSome: _state }),
     baggage: Option.match(row.read(frame, "baggage"), { onNone: () => [], onSome: _baggage }),
   }

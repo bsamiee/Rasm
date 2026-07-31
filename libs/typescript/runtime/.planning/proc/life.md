@@ -48,6 +48,7 @@ import {
     SubscriptionRef,
     pipe,
 } from 'effect';
+import { FaultClass } from '@rasm/ts/core';
 import { Setting } from './config.ts';
 
 const _PHASES = ['booting', 'running', 'draining', 'halted'] as const;
@@ -84,10 +85,25 @@ class _Receipt extends Schema.Class<_Receipt>('Life/Receipt')({
     landed: Schema.Literal(..._PHASES),
 }) {}
 
+// Both reasons are one refusal shape — a contribution arriving after its phase closed — so both carry `invalid`:
+// caller-blamed and terminal, since re-driving a late registration against a draining graph cannot succeed. The
+// class projects off the roster rather than standing as a field, so the branch taxonomy has one owner.
+const _life = FaultClass.family(['probe', 'register'] as const, {
+    probe: { class: 'invalid' },
+    register: { class: 'invalid' },
+});
+
 class LifeFault extends Schema.TaggedError<LifeFault>()('LifeFault', {
-    operation: Schema.Literal('register', 'probe'),
+    operation: _life.schema,
     phase: Schema.Literal(..._PHASES),
-}) {}
+}) {
+    get class(): FaultClass.Kind {
+        return _life.classOf(this.operation);
+    }
+    override get message(): string {
+        return `<${this.operation}> refused in phase ${this.phase}`;
+    }
+}
 
 declare namespace Life {
     type Phase = (typeof _PHASES)[number];

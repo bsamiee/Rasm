@@ -15,18 +15,26 @@
 - Owner: `ObjectStore` — the interior `_engines` table keyed by the profile's `minio | ceph` literal, each row carrying the chart coordinates and a `values` column that folds root credentials, persistence size, and the provisioned bucket into that chart's own value dialect; the tier realizes one `helm.v4.Chart` from the selected row and projects `endpoint` and `bucket`.
 - Law: only conforming engines have rows — the `minio` row pins the maintained continuation image over the community chart and the `ceph` row is the RGW alternative; both honor `If-None-Match: *` so the data plane's write-once identity algebra holds, and the engine that cannot CAS is refused as data in the data plane's own conformance table — no literal exists to select it, so the argument is never re-had here.
 - Law: credentials are row-selected sinks — the `minio` row binds the Doppler-generated pair as chart root credentials and lands the same pair in one namespace `Secret` (`ACCESS_KEY_ID`/`SECRET_ACCESS_KEY`); the `ceph` row provisions one typed `CephObjectStoreUser` CR whose operator mints the RGW key pair into its own `rook-ceph-object-user-<store>-<user>` secret (`AccessKey`/`SecretKey` keys) — the operator, never this tier, owns that material, so the Doppler pair has no ceph spelling; each row's `credentials` projection names its secret and key spellings, the barman `ObjectStore` CR references whichever the selected row yields, and the endpoint published to `StackOutputs` carries no credential.
-- Law: the endpoint is a row-owned convention — the in-cluster service DNS derives from release name and namespace on the engine row, centralizing the pinned chart's naming so a chart bump edits one projection; `version` pins the chart and provenance verify rides the pins when a keyring asset accompanies them.
+- Law: the endpoint is a row-owned convention — the in-cluster service DNS derives from release name and namespace on the engine row, centralizing the pinned chart's naming so a chart bump edits one projection; `version` pins the chart, and provenance is realized rather than asserted — `_provenance` is the one fold every chart row on this page spreads, so a keyring accompanying the pins makes each row verify its signature at render and a tampered chart fails before a resource exists.
+- Law: each engine row states the default-on topology it inherited — the `minio` chart defaults to a SIXTEEN-replica distributed pool whose members each claim the full persistence size, so a row supplying one storage quantity and no topology key installs a capacity commitment the profile never made; the row states `standalone` and a single replica, and a distributed pool earns a profile axis before it earns a values key. The console Service the chart renders beside the API door carries no `enabled` key at all, so this estate leaves it rendered and publishes the API door alone — an inherited default named rather than a refusal claimed against a key that does not exist.
 - Law: lifecycle rules live with the reference ledger — the tier provisions bucket and credentials only; retention classes, reference-sweep GC, and the bucket lifecycle configuration are the data plane's own S3-API rows against the provisioned bucket, so aging policy lives beside the ledger that proves an object unreferenced, never in a chart value.
-- Entry: `new ObjectStore("objects", { spec, namespace, version, auth }, opts)`; `objects.endpoint`/`objects.bucket` feed the barman archive CR and `StackOutputs.object`.
+- Entry: `new ObjectStore("objects", { spec, namespace, version, auth, keyring? }, opts)`; `objects.endpoint`/`objects.bucket` feed the barman archive CR and `StackOutputs.object`.
 - Growth: one `_engines` row per conforming engine; one `values` key per new chart fact.
 - Boundary: chart-value keys are the pinned chart's contract, drifting only with the pinned `version`; the managed object cells (S3, R2, GCS) are the cloud arms' rows in `program/provider.md`.
-- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `../crds/rook` (`ceph.v1.CephObjectStoreUser` — crd2pulumi, regenerated on chart bumps like every committed CRD module); `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `@pulumi/pulumi` (`asset.Asset`); `../crds/rook` (`ceph.v1.CephObjectStoreUser` — crd2pulumi, regenerated on chart bumps like every committed CRD module); `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript signature
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import * as rook from "../crds/rook"
 import { Tier, type StackSpec } from "../program/spec.ts"
+
+// Provenance is one fold every chart row on this page spreads, exactly as `operate/observe.md` spreads it: a
+// keyring accompanying the pins makes each row verify its signature at render, so a tampered chart fails before
+// a resource exists and the estate's content-addressed discipline reaches its chart supply too. Absent keyring
+// yields no keys at all rather than `verify: false`, because the chart argument is presence-shaped.
+const _provenance = (keyring: pulumi.asset.Asset | undefined): { readonly verify?: boolean; readonly keyring?: pulumi.asset.Asset } =>
+  keyring === undefined ? {} : { verify: true, keyring }
 
 declare namespace ObjectStore {
   type Auth = { readonly user: pulumi.Input<string>; readonly password: pulumi.Input<string> }
@@ -39,12 +47,15 @@ declare namespace ObjectStore {
     readonly namespace: pulumi.Input<string>
     readonly version: pulumi.Input<string>
     readonly auth: Auth
+    readonly keyring?: pulumi.asset.Asset
   }
   type _Rows<T extends Record<StackSpec.Profile["objectEngine"], {
     readonly chart: string
     readonly repo: string
-    readonly values: (auth: Auth, size: string, bucket: string) => Record<string, unknown>
-    readonly endpoint: (release: string, namespace: pulumi.Input<string>) => pulumi.Output<string>
+    // `values` takes the release because every row must PIN its own rendered name, and `endpoint` takes the bucket
+    // because a row whose Service its operator renders is named for the custom resource, never for the release.
+    readonly values: (release: string, auth: Auth, size: string, bucket: string) => Record<string, unknown>
+    readonly endpoint: (release: string, bucket: string, namespace: pulumi.Input<string>) => pulumi.Output<string>
     readonly credentials: (owner: ObjectStore, name: string, args: Args, bucket: string, child: pulumi.CustomResourceOptions) => Credentials
   }> = typeof _engines> = T
 }
@@ -53,14 +64,23 @@ const _engines = {
   minio: {
     chart: "minio",
     repo: "https://charts.min.io/",
-    values: (auth: ObjectStore.Auth, size: string, bucket: string): Record<string, unknown> => ({
+    values: (release: string, auth: ObjectStore.Auth, size: string, bucket: string): Record<string, unknown> => ({
+      // Without this pin the chart renders `<release>-minio`, because the collapse helper drops the chart name
+      // only when the release name already contains it — and no release named for its ROLE ever does.
+      fullnameOverride: release,
+      // The chart's own default is `distributed` at SIXTEEN replicas across one pool, each claiming the full
+      // `persistence.size` — a topology and a capacity commitment no profile coordinate selected, and one the
+      // single storage quantity this row is handed cannot express. `standalone` is what the profile states:
+      // one server, one claim. A distributed pool earns its own profile axis before it earns a values key.
+      mode: "standalone",
+      replicas: 1,
       image: { repository: "pgsty/minio" },
       rootUser: auth.user,
       rootPassword: auth.password,
       persistence: { size },
       buckets: [{ name: bucket }],
     }),
-    endpoint: (release: string, namespace: pulumi.Input<string>): pulumi.Output<string> =>
+    endpoint: (release: string, _bucket: string, namespace: pulumi.Input<string>): pulumi.Output<string> =>
       pulumi.interpolate`http://${release}.${namespace}.svc:9000`,
     credentials: (_owner: ObjectStore, name: string, args: ObjectStore.Args, _bucket: string, child: pulumi.CustomResourceOptions): ObjectStore.Credentials => ({
       // Doppler-generated credentials land in the namespace secret referenced by the archive CR.
@@ -74,12 +94,17 @@ const _engines = {
   ceph: {
     chart: "rook-ceph-cluster",
     repo: "https://charts.rook.io/release",
-    values: (_auth: ObjectStore.Auth, size: string, bucket: string): Record<string, unknown> => ({
-      cephObjectStores: [{ name: bucket, spec: { dataPool: { size: 1 } } }],
-      storage: { size },
+    // Ceph capacity is CLAIMED DEVICES, never a size string: the cluster's own storage block takes node and device
+    // selection at `cephClusterSpec.storage`, so the profile's storage coordinate has no seat on this engine and a
+    // top-level `storage: { size }` is a key the chart reads nowhere. Replication rides `dataPool.replicated.size`
+    // — a bare `size` beside `dataPool` is not a `PoolSpec` field and leaves the erasure-coded default standing.
+    values: (_release: string, _auth: ObjectStore.Auth, _size: string, bucket: string): Record<string, unknown> => ({
+      cephObjectStores: [{ name: bucket, spec: { dataPool: { replicated: { size: 1 } } } }],
     }),
-    endpoint: (release: string, namespace: pulumi.Input<string>): pulumi.Output<string> =>
-      pulumi.interpolate`http://rook-ceph-rgw-${release}.${namespace}.svc:80`,
+    // The RGW Service is the OPERATOR's decoration over the `CephObjectStore` CR name — which is the bucket, not
+    // the release — so the address reads the CR this row declared and never the chart's own release name.
+    endpoint: (_release: string, bucket: string, namespace: pulumi.Input<string>): pulumi.Output<string> =>
+      pulumi.interpolate`http://rook-ceph-rgw-${bucket}.${namespace}.svc:80`,
     credentials: (_owner: ObjectStore, name: string, args: ObjectStore.Args, bucket: string, child: pulumi.CustomResourceOptions): ObjectStore.Credentials => {
       // Operator custody mints the RGW pair; this tier owns only the user CR.
       const user = new rook.ceph.v1.CephObjectStoreUser(`${name}-user`, {
@@ -107,10 +132,11 @@ class ObjectStore extends Tier {
       repositoryOpts: { repo: engine.repo },
       version: args.version,
       namespace: args.namespace,
-      values: engine.values(args.auth, args.spec.profile.data.storage, this.bucket),
+      ..._provenance(args.keyring),
+      values: engine.values(name, args.auth, args.spec.profile.data.storage, this.bucket),
     }, this.child())
     this.credentials = engine.credentials(this, name, args, this.bucket, this.child())
-    this.endpoint = engine.endpoint(name, args.namespace)
+    this.endpoint = engine.endpoint(name, this.bucket, args.namespace)
     this.seal({ endpoint: this.endpoint, bucket: this.bucket })
   }
 }
@@ -123,7 +149,7 @@ class ObjectStore extends Tier {
 - Law: durability is hardened at the server, priced as data — the JetStream file store runs with fsync-per-write (`sync_interval: always` in the server's jetstream block, merged through the chart's config passthrough), because the engine's default periodic fsync loses acknowledged writes under coordinated power failure; the throughput cost is accepted, the stream is still never the system of record, and the data journal remains the record of truth the runtime law already seals.
 - Law: quorum is the replica row — three replicas is the default file-store quorum (R3 tolerates one node loss), a single-replica dev profile is a deliberate spec delta, and stream-level replica counts stay the runtime's `jsm.streams.add` fact — the server row provisions capacity, the topic row spends it.
 - Law: retention is the topic's, capacity is the tier's — `max_age`, dedup windows, and replay depth ride the runtime's topic policy rows; this tier states only the storage envelope and storage class, so a topic change never touches the deploy plane.
-- Entry: `new Nats("fanout", { spec, namespace, version }, opts)`; `fanout.origin` feeds `StackOutputs.fanout` and the workload env.
+- Entry: `new Nats("fanout", { spec, namespace, version, keyring? }, opts)`; `fanout.origin` feeds `StackOutputs.fanout` and the workload env.
 - Growth: a leaf-node or gateway topology axis is one values group when a multi-site estate earns it; a TLS listener row composes the `Certs` chain when the origin leaves the cluster.
 - Boundary: chart-value keys are the pinned chart's contract; publish/consume semantics, ack posture, and the dedup window are the runtime fanout owner's; the deployment posture here is the durability fact that page deliberately does not carry.
 - Packages: `@pulumi/kubernetes` (`helm.v4.Chart`); `@pulumi/pulumi` (`interpolate`); `../program/spec.ts` (`StackSpec`, `Tier`).
@@ -131,14 +157,19 @@ class ObjectStore extends Tier {
 ```typescript signature
 class Nats extends Tier {
   readonly origin: pulumi.Output<string>
-  constructor(name: string, args: { readonly spec: StackSpec; readonly namespace: pulumi.Input<string>; readonly version: pulumi.Input<string> }, opts?: pulumi.ComponentResourceOptions) {
+  constructor(name: string, args: { readonly spec: StackSpec; readonly namespace: pulumi.Input<string>; readonly version: pulumi.Input<string>; readonly keyring?: pulumi.asset.Asset }, opts?: pulumi.ComponentResourceOptions) {
     super("Nats", name, opts)
     new k8s.helm.v4.Chart(name, {
       chart: "nats",
       repositoryOpts: { repo: "https://nats-io.github.io/k8s/helm/charts/" },
       version: args.version,
       namespace: args.namespace,
+      ..._provenance(args.keyring),
       values: {
+        // Without this pin the chart renders `<release>-nats` and the websocket origin below addresses nothing:
+        // the collapse helper drops the chart name only for a release name already containing it, and this row's
+        // release is named for the SIGNAL it carries.
+        fullnameOverride: name,
         config: {
           cluster: { enabled: args.spec.profile.fanout.replicas > 1, replicas: args.spec.profile.fanout.replicas },
           jetstream: {
@@ -146,8 +177,19 @@ class Nats extends Tier {
             fileStore: { enabled: true, pvc: { size: args.spec.profile.fanout.storage } },
             merge: { sync_interval: "always" },
           },
-          websocket: { enabled: true, port: 8080, no_tls: true },
+          // `no_tls` is the chart's own render, not a values key — the websocket config file emits it whenever
+          // `tls.enabled` is false, and this block's template reads `port` and `tls` alone. A raw server directive
+          // that has no values seat rides `config.websocket.merge`, the same seam the jetstream row above uses.
+          websocket: { enabled: true, port: 8080 },
         },
+        // A listener is reachable only where BOTH halves agree: the config row opens the server port and this
+        // row publishes it. The websocket service half ships default-ON while its config half ships OFF, so a
+        // fence stating one half rides a chart default for the other and a values-side flip of either default
+        // silently closes the one door every browser and node client dials.
+        service: { ports: { websocket: { enabled: true } } },
+        // The chart stands up a `natsBox` utility Deployment by DEFAULT — a shell pod with the CLI, which no tier
+        // here declared and nothing dials; the estate's no-chart-defaults law deletes it.
+        natsBox: { enabled: false },
       },
     }, this.child())
     this.origin = pulumi.interpolate`ws://${name}.${args.namespace}.svc:8080`
@@ -160,16 +202,18 @@ class Nats extends Tier {
 
 [CNPG_CLUSTER]:
 - Owner: `Postgres` — the CNPG operator and the Barman Cloud plugin install as two `helm.v4.Chart` rows (typed values, `skipCrds` false so the CRDs ride the charts), and every CNPG object is a COMMITTED `crd2pulumi`-generated class from `../crds/cnpg` — `postgresql.v1.Cluster`/`Database`/`ScheduledBackup`/`Pooler`/`Publication`/`Subscription` and `barmancloud.v1.ObjectStore` — so the operator vocabulary is compile-checked where the estate is PG-heaviest and a raw `CustomResource<any>` catch-all has no spelling here; the generated module regenerates on operator bumps, never an npm pin.
+- Law: the operator states its own watch scope — `config.clusterWide` shapes RBAC and nothing else while `config.data.WATCH_NAMESPACE` decides what the controller reconciles, so an operator row silent on both installs into one namespace and reconciles every namespace in the cluster, tenant namespaces and virtual planes included; the arm seats every cluster this tier declares in one namespace, so the watch key states it and the grant narrows to match. The webhook Service name is fixed by the chart and no address here derives from the pinned name.
 - Law: Barman plugin rows own WAL archiving, scheduled backup, full recovery, and PITR against one typed `ObjectStore` resource.
 - Law: `Postgres.Recovery` admits empty or archive bootstrap; `RecoveryPoint` closes latest, time, LSN, XID, named, and immediate targets.
 - Archive recovery names a distinct source server; `_cluster` folds image, preload, slots, roles, backup, and recovery into every cluster.
+- Law: every instance carries its scheduling envelope — `spec.resources` reads the profile's own `data.requests`/`data.limits` pair, since a cluster CR stating neither runs BestEffort and makes the one workload holding durable state the first eviction candidate under node pressure; the quantity grammar is the spec's brand, so a malformed envelope fails at decode rather than at the operator.
 - Law: the image realizes the matrix — `imageName` must carry every `Pg.image` row (`{ extension, floor, flags }` from `@rasm/ts/data`); the image ref is a pin and the floor is a lower bound the startup capability probe alone enforces, because CNPG's extension `version` field demands an exact match and a floor fed to it refuses every image shipping a newer build; an image missing a row fails the probe, never silently degrades. `flags` price the roster at derivation: `tsl` stays self-managed, `excludesSharding` bars a sharding engine from the same image, and `preload` marks the `shared_preload_libraries` demand.
 - Law: preload derives from the matrix flag — `_preload` filters the granted rows on the `preload` flag and stamps the cluster's `shared_preload_libraries` list, so the next preload-demanding extension lands as a data-matrix flag with zero code edit here; `pgaudit` is CNPG-managed — the operator injects its preload automatically — so no hand list exists and an unloaded preload cannot pass the startup probe.
 - Law: `admit` is the one entry — the extension matrix, the pooling axis, and every realized scope's recovery source prove on the typed `DataRefused` rail before a chart is declared, each fault naming its axis; a refused spec never half-constructs a tier and construction-time refusal has no spelling left on this page.
 - Law: the pooler mode is the spec's pooling axis, not a tier literal — `spec.profile.data.pooling` drives `pgbouncer.poolMode`, `pooling` publishes the realized mode on the tier and the `data` output plane, and each target exposes the operator-maintained direct host so convergence runners hold a session the pooler mode never truncates.
 - Law: the credentials are ours, not the operator's, and they key by scope — `_custody` mints one `kubernetes.io/basic-auth` triple (`admin`, `app`, `analyst`) and one barman `ObjectStore` per realized cluster out of the caller's `auth(scope)` mint, the cluster's `superuserSecret`/`enableSuperuserAccess` rows pointing at that scope's admin and its two `managed.roles` rows at the others; a shared superuser secret or a shared WAL destination across dedicated clusters returns exactly the blast radius the dedicated tier buys, so the archive prefix carries the scope.
 - Law: dependent-CR cluster references are create-only and explicitly named — `Database`, `ScheduledBackup`, and `Pooler` `cluster.name` references are CEL-validated immutable on the operator's CRDs, the generators treat them as create-time constants, and re-pointing one is a new resource by construction; the `Cluster` CR states its `metadata.name` because a nameless metadata autonames under the provider, every literal `cluster.name` reference then dangles, and the cluster name is the `-rw` service-DNS root — referenced CRs and autonaming never mix.
-- Entry: `Postgres.admit("data", { spec, namespace, image, operatorVersion, barmanVersion, objects, auth, recovery }, opts)` inside the k8s arm; consumers read `postgres.host`, `postgres.port`, `postgres.database`, `postgres.role`, `postgres.pooling`.
+- Entry: `Postgres.admit("data", { spec, namespace, image, operatorVersion, barmanVersion, objects, auth, recovery, keyring? }, opts)` inside the k8s arm; consumers read `postgres.host`, `postgres.port`, `postgres.database`, `postgres.role`, `postgres.pooling`.
 - Growth: a new operator fact is one typed CR row; a recovery criterion is one `RecoveryPoint` case; a new refusal axis is one `DataRefused` literal with its proof in `admit`; logical replication is `[5]`'s static pair.
 - Boundary: the operator chart's values and the CR field dialect drift with the pinned versions — the pins are args; the object-store row is `[2]`'s; the fanout row is `[3]`'s; the per-scope credential mint is the composing arm's `auth` callback.
 - Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `../crds/cnpg` (typed CNPG + barmancloud classes — crd2pulumi); `@pulumi/pulumi` (`all`, `interpolate`); `@rasm/ts/data` (`Pg`); `effect` (`Array`, `Data`, `Effect`, `Record`).
@@ -221,6 +265,7 @@ declare namespace Postgres {
     readonly objects: ObjectStore
     readonly auth: (scope: string) => Auth
     readonly recovery: (scope: string) => Recovery
+    readonly keyring?: pulumi.asset.Asset
   }
   type Target = {
     readonly name: string
@@ -367,6 +412,9 @@ const _cluster = (
       instances: ctx.args.spec.profile.data.instances,
       imageName: ctx.args.image,
       storage: { size: ctx.args.spec.profile.data.storage },
+      // Without this block every instance schedules BestEffort, so the estate's only stateful pod is the first
+      // one the kubelet evicts under node pressure and its CPU is whatever the node has left after the app.
+      resources: { requests: ctx.args.spec.profile.data.requests, limits: ctx.args.spec.profile.data.limits },
       postgresql: { "shared_preload_libraries": [..._preload(ctx.granted)] },
       replicationSlots: { highAvailability: { enabled: true } },
       enableSuperuserAccess: true,
@@ -475,6 +523,14 @@ class Postgres extends Tier {
       version: args.operatorVersion,
       namespace: args.namespace,
       skipCrds: false,
+      ..._provenance(args.keyring),
+      values: {
+        // `clusterWide` shapes RBAC and NOTHING else: the controller reconciles whatever `WATCH_NAMESPACE`
+        // names, and an unset key means every namespace in the cluster — including every tenant namespace
+        // Capsule governs and every virtual plane a vcluster tenant owns. This estate's clusters all live in
+        // the arm's one namespace, so the watch scope states it and the grant narrows to match.
+        config: { clusterWide: false, data: { WATCH_NAMESPACE: args.namespace } },
+      },
     }, this.child())
     const barman = new k8s.helm.v4.Chart(`${name}-barman`, {
       chart: "plugin-barman-cloud",
@@ -482,6 +538,7 @@ class Postgres extends Tier {
       version: args.barmanVersion,
       namespace: args.namespace,
       skipCrds: false,
+      ..._provenance(args.keyring),
     }, this.child({ dependsOn: [operator] }))
     const analystRole = `${args.spec.app}_analyst`
     const custody = _custody(name, args, this.role, analystRole, this.child({ dependsOn: [barman] }))
@@ -690,4 +747,5 @@ export { DataRefused, Nats, ObjectStore, Postgres }
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+[CLUSTER_RESOURCES]-[OPEN]: does the committed `crds/cnpg` module spell `postgresql.v1.Cluster` `spec.resources` as the `core/v1` requests-and-limits quantity pair rather than a CNPG-local shape, and does the operator apply it to the instance container alone or to the whole pod; verification route: the generated `../crds/cnpg` `ClusterSpecArgs.resources` declaration regenerated from the operator's own CRD at the pinned version.
+[POOLER_SIZING]-[OPEN]: does `postgresql.v1.Pooler` carry `spec.instances` beside a `spec.template` resource envelope and a `spec.pgbouncer.parameters` map, so the pooler's replica count and connection ceilings become profile columns rather than the literal two this tier states; verification route: the generated `PoolerSpecArgs` chain at the pinned operator version.

@@ -290,9 +290,9 @@ flowchart LR
 
 - Owner: `MirrorPolicy` directional-row policy record; `ShapedAnnotation` the complex-script 3D-annotation shaping projection; `CaptionSource` · `LiveCaption` the live-caption-and-translation owner.
 - Entry: `public bool Mirrors(AssetKey iconKey, LocaleRow row)` uses the asset vocabulary; `ShapedAnnotation` carries the locale's complete `RunSpec`; `public IObservable<Fin<CaptionSegment>> Stream()` returns exhaustive VAD-segmented, globally timestamped, language- and confidence-bearing caption evidence on the locale fault rail.
-- Packages: Avalonia, System.Reactive, Whisper.net, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Packages: Avalonia, System.Reactive, Whisper.net, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a direction-sensitive glyph is one key row on `Directional`; a new caption source is one `CaptionSource` case; zero new surface.
-- Boundary: the surface root inherits the row's typed `FlowDirection`, and only `AssetKey` values in `MirrorPolicy.Directional` rejoin that flow. `ShapedAnnotation` passes the row's `RunSpec` and its `TypographyRole` to typography, so annotation feature tags stay role-owned and one reconciled feature sequence reaches shaping. `CaptionEngine.Load` traps model admission and retains both model factories; each subscription admits one `CaptionSession` on `Fin` with one recognizer and one stateful VAD processor, so concurrent subscribers share immutable model handles but never mutable recognition state. `DetectSpeechNoResetAsync` preserves cross-window VAD state, each speech span slices the loss-bearing PCM window before transcription, and `CaptionSegment` retains stream-global start and end, detected language, probability, no-speech probability, token count, and the resolved dwell duration. `Stream` lifts session-construction failure and terminal Rx failure into `LocaleFault.CaptionRejected`, so `OnError` never becomes a second fault rail. The translated source derives its target as `LocaleRow.En`; `MotionPacing.Serial` delays and concatenates every derived caption while `ObserveOn` marshals that lossless stream, so no pacing operator discards audio ingress.
+- Boundary: the surface root inherits the row's typed `FlowDirection`, and only `AssetKey` values in `MirrorPolicy.Directional` rejoin that flow. `ShapedAnnotation` passes the row's `RunSpec` and its `TypographyRole` to typography, so annotation feature tags stay role-owned and one reconciled feature sequence reaches shaping. `CaptionEngine.Load` is the transactional two-model admission — a second-load throw releases the first factory before the fault surfaces, and the load IS the capability probe so no file-presence pair races it — retaining both model factories; each subscription admits one `CaptionSession` on `Fin` with one recognizer and one stateful VAD processor, so concurrent subscribers share immutable model handles but never mutable recognition state. `DetectSpeechNoResetAsync` preserves cross-window VAD state, each speech span slices the loss-bearing PCM window before transcription, and `CaptionSegment` retains stream-global start and end as NodaTime `Duration` values beside its dwell, detected language, probability, no-speech probability, and token count. `Stream` lifts session-construction failure and terminal Rx failure into `LocaleFault.CaptionRejected`, so `OnError` never becomes a second fault rail. The translated source derives its target as `LocaleRow.En`; `MotionPacing.Serial` delays and concatenates every derived caption while `ObserveOn` marshals that lossless stream, so no pacing operator discards audio ingress.
 
 ```csharp signature
 public sealed record MirrorPolicy(Seq<AssetKey> Directional) {
@@ -326,15 +326,22 @@ public sealed class CaptionEngine(WhisperFactory factory, WhisperVadFactory vadF
 
     public WhisperVadFactory VadFactory { get; } = vadFactory;
 
+    // Admission is TRANSACTIONAL over two native loads: the second model's throw releases the first
+    // factory before the fault surfaces, so a half-loaded engine never strands a ggml context — the
+    // whisper roster names exactly that leak as its reject. The load itself is the capability probe, so
+    // a preceding file-presence pair adds only a race window and a second absence vocabulary: an
+    // unreadable, truncated, or wrong-format model passes existence and fails here either way.
     public static Fin<CaptionEngine> Load(string modelPath, string vadModelPath) =>
-        File.Exists(modelPath) && File.Exists(vadModelPath)
-            ? Try.lift(() => WhisperVadFactory.FromPath(vadModelPath) switch {
-                    var vadFactory => new CaptionEngine(
-                        WhisperFactory.FromPath(modelPath),
-                        vadFactory),
-                })
-                .Run().MapFail(error => new LocaleFault.CaptionModelAbsent(error.Message))
-            : Fin.Fail<CaptionEngine>(new LocaleFault.CaptionModelAbsent(File.Exists(modelPath) ? vadModelPath : modelPath));
+        Try.lift(() => {
+            WhisperFactory? whisper = null;
+            WhisperVadFactory? vad = null;
+            try {
+                whisper = WhisperFactory.FromPath(modelPath);
+                vad = WhisperVadFactory.FromPath(vadModelPath);
+                return new CaptionEngine(whisper, vad);
+            }
+            catch { vad?.Dispose(); whisper?.Dispose(); throw; }
+        }).Run().MapFail(static error => new LocaleFault.CaptionModelAbsent(error.Message));
 
     // Model weights arrive offline through WhisperGgmlDownloader.Default.GetGgmlModelAsync /
     // GetGgmlSileroVadModelAsync at provisioning, never at caption time.
@@ -360,10 +367,13 @@ public sealed class CaptionSession(WhisperProcessor processor, WhisperVadProcess
     public void Dispose() { Vad.Dispose(); Processor.Dispose(); }
 }
 
+// Stream-global span in the estate's one time vocabulary: the engine hands `TimeSpan` at the native edge
+// and the window carries it while it does span arithmetic, but the emitted receipt states NodaTime beside
+// its NodaTime dwell so a consumer never joins two duration types on one axis.
 public readonly record struct CaptionSegment(
     ShapedAnnotation Annotation,
-    TimeSpan Start,
-    TimeSpan End,
+    Duration Start,
+    Duration End,
     string Language,
     float Probability,
     float NoSpeechProbability,
@@ -431,8 +441,8 @@ public sealed class LiveCaption(CaptionEngine engine, CaptionSource source, Moti
         toSeq(await processor.ProcessAsync(window.Samples, cancellationToken)
             .Select(segment => new CaptionSegment(
                 ShapedAnnotation.Of(segment.Text, target),
-                window.Offset + segment.Start,
-                window.Offset + segment.End,
+                Duration.FromTimeSpan(window.Offset + segment.Start),
+                Duration.FromTimeSpan(window.Offset + segment.End),
                 segment.Language,
                 segment.Probability,
                 segment.NoSpeechProbability,
@@ -450,5 +460,4 @@ public sealed class LiveCaption(CaptionEngine engine, CaptionSource source, Moti
 
 ## [06]-[RESEARCH]
 
-- [PSEUDO_LOCALE]: qps-ploc satellite resx resolution through the ResourceManager fallback fold on ICU-backed globalization.
-- [BROAD_TARGET_MT]: machine translation past the Whisper.net translate-to-English arm is a growth row — it re-opens only when a consumer names a non-English caption target; the recognizer, VAD, model-download, segment, streaming, and translate members are VERIFIED against `.api/api-whisper-net.md` and the caption owner is settled.
+- [PSEUDO_LOCALE]-[OPEN]: does a `qps-ploc` satellite resolve through the inbox `ResourceManager` fallback under ICU-backed globalization, when ICU carries no data for the synthetic pseudo-locale tags; route: set `CultureInfo.CurrentUICulture` to `qps-ploc` on the ICU runtime and read a satellite key through `LocaleStrings.Table`.

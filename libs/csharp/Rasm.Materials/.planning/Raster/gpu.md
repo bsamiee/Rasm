@@ -9,6 +9,7 @@ Uniform blocks cross as WORDS, never floats. Every kernel's `Params` struct inte
 - [02]-[PRESS_DEVICE]: the `DevicePolicy` row, the `KernelUniform` word writer, the `KernelBuffer`/`KernelBinding` request shape, the `KernelReceipt`, the `PressDevice` headless lifecycle over `Lease<PressDevice>`, and the one `Dispatch` fold with its submission-index drain and error-scope rail.
 - [03]-[WGSL_KERNEL]: the `BindingKind` roster, the `KernelReduce` host-fold axis, the `WgslOpCode` lowering table over the appearance vocabularies, the closed `WgslKernel` table with each row's binding layout and workgroup shape, and the WGSL module bodies as fence law.
 - [04]-[GOLDEN_VECTOR]: the `GoldenVector` fixture row per kernel, each expected value exactly computable from the kernel's own definition and quadrature, with the tolerance, the prefix-comparison law, and the parity read the benchmark corpus gates on.
+- [05]-[RESEARCH]: open epistemic debt with its verification route.
 
 ## [02]-[PRESS_DEVICE]
 
@@ -504,10 +505,12 @@ public sealed unsafe class PressDevice : IDisposable {
 - Law: the WGSL body IS the law, not a summary of one — each row carries its complete module source, so the shader a device compiles and the algorithm this corpus specifies are one text with no second spelling to drift.
 - Law: every op code a shader switches on is the CPU vocabulary's own key. `NoiseBasis`, `FractalMode`, `CellularDistance`, and `CellularReturn` are `[SmartEnum<int>]`, so their keys ARE the codes and no third numbering exists; `MathOp` and `MixOp` are string-keyed, so `WgslOpCode` derives their codes from `Items` declaration order behind a `Lazy` accessor — the lowering table is this page's because graph.md owns the vocabulary and this page owns its GPU encoding.
 - Law: WGSL `i32 >> u32` is ARITHMETIC — sign-propagating, agreeing with the C# `int` shift on every hash including the negative half — so the `h >> 15u`/`h << 19u`/masked-index spellings are FROZEN and a `bitcast<u32>` round trip is a defect on sight: it converts the arithmetic shift the FNL hash depends on into a logical one and silently re-seeds every gradient. Naga refuses a shift whose LEFT operand is an untyped literal in every position — a mask transcribed from a CPU defining sequence (`63 << 2`) spells the concrete suffix (`63i << 2u`) or the resolved literal — and a runtime-indexed table declares `var` or `var<private>`, because a `let`-bound array value and a module-scope `const` array alike admit only a constant index. The CPU/GPU parity this table claims against `texture#TEXTURE_UV` grades by TOLERANCE, never texel equality: Metal's `cos`/`sin` diverge from `MathF` at the last ULP, which alone breaks bit-identity on most gradient samples while the integer lattice agrees exactly.
+- Law: the WGSL body is the LAW but never a second ALGORITHM — a kernel whose CPU twin exists transcribes that twin's own kernel members and its constants, so a divergence is a transcription defect a fixture must be able to name rather than a lane the two arms are entitled to. `prefilterSpecular` therefore spells `Microfacet.SampleVisibleNormal` and `Microfacet.AlphaOf`'s own `1e-4` floor, `Deterministic.Hammersley`'s half-texel-offset pair, and the sweep's own tangent-to-world completion — a D-proportional half-vector draw is the deleted form even where the two distributions agree in the limit, because the same Hammersley pair drives the polar and azimuth angles in OPPOSITE roles and the two tap sets separate at every finite budget, which is exactly what `[04]`'s `SplitDomePrefilter` reads. `Microfacet.VisibleNormalPdf` is the one CPU member the transcription does NOT reach and the reason is structural: its only consumer is the filtered-importance mip term, and the row binds one flat source plane rather than a pyramid, so the accelerator reads the base level alone and its firefly behaviour is the declared preview divergence a mip-bound binding is the growth leg for.
 - Entry: the table is the entry — `WgslKernel.Items` is the roster `[04]-[GOLDEN_VECTOR]` iterates and `PressDevice.Dispatch` selects on; `Layout` declares the binding kinds a request answers, `Reduce` declares the host fold the dispatch applies to the raw readback, and `Groups(width, height, layers)` derives the full three-dimensional workgroup count from the row's own workgroup shape so no caller computes a dispatch dimension and a six-face cube dispatches in one call.
 - Packages: Silk.NET.WebGPU (the `ShaderModuleWGSLDescriptor` chain each row's `Source` fills, `BufferUsage` each `BindingKind` names), `graph#MATERIAL_GRAPH` (composed — `MathOp`/`MixOp`, the rosters `mathFold` and `mixFold` lower), `texture#TEXTURE_UV` (composed — `NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn`, the rosters `noiseField` lowers), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new GPU kernel is one row carrying source, layout, workgroup shape, host reduction, and golden vector — never a second module table and never an ungated arm. `noiseField` covers the FULL field algebra at BOTH dimensions — every `NoiseBasis` in its 2D and SOLID 3D arm, every `FractalMode`, the whole `CellularDistance` × `CellularReturn` product, the domain warp, and the period wrap — so a real authored noise source, planar or solid, previews as itself; `mathFold` and `mixFold` cover the FULL pointwise `MathOp` and `MixOp` rosters — FIXTURE-PROVEN capability today, dispatched by no press arm until the `[GPU_GRAPH_LOWERING]` chain lands (`press#PRESS_PLAN` refuses a graph subject on the accelerator, so the coverage is what makes that research row worth resolving, never a claim that a graph already takes the GPU arm). A new vocabulary row lands one arm in the corresponding WGSL switch beside its CPU delegate.
-- Boundary: every field kernel runs at `@workgroup_size(8, 8, 1)` over a texel grid and every reduction at `@workgroup_size(64, 1, 1)` over a linear range, so the dispatch shape derives from the row and the caller supplies extent alone; `Groups` carries the LAYER axis because a cube map is six faces of one dispatch and a hardcoded `Z = 1` makes `equirectToCube`'s own `gid.z` face selector unreachable; every FIELD kernel indexes `gid.z` into its flat write, so a layered dispatch writes every slice (a 2D field replicates across layers, the CPU lane's own layer-invariant sampling) instead of racing all Z-slices onto slice zero. Bind group zero is the only group and the WGSL `@group(0) @binding(n)` declarations ARE the layout the auto-derived `ComputePipelineGetBindGroupLayout(0)` reads — a hand-authored `BindGroupLayout` beside them is a second statement of one fact. Storage buffers carry `f32` element arrays with four elements per RGBA texel, because a `vec4<f32>` storage element imposes a sixteen-byte stride the host un-packs anyway. `noiseField` reproduces the `texture#TEXTURE_UV` FastNoiseLite lattice at `f32` — the same `PrimeX`/`PrimeY` lattice primes, the same `0x27d4eb2d` hash multiplier, the same quintic fade and Hermite smoothstep, the same 2D simplex skew and unskew with the `99.83685446303647` bound, the same `1.4247691104677813` Perlin normalizer, the same cellular jitter radius `0.43701595` over the SAME golden-angle unit-vector table at the FNL ROUNDED-cell anchor (never a floor-plus-half lattice or a scalar-hash displacement), and the same fractal-bounding amplitude cascade — with the twenty-four-direction gradient table GENERATED from its `82.5° − 15°·k` defining sequence rather than transcribed, so the GPU and CPU lattices agree in structure and diverge only in float width; the periodic arm wraps the INTEGER lattice coordinate modulo the row's own period, so a period-wrapped sample is exact rather than approximately periodic. The SOLID 3D arm rides the SAME row: the `dimension` uniform selects the 3D lattice — `PrimeZ`, the `0.964921414852142333984375` Perlin3D normalizer, the OpenSimplex2 rotated two-cell fold at the `32.69428253173828125` bound, the 3×3×3 cellular neighbourhood at the `0.39614353` jitter radius — with the gradient quads GENERATED as `var<private>` from the 12-edge `(±1,±1,0)` family plus the published 4-entry tail (a `const` table refuses the runtime quad index) and the cellular offsets from the spherical-Fibonacci closed form, which needs no table at all; the four 3D arms fit the same `Params`/`dst` binding shape, so solid is a COLUMN, never a second kernel, the solid depth is the layer-centre coordinate (a volume dispatch is a real 3D field where the planar arm replicates across layers), and the measured parity floor against the CPU arms is `3.1e-4` worst-arm absolute — f32 rounding riding the simplex fold's corner thresholds, zero sign flips, zero non-finite lanes, `1e-3` clearing every arm — so `press#PRESS_PLAN` ADMITS a solid source and a triplanar-of-solid-noise on the accelerator while texel equality stays unasserted. `mathFold` matches the CPU `MathOp` shape for shape — the ZIP family (add/subtract/multiply/divide/modulo/min/max) folds PER LANE exactly as the shape-preserving `Zip` does, and the `AsScalar` rows carry the operand POLARITY as a uniform because the CPU projection reads a colour's AP1 luminance and a scalar port's own value, which a plane's four lanes cannot tell apart — a kernel assuming `.x` silently reduces every colour operand to its red channel. `equirectToCube` and `prefilterSpecular` share ONE `faceDir` source fragment concatenated at row construction, because the cube-face mapping is one law and WGSL has no include; the mapping itself is FROZEN — `u = 0.5 + atan2(d.y, d.x) / 2π`, `v = acos(clamp(d.z, −1, 1)) / π`, `v = 0` at `+Z`, `u` increasing counter-clockwise viewed from `+Z` — with the up axis `+Z`, no field and no knob, matching the OpenPBR local frame the whole appearance plane shares. `irradianceSh` writes PER-WORKGROUP PARTIALS — twenty-seven `f32` per workgroup at `workgroup_index * 27` — and its `KernelReduce.PartialSum` row folds them host-side in workgroup-index order: WGSL has no `f32` atomic, a workgroup-order-dependent atomic sum makes the projection non-deterministic across dispatches, and NO subgroup path exists — wgpu-native's naga predates the `subgroups` extension entirely (`enable subgroups` is a PARSE error at the directive, so no `requiredFeatures` request unlocks it, and the adapter roster carries no subgroup row) — so the 1728-element workgroup tile at 6912 of the 32768-byte budget IS the reduction law, and it replays bitwise-identical partials across independent dispatches; the reduction is a ROW column rather than a caller step, so no consumer re-derives a kernel's tail. `prefilterSpecular` importance-samples the GGX distribution with a Hammersley sequence and weights each sample by `N·L`, discarding the below-horizon half, so the prefiltered value of a constant environment is that constant at every roughness — the property `[04]` gates on.
+- Growth: a new GPU kernel is one row carrying source, layout, workgroup shape, host reduction, and golden vector — never a second module table and never an ungated arm. `noiseField` covers the FULL field algebra at BOTH dimensions — every `NoiseBasis` in its 2D and SOLID 3D arm, every `FractalMode`, the whole `CellularDistance` × `CellularReturn` product, the domain warp, and the period wrap — so a real authored noise source, planar or solid, previews as itself; `mathFold` and `mixFold` cover the FULL pointwise `MathOp` and `MixOp` rosters. A new vocabulary row lands one arm in the corresponding WGSL switch beside its CPU delegate.
+- Boundary: every field kernel runs at `@workgroup_size(8, 8, 1)` over a texel grid and every reduction at `@workgroup_size(64, 1, 1)` over a linear range, so the dispatch shape derives from the row and the caller supplies extent alone; `Groups` carries the LAYER axis because a cube map is six faces of one dispatch and a hardcoded `Z = 1` makes `equirectToCube`'s own `gid.z` face selector unreachable; every FIELD kernel indexes `gid.z` into its flat write, so a layered dispatch writes every slice (a 2D field replicates across layers, the CPU lane's own layer-invariant sampling) instead of racing all Z-slices onto slice zero. Bind group zero is the only group and the WGSL `@group(0) @binding(n)` declarations ARE the layout the auto-derived `ComputePipelineGetBindGroupLayout(0)` reads — a hand-authored `BindGroupLayout` beside them is a second statement of one fact. Storage buffers carry `f32` element arrays with four elements per RGBA texel, because a `vec4<f32>` storage element imposes a sixteen-byte stride the host un-packs anyway. `noiseField` reproduces the `texture#TEXTURE_UV` FastNoiseLite lattice at `f32` — the same `PrimeX`/`PrimeY` lattice primes, the same `0x27d4eb2d` hash multiplier, the same quintic fade and Hermite smoothstep, the same 2D simplex skew and unskew with the `99.83685446303647` bound, the same `1.4247691104677813` Perlin normalizer, the same cellular jitter radius `0.43701595` over the SAME golden-angle unit-vector table at the FNL ROUNDED-cell anchor (never a floor-plus-half lattice or a scalar-hash displacement), and the same fractal-bounding amplitude cascade — with the twenty-four-direction gradient table GENERATED from its `82.5° − 15°·k` defining sequence rather than transcribed, so the GPU and CPU lattices agree in structure and diverge only in float width; the periodic arm wraps the INTEGER lattice coordinate modulo the row's own period, so a period-wrapped sample is exact rather than approximately periodic. The SOLID 3D arm rides the SAME row: the `dimension` uniform selects the 3D lattice — `PrimeZ`, the `0.964921414852142333984375` Perlin3D normalizer, the OpenSimplex2 rotated two-cell fold at the `32.69428253173828125` bound, the 3×3×3 cellular neighbourhood at the `0.39614353` jitter radius — with the gradient quads GENERATED as `var<private>` from the 12-edge `(±1,±1,0)` family plus the published 4-entry tail (a `const` table refuses the runtime quad index) and the cellular offsets from the spherical-Fibonacci closed form, which needs no table at all; the four 3D arms fit the same `Params`/`dst` binding shape, so solid is a COLUMN, never a second kernel, the solid depth is the layer-centre coordinate (a volume dispatch is a real 3D field where the planar arm replicates across layers), and the measured parity floor against the CPU arms is `3.1e-4` worst-arm absolute — f32 rounding riding the simplex fold's corner thresholds, zero sign flips, zero non-finite lanes, `1e-3` clearing every arm — so `press#PRESS_PLAN` ADMITS a solid source and a triplanar-of-solid-noise on the accelerator while texel equality stays unasserted. `mathFold` matches the CPU `MathOp` shape for shape — the ZIP family (add/subtract/multiply/divide/modulo/min/max) folds PER LANE exactly as the shape-preserving `Zip` does, and the `AsScalar` rows carry the operand POLARITY as a uniform because the CPU projection reads a colour's AP1 luminance and a scalar port's own value, which a plane's four lanes cannot tell apart — a kernel assuming `.x` silently reduces every colour operand to its red channel. `equirectToCube` is the ONE kernel whose product is a cube, so the `faceDir` source fragment concatenates onto its row alone at construction, WGSL having no include; the mapping itself is FROZEN — `u = 0.5 + atan2(d.y, d.x) / 2π`, `v = acos(clamp(d.z, −1, 1)) / π`, `v = 0` at `+Z`, `u` increasing counter-clockwise viewed from `+Z` — with the up axis `+Z`, no field and no knob, matching the OpenPBR local frame the whole appearance plane shares. `irradianceSh` writes PER-WORKGROUP PARTIALS — twenty-seven `f32` per workgroup at `workgroup_index * 27` — and its `KernelReduce.PartialSum` row folds them host-side in workgroup-index order: WGSL has no `f32` atomic, a workgroup-order-dependent atomic sum makes the projection non-deterministic across dispatches, and NO subgroup path exists — wgpu-native's naga predates the `subgroups` extension entirely (`enable subgroups` is a PARSE error at the directive, so no `requiredFeatures` request unlocks it, and the adapter roster carries no subgroup row) — so the 1728-element workgroup tile at 6912 of the 32768-byte budget IS the reduction law, and it replays bitwise-identical partials across independent dispatches; the reduction is a ROW column rather than a caller step, so no consumer re-derives a kernel's tail. `prefilterSpecular` draws the visible-normal distribution over the half-texel-offset Hammersley pair, rotates each tangent-space draw onto the texel's world normal, weights by `N·L`, and discards the below-horizon half, so the prefiltered value of a constant environment is that constant at every roughness — the property `[04]`'s first fixture gates on and the property NO sampler fails, which is why the second fixture reads a drawn direction instead. Its product lands EQUIRECT through the frozen correspondence inverted in four lines, because `environment#IBL_PREFILTER` declares one storage arrangement for every level and an accelerator that changes the product's layout is a second product rather than a faster one; the row therefore takes the plane extent where the cube kernel takes an edge, and the `gid.z` axis stays the layer index the flat write already carries.
+- Boundary: a PROVEN kernel and a REACHABLE one are two facts, so the table states both. `noiseField`, `checkerField`, and `gradientField` carry a dispatching consumer — `press#PRESS_PLAN` lowers a `Source` subject onto them and gates that lowerability at plan admission. `prefilterSpecular`, `irradianceSh`, and `equirectToCube` carry one at `environment#IBL_PREFILTER`, which reads the `IblPolicy.Backend` row and the `Option<PressDevice>` the accelerator arm takes. `mathFold` and `mixFold` are FIXTURE-PROVEN and dispatch-free until the `[GPU_GRAPH_LOWERING]` chain lands, because `press#PRESS_PLAN` refuses a `Graph` subject on the accelerator — the coverage is what makes that research row worth resolving, never a claim that a graph already takes the GPU arm. Fixtures prove a kernel computes its own law and nothing more; only a named consumer proves anything runs it, and a reader conflating the two mistakes a proven kernel for a reachable one.
 
 ```csharp signature
 // (Continues the Rasm.Materials.Raster compilation unit — the [02] prelude is in scope.)
@@ -607,7 +610,7 @@ public sealed partial class WgslKernel {
     public static readonly WgslKernel MixFold           = new("mixFold",           source: Wgsl.MixFold,                         layout: Binary,  x: 8u,  y: 8u, reduce: KernelReduce.None,       golden: Seq(Raster.Golden.MixMultiply));
     public static readonly WgslKernel EquirectToCube    = new("equirectToCube",    source: Wgsl.FaceDir + Wgsl.EquirectToCube,   layout: Sampled, x: 8u,  y: 8u, reduce: KernelReduce.None,       golden: Seq(Raster.Golden.CubeFaceCentre));
     public static readonly WgslKernel IrradianceSh      = new("irradianceSh",      source: Wgsl.IrradianceSh,                    layout: Sampled, x: 64u, y: 1u, reduce: KernelReduce.PartialSum, golden: Seq(Raster.Golden.ConstantIrradiance));
-    public static readonly WgslKernel PrefilterSpecular = new("prefilterSpecular", source: Wgsl.FaceDir + Wgsl.PrefilterSpecular, layout: Sampled, x: 8u, y: 8u, reduce: KernelReduce.None,       golden: Seq(Raster.Golden.ConstantPrefilter));
+    public static readonly WgslKernel PrefilterSpecular = new("prefilterSpecular", source: Wgsl.PrefilterSpecular, layout: Sampled, x: 8u,  y: 8u, reduce: KernelReduce.None,       golden: Seq(Raster.Golden.ConstantPrefilter, Raster.Golden.SplitDomePrefilter));
 
     public string Source { get; }
     public Seq<BindingKind> Layout { get; }
@@ -645,7 +648,7 @@ public sealed partial class WgslKernel {
 // The WGSL bodies. Each module declares its own bind group zero, so the auto-derived layout reads exactly
 // these declarations and no host-side layout restates them.
 internal static class Wgsl {
-    // The cube-face mapping, shared by the two kernels that project onto a cube. WGSL has no include, so the
+    // The cube-face mapping, held by the ONE kernel whose product is a cube. WGSL has no include, so the
     // fragment concatenates at row construction — one law, one text, never two that drift.
     internal const string FaceDir = """
         fn faceDir(face: u32, s: f32, t: f32) -> vec3<f32> {
@@ -736,7 +739,7 @@ internal static class Wgsl {
                        mix(valCoord(seed, x0, y1), valCoord(seed, x1, y1), xs), ys);
         }
 
-        fn simplex(x: f32, y: f32, seed: i32, period: i32) -> f32 {
+        fn simplex(x: f32, y: f32, seed: i32) -> f32 {
             let s = (x + y) * SKEW;
             var i = i32(floor(x + s)); var j = i32(floor(y + s));
             let t = f32(i + j) * UNSKEW;
@@ -747,11 +750,11 @@ internal static class Wgsl {
             let x2 = x0 - 1.0 + 2.0 * UNSKEW; let y2 = y0 - 1.0 + 2.0 * UNSKEW;
             var total = 0.0;
             var t0 = 0.5 - x0 * x0 - y0 * y0;
-            if (t0 > 0.0) { t0 = t0 * t0; total = total + t0 * t0 * grad(seed, wrap(i, period) * PX, wrap(j, period) * PY, x0, y0); }
+            if (t0 > 0.0) { t0 = t0 * t0; total = total + t0 * t0 * grad(seed, i * PX, j * PY, x0, y0); }
             var t1 = 0.5 - x1 * x1 - y1 * y1;
-            if (t1 > 0.0) { t1 = t1 * t1; total = total + t1 * t1 * grad(seed, wrap(i + i1, period) * PX, wrap(j + j1, period) * PY, x1, y1); }
+            if (t1 > 0.0) { t1 = t1 * t1; total = total + t1 * t1 * grad(seed, (i + i1) * PX, (j + j1) * PY, x1, y1); }
             var t2 = 0.5 - x2 * x2 - y2 * y2;
-            if (t2 > 0.0) { t2 = t2 * t2; total = total + t2 * t2 * grad(seed, wrap(i + 1, period) * PX, wrap(j + 1, period) * PY, x2, y2); }
+            if (t2 > 0.0) { t2 = t2 * t2; total = total + t2 * t2 * grad(seed, (i + 1) * PX, (j + 1) * PY, x2, y2); }
             return total * 99.83685446303647;
         }
 
@@ -929,7 +932,7 @@ internal static class Wgsl {
 
         fn basisAt(x: f32, y: f32, seed: i32, period: i32) -> f32 {
             switch (p.basis) {
-                case 1u: { return simplex(x, y, seed, period); }
+                case 1u: { return simplex(x, y, seed); }
                 case 2u: { return valueBasis(x, y, seed, period); }
                 case 3u: { return worley(x, y, seed, period); }
                 default: { return perlin(x, y, seed, period); }
@@ -969,8 +972,8 @@ internal static class Wgsl {
                     let wz = simplex3(sx * p.warpFreq, sy * p.warpFreq + 1000.0, sz * p.warpFreq, p.warpSeed);
                     sx = sx + wx * p.warpAmp; sy = sy + wy * p.warpAmp; sz = sz + wz * p.warpAmp;
                 } else {
-                    let wx = simplex(sx * p.warpFreq, sy * p.warpFreq, p.warpSeed, 0);
-                    let wy = simplex(sx * p.warpFreq + 137.0, sy * p.warpFreq - 41.0, p.warpSeed, 0);
+                    let wx = simplex(sx * p.warpFreq, sy * p.warpFreq, p.warpSeed);
+                    let wy = simplex(sx * p.warpFreq + 137.0, sy * p.warpFreq - 41.0, p.warpSeed);
                     sx = sx + wx * p.warpAmp; sy = sy + wy * p.warpAmp;
                 }
             }
@@ -1251,16 +1254,28 @@ internal static class Wgsl {
         }
         """;
 
-    // GGX importance sampling over a Hammersley sequence, weighted by N.L with the below-horizon half
-    // discarded and the weight sum normalizing — so a constant environment prefilters to that constant at
-    // every roughness, which is exactly the golden vector.
+    // This module TRANSCRIBES the CPU specular level, member for member: the Heitz VNDF draw is
+    // Microfacet.SampleVisibleNormal, the tangent-to-world completion is the sweep's own Oriented, the
+    // low-discrepancy pair is Deterministic.Hammersley's half-texel-offset form, the alpha floor is
+    // Microfacet.AlphaOf's own 1e-4, and every level lands EQUIRECT because the product's arrangement is the
+    // CPU fold's declared law. Each tap weights by N.L with the below-horizon half discarded and the weight
+    // sum normalizing, exactly as environment#IBL_PREFILTER's SpecularSweep does.
     internal const string PrefilterSpecular = """
-        struct Params { edge: u32, face: u32, srcWidth: u32, srcHeight: u32, roughness: f32, samples: u32, pad0: u32, pad1: u32 };
+        struct Params { extent: vec2<u32>, srcWidth: u32, srcHeight: u32, roughness: f32, samples: u32, pad0: u32, pad1: u32 };
         @group(0) @binding(0) var<uniform> p : Params;
         @group(0) @binding(1) var<storage, read> equirect : array<f32>;
         @group(0) @binding(2) var<storage, read_write> dst : array<f32>;
         const PI : f32 = 3.141592653589793;
         const TAU : f32 = 6.283185307179586;
+        // equirectDir INVERTS the frozen correspondence — phi = (u - 0.5)*2pi, theta = v*pi — four lines off the
+        // forward law this page already transcribes, so the level this kernel writes and the level the
+        // CPU fold writes address one arrangement and no re-projection stands between them.
+        fn equirectDir(u: f32, v: f32) -> vec3<f32> {
+            let phi = (u - 0.5) * TAU;
+            let theta = v * PI;
+            let st = sin(theta);
+            return vec3<f32>(st * cos(phi), st * sin(phi), cos(theta));
+        }
         fn radical(bits: u32) -> f32 {
             var b = bits;
             b = (b << 16u) | (b >> 16u);
@@ -1270,15 +1285,33 @@ internal static class Wgsl {
             b = ((b & 0x00FF00FFu) << 8u) | ((b & 0xFF00FF00u) >> 8u);
             return f32(b) * 2.3283064365386963e-10;
         }
-        fn ggx(u: vec2<f32>, n: vec3<f32>, a: f32) -> vec3<f32> {
-            let phi = TAU * u.x;
-            let ct = sqrt((1.0 - u.y) / (1.0 + (a * a - 1.0) * u.y));
-            let st = sqrt(1.0 - ct * ct);
-            let h = vec3<f32>(st * cos(phi), st * sin(phi), ct);
+        // Microfacet.SampleVisibleNormal at f32, in TANGENT space: the visible-normal draw the conductor,
+        // dielectric, and clearcoat lobes share, so the prefiltered dome and the shaded surface integrate one
+        // distribution. wo is the local normal at this call site — the split-sum's own N = V = R assumption —
+        // and the body still carries the general wo so the transcription is the twin rather than its special
+        // case. A D-proportional half-vector draw here is a SECOND algorithm even where the two agree in the
+        // limit, because the same Hammersley pair drives the polar and azimuth angles in OPPOSITE roles.
+        fn sampleVisibleNormal(wo: vec3<f32>, ax: f32, ay: f32, u0: f32, u1: f32) -> vec3<f32> {
+            let vh = normalize(vec3<f32>(ax * wo.x, ay * wo.y, wo.z));
+            let lensq = vh.x * vh.x + vh.y * vh.y;
+            let t1 = select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(-vh.y, vh.x, 0.0) * inverseSqrt(max(lensq, 1e-20)), lensq > 0.0);
+            let t2 = cross(vh, t1);
+            let r = sqrt(u0);
+            let phi = TAU * u1;
+            let p1 = r * cos(phi);
+            let s = 0.5 * (1.0 + vh.z);
+            let p2 = (1.0 - s) * sqrt(max(0.0, 1.0 - p1 * p1)) + s * (r * sin(phi));
+            let pz = sqrt(max(0.0, 1.0 - p1 * p1 - p2 * p2));
+            let nh = t1 * p1 + t2 * p2 + vh * pz;
+            return normalize(vec3<f32>(ax * nh.x, ay * nh.y, max(1e-6, nh.z)));
+        }
+        // oriented IS the one tangent-to-world crossing, twin of the CPU sweep's own Oriented completion: an
+        // orthonormal frame per texel rotates the tangent-space draw onto the texel's world normal.
+        fn oriented(n: vec3<f32>, local: vec3<f32>) -> vec3<f32> {
             let up = select(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(1.0, 0.0, 0.0), abs(n.z) > 0.999);
             let tx = normalize(cross(up, n));
             let ty = cross(n, tx);
-            return normalize(tx * h.x + ty * h.y + n * h.z);
+            return normalize(tx * local.x + ty * local.y + n * local.z);
         }
         fn sample(d: vec3<f32>) -> vec3<f32> {
             let u = 0.5 + atan2(d.y, d.x) / TAU;
@@ -1290,21 +1323,18 @@ internal static class Wgsl {
         }
         @compute @workgroup_size(8, 8, 1)
         fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
-            if (gid.x >= p.edge || gid.y >= p.edge) { return; }
-            let s = 2.0 * (f32(gid.x) + 0.5) / f32(p.edge) - 1.0;
-            let t = 2.0 * (f32(gid.y) + 0.5) / f32(p.edge) - 1.0;
-            let n = faceDir(p.face + gid.z, s, t);
-            let a = max(1e-3, p.roughness * p.roughness);
+            if (gid.x >= p.extent.x || gid.y >= p.extent.y) { return; }
+            let n = equirectDir((f32(gid.x) + 0.5) / f32(p.extent.x), (f32(gid.y) + 0.5) / f32(p.extent.y));
+            let a = max(1e-4, p.roughness * p.roughness);
             var acc = vec3<f32>(0.0); var weight = 0.0;
             for (var i = 0u; i < p.samples; i = i + 1u) {
-                let u = vec2<f32>(f32(i) / f32(p.samples), radical(i));
-                let h = ggx(u, n, a);
+                let h = oriented(n, sampleVisibleNormal(vec3<f32>(0.0, 0.0, 1.0), a, a, (f32(i) + 0.5) / f32(p.samples), radical(i)));
                 let l = normalize(2.0 * dot(n, h) * h - n);
                 let ndl = dot(n, l);
                 if (ndl > 0.0) { acc = acc + sample(l) * ndl; weight = weight + ndl; }
             }
             let r = select(vec3<f32>(0.0), acc / weight, weight > 0.0);
-            let di = ((gid.z * p.edge + gid.y) * p.edge + gid.x) * 4u;
+            let di = ((gid.z * p.extent.y + gid.y) * p.extent.x + gid.x) * 4u;
             dst[di] = r.x; dst[di + 1u] = r.y; dst[di + 2u] = r.z; dst[di + 3u] = 1.0;
         }
         """;
@@ -1314,12 +1344,12 @@ internal static class Wgsl {
 ## [04]-[GOLDEN_VECTOR]
 
 - Owner: `GoldenVector` the per-kernel fixture row; `Golden` the fixture table.
-- Law: every expected value is EXACTLY COMPUTABLE from the algorithm's own definition — INCLUDING its own quadrature where the kernel integrates. A Perlin lattice node is exactly zero because both corner displacement vectors vanish there; a checker parity is an integer; a two-texel LUT midpoint is exactly the mean; the constant-radiance SH projection is the closed-form midpoint sum — `sh_0 = K · (2π²/h) · csc(π/2h)`, whose limit is the analytic `2√π` and whose gap IS the midpoint-rule error the resolution fixes, and `sh_6 = K₆ · 2π · (π/h) · ((3/4)csc(3π/2h) − (1/4)csc(π/2h))`, the ONE band whose quadrature residue does not cancel, derived from `(3cos²θ−1)sinθ = (3/4)sin3θ − (1/4)sinθ` — while every azimuth-dependent band cancels exactly on the uniform φ grid; a constant environment prefilters to itself at every roughness because the weight sum normalizes. A transcribed decimal nobody can re-derive is the deleted form, an ANALYTIC value asserted against a DISCRETE kernel at a tolerance the quadrature cannot reach is the same defect wearing a derivation, and a ZERO asserted where the quadrature legitimately leaves a residue is its twin — each fails a CORRECT kernel and passes only after someone loosens it.
+- Law: every expected value is EXACTLY COMPUTABLE from the algorithm's own definition — INCLUDING its own quadrature where the kernel integrates. A Perlin lattice node is exactly zero because both corner displacement vectors vanish there; a checker parity is an integer; a two-texel LUT midpoint is exactly the mean; the constant-radiance SH projection is the closed-form midpoint sum — `sh_0 = K · (2π²/h) · csc(π/2h)`, whose limit is the analytic `2√π` and whose gap IS the midpoint-rule error the resolution fixes, and `sh_6 = K₆ · 2π · (π/h) · ((3/4)csc(3π/2h) − (1/4)csc(π/2h))`, the ONE band whose quadrature residue does not cancel, derived from `(3cos²θ−1)sinθ = (3/4)sin3θ − (1/4)sinθ` — while every azimuth-dependent band cancels exactly on the uniform φ grid; a constant environment prefilters to itself at every roughness because the weight sum normalizes; a one-tap visible-normal draw lands the (8, 15, 17) triple in exact binary, so the prefiltered value IS the source texel that one direction addresses. A property EVERY candidate algorithm satisfies proves the WEIGHT and nothing else, so a kernel whose algorithm is settled carries a second fixture keyed on the draw itself — the invariant fixture and the draw fixture are a deliberate pair, never two similar cases. A transcribed decimal nobody can re-derive is the deleted form, an ANALYTIC value asserted against a DISCRETE kernel at a tolerance the quadrature cannot reach is the same defect wearing a derivation, and a ZERO asserted where the quadrature legitimately leaves a residue is its twin — each fails a CORRECT kernel and passes only after someone loosens it.
 - Law: a fixture's `Input` supplies every READ buffer the kernel's `Layout` declares. A sampling kernel whose fixture supplies no input reads an unbound or zero buffer, so its expected value describes a dispatch that never happened.
 - Entry: `public static Fin<Unit> Prove(PressDevice device, WgslKernel kernel, Op key)` runs the op-code totality gate, then dispatches EVERY fixture on the row's own `Golden` sequence and compares each reduced output's leading `Expected.Length` elements against the fixture's tolerance; `Golden.All` DERIVES from `WgslKernel.Items` — the `Projection/benchmarks` parity workload and the proof estate iterate one public projection, and no hand-maintained second roster exists to drift.
 - Packages: `[02]-[PRESS_DEVICE]` and `[03]-[WGSL_KERNEL]` (the device and table this proves), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new kernel's fixtures are the `golden:` sequence on its own row — a kernel without at least one cannot be declared, because the row's constructor takes the sequence, and a kernel whose law spans several conventions proves each under its OWN dispatch (a single-op uniform cannot exercise three ops in one pass).
-- Boundary: the comparison is a PREFIX read of the reduced output, because a fixture pins the texels its dispatch determines and a full-plane expectation would restate the kernel; the row declares the extent that makes the prefix meaningful, so `Expected` and `Uniform` are read together or not at all. Tolerance is per-fixture: `1e-6` ABSOLUTE for the exactly-zero and integer cases, and per-band ABSOLUTE sized to the accumulation error where a reduction sums thousands of `f32` terms — the irradiance row's `1e-4` sits three orders below both of its non-zero values, so a band-order swap, a normalization slip, and a fake zero all still fail while a correct kernel passes; a tolerance loose enough to hide a wrong gradient table is worse than no fixture. The irradiance vector doubles as the AXIS discriminator: the companion `L(ω) = ω·ẑ` case places its single non-zero coefficient at `sh_2`, and a `+Y`-up implementation places it at `sh_1` or `sh_3` and fails — which is the one check that catches an up-axis fork every visual comparison passes. The cube fixture paints SIX DISTINCT probes — four single-texel equator probes pinning the azimuth origin and every equator-face permutation outright, two whole-row pole probes pinning the up axis without reading `u` at the pole, where `atan2(0, 0)` is indeterminate and a single-texel probe would pin an implementation detail; the per-face `(s, t)` axis signs ride the frozen `faceDir` text alone, with the off-centre edge-≥2 fixture the declared growth leg. A golden failure rails `RasterFault.Device` naming the kernel, the fixture, and the divergent index, and it is a HARD failure rather than a telemetry row: the CPU-versus-GPU divergence a press measures is telemetry precisely because the CPU result is authoritative there, whereas a kernel disagreeing with its own closed-form answer is a broken kernel.
+- Boundary: the comparison is a PREFIX read of the reduced output, because a fixture pins the texels its dispatch determines and a full-plane expectation would restate the kernel; the row declares the extent that makes the prefix meaningful, so `Expected` and `Uniform` are read together or not at all. Tolerance is per-fixture: `1e-6` ABSOLUTE for the exactly-zero, integer, and single-tap cases — a one-tap dispatch normalizes by its own weight, so the answer is the source texel to within one rounding and a quadrature bound is slack the fixture never needs — and per-band ABSOLUTE sized to the accumulation error where a reduction sums thousands of `f32` terms — the irradiance row's `1e-4` sits three orders below both of its non-zero values, so a band-order swap, a normalization slip, and a fake zero all still fail while a correct kernel passes; a tolerance loose enough to hide a wrong gradient table is worse than no fixture. The irradiance vector doubles as the AXIS discriminator: the companion `L(ω) = ω·ẑ` case places its single non-zero coefficient at `sh_2`, and a `+Y`-up implementation places it at `sh_1` or `sh_3` and fails — which is the one check that catches an up-axis fork every visual comparison passes. The cube fixture paints SIX DISTINCT probes — four single-texel equator probes pinning the azimuth origin and every equator-face permutation outright, two whole-row pole probes pinning the up axis without reading `u` at the pole, where `atan2(0, 0)` is indeterminate and a single-texel probe would pin an implementation detail; the per-face `(s, t)` axis signs ride the frozen `faceDir` text alone, with the off-centre edge-≥2 fixture the declared growth leg. A golden failure rails `RasterFault.Device` naming the kernel, the fixture, and the divergent index, and it is a HARD failure rather than a telemetry row: the CPU-versus-GPU divergence a press measures is telemetry precisely because the CPU result is authoritative there, whereas a kernel disagreeing with its own closed-form answer is a broken kernel.
 
 ```csharp signature
 // (Continues the Rasm.Materials.Raster compilation unit.)
@@ -1476,11 +1506,37 @@ public static class Golden {
         Width: SixtyFour, Height: ThirtyTwo, Layers: One, Tolerance: 1e-4, Relative: false);
 
     // A constant environment prefilters to that constant at EVERY roughness, because the N.L weights sum in
-    // both numerator and denominator — the one property that catches a broken importance-sample weight.
+    // both numerator and denominator — the one property that catches a broken importance-sample WEIGHT. It
+    // catches nothing about the DIRECTION the weight is applied at: a constant dome answers the same value
+    // for every draw, every tangent frame, and every extent, which is why the sibling below reads a drawn
+    // direction instead. The output is EQUIRECT at the row's declared 2:1 aspect.
     internal static readonly GoldenVector ConstantPrefilter = new("constant-prefilter",
-        KernelUniform.Empty.U32(4).U32(4).U32(8).U32(4).F32(0.5).U32(64).Pad(2),
+        KernelUniform.Empty.Extent(Four, Two).U32(8).U32(4).F32(0.5).U32(64).Pad(2),
         Input: Seq<ReadOnlyMemory<float>>(Constant(8 * 4)),
-        Expected: new[] { 1f, 1f, 1f, 1f }, Width: Four, Height: Four, Layers: One, Tolerance: 1e-5, Relative: true);
+        Expected: new[] { 1f, 1f, 1f, 1f }, Width: Four, Height: Two, Layers: One, Tolerance: 1e-5, Relative: true);
+
+    // This fixture DISCRIMINATES the sampler, exact in closed form because its dispatch is ONE tap. At samples = 1
+    // Hammersley yields u0 = (0 + 0.5)/1 = 0.5 and u1 = radical(0) = 0, and the VNDF at wo = the local
+    // normal reduces to vh = (0,0,1), t1 = (1,0,0), t2 = (0,1,0), s = 1 — so p1 = sqrt(0.5), p2 = 0,
+    // pz = sqrt(0.5) and h = normalize(a*sqrt(0.5), 0, sqrt(0.5)). At roughness 0.5 the alpha floor leaves
+    // a = 0.25, so h.z^2 = 0.5 / (0.5*0.0625 + 0.5) = 16/17, giving N.L = 2*h.z^2 - 1 = 15/17 and the
+    // tangent x lane 2*h.z*h.x = 8/17 — the (8, 15, 17) triple, EXACT in binary at f32.
+    // The
+    // 1x1 output texel sits at u = v = 0.5, so its equirect direction is N = (1, 0, 0) and the oriented
+    // frame maps tangent x onto +Y and tangent y onto +Z: the tap lands at L = (15/17, 8/17, 0). Its
+    // longitude is 0.5 + atan2(8, 15)/2pi = 0.577979, so column floor(0.577979 * 16) = 9 of a sixteen-column
+    // source, a quarter texel clear of the boundary; its latitude is acos(0)/pi = 0.5, row 0 of the one-row
+    // source. One tap makes the weight normalization exact, so the prefiltered value IS that texel.
+    //
+    // Every wrong sampler lands on column 8 instead, which the source paints white: a D-proportional
+    // half-vector draw reads cos(theta_h) = sqrt((1 - u1)/(1 + (a^2 - 1)*u1)) = 1 at u1 = 0, collapsing h
+    // onto N; and a Hammersley pair missing its half-texel offset reads u0 = 0, collapsing nh onto N by the
+    // other road. One fixture separates the visible-normal draw, the D-proportional draw, and the offset
+    // defect, and it does so at exact arithmetic rather than at a quadrature bound.
+    internal static readonly GoldenVector SplitDomePrefilter = new("split-dome-prefilter",
+        KernelUniform.Empty.Extent(One, One).U32(16).U32(1).F32(0.5).U32(1).Pad(2),
+        Input: Seq<ReadOnlyMemory<float>>(Meridian(16, mirror: 8, drawn: 9)),
+        Expected: new[] { 0.25f, 0.5f, 0.75f, 1f }, Width: One, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
 
     // ONE roster, DERIVED: every kernel's own fixtures in table order — a hand-maintained second sequence
     // beside the rows is the dual-numbering defect this page names, and the derived form reaches the parity
@@ -1520,6 +1576,17 @@ public static class Golden {
 
     static ReadOnlyMemory<float> Constant(int texels) { float[] plane = new float[texels * 4]; Array.Fill(plane, 1f); return plane; }
 
+    // The meridian source the split-dome probe reads: one row, the mirror column painted white and the drawn
+    // column painted a distinct triple, every other column black — so a tap landing on the wrong side reads a
+    // NAMED wrong value the divergence message quotes, never the zero an absent or unbound read also produces.
+    static ReadOnlyMemory<float> Meridian(int texels, int mirror, int drawn) {
+        float[] plane = new float[texels * 4];
+        for (int texel = 0; texel < texels; texel++) { plane[(texel * 4) + 3] = 1f; }
+        (plane[mirror * 4], plane[(mirror * 4) + 1], plane[(mirror * 4) + 2]) = (1f, 1f, 1f);
+        (plane[drawn * 4], plane[(drawn * 4) + 1], plane[(drawn * 4) + 2]) = (0.25f, 0.5f, 0.75f);
+        return plane;
+    }
+
     static readonly Dimension One = Dimension.Create(1);
     static readonly Dimension Two = Dimension.Create(2);
     static readonly Dimension Four = Dimension.Create(4);
@@ -1528,3 +1595,8 @@ public static class Golden {
     static readonly Dimension SixtyFour = Dimension.Create(64);
 }
 ```
+
+## [05]-[RESEARCH]
+
+- [SUBGROUP_REDUCTION_ARM]-[BLOCKED]: does a wgpu-native release land naga's `enable subgroups` directive, letting `irradianceSh` fold its twenty-seven partials on device instead of host-side in workgroup-index order?; verify by parsing a one-line `enable subgroups;` module through `DeviceCreateShaderModule` on the provisioned binary and reading the adapter feature roster — the `[03]` law records the directive as a PARSE error today, so the re-probe is the arming condition and the host fold is the standing floor.
+- [STORAGE_TEXTURE_BINDING]-[OPEN]: which kernel row first needs a storage-texture binding rather than an `f32` storage buffer, and does `CommandEncoderCopyTextureToBuffer`'s 256-byte `BytesPerRow` alignment then become a host un-pad step the readback fold must own?; verify against the first row declaring one — `[02]` names the padding a declared growth leg not paid today.

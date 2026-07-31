@@ -108,7 +108,7 @@ const _at = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
 - Law: state persists through the lane's schema — `Schema.parseJson(spec.state)` encodes at write and every read decodes the same road, so a stale-schema row surfaces as `ParseError` and the repair is `[5]`'s rebuild, never an in-place patch.
 
 ```typescript signature
-import { Array, Effect, HashMap, Option } from "effect"
+import { Array, BigInt, Effect, HashMap, Option } from "effect"
 import { Live } from "./live.ts"
 
 const _held = <S, I>(sql: SqlClient.SqlClient, table: Query.Relation["table"], state: Schema.Schema<S, I>) => {
@@ -156,16 +156,21 @@ const _apply = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =
       })
   })
 
+// The slot contract carries a batch whose arity the append split already proved and a receipt whose rows roster is
+// NonEmpty, so the commit point folds off that roster's own head rather than a `0n` seed no inhabited fold reaches,
+// and no arm re-proves an emptiness the signature forecloses.
 const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
   Effect.map(_apply(spec), (apply): Journal.Slot<A> => ({
     keys: () => Live.band(spec.name),
     project: (_stream, events, receipt) =>
-      Array.isNonEmptyReadonlyArray(events)
-        ? Effect.asVoid(apply(events, new _At({
-            sequence: Array.reduce(receipt.rows, 0n, (top, row) => BigInt.max(top, row.sequence)), // the batch commit point: one AsOf per apply
-            stamp: spec.stamp(Array.lastNonEmpty(events)),
-          })))
-        : Effect.void,
+      Effect.asVoid(apply(events, new _At({
+        sequence: Array.reduce( // the batch commit point: one AsOf per apply
+          Array.tailNonEmpty(receipt.rows),
+          Array.headNonEmpty(receipt.rows).sequence,
+          (top, row) => BigInt.max(top, row.sequence),
+        ),
+        stamp: spec.stamp(Array.lastNonEmpty(events)),
+      }))),
   }))
 ```
 
@@ -177,7 +182,9 @@ const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) 
 - Receipt: `Option<Lane.Mark>` — the schema-owned `{ lane, checkpoint, drained }` receipt per won cycle, `none` when a sibling replica holds the claim; `Lane.State` carries checkpoint and closed phase as the actor's subscribable value, and the won checkpoint writes the `Convention.metric.laneCheckpoint` level tagged `Convention.rasm.laneName` from the bounded lane vocabulary — the mount carries name, description, and the 64-bit value width the global sequence demands, so no signal-site literal exists on the drain path.
 - Growth: a new wake source is one more stream merged into the wake; a batch axis is a `spec.batch` field; a second replica of a lane is deployment, not declaration — the claim already arbitrates.
 - Law: the actor is the statechart — one `Machine.makeWith` machine whose state is `{ checkpoint, phase }` and whose `Wake` procedure runs the claim-drain-advance cycle, so drains serialize per process by the actor's own request queue (a wake arriving mid-drain waits, never overlaps), the phase is a `Subscribable` read for lag dashboards, and `Machine.retry` re-initializes a defected actor from its last live state under a bounded policy — recovery is a definition fact, never a blanket catch.
-- Law: fault routing is three disjoint roads and each keeps its evidence — poison (`ParseError` in decode, upcast, or state schema) diverts THAT sequence as `{ lane, sequence, envelope, fault }` through `catchTag` and the cycle continues; transient infrastructure (`SqlError`) retries the whole cycle under the jittered bounded schedule; an exhausted retry escalates through `Effect.orDie` into a machine defect that `Machine.retry` re-initializes from the held checkpoint — logged with its full `Cause` by the tap, distinguishable from quarantine and from interruption, which propagates untouched through the typed arms because no blanket fold exists to absorb it.
+- Law: the page folds as ONE batch, exactly as the inline slot folds a publish — the decode partition drains poison first, then a single held-state read seeds one keyed fold and one upsert per touched cell under one mutation stamp, so the two altitudes cannot disagree about merge order or about the position a cell reflects, and a page pays two round trips rather than two per event. The `FOR UPDATE` seeding read is what makes the batch grain load-bearing: run per event it re-locks and re-reads the same cell once per event that touches it.
+- Law: fault routing is three disjoint roads and each keeps its evidence — poison splits by WHERE it surfaces: a `ParseError` in decode or upcast partitions off the page before any state moves, and a `ParseError` escaping the batch fold is a STATE-schema refusal the batch grain cannot attribute, so the repair replays that page one event at a time and quarantines exactly the event whose folded state the schema refuses (the cycle is one transaction, so the abandoned batch attempt committed nothing the repair could double-apply); either road lands `{ lane, sequence, envelope, fault }` and the cycle continues. Transient infrastructure (`SqlError`) retries the whole cycle under the jittered bounded schedule; an exhausted retry escalates through `Effect.orDie` into a machine defect that `Machine.retry` re-initializes from the held checkpoint — logged with its full `Cause` by the tap, distinguishable from quarantine and from interruption, which propagates untouched through the typed arms because no blanket fold exists to absorb it.
+- Law: the checkpoint advances past the WHOLE claimed page — every row leaves it applied or quarantined, so the page's last sequence is the advance and no verdict roster is folded to recover a maximum the ordered read already states.
 - Law: the claim is the coordination — one checkpoint row per lane, `FOR UPDATE SKIP LOCKED` inside the drain transaction; the daemon settles its held-state accessor before boot, a replica that misses the claim skips the cycle instead of blocking, the sqlite profiles serialize on the single writer through the dialect arm, and checkpoint advance commits atomically with the batch's upserts so a crash replays from the checkpoint into idempotent upserts.
 - Law: the wake merges LISTEN with a spaced poll under the both-halt strategy — the pg arm streams `Journal.channel` notifications through the optional `PgClient` read, the profiles without a channel ride the poll alone, and a lost notification costs one patience window, never correctness; a dropped LISTEN connection re-registers through `Stream.retry` on the lane's cadence, and the wake short-circuits on the notify payload — the publish transaction announces the last landed sequence, the actor compares it against its held checkpoint and skips the claim transaction when `payload <= checkpoint`, so empty wake cycles cost zero round trips under high fan-out.
 - Law: checkpoint reads decode AND the cursor is bigint — the claim, the page, and the head probe are `SqlSchema` accessors whose `sequence`/`checkpoint` fields ride `Journal.Sequence`, because the checkpoint is a GLOBAL-sequence cursor that outgrows 2^53 and a `Number()` coercion silently stalls or double-drains the lane; the actor holds no untyped row anywhere on its hot path.
@@ -199,16 +206,18 @@ sequenceDiagram
   rect rgb(33, 34, 44)
     A->>C: claim FOR UPDATE SKIP LOCKED
     A->>J: page sequence > checkpoint LIMIT size
-    loop per event
-      alt decoded
-        A->>M: fold and upsert
-        M-->>A: committed position
-      else poison
-        A->>Q: divert typed fault
-        Q-->>A: quarantine receipt
+    A->>Q: divert every decode refusal
+    Q-->>A: quarantine receipts
+    alt batch folded
+      A->>M: one seeded fold, one upsert per touched cell
+      M-->>A: committed position
+    else state refusal
+      loop per admitted event
+        A->>M: replay one event
+        A->>Q: divert the refusing event
       end
     end
-    A->>C: advance to last seen
+    A->>C: advance to the page's last sequence
     C-->>A: checkpoint committed
   end
   A-->>W: Mark or caught up
@@ -216,11 +225,11 @@ sequenceDiagram
 ```
 
 ```typescript signature
-import { BigInt, Either, Layer, Metric, Option, Request, Schedule, Stream } from "effect"
+import { BigInt, Function, Layer, Metric, Option, type ParseResult, Request, Schedule, Stream } from "effect"
 import { Machine, Reactivity } from "@effect/experimental"
 import { PgClient } from "@effect/sql-pg"
 import { SqlClient, SqlSchema } from "@effect/sql"
-import { AppIdentity, Convention } from "@rasm/ts/core"
+import { AppIdentity, Budget, Convention } from "@rasm/ts/core"
 import { Upcast } from "../journal/evolve.ts"
 
 declare namespace Lane {
@@ -270,9 +279,12 @@ const _quarantineDdl: Capability.Ensure = {
     PRIMARY KEY (lane, sequence));`,
 }
 
-const _RETRY = Schedule.exponential("200 millis").pipe(Schedule.jittered, Schedule.intersect(Schedule.recurs(6)))
+// Core-compiled budget rows, gates stood down: the cycle's SqlError family carries no `class` column, so the
+// default `FaultClass.retryable` gate would classify it `defect` and never re-drive — transience is this lane's
+// own claim over its whole channel, priced by the row (`lease` the drain cadence, `bulk` the machine reboot).
+const _RETRY = Budget.schedule("lease", Function.constTrue)
 
-const _REBOOT = Schedule.exponential("1 second").pipe(Schedule.jittered, Schedule.intersect(Schedule.recurs(8)))
+const _REBOOT = Budget.schedule("bulk", Function.constTrue)
 
 const _checkpointGauge = Convention.mount(Convention.metric.laneCheckpoint)
 
@@ -309,6 +321,69 @@ const _page = (sql: SqlClient.SqlClient, app: AppIdentity.Key) =>
 const _envelope = (payload: unknown) =>
   typeof payload === "string" ? Effect.succeed(payload) : Schema.encode(Schema.parseJson(Schema.Unknown))(payload)
 
+// One quarantine landing both poison roads share: the envelope crosses as the stored text and the row is
+// idempotent, so a replayed cycle re-diverts nothing and the two roads cannot drift apart on the evidence shape.
+const _diverted = <A extends Journal.Event, K, S, I>(
+  sql: SqlClient.SqlClient,
+  spec: Lane.Spec<A, K, S, I>,
+  row: typeof _Page.Type,
+  fault: ParseResult.ParseError,
+) =>
+  Effect.flatMap(_envelope(row.payload), (envelope) =>
+    sql`INSERT INTO projection_quarantine ${sql.insert([{
+      lane: spec.name,
+      sequence: row.sequence,
+      envelope,
+      fault: String(fault),
+    }])} ON CONFLICT (lane, sequence) DO NOTHING`)
+
+// The decode road partitions before any state moves, so both halves keep their row: the admitted half carries the
+// source row its position and stamp read off, the refused half carries the row its quarantine envelope comes from.
+const _decoded = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
+(
+  row: typeof _Page.Type,
+): Effect.Effect<
+  { readonly event: A; readonly row: typeof _Page.Type },
+  { readonly fault: ParseResult.ParseError; readonly row: typeof _Page.Type }
+> =>
+  Effect.mapBoth(
+    Effect.flatMap(Schema.decodeUnknown(Upcast.Column)(row.payload), (payload) =>
+      spec.decode.decode({ tag: row.tag, version: row.event_version, payload })),
+    { onFailure: (fault) => ({ fault, row }), onSuccess: (event) => ({ event, row }) },
+  )
+
+// The page folds as ONE batch — one seeded held-state read, one upsert per touched cell, one mutation stamp over
+// every cell the page moved — which is the shape `_apply` was built for and the shape the inline slot already runs.
+// A `ParseError` escaping it is a STATE-schema refusal the batch grain cannot attribute to a row, so the repair
+// replays the page one event at a time and quarantines exactly the refusing event; the enclosing transaction has
+// committed nothing, so the abandoned attempt leaves the repair nothing to double-apply.
+const _folded = <A extends Journal.Event, K, S, I>(
+  sql: SqlClient.SqlClient,
+  spec: Lane.Spec<A, K, S, I>,
+  apply: Lane.Apply<A>,
+  admitted: Array.NonEmptyReadonlyArray<{ readonly event: A; readonly row: typeof _Page.Type }>,
+) =>
+  Live.mutation(
+    Live.cells(spec.name, Array.dedupe(Array.map(admitted, ({ event }) => spec.cell(spec.plan.key(event))))),
+    apply(
+      Array.map(admitted, ({ event }) => event),
+      new _At({
+        sequence: Array.lastNonEmpty(admitted).row.sequence,
+        stamp: spec.stamp(Array.lastNonEmpty(admitted).event),
+      }),
+    ),
+  ).pipe(
+    Effect.catchTag("ParseError", () =>
+      Effect.forEach(admitted, ({ event, row }) =>
+        Live.mutation(
+          Live.cells(spec.name, [spec.cell(spec.plan.key(event))]),
+          apply([event], new _At({ sequence: row.sequence, stamp: spec.stamp(event) })),
+        ).pipe(Effect.catchTag("ParseError", (fault) => _diverted(sql, spec, row, fault))), {
+        concurrency: 1,
+        discard: true,
+      })),
+  )
+
 const _cycle = <A extends Journal.Event, K, S, I>(
   sql: SqlClient.SqlClient,
   claim: ReturnType<typeof _claim>,
@@ -324,28 +399,14 @@ const _cycle = <A extends Journal.Event, K, S, I>(
       return yield* Effect.transposeOption(Option.map(held, ({ checkpoint }) =>
         Effect.gen(function* () {
           const rows = yield* page({ floor: checkpoint, take: spec.batch.width })
-          const applied = yield* Effect.forEach(rows, (row) =>
-            Effect.flatMap(Schema.decodeUnknown(Upcast.Column)(row.payload), (payload) =>
-              spec.decode.decode({ tag: row.tag, version: row.event_version, payload })).pipe(
-              Effect.flatMap((event) =>
-                Live.mutation(
-                  Live.cells(spec.name, [spec.cell(spec.plan.key(event))]),
-                  apply([event], new _At({ sequence: row.sequence, stamp: spec.stamp(event) })),
-                )),
-              Effect.as(Either.right(row.sequence)),
-              Effect.catchTag("ParseError", (fault) =>
-                Effect.flatMap(_envelope(row.payload), (envelope) =>
-                  sql`INSERT INTO projection_quarantine ${sql.insert([{
-                    lane: spec.name,
-                    sequence: row.sequence,
-                    envelope,
-                    fault: String(fault),
-                  }])} ON CONFLICT (lane, sequence) DO NOTHING`).pipe(
-                  Effect.as(Either.left(row.sequence)))),
-            ))
-          const last = Array.reduce(applied, checkpoint, (top, verdict) => BigInt.max(top, Either.merge(verdict)))
+          const [poison, admitted] = yield* Effect.partition(rows, _decoded(spec)) // cannot fail: every row lands in exactly one half
+          yield* Effect.forEach(poison, ({ fault, row }) => _diverted(sql, spec, row, fault), { concurrency: 1, discard: true })
+          yield* Array.isNonEmptyReadonlyArray(admitted) ? _folded(sql, spec, apply, admitted) : Effect.void
+          // Every row of the claimed page left applied or quarantined, and the page reads ordered by sequence, so
+          // the advance IS its last row and no verdict roster is folded to recover a maximum the read already states.
+          const last = Option.match(Array.last(rows), { onNone: () => checkpoint, onSome: (row) => row.sequence })
           yield* sql`UPDATE projection_checkpoint SET checkpoint = ${last}, claimed_at = ${Journal.now(sql)} WHERE lane = ${spec.name}`
-          return new _Mark({ lane: spec.name, checkpoint: last, drained: applied.length })
+          return new _Mark({ lane: spec.name, checkpoint: last, drained: rows.length })
         })))
     }))
 
@@ -431,26 +492,34 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
 ## [05]-[MAINTENANCE]
 
 - Owner: the in-database maintenance rows — cron jobs, IVM views, incremental pipelines — each grant-gated through the capability rail, and `Lane.rebuild` — the shadow-table replay with atomic swap under a session advisory lock, the folder's ONE declared carve-out from the DDL-split boundary: an operator verb, session-locked, never scheduled, never reachable from a request path.
-- Packages: `lane/capability.md` (`Capability.require`/`when`); `journal/retain.md` (`Retain.Policy` — every grooming window); `@effect/sql` (`sql.reserve`, `sql.unsafe` over closed-vocabulary literals).
-- Entry: `Lane.schedule(jobs)` and `Lane.immv(views)` run at scope construction where their grants hold; `Lane.rebuild(spec)` is the operator verb after an evolve-chain fix or a quarantine drain, followed by `Live.invalidate(Live.band(spec.name))` so every reader re-runs against the swapped table.
-- Growth: a maintenance job is one row whose statement is the job; an incremental pipeline is one row where the fold is SQL-expressible; degradation is automatic — a refused grant leaves the app-side actor owning the fold, selected by the same grant read.
-- Law: grooming windows are `Retain.Policy` projections — ledger, outbox, quarantine, and checkpoint grooming read the one retention vocabulary, never literals in cron text; the job rows are PROVISION material — the provision plane registers them through `cron.schedule` and this page only derives their text from sealed policy values, so the interpolated day counts never meet caller input; a refused `cron` grant routes the job to the host scheduler through the runtime branch's port.
+- Packages: `lane/capability.md` (`Capability.require`/`when`); `journal/retain.md` (`Retain.groomText`/`Retain.Groomed` — the groom roster's scheduled rendering); `@effect/sql` (`sql.reserve`, `sql.unsafe` over closed-vocabulary literals).
+- Entry: `Lane.schedule(Lane.jobs())` and `Lane.immv(views)` run at scope construction where their grants hold; `Lane.rebuild(spec)` is the operator verb after an evolve-chain fix or a quarantine drain, followed by `Live.invalidate(Live.band(spec.name))` so every reader re-runs against the swapped table.
+- Growth: a groom job is one `_SPECS` cadence against a roster row the retention owner already carries; a maintenance job outside grooming is one row whose statement is the job; an incremental pipeline is one row where the fold is SQL-expressible; degradation is automatic — a refused grant leaves the app-side actor owning the fold, selected by the same grant read.
+- Law: this plane SCHEDULES grooming and authors none — `journal/retain#RETENTION_ROWS` owns the roster and both its renderings, so `_jobs` pairs a cron spec with `Retain.groomText` output and spells no DELETE, no relation, and no window of its own; a page re-spelling those statements forks the predicate the retention owner already settled and the fork is invisible until the two sweeps disagree about which rows are owed. The specs are total over the groom roster, so a relation that starts aging lands its schedule here in the same edit rather than as a sweep nothing runs. `projection_checkpoint` carries one row per lane and never grows, so it holds no groom row at all.
+- Law: the job rows are PROVISION material — the provision plane registers them through `cron.schedule` and this page only pairs sealed retention text with a cadence, so no interpolation surface reaches caller input; a refused `cron` grant routes the job to the host scheduler through the runtime branch's port.
 - Law: IVM is an accelerator, never truth — an `immv` derives from journal rows, registers presence-checked where the `ivm` grant holds, and is always droppable; nothing writes to it.
 - Law: the `incremental` grant aligns the exactly-once batch fold — where it holds, an SQL-expressible checkpointed fold rides the extension's same-transaction progress bookkeeping instead of the `[4]` actor, under the extension's own hard `cron` requirement (the matrix row's `requiresCron` flag); the actor remains the general lane for folds SQL cannot express. RESEARCH: the pipeline-registration statement spelling (the extension's create-pipeline function signature) is catalogued before this row's fence settles; until then the row registers through the same grant-gated `sql.unsafe` road as the cron jobs.
 - Law: the rebuild is singleton by session lock — the lock statement executes ON the reserved connection (`held.executeUnprepared`) because a pooled statement lands on a different session and holds nothing; the paired `pg_advisory_unlock` runs on the same connection as the bracket's release, because a pooled connection returns to the pool holding its session state and an unreleased session lock poisons every later lease of that connection — so the lock spans the multi-transaction replay (a transaction lock cannot) and the sqlite profiles serialize on the single writer; the swap is one transaction of renames so readers see old rows or new rows, never a mix, and the shadow and retired names re-mint through the identifier brand because the pattern is closed under suffixing.
 
 ```typescript signature
-import type { ParseResult } from "effect"
+import { Array, type ParseResult, Record } from "effect"
 import type { SqlError } from "@effect/sql"
 import { Retain } from "../journal/retain.ts"
 
-const _days = (window: Duration.Duration): number => Math.trunc(Duration.toDays(window))
+// Cadence is the maintenance plane's own fact and the statement is retention's, so this record carries exactly the
+// half this page owns and the record is total over the groom roster — a relation retention starts aging fails HERE
+// rather than landing as a sweep no schedule ever runs. A class-carrying relation renders one statement per finite
+// class, so the index closes the job name over a row that expands.
+const _SPECS = {
+  facts: "15 4 * * *",
+  ledger: "0 4 * * *",
+  outbox: "30 4 * * *",
+  quarantine: "45 4 * * *",
+} as const satisfies Record<Retain.Groomed, string>
 
-const _jobs = (policy: typeof Retain.Policy): ReadonlyArray<{ readonly name: string; readonly spec: string; readonly statement: string }> => [
-  { name: "groom_ledger", spec: "0 4 * * *", statement: `DELETE FROM idempotency_ledger WHERE touched_at < now() - interval '${_days(policy.operational.window)} days'` },
-  { name: "groom_outbox", spec: "30 4 * * *", statement: `DELETE FROM outbox WHERE delivered_at IS NOT NULL AND delivered_at < now() - interval '${_days(policy.ephemeral.window)} days'` },
-  { name: "groom_quarantine", spec: "45 4 * * *", statement: `DELETE FROM projection_quarantine WHERE replayed_at IS NOT NULL AND replayed_at < now() - interval '${_days(policy.operational.window)} days'` },
-]
+const _jobs = (): ReadonlyArray<{ readonly name: string; readonly spec: string; readonly statement: string }> =>
+  Array.flatMap(Record.toEntries(_SPECS), ([key, spec]) =>
+    Array.map(Retain.groomText(key), (statement, index) => ({ name: `groom_${key}_${index}`, spec, statement })))
 
 const _shadowOf = Schema.decodeSync(Query.Relation.fields.table) // total by construction: the identifier pattern is closed under suffixing
 

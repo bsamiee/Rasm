@@ -5,7 +5,7 @@ Document egress as one folded `Report.Spec` family: the format discriminant sele
 ## [01]-[INDEX]
 
 - [02]-[SPEC_FOLD]: the report spec, the format policy row, the one render dispatch, byte identity; `Report`.
-- [03]-[XLSX_ARM]: the streaming workbook writer and the full style/rule/validation vocabularies; `Report`.
+- [03]-[XLSX_ARM]: the streaming workbook writer, the name-capable amend-load reader, the full style/rule/validation vocabularies; `Report`.
 - [04]-[PDF_ARM]: measured paging, native tables, metadata/encryption, furniture registration; `Report`.
 - [05]-[CSV_ARM]: serializer with formula defense, the node streaming duplex, decoded ingress; `Report`.
 - [06]-[BUNDLE]: the archive container — streaming egress, progress receipt, guarded ingress; `Report`.
@@ -35,22 +35,25 @@ import { Array, Chunk, Clock, Data, DateTime, Deferred, Duration, Effect, Match,
 import { FaultClass } from "@rasm/ts/core"
 import { Bench, BenchFault, Drop, Render } from "../proc/worker.ts"
 
-const _reasons = {
-  engine: "defect",
-  sink: "unavailable",
-  archive: "defect",
-  slip: "malformed",
-  ceiling: "exhausted",
-  consumed: "conflicted",
-} as const satisfies Record<string, FaultClass.Kind>
+const _family = FaultClass.family(["engine", "sink", "archive", "slip", "ceiling", "consumed"] as const, {
+  engine: { class: "defect" },
+  sink: { class: "unavailable" },
+  archive: { class: "defect" },
+  slip: { class: "malformed" },
+  ceiling: { class: "exhausted" },
+  consumed: { class: "conflicted" },
+})
 
 class ReportFault extends Data.TaggedError("ReportFault")<{
-  readonly reason: keyof typeof _reasons
+  readonly reason: (typeof _family.reasons)[number]
   readonly arm: "csv" | "xlsx" | "pdf" | "zip"
   readonly detail: string
 }> {
   get class(): FaultClass.Kind {
-    return _reasons[this.reason]
+    return _family.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<report:${this.reason}> ${this.arm}: ${this.detail}`
   }
 }
 
@@ -118,6 +121,11 @@ declare namespace Report {
     readonly format: Format
     readonly body: Stream.Stream<Uint8Array, ReportFault, R>
     readonly receipt: Effect.Effect<Receipt, ReportFault>
+  }
+  type Sheet = {
+    readonly ordinal: number
+    readonly name: Option.Option<string>
+    readonly state: Option.Option<ExcelJS.WorksheetState>
   }
   type Bundle = {
     readonly entries: ReadonlyArray<{ readonly name: string; readonly format: Format; readonly bytes: Uint8Array }>
@@ -271,14 +279,30 @@ const _gathered = <R>(artifact: Report.Artifact<R>, ceiling: number): Effect.Eff
 [XLSX_ARM]:
 - Owner: the spreadsheet arm has one discriminated policy with two honest payload timings. `Stream` uses `ExcelJS.stream.xlsx.WorkbookWriter`, commits each projected row, canonicalizes ZIP entry timestamps across arbitrary chunk boundaries, and emits compressed chunks end to end; it carries title, column styles, conditional rules, and protection only. `Rich({ rowCeiling, guards, brand, footer })` admits at most the declared row bound, builds one `Workbook`, canonicalizes its completed archive, and integrates the full vocabulary the streaming writer cannot apply after committed cells: native tables and totals, data validation, brand image, footer, column styles, conditional rules, and protection. The modes share the same `Report.Xlsx` owner and `_xlsx` dispatch; rich-only fields cannot inhabit the streaming case as inert option ghosts.
 - Law: the nine-arm `ConditionalFormattingRule` union, the `DataValidation` operator space, and the `Style` composite are the parameterization vocabulary — a report that needs a data bar, an icon set, or a dropdown names a rule row; an imperative per-report formatting branch is unspellable.
-- Law: amend-load ingress rides the symmetric reader — `new ExcelJS.stream.xlsx.WorkbookReader(input, options)` async-iterates worksheets and rows out of a stored artifact for append-and-re-emit jobs, lifted through `Stream.fromAsyncIterable`; the in-memory `workbook.xlsx.load` is reserved for small template loads.
+- Law: amend-load ingress rides the symmetric reader — `Report.amend(input, options)` mints `new ExcelJS.stream.xlsx.WorkbookReader(input, options)` and lifts its worksheet generator through `Stream.fromAsyncIterable`, each `WorksheetReader` flattening into its own row generator, so an append-and-re-emit job reads a stored artifact one row at a time and the sheet never materializes; the in-memory `workbook.xlsx.load` is reserved for small template loads.
+- Law: the reader's per-part policy is the ingress's memory contract, not a default — `worksheets: "emit"` streams the rows, `sharedStrings: "cache"` and `styles: "cache"` retain exactly what a row needs to resolve its text and format, and every other part stays `ignore`; caching a part no row reads holds a huge stored artifact on the heap for the length of the read, and emitting shared strings hands the caller a part it must reassemble itself.
+- Law: the amend coordinate is name-capable — `Report.Sheet` carries the read `ordinal` beside an `Option`-carried `name` and `state`, so a job addresses a stored artifact by the sheet the workbook declares and falls back to position only where no name exists; the reader seats a synthesized `Sheet<id>` placeholder at construction and the workbook registry overwrites `id`, `name`, and `state` together only when a rel resolves the zip entry, so the parsed numeric `sheetId` left behind is the one sound proof the declared name landed and an unresolved read answers `Option.none()` rather than handing a caller a placeholder to filter on.
+- Law: that coordinate is a declaration gap the augmentation closes — the shipped `WorksheetReader` declares none of the three members its constructor and the registry match both assign, so one `declare module "exceljs"` block beside this engine declares them at their verified runtime types, `id` widening to `number | string` because the unresolved path keeps the zip path's captured digits; every downstream read composes the corrected surface and no call site casts.
 - Law: `.csv` on the workbook facade defers to the CSV arm — `exceljs.csv` exists only to re-project an already-built `Worksheet`.
 - Law: the body streams end to end — the `PassThrough` sink bridges into `Stream.asyncScoped` (subscribe on acquire, `destroy` on release, `emit.single`/`emit.end`/`emit.fail` the admitted crossings), and the commit driver runs as a scope-forked fiber feeding the writer while the consumer drains chunks, so compressed output leaves memory as it is produced and a chunk array never accumulates.
 - Exemption: the `PassThrough` event callbacks are the platform-forced statement seam — the writer mutates a node stream outside the rail, and the bridge's listeners are the one sanctioned push-crossing site in this module.
 - Growth: a new formatting capability is a spec field mapped to its vocabulary row in this one fold.
-- Packages: `exceljs` (`Workbook`, `stream.xlsx.WorkbookWriter`, `stream.xlsx.WorkbookReader`, the `Style`/`Table`/`ConditionalFormattingRule`/`DataValidation` model).
+- Packages: `exceljs` (`Workbook`, `stream.xlsx.WorkbookWriter`, `stream.xlsx.WorkbookReader`, `WorkbookStreamReaderOptions`, `WorksheetReader` with the locally declared `id`/`name`/`state` coordinate, `WorksheetState`, the `Style`/`Table`/`ConditionalFormattingRule`/`DataValidation` model); `effect` (`Stream.fromAsyncIterable`, `Stream.zipWithIndex`, `Option.fromNullable`).
 
 ```typescript
+// the three members the shipped `WorksheetReader` omits, each traced to the machine that installs it: the
+// constructor assigns `id` from the zip path and `name` as the `Sheet<id>` placeholder, and the workbook
+// registry match reassigns `id`, `name`, and `state` from the sheet row its rel resolves
+declare module "exceljs" {
+  namespace stream.xlsx {
+    interface WorksheetReader {
+      readonly id: number | string
+      readonly name: string
+      readonly state?: WorksheetState
+    }
+  }
+}
+
 const _committed = <A, R>(spec: Report.Xlsx<A>, rows: Stream.Stream<A, never, R>, sink: PassThrough, counted: Ref.Ref<number>) =>
   Effect.gen(function* () {
     const writer = yield* Effect.sync(() =>
@@ -409,6 +433,46 @@ const _xlsx = <A, R>(spec: Report.Xlsx<A>, rows: Stream.Stream<A, never, R>) =>
     Match.tag("Stream", () => _xlsxStream(spec, rows)),
     Match.tag("Rich", (mode) => _xlsxRich(spec, mode, rows)),
     Match.exhaustive,
+  )
+
+const _amended = (
+  input: string | NodeJS.ReadableStream,
+  options: Partial<ExcelJS.stream.xlsx.WorkbookStreamReaderOptions> = {
+    worksheets: "emit",
+    sharedStrings: "cache",
+    styles: "cache",
+  },
+): Stream.Stream<{ readonly sheet: Report.Sheet; readonly row: ExcelJS.Row }, ReportFault> =>
+  Stream.unwrap(
+    Effect.map(
+      Effect.sync(() => new ExcelJS.stream.xlsx.WorkbookReader(input, options)),
+      // two nested generators, one lift each: the workbook yields sheet readers and each sheet reader yields rows,
+      // so a stored artifact of any size crosses the seam a row at a time and never lands on the heap whole
+      (reader) =>
+        Stream.flatMap(
+          Stream.map(
+            Stream.zipWithIndex(
+              Stream.fromAsyncIterable(reader, (cause) => new ReportFault({ reason: "engine", arm: "xlsx", detail: String(cause) })),
+            ),
+            // the coordinate mints once per sheet, never per row; the registry match replaced the constructor's
+            // captured zip digits with the workbook's parsed `sheetId`, so a numeric `id` proves the declared name
+            // landed and a surviving string leaves the ordinal as the only coordinate the read can honestly offer
+            ([held, ordinal]): readonly [ExcelJS.stream.xlsx.WorksheetReader, Report.Sheet] => [
+              held,
+              {
+                ordinal,
+                name: typeof held.id === "number" ? Option.some(held.name) : Option.none(),
+                state: Option.fromNullable(held.state),
+              },
+            ],
+          ),
+          ([held, sheet]) =>
+            Stream.map(
+              Stream.fromAsyncIterable(held, (cause) => new ReportFault({ reason: "engine", arm: "xlsx", detail: String(cause) })),
+              (row) => ({ sheet, row }),
+            ),
+        ),
+    ),
   )
 ```
 
@@ -658,6 +722,7 @@ const _unbundle = (bytes: Uint8Array, root: string) =>
   )
 
 const Report = {
+  amend: _amended,
   policy: _policy,
   render: _render,
   gathered: _gathered,

@@ -12,18 +12,19 @@ The Navigation-API typed router under the zero-routing-package law, the browser 
 ## [02]-[TABLE_ALGEBRA]
 
 [TABLE_ALGEBRA]:
-- Owner: the `Router` type plane and pure algebra — `Router.Row<P>` (`path` template, `query` `ParserMap`, `policy` the guard-interpreted value, `title` `Option`), `Router.Params<Path>` deriving the segment record from the template literal (`"/doc/:key/:rev"` yields `{ key: string; rev: string }` — the correspondence computes, never restates), `Router.Location<Rows>` (the key-discriminated union of `{ key, segments, query }`), `_matched` (template against pathname, one fold, `Option` of captures), and the per-row `createLoader`/`createSerializer` pair — decode and write of the query plane through one `ParserMap`, so loader and serializer cannot drift.
+- Owner: the `Router` type plane and pure algebra — `Router.Row<P, Q>` (`path` template, `query` the row's own `ParserMap`, `urlKeys` its URL-key rename map, `policy` the guard-interpreted value, `title` `Option`), `Router.Params<Path>` deriving the segment record from the template literal (`"/doc/:key/:rev"` yields `{ key: string; rev: string }` — the correspondence computes, never restates), `Router.Location<Rows>` (the key-discriminated union of `{ key, segments, query }`), `_matched` (template against pathname, one fold, `Option` of captures), and the per-row `createLoader`/`createSerializer` pair — decode and write of the query plane through one map and one rename value.
 - Law: the query codec is `nuqs/server` and only that — the `parseAs*` atoms, `createParser` for bespoke encodings, and `Router.param(shape)` for structured values: the fusion of `parseAsJson` over `Schema.standardSchemaV1`, so a core-Schema-refined value rides one URL param, decodes once into branded interior shape, and the kernel-Schema-into-URL seam has one spelling; the React hook/adapter surface is the ui wave's tier and never imported here.
-- Law: `Router.standard(map)` projects a row's whole `ParserMap` through `createStandardSchemaV1` as the one view handed to foreign validation consumers — a form layer, a TanStack-shaped adapter — an egress projection, never an interior re-validation, because the loader already decoded once at the intercept.
-- Law: a route is one row — path, codec, policy, title travel together, so `[5]`'s fold reads its policy from the matched row and no parallel policy registry exists; a new route is one row plus its compile-time ripple through every exhaustive location consumer.
-- Law: `href` is the one URL mint — segments substitute into the template, the serializer writes the query with `clearOnDefault` semantics, and a hand-concatenated URL anywhere in an app is the string-mash this owner deletes.
-- Growth: a new query key is one `ParserMap` field on its row; a new route axis (a transition hint, a preload row) is one `Row` field every table inherits.
-- Boundary: what a policy MEANS is `[5]`'s fold; this cluster carries it as an opaque row value.
-- Packages: `nuqs/server` (`createLoader`, `createSerializer`, `createStandardSchemaV1`, `parseAsJson`, type `ParserMap`, type `inferParserType`); `effect` (`Array`, `Option`, `Record`, `Schema`).
+- Law: the round-trip cannot drift because all three codec consumers read one row — the rename axis lives outside the `ParserMap`, so a route wanting a short URL key configures `createLoader`, `createSerializer`, and `createStandardSchemaV1` independently the moment `urlKeys` is not a row field; `urlKeys: UrlKeys<Q>` correlates the renames to that row's own key space, and the three call sites take it from the one value, so a rename is one edit and a misspelled key is a compile error.
+- Law: `Router.standard(row)` projects a row's whole `ParserMap` under its own renames through `createStandardSchemaV1` as the one view handed to foreign validation consumers — a form layer, a TanStack-shaped adapter — an egress projection, never an interior re-validation, because the loader already decoded once at the intercept; the projection takes the row rather than a bare map so the egress view cannot read a different URL spelling than the ingress did.
+- Law: a route is one row — path, codec, renames, policy, title travel together, so `[5]`'s fold reads its policy from the matched row and no parallel policy registry exists; a new route is one row plus its compile-time ripple through every exhaustive location consumer.
+- Law: `href` is the one URL mint — segments substitute into the template under the row's own renames, the serializer writes the query with `clearOnDefault` semantics, and a hand-concatenated URL anywhere in an app is the string-mash this owner deletes; the substitution reads each capture through the invariant `Router.Params` already proved rather than folding a miss to an empty part, because an empty path segment mints a URL that resolves to the wrong route instead of failing.
+- Growth: a new query key is one `ParserMap` field on its row, its URL spelling one `urlKeys` entry; a new route axis (a transition hint, a preload row) is one `Row` field every table inherits.
+- Boundary: what a policy MEANS is `[5]`'s fold; this cluster carries it as an opaque row value. Query-write rate limiting is refused here by the package's own split — `throttle`/`debounce`/`LimitUrlUpdates` are hook options `createSerializer` ignores, and the hook tier is a `ui` surface.
+- Packages: `nuqs/server` (`createLoader`, `createSerializer`, `createStandardSchemaV1`, `parseAsJson`, type `ParserMap`, type `inferParserType`, type `UrlKeys`); `effect` (`Array`, `Option`, `Record`, `Schema`).
 
 ```typescript
 import { Array, Context, Data, Effect, Layer, Option, Record, Runtime, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
-import { createLoader, createSerializer, createStandardSchemaV1, type inferParserType, parseAsJson, type ParserMap } from "nuqs/server"
+import { createLoader, createSerializer, createStandardSchemaV1, type inferParserType, parseAsJson, type ParserMap, type UrlKeys } from "nuqs/server"
 import { Boot } from "./boot.ts"
 import { Kv, type KvFault } from "./persist.ts"
 
@@ -33,9 +34,10 @@ type _Names<Path extends string> = Path extends `${string}:${infer Rest}`
 
 declare namespace Router {
   type Params<Path extends string> = { readonly [K in _Names<Path>]: string }
-  type Row<P> = {
+  type Row<P, Q extends ParserMap = ParserMap> = {
     readonly path: string
-    readonly query: ParserMap
+    readonly query: Q
+    readonly urlKeys: UrlKeys<Q> // the rename axis lives beside the map, so loader, serializer, and standard view read one value
     readonly policy: P
     readonly title: Option.Option<string>
   }
@@ -102,7 +104,7 @@ const _located = <Rows extends Router.Rows>(rows: Rows, url: URL): Option.Option
   Array.head(
     Array.filterMap(Record.toEntries(rows), ([key, row]) =>
       Option.map(_matched(row.path, url.pathname), (segments) =>
-        ({ key, segments, query: createLoader(row.query)(url) }) as Router.Location<Rows>,
+        ({ key, segments, query: createLoader(row.query, { urlKeys: row.urlKeys })(url) }) as Router.Location<Rows>,
       ),
     ),
   )
@@ -113,8 +115,9 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
   segments: Record<string, string>,
   query: Partial<inferParserType<Rows[K]["query"]>>,
 ): string =>
-  createSerializer(rows[key].query)(
-    rows[key].path.split("/").map((part) => (part.startsWith(":") ? segments[part.slice(1)] ?? "" : part)).join("/"),
+  // BOUNDARY ADAPTER: the walk extracts exactly the names `Router.Params` proved present, so the capture read asserts that invariant
+  createSerializer(rows[key].query, { urlKeys: rows[key].urlKeys })(
+    rows[key].path.split("/").map((part) => (part.startsWith(":") ? segments[part.slice(1)]! : part)).join("/"),
     query,
   )
 ```
@@ -128,8 +131,8 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
 - Law: the listener is the module's platform-forced statement seam — `Effect.acquireRelease` owns the exact native listener identity, and its synchronous callback resolves the match and calls `event.intercept` before returning from dispatch; only the intercepted `handler` crosses through `Runtime.runPromise`. The implementer carries the `// BOUNDARY ADAPTER` mark on the navigate listener's first line. `window.navigation` is absent from the DOM lib; `_Navigation`/`_NavigateEvent` are the boundary refinements pinned here once.
 - Law: `fallback` is restricted to `Router.StaticKey<Rows>` because fallback construction has no segment evidence; a parameterized row cannot become the unmatched destination. `go` accepts one tagged `Router.Travel` carrier, so push versus replacement is an explicit input case rather than an optional history knob with a hidden default.
 - Law: last-good query continuity rides `persist#DOMAIN_ROWS`'s `route` domain as write-or-drop — a commit with a non-empty search persists it under the row key, an empty search DROPS the key (an explicit clear is a decision, not a memory), and the persist leg's fault logs without blocking the commit; at construction, an entry arriving with an empty query whose key holds a last-good replays it through one `replace` navigation, a poisoned row folding to a cold start — an explicit URL always wins, restoration never overrides it.
-- Law: hosts without the Navigation API fail the layer at construction with the class-carried `unsupported` fault — routing degrades loudly at the wiring proof, never silently to a dead SPA.
-- Law: the correlated location construction is the page's marked kernel — a dynamic table's key/row pairing is evidence the checker cannot carry across the distributed union, so `_located` and `_fallback` assert the proven pairing to its element and the implementer carries the `// BOUNDARY ADAPTER` mark on each; with the pinned boundary refinements and the listener's event pin these are the module's only cast sites, and the cast algebra stays one-directional.
+- Law: hosts without the Navigation API fail the layer at construction with the class-carried `unsupported` fault — routing degrades loudly at the wiring proof, never silently to a dead SPA; the reason and its class ride one core `FaultClass.family` mint, so even a one-reason family derives its projection rather than asserting a class literal.
+- Law: the correlated location construction is the page's marked kernel — a dynamic table's key/row pairing is evidence the checker cannot carry across the distributed union, so `_located` and `_fallback` assert the proven pairing to its element and the implementer carries the `// BOUNDARY ADAPTER` mark on each; with `[2]`'s segment-capture assertion, the pinned boundary refinements, and the listener's event pin these are the module's only assertion sites, and the cast algebra stays one-directional.
 - Receipt: the Tag's `Shape` annotation is the whole consumer contract — cells, `href`, `go`, `back`, `forward` — readable without the body; the ui wave binds the cells through its atom bridge at app composition.
 - Boundary: scroll restoration rides the intercept's own `scroll` option; view transitions are the ui wave's composition over the commit, never authored here.
 - Packages: `effect` (`Context`, `Data`, `Effect`, `Layer`, `Option`, `Runtime`, `Stream`, `Subscribable`, `SubscriptionRef`); `./persist.ts` (`Kv`); `@rasm/ts/core` (`FaultClass`).
@@ -155,9 +158,21 @@ type _Navigation = EventTarget & {
   readonly forward: () => void
 }
 
-class RouteFault extends Data.TaggedError("RouteFault")<{ readonly reason: "unsupported"; readonly detail: string }> {
+const _routeFamily = FaultClass.family(["unsupported"] as const, { unsupported: { class: "absent" } })
+
+declare namespace RouteFault {
+  type Reason = (typeof _routeFamily.reasons)[number]
+}
+
+class RouteFault extends Data.TaggedError("RouteFault")<{
+  readonly reason: RouteFault.Reason
+  readonly detail: string
+}> {
   get class(): FaultClass.Kind {
-    return "absent"
+    return _routeFamily.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<route:${this.reason}> ${this.detail}`
   }
 }
 
@@ -168,11 +183,12 @@ const _table = <P, const Rows extends Router.Rows<P>>(rows: Rows): Rows => rows
 
 const _make = <const Rows extends Router.Rows>(spec: Router.Spec<Rows>) => {
   class Tag extends Context.Tag(spec.identifier)<Tag, Router.Shape<Rows>>() {}
+  const _fallbackRow = spec.rows[spec.fallback]
   const _fallback = (url: URL): Router.Location<Rows> =>
     Option.getOrElse(_located(spec.rows, url), () => ({
       key: spec.fallback,
       segments: {} as Router.Params<Rows[typeof spec.fallback]["path"]>,
-      query: createLoader(spec.rows[spec.fallback].query)(url),
+      query: createLoader(_fallbackRow.query, { urlKeys: _fallbackRow.urlKeys })(url),
     }) as Router.Location<Rows>)
   const layer = (
     admission: (departing: Router.Location<Rows>, arriving: Router.Location<Rows>) => Effect.Effect<Router.Admission>,
@@ -255,13 +271,13 @@ const _make = <const Rows extends Router.Rows>(spec: Router.Spec<Rows>) => {
 const Router: {
   readonly Admission: Data.TaggedEnum.Constructor<Router.Admission>
   readonly param: typeof _param
-  readonly standard: <P extends ParserMap>(map: P) => ReturnType<typeof createStandardSchemaV1<P, true>>
+  readonly standard: <Q extends ParserMap>(row: Router.Row<unknown, Q>) => ReturnType<typeof createStandardSchemaV1<Q, true>>
   readonly table: typeof _table
   readonly make: typeof _make
 } = {
   Admission,
   param: _param,
-  standard: (map) => createStandardSchemaV1(map, { partialOutput: true }),
+  standard: (row) => createStandardSchemaV1(row.query, { urlKeys: row.urlKeys, partialOutput: true }), // the row, never a bare map: the egress view inherits the same renames the loader decoded under
   table: _table,
   make: _make,
 }
@@ -275,11 +291,12 @@ const Router: {
 - Law: cold boot reconstructs, never guesses — the cell seeds `Authenticating` and the construction forks ONE `spec.refresh` probe (the edge round-trip is the only reader of the HttpOnly cookie), whose fold settles `Authenticated` or `Anonymous`; a guard therefore observes a settled phase or waits out the in-flight one, and an `Anonymous` seed that hides a live cookie session is unspellable.
 - Law: the refresh arm is supersede-keyed — one `FiberHandle` holds at most one sleeper; each `Authenticated` transition re-arms it to wake at `expiresAt` minus the lead, run `spec.refresh` (the edge round-trip that re-establishes the cookie session), and fold the outcome (`some` re-establishes, `none` expires); any other phase replaces the sleeper with `Effect.void`, so a signed-out tab holds no timer and two sleepers cannot race; a refresh success publishes the fresh expiry to the channel, so sibling tabs fold forward and re-arm to the later watermark — the first refresher wins and the others move their timers instead of re-dialing.
 - Law: cross-tab truth is one `BroadcastChannel` held `Effect.acquireRelease` — a decoded `Established` folds the foreign fact into the local cell, `Cleared` signs every tab out at once, and an undecodable message is dropped because a foreign tab's garbage is not this rail's fault; `Expired` and `Authenticating` are local phases that never cross the channel, because a foreign tab observing them acts on another tab's transient.
-- Law: the CSRF read is the one sanctioned `document.cookie` touch in the branch — the cookie scan is expression-shaped over the split rows, the value decodes through `Encoding.decodeUriComponent` (an `Either`, never a thrown `URIError`), and absence is `Option.none` the caller folds; the cookie NAME composes from `security`'s `CookieSpec` table, never a local respelling, and the server refuses a mutation without the echo so no browser-side guard re-checks it.
+- Law: the CSRF read is the one sanctioned `document.cookie` touch in the branch — the cookie scan is expression-shaped over the split rows, the value decodes through `Encoding.decodeUriComponent` (an `Either`, never a thrown `URIError`), and absence is `Option.none` the caller folds; the server refuses a mutation without the echo so no browser-side guard re-checks it.
+- Law: the stamped pair reads ONE `CookieSpec.csrf` row on both axes — the cookie under `name`, the echo header under `header` — because the two halves of a double-submit are one field spelling and `serve/route#CEREMONY_ROWS`'s gate reads that same row; reusing the cookie name as the header name is the fork that fails every mutation closed while both ends type-check.
 - Law: the pending flow is single-use and time-bounded — `land` drops the record before acting on it, so a replayed callback finds nothing and folds to `replay`; a record older than `spec.grace` folds to `lapsed`; the state echo, when the record carries one, equals the callback's or folds to `replay` — defense in depth beside the server-side single-use stash `security/authn/oauth` owns. The departure commit is the module's platform-forced statement seam — `location.assign` unloads the document, nothing sequences after it, and the implementer carries the `// BOUNDARY ADAPTER` mark on `_departed`'s first line.
 - Law: passkey ceremonies stay out of this plane — `security/authn/webauthn`'s `Passkeys` owns the `navigator.credentials` invocation and the ui wave owns the option/response POST-back legs; this plane owns only the phase cell those legs drive through the transitions.
 - Receipt: `land` yields the flow's `returnTo` beside the established session so the traversal owner restores the interrupted destination; `csrf` yields the ready `[name, value]` header pair.
-- Growth: a new phase is one case on the enum plus its `$match` arms breaking loudly; a new cross-tab fact is one `_Signal` member; a new continuity guard is one `FlowFault` reason row.
+- Growth: a new phase is one case on the enum plus its `$match` arms breaking loudly; a new cross-tab fact is one `_Signal` member; a new continuity guard is one reason on the `FlowFault` family mint, which derives the type and the class projection together.
 - Boundary: `security/authn/session` owns the server-side `Session`/`TokenPair` truth and the cookie attribute table; the refresh and exchange endpoints are app data the composition root supplies; this owner never dials. Cross-tab MUTUAL EXCLUSION is not this channel's concern — a tab needing an exclusive claim (one refresher elected structurally, one exporter per origin) composes `net/coordinate`'s Web-Locks row; the session channel carries facts, never locks.
 - Packages: `@rasm/ts/security` (`CookieSpec`); `effect` (`Data`, `DateTime`, `Duration`, `Effect`, `Encoding`, `FiberHandle`, `Option`, `Order`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `./persist.ts` (`Kv`); `@rasm/ts/core` (`FaultClass`).
 
@@ -303,15 +320,14 @@ type SessionStatus = Data.TaggedEnum<{
 }>
 const SessionStatus: Data.TaggedEnum.Constructor<SessionStatus> = Data.taggedEnum<SessionStatus>()
 
-const _flowFaults = {
+const _flowFamily = FaultClass.family(["replay", "lapsed", "malformed"] as const, {
   replay: { class: "conflicted" },
   lapsed: { class: "expired" },
   malformed: { class: "malformed" },
-} as const
+})
 
 declare namespace FlowFault {
-  type Reason = keyof typeof _flowFaults
-  type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _flowFaults> = T
+  type Reason = (typeof _flowFamily.reasons)[number]
 }
 
 class FlowFault extends Data.TaggedError("FlowFault")<{
@@ -319,7 +335,10 @@ class FlowFault extends Data.TaggedError("FlowFault")<{
   readonly detail: string
 }> {
   get class(): FaultClass.Kind {
-    return _flowFaults[this.reason].class
+    return _flowFamily.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<flow:${this.reason}> ${this.detail}`
   }
 }
 
@@ -467,8 +486,10 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
         cleared: SubscriptionRef.set(_status, SessionStatus.Anonymous()).pipe(
           Effect.zipRight(_publish({ _tag: "Cleared" })),
         ),
+        // the pair is one row read twice: `name` names the cookie the scan reads, `header` names the echo the dial
+        // stamps and the serve gate reads — the cookie name standing in for the header is the forked spelling
         csrf: Effect.sync(() =>
-          Option.map(_cookie(CookieSpec.csrf.name), (token) => [CookieSpec.csrf.name, token] as const),
+          Option.map(_cookie(CookieSpec.csrf.name), (token) => [CookieSpec.csrf.header, token] as const),
         ),
         depart,
         land,

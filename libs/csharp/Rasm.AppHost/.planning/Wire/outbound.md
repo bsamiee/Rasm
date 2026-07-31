@@ -257,11 +257,11 @@ Every keyed-pipeline literal is a named frozen `const` or `static readonly` on `
 
 - Owner: `OutboundSurface` — admission, dispatch, conflict evidence, and enforcement over one runtime record; `OutboundRuntime` capability record; `HopOutcome` `[Union]`; `HopReceipt` receipt struct.
 - Cases: Delivered, Refused, Faulted — Refused carries pre-flight admission faults, Faulted carries in-flight pipeline rejection.
-- Entry: `Run(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<HopOutcome>> send)` — `IO<HopReceipt>` carries the boundary effect; every exit is a receipt, never a throw.
-- Receipt: `HopReceipt` — pipeline key, attempts, outcome, elapsed `Duration`, consumed deadline class, breaker state; every `Run` exit fans one `HopReceiptWire` envelope under `InstrumentFan.HopKind`, so hop attempts and durations project off the receipt fan with zero call-site metering.
+- Entry: `Carry<T>(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<(HopOutcome, T)>> send)` is the ONE hop run — `IO<T>` railing the body's produced value on a delivered outcome and the outcome's own `Error` otherwise; `Run(...)` is its outcome-only instantiation returning `IO<HopReceipt>`, the shape a write-only hop takes. Every exit is a receipt, never a throw.
+- Receipt: `HopReceipt` — pipeline key, attempts, outcome, elapsed `Duration`, consumed deadline class, breaker state; every hop exit fans one `HopReceiptWire` envelope under `InstrumentFan.HopKind` through the one `Fan` projection both entries compose, so hop attempts and durations project off the receipt fan with zero call-site metering.
 - Packages: Polly.Core, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one outcome case per new terminal kind; zero new surface.
-- Boundary: exactly one retry owner per hop held at the composition root — domain rails retry through `Schedule`, transport hops retry through the keyed or HTTP pipeline, never both on one seam; the `RetryOwners` claim cell is the structural proof and `Guarded` is the schedule-side guard that degrades to a single pass and emits the conflict receipt instead of stacking a loop; `Execute` runs the hop through `ExecuteOutcomeAsync` over a pooled `ResilienceContext` leased from `ResilienceContextPool.Shared` and returned in `finally`, so a pipeline rejection surfaces as a captured `Outcome<HopOutcome>.Exception` folded to `Faulted` with no exception-as-control-flow round-trip, and `RouteKey`, a `readonly struct ResiliencePropertyKey<string>` (single `string key` ctor, `string Key` accessor), carries the pipeline key into the meter through `context.Properties`, never ambient state; `Enforce` sweeps the keyed manual breakers from the effective degradation level — the kill-switch consequence; `BreakerState` reads the receipt's breaker field from the native `CircuitBreakerStateProvider` keyed per hop on `KeyedLane`, deleting the hand-held state delegate so the runtime record carries no parallel breaker-state function; the runtime record is constructed once at the composition root.
+- Boundary: a hop body that produces a value carries it out through `Carry<T>` on the run that timed it, so the reported value and the receipt describe ONE transport call — a hop run for its outcome followed by a second raw call for its value is the deleted form, since that second frame rides no pipeline, no retry, and no breaker while the receipt attributes its timing to the first; exactly one retry owner per hop held at the composition root — domain rails retry through `Schedule`, transport hops retry through the keyed or HTTP pipeline, never both on one seam; the `RetryOwners` claim cell is the structural proof and `Guarded` is the schedule-side guard that degrades to a single pass and emits the conflict receipt instead of stacking a loop; `Execute` runs the hop through `ExecuteOutcomeAsync` over a pooled `ResilienceContext` leased from `ResilienceContextPool.Shared` and returned in `finally`, so a pipeline rejection surfaces as a captured `Outcome<HopOutcome>.Exception` folded to `Faulted` with no exception-as-control-flow round-trip, and `RouteKey`, a `readonly struct ResiliencePropertyKey<string>` (single `string key` ctor, `string Key` accessor), carries the pipeline key into the meter through `context.Properties`, never ambient state; `Enforce` sweeps the keyed manual breakers from the effective degradation level — the kill-switch consequence; `BreakerState` reads the receipt's breaker field from the native `CircuitBreakerStateProvider` keyed per hop on `KeyedLane`, deleting the hand-held state delegate so the runtime record carries no parallel breaker-state function; the runtime record is constructed once at the composition root.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -330,12 +330,39 @@ public static class OutboundSurface {
         from _owner in Claim(runtime, row.PipelineKey, PipelineOwner)
         select row;
 
+    // Carry is the ONE hop run and Run its Unit instantiation: a hop whose body PRODUCES a value (a decoded
+    // register window, a parsed frame) carries it out on the same rail that fans the receipt, so the value
+    // and the timing describe ONE transport call. The rejected form is a hop run for its outcome followed by
+    // a second raw call for its value — two frames on the wire, the reported value taken from the untimed,
+    // unretried, unbroken-circuit one. The body states its own HopOutcome because a protocol-level refusal (a
+    // 404, a false confirmed-request ack) is a hop fact the rail cannot infer from a non-throwing return.
+    public static IO<T> Carry<T>(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<(HopOutcome Outcome, T Value)>> send) {
+        Atom<Option<T>> carried = Atom(Option<T>.None);
+        return Admit(runtime, hop).Match(
+                Succ: row => Execute(runtime, row, async ct => {
+                    (HopOutcome outcome, T value) = await send(ct).ConfigureAwait(false);
+                    ignore(carried.Swap(_ => Some(value)));
+                    return outcome;
+                }),
+                Fail: error => IO.pure(Conflicted(runtime, hop.Policy, error)))
+            .Bind(receipt => Fan(runtime, receipt))
+            .Bind(receipt => (receipt.Outcome, carried.Value) switch {
+                (HopOutcome.Delivered, { IsSome: true, Case: T value }) => IO.pure(value),
+                (HopOutcome.Refused r, _) => IO.fail<T>(r.Reason),
+                (HopOutcome.Faulted f, _) => IO.fail<T>(f.Reason),
+                _ => IO.fail<T>(new HopFault.Excluded(hop.Policy.PipelineKey)),
+            });
+    }
+
     public static IO<HopReceipt> Run(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<HopOutcome>> send) =>
         Admit(runtime, hop).Match(
             Succ: row => Execute(runtime, row, send),
             Fail: error => IO.pure(Conflicted(runtime, hop.Policy, error)))
-        .Bind(receipt => runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.HopKind,
-            JsonSerializer.SerializeToElement(HopReceiptWire.From(receipt), runtime.Wire)).Map(_ => receipt));
+        .Bind(receipt => Fan(runtime, receipt));
+
+    static IO<HopReceipt> Fan(OutboundRuntime runtime, HopReceipt receipt) =>
+        runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.HopKind,
+            JsonSerializer.SerializeToElement(HopReceiptWire.From(receipt), runtime.Wire)).Map(_ => receipt);
 
     public static IO<HopReceipt> Guarded(OutboundRuntime runtime, HopPolicy row, Schedule retry, IO<HopReceipt> work, Action<HopReceipt> evidence) =>
         Claim(runtime, row.PipelineKey, ScheduleOwner).Match(

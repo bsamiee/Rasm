@@ -10,10 +10,10 @@ Input and output are both parameterized: `ExportSource` discriminates the `to_on
 
 ## [02]-[ASSET]
 
-- Owner: `ModelAsset` — `ModelAssetManifest` is the io-names, op-types, providers, model-card, and per-check verdict value object backing the graduation seam; a failed check is a residual `1.0` above the default `0.0` ceiling on the shared `graduation/handoff#GRADUATION` fold, never a second admission body here, and the manifest crosses outward only through `graduates`.
+- Owner: `ModelAsset` — `ModelAssetManifest` is the io-names, op-types, providers, model-card, and per-check verdict value object backing the graduation seam; a failed check is a residual `1.0` above its governed `_CHECK_CEILING` row on the shared `graduation/handoff#GRADUATION` fold, never a second admission body here and never a bar derived from the run's own residual roster, and the manifest crosses outward only through `graduates` under the caller's composition key.
 - Cases: `ExportSource` — the sample drives `initial_types` inference, so a categorical or mixed-dtype source is the `columns` case, never a hand-built `FloatTensorType`; `OperatorGate` bounds the emitted operators, so a quantized or opset-restricted graph is a tighter row, never a converter fork.
 - Output: the `ValidationEvidence` case IS the verdict row — its `tag` names the check and `passed` reads the outcome, no separate `CheckVerdict` carrier re-stamping the discriminant; a malformed graph and an unpropagated shape both land as one failed `structural` verdict on the domain rail, never an infrastructure `BoundaryFault`.
-- Growth: a new validation check is one `ValidationCheck` case, one `ValidationEvidence` case, and one `run` arm; a new export source is one `ExportSource` case and one `convert` arm; a new parity probe verb is one `ProbeAttr` literal and one `PROBE_RANK` row; a stricter operator gate is one `OperatorGate` row; a stricter graduation bar is a tighter ceiling row the caller supplies.
+- Growth: a new validation check is one `ValidationCheck` case, one `ValidationEvidence` case, one `run` arm, and one `_CHECK_CEILING` row; a new export source is one `ExportSource` case and one `convert` arm; a new parity probe verb is one `ProbeAttr` literal and one `PROBE_RANK` row; a stricter operator gate is one `OperatorGate` row; a stricter graduation bar is a tighter `_CHECK_CEILING` row or the caller's override.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -32,7 +32,7 @@ from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, Ha
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.roots import ResourceRef
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -56,6 +56,12 @@ type Residual = Annotated[dict[str, float], Is[lambda m: all(isfinite(v) for v i
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PARITY_TOL: Final[float] = 1e-4  # converter float32-vs-float64 numeric drift tolerance
+
+# `model_asset` family's DEFAULT graduation ceiling, one governed row PER CHECK rather than a bar derived off whatever
+# the run happened to measure: a derived bar makes every future non-binary verdict its own ceiling and clears by
+# construction. The default projects over the verdicts the manifest actually carries, so a validation that never ran
+# the parity probe bars three checks rather than naming a fourth the hub's key-coverage gate would then refuse.
+_CHECK_CEILING: Final[Map[CheckKind, float]] = Map.of_seq([("structural", 0.0), ("io_binding", 0.0), ("smoke", 0.0), ("parity", 0.0)])
 
 # each row pairs a sklearn verb with the ONNX output index it rides — a `zipmap`-off classifier emits `label` at 0 and dense
 # scores at 1, `predict` rides 0 — so the parity diff reads the matching column, never an int64 label against a float reference.
@@ -223,10 +229,18 @@ class ModelAssetManifest(Struct, frozen=True):
     def subject(self) -> str:
         return self.model_card.get("producer", "<anonymous>")
 
-    def graduates(self, ceiling: dict[str, float] | None = None) -> RuntimeRail[GraduationReceipt]:
-        residuals = self.residuals
+    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GraduationReceipt]:
+        # the governed `_ASSET_CEILING` row is the family default and a caller's tighter row the override; deriving the
+        # bar from the residual roster instead would make every check's bar whatever that run happened to measure, so a
+        # future non-binary verdict would bar itself at its own value and clear by construction. `composition` is the
+        # caller's custody key, so an embedded composition's admission and refusal facts key to it.
         return GraduationReceipt.graduates(
-            EvidenceScope.MODEL.value, HandoffAxis(model_asset=self.subject()), self.checksum, residuals, ceiling or dict.fromkeys(residuals, 0.0)
+            EvidenceScope.MODEL.value,
+            HandoffAxis(model_asset=self.subject()),
+            self.checksum,
+            self.residuals,
+            ceiling or {verdict.tag: _CHECK_CEILING[verdict.tag] for verdict in self.verdicts},
+            composition=composition,
         )
 
     def contribute(self) -> Iterable[Receipt]:
@@ -256,20 +270,22 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
     ref: ResourceRef
     providers: tuple[str, ...] = ()
 
-    async def validate(self, lane: LanePolicy) -> RuntimeRail[ModelAssetManifest]:
-        return await self._traced(lane, "validate", _validate_kernel, self)
+    async def validate(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[ModelAssetManifest]:
+        return await self._traced(lane, "validate", _validate_kernel, self, composition=composition)
 
-    async def export(self, lane: LanePolicy, source: ExportSource, /, *, gating: OperatorGate = OperatorGate()) -> RuntimeRail[ModelAssetManifest]:
-        return await self._traced(lane, f"export.{source.tag}", _export_kernel, self, source, gating)
+    async def export(
+        self, lane: LanePolicy, source: ExportSource, /, *, gating: OperatorGate = OperatorGate(), composition: ScopeKey = DEFAULT_SCOPE
+    ) -> RuntimeRail[ModelAssetManifest]:
+        return await self._traced(lane, f"export.{source.tag}", _export_kernel, self, source, gating, composition=composition)
 
     async def _traced(
-        self, lane: LanePolicy, op: str, kernel: Callable[..., "RuntimeRail[ModelAssetManifest]"], *args: object
+        self, lane: LanePolicy, op: str, kernel: Callable[..., "RuntimeRail[ModelAssetManifest]"], *args: object, composition: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[ModelAssetManifest]:
         # weave owns span, fence, and the fenced contributor harvest.
         async def dispatch() -> RuntimeRail[ModelAssetManifest]:
             return (await lane.offload(Kernel.of(kernel, KernelTrait.RELEASING), *args)).bind(lambda rail: rail)
 
-        return await evidence_run(EvidenceScope.MODEL, f"model.{op}", dispatch, facts={"op": op, "providers": ",".join(self.providers)})
+        return await evidence_run(EvidenceScope.MODEL, f"model.{op}", dispatch, facts={"op": op, "providers": ",".join(self.providers)}, composition=composition)
 
     @beartype(conf=FAULT_CONF)
     def _load_and_run(self, path: UPath, source: ExportSource | None) -> ModelAssetManifest:

@@ -19,7 +19,7 @@ Wire posture: HOST-LOCAL. `FabricationPlan` crosses to the caller and `Verify/es
 - Owner: `DerivationStage` owns ordered ceilings; `CapabilityGate` owns execution predicates; `WorkAxis` owns every per-modality work fact; `JoinRouting` owns the join-class-to-process correspondence; `LotPolicy` owns lot timing and batching; `LotReceipt` owns the lap-phased schedule evidence; `CapabilityRequirement` owns the required gate set; `OperationDemand` and `OperationTopology` own executable work and its proven order; `DerivePolicy` owns request depth and aggregate admission; `PlanDraft` owns rail accumulation; `Derivation` owns the stage rail; and `FabricationProjector` owns graph projection.
 - Cases: `WorkKind` carries cut, join, form, additive, inspection, finish, fixture, treatment, cleaning, coating, transfer, handling, packing, and hold work. `DerivePolicy.Assessment` carries lot and the full `DfmRequest`; `Routing` adds fleet and preferences; `FullPlan` adds assembly, operations, setup, and artifact intent. Without a setup plan, full-plan work groups by process in setup `0`; with one, each admitted setup expands by operation ids and then by process.
 - Entry: `Plan(FabricationPolicy.Derive, FabricationInput)` admits the policy aggregate, admits DfM routing at every ceiling, gates full-plan capability, reduces the operation DAG into an `OperationTopology`, composes assembly precedence, verifies setup coverage, selects the highest-score feasible machine per step, and closes the lot against its due bound.
-- Auto: `Manufacturability.Assess(DfmRequest)` supplies ranked routes, fleet supplies scored matches, `AssemblyPlan.Apply(AssemblyOp.Plan)` supplies reduced join precedence and join duration, and `SetupSchedule.Apply(SetupOp.Schedule)` partitions topologically ordered demands. Every plan-derivation rejection lowers through `Reject` onto `FabricationFault.DerivationRejected` carrying its `DeriveWitness` and the stage that raised it. `RequestedArtifacts` changes plan identity but never pretends an artifact was produced.
+- Auto: `Manufacturability.Assess(DfmRequest)` supplies ranked routes, fleet supplies scored matches, `AssemblyPlan.Apply(AssemblyOp.Plan)` supplies reduced join precedence and join duration, and `SetupSchedule.Apply(SetupOp.Schedule)` partitions topologically ordered demands. Every plan-derivation rejection lowers through `Reject` onto the `FabricationFault.Derivation` mint, so the witness clears its own kind predicate before the fault carrying it and its stage exists. `RequestedArtifacts` changes plan identity but never pretends an artifact was produced.
 - Receipt: `FabricationPlan` is the derivation evidence: case-derived ceiling, DfM-ranked `Routing` rows, retained `MachineMatch` routes, admitted topology and steps, capability requirement and verdict, lot receipt, key ledger, and content key. `LotReceipt` adds availability, calendar completion, total work, critical-chain effort, the critical operation chain, the derived `Slack` between work and chain, and the derived `Queue` between lead and chain. `DfmReport` and `AssemblyPlan` remain stage-local because the terminal result carries their ranked-route and plan projections at every ceiling.
 - Packages: Process exports `AdmittedComponent`, `PlannedStep`, `FabricationPlan`, `EgressKind`, and `ContentKey`; stage owners export `Manufacturability.Assess`, `Fleet.Capable`, `AvailabilityPlan.Finish`, `AssemblyPlan.Apply`, and `SetupSchedule.Apply`; QuikGraph owns DAG validation, reduction, and topological order; NodaTime owns instant and duration semantics; `Rasm.Element` owns graph projection and the `PropertyCategory` row-name custody every bag key mints through; Thinktecture.Runtime.Extensions and LanguageExt.Core own generated values and rails.
 - Growth: a rail segment is one ordered `DerivationStage` row and one fold arm; a work modality is one `WorkAxis` row with its `WorkKind` case, admission and byte projection following without a consumer edit; a join class becomes routable as one `JoinRouting` row; a route or plan fact widens the existing `FabricationPlan` receipt and canonical-byte projection; an element fact extends the existing total `Lower` arm for its owning result case.
@@ -27,10 +27,7 @@ Wire posture: HOST-LOCAL. `FabricationPlan` crosses to the caller and `Verify/es
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Buffers.Binary;
 using System.Linq;
-using System.Text;
-using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
@@ -175,55 +172,52 @@ public sealed partial class LotReceipt {
 [SmartEnum<string>]
 public sealed partial class WorkAxis {
     public static readonly WorkAxis Cut = Of<WorkKind.Cut>(
-        "cut", static _ => true, static (sink, row) => Write(sink, row.Operation.Key));
+        "cut", static _ => true, static (sink, row) => sink.String(row.Operation.Key));
     public static readonly WorkAxis Join = Of<WorkKind.Join>(
-        "join", static row => row.Connection >= 0, static (sink, row) => Write(sink, row.Connection),
+        "join", static row => row.Connection >= 0, static (sink, row) => sink.Ordinal(row.Connection),
         static row => Some(row.Connection));
     public static readonly WorkAxis Form = Of<WorkKind.Form>(
-        "form", static row => row.Feature >= 0, static (sink, row) => Write(sink, row.Feature));
+        "form", static row => row.Feature >= 0, static (sink, row) => sink.Ordinal(row.Feature));
     public static readonly WorkAxis Additive = Of<WorkKind.Additive>(
-        "additive", static row => row.Region >= 0, static (sink, row) => Write(sink, row.Region));
+        "additive", static row => row.Region >= 0, static (sink, row) => sink.Ordinal(row.Region));
     public static readonly WorkAxis Inspect = Of<WorkKind.Inspect>(
-        "inspect", static row => Named(row.Feature), static (sink, row) => Write(sink, row.Feature));
+        "inspect", static row => Named(row.Feature), static (sink, row) => sink.String(row.Feature));
     public static readonly WorkAxis Finish = Of<WorkKind.Finish>(
-        "finish", static row => Named(row.Specification), static (sink, row) => Write(sink, row.Specification));
+        "finish", static row => Named(row.Specification), static (sink, row) => sink.String(row.Specification));
     public static readonly WorkAxis Fixture = Of<WorkKind.Fixture>(
-        "fixture", static row => row.Setup >= 0, static (sink, row) => Write(sink, row.Setup));
+        "fixture", static row => row.Setup >= 0, static (sink, row) => sink.Ordinal(row.Setup));
     public static readonly WorkAxis Treat = Of<WorkKind.Treat>(
-        "treat", static row => Named(row.Specification), static (sink, row) => Write(sink, row.Specification));
+        "treat", static row => Named(row.Specification), static (sink, row) => sink.String(row.Specification));
     public static readonly WorkAxis Clean = Of<WorkKind.Clean>(
-        "clean", static row => Named(row.Standard), static (sink, row) => Write(sink, row.Standard));
+        "clean", static row => Named(row.Standard), static (sink, row) => sink.String(row.Standard));
     public static readonly WorkAxis Coat = Of<WorkKind.Coat>(
-        "coat", static row => Named(row.Specification), static (sink, row) => Write(sink, row.Specification));
+        "coat", static row => Named(row.Specification), static (sink, row) => sink.String(row.Specification));
     public static readonly WorkAxis Transfer = Of<WorkKind.Transfer>(
         "transfer", static row => Named(row.From) && Named(row.To) && row.From != row.To,
-        static (sink, row) => { Write(sink, row.From); Write(sink, row.To); });
+        static (sink, row) => sink.String(row.From).String(row.To));
     public static readonly WorkAxis Handle = Of<WorkKind.Handle>(
-        "handle", static row => Named(row.Resource), static (sink, row) => Write(sink, row.Resource));
+        "handle", static row => Named(row.Resource), static (sink, row) => sink.String(row.Resource));
     public static readonly WorkAxis Pack = Of<WorkKind.Pack>(
-        "pack", static row => Named(row.Specification), static (sink, row) => Write(sink, row.Specification));
+        "pack", static row => Named(row.Specification), static (sink, row) => sink.String(row.Specification));
     public static readonly WorkAxis Hold = Of<WorkKind.Hold>(
-        "hold", static row => Named(row.Reason), static (sink, row) => Write(sink, row.Reason));
+        "hold", static row => Named(row.Reason), static (sink, row) => sink.String(row.Reason));
 
     public Func<WorkKind, bool> Admits { get; }
-    public Action<ArrayPoolBufferWriter<byte>, WorkKind> Project { get; }
+    public Func<CanonicalWriter, WorkKind, CanonicalWriter> Project { get; }
     public Func<WorkKind, Option<int>> Connection { get; }
 
     private static WorkAxis Of<TWork>(
         string key,
         Func<TWork, bool> admits,
-        Action<ArrayPoolBufferWriter<byte>, TWork> project,
+        Func<CanonicalWriter, TWork, CanonicalWriter> project,
         Func<TWork, Option<int>>? connection = null)
         where TWork : WorkKind =>
         new(key,
             work => work is TWork typed && admits(typed),
-            (sink, work) => { if (work is TWork typed) { Write(sink, key); project(sink, typed); } },
+            (sink, work) => work is TWork typed ? project(sink.String(key), typed) : sink,
             work => work is TWork typed ? (connection?.Invoke(typed) ?? None) : None);
 
     private static bool Named(string value) => !string.IsNullOrWhiteSpace(value);
-
-    private static void Write(ArrayPoolBufferWriter<byte> sink, int value) => Derivation.Write(sink, value);
-    private static void Write(ArrayPoolBufferWriter<byte> sink, string value) => Derivation.Write(sink, value);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -401,14 +395,14 @@ public abstract partial record DerivePolicy(LotPolicy Lot, DfmRequest Dfm) {
         return operations
             .Bind(demand => demand.Predecessors.Filter(id => !ids.Contains(id))
                 .Map(id => (Operation: demand.Id, Predecessor: id)).ToSeq())
-            .HeadOrNone();
+            .Head;
     }
 
     private static Fin<Unit> Pairing(Option<ProcessKind> process, Option<Machine> machine) =>
         (from admitted in process from instance in machine select (Process: admitted, Machine: instance))
             .Filter(static pair => !pair.Machine.Admits(pair.Process))
             .Match(
-                Some: static pair => Fin.Fail<Unit>(FabricationFault.InadmissiblePair(
+                Some: static pair => Fin.Fail<Unit>(new FabricationFault.InadmissiblePair(
                     new RelationFault.ProcessMachine(pair.Process, pair.Machine))),
                 None: static () => Fin.Succ(unit));
 
@@ -490,9 +484,10 @@ public static class Derivation {
                           steps: steps, requirement: Some(row.Capability), lotReceipt: Some(lot))))
         select result;
 
-    // Every plan-derivation rejection lowers onto the one typed fault carrying its witness and its stage.
+    // Every plan-derivation rejection lowers onto the one gated mint: the witness admits against its own kind
+    // predicate first, so a payload contradicting the condition it names lands as `WitnessMalformed` instead.
     internal static Error Reject(DeriveWitness witness, DerivationStage stage) =>
-        FabricationFault.DerivationRejected(witness, new FaultSubject.Stage(stage.Key));
+        FabricationFault.Derivation(witness, new FaultSubject.Stage(stage.Key));
 
     private static Fin<Seq<ProcessKind>> RouteOf(
         DfmReport dfm,
@@ -500,7 +495,7 @@ public static class Derivation {
         Option<ProcessKind> preferred) {
         Seq<ProcessKind> routed = preferred.Match(p => dfm.Routing.Filter(r => r == p), () => dfm.Routing);
         return routed.IsEmpty
-            ? Fin.Fail<Seq<ProcessKind>>(FabricationFault.RoutingInfeasible(
+            ? Fin.Fail<Seq<ProcessKind>>(new FabricationFault.RoutingInfeasible(
                 component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Routing.Key)))
             : Fin.Succ(routed);
     }
@@ -509,13 +504,13 @@ public static class Derivation {
         Option<CapabilityVerdict> admitted,
         CapabilityRequirement required,
         ProcessKind process) =>
-        admitted.ToFin(FabricationFault.CapabilityShortfall(process, 0.0, required.MinimumCpk))
+        admitted.ToFin(new FabricationFault.CapabilityShortfall(process, 0.0, required.MinimumCpk))
             .Bind(verdict => verdict.Cpk >= required.MinimumCpk
                 && verdict.DemandedCpk >= required.MinimumCpk
                 && verdict.DemandedItGrade <= required.DemandedItGrade
                 && required.Gates.ForAll(gate => gate.Accepts(verdict))
                     ? Fin.Succ(verdict)
-                    : Fin.Fail<CapabilityVerdict>(FabricationFault.CapabilityShortfall(
+                    : Fin.Fail<CapabilityVerdict>(new FabricationFault.CapabilityShortfall(
                         process, verdict.Cpk, required.MinimumCpk)));
 
     private static Fin<Seq<MachineMatch>> MatchOf(
@@ -529,7 +524,7 @@ public static class Derivation {
               .Filter(match => routed.Contains(match.Process))
               .Filter(match => preferred.Match(machine => match.Instance.Kind == machine, static () => true))
           from nonEmpty in admitted.IsEmpty
-              ? Fin.Fail<Seq<MachineMatch>>(FabricationFault.RoutingInfeasible(
+              ? Fin.Fail<Seq<MachineMatch>>(new FabricationFault.RoutingInfeasible(
                   component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Fleet.Key)))
               : Fin.Succ(admitted)
           select nonEmpty;
@@ -599,12 +594,11 @@ public static class Derivation {
     // One assignment rule serves step projection and lot scheduling; a second spelling would let the machine
     // machine promised by the schedule differ from the machine the program posts to.
     private static Option<MachineMatch> AssignedTo(Seq<MachineMatch> matches, ProcessKind process) =>
-        matches
-            .Filter(match => match.Process == process && match.Checks.Feasible)
-            .OrderByDescending(static match => match.Score)
-            .ThenBy(static match => match.Instance.Id)
-            .ToSeq()
-            .HeadOrNone();
+        toSeq(matches
+                .Filter(match => match.Process == process && match.Checks.Feasible)
+                .OrderBy(static match => match.Score)   // MachineMatch.Score is the normalized lower-is-better burden; ascending selects the best feasible machine
+                .ThenBy(static match => match.Instance.Id))
+            .Head;
 
     // Lap phasing is the transfer semantics LotPolicy admits: a successor starts once its predecessor's first
     // transfer batch clears the buffer, so batching shortens lead time without shortening total work. Every
@@ -628,7 +622,7 @@ public static class Derivation {
             (accumulated, operation) => accumulated.Bind(state =>
                 from plan in AssignedTo(matches, operation.Process)
                     .Map(static match => match.Instance.Availability)
-                    .ToFin(FabricationFault.RoutingInfeasible(
+                    .ToFin(new FabricationFault.RoutingInfeasible(
                         component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Fleet.Key)))
                 let effort = operation.DurationFor(lot)
                 let ready = operation.Predecessors.Fold(
@@ -728,7 +722,7 @@ public static class Derivation {
         OperationTopology topology,
         Option<SetupSchedule> setups) {
         Seq<(int Setup, Arr<int> Operations)> partitions = setups.Match(
-            Some: schedule => Range(0, schedule.Setups.Count)
+            Some: schedule => Range(0, schedule.Setups.Count).ToSeq()
                 .Map(index => (Setup: index, Operations: schedule.Setups[index].Operations))
                 .ToSeq(),
             None: () => Seq((Setup: 0, Operations: topology.Ordered.Map(static demand => demand.Id).ToArr())));
@@ -746,7 +740,7 @@ public static class Derivation {
                         .ToArr())));
         return work.Zip(Range(0, work.Count), static (row, order) => (row, order))
             .Traverse(row => AssignedTo(matches, row.row.Process)
-                .ToFin(FabricationFault.RoutingInfeasible(
+                .ToFin(new FabricationFault.RoutingInfeasible(
                     component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Fleet.Key)))
                 .Bind(match => PlannedStep.Admit(row.order, row.row.Process, match.Instance.Kind,
                     row.row.Setup, row.row.Operations, None)))
@@ -754,148 +748,120 @@ public static class Derivation {
             .Map(static steps => steps.ToSeq());
     }
 
+    // The preimage composes the `Rasm.Element` `CanonicalWriter`, the package's ONE byte codec: it normalizes `-0.0`
+    // and every NaN payload, length-prefixes each token, and writes a count before every collection, so a plan key
+    // is byte-comparable with every other content key in the estate. A page-local scalar framing beside it is the
+    // deleted form — two of them already disagreed on how a `double` reaches the digest.
+    // Exemption: the ordered foreach walks are the measured byte kernel this codec is.
     private static ContentKey KeyOf(PlanDraft draft) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Write(writer, PlanIdentitySchema.CanonicalLittleEndian.Key);
-        Write(writer, draft.Component.RepresentationKey);
-        Write(writer, draft.Ceiling.Key);
-        Write(writer, draft.Routing.Count);
-        foreach (ProcessKind process in draft.Routing) Write(writer, process.Key);
-        Write(writer, draft.Lot.Quantity);
-        Write(writer, draft.Lot.BatchSize);
-        Write(writer, draft.Lot.Release.ToUnixTimeTicks());
-        Write(writer, draft.Lot.Due.ToUnixTimeTicks());
-        Write(writer, draft.Lot.TransferBuffer.ToTimeSpan().Ticks);
-        Write(writer, draft.Lot.Predecessors.Count);
-        foreach (UInt128 predecessor in draft.Lot.Predecessors.Order()) Write(writer, predecessor);
-        Write(writer, draft.RequestedArtifacts.Count);
-        foreach (EgressKind artifact in draft.RequestedArtifacts.OrderBy(static kind => kind.Key)) Write(writer, artifact.Key);
-        Write(writer, draft.Topology.Count);
+        CanonicalWriter writer = new CanonicalWriter(0.0)
+            .String(PlanIdentitySchema.CanonicalLittleEndian.Key)
+            .U128(draft.Component.RepresentationKey)
+            .String(draft.Ceiling.Key)
+            .Ordinal(draft.Routing.Count);
+        foreach (ProcessKind process in draft.Routing) writer.String(process.Key);
+        writer.Ordinal(draft.Lot.Quantity)
+            .Ordinal(draft.Lot.BatchSize)
+            .I64(draft.Lot.Release.ToUnixTimeTicks())
+            .I64(draft.Lot.Due.ToUnixTimeTicks())
+            .I64(draft.Lot.TransferBuffer.ToTimeSpan().Ticks)
+            .Ordinal(draft.Lot.Predecessors.Count);
+        foreach (UInt128 predecessor in draft.Lot.Predecessors.Order()) writer.U128(predecessor);
+        writer.Ordinal(draft.RequestedArtifacts.Count);
+        foreach (EgressKind artifact in draft.RequestedArtifacts.OrderBy(static kind => kind.Key)) writer.String(artifact.Key);
+        writer.Ordinal(draft.Topology.Count);
         foreach (OperationDemand demand in draft.Topology.Ordered) Write(writer, demand);
-        Write(writer, draft.Matches.Count);
+        writer.Ordinal(draft.Matches.Count);
         foreach (MachineMatch route in draft.Matches.OrderBy(static route => route.Instance.Id).ThenBy(static route => route.Process.Key)) Write(writer, route);
-        Write(writer, draft.Steps.Count);
+        writer.Ordinal(draft.Steps.Count);
         foreach (PlannedStep step in draft.Steps.OrderBy(static step => step.Order)) Write(writer, step);
         WriteOptional(draft.Capability, draft.Requirement, draft.LotReceipt, writer);
-        return ContentKey.Of(EgressKind.Plan, writer.WrittenSpan);
+        return ContentKey.Of(EgressKind.Plan, writer.ToBytes().Span);
     }
 
-    // Each optional slot frames its own presence flag so a missing verdict never shifts a later field's bytes.
+    // Each optional slot frames its own presence flag so a missing verdict never shifts a later field's bytes;
+    // `Bool` is the codec's own presence primitive, so an absent slot never mints a new framing convention.
     private static void WriteOptional(
         Option<CapabilityVerdict> capability,
         Option<CapabilityRequirement> requirement,
         Option<LotReceipt> lotReceipt,
-        ArrayPoolBufferWriter<byte> writer) {
-        Framed(writer, capability, static (sink, value) => {
-            Write(sink, value.Cpk);
-            Write(sink, value.DemandedCpk);
-            Write(sink, value.DemandedItGrade);
-            Write(sink, value.ProcedureQualified ? 1 : 0);
-            Write(sink, value.MeasurementSystemSuitable ? 1 : 0);
-        });
-        Framed(writer, requirement, static (sink, value) => {
-            Write(sink, value.MinimumCpk);
-            Write(sink, value.DemandedItGrade);
-            Write(sink, value.Gates.Count);
-            foreach (CapabilityGate gate in value.Gates.OrderBy(static gate => gate.Key)) Write(sink, gate.Key);
-        });
-        Framed(writer, lotReceipt, static (sink, value) => {
-            Write(sink, value.Available.ToUnixTimeTicks());
-            Write(sink, value.Completion.ToUnixTimeTicks());
-            Write(sink, value.Work.ToTimeSpan().Ticks);
-            Write(sink, value.Chain.ToTimeSpan().Ticks);
-            Write(sink, value.CriticalPath.Count);
-            foreach (int operation in value.CriticalPath) Write(sink, operation);
-            Write(sink, value.Batches);
-        });
+        CanonicalWriter writer) {
+        Framed(writer, capability, static (sink, value) => sink
+            .Double(value.Cpk)
+            .Double(value.DemandedCpk)
+            .Ordinal(value.DemandedItGrade)
+            .Bool(value.ProcedureQualified)
+            .Bool(value.MeasurementSystemSuitable));
+        Framed(writer, requirement, static (sink, value) => value.Gates
+            .OrderBy(static gate => gate.Key)
+            .Fold(
+                sink.Double(value.MinimumCpk).Ordinal(value.DemandedItGrade).Ordinal(value.Gates.Count),
+                static (rail, gate) => rail.String(gate.Key)));
+        Framed(writer, lotReceipt, static (sink, value) => value.CriticalPath.Fold(
+            sink.I64(value.Available.ToUnixTimeTicks())
+                .I64(value.Completion.ToUnixTimeTicks())
+                .I64(value.Work.ToTimeSpan().Ticks)
+                .I64(value.Chain.ToTimeSpan().Ticks)
+                .Ordinal(value.CriticalPath.Count),
+            static (rail, operation) => rail.Ordinal(operation))
+            .Ordinal(value.Batches));
     }
 
-    private static void Framed<T>(ArrayPoolBufferWriter<byte> writer, Option<T> slot, Action<ArrayPoolBufferWriter<byte>, T> project) =>
-        slot.Match(
-            Some: value => { Write(writer, 1); project(writer, value); return unit; },
-            None: () => { Write(writer, 0); return unit; });
+    private static void Framed<T>(CanonicalWriter writer, Option<T> slot, Func<CanonicalWriter, T, CanonicalWriter> project) =>
+        ignore(slot.Match(
+            Some: value => project(writer.Bool(true), value),
+            None: () => writer.Bool(false)));
 
-    internal static void Write(ArrayPoolBufferWriter<byte> writer, OperationDemand demand) {
-        Write(writer, demand.Id);
-        Write(writer, demand.Process.Key);
-        Write(writer, demand.Quantity);
-        Write(writer, demand.UnitDuration.ToTimeSpan().Ticks);
-        Write(writer, demand.SetupDuration.ToTimeSpan().Ticks);
-        Write(writer, demand.Predecessors.Count);
-        foreach (int predecessor in demand.Predecessors.Order()) Write(writer, predecessor);
-        Write(writer, demand.Evidence.Count);
+    // Exemption: each composite walk is the measured byte kernel; ordering is declared at the walk so the digest is
+    // reproducible across runs, and every collection writes its count first so raw append stays injective.
+    internal static void Write(CanonicalWriter writer, OperationDemand demand) {
+        writer.Ordinal(demand.Id)
+            .String(demand.Process.Key)
+            .Ordinal(demand.Quantity)
+            .I64(demand.UnitDuration.ToTimeSpan().Ticks)
+            .I64(demand.SetupDuration.ToTimeSpan().Ticks)
+            .Ordinal(demand.Predecessors.Count);
+        foreach (int predecessor in demand.Predecessors.Order()) writer.Ordinal(predecessor);
+        writer.Ordinal(demand.Evidence.Count);
         foreach (ContentKey evidence in demand.Evidence.OrderBy(static key => key.Kind.Key).ThenBy(static key => key.Digest)) Write(writer, evidence);
         demand.Work.Axis.Project(writer, demand.Work);
     }
 
-    internal static void Write(ArrayPoolBufferWriter<byte> writer, PlannedStep step) {
-        Write(writer, step.Order);
-        Write(writer, step.Process.Key);
-        Write(writer, step.Machine.Key);
-        Write(writer, step.Setup);
-        Write(writer, step.Operations.Count);
-        foreach (int operation in step.Operations.Order()) Write(writer, operation);
-        step.Program.Match(
-            Some: key => { Write(writer, 1); Write(writer, key); return unit; },
-            None: () => { Write(writer, 0); return unit; });
+    internal static void Write(CanonicalWriter writer, PlannedStep step) {
+        writer.Ordinal(step.Order)
+            .String(step.Process.Key)
+            .String(step.Machine.Key)
+            .Ordinal(step.Setup)
+            .Ordinal(step.Operations.Count);
+        foreach (int operation in step.Operations.Order()) writer.Ordinal(operation);
+        Framed(writer, step.Program, static (sink, key) => { Write(sink, key); return sink; });
     }
 
-    internal static void Write(ArrayPoolBufferWriter<byte> writer, MachineMatch route) {
-        Write(writer, route.Instance.Id);
-        Write(writer, route.Instance.Kind.Key);
-        Write(writer, route.Process.Key);
-        Write(writer, route.Checks.Facts.Count);
+    internal static void Write(CanonicalWriter writer, MachineMatch route) {
+        writer.Ordinal(route.Instance.Id)
+            .String(route.Instance.Kind.Key)
+            .String(route.Process.Key)
+            .Ordinal(route.Checks.Facts.Count);
         foreach (CapabilityFact fact in route.Checks.Facts
             .OrderBy(static value => value.Criterion.Key)
             .ThenBy(static value => value.Switch(
                 satisfied: static row => row.Locus,
                 rejected: static row => row.Locus))) {
-            Write(writer, fact.Criterion.Key);
             (double Demand, double Available, DemandUnit Unit, string Locus) evidence = fact.Switch(
                 satisfied: static row => (row.Demand, row.Available, row.Unit, row.Locus),
                 rejected: static row => (row.Demand, row.Available, row.Unit, row.Locus));
-            Write(writer, fact.Pass ? 1 : 0);
-            Write(writer, evidence.Demand);
-            Write(writer, evidence.Available);
-            Write(writer, evidence.Unit.Key);
-            Write(writer, evidence.Locus);
+            writer.String(fact.Criterion.Key)
+                .Bool(fact.Pass)
+                .Double(evidence.Demand)
+                .Double(evidence.Available)
+                .String(evidence.Unit.Key)
+                .String(evidence.Locus);
         }
-        Write(writer, route.EnvelopeHeadroom);
-        Write(writer, route.GradeMargin);
-        Write(writer, route.Score);
+        writer.Double(route.EnvelopeHeadroom).Double(route.GradeMargin).Double(route.Score);
     }
 
-    internal static void Write(ArrayPoolBufferWriter<byte> writer, ContentKey key) {
-        Write(writer, key.Kind.Key);
-        Write(writer, key.Digest);
-    }
-
-    internal static void Write(ArrayPoolBufferWriter<byte> writer, UInt128 value) {
-        Span<byte> span = writer.GetSpan(16);
-        BinaryPrimitives.WriteUInt64LittleEndian(span, (ulong)value);
-        BinaryPrimitives.WriteUInt64LittleEndian(span[8..], (ulong)(value >> 64));
-        writer.Advance(16);
-    }
-
-    internal static void Write(ArrayPoolBufferWriter<byte> writer, double value) =>
-        Write(writer, BitConverter.DoubleToInt64Bits(value == 0.0 ? 0.0 : value));
-
-    internal static void Write(ArrayPoolBufferWriter<byte> writer, long value) {
-        BinaryPrimitives.WriteInt64LittleEndian(writer.GetSpan(8), value);
-        writer.Advance(8);
-    }
-
-    internal static void Write(ArrayPoolBufferWriter<byte> writer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(4), value);
-        writer.Advance(4);
-    }
-
-    internal static void Write(ArrayPoolBufferWriter<byte> writer, string value) {
-        int length = Encoding.UTF8.GetByteCount(value);
-        Write(writer, length);
-        Encoding.UTF8.GetBytes(value, writer.GetSpan(length));
-        writer.Advance(length);
-    }
+    internal static void Write(CanonicalWriter writer, ContentKey key) =>
+        ignore(writer.String(key.Kind.Key).U128(key.Digest));
 }
 
 // --- [COMPOSITION] ----------------------------------------------------------------------------------------------------------------------------------

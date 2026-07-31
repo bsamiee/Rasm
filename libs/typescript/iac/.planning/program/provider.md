@@ -16,9 +16,10 @@ Each arm is a total function from spec, host material, and pins to a `PulumiFn`:
 [EQUIVALENCE_MAP]:
 - Owner: the interior `_capabilities` key tuple anchoring row order, the `_map` table carrying per-arm cells as exact-optional keys (a hole is an omitted key, never a sentinel), and the two projections riding the exported owner: `cell(capability, arm)` lifts the unproven cell read to `Option`, `column(arm)` folds an arm's realized subset in row order. Reads ride `_cells`, the table widened to `Dispatch.Cell` rows — a declared-key access on the literal union demands the key on every row, so the bracket read is index trust lifted at the seam while `_map` keeps its literals.
 - Law: cells are family spellings, not mechanics — a cell names only the resource classes or owning row `_ARMS` constructs for that arm and posture; capability audits read the map, and an absent construction is an absent cell.
-- Law: the object row admits only conditional-put-conforming engines — the self-host cells name the maintained MinIO continuation and Ceph RGW, the managed cells name S3, R2, and GCS; the CRDT-metadata engine that cannot honor `If-None-Match: *` has no cell anywhere, because the data plane's write-once identity algebra is non-negotiable and the refusal is `data`'s engine table read as deployment law.
+- Law: the object row admits only conditional-put-conforming engines — the self-host cells name the maintained MinIO continuation and Ceph RGW, the managed cells name S3 and R2; the CRDT-metadata engine that cannot honor `If-None-Match: *` has no cell anywhere, because the data plane's write-once identity algebra is non-negotiable and the refusal is `data`'s engine table read as deployment law. The `gcp` cell is a DISTRIBUTION cell wearing the object row's key — `_FOLDERS.gcp` converges the static frontend onto that bucket and nothing on this estate writes objects through it under the identity algebra — because the GCS interoperability API answers create-if-absent through its own generation precondition rather than the header the object client emits, and until `data`'s engine table carries the row that verdict is not this plane's to grant.
+- Law: the data row admits only engines whose extension roster the arm can REALIZE — the object row's twin, and the reason every self-host and escalated cell is a CNPG cluster: the derivation controls the image, so the profile's extension subset loads. A managed cell states the subset it carries or narrows, because a coverage claim the arm cannot honor is the same defect as an unconforming object engine wearing a cell.
 - Law: Doppler is canonical wherever an arm constructs `Secrets`; a cloud secret manager is reachable only as a mirror, so no arm grows a second secret source of truth.
-- Law: a column is a realized inventory, not a promotion promise; dormant provider SDK families stay absent until their arm constructs and returns the capability.
+- Law: a column is a realized inventory, not a promotion promise; dormant provider SDK families stay absent until their arm constructs and returns the capability. Three admitted engines have no cell and the reason is the inventory, never silence — `tigris` conforms on the object row and no arm this estate deploys offers it; `d1` is an admitted data engine on an arm carrying no workload cell, so a cell there would publish server coordinates no process on that column dials; `clickhouse` IS realized, as the analytics residence `operate/observe.md` installs off `observe.analytics`, which is a telemetry residence and not the app's transactional store.
 - Entry: `Dispatch.column(spec.target)` inside an arm; `Dispatch.cell("data", "aws")` for a point read.
 - Growth: a new capability is one `_capabilities` entry and one `_map` row; a new arm is one cell per realized row under the new column key.
 - Boundary: kube-row mechanics are `kube/*`; the object/data engine choices are `StackSpec.profile` values; the tenant row's mechanics are `kube/tenant.md`; the in-cluster reconcile row's mechanics are `operate/policy.md`; cross-stack output reads ride `StackReference` inside the tenant seam `kube/tenant.md` owns.
@@ -48,13 +49,15 @@ const _map = {
     "selfhosted-k8s": "cnpg Cluster CR + Database CR + Converge Jobs",
     "selfhosted-docker": "docker.Container(postgres) + postgresql.Database/Role/Grant/Extension",
     aws: "cnpg Cluster CR + Database CR + Converge Jobs (compute: cluster)",
-    gcp: "gcp.sql.DatabaseInstance + gcp.sql.Database + gcp.sql.User",
+    // the core lane alone: a managed instance loads no custom image, so the VectorChord, bm25, and parquet
+    // rows the extension roster admits are unreachable here and `_managed` refuses them at the coordinate
+    gcp: "gcp.sql.DatabaseInstance + gcp.sql.Database + gcp.sql.User (core extensions only)",
   },
   object: {
     "selfhosted-k8s": "helm minio-continuation | ceph-rgw",
     "selfhosted-docker": "docker.Container(minio-continuation)",
     aws: "aws.s3.BucketV2 (compute: serverless) | helm minio-continuation | ceph-rgw (compute: cluster)",
-    gcp: "gcp.storage.Bucket",
+    gcp: "gcp.storage.Bucket (distribution origin; no conditional-put row)",
     cloudflare: "cloudflare.R2Bucket",
   },
   fanout: {
@@ -131,19 +134,19 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 [ARM_CONTRACT]:
 - Owner: the arm signature and the record law — `material` is the one deploy-host Config read the arms share (`IAC_SSH_KEY` as an optional `Redacted`, resolved under `doppler run`), `program(spec, material, pins)` is the generic indexed call over `_ARMS`, and the record's mapped annotation `{ readonly [K in StackSpec.Arm]: Dispatch.Arm }` is the exhaustiveness proof — a `StackSpec.arms` entry with no row fails compilation at the record.
 - Law: arms prove, never assume — `_coord` lifts any spec `Option` onto the rail minting an `input` fault naming the coordinate, `_proven` zips connection and key, and `_staged` proves the entire traffic-edge coordinate set (domain, zone, and the exposure row's own demand: the connection host under `direct`, the account under `tunnel`; `internal` demands nothing and stages the app edgeless, so a worker-only workload deploys with no domain coordinate at all) into one `Option`-carried `Traffic.Edge` tagged case; no arm body or tier constructor ever meets an unproven `Option`, and a construction-time `RunError` for a spec-derivable value is the named defect this proof family deletes.
-- Law: `Dispatch.Pins` carries deploy-time facts absent from `StackSpec`, including backend files, runner policy, and publication identity.
+- Law: `Dispatch.Pins` carries deploy-time facts absent from `StackSpec`, including backend files, runner policy, publication identity, the site roster with its decoder digests, and each managed cell's own coverage row — a pin states what a chosen instance IS and CARRIES, so the conformance proofs read data rather than a literal any arm body could re-spell.
 - Law: one provider seam per arm — the arm constructs its provider (kubeconfig-bound `k8s.Provider`, `ssh://` `docker.Provider`, credentialed cloud provider) exactly once and threads it through tier options; per-resource providers are the named defect, and the credential arrives from `Secrets.read` in-graph or the ambient `doppler run` env, never a literal.
 - Law: the `PulumiFn` body is the deploy plane's program seam — a promise-returning composition of tier constructors bound to consts and one returned outputs record; the platform owns that shape, and everything the arm computes before entering it stays on the rail.
 - Entry: `Effect.flatMap(Dispatch.material, (material) => Dispatch.program(spec, material, pins))` then `Automation.stack(spec, program)`.
 - Growth: one record row and one map column per cloud; a new shared deploy-time fact is one `Pins` field, a new shared secret fact is one `material` field; a new spec coordinate a tier requires is one `_coord` call in its arm's proof.
 - Boundary: the run and receipt are `automation.md`'s; outputs keys are `spec.md`'s contract.
 - Law: `Dispatch.EstateFault` is the program body's whole failure vocabulary — the tier admissions (`ConvergeRefused`, `DataRefused`, `BackendFault`) union with the coordinate rail's `DeployFault`, so a new admitting tier widens one type alias and every arm body inherits it.
-- Packages: `effect` (`Config`, `Effect`, `Option`, `Redacted`); `./spec.ts` (`StackSpec`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/ts/data` (`Backend`, `BackendFault`).
+- Packages: `effect` (`Array`, `Config`, `Effect`, `Option`, `Redacted`); `./spec.ts` (`StackSpec`); `./source.ts` (`Source.AssetInput`, `Source.Distribution`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/ts/data` (`Backend`, `BackendFault`).
 
 ```typescript signature
 import type { PulumiFn } from "@pulumi/pulumi/automation"
 import type { Backend, BackendFault } from "@rasm/ts/data"
-import { Config, Effect, Option, Redacted } from "effect"
+import { Array, Config, Effect, Option, Redacted } from "effect"
 import type { Alert, DashboardModel, Slo } from "@rasm/ts/core"
 import type { DataRefused, Postgres } from "../kube/data.ts"
 import { Traffic } from "../kube/traffic.ts"
@@ -160,6 +163,17 @@ declare namespace Dispatch {
   // Every fault a program body can carry: the tier admissions the estate composes plus the coordinate
   // rail. The body converts to the engine's own contract exactly once, at `_bodied`.
   type EstateFault = ConvergeRefused | BackendFault | DataRefused | DeployFault
+  type ManagedEngine = (typeof _ENGINES)[number]
+  // A managed data cell states its OWN coverage: the engine it is (the sibling plane's vocabulary, not a
+  // cloud release name), the provider's release literal the resource takes, its machine tier, and the
+  // extension subset the instance actually loads — the twin conformance law's claim carried as data, so
+  // `_managed` proves it against the profile instead of a chart discovering the gap at apply.
+  type Managed = {
+    readonly engine: ManagedEngine
+    readonly version: string
+    readonly tier: string
+    readonly extensions: ReadonlyArray<string>
+  }
   type Pins = {
     readonly install: string
     readonly firstBoot: ReadonlyArray<{ readonly content: string; readonly contentType?: string; readonly filename?: string; readonly mergeType?: string }>
@@ -171,7 +185,11 @@ declare namespace Dispatch {
     readonly objectImage: string
     readonly nats: string
     readonly natsImage: string
-    readonly observe: { readonly [K in keyof Lgtm.Versions | "dev"]: string } // the chart roster derives from the observe tier's own vocabulary; dev is the docker arm's all-in-one image
+    // The observe tier's OWN versions record, widened by the docker arm's all-in-one image — never a mapped
+    // flattening of it: that tier splits a chart version from a container image reference on purpose, so a mapped
+    // `[K in keyof Lgtm.Versions]: string` collapses the `exporter` image row's `{ repository, digest }` back into
+    // the one string the split exists to forbid, and the pins then fail the tier's own argument type at the seam.
+    readonly observe: Lgtm.Versions & { readonly dev: string }
     readonly dns: string
     readonly cloudflared: string
     readonly capsule: string
@@ -184,7 +202,7 @@ declare namespace Dispatch {
     readonly context: string
     readonly registry?: { readonly address: string; readonly user: string }
     readonly nodes: { readonly instanceType: string; readonly min: number; readonly max: number }
-    readonly managedData: { readonly engine: string; readonly tier: string }
+    readonly managedData: Managed
     readonly backend: {
       readonly projection: Backend.Projection
       readonly runner: Converge.Runner
@@ -193,14 +211,13 @@ declare namespace Dispatch {
     }
     readonly site?: {
       readonly path: string // the built static-frontend directory; app data, never a lib literal
-      // the ENCODED source rows verbatim — `siblings` optional so a single-leaf artifact spells three fields
-      // while a multi-leaf decoder row (Source.decoder fills all four) survives the pin unnarrowed
-      readonly assets: ReadonlyArray<{
-        readonly slug: string
-        readonly digest: string
-        readonly file: string
-        readonly siblings?: ReadonlyArray<string>
-      }>
+      // the publish entry's OWN encoded row, not a structural restatement of it: `siblings` stays optional
+      // for a single-leaf artifact while a `Source.set(setKey, leaves)` mint survives the pin unnarrowed,
+      // and a widened admission reaches every caller through one type instead of two that can drift
+      readonly assets: ReadonlyArray<Source.AssetInput>
+      // one digest per decoder slug the build shipped; `_DECODERS` owns every leaf name, so the pin never
+      // re-spells a filename the viewer resolves by name and an unshipped decoder is an omitted key
+      readonly decoders?: Source.Distribution["decoders"]
     }
     readonly boards: ReadonlyArray<typeof DashboardModel.Encoded>
     readonly alerts: ReadonlyArray<Alert.Spec>
@@ -211,6 +228,14 @@ declare namespace Dispatch {
     }>>
   }
 }
+
+// The data plane's own closed engine vocabulary, transcribed verbatim from `data/lane/postgres.md`
+// `_PROFILE_ENGINES` because the two planes meet at the process boundary and no import crosses — the
+// spelling is frozen at both ends, and a drift is visible here rather than hidden behind a free string
+// where a cloud release literal became the semantic owner of an engine the sibling folder already closed.
+const _ENGINES = [
+  "pg", "pglite", "sqliteServer", "sqliteWasm", "libsql", "d1", "duckdbNode", "duckdbWasm", "clickhouse",
+] as const
 
 const _material = Config.unwrap({
   sshKey: Config.option(Config.redacted("IAC_SSH_KEY")),
@@ -246,6 +271,19 @@ const _staged = (spec: StackSpec): Effect.Effect<Option.Option<Dispatch.App>, De
             Effect.map((edge) => Option.some({ image, edge: Option.some(edge) })),
           ),
   })
+
+// the data row's twin conformance proof: a managed cell loads no custom image, so the arm's engine must be
+// the one its column realizes and the profile's extension subset must fall inside what the pinned instance
+// carries — both refuse on the coordinate rail naming every offender, where the values are still loggable,
+// rather than inside a database resource the operator has already accepted
+const _managed = (spec: StackSpec, pins: Dispatch.Pins): Effect.Effect<Dispatch.Managed, DeployFault> => {
+  const unrealized = Array.difference(spec.profile.extensions, pins.managedData.extensions)
+  return pins.managedData.engine !== "pg"
+    ? Effect.fail(_input(spec, `<managed-engine-unrealized:${pins.managedData.engine}>`))
+    : Array.isEmptyReadonlyArray(unrealized)
+      ? Effect.succeed(pins.managedData)
+      : Effect.fail(_input(spec, `<managed-extensions-unrealized:${unrealized.join(",")}>`))
+}
 
 const _edged = (spec: StackSpec): Effect.Effect<Option.Option<{ readonly domain: string; readonly zone: string }>, DeployFault> =>
   spec.profile.exposure === "internal"
@@ -349,13 +387,15 @@ class Bootstrap extends Tier {
 ## [05]-[ARM_PROGRAMS]
 
 [ARM_PROGRAMS]:
-- Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` over `_credentials` (the object and Grafana rows beside one `DB_ADMIN_PASSWORD`/`DB_PASSWORD`/`DB_ANALYST_PASSWORD` triple per scope `Postgres.scopes` enumerates, so the data tier's per-scope `auth` callback reads a mint no sibling cluster shares; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres.admit` (the scope-keyed admin, app, and analyst reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → and, only when the staged edge is realized (an `internal` exposure stands service-only), one `Certs.root` CA → `Traffic` over the workload service with the issuance capability and the proven `Edge` case injected; graph-late material (`GRAFANA_AUTOMATION_TOKEN` from `Boards.automation`, the per-tenant `GRAFANA_VIEWER_*` keys from `Boards.viewers`, `MESH_CA_KEY` from the CA root) lands through `secrets.store` so it outlives the graph in the one canonical store; the object plane's coordinates thread into `Lgtm` so the mimir escalation binds one storage truth; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
+- Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` over `_credentials` (the object and Grafana rows beside one `DB_ADMIN_PASSWORD`/`DB_PASSWORD`/`DB_ANALYST_PASSWORD` triple per scope `Postgres.scopes` enumerates, so the data tier's per-scope `auth` callback reads a mint no sibling cluster shares; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres.admit` (the scope-keyed admin, app, and analyst reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → and, only when the staged edge is realized (an `internal` exposure stands service-only), one `Certs.root` CA → `Traffic` over the workload service and its own published selector, with the issuance capability and the proven `Edge` case injected; graph-late material (`GRAFANA_AUTOMATION_TOKEN` from `Boards.automation`, the per-tenant `GRAFANA_VIEWER_*` keys from `Boards.viewers`, `MESH_CA_KEY` from the CA root) lands through `secrets.store` so it outlives the graph in the one canonical store; the object plane's coordinates thread into `Lgtm` so the mimir escalation binds one storage truth; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
 - Law: app images are one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, the push credential rides the `registries` row — `pins.registry` coordinates with the `REGISTRY_PASSWORD` fan-in read, so a `push: true` build carries its own auth instead of assuming an ambient login — and by-value `secrets` bind Doppler outputs so no build credential touches disk. One rust build stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg, so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
-- Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container finalized through the bridged `postgresql.Provider` at full logical depth (`Role`/`Database`/`Extension` rows from the profile's extension subset, the analyst read tier as one `Role` with its `pg_read_all_data` `GrantRole` membership, its schema `Grant`, and its `DefaultPrivileges` future-object ACL, and the `ReplicationSlot` logical seam — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting `DOPPLER_TOKEN` beside the collector-endpoint row so the baked `doppler run` entrypoint resolves config at start and telemetry exports byte-identically to the estate arm, the `Dev` all-in-one estate realizing the observe cell with `Boards` applied over its URL plane and the automation token landed through `secrets.store`, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unsupported tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `otlp`, `grafana`, `deploy`, and `ingress` under a proven edge.
+- Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container loopback-published (`ip` bind + fence alias — the data plane exposes no public interface, in-fence consumers dial the alias, and the deployer's `postgresql.Provider` reaches it through one control-socket SSH forward riding the proven connection's own hardening coordinates, so `sslmode: "disable"` grades as a loopback fact rather than a cleartext credential hop) and finalized through that bridged provider at full logical depth (`Role`/`Database`/`Extension` rows from the profile's extension subset, the analyst read tier as one `Role` with its `pg_read_all_data` `GrantRole` membership, its schema `Grant`, and its `DefaultPrivileges` future-object ACL, and the `ReplicationSlot` logical seam — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting `DOPPLER_TOKEN` beside the collector-endpoint row so the baked `doppler run` entrypoint resolves config at start and telemetry exports byte-identically to the estate arm, the `Dev` all-in-one estate realizing the observe cell with `Boards` applied over its URL plane and the automation token landed through `secrets.store`, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unsupported tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `otlp`, `grafana`, `deploy`, and `ingress` under a proven edge.
 - Law: the estate builder rides the rail its tiers admit on — `_estate` and every `_AWS` row return `Effect<Dispatch.Planes, Dispatch.EstateFault>`, so `Converge.admit`, `Postgres.admit`, and the `_coord` proofs compose in one `Effect.gen` and a refused axis surfaces as a typed value rather than a half-built graph; `_bodied` is the sole conversion, the `PulumiFn` seam where the engine's one in-band error contract takes the rail's failure, and a `throw` anywhere inside a tier or an arm body is the defect this owner deletes.
 - Law: the aws arm dispatches its compute posture as data — `_AWS` is a handler record keyed by `StackSpec.Profile["compute"]`: the `serverless` row realizes VPC → ECR build → Fargate behind an ALB with the S3 object cell; the `cluster` row escalates to `eks.Cluster` (`authenticationMode: "API"`, `createOidcProvider: true` for IRSA, `skipDefaultNodeGroup: true`) with one `ManagedNodeGroup` sized from `pins.nodes`, binds `kubeconfigJson` into the arm's one `k8s.Provider` seam, and reuses `_estate` whole — the managed twin of `Bootstrap.kubeconfig`, one seam swap and zero tier edits.
 - Law: the gcp arm binds `credentials` from the `GCP_CREDENTIALS` fan-in read, realizes the versioned `gcp.storage.Bucket` object cell and the `gcp.sql.DatabaseInstance` + `Database` + `User` data cell, and returns only those planes with optional served assets; the cloudflare arm binds `apiToken` from the fan-in, realizes the `R2Bucket` object cell with its `R2BucketLifecycle` aging row and the `PagesProject` static origin, and lands the dns cell as the CNAME onto the project's `pages.dev` subdomain — each returns exactly the planes it realizes.
 - Law: the distribution cells construct what the map advertises — the aws and gcp arms converge the built frontend through `Source.distribute` over their own object cells when `pins.site` arrives (the versioned `BucketV2` behind one `BucketVersioningV2` row on aws, the versioned bucket on gcp), each returning the caller-owned `served` slug-to-path record as an output plane; the cloudflare arm's static origin stays its `PagesProject` rows, whose build product uploads out of graph.
+- Law: a converging arm publishes the viewer's decoder leaves beside the app's artifacts, because `pins.site.decoders` is a digest map both arms forward unchanged — the decoder distributions are estate-invariant and `_DECODERS` owns their leaf names, so no arm body spells a filename and the ui codec gate resolves `draco`, `ktx2`, and `meshopt` off the served plane rather than refusing `codec-absent` against addresses nothing published; a baked texture or environment set rides the same plane through the composing root's `Source.set` mints, so decoder leaves and set planes share one digest-directory law and one presence gate.
+- Law: `enableServerSideApply` is armed for field-manager conflict detection over the estate's OWN objects, never to adopt foreign ones — every object `_estate` composes is authored by a tier on this branch, so the apply mode buys a named manager and a typed conflict when an operator edits out of band, while `<Kind>Patch` and `CustomResourcePatch` have no site anywhere: the SSA twins exist to mutate an object the program did not create, and an estate that installs its own operators and authors its own custom resources never holds one. A Patch row beside a tier that owns its object mints a second author for one field, which is precisely the conflict this mode exists to report.
 - Law: every arm fronting served bytes folds the ONE header roster into its own dialect — the aws and gcp arms read `Source.distribute(...).edge`, the cloudflare arm reads `Source.edge` because it converges no folder, and `_EDGED` renders each row's `pattern`/`header`/`value` with no literal of its own: aws mints one `cloudfront.ResponseHeadersPolicy` per posture bound through the distribution's ordered behaviors over the site bucket's `OriginAccessControl` origin, gcp renders route rules carrying `headerAction.responseHeadersToAdds` on the `URLMap` fronting its CDN-enabled `BackendBucket` (`prefixMatch` for the bare-star pattern, `pathTemplateMatch` `/**.{ext}` for a suffix pattern — `regexMatch` is unspellable on the external managed scheme), and cloudflare rewrites through one `http_response_headers_transform` `Ruleset` over its Pages origin.
 - Law: dialect match semantics decide the fold shape — aws and gcp bind the FIRST matching behavior per request, so `_postures` folds each pattern's covering rows into one header set and orders patterns narrow to wide (under the two-shape grammar a covered pattern always spells longer than its coverer); the cloudflare rules engine applies EVERY matching header-transform rule, so its arm renders the roster rows verbatim, one rule per row in roster order.
 - Law: every arm funds the boards — the encoded models and alert specs enter as pins where the arm realizes an observe cell; an arm without the observe cell returns no `grafana` plane and drops nothing silently.
@@ -495,7 +535,9 @@ const _estate = (
     if (spec.profile.tenancy.mode !== "single") {
       new Tenants("tenants", { spec, versions: { capsule: pins.capsule, vcluster: pins.vcluster } }, bound)
     }
-    const token = Workload.token("doppler-token", { namespace: ns.metadata.name, token: secrets.token }, { provider })
+    // the unleased custody CELL, not the Kubernetes Secret behind it: `Workload.rows` stamps its variable rows
+    // off the cell's own `carries` roster, so the leased mint and this one reach the env fold as one value
+    const custody = Workload.token("doppler-token", { namespace: ns.metadata.name, token: secrets.token }, { provider })
     const outputs = {
       data: { host: data.host, port: data.port, database: data.database, role: data.role, pooling: data.pooling },
       object: { endpoint: objects.endpoint, bucket: objects.bucket },
@@ -524,7 +566,7 @@ const _estate = (
       namespace: ns.metadata.name,
       image,
       role: { _tag: "service", port: pins.port },
-      env: Workload.rows(token.metadata.name, StackOutputs.pairsOf(outputs, (value) => pulumi.output(value).apply(String))),
+      env: Workload.rows(custody, StackOutputs.pairsOf(outputs, (value) => pulumi.output(value).apply(String))),
       backend: {
         contract: primary.contract,
         pointer: primary.pointer,
@@ -543,6 +585,10 @@ const _estate = (
       spec,
       namespace: ns.metadata.name,
       service: service.metadata.name,
+      // the tier's own label derivation: the fence selects the pods this edge fronts, and the arm seats the
+      // data, fanout, object, and collector planes in this same namespace, so a namespace-wide fence would
+      // close the app out of every dependency it dials
+      selector: workload.selector,
       port: pins.port,
       connector: pins.cloudflared,
       dnsVersion: pins.dns,
@@ -724,6 +770,7 @@ const _AWS: {
           path: pins.site.path,
           bucket: bucket.bucket,
           assets: pins.site.assets,
+          decoders: pins.site.decoders,
         }, { providers: [opts.provider] }))
     Option.map(site, (held) => _EDGED.aws("frontend", held.edge, { bucket }, opts))
     return {
@@ -795,8 +842,11 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           image: pins.pgImage,
           restart: "unless-stopped",
           envs: [pulumi.interpolate`POSTGRES_PASSWORD=${secrets.read(_scoped("DB_ADMIN_PASSWORD", "data"))}`, `POSTGRES_DB=${spec.app}`],
-          ports: [{ internal: 5432, external: 5432 }],
-          networksAdvanced: [{ name: fence.name }],
+          // Loopback custody: the data plane never publishes on an interface the host exposes — the `ip` bind
+          // keeps the mapped port host-local, the fence alias serves every in-fence consumer, and the only
+          // remote path is the SSH forward below, so the superuser credential cannot cross a public hop.
+          ports: [{ internal: 5432, external: 5432, ip: "127.0.0.1" }],
+          networksAdvanced: [{ name: fence.name, aliases: ["data"] }],
           volumes: [{ volumeName: store.data.volume.name, containerPath: store.data.path }],
         }, machine)
         new docker.Container("object", {
@@ -829,13 +879,35 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           network: fence.name,
           auth: secrets.read("GRAFANA_PASSWORD"),
         }, machine)
+        // The DDL hop rides the SSH channel, never a published interface: one control-socket forward holds
+        // 127.0.0.1:15432 -> deploy-host loopback 5432 open across the whole `up` (create arms it, delete
+        // releases it), pinned to the proven connection's hardening coordinates exactly as the daemon dial is.
+        // `sslmode: "disable"` is thereby a loopback fact — no credential byte leaves the encrypted channel.
+        const pinned = Option.match(proven.connection.hostKey, {
+          onNone: () => `-o StrictHostKeyChecking=accept-new`,
+          onSome: () => `-o UserKnownHostsFile="$PWD/sql.known" -o StrictHostKeyChecking=yes`,
+        })
+        const dial = `-p ${proven.connection.port} ${proven.connection.user}@${proven.connection.host}`
+        const forward = new command.local.Command("sql-forward", {
+          create: [
+            `umask 077; printf '%s\n' "$SSH_PEM" > "$PWD/sql.pem"`,
+            `[ -z "$SSH_HOST_KEY" ] || printf '%s %s\n' "${proven.connection.host}" "$SSH_HOST_KEY" > "$PWD/sql.known"`,
+            `ssh -i "$PWD/sql.pem" ${pinned} -o ExitOnForwardFailure=yes -o BatchMode=yes -M -S "$PWD/sql.sock" -f -N -L 127.0.0.1:15432:127.0.0.1:5432 ${dial}`,
+          ].join(" && "),
+          delete: `ssh -S "$PWD/sql.sock" -O exit ${dial} 2>/dev/null; rm -f "$PWD/sql.pem" "$PWD/sql.known"`,
+          environment: {
+            SSH_PEM: pulumi.secret(Redacted.value(proven.key)),
+            SSH_HOST_KEY: Option.getOrElse(proven.connection.hostKey, () => ""),
+          },
+          logging: "none", // credential-bearing step: never echo
+        }, { dependsOn: [data] })
         const sql = new postgresql.Provider("sql", {
-          host: proven.connection.host,
-          port: 5432,
+          host: "127.0.0.1",
+          port: 15432,
           username: "postgres",
           password: secrets.read(_scoped("DB_ADMIN_PASSWORD", "data")),
-          sslmode: "disable",
-        }, { dependsOn: [data] })
+          sslmode: "disable", // loopback-only endpoint behind the SSH forward — no cleartext interface exists
+        }, { dependsOn: [forward] })
         const role = new postgresql.Role("app-role", {
           name: `${spec.app}_app`,
           login: true,
@@ -878,7 +950,9 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           restart: "unless-stopped",
           envs: [
             pulumi.interpolate`DOPPLER_TOKEN=${secrets.token}`,
-            pulumi.interpolate`OTEL_EXPORTER_OTLP_ENDPOINT=${observe.collectorEndpoint}`, // the one SDK export row: byte-identical to the k8s arm's env seam
+            // the channel catalog names the variable, so the loop arm and the estate arm write ONE spelling
+            // and neither re-states a key the reading process resolves through its own Setting group
+            pulumi.interpolate`${StackOutputs.channels["otlp.endpoint"]}=${observe.collectorEndpoint}`,
           ],
           ports: [{ internal: pins.port, external: pins.port }],
           networksAdvanced: [{ name: fence.name }],
@@ -898,7 +972,11 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         }, { dependsOn: [observe] })
         secrets.store("GRAFANA_AUTOMATION_TOKEN", boards.automation)
         return {
-          data: { host: proven.connection.host, port: 5432, database: spec.app, role: `${spec.app}_app` },
+          // one container, no pooler: the realized mode voids no pooled-bind primitive, and the row publishes
+          // deployment truth — the data plane's one reachable coordinate is the fence alias (the loopback
+          // publish serves only the deploy host and the SSH forward), so the rail states the alias, never a
+          // public address no listener answers
+          data: { host: "data", port: 5432, database: spec.app, role: `${spec.app}_app`, pooling: "session" },
           object: { endpoint: `http://${proven.connection.host}:9000`, bucket },
           fanout: { origin: `ws://${proven.connection.host}:8080` },
           otlp: { endpoint: observe.collectorEndpoint },
@@ -939,16 +1017,25 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
     ),
   gcp: (spec, _material, pins) =>
     Effect.map(
-      Effect.all([_coord(spec, spec.region, "region"), _coord(spec, spec.project, "project")]),
-      ([region, project]) => async () => {
-        const secrets = new Secrets("secrets", { spec, entries: { DB_PASSWORD: { generate: {} } } })
+      Effect.all({
+        region: _coord(spec, spec.region, "region"),
+        project: _coord(spec, spec.project, "project"),
+        managed: _managed(spec, pins),
+      }),
+      ({ region, project, managed }) => async () => {
+        // the entry MINTS the scoped key the user row below reads: an unscoped `DB_PASSWORD` entry beside a
+        // `_scoped` read generates one key nothing consumes and reads another nothing generates, and the SQL user
+        // then takes whatever a Doppler config happens to hold under a name this arm never wrote
+        const secrets = new Secrets("secrets", { spec, entries: { [_scoped("DB_PASSWORD", "data")]: { generate: {} } } })
         const provider = new gcp.Provider("gcp", { project, region, credentials: secrets.read("GCP_CREDENTIALS") })
         const opts = { provider }
         const bucket = new gcp.storage.Bucket("objects", { location: region, uniformBucketLevelAccess: true, versioning: { enabled: true } }, opts)
         const sql = new gcp.sql.DatabaseInstance("data", {
-          databaseVersion: pins.managedData.engine,
+          // the PROVIDER's own release literal; the engine coordinate beside it is the data plane's
+          // vocabulary and `_managed` already proved the pair names the cell this column realizes
+          databaseVersion: managed.version,
           region,
-          settings: { tier: pins.managedData.tier },
+          settings: { tier: managed.tier },
         }, opts)
         new gcp.sql.Database("app", { instance: sql.name, name: spec.app }, opts)
         new gcp.sql.User("app-role", { instance: sql.name, name: `${spec.app}_app`, password: secrets.read(_scoped("DB_PASSWORD", "data")) }, opts)
@@ -961,11 +1048,14 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
               path: pins.site.path,
               bucket: bucket.name,
               assets: pins.site.assets,
+              decoders: pins.site.decoders,
             }, { providers: [provider] }))
         Option.map(site, (held) => _EDGED.gcp("frontend", held.edge, { bucket }, opts))
         return {
           object: { endpoint: bucket.url, bucket: bucket.name },
-          data: { host: sql.publicIpAddress, port: 5432, database: spec.app, role: `${spec.app}_app` },
+          // the arm stands no pooler, so the realized mode is the one that voids no pooled-bind primitive —
+          // the plane publishes deployment truth and the runtime capability rail gates on it
+          data: { host: sql.publicIpAddress, port: 5432, database: spec.app, role: `${spec.app}_app`, pooling: "session" },
           ...Option.match(site, { onNone: () => ({}), onSome: (held) => ({ served: held.served }) }),
         }
       },

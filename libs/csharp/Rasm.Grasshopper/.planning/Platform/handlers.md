@@ -1,8 +1,12 @@
 # [RASM_GRASSHOPPER_PLATFORM_HANDLERS]
 
-`PlatformSeam`, `Handlers`, `Styler`, and `Bridge` own the Eto platform seam of the Grasshopper boundary. `PlatformSeam` covers the active `Platform` root: the typed platform snapshot, one polymorphic capability demand (`PlatformClaim` — feature flags, handler-type support, platform-row identity — behind one gate), and the platform-context window foreign-platform work runs inside. `Handlers` covers the widget-to-handler substrate: instantiator registration through `Platform.Add<T>`, reach-row resolution over `Create`/`CreateShared`, the per-widget identity capsule (`Widget.Handler`/`NativeHandle`/`ControlObject`/`ID`/`Style`/`IsDisposed` read as one evidence record), and the leased mint census over `HandlerCreated`/`WidgetCreated`.
+`PlatformSeam`, `Handlers`, `Styler`, and `Bridge` own the Eto platform seam of the Grasshopper boundary.
 
-`Styler` turns `Eto.Style` registration into frozen data rows — a `StyleRow` closes its widget or handler generic at mint, a `StyleLedger` seals the registry injectively, and wearing a style is a marshalled `Widget.Style` assignment — so a canvas or panel restyles by row, never by subclass. `Bridge` holds `NativeControlHost` embedding for ready and deferred native views and registers the managed-to-AppKit contract (`IMacViewHandler`/`IMacWindow`, `MacConversions`/`CGConversions`) the macOS pages compose. Every GH2 panel, plugin chrome, and native-integration surface composes these rows; probing `Platform.Instance`, comparing stringly platform ids, subclassing controls for cosmetics, and hand-rolled `Handler` casts are the deleted forms.
+`PlatformSeam` covers the active `Platform` root: the typed snapshot, one polymorphic capability demand (`PlatformClaim` — feature flags, handler-type support, platform-row identity — behind one gate), and the context window foreign-platform work runs inside. `Handlers` covers the widget-to-handler substrate: registration through `Platform.Add<T>`, reach-row resolution over `Create`/`CreateShared`, the identity capsule (`Handler`/`NativeHandle`/`ControlObject`/`ID`/`Style`/`IsDisposed` as one record), and the leased mint census over `HandlerCreated`/`WidgetCreated`.
+
+`Styler` turns `Eto.Style` registration into frozen data rows — a `StyleRow` closes its generic at mint, a `StyleLedger` seals the registry injectively, and wearing a style is a marshalled `Widget.Style` assignment — so a canvas restyles by row, never by subclass. `Bridge` holds `NativeControlHost` embedding for ready and deferred views and registers the managed-to-AppKit contract (`IMacViewHandler`/`IMacWindow`, `MacConversions`/`CGConversions`) the macOS pages compose.
+
+Every GH2 panel, plugin chrome, and native-integration surface composes these rows; probing `Platform.Instance`, comparing stringly platform ids, subclassing controls for cosmetics, and hand-rolled `Handler` casts are the deleted forms.
 
 ## [01]-[INDEX]
 
@@ -104,7 +108,7 @@ public static class PlatformSeam {
 
 - Owner: `HandlerReach` `[SmartEnum<int>]` — the resolution-modality rows over one `[UseDelegateFromConstructor]` `Mint(Platform, Type)` column: `Fresh` (key 0, `Platform.Create(Type)` — a new handler per call) and `Shared` (key 1, `Platform.CreateShared(Type)` — the platform's singleton for the contract). `Handlers.Resolve<THandler>` closes the generic over the row: mint through the reach, cast with `Option`-lowering, refuse a miss as `Fault.MissingContext` — the unguarded `(THandler)Platform.Instance.Create<THandler>()` throw path is the deleted form. `Handlers.Register<THandler>` feeds `Platform.Add<T>(Func<T>)`, so a folder-supplied handler (a themed replacement, a test double, a `NativeControlHost.IHandler` override) enters the same resolution root every stock widget mints through.
 - Owner: `HandlerIdentity` — the per-widget identity capsule read in one marshal: the widget's concrete `Type`, the `Option<string>` `ID`, the `Option<string>` worn `Style`, the `Option<object>` `Handler`, the raw `nint` `NativeHandle`, the `Option<object>` `ControlObject`, and the `IsDisposed` bit — the one evidence record every diagnostic, seam probe, and native extraction reads instead of touching `Widget` members ad hoc. `Platform/native.md`'s `MacAnchor.Of` is the macOS deepening of this capsule: identity answers "what backs this widget" platform-agnostically; the anchor extracts the live `NSView` under `MacGate`.
-- Owner: `MintFact` `[Union]` + `MintWatch` — the creation census: `HandlerCase(object Instance)` and `WidgetCase(Widget Instance)` project the platform's `HandlerCreated`/`WidgetCreated` raises as facts; `MintWatch` holds both subscriptions and detaches each exactly once on dispose. `Handlers.Census(Action<MintFact>, Op?)` → `Fin<Lease<MintWatch>>` — the leased observation a leak audit or a startup profiler composes; the callback projects and returns, and downstream work re-enters through its own gate.
+- Owner: `MintFact` `[Union]` + `MintWatch` — the creation census: `HandlerCase(object Instance)` and `WidgetCase(Widget Instance)` project the platform's `HandlerCreated`/`WidgetCreated` raises as facts; `MintWatch` holds both subscriptions, detaches each exactly once, and marshals that detach back onto the thread the attach ran on, retaining a refused marshal on its own `LastFault` cell. `Handlers.Census(Action<MintFact>, Op?)` → `Fin<Lease<MintWatch>>` — the leased observation a leak audit or a startup profiler composes; the callback projects and returns, and downstream work re-enters through its own gate.
 - Entry: `Handlers.Register<THandler>(Func<THandler> instantiator, Op? key = null) where THandler : class` → `Fin<Unit>`; `Resolve<THandler>(HandlerReach reach, Op? key = null) where THandler : class` → `Fin<THandler>`; `Identity(Widget widget, Op? key = null)` → `Fin<HandlerIdentity>`; `Census(Action<MintFact> publish, Op? key = null)` → `Fin<Lease<MintWatch>>`.
 - Law: `NativeHandle` reads through the widget's own handler chain and a disposed widget throws inside the host — the identity read runs under `Op.Catch` so a dead widget lands as a typed `Fault`, never an `ObjectDisposedException` into a diagnostic path; `IsDisposed` rides the capsule so the consumer distinguishes dead from handleless.
 - Boundary: `Widget.Properties` (the host's per-widget `PropertyStore`) stays a host slot consumers touch only through owning pages; `Widget.StyleChanged` is a `Shell/events.md` source row, never subscribed here; handler-INTERFACE contracts (`Control.IHandler` and siblings) are the host's own vocabulary carried as `Type` values, never re-declared. Themed tiers — `ThemedControlHandler<TControl,TWidget,TCallback>`/`ThemedContainerHandler<TControl,TWidget,TCallback>` under `IThemedControlHandler` — are the host's managed-widget handler base a folder-supplied control derives; a themed concrete enters through `Register<THandler>` and resolves through the same root, never a parallel resolution path, and `HandlerAttribute` is the widget-side declaration binding a widget type to the handler contract the platform resolves against.
@@ -142,18 +146,30 @@ public sealed class MintWatch : IDisposable {
     private readonly Platform platform;
     private readonly EventHandler<HandlerCreatedEventArgs> onHandler;
     private readonly EventHandler<WidgetCreatedEventArgs> onWidget;
+    private readonly Op operation;
+    private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
     private int released;
-    internal MintWatch(Platform platform, EventHandler<HandlerCreatedEventArgs> onHandler, EventHandler<WidgetCreatedEventArgs> onWidget) {
+    internal MintWatch(
+        Platform platform, EventHandler<HandlerCreatedEventArgs> onHandler,
+        EventHandler<WidgetCreatedEventArgs> onWidget, Op operation) {
         this.platform = platform;
         this.onHandler = onHandler;
         this.onWidget = onWidget;
+        this.operation = operation;
     }
+
+    public Option<Error> LastFault => lastFault.Value;
+
+    // Detach marshals back onto the thread attach ran on: the host's `Platform` mint events are UI-thread
+    // state, so an off-thread subtraction races the raises it is removing itself from. The exact delegate
+    // identity attach used is what comes back off, and a refused marshal parks on the cell rather than
+    // returning quietly with both handlers still live.
     public void Dispose() => Op.SideWhen(
         condition: Interlocked.Exchange(location1: ref released, value: 1) == 0,
-        action: () => {
+        action: () => EtoDispatch.Run(body: () => operation.Catch(body: () => Fin.Succ(Op.Side(action: () => {
             platform.HandlerCreated -= onHandler;
             platform.WidgetCreated -= onWidget;
-        });
+        }))), key: operation).IfFail(error => ignore(lastFault.Swap(_ => Some(error)))));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -200,7 +216,7 @@ public static class Handlers {
                    platform.HandlerCreated += onHandler;
                    platform.WidgetCreated += onWidget;
                    return Fin.Succ((Lease<MintWatch>)new Lease<MintWatch>.Owned(
-                       Value: new MintWatch(platform: platform, onHandler: onHandler, onWidget: onWidget)));
+                       Value: new MintWatch(platform: platform, onHandler: onHandler, onWidget: onWidget, operation: op)));
                }), key: op)
                select lease;
     }
@@ -278,13 +294,14 @@ public static class Styler {
 ## [05]-[BRIDGE]
 
 - Owner: `NativeSprout` `[Union]` — where a hosted native view comes from: `ReadyCase(object NativeView)` carries a live platform view (an `NSView`, a `Platform/composition.md` `Effects.Vibrancy` pane, a third-party native widget) into the `NativeControlHost(object)` constructor; `DeferredCase(Func<object> Mint)` defers creation to the host's own attach path — a private `DeferredHost : NativeControlHost` subclass overrides `OnCreateNativeControl` and fills `CreateNativeControlArgs.NativeControl` from the mint thunk, so an expensive native view materializes only when the managed tree demands it. `Bridge.Embed` is the one marshalled gate over both; `Eto/controls.md`'s `NativeHostCase` is the dispatch-free spec-tree row of the same seam, minting inside its presenter's marshal window.
-- Owner: the registered bridge contract — this page owns the folder's managed-to-AppKit vocabulary as law: `IMacViewHandler` (`Control`/`Widget`/`SystemActions`/`TextInputCancelled`) and `IMacWindow` (`Control`/`RestoreBounds`/`Widget`) are THE extraction contracts `Platform/native.md`'s `MacAnchor` composes, and `Eto.Mac.MacConversions`/`CGConversions` are THE managed-value-to-native-value projection owners (`Eto.Drawing.Color` → `CGColor`, `RectangleF` → `CGRect`) composed at `Platform/composition.md` call sites — a hand-rolled `NSView` lookup or a local colour/geometry conversion beside these owners is the deleted form.
+- Owner: the registered bridge contract — this page owns the folder's managed-to-AppKit vocabulary as law: `IMacViewHandler` (`Control`/`Widget`/`SystemActions`/`TextInputCancelled`) and `IMacWindow` (`Control`/`RestoreBounds`/`Widget`) are THE extraction contracts `Platform/native.md`'s `MacAnchor` composes, and `Eto.Mac.MacConversions`/`CGConversions` are THE managed-value-to-native-value projection owners wherever a crossing rides an Eto value at all, so a hand-rolled `NSView` lookup or a local matrix, path, or event conversion beside them is the deleted form. Four members carry live call sites: `NSColor.ToEtoWithAppearance()` at `Platform/composition.md` `WideColor.OfSystem`, `IGraphicsPath.ToCG()` at that page's `LayerPaint.Stroked`, and the `NSEvent` triple `GetMouseEvent`/`GetMouseButtons`/`ToEtoKeyEventArgs` at `Platform/native.md` `NativeInput`.
 - Entry: `Bridge.Embed(NativeSprout sprout, Op? key = null)` → `Fin<Control>`.
 - Law: hosting and extraction are two directions of one bridge — `Embed` carries native INTO the managed tree, `HandlerIdentity.ControlObject`/`NativeHandle` and the macOS anchor carry managed OUT to native — and both directions cross typed: an embed of a null view refuses `Fault.InvalidInput`, an extraction miss lowers to `None`, and no direction throws through the seam.
-- Law: the concrete `MacConversions`/`CGConversions` member spellings are RESEARCH — the class identities are catalog-verified, so the ownership law binds now and each conversion member lands as a verified call-site spelling on the composing page when the `Eto.macOS` decompile resolves it; the bridge gate is unaffected.
+- Law: the conversion owners are direction-paired on one receiver — `ToNS`/`ToNSUI`/`ToCG` outbound and `ToEto` inbound — so a correspondence composes as one member pair and a direction-named local helper beside either is the deleted form; `Platform/composition.md` `WideColor` and `LayerPaint` are the folder's colour and path call sites, `Platform/native.md` `NativeInput` its event call site.
+- Law: the outbound COLOUR members are refused, not merely unused — the folder's colour currency is the kernel `PerceptualColor`, never an Eto `Color`, so `Color.ToNSUI()` and `Color.ToCG()` have no admitted ingress, and `NSColor.ToCG()` is refused as the `CALayer` crossing at `Platform/composition.md` `[06]` because its last arm floors at opaque black without signalling and its result borrows the receiver's lifetime; `WideColor.Project` and `WideColor.ToLayer` mint on `CGColorSpaceNames.DisplayP3` directly, each with one lifetime and no clamp arm. `ToEtoWithAppearance` is the inbound member for a live swatch and bare `ToEto` reads the archived appearance, which stales across a dark-mode flip. `IMatrix.ToCG()` stays uncomposed while no layer or context transform crosses this boundary, and a transform-bearing `LayerStyle` column takes it the moment one does.
 - Boundary: what happens ON an extracted `NSView` — monitors, gestures, layers, pacing — is `Platform/native.md` and `Platform/composition.md` territory behind `MacGate`; this page ends at the managed rim.
 - Packages: Eto (`NativeControlHost(object)`, `NativeControlHost()`, `OnCreateNativeControl`, `CreateNativeControlArgs.NativeControl`), Eto.macOS (`IMacViewHandler`, `IMacWindow`, `MacConversions`, `CGConversions`), `Rasm.Domain` (`Op`, `Fault`), `Eto/runtime.md` (`EtoDispatch`).
-- Growth: a new sprout origin is one `NativeSprout` case with one `Embed` arm; a resolved conversion member is a call-site spelling on the composing page — the gate never widens.
+- Growth: a new sprout origin is one `NativeSprout` case with one `Embed` arm; a further conversion member is a call-site spelling on the composing page — the gate never widens.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -362,7 +379,7 @@ One owner per axis; capability lands as a case, a row, or a field — never a si
 |  [05]   | scoped styling     | `StyleTag` + `StyleRow` + `StyleLedger`      | `Freeze`/`Wear`/`Provide` → `Fin<T>` |    2    |
 |  [06]   | native hosting     | `NativeSprout` + `Bridge`                    | `Embed → Fin<Control>`               |    2    |
 
-`Op`, `Fault`, `Lease<T>`, `ValidityClaim`, and `EtoDispatch` are composed upstream owners. RESEARCH: the `MacConversions`/`CGConversions` member spellings, landing as call-site spellings on the composing macOS pages.
+`Op`, `Fault`, `Lease<T>`, `ValidityClaim`, and `EtoDispatch` are composed upstream owners.
 
 ## [07]-[RESEARCH]
 

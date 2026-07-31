@@ -6,15 +6,16 @@ Every shell pane is a `ShellSlot` row drained by one generic typed-projection ga
 
 ## [01]-[INDEX]
 
-- [02]-[SLOTS]: `ShellSlot` + `EditorShell.Grab<TPane, TOut>` — the pane-slot vocabulary over every chrome anchor the editor exposes, and the one typed-projection gate that replaces direct singleton property reads.
+- [02]-[SLOTS]: `ShellPane` + `ShellSlot` + `EditorShell.Grab<TOut>` — the closed pane family, the slot vocabulary over every chrome anchor the editor exposes, and the one typed-projection gate that replaces direct singleton property reads.
 - [03]-[STATE]: `ShellToggle` + `ShellState` — the boolean shell-axis rows and the one projected shell receipt.
 - [04]-[OPERATOR]: `ShellOp` + `ShellReceipt` + `EditorShell` — the command union (toggle, getter handoff), the settlement evidence, and the `Apply`/`Snapshot`/`Grab` gate trio.
 
 ## [02]-[SLOTS]
 
-- Owner: `ShellSlot` `[SmartEnum<int>]` — 7 pane-anchor rows over ONE `[UseDelegateFromConstructor]` `Resolve(Op) -> Fin<object>` column, split across two row constructors by member residency: instance rows `Tabs` (key 0, `Editor.Tabs` → `TabbedPanel.TabControl`), `StatusBar` (key 1, `Editor.StatusBar` → `Grasshopper2.UI.StatusBar`), `RecentActive` (key 4, `Editor.MostRecentActiveDocument` → the recent-path `string`), `RecentLoaded` (key 5, `Editor.MostRecentLoadedDocuments` → `string[]`); static rows `DefinedLayouts` (key 2, `Editor.DefinedLayouts` → `IEnumerable<string>`), `InitialLayout` (key 3, `Editor.InitialLayout` → `string`), `HostAnchor` (key 6, `Editor.ThisOrRhino` → `Eto.Forms.Window`). Every instance row null-gates the singleton chain through `Optional(Editor.Instance).ToFin(key.MissingContext())`; the static rows read settings-backed statics and therefore resolve on a headless Rhino where every instance row refuses typed. `Editor.BreadCrumbs` is private on the host and is no row — a private pane is unreachable capability, not RESEARCH.
-- Entry: `EditorShell.Grab<TPane, TOut>(ShellSlot slot, Func<TPane, Fin<TOut>> project, Op? key = null)` → `Fin<TOut>` — the one typed egress. Each slot resolves inside one `EtoDispatch.Run` marshal, the resolved pane admits through an `is TPane` gate refusing a mis-typed bind with `Fault.Unsupported(typeof(TPane), typeof(TOut))`, and the caller's projection runs inside the same marshal window, so a pane reference never escapes the window that resolved it — the same non-escape law `GhScope` carries on the session floor.
-- Law: the slot column is the ONLY singleton read site for chrome panes — a consumer holding `Editor.Instance.Tabs` at a call site is the deleted form. Pane types are heterogeneous, so the column resolves `object` and the generic gate carries each row's typed bind; `Shell/chrome.md`'s hosts mint on their own surfaces (`Bar` construction, `InputPanel` construction, the static `Frame`, the canvas flex collection) and only the editor-resident panes route through this gate.
+- Owner: `ShellPane` `[Union]` — the closed pane family the slot column resolves into: `TabsCase(TabControl)`, `StatusCase(StatusBar)`, `LayoutsCase(Seq<string>)`, `LayoutCase(string)`, `RecentCase(string)`, `RecentsCase(Seq<string>)`, `AnchorCase(Window)`. Heterogeneity is what earns the family; `object` plus an `is` recovery is the deleted form, because an unconstrained probe admits any type argument and defers the mismatch to runtime.
+- Owner: `ShellSlot` `[SmartEnum<int>]` — 7 pane-anchor rows over ONE `[UseDelegateFromConstructor]` `Resolve(Op) -> Fin<ShellPane>` column, split across two row constructors by member residency: instance rows `Tabs` (key 0, `Editor.Tabs` → `TabbedPanel.TabControl`), `StatusBar` (key 1, `Editor.StatusBar` → `Grasshopper2.UI.StatusBar`), `RecentActive` (key 4, `Editor.MostRecentActiveDocument` → the recent-path `string`), `RecentLoaded` (key 5, `Editor.MostRecentLoadedDocuments` → `string[]`); static rows `DefinedLayouts` (key 2, `Editor.DefinedLayouts` → `IEnumerable<string>`), `InitialLayout` (key 3, `Editor.InitialLayout` → `string`), `HostAnchor` (key 6, `Editor.ThisOrRhino` → `Eto.Forms.Window`). Every instance row null-gates the singleton chain through `Optional(Editor.Instance).ToFin(key.MissingContext())`; the static rows read settings-backed statics and therefore resolve on a headless Rhino where every instance row refuses typed. `Editor.BreadCrumbs` is private on the host and is no row — a private pane is unreachable capability, not RESEARCH.
+- Entry: `EditorShell.Grab<TOut>(ShellSlot slot, Func<ShellPane, Fin<TOut>> project, Op? key = null)` → `Fin<TOut>` — the one typed egress. Each slot resolves inside one `EtoDispatch.Run` marshal and the caller's projection runs inside the same marshal window, so a pane reference never escapes the window that resolved it — the same non-escape law `GhScope` carries on the session floor. The projection is a total `Switch` over `ShellPane`, so a consumer expecting one pane states its refusal for every other case at compile time and a new pane shape breaks every projection loudly.
+- Law: the slot column is the ONLY singleton read site for chrome panes — a consumer holding `Editor.Instance.Tabs` at a call site is the deleted form. Each row's host read stays typed to its own member and the projection closes it into `ShellPane`, so the null gate guards the host value rather than an erased reference; `Shell/chrome.md`'s hosts mint on their own surfaces (`Bar` construction, `InputPanel` construction, the static `Frame`, the canvas flex collection) and only the editor-resident panes route through this gate.
 - Boundary: `Editor.Canvas` and `Editor.Documents` resolve through `ScopeTarget`/`GhScope` on the session floor, never as slot rows — a slot is a chrome pane, a scope is a live work surface, and the two vocabularies never alias. Host editor carries no file-comparison surface.
 - Packages: Grasshopper2 (`Editor.Instance`, `Editor.ThisOrRhino`, the seven pane members), LanguageExt.Core, `Rasm.Domain` (`Op`, `Fault`), `Eto/runtime.md` (`EtoDispatch`).
 - Growth: a new shell pane is one `ShellSlot` row; the column, the gate, and every consumer signature never widen.
@@ -31,7 +32,7 @@ Every shell pane is a `ShellSlot` row drained by one generic typed-projection ga
 ## [04]-[OPERATOR]
 
 - Owner: `EditorShell` — the one editor-shell operator. `ShellOp` `[Union]` `[GenerateUnionOps]` closes the command family: `ToggleCase(ShellToggle Row, bool Target)` swings one shell axis, `GetterCase(Option<RhinoDoc> Target)` arbitrates the single Rhino handoff through the static `Editor.BeginRhinoGetter(RhinoDoc doc = null)` — `None` defers to the host's `RhinoDoc.ActiveDoc` default, and the member's `false` return (no target document, or a getter already active) settles as `Fault.InvalidResult`, never a silently ignored bool. This handoff is the one seam by which the editor yields input focus to a Rhino getter, so a direct `RhinoDoc` getter beside it bypasses the editor's arbitration and is the deleted form. `ShellReceipt` is the settlement evidence — the raising `Op`, the settled case name via `nameof`, and the post-command `ShellState` — implementing `IValidityEvidence`, so every shell command returns the state it produced and no consumer issues a follow-up snapshot to learn what its own command did.
-- Entry: `EditorShell.Apply(ShellOp op, Op? key = null)` → `Fin<ShellReceipt>` — the command gate; `EditorShell.Snapshot(Op? key = null)` → `Fin<ShellState>` — the state gate; `EditorShell.Grab<TPane, TOut>` — the `[02]` pane gate. Three gates, three demand shapes (settlement, evidence, typed projection); everything else on the page is internal.
+- Entry: `EditorShell.Apply(ShellOp op, Op? key = null)` → `Fin<ShellReceipt>` — the command gate; `EditorShell.Snapshot(Op? key = null)` → `Fin<ShellState>` — the state gate; `EditorShell.Grab<TOut>` — the `[02]` pane gate. Three gates, three demand shapes (settlement, evidence, typed projection); everything else on the page is internal.
 - Law: every case settles inside ONE `EtoDispatch` marshal — scope acquisition through `ScopeTarget`, the host verb, and the receipt's state projection share the window, so no command observes a shell another thread mutated mid-settlement, and every case body runs under `Op.Catch` so a throwing host member lands as a typed `Fault` with the raising key.
 - Law: reveal is not a case — `SessionOp.RevealCase` on the session floor owns the public static `Editor.ShowEditor` (`EnsureVisible` is host-internal), and a second reveal spelling here forks the one session-command vocabulary; a consumer sequencing reveal-then-shell-work composes the two gates.
 - Boundary: `GetterCase` transports the optional `RhinoDoc` and adjudicates nothing about it — Rhino document semantics are `Rasm.Rhino`'s concern entirely, and the case exists because the handoff member lives on the GH2 editor.
@@ -47,24 +48,51 @@ using Rhino;
 namespace Rasm.Grasshopper.Shell;
 
 // --- [TYPES] --------------------------------------------------------------------------------
+// Pane heterogeneity is the REASON for a closed family, never the excuse for `object`: an erased column recovers its
+// type through an unconstrained `is TPane`, so `Grab<string, …>` on the tab strip type-checks and refuses at runtime.
+// The union makes every reachable pane shape a case the consumer's total `Switch` must decide at compile time.
+[Union]
+public abstract partial record ShellPane {
+    private ShellPane() { }
+    public sealed record TabsCase(TabControl Strip) : ShellPane;
+    public sealed record StatusCase(StatusBar Bar) : ShellPane;
+    public sealed record LayoutsCase(Seq<string> Names) : ShellPane;
+    public sealed record LayoutCase(string Name) : ShellPane;
+    public sealed record RecentCase(string Path) : ShellPane;
+    public sealed record RecentsCase(Seq<string> Paths) : ShellPane;
+    public sealed record AnchorCase(Window Host) : ShellPane;
+}
+
 [SmartEnum<int>]
 public sealed partial class ShellSlot {
-    public static readonly ShellSlot Tabs = EditorRow(key: 0, read: static shell => shell.Tabs);
-    public static readonly ShellSlot StatusBar = EditorRow(key: 1, read: static shell => shell.StatusBar);
-    public static readonly ShellSlot DefinedLayouts = StaticRow(key: 2, read: static () => Editor.DefinedLayouts);
-    public static readonly ShellSlot InitialLayout = StaticRow(key: 3, read: static () => Editor.InitialLayout);
-    public static readonly ShellSlot RecentActive = EditorRow(key: 4, read: static shell => shell.MostRecentActiveDocument);
-    public static readonly ShellSlot RecentLoaded = EditorRow(key: 5, read: static shell => shell.MostRecentLoadedDocuments);
-    public static readonly ShellSlot HostAnchor = StaticRow(key: 6, read: static () => Editor.ThisOrRhino);
-    [UseDelegateFromConstructor] internal partial Fin<object> Resolve(Op key);
+    public static readonly ShellSlot Tabs = EditorRow(key: 0,
+        read: static shell => shell.Tabs, pane: static strip => new ShellPane.TabsCase(Strip: strip));
+    public static readonly ShellSlot StatusBar = EditorRow(key: 1,
+        read: static shell => shell.StatusBar, pane: static bar => new ShellPane.StatusCase(Bar: bar));
+    public static readonly ShellSlot DefinedLayouts = StaticRow(key: 2,
+        read: static () => Editor.DefinedLayouts, pane: static names => new ShellPane.LayoutsCase(Names: toSeq(names)));
+    public static readonly ShellSlot InitialLayout = StaticRow(key: 3,
+        read: static () => Editor.InitialLayout, pane: static name => new ShellPane.LayoutCase(Name: name));
+    public static readonly ShellSlot RecentActive = EditorRow(key: 4,
+        read: static shell => shell.MostRecentActiveDocument, pane: static path => new ShellPane.RecentCase(Path: path));
+    public static readonly ShellSlot RecentLoaded = EditorRow(key: 5,
+        read: static shell => shell.MostRecentLoadedDocuments, pane: static paths => new ShellPane.RecentsCase(Paths: toSeq(paths)));
+    public static readonly ShellSlot HostAnchor = StaticRow(key: 6,
+        read: static () => Editor.ThisOrRhino, pane: static host => new ShellPane.AnchorCase(Host: host));
+    [UseDelegateFromConstructor] internal partial Fin<ShellPane> Resolve(Op key);
 
-    private static ShellSlot EditorRow(int key, Func<Editor, object?> read) =>
+    // The host read stays typed to its own member and the projection closes it into the family, so the null gate
+    // guards the HOST value and no row ever holds an erased reference.
+    private static ShellSlot EditorRow<THost>(int key, Func<Editor, THost?> read, Func<THost, ShellPane> pane)
+        where THost : class =>
         new(key: key, resolve: op =>
             Optional(Editor.Instance).ToFin(op.MissingContext())
-                .Bind(shell => Optional(read(arg: shell)).ToFin(op.MissingContext())));
+                .Bind(shell => Optional(read(arg: shell)).ToFin(op.MissingContext()))
+                .Map(pane));
 
-    private static ShellSlot StaticRow(int key, Func<object?> read) =>
-        new(key: key, resolve: op => Optional(read()).ToFin(op.MissingContext()));
+    private static ShellSlot StaticRow<THost>(int key, Func<THost?> read, Func<THost, ShellPane> pane)
+        where THost : class =>
+        new(key: key, resolve: op => Optional(read()).ToFin(op.MissingContext()).Map(pane));
 }
 
 [SmartEnum<int>]
@@ -114,13 +142,12 @@ public readonly record struct ShellReceipt(Op Operation, string Verb, ShellState
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class EditorShell {
-    public static Fin<TOut> Grab<TPane, TOut>(ShellSlot slot, Func<TPane, Fin<TOut>> project, Op? key = null) {
+    public static Fin<TOut> Grab<TOut>(ShellSlot slot, Func<ShellPane, Fin<TOut>> project, Op? key = null) {
         Op op = key.OrDefault();
         return from row in op.Need(slot)
                from valid in op.Need(project)
-               from output in EtoDispatch.Run(body: () => row.Resolve(key: op).Bind(pane => pane is TPane typed
-                   ? op.Catch(body: () => valid(arg: typed))
-                   : Fin.Fail<TOut>(op.Unsupported(geometryType: typeof(TPane), outputType: typeof(TOut)))), key: op)
+               from output in EtoDispatch.Run(
+                   body: () => row.Resolve(key: op).Bind(pane => op.Catch(body: () => valid(arg: pane))), key: op)
                select output;
     }
 
@@ -175,10 +202,10 @@ flowchart LR
     accDescr: Boundary consumers reach the GH2 editor singleton through three EditorShell gates — command settlement, state snapshot, and typed pane projection — each acquiring scope through the session rows and resolving panes through the slot column inside one marshal.
     Consumer["boundary consumers"] -->|ShellOp cases| Apply["EditorShell.Apply → Fin&lt;ShellReceipt&gt;"]
     Consumer -->|evidence read| Snapshot["EditorShell.Snapshot → Fin&lt;ShellState&gt;"]
-    Consumer -->|"ShellSlot + Func&lt;TPane, Fin&lt;TOut&gt;&gt;"| Grab["EditorShell.Grab&lt;TPane, TOut&gt;"]
+    Consumer -->|"ShellSlot + Func&lt;ShellPane, Fin&lt;TOut&gt;&gt;"| Grab["EditorShell.Grab&lt;TOut&gt;"]
     Apply --> Scope["session ScopeTarget rows"]
     Snapshot --> Scope
-    Grab --> Slots["ShellSlot resolve column"]
+    Grab --> Slots["ShellSlot resolve column → ShellPane"]
     Slots -->|"Editor.Tabs · StatusBar · layouts · recents · ThisOrRhino"| Host["Grasshopper2 Editor singleton"]
     Apply -->|"ShellToggle column · BeginRhinoGetter"| Host
     Apply -->|one marshal per command| Dispatch["Eto/runtime EtoDispatch"]
@@ -191,11 +218,12 @@ flowchart LR
 
 | [INDEX] | [CONCERN]         | [OWNER]                         | [KIND]                                    | [RAIL]                       | [CASES] |
 | :-----: | :---------------- | :------------------------------ | :---------------------------------------- | :--------------------------- | :-----: |
-|  [01]   | pane slots        | `ShellSlot`                     | `[SmartEnum<int>]`, resolve column        | `Resolve → Fin<object>`      |    7    |
-|  [02]   | shell toggles     | `ShellToggle`                   | `[SmartEnum<int>]`, dual-direction column | `Swing → Fin<bool>`          |    3    |
-|  [03]   | shell commands    | `ShellOp` + `ShellReceipt`      | `[Union]` `[GenerateUnionOps]` + receipt  | `Apply → Fin<ShellReceipt>`  |    2    |
-|  [04]   | shell evidence    | `ShellState`                    | evidence receipt over verified scalars    | `Snapshot → Fin<ShellState>` |    1    |
-|  [05]   | typed pane egress | `EditorShell.Grab<TPane, TOut>` | generic gate, one marshal window          | `Grab → Fin<TOut>`           |    1    |
+|  [01]   | pane family       | `ShellPane`                     | `[Union]`, one case per pane shape        | `Resolve → Fin<ShellPane>`   |    7    |
+|  [02]   | pane slots        | `ShellSlot`                     | `[SmartEnum<int>]`, resolve column        | `Resolve → Fin<ShellPane>`   |    7    |
+|  [03]   | shell toggles     | `ShellToggle`                   | `[SmartEnum<int>]`, dual-direction column | `Swing → Fin<bool>`          |    3    |
+|  [04]   | shell commands    | `ShellOp` + `ShellReceipt`      | `[Union]` `[GenerateUnionOps]` + receipt  | `Apply → Fin<ShellReceipt>`  |    2    |
+|  [05]   | shell evidence    | `ShellState`                    | evidence receipt over verified scalars    | `Snapshot → Fin<ShellState>` |    1    |
+|  [06]   | typed pane egress | `EditorShell.Grab<TOut>`        | total-`Switch` gate, one marshal window   | `Grab → Fin<TOut>`           |    1    |
 
 `ScopeTarget`, `GhScope`, `EtoDispatch`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; every shell capability lands as the rows, cases, and gates above. `Editor.BreadCrumbs` (private) is a phantom row no fence composes, and the host ships no file-comparison member.
 

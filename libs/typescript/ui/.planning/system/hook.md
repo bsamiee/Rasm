@@ -165,19 +165,33 @@ const _arbiter = <P extends Hook.VetoPoint>(registry: Hook.Registry, point: P, g
 
 [TAP_ISOLATION]:
 - Owner: `Hook.tap(registry, point, label, handler)` — the scoped tap: one forked drain per tap consumes the row channel, runs the handler per fact, and folds any handler cause into a `HookFault` row on the registry's fault channel; the drain survives its own faults, the publishing owner never observes them, and the tap fiber dies with the composition scope.
+- Packages: `effect` (`Cause`, `PubSub`, `Schema`, `Stream`); `@rasm/ts/core` (`FaultClass`).
 - Law: a tap fault is evidence, never propagation — `HookFault` carries the point, the tap label, and the pretty-printed cause; the fault channel is itself tappable (the probe board renders tap health as evidence rows), and a fault that must gate anything is a veto arbiter, not an observe tap.
+- Law: the fault is single-shape, so it states its one core `FaultClass` kind directly — `defect`: a subscriber's own torn handler, system-blamed and never re-driven — and carries no taxonomy column, so severity and blame derive from the core row table. Its point field admits through a declared guard over the row-key pattern because the point keyspace is open by module augmentation, never a closed literal roster.
 - Law: telemetry is a tap — the app OTel bridge subscribes points and maps facts onto the branch observe combinators at the app plane; this library imports zero collector and mints zero instrument, so browser traces join the estate fabric the moment an app composes the bridge over the same rows probe already renders.
 - Law: replay taps read history from the rail — a history capture or a probe board attaching mid-session receives the replay window before live facts, so evidence and undo lanes share one source of truth with live consumers and no owner replays state on demand.
 - Boundary: the atom bridge (`system/atom#LIVE_BRIDGE`) binds any row a component must render — `Stream.fromPubSub` through `Atom.pull`, or an app-held `Subscribable` — and the component never subscribes a channel directly.
 
 ```typescript
-import { Cause, Data } from "effect"
+import { FaultClass } from "@rasm/ts/core"
+import { Cause, Schema } from "effect"
 
-class HookFault extends Data.TaggedError("HookFault")<{
-  readonly point: Hook.Point
-  readonly tap: string
-  readonly detail: string
-}> {}
+const _Point: Schema.Schema<Hook.Point> = Schema.declare(
+  (input: unknown): input is Hook.Point => typeof input === "string" && /^rasm\.ui\.[^.]+\.[^.]+$/.test(input),
+)
+
+class HookFault extends Schema.TaggedError<HookFault>()("HookFault", {
+  point: _Point,
+  tap: Schema.String,
+  detail: Schema.String,
+}) {
+  get class(): FaultClass.Kind {
+    return "defect"
+  }
+  override get message(): string {
+    return `<hook:${this.point}> ${this.tap}: ${this.detail}`
+  }
+}
 
 const _tap = <P extends Hook.Point, E>(
   registry: Hook.Registry,

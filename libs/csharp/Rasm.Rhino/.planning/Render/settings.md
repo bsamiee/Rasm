@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[SOURCE]: `SettingsSource` — the duality union with its `Use` read and `Mutate` undo-bracketed borrow folds.
-- [03]-[STATE_RECORDS]: writable sub-owner states, derived evidence, and `RenderConfig`.
+- [03]-[STATE_RECORDS]: the `SubOwners` custody window, writable sub-owner states, derived evidence, and `RenderConfig`.
 - [04]-[SUN_ASTRONOMY]: `SunSolver` — the static position, calendar, and twilight solvers.
 - [05]-[EDIT_RAIL]: `SettingsRequest`, `SettingsResult`, whole-state copy, and receipted edits.
 - [06]-[AMBIENT_WATCH]: `AmbientSlot` and the `Changed`-broadcast fold.
@@ -116,7 +116,8 @@ public abstract partial record SettingsSource : IDisposable {
 
 ## [03]-[STATE_RECORDS]
 
-- Owner: each total-state owner carries one-pass `Of` and whole-state `Apply`; boundary guards reject invalid scalar, vector, key, and case combinations before host mutation. `SunEvidence` owns derived vector, hash, and light custody, while `WorkflowEvidence` owns reciprocal gamma and hash without treating either as replay input.
+- Owner: `SubOwners` is the one custody window over the seven `RenderSettings` sub-owners — every read and every apply borrows the same seven wrappers for one bracket, so the state and its evidence sample one instant and a per-property re-read cannot tear the snapshot. Each total-state owner carries one-pass `Of` and whole-state `Apply`; boundary guards reject invalid scalar, vector, key, and case combinations before host mutation. `SunEvidence` owns derived vector, hash, and light custody, while `WorkflowEvidence` owns reciprocal gamma and hash without treating either as replay input.
+- Law: a sub-owner property answers a FRESH non-owning wrapper on every read and its `Dispose` is `GC.SuppressFinalize` alone, so custody is a finalizer retirement, never a native release — the seven-wrapper window is what makes the read coherent, and a free-floating sub-owner never enters it because disposing one suppresses its only delete path.
 - Law: applies are total state, never a patch — every `Apply` re-asserts its full field set, so an absent field cannot silently clear and a configuration travels as one replayable value between documents, archives, and free-floating carriers.
 - Law: sun position follows host mode — automatic state writes geolocation, timezone, daylight saving, and moment before clearing manual control; manual state admits either the host angle pair or vector setter after enabling manual control. Readback canonicalizes manual state to angles, while vector and hash detach as evidence.
 - Law: `EnvironmentRole` and `EnvironmentView` close the usage-purpose product; `RenderConfig` writes one binding per role and `RenderState.EnvironmentResolution` reads both purposes without leaking host enums.
@@ -124,6 +125,49 @@ public abstract partial record SettingsSource : IDisposable {
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
+public sealed record SubOwners : IDisposable {
+    private readonly Seq<IDisposable> held;
+
+    private SubOwners(RenderSettings settings) {
+        Settings = settings;
+        Ground = settings.GroundPlane;
+        Sky = settings.Skylight;
+        Daylight = settings.Sun;
+        Workflow = settings.LinearWorkflow;
+        Dither = settings.Dithering;
+        Guides = settings.SafeFrame;
+        Channels = settings.RenderChannels;
+        held = Seq<IDisposable>(Ground, Sky, Daylight, Workflow, Dither, Guides, Channels);
+    }
+
+    internal RenderSettings Settings { get; }
+    internal GroundPlane Ground { get; }
+    internal Skylight Sky { get; }
+    internal global::Rhino.Render.Sun Daylight { get; }
+    internal LinearWorkflow Workflow { get; }
+    internal Dithering Dither { get; }
+    internal SafeFrame Guides { get; }
+    internal RenderChannels Channels { get; }
+
+    internal static Fin<TOut> Within<TOut>(RenderSettings settings, Func<SubOwners, Fin<TOut>> borrow, Op key) =>
+        from active in Optional(settings).ToFin(Fail: key.InvalidInput())
+        from activeBorrow in Optional(borrow).ToFin(Fail: key.InvalidInput())
+        from owners in key.Catch(() => Fin.Succ(value: new SubOwners(settings: active)))
+        from result in owners.Use(borrow: activeBorrow, key: key)
+        select result;
+
+    private Fin<TOut> Use<TOut>(Func<SubOwners, Fin<TOut>> borrow, Op key) {
+        using (this) return key.Catch(() => borrow(this));
+    }
+
+    // Host truth: every sub-owner read off a `RenderSettings` is a NON-OWNING wrapper — the private `Dispose(bool)` body is
+    // empty and the public `Dispose` only runs `GC.SuppressFinalize`, so this release retires seven finalizer registrations
+    // and frees no native. A genuinely free-floating sub-owner (the parameterless constructor) inverts that: disposing it
+    // suppresses the finalizer that is its ONLY `DeleteCpp` path, so such a value never enters this window. One throwing
+    // release never aborts the sweep.
+    public void Dispose() => held.Iter(static owner => ignore(Try.lift(() => { owner.Dispose(); return unit; }).Run()));
+}
+
 public sealed record GroundPlaneState(
     bool Enabled, bool ShadowOnly, bool ShowUnderside, double Altitude, bool AutoAltitude,
     Option<Guid> MaterialInstance, Vector2d TextureOffset, Vector2d TextureSize, double TextureRotation,
@@ -244,7 +288,7 @@ public sealed partial class SunState : IDetachedDocumentResult {
     internal static Fin<SunState> Of(global::Rhino.Render.Sun sun, Op key) =>
         from accuracy in SunAccuracy.Of(sun.Accuracy, key)
         let position = sun.ManualControlOn
-                ? new SunPosition.ManualAngles(Azimuth: sun.Azimuth, Altitude: sun.Altitude)
+                ? (SunPosition)new SunPosition.ManualAngles(Azimuth: sun.Azimuth, Altitude: sun.Altitude)
                 : new SunPosition.Automatic(
                     Latitude: sun.Latitude, Longitude: sun.Longitude, TimeZone: sun.TimeZone,
                     DaylightSavingOn: sun.DaylightSavingOn, DaylightSavingMinutes: sun.DaylightSavingMinutes,
@@ -837,7 +881,7 @@ public static class SunSolver {
 ## [05]-[EDIT_RAIL]
 
 - Owner: `SettingsRequest` closes read, edit, and copy; `SettingsResult` keeps state and receipt egress explicit; `Settings.Run` is the sole entry over every `SettingsSource` origin.
-- Law: each request enters its source once; edit and whole-state replay lower through one `SettingsEdit` program inside one compensated mutation grant, and copy crosses sources only through an owned `RenderSettings.Duplicate()` lease.
+- Law: each request enters its source once; edit and whole-state replay lower through one `SettingsEdit` program inside one compensated mutation grant over a single `SubOwners` window, and copy crosses sources as ONE detached `RenderState` read inside the source borrow — the total-state record IS the replayable carrier, so no duplicate aggregate is minted and no live aggregate outlives its window.
 - Law: a failed edit sequence restores the pre-borrow total state before the fault leaves — the prior `RenderState` is the compensation record for every source, archive and detached included, with the live bracket's undo rollback layered above it; a restore failure appends onto the primary fault, never replaces it.
 - Law: `SettingsReceipt.Applied` names changed axes, and live mutations stamp the same receipt through `UndoBracket`.
 - Boundary: `RenderSettings.PostEffects : PostEffectCollection` is a separate host sub-owner whose configuration rows belong to the Display render page.
@@ -905,22 +949,22 @@ public abstract partial record SettingsEdit {
     public sealed record Guides(SafeFrameState State) : SettingsEdit(SettingsAxis.Guides);
     public sealed record Channels(ChannelState State) : SettingsEdit(SettingsAxis.Channels);
 
-    internal Fin<Unit> Apply(RenderSettings settings, Op op) =>
+    internal Fin<Unit> Apply(SubOwners owners, Op op) =>
         Switch(
-            (Settings: settings, Op: op),
+            (Owners: owners, Op: op),
             frame: static (context, edit) => Optional(edit.Config).ToFin(Fail: context.Op.InvalidInput())
-                .Bind(config => config.Apply(settings: context.Settings, key: context.Op)),
+                .Bind(config => config.Apply(settings: context.Owners.Settings, key: context.Op)),
             ground: static (context, edit) => Optional(edit.State).ToFin(Fail: context.Op.InvalidInput())
-                .Bind(state => state.Apply(ground: context.Settings.GroundPlane, key: context.Op)),
-            sky: static (context, edit) => edit.State.Apply(sky: context.Settings.Skylight, key: context.Op),
+                .Bind(state => state.Apply(ground: context.Owners.Ground, key: context.Op)),
+            sky: static (context, edit) => edit.State.Apply(sky: context.Owners.Sky, key: context.Op),
             daylight: static (context, edit) => Optional(edit.State).ToFin(Fail: context.Op.InvalidInput())
-                .Bind(state => state.Apply(sun: context.Settings.Sun, key: context.Op)),
-            workflow: static (context, edit) => edit.State.Apply(workflow: context.Settings.LinearWorkflow, key: context.Op),
-            dither: static (context, edit) => edit.State.Apply(dither: context.Settings.Dithering, key: context.Op),
+                .Bind(state => state.Apply(sun: context.Owners.Daylight, key: context.Op)),
+            workflow: static (context, edit) => edit.State.Apply(workflow: context.Owners.Workflow, key: context.Op),
+            dither: static (context, edit) => edit.State.Apply(dither: context.Owners.Dither, key: context.Op),
             guides: static (context, edit) => Optional(edit.State).ToFin(Fail: context.Op.InvalidInput())
-                .Bind(state => state.Apply(frame: context.Settings.SafeFrame, key: context.Op)),
+                .Bind(state => state.Apply(frame: context.Owners.Guides, key: context.Op)),
             channels: static (context, edit) => Optional(edit.State).ToFin(Fail: context.Op.InvalidInput())
-                .Bind(state => state.Apply(channels: context.Settings.RenderChannels, key: context.Op)));
+                .Bind(state => state.Apply(channels: context.Owners.Channels, key: context.Op)));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -949,8 +993,11 @@ public static class Settings {
                from result in activeRequest.Switch(
                    context: (Source: activeSource, Op: op),
                    read: static (state, _) => state.Source.Use(
-                       borrow: settings => ReadState(settings, state.Op)
-                           .Map(static value => (SettingsResult)new SettingsResult.State(value)),
+                       borrow: settings => SubOwners.Within(
+                           settings: settings,
+                           borrow: owners => ReadState(owners, state.Op)
+                               .Map(static value => (SettingsResult)new SettingsResult.State(value)),
+                           key: state.Op),
                        key: state.Op),
                    edit: static (state, command) => Commit(state.Source, command.Changes, state.Op)
                        .Map(static receipt => (SettingsResult)new SettingsResult.Changed(receipt)),
@@ -959,24 +1006,26 @@ public static class Settings {
                select result;
     }
 
-    private static Fin<RenderState> ReadState(RenderSettings settings, Op op) =>
-        from config in RenderConfig.Of(settings: settings, key: op)
-        from daylight in SunState.Of(sun: settings.Sun, key: op)
-        from workflow in WorkflowState.Of(workflow: settings.LinearWorkflow, key: op)
-        from dither in DitherState.Of(dither: settings.Dithering, key: op)
-        from channels in ChannelState.Of(channels: settings.RenderChannels, key: op)
-        from environments in config.Environments.Resolve(settings: settings, key: op)
-        from evidence in SunEvidence.Of(sun: settings.Sun, key: op)
+    // `Sun` and `LinearWorkflow` each answer a FRESH wrapper per property read, so the state and its evidence read one
+    // borrowed instance apiece — two reads of one sub-owner are two unsynchronized samples of live host state.
+    private static Fin<RenderState> ReadState(SubOwners owners, Op op) =>
+        from config in RenderConfig.Of(settings: owners.Settings, key: op)
+        from daylight in SunState.Of(sun: owners.Daylight, key: op)
+        from workflow in WorkflowState.Of(workflow: owners.Workflow, key: op)
+        from dither in DitherState.Of(dither: owners.Dither, key: op)
+        from channels in ChannelState.Of(channels: owners.Channels, key: op)
+        from environments in config.Environments.Resolve(settings: owners.Settings, key: op)
+        from evidence in SunEvidence.Of(sun: owners.Daylight, key: op)
         select new RenderState(
             Config: config,
-            Ground: GroundPlaneState.Of(ground: settings.GroundPlane),
-            Sky: SkylightState.Of(sky: settings.Skylight),
+            Ground: GroundPlaneState.Of(ground: owners.Ground),
+            Sky: SkylightState.Of(sky: owners.Sky),
             Daylight: daylight,
             DaylightEvidence: evidence,
             Workflow: workflow,
-            WorkflowEvidence: WorkflowEvidence.Of(workflow: settings.LinearWorkflow),
+            WorkflowEvidence: WorkflowEvidence.Of(workflow: owners.Workflow),
             Dither: dither,
-            SafeFrame: SafeFrameState.Of(frame: settings.SafeFrame),
+            SafeFrame: SafeFrameState.Of(frame: owners.Guides),
             Channels: channels,
             EnvironmentResolution: environments);
 
@@ -984,38 +1033,43 @@ public static class Settings {
         return from _ in guard(!plan.IsEmpty && plan.ForAll(static edit => edit is not null), op.InvalidInput())
                from receipt in source.Mutate(
                    name: nameof(SettingsRequest.Edit),
-                   borrow: settings => ReadState(settings, op).Bind(prior => Compensated(settings, prior, plan, op)),
+                   borrow: settings => SubOwners.Within(
+                       settings: settings,
+                       borrow: owners => ReadState(owners, op).Bind(prior => Compensated(owners, prior, plan, op)),
+                       key: op),
                    key: op)
                select receipt;
     }
 
-    private static Fin<Seq<SettingsAxis>> Compensated(RenderSettings settings, RenderState prior, Seq<SettingsEdit> plan, Op op) {
+    private static Fin<Seq<SettingsAxis>> Compensated(SubOwners owners, RenderState prior, Seq<SettingsEdit> plan, Op op) {
         using (prior) {
-            return ApplyPlan(settings: settings, plan: plan, op: op)
-                .BindFail(fault => ApplyPlan(settings: settings, plan: prior.Replay(), op: op).Match(
+            return ApplyPlan(owners: owners, plan: plan, op: op)
+                .BindFail(fault => ApplyPlan(owners: owners, plan: prior.Replay(), op: op).Match(
                     Succ: static _ => Fin.Fail<Seq<SettingsAxis>>(error: fault),
                     Fail: restore => Fin.Fail<Seq<SettingsAxis>>(error: fault + restore)));
         }
     }
 
+    // `RenderState` IS the detached replayable carrier, so the source borrow yields it directly; a `Duplicate()` lease would
+    // mint a second native, re-read the same total state off it, and carry a live aggregate the detached marker cannot type.
     private static Fin<SettingsReceipt> Copy(SettingsSource source, SettingsSource target, Op op) =>
         from activeTarget in Optional(target).ToFin(Fail: op.InvalidInput())
-        from duplicate in source.Use(
-            borrow: settings => op.Catch(() => Fin.Succ(
-                (Lease<RenderSettings>)new Lease<RenderSettings>.Owned(Value: settings.Duplicate()))),
+        from state in source.Use(
+            borrow: settings => SubOwners.Within(
+                settings: settings, borrow: owners => ReadState(owners, op), key: op),
             key: op)
-        from receipt in duplicate.Use(detached =>
-            from state in ReadState(detached, op)
-            from changed in state.Use(value => activeTarget.Mutate(
-                name: nameof(SettingsRequest.CopyTo),
-                borrow: settings => ReadState(settings, op)
-                    .Bind(prior => Compensated(settings: settings, prior: prior, plan: value.Replay(), op: op)),
-                key: op))
-            select changed)
+        from receipt in state.Use(value => activeTarget.Mutate(
+            name: nameof(SettingsRequest.CopyTo),
+            borrow: settings => SubOwners.Within(
+                settings: settings,
+                borrow: owners => ReadState(owners, op)
+                    .Bind(prior => Compensated(owners: owners, prior: prior, plan: value.Replay(), op: op)),
+                key: op),
+            key: op))
         select receipt;
 
-    private static Fin<Seq<SettingsAxis>> ApplyPlan(RenderSettings settings, Seq<SettingsEdit> plan, Op op) =>
-        plan.TraverseM(edit => edit.Apply(settings: settings, op: op)).As()
+    private static Fin<Seq<SettingsAxis>> ApplyPlan(SubOwners owners, Seq<SettingsEdit> plan, Op op) =>
+        plan.TraverseM(edit => edit.Apply(owners: owners, op: op)).As()
             .Map(_ => plan.Map(static edit => edit.Axis).Distinct());
 }
 ```
@@ -1143,12 +1197,13 @@ public sealed class AmbientWatch : IDisposable {
 |  [01]   | live origin      | `SettingsSource.Live`                | document borrow           | `Use` / `Mutate`  |
 |  [02]   | archive origin   | `SettingsSource.Archived`            | archive borrow            | `Use` / `Mutate`  |
 |  [03]   | detached origin  | `SettingsSource.Detached`            | owned borrow              | `Use` / `Mutate`  |
-|  [04]   | state            | state owners                         | total projection          | `Of` / `Apply`    |
-|  [05]   | aggregate config | `RenderConfig`                       | correlated configuration  | `Of` / `Apply`    |
-|  [06]   | astronomy        | `SunProblem` / `SunSolution`         | closed request/result     | `SunSolver.Solve` |
-|  [07]   | settings rail    | `SettingsRequest` / `SettingsResult` | correlated request/result | `Settings.Run`    |
-|  [08]   | mutation receipt | `SettingsAxis` / `SettingsReceipt`   | changed axes with undo    | `Settings.Run`    |
-|  [09]   | broadcasts       | `AmbientSlot` / `AmbientFailure`     | verified failure ledger   | `AmbientWatch.Of` |
+|  [04]   | sub-owner window | `SubOwners`                          | one borrow of all seven   | `Within`          |
+|  [05]   | state            | state owners                         | total projection          | `Of` / `Apply`    |
+|  [06]   | aggregate config | `RenderConfig`                       | correlated configuration  | `Of` / `Apply`    |
+|  [07]   | astronomy        | `SunProblem` / `SunSolution`         | closed request/result     | `SunSolver.Solve` |
+|  [08]   | settings rail    | `SettingsRequest` / `SettingsResult` | correlated request/result | `Settings.Run`    |
+|  [09]   | mutation receipt | `SettingsAxis` / `SettingsReceipt`   | changed axes with undo    | `Settings.Run`    |
+|  [10]   | broadcasts       | `AmbientSlot` / `AmbientFailure`     | verified failure ledger   | `AmbientWatch.Of` |
 
 ## [08]-[RESEARCH]
 

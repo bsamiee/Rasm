@@ -11,10 +11,10 @@
 ## [02]-[PLATFORM]
 
 - Owner: `HostPlatform` resolves one `HandlerDemand<THandler>` against `Platform.Instance` and exposes the host platform context without admitting `Platform.Initialize`.
-- Cases: `HandlerDemand<THandler>` carries per-instance creation, shared creation, or registered lookup as distinct evidence shapes.
+- Cases: `HandlerDemand<THandler>` carries per-instance creation, shared creation, or registered lookup as distinct evidence shapes, and `HandlerCustody<THandler>` carries the SAME discriminant back out — owned, borrowed, lookup — so the three ownership semantics survive the crossing that would otherwise erase them and `Release` is total over them.
 - Entry: `HostPlatform.Current`, `Resolve`, `Under`, and `Worker` share one captured ambient-platform funnel; handler discovery, context, and worker lifetime stay on `Fin`.
 - Receipt: `BackendFact` detaches backend identity, desktop posture, and supported feature flags from the ambient provider before policy code consumes them.
-- Growth: a handler modality is one `HandlerDemand<THandler>` case; a backend identity is one `Backend` row.
+- Growth: a handler modality is one `HandlerDemand<THandler>` case paired with its `HandlerCustody<THandler>` answer; a backend identity is one `Backend` row.
 - Boundary: `UiThread` owns `Application` affinity; this owner scopes `Platform` only.
 - Exemption: `ThreadStart`'s `using` scope is the worker-boundary statement seam that guarantees platform-context release.
 
@@ -52,6 +52,30 @@ public abstract partial record HandlerDemand<THandler> where THandler : class {
     public sealed record Registered : HandlerDemand<THandler>;
 }
 
+// Demands state ownership on the way in, so answers state it on the way out: `Create` mints a handler the caller now
+// owns, `Shared` returns the platform-cached singleton disposal poisons for every other consumer, and `Registered` is
+// a lookup. One undifferentiated return erases exactly the fact a caller has to act on.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record HandlerCustody<THandler> where THandler : class {
+    private HandlerCustody() { }
+    public sealed record OwnedCase(THandler Handler) : HandlerCustody<THandler>;
+    public sealed record BorrowedCase(THandler Handler) : HandlerCustody<THandler>;
+    public sealed record LookupCase(THandler Handler) : HandlerCustody<THandler>;
+
+    public THandler Handler => Switch(
+        ownedCase: static row => row.Handler,
+        borrowedCase: static row => row.Handler,
+        lookupCase: static row => row.Handler);
+
+    public Fin<Unit> Release(Op? key = null) => Switch(
+        key.OrDefault(),
+        ownedCase: static (at, row) => row.Handler is IDisposable owned
+            ? at.Catch(() => Fin.Succ(Op.Side(owned.Dispose)))
+            : Fin.Succ(unit),
+        borrowedCase: static (_, _) => Fin.Succ(unit),
+        lookupCase: static (_, _) => Fin.Succ(unit));
+}
+
 // --- [MODELS] -------------------------------------------------------------------------------
 public readonly record struct BackendFact(string Identity, Backend Kind, bool Desktop, PlatformFeatures Features);
 
@@ -64,15 +88,21 @@ public static class HostPlatform {
             Desktop: platform.IsDesktop,
             Features: platform.SupportedFeatures)));
 
-    public static Fin<Option<THandler>> Resolve<THandler>(HandlerDemand<THandler> demand, Op? key = null) where THandler : class {
+    public static Fin<Option<HandlerCustody<THandler>>> Resolve<THandler>(HandlerDemand<THandler> demand, Op? key = null)
+        where THandler : class {
         Op op = key.OrDefault();
         return Optional(demand)
             .ToFin(new UiFault.Rejected(Key: op, Field: nameof(demand), Reason: "handler demand is absent"))
             .Bind(admitted => Within(op, platform => Fin.Succ(admitted.Switch(
                 state: platform,
-                create: static (host, _) => host.Supports<THandler>() ? Optional(host.Create<THandler>()) : None,
-                shared: static (host, _) => host.Supports<THandler>() ? Optional(host.CreateShared<THandler>()) : None,
-                registered: static (host, _) => Optional(host.Find<THandler>())))));
+                create: static (host, _) => host.Supports<THandler>()
+                    ? Optional(host.Create<THandler>()).Map(static held => (HandlerCustody<THandler>)new HandlerCustody<THandler>.OwnedCase(Handler: held))
+                    : None,
+                shared: static (host, _) => host.Supports<THandler>()
+                    ? Optional(host.CreateShared<THandler>()).Map(static held => (HandlerCustody<THandler>)new HandlerCustody<THandler>.BorrowedCase(Handler: held))
+                    : None,
+                registered: static (host, _) => Optional(host.Find<THandler>())
+                    .Map(static held => (HandlerCustody<THandler>)new HandlerCustody<THandler>.LookupCase(Handler: held))))));
     }
 
     public static Fin<TResult> Under<TResult>(Func<Fin<TResult>> body, Op? key = null) {
@@ -162,9 +192,10 @@ public sealed class NativeAttachment : UiLease {
 
 ## [04]-[THEME]
 
-- Owner: `ThemeProgram` generates the complete role-by-variant grid; `ThemeCatalog` retains the contrast rules and publishes one immutable `ThemeSnapshot`; `ThemeSeam` registers styles and rebroadcasts the accepted snapshot to tracked controls.
+- Owner: `ThemeProgram` generates the complete role-by-variant grid; `ThemeCatalog` retains the contrast rules and publishes one immutable `ThemeSnapshot`; `ThemeSeam` registers styles and rebroadcasts the accepted snapshot to tracked controls, and `StyleLease` is its inverse — the same interlocked one-shot `UiLease` every other Eto capsule carries.
 - Cases: `ThemeVariant` carries light, dark, and high-contrast axes; `PaletteRole` carries semantic paint roles without embedding colors; `ThemeShift` closes the transition family — `Generated` selects a variant from the frozen grid, `Hosted` merges live host-detached `PerceptualColor` cells over that variant's row, so the generator palette and the host theme meet in one owner.
-- Entry: `ThemeCatalog.Freeze` admits the initial variant, every contrast endpoint, and every finite ratio floor; `ThemeSeam.Register` and `ThemeSeam.Change` rail registration, callback failure, and rebroadcast over one polymorphic `ThemeShift`.
+- Entry: `ThemeCatalog.Freeze` admits the cell generator, the initial variant, every contrast endpoint, and every finite ratio floor through one applicative fold, so every absence reports together; `ThemeSeam.Register` returns a `StyleLease` and `ThemeSeam.Change` rails registration, callback failure, and rebroadcast over one polymorphic `ThemeShift`.
+- Law: the host style registry APPENDS per key and publishes only a whole-registry clear, so a registration's inverse is a dispatch cell the lease empties — never a re-registration, which stacks a second handler beside the first, and never a provider swap, which is process-wide policy at the wrong grain; a released registration stays resident and inert, and stating the host constraint here is what keeps a reader from hunting for the removal overload.
 - Auto: `ThemeProgram.Generate` derives every cell from the cross-product of generated vocabulary items, so missing-cell fallbacks cannot exist; a `Hosted` merge re-enters the same contrast gate `Freeze` runs, so an ingested cell breaching a floor rejects without touching the grid.
 - Receipt: `ThemeChange` carries the accepted generation, variant, changed-role set, and rebroadcast failures; a content-identical shift emits an empty changed set and holds the generation.
 - Growth: a role or variant is one generated row plus generator support; another transition modality is one `ThemeShift` case; every consumer remains unchanged.
@@ -274,17 +305,19 @@ public sealed class ThemeCatalog {
 
     public ThemeSnapshot Current => current.Value.Snapshot;
 
+    // Generators admit beside every other input rather than throwing past the accumulating carrier this entry returns:
+    // a guard-block throw on a `Validation` surface is exception control flow the rail exists to delete, and it also
+    // reports one absence where the applicative reports all of them.
     public static Validation<Error, ThemeCatalog> Freeze(
         ThemeProgram program,
         ThemeVariant initial,
         Seq<ContrastRule> contrast,
         Op? key = null) {
-        ArgumentNullException.ThrowIfNull(program);
         Op op = key.OrDefault();
-        return (Initial(initial, op), contrast.Traverse(rule => Rule(rule, op)))
-            .Apply(static (variant, rules) => (Variant: variant, Rules: rules.Strict()))
+        return (Generator(program, op), Initial(initial, op), contrast.Traverse(rule => Rule(rule, op)))
+            .Apply(static (owned, variant, rules) => (Program: owned, Variant: variant, Rules: rules.Strict()))
             .As()
-            .Bind(admitted => program.Cells(op)
+            .Bind(admitted => admitted.Program.Cells(op)
                 .Map(cells => toHashMap(toSeq(ThemeVariant.Items).Map(variant =>
                     (variant, toHashMap(cells.Filter(cell => cell.Variant == variant).Map(cell => (cell.Role, cell.Cell)))))))
                 .Bind(generated => toSeq(ThemeVariant.Items)
@@ -296,8 +329,13 @@ public sealed class ThemeCatalog {
     }
 
     public Fin<ThemeChange> Swap(ThemeShift shift, Op? key = null) {
-        ArgumentNullException.ThrowIfNull(shift);
         Op op = key.OrDefault();
+        return Optional(shift)
+            .ToFin(new UiFault.Rejected(Key: op, Field: nameof(shift), Reason: "theme shift is absent"))
+            .Bind(admitted => Shifted(shift: admitted, op: op));
+    }
+
+    private Fin<ThemeChange> Shifted(ThemeShift shift, Op op) {
         (ThemeVariant variant, HashMap<PaletteRole, PerceptualColor> overlay) = shift.Merge();
         return variant is null || !toSeq(ThemeVariant.Items).Contains(variant)
             ? Fin.Fail<ThemeChange>(new UiFault.Rejected(
@@ -329,6 +367,12 @@ public sealed class ThemeCatalog {
             .As()
             .Map(_ => cells);
 
+    private static K<Validation<Error>, ThemeProgram> Generator(ThemeProgram program, Op op) =>
+        program is { Generate: not null }
+            ? Validation<Error, ThemeProgram>.Success(program)
+            : Validation<Error, ThemeProgram>.Fail(new UiFault.Rejected(
+                Key: op, Field: nameof(program), Reason: "theme program requires a cell generator"));
+
     private static K<Validation<Error>, ThemeVariant> Initial(ThemeVariant initial, Op op) =>
         initial is not null && toSeq(ThemeVariant.Items).Contains(initial)
             ? Validation<Error, ThemeVariant>.Success(initial)
@@ -357,26 +401,41 @@ public sealed class ThemeCatalog {
                 Key: op, Field: nameof(ContrastRule.Minimum), Reason: "contrast floors must be finite ratios from one through twenty-one"));
 }
 
+public sealed class StyleLease(Func<Fin<Unit>> release) : UiLease {
+    protected override Fin<Unit> Free() => release();
+}
+
 public sealed class ThemeSeam(ThemeCatalog catalog) {
     private readonly Atom<Seq<Error>> failures = Atom(Seq<Error>());
     private readonly Atom<Seq<WeakReference<Control>>> tracked = Atom(Seq<WeakReference<Control>>());
 
     public Seq<Error> Failures => failures.Value;
 
-    public Fin<Unit> Register<TWidget>(
+    // `Add` APPENDS into the active provider's per-key handler list, and the only host-side removal is the provider's
+    // whole-registry `Clear`, so re-registering under a live key stacks a second handler beside the first and retires
+    // nothing. The inverse is therefore indirection: the handler dispatches through a per-registration cell the lease
+    // empties, so a plugin reloaded into a fresh load context leaves its predecessors INERT rather than running dead
+    // handlers that still hold a retired catalog. A seam with no inverse at all is the form this replaces.
+    public Fin<StyleLease> Register<TWidget>(
         StyleKey key,
         Action<TWidget, ThemeSnapshot> apply,
         Action<Error> report,
         Op? operation = null) where TWidget : Widget {
         Op op = operation.OrDefault();
         return string.IsNullOrWhiteSpace(key.Value)
-            ? Fin.Fail<Unit>(new UiFault.Rejected(Key: op, Field: nameof(key), Reason: "style identity requires an admitted key"))
-            : op.Catch(() => Fin.Succ(Op.Side(() => Style.Add<TWidget>(key.Value, widget => {
-                if (widget is Control control) _ = Track(control);
-                _ = op.Catch(() => Fin.Succ(Op.Side(() => apply(widget, catalog.Current)))).Match(
-                    Succ: static applied => applied,
-                    Fail: fault => Retain(fault, report, op));
-            }))));
+            ? Fin.Fail<StyleLease>(new UiFault.Rejected(Key: op, Field: nameof(key), Reason: "style identity requires an admitted key"))
+            : op.Catch(() => {
+                Atom<Option<Action<TWidget, ThemeSnapshot>>> live = Atom(Some(apply));
+                Style.Add<TWidget>(key.Value, widget => {
+                    if (widget is Control control) _ = Track(control);
+                    _ = live.Value.Iter(body => {
+                        _ = op.Catch(() => Fin.Succ(Op.Side(() => body(widget, catalog.Current)))).Match(
+                            Succ: static applied => applied,
+                            Fail: fault => Retain(fault, report, op));
+                    });
+                });
+                return Fin.Succ(new StyleLease(release: () => op.Catch(() => Fin.Succ(ignore(live.Swap(static _ => None))))));
+            });
     }
 
     public Unit Track(Control control) => ignore(tracked.Swap(held => {

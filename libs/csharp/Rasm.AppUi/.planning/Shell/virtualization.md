@@ -11,14 +11,14 @@ One surface-agnostic virtualization fabric materializes only the visible window 
 
 ## [02]-[WINDOW_OWNER]
 
-- Owner: `VirtualWindowSpec` the window request shape; `VirtualWindow<TItem, TKey>` the range-to-realized-item owner; `RealizedItem<TItem>` the windowed item with its extent and offset; `VirtualFault` the fault family — codes derive through the `AppUiFaultBand.Virtual` registry row (6030).
+- Owner: `VirtualWindowSpec` the window request shape; `OrderedChangeSet<TItem, TKey>` the source paired with its ordering snapshot; `VirtualWindow<TItem, TKey>` the range-to-realized-item owner carrying the composition-bound fault sink; `RealizedItem<TItem>` the windowed item with its extent and offset; `VirtualFault` the fault family — codes derive through the `AppUiFaultBand.Virtual` registry row (6030).
 - Cases: `VirtualFault` = Text | RangeInverted | ExtentUnmeasured | KeyAbsent — codes derive through the `AppUiFaultBand.Virtual` registry row (6030).
 - Law: a structural source-order change rebuilds the `ExtentLedger` ordinal projection once from the composition-owned ordered snapshot before `Virtualise` emits the affected window.
-- Entry: `public IObservable<IChangeSet<RealizedItem<TItem>, TKey>> Realize(IObservable<IChangeSet<TItem, TKey>> source, IObservable<ViewportRange> viewport, Func<TItem, TKey> key)` — folds the source change-set against the live viewport range into exactly the realized items the window shows, the `key` projection threading the item identity through the `ExtentLedger`; the realized set re-emits incrementally as the viewport scrolls or the source changes, never a full re-window.
+- Entry: `public IObservable<IChangeSet<RealizedItem<TItem>, TKey>> Realize(OrderedChangeSet<TItem, TKey> source, IObservable<ViewportRange> viewport)` — folds the source change-set against the live viewport range into exactly the realized items the window shows; the change-set carries its own key and `OrderedChangeSet` its ordering snapshot, so no key projection rides beside a value that already answers it and none can disagree with the change-set's own keying; the realized set re-emits incrementally as the viewport scrolls or the source changes, never a full re-window.
 - Auto: `VirtualWindowSpec` carries the viewport extent (pixels), the scroll offset, the overscan margin, and the extent mode (fixed-height or measured), so a window request is one shape every windowed surface authors; the range fold composes `DynamicData` `Virtualise(IObservable<VirtualRequest>)` over the source so windowing is the settled `LiveData` operator, never a hand-sliced list — the `VirtualRequest` start index and size derive from the scroll offset divided by the extent, and the `IVirtualResponse.StartIndex`/`Size`/`TotalSize` realized bounds feed back into the `RealizedItem` offset; control recycling rides the `ControlFactory` `RecycleScope` pool (`Shell/controls`) so a scrolled-out control parks and a scrolled-in control reuses it; the realized count is the viewport extent over the item extent with overscan, so a million-row source realizes a constant window.
 - Packages: DynamicData, System.Reactive, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new windowed surface is one `VirtualWindowSpec`; a new extent mode is one `ExtentMode` value; zero new surface — the one `VirtualWindow` owner is the absorbing fabric.
-- Boundary: `VirtualWindow` is the one windowing owner every list/tree/grid/canvas consumes — a tables-local, notebook-local, dashboard-local, or canvas-local virtualizer is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form, so `Editing/tables` tree-flatten, the notebook cell list, the dashboard tile grid, and the drafting canvas all route here; windowing is incremental over `IChangeSet` so a source insert or remove re-emits one change-set delta, never a full re-realize; the `VirtualRequest`/`VirtualResponse` realized bounds construct the `Editing/tables` `WindowState` snapshot field (`Editing/tables#VIEW_STATE`) so restore re-requests the exact viewport with zero re-query; the scroll offset crosses through the `Avalonia` `ScrollViewer.Offset` at the surface edge and the window owner reads it as a pure value, never owns the scroll control; the `Page` operator serves the discrete-page mode and `Virtualise` the continuous-scroll mode, both folding to one `RealizedItem` stream so a paged grid and a scrolled tree share one realized vocabulary; an unmeasured extent in measured mode faults so a window can never realize against an unknown extent.
+- Boundary: `VirtualWindow` is the one windowing owner every list/tree/grid/canvas consumes — a tables-local, notebook-local, dashboard-local, or canvas-local virtualizer is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form, so `Editing/tables` tree-flatten, the notebook cell list, the dashboard tile grid, and the drafting canvas all route here; windowing is incremental over `IChangeSet` so a source insert or remove re-emits one change-set delta, never a full re-realize; the `VirtualRequest`/`VirtualResponse` realized bounds construct the `Editing/tables` `WindowState` snapshot field (`Editing/tables#VIEW_STATE`) so restore re-requests the exact viewport with zero re-query; the scroll offset crosses through the `Avalonia` `ScrollViewer.Offset` at the surface edge and the window owner reads it as a pure value, never owns the scroll control; `Virtualise` serves the continuous-scroll mode through this owner's `RealizedItem` fold, while the discrete-page mode rides the `Page` operator directly at the `Editing/tables` projection fold — a page is a source-side window with no extent to measure, so it never enters the ledger and a paged arm on this owner would be a second windowing owner over a concern `DynamicData` already closes; an unmeasured extent in measured mode faults so a window can never realize against an unknown extent, and that fault rides the stream AS A VALUE onto the composition-bound `Fault` sink — `Observable.Throw` is the rejected form because `OnError` is terminal, so one transient bad range (a `NaN` offset mid-resize, a zero extent before the first measure) would dead-end the window for the surface's whole lifetime with no re-subscribe path; a bad range drops one window update instead.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -66,37 +66,61 @@ public abstract partial record VirtualFault : Expected, IValidationError<Virtual
     public sealed record KeyAbsent : VirtualFault { public KeyAbsent(string detail) : base(detail, AppUiFaultBand.Virtual.Code(3)) { } }
 }
 
-public sealed record VirtualWindow<TItem, TKey>(VirtualWindowSpec Spec, ExtentLedger<TKey> Ledger) where TItem : notnull where TKey : notnull {
+// Fault is the composition-bound sink — the screen fault state every sibling surface already commits
+// to — so a window fault is a counted value on the timeline rather than a terminal Rx OnError.
+public sealed record VirtualWindow<TItem, TKey>(
+    VirtualWindowSpec Spec, ExtentLedger<TKey> Ledger, Func<VirtualFault, Unit> Fault)
+    where TItem : notnull where TKey : notnull {
     // Ordinal registration precedes windowing: every source change-set feeds the ledger (adds register
     // at the running estimate, removes retire) BEFORE a VirtualRequest derives, so fixed mode windows a
     // fresh source from its true count and measured mode seeks unmeasured rows through estimate offsets;
     // Measure is thereafter a point update over an already-registered ordinal.
     public IObservable<IChangeSet<RealizedItem<TItem>, TKey>> Realize(
         OrderedChangeSet<TItem, TKey> source,
-        IObservable<ViewportRange> viewport,
-        Func<TItem, TKey> key) =>
+        IObservable<ViewportRange> viewport) =>
         source.Changes
             .Do(changes => Ledger.Admit(changes, source.Order()))
-            .Virtualise(viewport
-                .SelectMany(range => (Ledger.StartIndex(range, Spec), Ledger.Size(range, Spec)).Apply(
-                    static (start, size) => new VirtualRequest(start, size)).Match(
-                        Succ: static request => Observable.Return(request),
-                        Fail: static error => Observable.Throw<VirtualRequest>(error.ToException())))
-                .DistinctUntilChanged())
-            .Transform((item, k) => new RealizedItem<TItem>(item, Ledger.IndexOf(k), Ledger.OffsetOf(k, Spec), Ledger.ExtentOf(k, Spec)));
+            .Virtualise(viewport.SelectMany(Requested).DistinctUntilChanged())
+            .Transform(Realized);
+
+    // The fault crosses as a VALUE: a refused range sinks its typed fault and yields an EMPTY stream, so
+    // the window skips one update and the next good range still lands. Observable.Throw here terminated
+    // the subscription for the surface's lifetime on the first NaN offset a resize produced.
+    private IObservable<VirtualRequest> Requested(ViewportRange range) =>
+        (Ledger.StartIndex(range, Spec), Ledger.Size(range, Spec))
+            .Apply(static (start, size) => new VirtualRequest(start, size))
+            .As()
+            .Match(
+                Succ: static request => Observable.Return(request),
+                Fail: error => (Fault(Typed(error)), Observable.Empty<VirtualRequest>()).Item2);
+
+    // One placement read per realized row: index, offset, and extent resolve together off one ordinal
+    // probe, and the ledger's own repair supplies a REAL ordinal for a key registration missed while the
+    // breach rides the sink. The three independent lookups this replaces substituted (-1, 0d, average),
+    // and StickyProjection partitions on `Offset < range.Offset` — so every such row classified as above
+    // the viewport and became a candidate pinned header.
+    private RealizedItem<TItem> Realized(TItem item, TKey key) =>
+        Ledger.PlacementOf(key, Spec) switch {
+            var read => (read.Breach.Map(Fault),
+                new RealizedItem<TItem>(item, read.Placement.Index, read.Placement.Offset, read.Placement.Extent)).Item2,
+        };
+
+    private static VirtualFault Typed(Error error) => error as VirtualFault ?? VirtualFault.Create(error.Message);
 }
 ```
 
 ## [03]-[EXTENT_MEASURE]
 
-- Owner: `ExtentLedger<TKey>` the per-key extent and cumulative-offset model; `MeasurePolicy` the fixed-versus-measured extent fold.
-- Entry: `public Unit Admit<TItem>(IChangeSet<TItem, TKey> changes, Seq<TKey> ordered)` — source registration applies keyed changes and then rebuilds the ordinal projection from the composition-owned order snapshot while retaining measured extents; `public double OffsetOf(TKey key, VirtualWindowSpec spec)` — the cumulative pixel offset of a key from the window top; `public Fin<Unit> Measure(TKey key, double extent)` — a validated point delta update over an already-registered ordinal.
-- Auto: in fixed mode the extent is `VirtualWindowSpec.FixedItemExtent` and the offset is index times extent, so the scroll math is exact and O(1); in measured mode each realized row reports its measured extent through `Measure`, the ledger keeps a Fenwick/prefix-sum tree of cumulative extents so `OffsetOf` and the total extent are O(log n), and a not-yet-measured row uses the running average extent as its estimate so the scrollbar is stable before every row measures; the scroll-to-index seek resolves the target offset from the ledger so a programmatic scroll lands exactly.
+- Owner: `ExtentLedger<TKey>` the per-key extent and cumulative-offset model; `Placement` the live index, offset, and extent a realized row carries; `MeasurePolicy` the fixed-versus-measured extent fold.
+- Entry: `public Unit Admit<TItem>(IChangeSet<TItem, TKey> changes, Seq<TKey> ordered)` — source registration applies keyed changes and then rebuilds the ordinal projection from the composition-owned order snapshot while retaining measured extents; `public (Placement Placement, Option<VirtualFault> Breach) PlacementOf(TKey key, VirtualWindowSpec spec)` — the one keyed read the realize fold takes, total by repair and carrying its own breach; `public Fin<Unit> Measure(TKey key, double extent)` — a validated point delta update over an already-registered ordinal.
+- Auto: in fixed mode the extent is `VirtualWindowSpec.FixedItemExtent` and the offset is index times extent, so the scroll math is exact and O(1); in measured mode each realized row reports its measured extent through `Measure`, the ledger keeps a Fenwick/prefix-sum tree of cumulative extents so `PlacementOf` and the total extent are O(log n), and a not-yet-measured row uses the running average extent as its estimate so the scrollbar is stable before every row measures; the scroll-to-index seek resolves the target offset from the ledger so a programmatic scroll lands exactly.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new extent estimator is one `MeasurePolicy` value; zero new surface.
-- Boundary: extent measurement is the one ledger — a per-surface row-height table is the rejected form, so fixed-height grids and variable-height tree rows share one extent model; the measured-extent tree is O(log n) so a scroll over a million measured rows never re-sums the whole list; prefix sums equal the sum of registered extents across every capacity boundary — the online append initializes each new Fenwick cell to its covered-range sum, so backing-store growth never zeroes an ancestor aggregate and `Seek` selects the same ordinal as a reference cumulative model after growth, a full-list offset rescan being the rejected repair; the tombstone ordinal space never reaches the window — a sibling retired-count Fenwick rides beside the extent tree and `LiveIndex` projects every raw ordinal onto the live ordinal space `DynamicData.Virtualise` actually windows, so `StartIndex`, `Size`, and `IndexOf` are live positions after any removal and a removal before the viewport can never shift the requested window off its intended rows; the not-yet-measured estimate uses the running average so the scrollbar never jumps when a row first measures; the fixed-mode path keeps the scroll math integer-exact (`Editing/tables#GRID_SUBSTRATE` fixed density-token row height), so a fixed grid pays no measurement cost; a measured offset query before any measurement returns the average-estimate offset rather than faulting, so the window realizes before the first measure pass.
+- Boundary: extent measurement is the one ledger — a per-surface row-height table is the rejected form, so fixed-height grids and variable-height tree rows share one extent model; the measured-extent tree is O(log n) so a scroll over a million measured rows never re-sums the whole list; prefix sums equal the sum of registered extents across every capacity boundary — the online append initializes each new Fenwick cell to its covered-range sum, so backing-store growth never zeroes an ancestor aggregate and `Seek` selects the same ordinal as a reference cumulative model after growth, a full-list offset rescan being the rejected repair; the tombstone ordinal space never reaches the window — a sibling retired-count Fenwick rides beside the extent tree and `LiveIndex` projects every raw ordinal onto the live ordinal space `DynamicData.Virtualise` actually windows, so `StartIndex`, `Size`, and `IndexOf` are live positions after any removal and a removal before the viewport can never shift the requested window off its intended rows; the not-yet-measured estimate uses the running average so the scrollbar never jumps when a row first measures; the fixed-mode path keeps the scroll math integer-exact (`Editing/tables#GRID_SUBSTRATE` fixed density-token row height), so a fixed grid pays no measurement cost; a measured offset query before any measurement returns the average-estimate offset rather than faulting, so the window realizes before the first measure pass; `PlacementOf` is the ONE keyed read and it is total by REPAIR — an unregistered key appends at the running estimate exactly as `Measure` already admits an unseen key, so the row carries a real live ordinal and the `KeyAbsent` breach rides its `Option` to the window's fault sink as counted evidence, while three independent lookups each substituting their own sentinel (`-1`, `0d`, the average) is the deleted form that let an unregistered row enter the realized set at offset zero and be pinned as a header.
 
 ```csharp signature
+public readonly record struct Placement(int Index, double Offset, double Extent);
+
 public sealed record MeasurePolicy(ExtentMode Mode, double Estimate) {
     public static readonly MeasurePolicy Fixed = new(ExtentMode.Fixed, 0d);
     public static readonly MeasurePolicy Adaptive = new(ExtentMode.Measured, Estimate: 28d);
@@ -125,8 +149,27 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
                 _ => unit,
             };
         }
-        Reorder(ordered);
+        // Reorder is the REBUILD, so it runs only where the snapshot's live sequence actually diverges from
+        // the ledger's own. Calling it on every change-set makes the whole tombstone tier unreachable —
+        // `Retire`, `Compact`, `retiredTree`, and the raw-to-live projection can never be observed, because
+        // each rebuild resets the counters that feed them — and it prices every append at a full O(n log n)
+        // reconstruction, which is precisely the cost the O(log n) ledger exists to avoid.
+        if (Diverged(ordered)) { Reorder(ordered); }
         return unit;
+    }
+
+    // Live sequence comparison, not raw: `Retire` drops the key from `ordinals` while its raw ordinal stays
+    // in `order` as a zero-extent tombstone, so the snapshot legitimately omits it and that absence is
+    // agreement rather than divergence. The walk is O(n) over a rebuild's O(n log n), and it runs once per
+    // change-set rather than once per key.
+    private bool Diverged(Seq<TKey> ordered) {
+        int at = 0;
+        foreach (TKey key in order) {
+            if (!ordinals.ContainsKey(key)) { continue; }
+            if (at >= ordered.Count || !EqualityComparer<TKey>.Default.Equals(ordered[at], key)) { return true; }
+            at++;
+        }
+        return at != ordered.Count;
     }
 
     // DynamicData cache changes do not carry a stable ordinal by themselves. The composition-owned
@@ -216,16 +259,20 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
 
     private int LiveIndex(int raw) => raw - RetiredBefore(raw);
 
-    public double OffsetOf(TKey key, VirtualWindowSpec spec) =>
-        ordinals.TryGetValue(key, out int index)
-            ? spec.Mode == ExtentMode.Fixed ? LiveIndex(index) * spec.FixedItemExtent : PrefixSum(index)
-            : 0d;
+    // The ONE keyed read, total by repair: a key the window realized that registration missed appends at
+    // the running estimate — the same admission Measure already performs for an unseen key — so the row
+    // carries a real live ordinal and its Breach rides the window's fault sink. Three independent
+    // lookups each substituting their own sentinel is what put (-1, 0d) rows above the viewport.
+    public (Placement Placement, Option<VirtualFault> Breach) PlacementOf(TKey key, VirtualWindowSpec spec) {
+        if (ordinals.TryGetValue(key, out int index)) { return (Placed(index, spec), None); }
+        ignore(Append(key, AverageExtent));
+        return (Placed(ordinals[key], spec), Some<VirtualFault>(new VirtualFault.KeyAbsent(key.ToString() ?? string.Empty)));
+    }
 
-    public double ExtentOf(TKey key, VirtualWindowSpec spec) =>
-        spec.Mode == ExtentMode.Fixed ? spec.FixedItemExtent
-            : ordinals.TryGetValue(key, out int index) && index < extents.Count ? extents[index] : AverageExtent;
-
-    public int IndexOf(TKey key) => ordinals.TryGetValue(key, out int index) ? LiveIndex(index) : -1;
+    private Placement Placed(int index, VirtualWindowSpec spec) => new(
+        LiveIndex(index),
+        spec.Mode == ExtentMode.Fixed ? LiveIndex(index) * spec.FixedItemExtent : PrefixSum(index),
+        spec.Mode == ExtentMode.Fixed ? spec.FixedItemExtent : index < extents.Count ? extents[index] : AverageExtent);
 
     public Fin<int> StartIndex(ViewportRange range, VirtualWindowSpec spec) =>
         spec.Mode == ExtentMode.Fixed
@@ -312,7 +359,7 @@ public static class StickyProjection {
             Func<TItem, Option<string>> groupOf, Func<TItem, TKey> keyOf,
             Func<TItem, Option<TKey>> parentOf, Func<TItem, int> depthOf, Func<TItem, bool> pinnedOf) =>
             (Above: rows.Filter(row => row.Offset < range.Offset), Visible: rows.Filter(row => row.Offset >= range.Offset)) switch {
-                var split => split.Visible.HeadOrNone().Match(
+                var split => split.Visible.Head.Match(
                     Some: top =>
                         Ancestors(split.Above, top.Item, keyOf, parentOf, depthOf)
                         + groupOf(top.Item).ToSeq().Map(_ => new PinnedRow<TItem>(top.Item, PinRole.GroupHeader, depthOf(top.Item), top.Offset))
@@ -341,11 +388,11 @@ public static class StickyProjection {
 ## [05]-[HIERARCHY_FLATTEN]
 
 - Owner: `HierarchyFlatten<TItem, TKey>` the one tree-flatten bridge every hierarchical surface routes through; `FlatNode<TItem>` the flattened indent row.
-- Entry: `public IObservable<IChangeSet<FlatNode<TItem>, TKey>> Flatten(IObservable<IChangeSet<TItem, TKey>> source, Func<TItem, TKey> parentKey, IObservable<Set<TKey>> expansion, Func<TItem, TKey> key)` — folds a parent-keyed hierarchy into a flat indent-row change-set via one `DynamicData.TransformToTree` subscription, re-walking on every expansion toggle without re-subscribing the tree.
+- Entry: `public IObservable<IChangeSet<FlatNode<TItem>, TKey>> Flatten(Func<TItem, TKey> parentKey, IObservable<Set<TKey>> expansion, Func<TItem, TKey> key, Option<IComparer<TItem>> order = default)` — an extension over the source change-set folding a parent-keyed hierarchy into a flat indent-row change-set via one `DynamicData.TransformToTree` subscription, re-walking on every expansion toggle without re-subscribing the tree; `order` is the ONE sibling comparer, applied at every depth including the roots.
 - Auto: the hierarchy folds through ONE `DynamicData` `TransformToTree(parentKey)` subscription whose `Node<TItem,TKey>` root collection (`ToCollection`) the flatten walks into `FlatNode` indent rows carrying their depth and expansion state, exactly the `Editing/tables` `ProjectionFold.Rows` recursion but as the one fabric every tree surface shares; `CombineLatest(tree.ToCollection(), expansion)` re-walks the roots against the live expansion set and `ToObservableChangeSet(key)` diffs the successive flat snapshots so a tree expand re-realizes only the newly visible descendants as the minimal change-set — the `TransformToTree` transform is never re-subscribed per toggle (the O(n)-per-toggle `expansion.Select(rebuild).Switch()` is the rejected form, `.api/api-dynamicdata.md` `[HIERARCHY_LAW]`); lazy children materialize on first expansion through the source's keyed cache, never a side collection.
 - Packages: DynamicData, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new sibling-ordering policy is one comparer value on the flatten call; zero new surface.
-- Boundary: hierarchical flatten is the one bridge — `Editing/tables` `TreeFlattened`, the notebook outline, the scene-access tree, and the `ControlFactory` `Tree` intent all route here, so a tables-local tree-flatten beside this fabric is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form (`Editing/tables#TREE_FLATTEN` deepens onto this owner); `TransformToTree` emits root nodes only (its default predicate is `IsRoot`) so the flatten walk owns child materialization and never double-counts; the flattened stream feeds the `VirtualWindow.Realize` fold so a deep tree windows like a flat list, one realized vocabulary; sibling order is the flatten call's comparer — sorting flat indent rows through the collection-view sort descriptors is the deleted form (`Editing/tables#TREE_FLATTEN` tree-order rule); the expansion set threads from the screen-state snapshot `Expansion` field so expansion survives restore.
+- Boundary: hierarchical flatten is the one bridge — `Editing/tables` `TreeFlattened`, the notebook outline, the scene-access tree, and the `ControlFactory` `Tree` intent all route here, so a tables-local tree-flatten beside this fabric is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form (`Editing/tables#TREE_FLATTEN` deepens onto this owner); `TransformToTree` emits root nodes only (its default predicate is `IsRoot`) so the flatten walk owns child materialization and never double-counts; the flattened stream feeds the `VirtualWindow.Realize` fold so a deep tree windows like a flat list, one realized vocabulary; sibling order is the flatten call's comparer applied at every depth, roots included — the roots ARE the depth-0 sibling set, so an ordering that reaches only `Children` leaves the top level in cache-emission order and produces the tree-order law for descendants alone — while sorting flat indent rows through the collection-view sort descriptors is the deleted form (`Editing/tables#TREE_FLATTEN` tree-order rule); the expansion set threads from the screen-state snapshot `Expansion` field so expansion survives restore.
 
 ```csharp signature
 public readonly record struct FlatNode<TItem>(TItem Item, int Depth, bool HasChildren, bool Expanded);
@@ -361,17 +408,21 @@ public static class HierarchyFlatten {
                 .CombineLatest(
                     source.TransformToTree(parentKey).ToCollection(),
                     expansion.DistinctUntilChanged(),
-                    (roots, expanded) => roots.Bind(root => Walk(root, expanded, key, order)))
+                    (roots, expanded) => Ordered(roots, order).Bind(root => Walk(root, expanded, key, order)))
                 .ToObservableChangeSet(node => key(node.Item));
+
+        // Sibling order is ONE comparer applied at EVERY depth: the roots are the depth-0 sibling set, so
+        // ordering only `Children` left the top level in cache-emission order and the declared tree-order
+        // law (`Editing/tables#TREE_FLATTEN`) held for descendants alone.
+        private static Seq<Node<TItem, TKey>> Ordered(IEnumerable<Node<TItem, TKey>> siblings, Option<IComparer<TItem>> order) =>
+            order is { IsSome: true, Case: IComparer<TItem> comparer }
+                ? toSeq(siblings.OrderBy(static node => node.Item, comparer))
+                : toSeq(siblings);
 
         private static Seq<FlatNode<TItem>> Walk(Node<TItem, TKey> node, Set<TKey> expanded, Func<TItem, TKey> key, Option<IComparer<TItem>> order) =>
             new FlatNode<TItem>(node.Item, node.Depth, node.Children.Count > 0, expanded.Contains(key(node.Item)))
                 .Cons(expanded.Contains(key(node.Item))
-                    ? (order is { IsSome: true, Case: IComparer<TItem> comparer }
-                        ? node.Children.Items.OrderBy(static child => child.Item, comparer)
-                        : node.Children.Items)
-                        .ToSeq()
-                        .Bind(child => Walk(child, expanded, key, order))
+                    ? Ordered(node.Children.Items, order).Bind(child => Walk(child, expanded, key, order))
                     : Seq<FlatNode<TItem>>());
     }
 }
@@ -386,6 +437,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Hierarchy virtualization window spine
+    accDescr: A change-set flattening into ranked flat nodes, the viewport range and node stream resolving one virtual window, and that window driving the extent ledger beside realized items carrying sticky projection and recycle scope.
     IChangeSet --> HierarchyFlatten
     HierarchyFlatten --> FlatNode
     FlatNode --> VirtualWindow

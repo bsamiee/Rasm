@@ -12,7 +12,7 @@ This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer
 
 - Owner: `JitBackend` — each case carries its route's option payload, and the bare `_capture_*` function IS the `_JIT_ROUTES` row, so `compile` indexes one row rather than fanning the shared decorate/warm-probe/read-IR pattern across match arms; the gated `numba`/`jax` imports stay inside each capture body, so the table is an eager import-free module constant.
 - Cases: `Specimen` is the one typed warm-probe carrier every route consumes — numba forces one dispatcher specialization against it, jax traces one `make_jaxpr` over it, and the empty `Specimen()` is the unarmed probe a route ignores — so no route reads a positional `probe[0]` off an erased varargs tuple.
-- Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and the receipt spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag. `EngineProfile` is the engine-neutral compile-extent band BOTH compiled cases carry and `solvers/receipt#RECEIPT` mounts as its optional `profile` slot — specialization count beside the engine-IR, target-code, typed-source, and diagnostics extents, each column answered from what the engine already measured, so a slow compile or solve explains itself from the receipt with no profiler attach. `llvm` fills it off the held dispatcher's `inspect_llvm`/`inspect_asm`/`inspect_types`/`parallel_diagnostics` reports, `xla` fills the identical columns off the staging ladder — `Lowered.as_text` StableHLO, `Compiled.as_text` optimized HLO, the captured jaxpr, and the `cost_analysis` entry tally — so one profile shape spans both engines and a comparison reads one receipt. `TraceEvidence` rides the `xla` case alone as its caller-armed device-timeline band.
+- Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and the receipt spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag. `EngineProfile` is the engine-neutral compile-extent band BOTH compiled cases carry, `JitEvidence.profile` the one outward read every mount takes rather than destructuring a case payload by offset, and `solvers/receipt#RECEIPT` mounts it as the optional `profile` slot the `solvers/quadrature#QUADRATURE` lowering bridge fills — specialization count beside the engine-IR, target-code, typed-source, and diagnostics extents, each column answered from what the engine already measured, so a slow compile or solve explains itself from the receipt with no profiler attach. `llvm` fills it off the held dispatcher's `inspect_llvm`/`inspect_asm`/`inspect_types`/`parallel_diagnostics` reports, `xla` fills the identical columns off the staging ladder — `Lowered.as_text` StableHLO, `Compiled.as_text` optimized HLO, the captured jaxpr, and the `cost_analysis` entry tally — so one profile shape spans both engines and a comparison reads one receipt. `TraceEvidence` rides the `xla` case alone as its caller-armed device-timeline band.
 - Packages: the numba dispatcher, the jax trace handle, the `Wrapped`/`Lowered`/`Compiled` staging rungs, and the four-tier profile reader are typed through `TYPE_CHECKING` `Protocol`s so every capture reads a named member rather than a phantom off `object`; `Specimen` and `Jitted` stay GC-tracked because each holds a container field — `gc=False` is reserved for container-free leaves like the two profile bands.
 - Receipt: `compile` runs under the hub weave as `evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=...)` — LLVM/XLA lowering is the canonical measured surface, the span carries the backend, kernel, and armed discriminants, and the weave harvest emits the `Jitted` receipts on the clean exit, so `contribute()` needs no page-local emit call.
 - Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new compile statistic is one `EngineProfile` column every compiled route answers from its own engine, reaching the solve receipt's mount with zero receipt edits, while a statistic only one engine can measure lands on that case's own band — `TraceEvidence` being that path realized, since a host-compiled kernel has no device timeline to answer a device column with anything but a zero.
@@ -34,7 +34,7 @@ from upath import UPath
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
 lazy import jax
 lazy import numba
@@ -174,6 +174,19 @@ class JitEvidence:
     def Host() -> "JitEvidence":
         return JitEvidence(host=())
 
+    @property
+    def profile(self) -> EngineProfile | None:
+        # the OUTWARD read `solvers/receipt#RECEIPT` mounts: the two compiled cases answer their band and the three
+        # uncompiled ones answer absence, so a consumer threading the mount never destructures a case payload by
+        # offset and an unprofiled route carries the unmeasured slot rather than a zero-filled band.
+        match self:
+            case JitEvidence(tag="llvm", llvm=(_, _, _, _, profile)) | JitEvidence(tag="xla", xla=(_, _, _, profile, _)):
+                return profile
+            case JitEvidence(tag="ufunc") | JitEvidence(tag="cabi") | JitEvidence(tag="host"):
+                return None
+            case _ as unreachable:
+                assert_never(unreachable)
+
     def facts(self) -> dict[str, object]:
         match self:
             case JitEvidence(tag="llvm", llvm=(signature, parallel, fastmath, cached, profile)):
@@ -234,7 +247,7 @@ class JitBackend:
     def Passthrough() -> "JitBackend":
         return JitBackend(none=())
 
-    def compile(self, kernel: Kernel, specimen: "Specimen" = Specimen()) -> "RuntimeRail[Jitted]":
+    def compile(self, kernel: Kernel, specimen: "Specimen" = Specimen(), *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[Jitted]":
         # non-callable guard is a pure domain reject before the gated import — never a thunk raising purely so `boundary` can
         # re-catch it; the railed key threads `.bind` so a canonical-encode fault rides the one rail, and the whole compile runs
         # under the `compute.jit` span with the weave harvest emitting the `Jitted` receipts on the clean exit.
@@ -247,7 +260,7 @@ class JitBackend:
             )
 
         facts = {"backend": self.tag, "kernel": getattr(kernel, "__qualname__", repr(kernel)), "armed": specimen.is_armed}
-        return evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=facts)
+        return evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=facts, composition=composition)
 
     def identity_buffer(self, kernel: Kernel, specimen: "Specimen") -> bytes:
         # closure source is not byte-stable across runs — tag + qualname + probe signature + option row is the stable buffer, so one

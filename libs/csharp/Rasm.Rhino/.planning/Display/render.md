@@ -6,19 +6,21 @@
 
 ## [01]-[INDEX]
 
-- [02]-[BATCH_SESSION]: `RenderRun`, `RenderRequest`, `RenderChannel`, `PixelBlock`, `RenderJob`, and the `AsyncProgram`/`JobAsync` detached-thread modality over `AsyncRenderContext`.
-- [03]-[REALTIME]: `RealtimeProgram` hooks, `RealtimePassPolicy`, the `RealtimeEngine` adapter over `RealtimeDisplayMode`, and the `LightAuthorities` custom-light authority over `LightManagerSupport`.
-- [04]-[POST_AND_TEXTURE]: `PostEffectOp` configuration rows over `RenderSettings.PostEffects`, `PostEffectGate` execution control, and the `TextureBake` evaluation rows.
+- [02]-[BATCH_SESSION]: `RenderRun`, `RenderRequest`, `RenderChannel`, `ChannelFact`, `PixelBlock`, `GammaValue`/`DitherMethod`, `RenderJob` with its job-lifetime `PostEffectGate`, and the `AsyncProgram`/`JobAsync` detached-thread modality over `AsyncRenderContext`.
+- [03]-[REALTIME]: `RealtimeProgram` hooks, `RealtimePassPolicy`, the host-constructed `RealtimeEngine`/`RealtimeEngineInfo` adapter pair over `RealtimeDisplayMode` with the `RealtimeEngines` registry, and the `LightAuthorities` custom-light authority over `LightManagerSupport`.
+- [04]-[POST_AND_TEXTURE]: `PostEffectOp` configuration rows over `RenderSettings.PostEffects`, `BuiltinEffect` identity, the `EffectProgram`/`EffectHost`/`EffectPass` authoring half with its `ChannelView` and `GpuHandle` ports, `PostEffectGate` execution control, and the `TextureBake` evaluation rows.
 - [05]-[CHANGEQUEUE]: `SceneDelta`, `SceneBatch`, `QueuePolicy`, and the `SceneQueue` adapter over the host change queue with the channel hand-off seam.
 
 ## [02]-[BATCH_SESSION]
 
-- Owner: `RenderRun` closes full-frame and region execution; `WindowScope` closes pipeline, viewport-target, and detached window acquisition; `WindowOp` closes channel opening, pixel writes, and post-effect gating.
-- Entry: `RenderJob.Open(DocumentSession, PlugIn, Size2i, ChannelSet, RenderProgram, Op?) : Fin<RenderJob>` admits the plan; every `Configure` re-resolves the document, proves request-owned needs, and binds the matching pipeline inside that demand.
+- Owner: `RenderRun` closes full-frame and region execution; `WindowScope` closes pipeline, viewport-target, and detached window acquisition; `WindowOp` closes framebuffer widening, channel census, pixel writes, and gamma/dither adjustment.
+- Entry: `RenderJob.Open(DocumentSession, PlugIn, Size2i, ChannelSet, RenderProgram, Option<AsyncProgram>, Option<Func<EffectId, Fin<bool>>>, Op?) : Fin<RenderJob>` admits the plan; every `Configure` re-resolves the document, proves request-owned needs, and binds the matching pipeline inside that demand.
 - Law: one lifecycle gate excludes disposal across a complete configuration demand; a document-serial change retires the prior pipeline before the current demand mints its replacement.
 - Law: every `GetRenderWindow*` call remains inside private `WithWindow`; `WindowOp` is the only public operation vocabulary.
 - Law: batch and realtime never merge — a `RenderJob` produces a finished window, a `RealtimeEngine` participates per frame; one owner claiming both is the collapsed form the host API's own split forecloses.
-- Law: the opened channel is the only per-pixel path — a raw buffer pointer beside `OpenChannel`/`SetRGBAChannelColors` is unrepresentable because the block is the sole write carrier.
+- Law: the framebuffer roster is a job-level fact, not a per-borrow one — `Add` widens it through `AddChannel` with a `bool`-confirmed receipt, `Census` reads availability, roster visibility, and post-effect demand back as `ChannelFact` rows, and per-pixel access is `PixelBlock` through `SetRGBAChannelColors` or, inside a post-effect execute body, `[04]`'s `ChannelView`. A raw buffer pointer is unrepresentable, the framebuffer publishes no GPU-channel opener at all, and an `OpenChannel` borrow with no read, write, or receipt is the deleted form it replaced.
+- Law: the post-effect gate is a JOB-lifetime policy, never a window operation. Registration transfers the native control to the window and leaves the host holding only a weak reference, so the job registers once per pipeline against the session-lifetime framebuffer, roots the instance for its own lifetime, and releases by dropping that root — a gate registered inside a per-batch window borrow is consulted by no render, and an unrooted one silently refuses every effect.
+- Law: `Adjust` is read-modify-write because `RenderWindow.ImageAdjust` carries an internal constructor — the arm reads `GetAdjust`, writes both settable axes onto that instance, and returns it through `SetAdjust`; a freshly constructed adjust value is unspellable, and a partial write leaves the unwritten axis at whatever the prior render left.
 - Law: the detached-thread modality is `Option<AsyncProgram>` on `Open`, never a sibling job type — when present, `JobPipeline` binds one `JobAsync : AsyncRenderContext` at construction, `OnRenderBegin` launches the engine thread after the program's `Begin`, and a failed launch fails the begin so no orphan thread survives the rail.
 - Law: the detached body writes through the same `RealtimePort` pixel carrier the realtime engine owns and halts on the token `StopRendering` trips; the host stop joins the thread, closes the port, and runs the program's `Stopped` hook before the base cancel flag sets.
 - Law: `RenderProgram.SetPaused` owns pause state; host pause callbacks and `RenderRequest` pause rows enter the same caught rail, and `JobPipeline.SupportsPause` advertises only that admitted capability.
@@ -26,6 +28,8 @@
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Collections.Frozen;
+using System.Globalization;
 using System.Threading.Channels;
 using Rasm.Analysis;
 using Rasm.Domain;
@@ -34,6 +38,7 @@ using Rasm.Meshing;
 using Rasm.Numerics;
 using Rasm.Parametric;
 using Rasm.Rhino.Document;
+using Rasm.Rhino.HostUi;
 using Rasm.Rhino.Render;
 using Rasm.Rhino.Viewport;
 using Rasm.Spatial;
@@ -75,6 +80,8 @@ public sealed partial class RenderChannel {
     public static readonly RenderChannel WireframeAnnotations = new(27, RenderWindow.StandardChannels.WireframeAnnotationsRGBA);
 
     internal RenderWindow.StandardChannels Native { get; }
+
+    internal Guid Id => RenderWindow.ChannelId(ch: Native);
 }
 
 [SmartEnum<int>]
@@ -104,6 +111,21 @@ public readonly partial struct EffectId {
         validationError = value == Guid.Empty ? new ValidationError(message: "Post-effect identity is empty.") : null;
 }
 
+[ValueObject<float>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
+public readonly partial struct GammaValue {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) =>
+        validationError = float.IsFinite(value) && value > 0.0f
+            ? null
+            : new ValidationError(message: "Framebuffer gamma is not a positive finite value.");
+}
+
+[SmartEnum<Dithering.Methods>]
+public sealed partial class DitherMethod {
+    public static readonly DitherMethod None = new(key: Dithering.Methods.None);
+    public static readonly DitherMethod FloydSteinberg = new(key: Dithering.Methods.FloydSteinberg);
+    public static readonly DitherMethod SimpleNoise = new(key: Dithering.Methods.SimpleNoise);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderRun {
     private RenderRun() { }
@@ -118,26 +140,43 @@ public abstract partial record RenderRun {
             && row.Extent.Height > 0);
 }
 
+// The census fact per channel: availability, roster visibility, and whether the post-effect pipeline asked for it.
+public readonly record struct ChannelFact(RenderChannel Channel, bool Available, bool Shown, bool Requested);
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WindowOp {
     private WindowOp() { }
-    public sealed record Open(RenderChannel Channel) : WindowOp;
+    public sealed record Add(ChannelSet Channels) : WindowOp;
+    public sealed record Census(ChannelSet Channels) : WindowOp;
     public sealed record Write(PixelBlock Block) : WindowOp;
-    public sealed record Gate(Func<EffectId, Fin<bool>> Decide) : WindowOp;
+    public sealed record Adjust(GammaValue Gamma, DitherMethod Dither) : WindowOp;
 
     internal bool Valid => Switch(
-        open: static row => row.Channel is not null,
+        add: static row => row.Channels is not null,
+        census: static row => row.Channels is not null,
         write: static row => row.Block is not null,
-        gate: static row => row.Decide is not null);
+        adjust: static row => row.Dither is not null);
 
-    internal Fin<Unit> Apply(RenderWindow window, Action<Error> reject, Op key) => Switch(
-        (Window: window, Reject: reject, Op: key),
-        open: static (ctx, row) => ctx.Op.Catch(() => {
-            using RenderWindow.Channel channel = ctx.Window.OpenChannel(row.Channel.Native);
-            return Optional(channel).ToFin(ctx.Op.InvalidResult()).Map(static _ => unit);
-        }),
-        write: static (ctx, row) => row.Block.Blit(ctx.Window, ctx.Op),
-        gate: static (ctx, row) => PostEffectGate.Register(ctx.Window, row.Decide, ctx.Reject, ctx.Op));
+    // A census reads the framebuffer roster; every other arm widens or writes it, so the need set derives from the case.
+    internal bool Mutates => Switch(
+        add: static _ => true,
+        census: static _ => false,
+        write: static _ => true,
+        adjust: static _ => true);
+
+    internal Fin<Seq<ChannelFact>> Apply(RenderWindow window, Op key) => Switch(
+        (Window: window, Op: key),
+        add: static (ctx, row) => row.Channels.AddTo(ctx.Window, ctx.Op).Map(static _ => Seq<ChannelFact>()),
+        census: static (ctx, row) => row.Channels.CensusOn(ctx.Window, ctx.Op),
+        write: static (ctx, row) => row.Block.Blit(ctx.Window, ctx.Op).Map(static _ => Seq<ChannelFact>()),
+        adjust: static (ctx, row) => ctx.Op.Catch(() =>
+            // Host truth: `ImageAdjust`'s constructor is internal, so the read is the only way to obtain the carrier.
+            Optional(ctx.Window.GetAdjust()).ToFin(ctx.Op.InvalidResult()).Map(held => {
+                held.Gamma = row.Gamma.Value;
+                held.Dither = row.Dither.Key;
+                ctx.Window.SetAdjust(imageAdjust: held);
+                return Seq<ChannelFact>();
+            })));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -157,7 +196,15 @@ public abstract partial record RenderRequest {
             && !row.Operations.IsEmpty
             && row.Operations.ForAll(static operation => operation is not null && operation.Valid));
 
-    internal Seq<SessionNeed> Needs => Seq(SessionNeed.Read);
+    // The need set derives from the case shapes, never a caller flag: only a batch carrying a framebuffer-widening or
+    // pixel-writing op demands mutation, so a census-only window batch and a pause stay read-only.
+    internal Seq<SessionNeed> Needs => Switch(
+        run: static _ => Seq(SessionNeed.Read),
+        pause: static _ => Seq(SessionNeed.Read),
+        resume: static _ => Seq(SessionNeed.Read),
+        window: static row => row.Operations.Exists(static operation => operation.Mutates)
+            ? Seq(SessionNeed.Read, SessionNeed.Mutate)
+            : Seq(SessionNeed.Read));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -166,7 +213,32 @@ public abstract partial record RenderReceipt : IDetachedDocumentResult {
     public sealed record Ran(RenderRun Scope) : RenderReceipt;
     public sealed record Paused : RenderReceipt;
     public sealed record Resumed : RenderReceipt;
-    public sealed record Windowed(int Operations) : RenderReceipt;
+    public sealed record Windowed(int Operations, Seq<ChannelFact> Channels) : RenderReceipt;
+
+    // `HostUi` reads this neutral carrier for its completion-notice row, so no render type crosses that seam.
+    // `RunOutcome` spells terminals only — a pause is not a cancellation and a resume is not a completion, so both mid-run
+    // transitions answer `None` and the notice rail posts nothing rather than announcing a terminal the run never reached.
+    // PROJECTION IS THE WHOLE OBLIGATION: this page never calls `Notices.Announce`. The announce operands are a caller's
+    // — a localized label, a `CallbackObserver<NoticeFact>` that receives the reply, and the timeline that stamps it —
+    // so firing here would thread a UI notification carriage through a headless render job to buy nothing over the
+    // consumer's own `Notices.Announce(receipt.Summary(label), …)`. The `Option` shape is what makes that call one line.
+    public Option<RunOutcome> Summary(HostText label) => Switch(
+        state: label,
+        ran: static (text, row) => Some<RunOutcome>(new RunOutcome.Completed(Label: text, Scale: Scaled(row.Scope))),
+        paused: static (_, _) => None,
+        resumed: static (_, _) => None,
+        windowed: static (text, row) => Some<RunOutcome>(new RunOutcome.Completed(
+            Label: text,
+            Scale: new Dictionary<string, string>(StringComparer.Ordinal) {
+                [nameof(RenderReceipt.Windowed.Operations)] = row.Operations.ToString(CultureInfo.InvariantCulture),
+                [nameof(RenderReceipt.Windowed.Channels)] = row.Channels.Count.ToString(CultureInfo.InvariantCulture),
+            }.ToFrozenDictionary(StringComparer.Ordinal))));
+
+    private static FrozenDictionary<string, string> Scaled(RenderRun scope) => scope.Switch(
+        frame: static _ => FrozenDictionary<string, string>.Empty,
+        region: static row => new Dictionary<string, string>(StringComparer.Ordinal) {
+            [nameof(RenderRun.Region.Extent)] = $"{row.Extent.Width}x{row.Extent.Height}",
+        }.ToFrozenDictionary(StringComparer.Ordinal));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -198,13 +270,20 @@ public sealed record ChannelSet {
     internal RenderWindow.StandardChannels Flags =>
         Rows.Fold(default(RenderWindow.StandardChannels), static (mask, row) => mask | row.Native);
 
-    internal Fin<Unit> OpenOn(RenderWindow window, Op? key = null) {
-        Op op = key.OrDefault();
-        return Rows.TraverseM(row => op.Catch(() => {
-            using RenderWindow.Channel channel = window.OpenChannel(row.Native);
-            return Optional(channel).ToFin(Fail: op.InvalidResult(detail: row.ToString())).Map(static _ => unit);
-        })).As().Map(static _ => unit);
-    }
+    // `AddChannel` answers `true` for a channel that was added AND for one already present, so the confirmation is a
+    // refusal test, never an added-versus-existing discriminant; the census arm answers that question separately.
+    internal Fin<Unit> AddTo(RenderWindow window, Op key) =>
+        Rows.TraverseM(row => key.Catch(() =>
+            key.Confirm(success: window.AddChannel(channel: row.Native)))).As().Map(static _ => unit);
+
+    internal Fin<Seq<ChannelFact>> CensusOn(RenderWindow window, Op key) => key.Catch(() => {
+        FrozenSet<Guid> requested = window.GetRequestedRenderChannels().ToFrozenSet();
+        return Fin.Succ(Rows.Map(row => new ChannelFact(
+            Channel: row,
+            Available: window.IsChannelAvailable(id: row.Id),
+            Shown: window.IsChannelShown(id: row.Id),
+            Requested: requested.Contains(row.Id))).Strict());
+    });
 }
 
 public sealed record PixelBlock {
@@ -374,18 +453,22 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
     private readonly ChannelSet channels;
     private readonly RenderProgram program;
     private readonly Option<AsyncProgram> render;
+    private readonly Option<Func<EffectId, Fin<bool>>> decide;
     private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
     private readonly Lock lifecycle = new();
     private readonly Op key;
     private JobPipeline? pipeline;
+    // The registered gate's managed root: the host holds only a weak reference, so the job owns the strong one and a
+    // collected gate would answer `false` for every effect on every frame.
+    private PostEffectGate? gate;
     private uint documentSerial;
     private int released;
 
-    private RenderJob(DocumentSession session, PlugIn owner, Size2i extent, ChannelSet channels, RenderProgram program, Option<AsyncProgram> render, Op key) =>
-        (this.session, this.owner, this.extent, this.channels, this.program, this.render, this.key) =
-        (session, owner, extent, channels, program, render, key);
+    private RenderJob(DocumentSession session, PlugIn owner, Size2i extent, ChannelSet channels, RenderProgram program, Option<AsyncProgram> render, Option<Func<EffectId, Fin<bool>>> decide, Op key) =>
+        (this.session, this.owner, this.extent, this.channels, this.program, this.render, this.decide, this.key) =
+        (session, owner, extent, channels, program, render, decide, key);
 
-    public static Fin<RenderJob> Open(DocumentSession session, PlugIn owner, Size2i extent, ChannelSet channels, RenderProgram program, Option<AsyncProgram> render = default, Op? key = null) {
+    public static Fin<RenderJob> Open(DocumentSession session, PlugIn owner, Size2i extent, ChannelSet channels, RenderProgram program, Option<AsyncProgram> render = default, Option<Func<EffectId, Fin<bool>>> gate = default, Op? key = null) {
         Op op = key.OrDefault();
         return from documentSession in Optional(session).ToFin(Fail: op.MissingContext())
                from plugin in Optional(owner).ToFin(Fail: op.InvalidInput())
@@ -395,7 +478,8 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
                from __ in guard(render.Match(
                    Some: static detached => detached is { Render: not null } && !string.IsNullOrWhiteSpace(detached.ThreadName),
                    None: static () => true), op.InvalidInput())
-               select new RenderJob(documentSession, plugin, extent, channelSet, plan, render, op);
+               from ___ in guard(gate.Match(Some: static value => value is not null, None: static () => true), op.InvalidInput())
+               select new RenderJob(documentSession, plugin, extent, channelSet, plan, render, gate, op);
     }
 
     public Seq<Error> Faults => faults.Value;
@@ -421,8 +505,10 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
         resume: static (ctx, _) => ctx.Pipeline.SetPaused(paused: false)
             .Map(static _ => (RenderReceipt)new RenderReceipt.Resumed()),
         window: static (ctx, row) => ctx.Job.WithWindow(ctx.Pipeline, row.Scope, window => row.Operations
-            .TraverseM(operation => operation.Apply(window, ctx.Pipeline.Record, ctx.Op)).As()
-            .Map(done => (RenderReceipt)new RenderReceipt.Windowed(done.Count)), ctx.Op));
+            .TraverseM(operation => operation.Apply(window, ctx.Op)).As()
+            .Map(done => (RenderReceipt)new RenderReceipt.Windowed(
+                Operations: done.Count,
+                Channels: done.Bind(static facts => facts).Strict())), ctx.Op));
 
     private Fin<JobPipeline> Current(RhinoDoc document, Op op) =>
         pipeline is { } current && documentSerial == document.RuntimeSerialNumber
@@ -443,7 +529,24 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
                     key: key);
                 (pipeline, documentSerial) = (replacement, document.RuntimeSerialNumber);
                 return Fin.Succ(replacement);
-            }));
+            }).Bind(replacement => Arm(replacement, op).Map(_ => replacement)));
+
+    // The gate registers ONCE per pipeline, against the session-lifetime native framebuffer the pipeline vends: the
+    // managed wrapper's disposal is a no-op for a pipeline-vended window, so the registration outlives the borrow while
+    // the gate instance stays rooted on the job. Registration transfers the native to the window — nothing detaches or
+    // disposes it here — and a failed arm fails the demand rather than rendering with an unconsulted policy.
+    private Fin<Unit> Arm(JobPipeline current, Op op) => decide.Match(
+        Some: predicate => WithWindow(
+            current,
+            new WindowScope.SessionCase(WireframeChannel.Omit, RenderViewSource.Pipeline),
+            window => op.Catch(() => {
+                PostEffectGate armed = new(predicate, current.Record, op);
+                window.RegisterPostEffectExecutionControl(ec: armed);
+                gate = armed;
+                return Fin.Succ(value: unit);
+            }),
+            op),
+        None: static () => Fin.Succ(unit));
 
     private Fin<Unit> Run(JobPipeline current, RenderRun scope, Op key) {
         Op op = key.OrDefault();
@@ -498,7 +601,9 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
 
     private Fin<Unit> Retire(Op op) {
         JobPipeline? current = pipeline;
-        (pipeline, documentSerial) = (null, 0u);
+        // Dropping the root is the whole release: the native control belongs to the window the registration handed it to,
+        // and the host's own delete callback drives the managed disposal when that window dies.
+        (pipeline, gate, documentSerial) = (null, null, 0u);
         if (current is null) { return Fin.Succ(unit); }
         Seq<Error> failures = Seq(
                 op.Catch(() => Fin.Succ(current.Halt())),
@@ -524,13 +629,15 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
 
 ## [03]-[REALTIME]
 
-- Owner: `RealtimeProgram` carries detached lifecycle queries and mark projections; `RealtimePassPolicy` carries pass, post-effect, and OpenGL policy; `LightAuthorityProgram` carries the engine-owned custom-light CRUD hooks with `LightAuthorities` as the engine-keyed program registry and fault ledger.
-- Entry: `RealtimeEngine` adapts the complete `RealtimeDisplayMode` abstract and event surface; `LightAuthorityHost` adapts the complete `LightManagerSupport` abstract surface, and because `RegisterLightManager` discovers and constructs the plugin's sealed subclass itself, that subclass carries only its two identity guids.
-- Law: framebuffer and middleground hooks project `Seq<Mark>`; the adapter alone receives `DisplayPipeline` and renders through `Marks.Render`.
+- Owner: `RealtimeProgram` carries detached lifecycle queries and mark projections; `RealtimePassPolicy` carries pass, post-effect, and OpenGL policy; `RealtimeEnginePlan` binds the three into the one value `RealtimeEngines` keys by engine identity; `LightAuthorityProgram` carries the engine-owned custom-light CRUD hooks with `LightAuthorities` as the engine-keyed program registry and fault ledger.
+- Entry: `RealtimeEngines.Register(Guid, RealtimeEnginePlan, PlugIn, Op?)` seats the plan and then drives the host scan; `RealtimeEngine` and `RealtimeEngineInfo` are the two abstract adapters a consumer derives, each supplying only its engine identity.
+- Law: both registered host families are HOST-CONSTRUCTED — `RegisterDisplayModes` and `RegisterLightManager` reflect over the plug-in's exported types and activate each through a public parameterless constructor — so an adapter takes no program at construction and resolves it from the registry instead: the engine at `PostConstruct`, the light manager at `RenderEngineId`, and a registered plan is the prerequisite the registration entry seats first.
+- Law: a descriptor never restates its engine — `RealtimeEngineInfo.Name` and `.DrawOpenGl` derive from the registered `RealtimeEnginePlan`, so a class-info and the engine it names cannot disagree.
+- Law: framebuffer and middleground hooks project `Seq<Mark>`; the adapter alone receives `DisplayPipeline`, reads viewport identity off the pipeline's own live viewport, stamps the seam's honest `ConduitPhase` row, and renders through `Marks.Render`.
 - Law: `RealtimePort` exposes only `PixelBlock.Write`, remains live for the progressive session, and closes before `Shutdown`; the engine alone controls its lifetime and never exports `RenderWindow`.
 - Law: the registered authority is the one source of truth for engine-owned lights — document lights stay on the Objects lights rail, a parallel light registry beside the authority is rejected, and every authority hook receives the detached `DocKey`, never the live document.
-- Law: engine registration claims one token-keyed slot atomically; any occupied engine refuses before host registration, and host-registration failure removes only its matching claim.
-- Law: `LightChange` closes the host custom-event vocabulary and `LightAuthorities.Notify` is the one egress announcing an engine-light mutation back to the host light manager; solo behavior is an `Option<LightSolo>` row whose absence leaves the host's own solo storage standing.
+- Law: engine registration claims one keyed slot atomically; an occupied engine refuses before the host scan, and a scan that returns no matching descriptor releases the claim.
+- Law: `LightChange` closes the host custom-event vocabulary and `LightAuthorities.Notify(DocumentSession, Guid, LightChange, Op?)` is the one egress announcing an engine-light mutation back to the host light manager, keyed on the engine exactly as `Answer` is; solo behavior is an `Option<LightSolo>` row whose absence leaves the host's own solo storage standing.
 - Boundary: callback failures accumulate in `Faults`; no event handler swallows a failed rail.
 
 ```csharp signature
@@ -662,77 +769,154 @@ public sealed record LightAuthorityProgram(
     Option<LightSolo> Solo = default);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-public sealed class RealtimeEngine : RealtimeDisplayMode {
-    private readonly RealtimeProgram program;
-    private readonly RealtimeChrome chrome;
+public sealed record RealtimeEnginePlan(RealtimeProgram Program, RealtimePassPolicy Policy, RealtimeChrome Chrome) {
+    internal bool Valid => Program is not null && Policy is not null && Chrome is not null;
+}
+
+// Host truth: `RegisterDisplayModes` REFLECTS over the plug-in's exported types and activates both the class-info and the
+// engine itself, admitting each only with a public parameterless constructor — so an engine cannot be handed its program
+// and this registry is the seam that carries it. `Register` seats the plan BEFORE the host scan so a descriptor's own
+// `Name` and `DrawOpenGl` derive from the plan rather than restating it.
+public static class RealtimeEngines {
+    private static readonly Atom<HashMap<Guid, RealtimeEnginePlan>> Plans = Atom(HashMap<Guid, RealtimeEnginePlan>());
+    private static readonly Atom<Seq<Error>> Failures = Atom(Seq<Error>());
+    private static readonly Op Key = Op.Of(name: nameof(RealtimeEngines));
+
+    public static Seq<Error> Faults => Failures.Value;
+
+    public static Fin<Seq<Guid>> Register(Guid engine, RealtimeEnginePlan plan, PlugIn owner, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in guard(engine != Guid.Empty && plan is { Valid: true } && owner is not null, op.InvalidInput()).ToFin()
+               from claimed in guard(
+                   Plans.Swap(rows => rows.TryAdd(engine, plan)).Find(engine).Map(row => ReferenceEquals(row, plan)).IfNone(false),
+                   op.InvalidContext()).ToFin()
+               from installed in op.Catch(() =>
+                       Optional(RealtimeDisplayMode.RegisterDisplayModes(plugin: owner)).ToFin(Fail: op.InvalidResult())
+                           .Map(static rows => toSeq(rows).Map(static row => row.GUID).Strict()))
+                   .BindFail(failure => (Plans.Swap(rows => rows.Remove(engine)), Fin.Fail<Seq<Guid>>(failure)).Item2)
+               from admitted in guard(installed.Exists(row => row == engine), op.InvalidResult()).ToFin()
+                   .BindFail(failure => (Plans.Swap(rows => rows.Remove(engine)), Fin.Fail<Unit>(failure)).Item2)
+               select installed;
+    }
+
+    public static Fin<Unit> Unregister(PlugIn owner, Seq<Guid> engines, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(owner is not null, op.InvalidInput()).ToFin().Bind(_ => op.Catch(() => {
+            RealtimeDisplayMode.UnregisterDisplayModes(plugin: owner);
+            return Fin.Succ(ignore(Plans.Swap(rows => engines.Fold(rows, static (held, row) => held.Remove(row)))));
+        }));
+    }
+
+    internal static Option<RealtimeEnginePlan> Plan(Guid engine) => Plans.Value.Find(engine);
+
+    internal static Unit Observe(Error failure) => ignore(Failures.Swap(rows => rows.Add(failure)));
+
+    internal static Op Anchor => Key;
+}
+
+// The registration descriptor: a concrete info supplies only the engine identity and the engine type it names, and every
+// other column derives from the registered plan, so a descriptor cannot disagree with the engine it registers.
+public abstract class RealtimeEngineInfo : RealtimeDisplayModeClassInfo {
+    protected abstract Guid Engine { get; }
+
+    public sealed override Guid GUID => Engine;
+
+    public sealed override string Name => RealtimeEngines.Plan(Engine)
+        .Map(static plan => plan.Chrome.ProductName)
+        .IfNone(nameof(RealtimeEngine));
+
+    public sealed override bool DrawOpenGl => RealtimeEngines.Plan(Engine)
+        .Map(static plan => plan.Policy.Features.Exists(static feature => feature == RealtimeFeature.OpenGl))
+        .IfNone(false);
+}
+
+public abstract class RealtimeEngine : RealtimeDisplayMode {
     private readonly Atom<bool> framebufferReady = Atom(false);
     private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
     private readonly Lock lifecycleGate = new();
+    private readonly Op key = Op.Of(name: nameof(RealtimeEngine));
     private RealtimeLifecycle lifecycle = new RealtimeLifecycle.Idle();
-    private readonly Op key;
+    private Option<RealtimeEnginePlan> bound;
 
-    private RealtimeEngine(RealtimeProgram program, RealtimePassPolicy policy, RealtimeChrome chrome, Op key) {
-        this.program = program;
-        this.chrome = chrome;
-        this.key = key;
-        MaxPasses = policy.MaxPasses;
-        PostEffectsOn = policy.Features.Exists(static feature => feature == RealtimeFeature.PostEffects);
-        SetUseDrawOpenGl(policy.Features.Exists(static feature => feature == RealtimeFeature.OpenGl));
+    // The host activates this type through its parameterless constructor, so the plan arrives at `PostConstruct` — the one
+    // hook the host calls once the native viewport is connected — and every member reads it through `Plan`.
+    protected abstract Guid Engine { get; }
+
+    public sealed override void PostConstruct() {
+        base.PostConstruct();
+        bound = RealtimeEngines.Plan(Engine);
+        _ = bound.Match(
+            Some: Wire,
+            None: () => RealtimeEngines.Observe(key.MissingContext()));
+    }
+
+    private Unit Wire(RealtimeEnginePlan plan) {
+        MaxPasses = plan.Policy.MaxPasses;
+        PostEffectsOn = plan.Policy.Features.Exists(static feature => feature == RealtimeFeature.PostEffects);
+        SetUseDrawOpenGl(plan.Policy.Features.Exists(static feature => feature == RealtimeFeature.OpenGl));
         OnInitFramebuffer += (_, e) => {
-            ConduitFrame frame = Frame(e.Pipeline);
-            Fin<RealtimeLifecycle.Running> initialized = Observe(RenderMarks(frame, program.InitFramebuffer));
+            ConduitFrame frame = Frame(e.Pipeline, ConduitPhase.Framebuffer);
+            Fin<RealtimeLifecycle.Running> initialized = Observe(RenderMarks(frame, plan.Program.InitFramebuffer));
             _ = CommitFramebuffer(initialized);
         };
         OnDrawMiddleground += (_, e) => {
-            ConduitFrame frame = Frame(e.Pipeline);
-            _ = Observe(RenderMarks(frame, program.DrawMiddleground));
+            ConduitFrame frame = Frame(e.Pipeline, ConduitPhase.Middleground);
+            _ = Observe(RenderMarks(frame, plan.Program.DrawMiddleground));
         };
-        OnDisplayPipelineSettingsChanged += (_, _) => _ = Observe(this.key.Catch(program.SettingsChanged));
-        _ = program.Hud.Iter(signal => {
-            HudPlayButtonPressed += (_, _) => ignore(Observe(this.key.Catch(() => signal(new HudSignal.PlayCase()))));
-            HudPauseButtonPressed += (_, _) => ignore(Observe(this.key.Catch(() => signal(new HudSignal.PauseCase()))));
-            HudLockButtonPressed += (_, _) => ignore(Observe(this.key.Catch(() => signal(new HudSignal.LockCase()))));
-            HudUnlockButtonPressed += (_, _) => ignore(Observe(this.key.Catch(() => signal(new HudSignal.UnlockCase()))));
-            MaxPassesChanged += (_, e) => ignore(Observe(this.key.Catch(() => signal(new HudSignal.MaxPassesCase(Passes: e.MaxPasses)))));
-        });
+        OnDisplayPipelineSettingsChanged += (_, _) => _ = Observe(key.Catch(plan.Program.SettingsChanged));
+        return ignore(plan.Program.Hud.Iter(signal => {
+            HudPlayButtonPressed += (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.PlayCase()))));
+            HudPauseButtonPressed += (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.PauseCase()))));
+            HudLockButtonPressed += (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.LockCase()))));
+            HudUnlockButtonPressed += (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.UnlockCase()))));
+            MaxPassesChanged += (_, e) => ignore(Observe(key.Catch(() => signal(new HudSignal.MaxPassesCase(Passes: e.MaxPasses)))));
+        }));
     }
 
-    public static Fin<RealtimeEngine> Of(RealtimeProgram program, RealtimePassPolicy policy, RealtimeChrome chrome, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(program is not null && policy is not null && chrome is not null, op.InvalidInput()).ToFin()
-            .Map(_ => new RealtimeEngine(program, policy, chrome, op));
-    }
+    // Every host override binds the plan through one rail, so an engine the host activated but never bound answers its
+    // declared fallback and records a missing-context fault rather than dereferencing a null program.
+    private Fin<TOut> Bound<TOut>(Func<RealtimeProgram, Fin<TOut>> use) =>
+        bound.ToFin(Fail: key.MissingContext()).Bind(plan => key.Catch(() => use(plan.Program)));
+
+    private TOut Chrome<TOut>(Func<RealtimeChrome, TOut> read, TOut fallback) =>
+        bound.Map(plan => read(plan.Chrome)).IfNone(() => (Observe(key.MissingContext<Unit>()), fallback).Item2);
 
     public Seq<Error> Faults => faults.Value;
 
     public override void GetRenderSize(out int width, out int height) {
-        Size2i extent = Observe(key.Catch(() => Fin.Succ(program.RenderSize())), default(Size2i));
+        Size2i extent = Observe(Bound(static program => Fin.Succ(program.RenderSize())), default(Size2i));
         (width, height) = (extent.Width, extent.Height);
     }
 
-    public override int LastRenderedPass() => Observe(key.Catch(() => Fin.Succ(program.LastPass())), 0);
+    public override int LastRenderedPass() => Observe(Bound(static program => Fin.Succ(program.LastPass())), 0);
 
-    public override string HudProductName() => chrome.ProductName;
+    public override string HudProductName() => Chrome(static chrome => chrome.ProductName, string.Empty);
 
-    public override bool HudShow() => chrome.Features.Exists(static feature => feature == HudFeature.Show);
+    public override bool HudShow() => HudFlag(HudFeature.Show);
 
-    public override bool HudShowControls() => chrome.Features.Exists(static feature => feature == HudFeature.Controls);
+    public override bool HudShowControls() => HudFlag(HudFeature.Controls);
 
-    public override bool HudShowPasses() => chrome.Features.Exists(static feature => feature == HudFeature.Passes);
+    public override bool HudShowPasses() => HudFlag(HudFeature.Passes);
 
-    public override bool HudShowMaxPasses() => chrome.Features.Exists(static feature => feature == HudFeature.MaxPasses);
+    public override bool HudShowMaxPasses() => HudFlag(HudFeature.MaxPasses);
 
-    public override bool HudAllowEditMaxPasses() => chrome.Features.Exists(static feature => feature == HudFeature.EditMaxPasses);
+    public override bool HudAllowEditMaxPasses() => HudFlag(HudFeature.EditMaxPasses);
 
-    public override bool HudShowCustomStatusText() => chrome.Status.IsSome;
+    public override bool HudShowCustomStatusText() => Chrome(static chrome => chrome.Status.IsSome, false);
 
-    public override string HudCustomStatusText() => chrome.Status.Match(
-        Some: status => Observe(key.Catch(() => Fin.Succ(status())), string.Empty),
-        None: static () => string.Empty);
+    public override string HudCustomStatusText() => Chrome(
+        chrome => chrome.Status.Match(
+            Some: status => Observe(key.Catch(() => Fin.Succ(status())), string.Empty),
+            None: static () => string.Empty),
+        string.Empty);
 
     public override int HudLastRenderedPass() => LastRenderedPass();
 
-    public override DateTime HudStartTime() => chrome.Started.IfNone(() => base.HudStartTime());
+    public override DateTime HudStartTime() => Chrome(static chrome => chrome.Started, Option<DateTime>.None)
+        .IfNone(() => base.HudStartTime());
+
+    private bool HudFlag(HudFeature feature) =>
+        Chrome(chrome => chrome.Features.Exists(row => row == feature), false);
 
     public override bool StartRenderer(int w, int h, RhinoDoc doc, ViewInfo view, ViewportInfo viewportInfo, bool forCapture, RenderWindow renderWindow) {
         lock (lifecycleGate) {
@@ -740,7 +924,7 @@ public sealed class RealtimeEngine : RealtimeDisplayMode {
             RealtimeLifecycle.Running owned = new(new SpriteSheet(), new RealtimePort(renderWindow, key));
             Fin<Unit> started = from extent in Size2i.Of(w, h, key)
                                 from document in DocKey.Of(doc, key)
-                                from _ in key.Catch(() => program.Start(new RealtimeStart(
+                                from _ in Bound(program => program.Start(new RealtimeStart(
                                     extent,
                                     document,
                                     RenderIntent.Of(forCapture),
@@ -760,19 +944,19 @@ public sealed class RealtimeEngine : RealtimeDisplayMode {
             lifecycle = new RealtimeLifecycle.Idle();
             _ = prior.Switch(
                 idle: static _ => unit,
-                running: running => ignore(Observe(Release(running, key.Catch(program.Shutdown)))));
+                running: running => ignore(Observe(Release(running, Bound(static program => program.Shutdown())))));
         }
     }
 
-    public override bool IsRendererStarted() => Observe(key.Catch(() => Fin.Succ(program.Started())), false);
+    public override bool IsRendererStarted() => Observe(Bound(static program => Fin.Succ(program.Started())), false);
 
-    public override bool IsCompleted() => Observe(key.Catch(() => Fin.Succ(program.Completed())), false);
+    public override bool IsCompleted() => Observe(Bound(static program => Fin.Succ(program.Completed())), false);
 
     public override bool IsFrameBufferAvailable(ViewInfo view) => framebufferReady.Value;
 
     public override bool OnRenderSizeChanged(int width, int height) =>
         Observe(Size2i.Of(width: width, height: height, key: key)
-            .Bind(extent => key.Catch(() => program.Resized(extent)))).IsSucc;
+            .Bind(extent => Bound(program => program.Resized(extent)))).IsSucc;
 
     public Fin<Unit> Redraw() => Observe(key.Catch(SignalRedraw));
 
@@ -816,17 +1000,25 @@ public sealed class RealtimeEngine : RealtimeDisplayMode {
         Succ: static value => value,
         Fail: failure => { _ = faults.Swap(rows => rows.Add(failure)); return fallback; });
 
-    private static ConduitFrame Frame(DisplayPipeline pipeline) =>
-        ConduitFrame.Of(pipeline, pipeline.Viewport, ConduitPhase.PostObjects);
+    // The realtime hooks hand out a bare `DisplayPipeline`, so viewport identity comes off the pipeline's own live
+    // viewport, and each seam stamps the phase it actually occupies rather than borrowing a conduit phase's name.
+    private static ConduitFrame Frame(DisplayPipeline pipeline, ConduitPhase phase) =>
+        ConduitFrame.Of(pipeline, pipeline.Viewport, phase);
 }
 
 public static class LightAuthorities {
     private static readonly Atom<HashMap<Guid, (Guid Token, LightAuthorityProgram Program)>> Programs =
         Atom(HashMap<Guid, (Guid Token, LightAuthorityProgram Program)>());
+    // The host activates the manager itself and keeps every instance in a private serial-keyed table, so the only way to
+    // reach the live one is for the host to seat itself here from a member registration is guaranteed to call.
+    private static readonly Atom<HashMap<Guid, LightAuthorityHost>> Hosts = Atom(HashMap<Guid, LightAuthorityHost>());
     private static readonly Atom<Seq<Error>> Failures = Atom(Seq<Error>());
     private static readonly Op Key = Op.Of(name: nameof(LightAuthorities));
 
     public static Seq<Error> Faults => Failures.Value;
+
+    internal static Unit Seat(Guid engine, LightAuthorityHost host) =>
+        ignore(Hosts.Swap(rows => rows.AddOrUpdate(engine, host)));
 
     public static Fin<Unit> Register(Guid engine, LightAuthorityProgram program, PlugIn owner, Op? key = null) {
         Op op = key.OrDefault();
@@ -850,16 +1042,18 @@ public static class LightAuthorities {
                select unit;
     }
 
-    public static Fin<Unit> Notify(DocumentSession session, LightAuthorityHost authority, LightChange change, Light light, Op? key = null) {
+    // Keyed on the engine exactly as `Answer` is, so the one egress needs no instance the corpus cannot supply. Host truth:
+    // `OnCustomLightEvent` forwards only the document serial and the event selector to native and never reads the `ref
+    // Light`, so the carrier satisfies the signature and no light payload crosses.
+    public static Fin<Unit> Notify(DocumentSession session, Guid engine, LightChange change, Op? key = null) {
         Op op = key.OrDefault();
         return from source in Optional(session).ToFin(Fail: op.MissingContext())
-               from host in Optional(authority).ToFin(Fail: op.InvalidInput())
                from move in Optional(change).ToFin(Fail: op.InvalidInput())
-               from carrier in Optional(light).ToFin(Fail: op.InvalidInput())
+               from host in Hosts.Value.Find(engine).ToFin(Fail: op.MissingContext())
                from _ in source.Demand(
                    use: document => op.Catch(() => {
-                       Light moved = carrier;
-                       host.OnCustomLightEvent(document, move.Key, ref moved);
+                       Light unread = default;
+                       host.OnCustomLightEvent(document, move.Key, ref unread);
                        return Fin.Succ(value: unit);
                    }),
                    key: op,
@@ -882,7 +1076,12 @@ public abstract class LightAuthorityHost : LightManagerSupport {
 
     public sealed override Guid PluginId() => Plugin;
 
-    public sealed override Guid RenderEngineId() => Engine;
+    // Registration calls this on the instance it activated, so it is the one seam that can hand the live host back to the
+    // engine-keyed registry `Notify` reads; the seat is idempotent and never re-keys.
+    public sealed override Guid RenderEngineId() {
+        _ = LightAuthorities.Seat(engine: Engine, host: this);
+        return Engine;
+    }
 
     public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) {
         LightArray target = light_array;                                     // Exemption: host ref/out fill members are the platform-forced statement seam
@@ -958,11 +1157,20 @@ public abstract class LightAuthorityHost : LightManagerSupport {
 
 ## [04]-[POST_AND_TEXTURE]
 
-- Owner: `PostEffectOp` closes settings edits; `PostEffectGate` closes execution policy; `TextureBake` closes live evaluator and simulated-texture modes over `ContentRef` and object identity.
+- Owner: `PostEffectOp` closes settings edits; `PostEffectGate` closes execution policy; `EffectProgram` closes the authored effect body and `EffectHost` adapts it onto the host abstract; `EffectPass` closes frame-buffer access during one execution; `TextureBake` closes live evaluator and simulated-texture modes over `ContentRef` and object identity.
 - Law: configuration and execution never merge — `PostEffectOp` writes the settings-side rows the pipeline reads at render time, `PostEffectGate` decides per-render execution on a window; the render-settings page's edit rail points here and carries no eighth sub-owner record.
-- Law: a mutating op batch demands `SessionNeed.Mutate`, a census-only batch `SessionNeed.Read` — the batch's own case shapes derive the need set, never a caller flag; `PostEffectCollection` and each `PostEffectData` are disposable host natives scoped to the demand window, and only `EffectRoster` crosses out.
+- Law: a mutating op batch demands `SessionNeed.Mutate`, a census-only batch `SessionNeed.Read` — the batch's own case shapes derive the need set, never a caller flag.
+- Law: the collection owns every row. `PostEffectCollection` is the disposable native scoped to the demand window, while a `PostEffectData` is a NON-OWNING cursor whose pointer re-resolves through the collection on every member read and whose disposal is inert — so an arm holds rows for the whole window, disposes none, and a `using` over one asserts custody the type does not carry. Admission is the cursor's first member read, which throws on an unknown id, never a null-probe on a factory that cannot answer null. Only `EffectRoster` crosses out, each row carrying the host's own `DataCRC` digest as its change key.
+- Law: `EffectHost` is the whole authoring adapter and every host hook forwards to the program — parameter read and write, UI-section seating, and help all reach `EffectProgram` rows, so a hard-coded `false` is the deleted form; the concrete effect beside it is one `[CustomPostEffect]` declaration and one program field, which is what makes `Effects.Register`'s returned `Type` set real registration evidence rather than an empty sequence by construction.
+- Law: an admit predicate reads the frame the host publishes. `CanExecute` runs before any rectangle is supplied, so it takes the pipeline's own `Dimensions()` exactly as `EffectPass.Frame` does; a fabricated origin-anchored unit rect standing in for "no rectangle" is a value no producer measured.
+- Entry: `Effects.Configure` owns the document-scoped settings batch and `Effects.Register` the process-global one-shot admission; the argument shape alone discriminates them, and registration never opens a document demand because the host installs types, not rows.
+- Law: `BuiltinEffect` is the built-in identity vocabulary and `EffectId` seeds from its rows, never from a bare `Guid` literal — each row defers its `PostEffectUuids` read behind `[UseDelegateFromConstructor]` because those members are get-only properties over a native id table, so an eager field reference resolves them at type init before the host RDK is up.
+- Law: the job's gate is consulted only for an effect whose `[CustomPostEffect]` declaration carries `PostEffectExecuteWhileRenderingOptions.UseExecutionControl` — every other timing runs the effect on the host's own cadence, so a gate registered against an `Always` effect decides nothing and the declaration, not the registration, is what arms it.
+- Law: the GPU frame buffer is post-effect territory alone — `PostEffectChannel.GPU()` is the one managed producer of a texture handle, so `EffectPass.Handle` reads it inside the execute window under `GpuAllowed`, closes it on that window, and `CopyDown` is the only route from a texture back to per-pixel values.
+- Law: a written channel commits or is discarded — `EffectPass.Write` brackets `GetChannelForWrite` and commits on a successful body, so an uncommitted output silently vanishes from the chain rather than faulting; `Advance` reports row progress and a refused report halts the pixel loop through the rail.
 - Law: live-versus-baked is the union's discriminant, selected by the texture's own capability — a consumer asks for live first and falls to the baked case on refusal, and the fallback is a case transition, never a silent quality change.
 - Boundary: `TextureBake.Evaluate` is internal, resolves `RenderTexture` and `RhinoObject` inside `DocumentSession.Demand`, and disposes evaluator or simulation before detached egress.
+- Boundary: `PostEffectPipeline`, `PostEffectChannel`, `RenderWindow.Channel`, and `RenderWindow.ChannelGPU` stay inside `EffectPass`; an authored body BORROWS a `ChannelView` or `GpuHandle` for the length of the host bracket and only its own computed value crosses out — a texture id or pixel port that outlives the bracket names freed native memory, so neither port is a detached result.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -976,6 +1184,85 @@ public sealed partial class EffectStage {
 
     internal static Fin<EffectStage> Stage(PostEffects.PostEffectType native, Op key) =>
         toSeq(Items).Find(row => row.Native == native).ToFin(Fail: key.InvalidResult(detail: native.ToString()));
+}
+
+[SmartEnum<int>]
+public sealed partial class BuiltinEffect {
+    // Host truth: every row below is a get-only property over the native id table, so the read defers behind the delegate column.
+    public static readonly BuiltinEffect Glare = new(key: 0, static () => PostEffects.PostEffectUuids.Glare);
+    public static readonly BuiltinEffect Bloom = new(key: 1, static () => PostEffects.PostEffectUuids.Bloom);
+    public static readonly BuiltinEffect Glow = new(key: 2, static () => PostEffects.PostEffectUuids.Glow);
+    public static readonly BuiltinEffect Fog = new(key: 3, static () => PostEffects.PostEffectUuids.Fog);
+    public static readonly BuiltinEffect DepthOfField = new(key: 4, static () => PostEffects.PostEffectUuids.DepthOfField);
+    public static readonly BuiltinEffect Multiplier = new(key: 5, static () => PostEffects.PostEffectUuids.Multiplier);
+    public static readonly BuiltinEffect Noise = new(key: 6, static () => PostEffects.PostEffectUuids.Noise);
+    public static readonly BuiltinEffect GaussianBlur = new(key: 7, static () => PostEffects.PostEffectUuids.GaussianBlur);
+    public static readonly BuiltinEffect WireframePoints = new(key: 8, static () => PostEffects.PostEffectUuids.WireframePointsRGBA);
+    public static readonly BuiltinEffect WireframeCurves = new(key: 9, static () => PostEffects.PostEffectUuids.WireframeCurvesRGBA);
+    public static readonly BuiltinEffect WireframeIsocurves = new(key: 10, static () => PostEffects.PostEffectUuids.WireframeIsocurvesRGBA);
+    public static readonly BuiltinEffect WireframeAnnotations = new(key: 11, static () => PostEffects.PostEffectUuids.WireframeAnnotationsRGBA);
+    public static readonly BuiltinEffect ClampTone = new(key: 12, static () => PostEffects.PostEffectUuids.ToneMapper_Clamp);
+    public static readonly BuiltinEffect BlackWhitePointTone = new(key: 13, static () => PostEffects.PostEffectUuids.ToneMapper_BlackWhitePoint);
+    public static readonly BuiltinEffect LogarithmicTone = new(key: 14, static () => PostEffects.PostEffectUuids.ToneMapper_Logarithmic);
+    public static readonly BuiltinEffect FalseColorTone = new(key: 15, static () => PostEffects.PostEffectUuids.ToneMapper_FalseColor);
+    public static readonly BuiltinEffect FilmicTone = new(key: 16, static () => PostEffects.PostEffectUuids.ToneMapper_Filmic);
+    public static readonly BuiltinEffect Gamma = new(key: 17, static () => PostEffects.PostEffectUuids.Gamma);
+    public static readonly BuiltinEffect Dithering = new(key: 18, static () => PostEffects.PostEffectUuids.Dithering);
+    public static readonly BuiltinEffect Watermark = new(key: 19, static () => PostEffects.PostEffectUuids.Watermark);
+    public static readonly BuiltinEffect HueSatLum = new(key: 20, static () => PostEffects.PostEffectUuids.HueSatLum);
+    public static readonly BuiltinEffect BrightnessContrast = new(key: 21, static () => PostEffects.PostEffectUuids.BriCon);
+
+    [UseDelegateFromConstructor]
+    internal partial Guid Uuid();
+
+    public Fin<EffectId> Address(Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Catch(() => Fin.Succ(value: EffectId.Create(Uuid())));
+    }
+
+    public static Fin<Option<BuiltinEffect>> Named(EffectId effect, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Catch(() => Fin.Succ(value: toSeq(Items).Find(row => row.Uuid() == effect.Value)));
+    }
+}
+
+[SmartEnum<Rhino.Display.DisplayTechnology>]
+public sealed partial class GpuTechnology {
+    public static readonly GpuTechnology Absent = new(key: Rhino.Display.DisplayTechnology.None);
+    public static readonly GpuTechnology OpenGl = new(key: Rhino.Display.DisplayTechnology.OpenGL);
+    public static readonly GpuTechnology Metal = new(key: Rhino.Display.DisplayTechnology.Metal);
+    public static readonly GpuTechnology DirectX = new(key: Rhino.Display.DisplayTechnology.DirectX);
+    public static readonly GpuTechnology Software = new(key: Rhino.Display.DisplayTechnology.Software);
+    public static readonly GpuTechnology Vulkan = new(key: Rhino.Display.DisplayTechnology.Vulkan);
+}
+
+// A texture id is live only while its owning `ChannelGPU` is: the union is a BORROW payload, never a detached result.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GpuHandle {
+    private GpuHandle() { }
+    public sealed record OpenGlCase(uint Texture, Size2i Extent, uint PixelSize) : GpuHandle;
+    public sealed record MetalCase(nint Texture, Size2i Extent, uint PixelSize) : GpuHandle;
+    public sealed record UnbackedCase(GpuTechnology Technology) : GpuHandle;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EffectSource {
+    private EffectSource() { }
+    public sealed record PlugInCase(PlugIn Owner) : EffectSource;
+    public sealed record AssemblyCase(System.Reflection.Assembly Source, Guid PlugInId) : EffectSource;
+
+    internal Fin<Seq<Type>> Install(Op key) => Switch(
+        state: key,
+        plugInCase: static (op, row) => op.Catch(() =>
+            Optional(PostEffects.PostEffect.RegisterPostEffect(plugin: row.Owner)).ToFin(Fail: op.InvalidResult())
+                .Map(static types => toSeq(types))),
+        assemblyCase: static (op, row) =>
+            from _ in guard(row.PlugInId != Guid.Empty, op.InvalidInput()).ToFin()
+            from types in op.Catch(() =>
+                Optional(PostEffects.PostEffect.RegisterPostEffect(assembly: row.Source, pluginId: row.PlugInId))
+                    .ToFin(Fail: op.InvalidResult())
+                    .Map(static registered => toSeq(registered)))
+            select types);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -998,30 +1285,62 @@ public abstract partial record PostEffectOp {
         state: (Collection: collection, Op: key),
         censusCase: static (_, _) => Fin.Succ(value: unit),
         toggleCase: static (ctx, op) => Data(collection: ctx.Collection, effect: op.Effect, key: ctx.Op).Bind(data => ctx.Op.Catch(() => {
-            using PostEffects.PostEffectData owned = data;
-            owned.On = op.On;
-            owned.Shown = op.Shown;
+            data.On = op.On;
+            data.Shown = op.Shown;
+            return Fin.Succ(value: unit);
         })),
         reorderCase: static (ctx, op) => ctx.Op.Catch(() =>
             ctx.Op.Confirm(success: ctx.Collection.MovePostEffectBefore(id_move: op.Move.Value, id_before: op.Before.Value))),
         selectCase: static (ctx, op) => ctx.Op.Catch(() =>
             ctx.Collection.SetSelectedPostEffect(type: op.Stage.Native, id: op.Effect.Value)),
-        tuneCase: static (ctx, op) => Data(collection: ctx.Collection, effect: op.Effect, key: ctx.Op).Bind(data => ctx.Op.Catch(() => {
-            using PostEffects.PostEffectData owned = data;
-            return ctx.Op.Confirm(success: owned.SetParameter(param_name: op.Parameter, param_value: op.Value));
-        })));
+        tuneCase: static (ctx, op) => Data(collection: ctx.Collection, effect: op.Effect, key: ctx.Op).Bind(data => ctx.Op.Catch(() =>
+            ctx.Op.Confirm(success: data.SetParameter(param_name: op.Parameter, param_value: op.Value)))));
 
+    // Host truth: `PostEffectDataFromId` constructs a cursor unconditionally and never answers null, so admission is the
+    // cursor's FIRST member read — which throws when the id names no row — and a null-probe on the factory is dead code.
     private static Fin<PostEffects.PostEffectData> Data(PostEffects.PostEffectCollection collection, EffectId effect, Op key) =>
-        key.Catch(() => Optional(collection.PostEffectDataFromId(id: effect.Value)).ToFin(Fail: key.InvalidInput()));
+        key.Catch(() => {
+            PostEffects.PostEffectData cursor = collection.PostEffectDataFromId(id: effect.Value);
+            return Fin.Succ((ignore(cursor.Id), cursor).Item2);
+        });
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct PostEffectState(EffectId Id, EffectStage Stage, string Name, bool On, bool Shown);
+public readonly record struct PostEffectState(EffectId Id, EffectStage Stage, string Name, bool On, bool Shown, uint Digest);
 
 public sealed record EffectRoster(Seq<PostEffectState> Rows, HashMap<EffectStage, EffectId> Selected) : IDetachedDocumentResult;
 
+public sealed record EffectRegistry(Seq<Type> Registered) : IDetachedDocumentResult;
+
+public sealed record EffectProgram(
+    Func<EffectPass, Fin<Unit>> Execute,
+    Func<EffectStateBag, Fin<Unit>> Read,
+    Func<EffectStateBag, Fin<Unit>> Write,
+    Func<Fin<Unit>> Reset,
+    Seq<RenderChannel> Required,
+    Func<string, Fin<Option<object>>> Param,
+    Func<string, object, Fin<Unit>> Tune,
+    Option<Func<EffectPass, Fin<bool>>> Admits = default,
+    Option<Func<PostEffects.PostEffectUI, Fin<Unit>>> Sections = default,
+    Option<Func<Fin<Unit>>> Help = default) {
+    internal bool Valid => Execute is not null
+        && Read is not null
+        && Write is not null
+        && Reset is not null
+        && Param is not null
+        && Tune is not null
+        && Required.ForAll(static row => row is not null);
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Effects {
+    public static Fin<EffectRegistry> Register(EffectSource source, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(source).ToFin(Fail: op.InvalidInput())
+               from types in active.Install(op)
+               select new EffectRegistry(Registered: types.Strict());
+    }
+
     public static Fin<EffectRoster> Configure(DocumentSession session, Seq<PostEffectOp> ops, Op? key = null) {
         Op op = key.OrDefault();
         Seq<SessionNeed> needs = ops.Exists(static row => row is not PostEffectOp.CensusCase)
@@ -1046,11 +1365,16 @@ public static class Effects {
             .ToHashMap()))
         select new EffectRoster(Rows: rows.Strict(), Selected: selected);
 
-    private static Fin<PostEffectState> Detached(PostEffects.PostEffectData data, Op op) => op.Catch(() => {
-        using PostEffects.PostEffectData owned = data;
-        return EffectStage.Stage(native: owned.Type, key: op)
-            .Map(stage => new PostEffectState(Id: EffectId.Create(owned.Id), Stage: stage, Name: owned.LocalName, On: owned.On, Shown: owned.Shown));
-    });
+    // The collection owns every row and each `PostEffectData` is a non-owning cursor with an inert disposal, so the walk
+    // projects and never disposes; each row's own `DataCRC` rides the projection as the change-detection key a diff folds.
+    private static Fin<PostEffectState> Detached(PostEffects.PostEffectData data, Op op) => op.Catch(() =>
+        EffectStage.Stage(native: data.Type, key: op).Map(stage => new PostEffectState(
+            Id: EffectId.Create(data.Id),
+            Stage: stage,
+            Name: data.LocalName,
+            On: data.On,
+            Shown: data.Shown,
+            Digest: data.DataCRC(current_remainder: 0u))));
 }
 
 [SmartEnum<int>]
@@ -1121,23 +1445,259 @@ public abstract partial record TextureBake {
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-internal sealed class PostEffectGate : PostEffects.PostEffectExecutionControl {
-    private readonly Func<EffectId, Fin<bool>> decide;
-    private readonly Action<Error> reject;
+public sealed class ChannelView {
+    private readonly RenderWindow.Channel channel;
     private readonly Op key;
 
-    private PostEffectGate(Func<EffectId, Fin<bool>> decide, Action<Error> reject, Op key) =>
-        (this.decide, this.reject, this.key) = (decide, reject, key);
+    // `RenderWindow.Channel` publishes no extent — `Width`/`Height` are `ChannelGPU` members — so the frame extent enters from the pass.
+    internal ChannelView(RenderWindow.Channel channel, Size2i extent, Op key) =>
+        (this.channel, Extent, this.key) = (channel, extent, key);
 
-    internal static Fin<Unit> Register(RenderWindow window, Func<EffectId, Fin<bool>> decide, Action<Error> reject, Op? key = null) =>
-        key.OrDefault().Catch(() => {
-            window.RegisterPostEffectExecutionControl(ec: new PostEffectGate(decide, reject, key.OrDefault()));
-            return Fin.Succ(value: unit);
-        });
+    public Size2i Extent { get; }
+
+    public Fin<Color4f> Read(Offset2i at) => key.Catch(() => {
+        float[] values = [];
+        channel.GetValue(x: at.X, y: at.Y, componentOrder: RenderWindow.Channel.ComponentOrders.RGBA, values: ref values);
+        return values is [float r, float g, float b, float a]
+            ? Fin.Succ(value: new Color4f(r, g, b, a))
+            : Fin.Fail<Color4f>(error: key.InvalidResult());
+    });
+
+    public Fin<Unit> Write(Offset2i at, Color4f value) =>
+        key.Catch(() => Op.Side(() => channel.SetValue(x: at.X, y: at.Y, value: value)));
+
+    public Fin<Unit> Accumulate(Offset2i at, Color4f value) =>
+        key.Catch(() => Op.Side(() => channel.AddValue(x: at.X, y: at.Y, value: value)));
+
+    public Fin<(float Low, float High)> Span => key.Catch(() => {
+        channel.GetMinMaxValues(min: out float low, max: out float high);
+        return Fin.Succ(value: (Low: low, High: high));
+    });
+}
+
+public sealed class EffectStateBag {
+    private readonly PostEffects.PostEffectState state;
+    private readonly Op key;
+
+    internal EffectStateBag(PostEffects.PostEffectState state, Op key) => (this.state, this.key) = (state, key);
+
+    public Fin<Option<T>> Read<T>(string field) =>
+        key.AcceptText(value: field).Bind(named => key.Catch(() =>
+            Fin.Succ(value: state.TryGetValue(name: named, vValue: out T held) ? Optional(held) : Option<T>.None)));
+
+    public Fin<Unit> Write<T>(string field, T value) =>
+        key.AcceptText(value: field).Bind(named => key.Catch(() =>
+            key.Confirm(success: state.SetValue(name: named, vValue: value))));
+}
+
+public sealed class EffectPass {
+    private readonly PostEffects.PostEffectPipeline pipeline;
+    private readonly Op key;
+
+    internal EffectPass(PostEffects.PostEffectPipeline pipeline, Offset2i origin, Size2i extent, Op key) =>
+        (this.pipeline, Origin, Extent, this.key) = (pipeline, origin, extent, key);
+
+    public Offset2i Origin { get; }
+    public Size2i Extent { get; }
+    public Fin<Size2i> Frame => key.Catch(() => Size2i.Of(width: pipeline.Dimensions().Width, height: pipeline.Dimensions().Height, key: key));
+    public bool GpuAllowed => pipeline.GPUAllowed;
+    public bool Rendering => pipeline.IsRendering;
+    public Fin<float> PeakLuminance => key.Catch(() => Fin.Succ(value: pipeline.GetMaxLuminance()));
+    public Fin<Seq<EffectId>> Order => key.Catch(() => Fin.Succ(value: toSeq(pipeline.ExecutionOrder()).Map(EffectId.Create)));
+
+    public Fin<TOut> Read<TOut>(RenderChannel channel, Func<ChannelView, Fin<TOut>> borrow, Op? key = null) =>
+        Borrowed(channel: channel, write: false, borrow: borrow, key: key.OrDefault(this.key));
+
+    // `Commit` alone replaces the written channel's id in the chain, so a failed body leaves the prior channel standing.
+    public Fin<Unit> Write(RenderChannel channel, Func<ChannelView, Fin<Unit>> body, Op? key = null) {
+        Op op = key.OrDefault(this.key);
+        return Borrowed(channel: channel, write: true, borrow: view => body(view), key: op, commit: true);
+    }
+
+    // A texture id outlives nothing: the handle is borrowed inside the `ChannelGPU` bracket and only the body's own value crosses out.
+    public Fin<TOut> Handle<TOut>(RenderChannel channel, Func<GpuHandle, Fin<TOut>> borrow, Op? key = null) {
+        Op op = key.OrDefault(this.key);
+        return guard(GpuAllowed, op.InvalidContext()).ToFin().Bind(_ => op.Catch(() => {
+            using PostEffects.PostEffectChannel port = pipeline.GetChannelForRead(id: channel.Id);
+            return Optional(port).ToFin(Fail: op.MissingContext()).Bind(active => {
+                using RenderWindow.ChannelGPU? texture = active.GPU();
+                return Optional(texture).ToFin(Fail: op.InvalidResult()).Bind(held =>
+                    from technology in op.Row(GpuTechnology.Items, held.DisplayTechnology, static row => row.Key)
+                    from extent in Size2i.Of(width: held.Width(), height: held.Height(), key: op)
+                    from taken in borrow(technology.Key switch {
+                        Rhino.Display.DisplayTechnology.OpenGL =>
+                            (GpuHandle)new GpuHandle.OpenGlCase(Texture: held.TextureHandleOpenGL(), Extent: extent, PixelSize: held.PixelSize()),
+                        Rhino.Display.DisplayTechnology.Metal =>
+                            new GpuHandle.MetalCase(Texture: held.TextureHandleMetal(), Extent: extent, PixelSize: held.PixelSize()),
+                        _ => new GpuHandle.UnbackedCase(Technology: technology),
+                    })
+                    select taken);
+            });
+        }));
+    }
+
+    public Fin<Unit> CopyDown(RenderChannel channel, Op? key = null) {
+        Op op = key.OrDefault(this.key);
+        return guard(GpuAllowed, op.InvalidContext()).ToFin().Bind(_ => op.Catch(() => {
+            using PostEffects.PostEffectChannel source = pipeline.GetChannelForRead(id: channel.Id);
+            using PostEffects.PostEffectChannel sink = pipeline.GetChannelForWrite(id: channel.Id);
+            return from live in Optional(source).ToFin(Fail: op.MissingContext())
+                   from target in Optional(sink).ToFin(Fail: op.MissingContext())
+                   from texture in Optional(live.GPU()).ToFin(Fail: op.InvalidResult())
+                   from pixels in Optional(target.CPU()).ToFin(Fail: op.InvalidResult())
+                   from _copied in op.Catch(() => Op.Side(() => { using (texture) using (pixels) { texture.CopyTo(channel: pixels); } }))
+                   from _committed in op.Catch(() => Op.Side(target.Commit))
+                   select unit;
+        }));
+    }
+
+    // Host truth: the progress report is the cancellation channel — a refused report is the user's cancel and halts the pixel loop.
+    public Fin<Unit> Advance(int rows, Op? key = null) {
+        Op op = key.OrDefault(this.key);
+        return guard(rows >= 0, op.InvalidInput()).ToFin()
+            .Bind(_ => op.Catch(() => Op.Side(() => ((IProgress<int>)pipeline).Report(value: rows))));
+    }
+
+    private Fin<TOut> Borrowed<TOut>(
+        RenderChannel channel, bool write, Func<ChannelView, Fin<TOut>> borrow, Op key, bool commit = false) =>
+        Frame.Bind(frame => key.Catch(() => {
+            using PostEffects.PostEffectChannel port = write
+                ? pipeline.GetChannelForWrite(id: channel.Id)
+                : pipeline.GetChannelForRead(id: channel.Id);
+            return Optional(port).ToFin(Fail: key.MissingContext()).Bind(active => {
+                using RenderWindow.Channel? pixels = active.CPU();
+                return Optional(pixels).ToFin(Fail: key.InvalidResult())
+                    .Bind(view => borrow(new ChannelView(channel: view, extent: frame, key: key)))
+                    .Bind(done => commit
+                        ? key.Catch(() => Op.Side(active.Commit)).Map(_ => done)
+                        : Fin.Succ(value: done));
+            });
+        }));
+}
+
+// Each concrete subclass declares stage, name, styles, timing, and delay on its own `[CustomPostEffect]` attribute, which the
+// host reads at construction, so this base holds behavior alone and a subclass adds only that attribute and its program field.
+public abstract class EffectHost : PostEffects.PostEffect {
+    private readonly EffectProgram program;
+    private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
+    private readonly Op key;
+
+    protected EffectHost(EffectProgram program, Op? key = null) =>
+        (this.program, this.key) = (program, key.OrDefault(Op.Of(name: nameof(EffectHost))));
+
+    public Seq<Error> Faults => faults.Value;
+
+    public override Guid[] RequiredChannels => program.Required.Map(static row => row.Id).ToArray();
+
+    // The admit predicate runs before the host supplies a rectangle, so the frame it sees is the pipeline's own declared
+    // extent — a fabricated 1x1 origin-anchored rect would be a value no producer measured.
+    public override bool CanExecute(PostEffects.PostEffectPipeline pipeline) =>
+        program.Admits.Match(
+            Some: admits => Accept(Frame(pipeline).Bind(rect => Pass(pipeline, rect)).Bind(admits)),
+            None: () => true);
+
+    public override bool Execute(PostEffects.PostEffectPipeline pipeline, System.Drawing.Rectangle rect) =>
+        Accept(Pass(pipeline, rect).Bind(pass => program.Execute(pass).Map(static _ => true)));
+
+    public override bool ReadState(PostEffects.PostEffectState state) =>
+        Accept(key.Catch(() => program.Read(new EffectStateBag(state: state, key: key))).Map(static _ => true));
+
+    public override bool WriteState(ref PostEffects.PostEffectState state) {
+        PostEffects.PostEffectState held = state;
+        return Accept(key.Catch(() => program.Write(new EffectStateBag(state: held, key: key))).Map(static _ => true));
+    }
+
+    public override void ResetToFactoryDefaults() => ignore(Accept(key.Catch(program.Reset).Map(static _ => true)));
+
+    public override bool GetParam(string param, ref object v) {
+        object? read = null;
+        bool found = Accept(key.AcceptText(value: param)
+            .Bind(named => key.Catch(() => program.Param(named)))
+            .Map(value => value.Match(Some: held => (read = held) is not null, None: static () => false)));
+        v = found ? read! : v;
+        return found;
+    }
+
+    public override bool SetParam(string param, object v) => Accept(key.AcceptText(value: param)
+        .Bind(named => Optional(v).ToFin(Fail: key.InvalidInput()).Map(value => (Named: named, Value: value)))
+        .Bind(row => key.Catch(() => program.Tune(row.Named, row.Value)))
+        .Map(static _ => true));
+
+    public override void AddUISections(PostEffects.PostEffectUI ui) =>
+        ignore(program.Sections.Iter(seat => ignore(Accept(key.Catch(() => seat(ui)).Map(static _ => true)))));
+
+    public override bool DisplayHelp() => program.Help.Match(
+        Some: show => Accept(key.Catch(show).Map(static _ => true)),
+        None: static () => false);
+
+    // The host publishes its own frame extent, so a pass minted without a supplied rectangle reads that rather than a
+    // fabricated one — the same read `EffectPass.Frame` performs.
+    private Fin<System.Drawing.Rectangle> Frame(PostEffects.PostEffectPipeline pipeline) =>
+        Optional(pipeline).ToFin(Fail: key.MissingContext()).Bind(active => key.Catch(() =>
+            active.Dimensions() is var frame && frame.Width > 0 && frame.Height > 0
+                ? Fin.Succ(new System.Drawing.Rectangle(0, 0, frame.Width, frame.Height))
+                : Fin.Fail<System.Drawing.Rectangle>(error: key.InvalidResult())));
+
+    private Fin<EffectPass> Pass(PostEffects.PostEffectPipeline pipeline, System.Drawing.Rectangle rect) =>
+        from active in Optional(pipeline).ToFin(Fail: key.MissingContext())
+        from origin in Offset2i.Of(x: rect.X, y: rect.Y, key: key)
+        from extent in Size2i.Of(width: rect.Width, height: rect.Height, key: key)
+        select new EffectPass(pipeline: active, origin: origin, extent: extent, key: key);
+
+    private bool Accept(Fin<bool> result) => result.Match(
+        Succ: static value => value,
+        Fail: failure => { ignore(faults.Swap(rows => rows.Add(failure))); return false; });
+}
+
+// The authoring half's own producer: a concrete effect is exactly this shape — one `[CustomPostEffect]` declaring stage,
+// name, styles, and timing, one program field, and nothing else. `UseExecutionControl` is what arms `RenderJob`'s gate;
+// every other timing runs on the host's own cadence and the gate decides nothing.
+[PostEffects.CustomPostEffect(
+    postEffectType: PostEffects.PostEffectType.Late,
+    name: "<effect-name>",
+    styles: PostEffects.PostEffectStyles.ExecuteForProductionRendering
+        | PostEffects.PostEffectStyles.ExecuteForRealtimeRendering
+        | PostEffects.PostEffectStyles.DefaultOn,
+    executeWhileRenderingOption: PostEffects.PostEffectExecuteWhileRenderingOptions.UseExecutionControl,
+    canDisplayHelp: false)]
+public sealed class ChannelEffect() : EffectHost(program: Program) {
+    private const string Gain = "<field-gain>";
+
+    private static EffectProgram Program { get; } = new(
+        Execute: static pass => pass.Read(RenderChannel.Rgba, view => pass.Write(RenderChannel.Rgba, sink =>
+            Iterable.createRange(Enumerable.Range(0, view.Extent.Height))
+                .Traverse(row => Iterable.createRange(Enumerable.Range(0, view.Extent.Width))
+                    .Traverse(column => Offset2i.Of(column, row)
+                        .Bind(at => view.Read(at).Bind(pixel => sink.Write(at, pixel))))
+                    .As()
+                    .Bind(_ => pass.Advance(rows: 1)))
+                .As()
+                .Map(static _ => unit))),
+        Read: static bag => bag.Read<double>(Gain).Map(static _ => unit),
+        Write: static bag => bag.Write(Gain, value: 1.0),
+        Reset: static () => Fin.Succ(unit),
+        Required: [RenderChannel.Rgba],
+        Param: static named => named == Gain ? Fin.Succ(Some<object>(1.0)) : Fin.Succ(Option<object>.None),
+        Tune: static (named, value) => named == Gain && value is double
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(error: Op.Of(name: nameof(ChannelEffect)).InvalidInput()),
+        Admits: static pass => pass.Frame.Map(static frame => frame.Width > 0 && frame.Height > 0));
+}
+
+// Host truth: `RegisterPostEffectExecutionControl` calls `Detach()` itself, so registration transfers the native control to
+// the window and the host retains only a WEAK reference to this instance — `RenderJob` holds the strong one for the job's
+// lifetime, because a collected gate silently answers `false` for every effect instead of faulting.
+internal sealed class PostEffectGate : PostEffects.PostEffectExecutionControl {
+    private readonly Func<EffectId, Fin<bool>> decide;
+    private readonly Func<Error, Unit> reject;
+    private readonly Op key;
+
+    internal PostEffectGate(Func<EffectId, Fin<bool>> decide, Func<Error, Unit> reject, Op key) =>
+        (this.decide, this.reject, this.key) = (decide, reject, key);
 
     public override bool ReadyToExecutePostEffect(Guid postEffectId) => key.Catch(() => decide(EffectId.Create(postEffectId))).Match(
         Succ: static value => value,
-        Fail: failure => { reject(failure); return false; });
+        Fail: failure => (reject(failure), false).Item2);
 }
 ```
 
@@ -1697,7 +2257,7 @@ public static class SceneMarks {
         SceneBatch batch,
         Canvas canvas,
         SpriteSheet sprites,
-        Func<MeshPatch, DisplayMaterial> material,
+        Func<MeshPatch, ShadedMaterial> material,
         Op? key = null) {
         Op op = key.OrDefault();
         return from source in Optional(batch).ToFin(op.InvalidInput())
@@ -1708,7 +2268,7 @@ public static class SceneMarks {
                select rendered;
     }
 
-    private static Seq<Mark> Project(Seq<SceneDelta> deltas, Func<MeshPatch, DisplayMaterial> material) => deltas
+    private static Seq<Mark> Project(Seq<SceneDelta> deltas, Func<MeshPatch, ShadedMaterial> material) => deltas
         .Bind(static delta => delta is SceneDelta.GeometryCase geometry ? geometry.Added : Seq<MeshDelta>())
         .Bind(static delta => delta.Patches)
         .Map(patch => (Mark)new Mark.World(Value: new WorldMark.MeshShaded(Value: patch.Geometry.Resource, Material: material(patch))))

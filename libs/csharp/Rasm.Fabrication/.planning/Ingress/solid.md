@@ -30,6 +30,7 @@ using Lib3MF;
 using LanguageExt;
 using LanguageExt.Common;
 using OcctNet.Wrapper;
+using QuikGraph.Collections;
 using Rasm.Domain;
 using Rasm.Fabrication.Process;
 using Rasm.Meshing;
@@ -442,11 +443,11 @@ public static partial class SolidImport {
 
 - Owner: `SolidMesh` is the sole detached millimeter carrier; `SolidTopology` owns incidence, shell, orientation, genus, and bounds measurement; `SolidWeldEvidence` retains the conditioning fold; `SolidRepairEvidence` retains the heal session; `SolidImportReceipt` is the settled evidence carrier every projection reads.
 - Entry: `SolidImport.Read(SolidSource)` returns one deferred `Eff<SolidImportReceipt>` folding byte read, format admission, provider read, unit resolution, conditioning, measurement, kernel admission, repair, and closure on one rail.
-- Auto: measurement runs edge census and triangle union-find in one sweep, deriving boundary, non-manifold, and unused counts, per-shell signed volume against a tolerance-cubed floor, Euler characteristic per shell, and genus only where the conditioned mesh is watertight AND oriented, so an open shell reports no genus rather than a fabricated one; `SolidFacePolicy` treats a collapsed, duplicate, or sliver face as data under `Drop` and names it through `SourceLocus.MeshFace` under `Reject`; `InputMesh` and `InputTopology` bind the conditioned snapshot while `Space` and `Repair.Session.FinalStatus` bind the possibly repaired one, so a repair never overwrites the input evidence a rejection cites; `SolidClosure` reads input topology or final heal status, so a healed source satisfies a watertight demand its unhealed input fails.
+- Auto: measurement runs edge census and the `ForestDisjointSet<int>` triangle-shell merge in one sweep, deriving boundary, non-manifold, and unused counts, per-shell signed volume against a tolerance-cubed floor, Euler characteristic per shell, and genus only where the conditioned mesh is watertight AND oriented, so an open shell reports no genus rather than a fabricated one; `SolidFacePolicy` treats a collapsed, duplicate, or sliver face as data under `Drop` and names it through `SourceLocus.MeshFace` under `Reject`; `InputMesh` and `InputTopology` bind the conditioned snapshot while `Space` and `Repair.Session.FinalStatus` bind the possibly repaired one, so a repair never overwrites the input evidence a rejection cites; `SolidClosure` reads input topology or final heal status, so a healed source satisfies a watertight demand its unhealed input fails.
 - Receipt: `SolidImportReceipt` carries the source digest minted from the file bytes through `ContentHash.Of`, the admitted format, `SolidUnitEvidence`, the conditioned input mesh with its weld evidence, input topology, the kernel `MeshSpace`, optional repair evidence, and the provider evidence with its exact bounds rescaled to millimeters.
-- Packages: `MeshSpace` owns kernel admission, `HealPlan` and `Heal` own repair and its session; `UnitsNet` carries volume, length, and area evidence; `LanguageExt.Core` owns the rails and immutable carriers.
+- Packages: `MeshSpace` owns kernel admission, `HealPlan` and `Heal` own repair and its session; `QuikGraph.Collections.ForestDisjointSet<int>` owns the triangle-to-shell partition and publishes its live `SetCount`; `UnitsNet` carries volume, length, and area evidence; `LanguageExt.Core` owns the rails and immutable carriers.
 - Growth: a new measured property is one `SolidTopology` field derived inside the one sweep; a new conditioning rule is one reason arm in the weld fold beside its `SolidDiagnostic.Degenerate` row; a new closure demand is one `SolidClosure` case with one predicate arm.
-- Boundary: vertex fusion, face admission, and the edge-census union-find sweep are the bounded statement kernels and every other fold is expression-shaped; `SolidTopology.Measure` throws structurally on a non-finite vertex, a non-triple index count, or an out-of-range index, and that throw is captured on the rail inside its own owner rather than escaping as an exception; `Native` is the one place a kernel `Mesh` is constructed and no kernel handle travels back out.
+- Boundary: vertex fusion, face admission, and the edge-census shell-partition sweep are the bounded statement kernels and every other fold is expression-shaped; `SolidTopology.Measure` throws structurally on a non-finite vertex, a non-triple index count, or an out-of-range index, and that throw is captured on the rail inside its own owner rather than escaping as an exception; `Native` is the one place a kernel `Mesh` is constructed and no kernel handle travels back out.
 
 ```csharp signature
 // --- [CANONICAL_OWNER] --------------------------------------------------------------------
@@ -601,7 +602,7 @@ public static partial class SolidImport {
 
     static Fin<double> Scale(Option<LengthUnit> declared, SolidUnitPolicy policy, SolidPath path) => policy.Switch(
         state: declared,
-        declared: static unit => unit.ToFin(Error.New("solid-unit:missing"))
+        declared: static (unit, _) => unit.ToFin(Error.New("solid-unit:missing"))
             .Map(value => Length.From(1d, value).Millimeters),
         assume: static (unit, assumed) => Fin.Succ(Length.From(1d, unit.IfNone(assumed.Unit)).Millimeters),
         @override: static (_, forced) => Fin.Succ(Length.From(1d, forced.Unit).Millimeters))
@@ -613,11 +614,11 @@ public static partial class SolidImport {
         Option<SolidRepairEvidence> repair,
         SolidPath path) => closure.Switch(
         state: (Topology: topology, Repair: repair, Path: path),
-        surface: static _ => Fin.Succ(unit),
-        manifold: static value => value.Topology.NonManifoldEdges == 0 || Healed(value.Repair)
+        surface: static (_, _) => Fin.Succ(unit),
+        manifold: static (value, _) => value.Topology.NonManifoldEdges == 0 || Healed(value.Repair)
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(Fault(value.Path, "solid-closure:non-manifold")),
-        watertight: static value => (value.Topology.Watertight && value.Topology.Oriented) || Healed(value.Repair)
+        watertight: static (value, _) => (value.Topology.Watertight && value.Topology.Oriented) || Healed(value.Repair)
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(Fault(value.Path, "solid-closure:open")));
 
@@ -654,14 +655,17 @@ public sealed partial record SolidTopology {
         public int Count => Forward + Reverse;
     }
 
-    // One sweep builds the edge incidence map AND the triangle union-find: a second pass over the faces would
-    // re-derive the shell partition the edge merge already produced, and the shell keys index both results.
+    // One sweep builds the edge incidence map AND the triangle shell partition: a second pass over the faces would
+    // re-derive the shell partition the edge merge already produced, and the shell keys index both results. The
+    // partition is QuikGraph's `ForestDisjointSet<int>` — union by rank with path compression, and `SetCount` is the
+    // live shell census, so the shell count never re-derives from a grouping of the volume rows.
     public static Fin<SolidTopology> Measure(SolidMesh mesh, Context context) => Try.lift(() => {
         if (mesh.Vertices.IsEmpty || mesh.TriangleIndices.IsEmpty || mesh.TriangleIndices.Count % 3 != 0
             || mesh.Vertices.Exists(static vertex => !double.IsFinite(vertex.X) || !double.IsFinite(vertex.Y) || !double.IsFinite(vertex.Z)))
             throw new InvalidDataException("solid-topology:structural");
 
-        int[] parent = Enumerable.Range(0, mesh.TriangleCount).ToArray();
+        ForestDisjointSet<int> shells = new(mesh.TriangleCount);
+        for (int triangle = 0; triangle < mesh.TriangleCount; triangle++) shells.MakeSet(triangle);
         Dictionary<Edge, EdgeUse> edges = [];
         HashSet<int> referenced = [];
         List<(int Triangle, double Volume)> volumes = [];
@@ -674,9 +678,9 @@ public sealed partial record SolidTopology {
             SolidVertex va = mesh.Vertices[a];
             SolidVertex vb = mesh.Vertices[b];
             SolidVertex vc = mesh.Vertices[c];
-            Add(edges, parent, triangle, a, b);
-            Add(edges, parent, triangle, b, c);
-            Add(edges, parent, triangle, c, a);
+            Add(edges, shells, triangle, a, b);
+            Add(edges, shells, triangle, b, c);
+            Add(edges, shells, triangle, c, a);
             referenced.Add(a);
             referenced.Add(b);
             referenced.Add(c);
@@ -686,9 +690,9 @@ public sealed partial record SolidTopology {
         int boundary = edges.Values.Count(static use => use.Count == 1);
         int nonManifold = edges.Values.Count(static use => use.Count > 2);
         int unused = mesh.Vertices.Count - referenced.Count;
-        Arr<(int Root, double Volume)> shellVolumes = volumes.GroupBy(row => Find(parent, row.Triangle))
+        Arr<(int Root, double Volume)> shellVolumes = volumes.GroupBy(row => shells.FindSet(row.Triangle))
             .Map(static group => (group.Key, group.Sum(static row => row.Volume))).ToArr();
-        Dictionary<int, int> shellBoundaries = edges.GroupBy(edge => Find(parent, edge.Value.Triangle))
+        Dictionary<int, int> shellBoundaries = edges.GroupBy(edge => shells.FindSet(edge.Value.Triangle))
             .ToDictionary(
                 static group => group.Key,
                 static group => group.Count(edge => edge.Value.Count == 1));
@@ -706,7 +710,7 @@ public sealed partial record SolidTopology {
             && edges.Values.ForAll(static use => use.Count < 2 || use is { Forward: 1, Reverse: 1 });
         bool watertight = boundary == 0 && nonManifold == 0 && zeroVolume == 0;
         int euler = Enumerable.Range(0, mesh.TriangleCount)
-            .GroupBy(triangle => Find(parent, triangle))
+            .GroupBy(triangle => shells.FindSet(triangle))
             .Sum(group => group
                 .SelectMany(triangle => new[] {
                     mesh.TriangleIndices[triangle * 3],
@@ -715,13 +719,13 @@ public sealed partial record SolidTopology {
                 })
                 .Distinct()
                 .Count()
-                - edges.Count(edge => Find(parent, edge.Value.Triangle) == group.Key)
+                - edges.Count(edge => shells.FindSet(edge.Value.Triangle) == group.Key)
                 + group.Count());
         return new SolidTopology(
             mesh.Vertices.Count, mesh.TriangleCount, edges.Count, boundary, nonManifold, unused,
-            shellVolumes.Count, inward, zeroVolume,
+            shells.SetCount, inward, zeroVolume,
             euler,
-            watertight && oriented ? Some((2 * shellVolumes.Count - euler) / 2) : None,
+            watertight && oriented ? Some((2 * shells.SetCount - euler) / 2) : None,
             Volume.FromCubicMillimeters(signedVolume), oriented, watertight,
             Bounds(mesh.Vertices));
     }).Run();
@@ -748,10 +752,10 @@ public sealed partial record SolidTopology {
 
     // Direction is per-USE, not per-edge: a manifold interior edge is traversed once forward and once reverse,
     // so the two counters are what distinguish a consistently oriented pair from a mirrored one.
-    static void Add(Dictionary<Edge, EdgeUse> edges, int[] parent, int triangle, int from, int to) {
+    static void Add(Dictionary<Edge, EdgeUse> edges, ForestDisjointSet<int> shells, int triangle, int from, int to) {
         Edge edge = Edge.Of(from, to);
         if (edges.TryGetValue(edge, out EdgeUse use)) {
-            Union(parent, triangle, use.Triangle);
+            shells.Union(triangle, use.Triangle);
             edges[edge] = from < to
                 ? use with { Forward = use.Forward + 1 }
                 : use with { Reverse = use.Reverse + 1 };
@@ -761,21 +765,6 @@ public sealed partial record SolidTopology {
                 ? new EdgeUse(1, 0, triangle)
                 : new EdgeUse(0, 1, triangle);
         }
-    }
-
-    static int Find(int[] parent, int value) {
-        while (parent[value] != value) {
-            parent[value] = parent[parent[value]];
-            value = parent[value];
-        }
-        return value;
-    }
-
-    static void Union(int[] parent, int left, int right) {
-        int a = Find(parent, left);
-        int b = Find(parent, right);
-        if (a != b)
-            parent[b] = a;
     }
 }
 ```
@@ -820,14 +809,14 @@ public abstract partial record SolidView {
 public static partial class SolidImport {
     public static SolidView Project(SolidImportReceipt receipt, SolidProjection projection) => projection.Switch(
         state: receipt,
-        space: static value => new SolidView.Space(value.Space),
-        inputMesh: static value => new SolidView.InputMesh(value.InputMesh),
-        inputTopology: static value => new SolidView.InputTopology(value.InputTopology),
-        bounds: static value => new SolidView.Bounds(value.Provider.Exact.IfNone(value.InputTopology.Bounds)),
-        units: static value => new SolidView.Units(value.Units),
-        diagnostics: static value => new SolidView.Diagnostics(value.Provider.Diagnostics),
-        repair: static value => new SolidView.Repair(value.Repair),
-        receipt: static value => new SolidView.Receipt(value));
+        space: static (value, _) => new SolidView.Space(value.Space),
+        inputMesh: static (value, _) => new SolidView.InputMesh(value.InputMesh),
+        inputTopology: static (value, _) => new SolidView.InputTopology(value.InputTopology),
+        bounds: static (value, _) => new SolidView.Bounds(value.Provider.Exact.IfNone(value.InputTopology.Bounds)),
+        units: static (value, _) => new SolidView.Units(value.Units),
+        diagnostics: static (value, _) => new SolidView.Diagnostics(value.Provider.Diagnostics),
+        repair: static (value, _) => new SolidView.Repair(value.Repair),
+        receipt: static (value, _) => new SolidView.Receipt(value));
 }
 ```
 

@@ -1,15 +1,15 @@
 # [MATERIALS_CONNECTOR]
 
-THE FRAMING-CONNECTOR SEED PAGE owns the `ComponentFamily.Connector` fold, manufacturer catalogue, directional resistance algebra, and host-neutral plate receipt. `ConnectorInstall` directly carries the attaching fastener's designation, canonical `FastenerKind`, allowable, shank diameter, and duration policy. Every row admits its published directional values and fastener-group fidelity before `Component.Of`, and `ConnectorCapacity.DemandRatio` rails unsupported demanded directions.
+THE FRAMING-CONNECTOR SEED PAGE owns the `ComponentFamily.Connector` fold, manufacturer catalogue, directional resistance algebra, and host-neutral plate receipt. `ConnectorInstall` carries the attaching fastener's designation, canonical `FastenerKind`, duration policy, and its closed `FastenerSource` — the typed `(ThreadRow, GradeRow)` currency a bolted install derives its allowable and shank from, or the tested ICC-ES columns a nailed or screwed install publishes. Every row admits its published directional values and fastener-group fidelity before `Component.Of`, and `ConnectorCapacity.DemandRatio` rails unsupported demanded directions.
 
 ## [01]-[INDEX]
 
-- [02]-[CONNECTOR_FAMILY]: the `LoadDirection` vocabulary, `ConnectorType` discriminant, `ConnectorInstall` attachment policy, frozen gauge/duration tables, admitted resistance and demand values, `ConnectorPlate` host receipt, typed catalogue, detail builder, and `ConnectorSeed.Rows` fold.
+- [02]-[CONNECTOR_FAMILY]: the `LoadDirection` vocabulary, `ConnectorType` discriminant, `ConnectorInstall` attachment policy over its closed `FastenerSource`, frozen gauge/duration tables, admitted resistance and demand values, `ConnectorPlate` host receipt, typed catalogue, detail builder, and `ConnectorSeed.Rows` fold.
 
 ## [02]-[CONNECTOR_FAMILY]
 
-- Owner: `ConnectorType` carries accessory identity, resisted directions, and plate dispatch; `ConnectorInstall` carries attaching-fastener policy directly; `LoadDirection` owns directional reads; `LoadResistance` and `LoadDemand` admit resistance and demand; `ConnectorRow` owns catalogue capacity; `ConnectorCapacity` owns the unit-check; `ConnectorPlate` carries host materialization; `ConnectorDetail` and `ConnectorSeed` own realization and construction.
-- Cases: type {`joist-hanger` (face-mount saddle — `SHOE`, seat-bearing download, resists download + uplift, builds `ConnectorPlate.Saddle`) · `framing-angle` (L-bend clip — `BRACKET`, resists uplift + lateral, builds `.Angle`) · `strap` (flat tension tie — `BRACKET`, uplift only, builds `.Strap`) · `hold-down` (shear-wall anchor — `ANCHORPLATE`, bolt-fastened, uplift only, builds `.AnchorPlate`)} × gauge {18/16/14/12/10 ga} × install {nailed (10d common — `NAIL`) · screwed (SD structural screw — `SCREW`) · bolted (through-bolt — `BOLT`)} — a connector is one `ConnectorRow` over one type, one `GaugeRow`, one `ConnectorInstall`, and its published fastener schedule, never a connector subtype.
+- Owner: `ConnectorType` carries accessory identity, resisted directions, and plate dispatch; `ConnectorInstall` carries attaching-fastener policy over the closed `FastenerSource` (derived from the typed thread/grade currency or published as tested columns); `LoadDirection` owns directional reads; `LoadResistance` and `LoadDemand` admit resistance and demand; `ConnectorRow` owns catalogue capacity; `ConnectorCapacity` owns the unit-check; `ConnectorPlate` carries host materialization; `ConnectorDetail` and `ConnectorSeed` own realization and construction.
+- Cases: type {`joist-hanger` (face-mount saddle — `SHOE`, seat-bearing download, resists download + uplift, builds `ConnectorPlate.Saddle`) · `framing-angle` (L-bend clip — `BRACKET`, resists uplift + lateral, builds `.Angle`) · `strap` (flat tension tie — `BRACKET`, uplift only, builds `.Strap`) · `hold-down` (shear-wall anchor — `ANCHORPLATE`, bolt-fastened, uplift only, builds `.AnchorPlate`)} × gauge {18/16/14/12/10 ga} × install {nailed (10d common — `NAIL`, published) · screwed (SD structural screw — `SCREW`, published) · bolted (5/8-in A325 through-bolt — `BOLT`, derived)} — a connector is one `ConnectorRow` over one type, one `GaugeRow`, one `ConnectorInstall`, and its published fastener schedule, never a connector subtype.
 - Entry: `ConnectorSeed.Rows(context)` traverses each row through `Allowable`, `SectionProfile.Rectangle.Of`, and `Component.Of`. `ConnectorRow.GovernedCapacity(duration, key)` scales only admitted resisted values. `ConnectorCapacity.DemandRatio(demand, key)` returns the maximum supported-direction ratio on `Fin` and faults when positive demand targets an unresisted direction. `ConnectorRow.Plate` dispatches host materialization through `ConnectorType.BuildPlate`.
 - Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (`MaterialId`, `DetailSchema`, `PropertyBag`, the SI `Dimension` axis the bag mints over), Rasm.Materials.Component (the parent owner: `Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile.Rectangle.Of` the railed profile admission/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + comparer accessors for the type/direction/install vocabularies, `[UseDelegateFromConstructor]` for the direction reads and the plate builder, `[ComplexValueObject]` for `LoadResistance`, `[Union]` for `ConnectorPlate`), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`.As()`/`guard`), BCL (`ImmutableArray`, `FrozenSet`). No structural-connector package exists among admitted surfaces (VividOrange is member-catalogue + EN-grade scope; the AISI/NDS bodies have no typed code object), so the rows are AUTHORED/PUBLISHED in-fence and the citations ride `ComponentAuthority.Aisi` plus per-column provenance.
 - Growth: a new connector is one `ConnectorRow` entry (typed vocabulary refs, published allowables + the report's fastener schedule); a new gauge one `GaugeRow`; a new duration case one `DurationRow`; a new connector class one `ConnectorType` row reusing an existing plate builder (a twist-strap reuses `BuildStrap`); a new attachment one `ConnectorInstall` row; a new resisted-load direction one `LoadDirection` row — its delegate columns force every read site to answer at compile time — never a per-connector type, never a parallel per-direction member family. A new host body form is one `ConnectorPlate` case plus one builder.
@@ -118,19 +118,51 @@ public sealed partial class ConnectorType {
         Stock: Sheet(r));
 }
 
-// The attachment policy: the per-fastener datum the row's schedule multiplies plus the wood-duration sensitivity
-// flag the Cd scaling reads (a bolted hold-down passes unscaled).
+// The attachment policy over the TYPED fastener currency: a bolted install binds the fastener#FASTENER_FAMILY
+// `(ThreadRow, GradeRow)` pair its through-bolt actually is, so its per-fastener allowable is the sibling family's
+// exact double-shear `Fastening.ShearCapacityKn` over the real 5/8-in stress area and A325 grade band — never the
+// hardcoded 18.0 kN literal for an "ungraded through-bolt", and never a shank diameter re-spelling
+// `ThreadRow.MajorMm`. The nailed and screwed installs bind their published ICC-ES per-fastener allowable and shank
+// diameter as columns, because those values have NO computed source (an evaluation-report nail value is a tested
+// allowable, not a derivation) — the Option column IS the discriminant, so `PerFastenerKn` and `ShankDiameterMm` are
+// PROJECTIONS over one source each, and `ConnectorRow.FastenerGroupAllowableKn` and `ConnectorType`'s hole diameters
+// both read them.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConnectorInstall {
-    public static readonly ConnectorInstall Nailed  = new("nailed",  fastenerDesignation: "10d-common",   fastenerKind: FastenerKind.Nail,  perFastenerKn: 0.62, shankDiameterMm: 3.76,   durationSensitive: true);
-    public static readonly ConnectorInstall Screwed = new("screwed", fastenerDesignation: "sd9-screw",    fastenerKind: FastenerKind.Screw, perFastenerKn: 1.05, shankDiameterMm: 4.50,   durationSensitive: true);
-    public static readonly ConnectorInstall Bolted  = new("bolted",  fastenerDesignation: "through-bolt", fastenerKind: FastenerKind.Bolt,  perFastenerKn: 18.0, shankDiameterMm: 15.875, durationSensitive: false);
+    public static readonly ConnectorInstall Nailed  = new("nailed",  fastenerDesignation: "10d-common",   fastenerKind: FastenerKind.Nail,  source: new FastenerSource.Published(perFastenerKn: 0.62, shankDiameterMm: 3.76), durationSensitive: true);
+    public static readonly ConnectorInstall Screwed = new("screwed", fastenerDesignation: "sd9-screw",    fastenerKind: FastenerKind.Screw, source: new FastenerSource.Published(perFastenerKn: 1.05, shankDiameterMm: 4.50), durationSensitive: true);
+    public static readonly ConnectorInstall Bolted  = new("bolted",  fastenerDesignation: "through-bolt", fastenerKind: FastenerKind.Bolt,  source: new FastenerSource.Threaded(Threads.In0625, Grades.A325), durationSensitive: false);
     public string FastenerDesignation { get; }
     public FastenerKind FastenerKind { get; }
-    public double PerFastenerKn { get; }
-    public double ShankDiameterMm { get; }
+    public FastenerSource Source { get; }
     public bool DurationSensitive { get; }
+
+    const double ShearPlanes = 2.0;   // a through-bolt in a hold-down bears in double shear (connector sheet + carried member)
+
+    // ONE per-fastener allowable, TOTAL over the closed source: a threaded install COMPUTES its double-shear capacity
+    // through the sibling family's own gross-shank projection over the real stress area and grade band, a published
+    // install reads its evaluation-report column. No absence branch and no fallback exist — the union is the totality.
+    public double PerFastenerKn => Source.Switch(
+        threaded: static s => ShearPlanes * Fastening.ShearCapacityKn(s.Thread, s.Grade, ShearPlane.Shank),
+        published: static s => s.PerFastenerKn);
+
+    // The shank the plate hole and the anchor-bolt hole size from: the thread's OWN published major diameter for a
+    // threaded install (never a re-spelled literal), the published shank for a plain one.
+    public double ShankDiameterMm => Source.Switch(
+        threaded: static s => s.Thread.MajorMm,
+        published: static s => s.ShankDiameterMm);
+}
+
+// The closed attaching-fastener SOURCE: a threaded install carries the fastener#FASTENER_FAMILY typed currency the
+// design value derives from; a published install carries the tested ICC-ES columns that HAVE no computed source (an
+// evaluation-report nail or screw allowable is a tested value, never a derivation). Each case carries exactly the
+// evidence its arm consumes, so neither projection has a fallback and a third source is one case plus two arms.
+[Union]
+public abstract partial record FastenerSource {
+    private FastenerSource() { }
+    public sealed record Threaded(ThreadRow Thread, GradeRow Grade) : FastenerSource;
+    public sealed record Published(double PerFastenerKn, double ShankDiameterMm) : FastenerSource;
 }
 
 // AISI S100 cold-formed sheet row — PUBLISHED base-metal (uncoated) and design (as-formed) thickness, the gauge-band
@@ -202,7 +234,10 @@ public abstract partial record ConnectorPlate {
     public sealed record AnchorPlate(double SeatWidthMm, double SeatHeightMm, double StandoffMm, double AnchorBoltHoleDiameterMm, PlateStock Stock) : ConnectorPlate(Stock);
 }
 
-// The duration-adjusted allowable receipt the design seam reads.
+// The duration-adjusted allowable receipt the design seam reads: capacity#SECTION_CAPACITY lifts it as
+// CapacityReceipt.Connector onto the Connection case's one Check(demand) rail — seat-borne download Cd-exempt,
+// uplift and lateral Cd-scaled — so a hanger and the member it hangs report through one governing-action fold, and
+// DemandRatio stays the direction-typed row-local read, never a parallel verdict surface.
 public readonly record struct ConnectorCapacity(ConnectorType Type, double DownloadKn, double UpliftKn, double LateralKn, double Cd) {
     public double GoverningKn {
         get { ConnectorCapacity self = this; return Type.Resists.Min(direction => direction.Adjusted(self)); }
@@ -381,9 +416,4 @@ public static class ConnectorSeed {
 
 ## [03]-[RESEARCH]
 
-- [SEED_FOLD]: REALIZED — the fault-swallowing `Choose` fold and the string-keyed row table are retired: `Connectors.Rows` carries typed vocabulary references (`ConnectorType`/`GaugeRow`/`ConnectorInstall` symbolic refs, deleting the `TryGet` re-resolution and its unknown-key fault cases), and `ConnectorSeed.Rows` `Traverse`s every row through the ONE `Allowable` admission, the railed `SectionProfile.Rectangle.Of`, then `Component.Of` into `Fin<Seq<ComponentRow>>` (`Sectioned: false`), so a malformed row ABORTS the build instead of vanishing. The bespoke `ConnectorSection` payload and its section arm are deleted: the carried-member fit is `SectionProfile.Rectangle` gross state, the IFC stamp is `IfcBinding.Of("IfcDiscreteAccessory", type.IfcAccessoryType)` with the separate attaching-fastener token riding the bag (`AccessoryType`/`FastenerType` tokens + `CarriedMemberWidth`/`CarriedMemberDepth` dimension-only mints — the `FastenerType` value reads the install schedule, correcting the type-level `NAILPLATE` misstamp). The 23 designations (`connector.jh-2x6-18ga` .. `connector.holdown-hdu14-10ga`) and every published allowable survive verbatim, widened by the report's `Fasteners` schedule column (PUBLISHED — the same ICC-ES table row).
-- [DIRECTION_VOCABULARY]: `LoadDirection` owns the per-axis resistance, demand, adjustment, and seat-bearing reads. `LoadResistance` admits finite positive resisted values and exact zero unresisted values. `ConnectorCapacity.DemandRatio(LoadDemand, Op)` returns `Fin<double>` and faults when positive demand targets an unresisted direction; unsupported load cannot become an infinity sentinel. The cross-family utilisation verdict is the `capacity#SECTION_CAPACITY` `Connection` case: `CapacityReceipt.Connector(ConnectorCapacity)` lifts the duration-governed columns (seat-borne download Cd-exempt, uplift/lateral Cd-scaled) onto the one `Check(demand)` rail, so a hanger and the member it hangs report through one governing-action fold — `DemandRatio` stays the direction-typed row-local read, never a parallel verdict surface.
-- [ROW_TABLE_CONVERSION]: `GaugeRow` and `DurationRow` remain frozen printed-data tables. `ConnectorInstall` stays a policy `[SmartEnum]` and carries its fastener columns directly; no wrapper or runtime lookup separates the schedule from its consumers.
-- [CAPACITY_OWNER]: REALIZED — the design algebra rides the typed `ConnectorRow`: `Allowable(key)` is the single admission of the published three-direction columns through the `LoadResistance` `[ComplexValueObject]` gated by the type-level resisted set (a strap row declaring a nonzero download, a hanger row missing one, or a connector resisting nothing rails `ComponentFault.Dimension` — the unresisted-column-must-be-zero arm makes the transcription gate total, never a silently-ignored value) plus the schedule fidelity gate — every fastener-transferred resisted allowable proven within `Fasteners·PerFastenerKn` (the seat-borne hanger download exempt via `LoadDirection.SeatBorne`), a published value no schedule can deliver railing the disjoint `ComponentFault.Capacity` at seed. The prior runtime `Math.Min(published, bound)` capping is the DELETED form: a fixed 10-nail group bound and a member-width `Fy·t` cap arithmetically falsified certified rows (`jh-6x10-12ga` 26.7 kN collapsed to 8.4; `strap-cmst16` 24.5 to 6.2) — an ICC-ES allowable is the certified SYSTEM capacity, never lowered by a re-derived cap, so the bounds became admission proofs (the per-row `Fasteners` schedule, PUBLISHED) and a seam datum (`AxialSectionCapacityKnPerMm`, the `Rasm.Compute` developed-width read). `GovernedCapacity(duration, key)` scales the admitted values by `Cd` only for a duration-sensitive wood-driven install; `ConnectorCapacity.DemandRatio` owns the unit-check on the receipt (it reads no row state — the fold rides the capacity, not the row). The `ConnectorPlate` `[Union]` and the `ConnectorType.BuildPlate` delegate column are kept re-typed over the row, the shared sheet/forming/hole-schedule columns collapsed into ONE `PlateStock` product carried as union base state (the `SectionProfile` gross-fact pattern — the per-form repetition of `SheetThicknessMm`/`BendRadiusMm`/`HoleDiameterMm`/`HoleCount`/`HolePitchMm` across four builders is the deleted form), every remaining plate field tracing to row columns plus the AISI `1.5·t` forming radius and the fastener shank — the host-neutral receipt the host materializes, never a brep here.
-- [STANDARD_CITATION]: REALIZED as authority rows — the AISI S100 and NDS bodies have no typed code object among admitted packages (the typed standards floor is EN/Eurocode-only), so the citation is `ComponentAuthority.Aisi` on the rows' `ComponentStandard` plus per-column provenance; a typed AISI/NDS citation lands as one column swap if a producer is ever admitted, with the fastener page's typed `En1993Part.Part1_8` pattern the template.
-- [IFC_DISCRETE_ACCESSORY_WIRE]: REALIZED — a framing connector round-trips as `IfcDiscreteAccessory` over the verified `IfcDiscreteAccessoryTypeEnum` tokens {`SHOE`, `BRACKET`, `ANCHORPLATE`}, fastened by a SEPARATE `IfcMechanicalFastener` over the verified {`NAIL`, `SCREW`, `BOLT`} tokens the install schedule stamps, related at the `Rasm.Bim` egress (the prior type-level `NAILPLATE` on nailed hangers/straps was a misstamp — a hanger is nailed, not a toothed mending plate); the `IfcDesignation` column is the `ObjectType` discriminant read past the predefined enum. This page emits only the portable token columns and the bag rows the connection reader recovers one-hop; the per-token egress gate validates every string against the generated roster, so entity choice and Pset naming stay Bim-owned.
+(none)

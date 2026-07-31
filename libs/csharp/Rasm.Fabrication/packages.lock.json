@@ -178,12 +178,6 @@
           "SSH.NET": "2024.0.0"
         }
       },
-      "SharpVoronoiLib": {
-        "type": "Direct",
-        "requested": "[1.2.0, )",
-        "resolved": "1.2.0",
-        "contentHash": "OQdSdzc5IlC3Sv/Wd8FEJCzm4AUxW4ivN4yze42/44I2hZVb+qHuE8cyRVrY5LIOrg1RxC2kuVJTpmWGn85y2g=="
-      },
       "System.IO.Hashing": {
         "type": "Direct",
         "requested": "[10.0.10, )",

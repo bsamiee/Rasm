@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_GRAPHIC_RASTER_PROCESS]
 
-Produced-raster behavior and shared raster vocabulary live here. `Transform` names the operation sub-axis; `TransformNeeds` states payload timing; `TransformPolicy` carries closed per-family parameters; `ColorSpace` bounds generic conversion names; `TransformInput` admits image, reference, mask, or source payloads without absent-field ghosts; `TransformArm` binds provider member, policy, disposition, and acceptor; `RasterFact`, `ConvertFormat`, and `Frame` complete the substrate. `io → measure → process` remains the raster import direction. pillow carries the working families, and scikit-image carries denoising, restoration, color, exposure, segmentation, graph, morphology, thresholding, geometry, filtering, and measurement behind its manifest interpreter marker.
+Produced-raster behavior and shared raster vocabulary live here. `Transform` names the operation sub-axis; `TransformNeeds` states payload timing; `TransformPolicy` carries closed per-family parameters, its generic conversion pair keyed on the canonical `graphic/color/derive#DERIVE` `ColorModel` and lowered through `_SKIMAGE_SPACE`; `TransformInput` admits image, reference, mask, or source payloads without absent-field ghosts; `TransformArm` binds provider member, policy, disposition, field law, and acceptor; `FieldLaw`, `FieldSpec`, `RasterFact`, `ConvertFormat`, and `Frame` complete the substrate. `io → measure → process` remains the raster import direction. pillow carries the working families, and scikit-image carries denoising, restoration, color, exposure, segmentation, graph, morphology, thresholding, geometry, filtering, and measurement behind its manifest interpreter marker.
 
 Each acceptor is a pure NumPy/PIL transform. `graphic/raster/io#IO` owns its `(ValueError, OSError, KeyError)` rail, `lane.offload` crossing, and uint8 admission. Source cases bypass decode and carry only `Transform` with `TransformPolicy`; image, reference, and mask cases carry the admitted `Frame` with exactly their required operand.
 
@@ -10,13 +10,13 @@ Each acceptor is a pure NumPy/PIL transform. `graphic/raster/io#IO` owns its `(V
 
 ## [02]-[PROCESS]
 
-- Owner: `Transform`, `TransformNeeds`, `TransformPolicy`, `ColorSpace`, `TransformInput`, `TransformArm`, `ConvertFormat`, `Frame`, and `RasterFact` form one raster substrate. `TransformPolicy` is the closed parameter algebra; `TransformArm.options` selects its seed or a complete typed override before materializing provider kwargs. `TransformInput` is the closed payload-timing family: `image`, `reference`, `mask`, and `source` each admit only their fields. `TRANSFORMS` and `graphic/raster/measure#MEASURE`'s `MEASURE_TRANSFORMS` share `Final[frozendict[Transform, TransformArm]]`, so `io` composes one lookup with each member in exactly one table.
+- Owner: `Transform`, `TransformNeeds`, `TransformPolicy`, `FieldLaw`, `FieldSpec`, `TransformInput`, `TransformArm`, `ConvertFormat`, `Frame`, and `RasterFact` form one raster substrate. `TransformPolicy` is the closed parameter algebra; `TransformArm.options` selects its seed or a complete typed override before materializing provider kwargs. `TransformInput` is the closed payload-timing family: `image`, `reference`, `mask`, and `source` each admit only their fields. `TRANSFORMS` and `graphic/raster/measure#MEASURE`'s `MEASURE_TRANSFORMS` share `Final[frozendict[Transform, TransformArm]]`, so `io` composes one lookup with each member in exactly one table. The generic-conversion axis is NOT a page-local enum: `TransformPolicy.colorspace` keys on `graphic/color/derive#DERIVE`'s canonical `ColorModel` and `_SKIMAGE_SPACE` lowers it onto the space names `convert_colorspace` admits, so a model with no row refuses at `admitted` rather than raising inside a worker.
 - Cases: five pillow acceptors own channel algebra, band math, enhancement, LUT application, generated gradients/noise/mandelbrot, and spread. Ten scikit-image acceptors own denoising, restoration, color, exposure, segmentation, graph, morphology, threshold, geometry, and filtering. `TransformPolicy` cases preserve each provider's parameter arity and value types; `TransformArm.accepts` rejects a policy from another family before dispatch.
 - Auto: each acceptor matches its admitted `TransformInput` case, resolves `TransformArm.options(policy)`, and re-dispatches only where provider signatures differ. `TransformPolicy.provider` is the sole typed-policy-to-kwargs boundary. `_denoise` adds estimated noise, `_restore` builds the PSF, `_morphology` resolves `MorphKind`, `_filter` resolves `FilterChannel`, `_threshold` separates scalar and multilevel cuts, `_segment` and `_graph` resolve their structural results, and `_geometric` constructs fixed-arity coordinate payloads. Every closed match ends in `assert_never`.
-- Receipt: each acceptor folds into the canonical `RasterFact` declared here — the scikit arms through `_save_array`, the robust display-normalizer that passes a uint8/bool/`[0, 1]`-float array straight to `img_as_ubyte` and `rescale_intensity`s every out-of-range float or label array to `[0, 1]` first, so an edge magnitude past `1.0`, a negative Laplacian, or a multi-Otsu label field re-encodes without a per-acceptor min-max; the pillow arms through `_save_pillow`, folding `ImageStat.Stat` luminance `mean`/`stddev` under the acceptor's own stamp. Every numeric stamp is a native `float` because `RasterFact.score` is the exact `frozendict[str, float | str]` band `core/receipt#RECEIPT` `ArtifactReceipt.Preview.scores` carries — io threads `fact.score` with no coerce.
-- Growth: a provider member adds one `Transform` value and one row carrying `member`, acceptor, `TransformPolicy`, dispositions, and `TransformNeeds`; a new parameter shape adds one `TransformPolicy` case with its total `provider` arm. New payload timing extends `TransformInput` and `TransformNeeds` together with `io`'s constructor arm.
-- Packages: `pillow` (`ImageChops`/`ImageMath`/`ImageStat`/`ImageEnhance`/`ImageFilter.Color3DLUT`/`Image.linear_gradient`/`radial_gradient`/`effect_noise`/`effect_mandelbrot`/`effect_spread` — the ungated engine); `scikit-image` (the ten families at the members the rows name, census-gated on the pythran/gast 3.15 AST break, never wheel absence); `numpy` (operand algebra, `frombuffer`/`digitize`/`ptp`); `msgspec` (`Struct` the `RasterFact` wire shape); stdlib `dataclasses`/`enum`/`io`.
-- Boundary: no IO/convert/thumbnail/montage working surface and no policy above the vocabulary — the codec-POLICY rows binding `ConvertFormat` → per-engine writer/save-args stay `graphic/raster/io#IO`'s `_CODEC`, and the `needs` gate EXECUTES there while each row DECLARES its own requirement here, so a reference-consuming transform never depends on a roster a foreign page hand-maintains. `Frame` is `uint8` whole: `ConvertFormat` names DISPLAY containers at display depth, and the 16-bit, half, and float lanes of the same codec families — EXR, 16-bit PNG, float TIFF, half JXL, 12-bit AVIF — are the deep-pixel texture plane's, never a widened member here, because an 8-bit intermediate on a texture path quantizes silently. No measurement half: the `_measure`/`_register`/`_metrics` acceptors that PRODUCE scores rather than a transformed raster are `graphic/raster/measure#MEASURE`'s, importing this substrate and contributing `MEASURE_TRANSFORMS`. Rejected forms: a per-provider-call sibling, a parallel acceptor per member, a mutable module dispatch dict, a `.get(key, magic)` body default, a second requirement roster beside the row's `needs`, and a re-declaration of any vocabulary owner here are the rejected forms — `RasterFact` is the plane's ONE fact shape (`marks/encode`'s minimal twin resolves to this canonical). `_save_array`, `_luminance`, and `_channels` are the plane's shared worker-side substrate: `graphic/raster/measure#MEASURE` composes all three by import, and `media/analysis#ANALYSIS` composes `_save_array` as its rendered-frame PNG egress.
+- Receipt: each acceptor folds into the canonical `RasterFact` declared here — the scikit arms through `_save_array`, the robust display-normalizer that passes a uint8/bool/`[0, 1]`-float array straight to `img_as_ubyte` and `rescale_intensity`s every out-of-range float or label array to `[0, 1]` first, so an edge magnitude past `1.0`, a negative Laplacian, or a multi-Otsu label field re-encodes without a per-acceptor min-max; the pillow arms through `_save_pillow`, folding `ImageStat.Stat` luminance `mean`/`stddev` under the acceptor's own stamp. That normalizer is exactly why a measurement needs a second carrier: the row's `FieldLaw` decides whether the rescale is lossless framing or destruction, and a `QUANTITATIVE` row rides `_fielded` so the pre-rescale octets leave on `RasterFact.field` beside the preview. Every numeric stamp is a native `float` because `RasterFact.score` is the exact `frozendict[str, float | str]` band `core/receipt#RECEIPT` `ArtifactReceipt.Preview.scores` carries — io threads `fact.score` with no coerce and projects the field's dtype, rank, and octet length as scalars beside it.
+- Growth: a provider member adds one `Transform` value and one row carrying `member`, acceptor, `TransformPolicy`, dispositions, `TransformNeeds`, and `FieldLaw`; a new parameter shape adds one `TransformPolicy` case with its total `provider` arm; a new generic-conversion space is one `ColorModel` row at the canonical owner plus one `_SKIMAGE_SPACE` lowering row here. New payload timing extends `TransformInput` and `TransformNeeds` together with `io`'s constructor arm. A `QUANTITATIVE` row lands only on an acceptor whose array IS the measurement — `_restore` and `_geometric` here, `_measure` and `_register` on the measure sibling — and those four read `law=row.field`; a mask, overlay, boundary, or label acceptor is display-referred by construction and its rows cannot be quantitative.
+- Packages: `pillow` (`ImageChops`/`ImageMath`/`ImageStat`/`ImageEnhance`/`ImageFilter.Color3DLUT`/`Image.linear_gradient`/`radial_gradient`/`effect_noise`/`effect_mandelbrot`/`effect_spread` — the ungated engine); `scikit-image` (the ten families at the members the rows name, census-gated on the pythran/gast 3.15 AST break, never wheel absence); `numpy` (operand algebra, `ascontiguousarray`/`frombuffer`/`digitize`/`ptp`); `msgspec` (`Struct` plus the `UNSET` presence sentinel the `RasterFact`/`FieldSpec` wire shapes carry); `graphic/color/derive#DERIVE` (`ColorModel`, the canonical conversion vocabulary); stdlib `dataclasses`/`enum`/`io`.
+- Boundary: no IO/convert/thumbnail/montage working surface and no policy above the vocabulary — the codec-POLICY rows binding `ConvertFormat` → per-engine writer/save-args stay `graphic/raster/io#IO`'s `CODEC`, and the `needs` gate EXECUTES there while each row DECLARES its own requirement here, so a reference-consuming transform never depends on a roster a foreign page hand-maintains. `Frame` is `uint8` whole: `ConvertFormat` names DISPLAY containers at display depth, and the 16-bit, half, and float lanes of the same codec families — EXR, 16-bit PNG, float TIFF, half JXL, 12-bit AVIF, 16-bit JP2 — are the deep-pixel texture plane's, never a widened member here, because an 8-bit intermediate on a texture path quantizes silently. `FieldSpec` is that law's escape hatch and stays on the right side of it: the octets carry a dtype string rather than a plane type, because the strata bar this page from naming one and bar the texture plane from importing this one, so a consumer owning BOTH planes lifts the octets into its own carrier and no import crosses in either direction. No measurement half: the `_measure`/`_register`/`_metrics` acceptors that PRODUCE scores rather than a transformed raster are `graphic/raster/measure#MEASURE`'s, importing this substrate and contributing `MEASURE_TRANSFORMS`. Rejected forms: a per-provider-call sibling, a parallel acceptor per member, a mutable module dispatch dict, a `.get(key, magic)` body default, a second requirement roster beside the row's `needs`, and a re-declaration of any vocabulary owner here are the rejected forms — `RasterFact` is the plane's ONE fact shape (`marks/encode`'s minimal twin resolves to this canonical). `_save_array`, `_luminance`, and `_channels` are the plane's shared worker-side substrate: `graphic/raster/measure#MEASURE` composes all three by import, and `media/analysis#ANALYSIS` composes `_save_array` as its rendered-frame PNG egress.
 
 ```python signature
 from builtins import frozendict
@@ -28,8 +28,10 @@ from typing import Final, Literal, assert_never
 
 import numpy as np
 from expression import case, tag, tagged_union
-from msgspec import Struct
+from msgspec import UNSET, Struct, UnsetType
 from numpy.typing import NDArray
+
+from rasm.artifacts.graphic.color.derive import ColorModel
 
 lazy from PIL import Image, ImageChops, ImageEnhance, ImageFilter, ImageMath, ImageStat
 lazy from skimage import color, exposure, feature, filters, graph, io as skio, measure, morphology, restoration, segmentation, transform, util
@@ -205,11 +207,13 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     CONTINGENCY = "contingency"  # metrics.contingency_table label-overlap (reference-consuming)
 
 
-class ConvertFormat(StrEnum):  # the canonical container key; each provider spelling rides its own `graphic/raster/io#IO` `_CODEC` writer column
+class ConvertFormat(StrEnum):  # the canonical container key; each provider spelling rides its own `graphic/raster/io#IO` `CODEC` writer column
     PNG = "PNG"
     JPEG = "JPEG"
     WEBP = "WEBP"
     AVIF = "AVIF"
+    HEIF = "HEIF"  # the HEVC-in-HEIF sibling of AVIF, libvips-only: pillow registers no HEIF saver at any build
+    JP2 = "JP2"  # JPEG 2000 at display depth over openjpeg; the 12- and 16-bit JP2 lanes are the texture plane's
     GIF = "GIF"
     TIFF = "TIFF"
     BMP = "BMP"
@@ -224,16 +228,13 @@ class TransformNeeds(StrEnum):  # the operand-requirement axis a row states on i
     SOURCE = "source"  # a generated frame owns no decoded operand
 
 
-class ColorSpace(StrEnum):
-    RGB = "RGB"
-    HSV = "HSV"
-    RGB_CIE = "RGB CIE"
-    XYZ = "XYZ"
-    YUV = "YUV"
-    YIQ = "YIQ"
-    YPBPR = "YPbPr"
-    YCBCR = "YCbCr"
-    YDBDR = "YDbDr"
+class FieldLaw(StrEnum):
+    # WHAT an acceptor's array MEANS, and therefore whether the display PNG is the whole product. The discriminant is
+    # the referent, exactly as the bit-depth ruling states it — a render is display-referred and a measurement is not.
+    DISPLAY = "display"  # the render IS the product; the `[0, 1]` rescale to `img_as_ubyte` loses nothing
+    QUANTITATIVE = "quantitative"  # the ABSOLUTE scale is the result — a projection sinogram, a tensor trace, a shape
+    # index, a flow magnitude, a deconvolved intensity, an unwrapped phase — so the pre-rescale field rides beside the
+    # preview and the 8-bit PNG is a thumbnail OF it, never the value; one 8-bit ladder recovers none of those.
 
 
 class FilterChannel(StrEnum):
@@ -254,12 +255,40 @@ class MorphKind(StrEnum):
     FLOOD = "flood"  # seeded flood fill from a row-declared seed point
 
 
-class RasterFact(Struct, frozen=True):
+class FieldSpec(Struct, frozen=True, gc=False):
+    # the UNQUANTIZED measurement field beside the display PNG: contiguous octets plus the shape and dtype a consumer
+    # rebuilds the array from through `np.frombuffer(...).reshape(...)`. The carrier is OCTETS, never a widened `Frame`
+    # and never a texture type — the strata forbid `graphic/raster` naming one — so the deep consumer that owns both
+    # planes lifts these bytes into its own carrier at the boundary and no import crosses in either direction.
+    data: bytes
+    shape: tuple[int, ...]
+    dtype: str
+
+
+class RasterFact(Struct, frozen=True, omit_defaults=True):
     # plane's ONE fact shape; the score band is the exact frozendict[str, float | str] ArtifactReceipt.Preview.scores carries
     data: bytes
     width: int = 0
     height: int = 0
     score: frozendict[str, float | str] = frozendict()
+    field: FieldSpec | UnsetType = UNSET  # set by a QUANTITATIVE acceptor alone; `omit_defaults` round-trips its absence
+
+
+_SKIMAGE_SPACE: Final[frozendict[ColorModel, str]] = frozendict({
+    # The DOWNSTREAM lowering of the canonical `graphic/color/derive#DERIVE` vocabulary onto the space names
+    # `color.convert_colorspace` admits — the same shape every other consumer of that vocabulary takes, so no page-local
+    # colour enum forks the axis a third time. A model with no row is a space skimage's generic converter cannot reach,
+    # and `admitted` refuses the pair by table membership rather than letting `provider` KeyError inside a worker.
+    ColorModel.SRGB: "RGB",
+    ColorModel.HSV: "HSV",
+    ColorModel.RGB_CIE: "RGB CIE",
+    ColorModel.XYZ: "XYZ",
+    ColorModel.YUV: "YUV",
+    ColorModel.YIQ: "YIQ",
+    ColorModel.YPBPR: "YPbPr",
+    ColorModel.YCBCR: "YCbCr",
+    ColorModel.YDBDR: "YDbDr",
+})
 
 
 @tagged_union(frozen=True)
@@ -279,7 +308,7 @@ class TransformPolicy:
     deconvolution: tuple[int, int] = case()
     wiener: tuple[int, float] = case()
     psf: int = case()
-    colorspace: tuple[ColorSpace, ColorSpace] = case()
+    colorspace: tuple[ColorModel, ColorModel] = case()
     markers: int = case()
     iterations: int = case()
     rag: tuple[int, float] = case()
@@ -323,8 +352,10 @@ class TransformPolicy:
         # every float-bearing payload proves finiteness before its range check — an infinity satisfies `>`/`>=`/`!=`
         # and would cross into the provider; an int payload cannot carry one, so the int arms stay range-only.
         match self:
-            case TransformPolicy(tag="default") | TransformPolicy(tag="none") | TransformPolicy(tag="colorspace"):
+            case TransformPolicy(tag="default") | TransformPolicy(tag="none"):
                 return True
+            case TransformPolicy(tag="colorspace", colorspace=(source, target)):
+                return source in _SKIMAGE_SPACE and target in _SKIMAGE_SPACE
             case TransformPolicy(tag="angle", angle=value):
                 return bool(np.isfinite(value))
             case TransformPolicy(tag="projective", projective=values):
@@ -415,7 +446,7 @@ class TransformPolicy:
             case TransformPolicy(tag="psf", psf=value):
                 return frozendict({"psf": value})
             case TransformPolicy(tag="colorspace", colorspace=(source, target)):
-                return frozendict({"fromspace": source.value, "tospace": target.value})
+                return frozendict({"fromspace": _SKIMAGE_SPACE[source], "tospace": _SKIMAGE_SPACE[target]})
             case TransformPolicy(tag="markers", markers=value):
                 return frozendict({"markers": value})
             case TransformPolicy(tag="iterations", iterations=value):
@@ -513,6 +544,7 @@ class TransformArm:
     channel: FilterChannel = FilterChannel.GRAY  # read only by _filter; the per-member operand/channel-axis disposition
     morph: MorphKind = MorphKind.BINARY_FOOTPRINT  # read only by _morphology; the per-member operand/footprint disposition
     needs: TransformNeeds = TransformNeeds.NONE  # the operand requirement io's gate reads; the row, never a foreign roster
+    field: FieldLaw = FieldLaw.DISPLAY  # whether the acceptor's array is a render or a measurement; `_save_array` reads it
 
     def accepts(self, override: TransformPolicy, /) -> bool:
         selected = self.policy if override.tag == "default" else override
@@ -530,7 +562,24 @@ def _luminance(frame: Frame, /) -> NDArray[np.floating]:
     return color.rgb2gray(frame) if frame.ndim == 3 else util.img_as_float(frame)
 
 
-def _save_array(array: NDArray[np.floating | np.integer | np.bool_], score: frozendict[str, float | str], /) -> RasterFact:
+def _fielded(array: NDArray[np.floating | np.integer | np.bool_], law: FieldLaw, /) -> FieldSpec | UnsetType:
+    # The pre-rescale capture: a QUANTITATIVE acceptor's absolute scale survives as contiguous octets beside the display
+    # PNG, so a sinogram, a tensor trace, a shape index, a phase field, a flow magnitude, and a deconvolved intensity
+    # each reach a deep consumer intact where the display re-encode flattens every one onto a 256-step ladder no later
+    # depth recovers. A DISPLAY row captures nothing, so the fact stays exactly the size the preview needs.
+    match law:
+        case FieldLaw.QUANTITATIVE:
+            contiguous = np.ascontiguousarray(array)
+            return FieldSpec(data=contiguous.tobytes(), shape=contiguous.shape, dtype=str(contiguous.dtype))
+        case FieldLaw.DISPLAY:
+            return UNSET
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _save_array(
+    array: NDArray[np.floating | np.integer | np.bool_], score: frozendict[str, float | str], /, *, law: FieldLaw = FieldLaw.DISPLAY
+) -> RasterFact:
     framed = (
         array
         if array.dtype in (np.uint8, np.bool_)
@@ -540,7 +589,7 @@ def _save_array(array: NDArray[np.floating | np.integer | np.bool_], score: froz
     image = Image.fromarray(util.img_as_ubyte(framed))
     sink = BytesIO()
     image.save(sink, format=ConvertFormat.PNG.value)
-    return RasterFact(sink.getvalue(), *image.size, score)
+    return RasterFact(sink.getvalue(), *image.size, score, _fielded(array, law))
 
 
 def _save_pillow(image: "Image.Image", score: frozendict[str, float | str], /) -> RasterFact:
@@ -662,16 +711,16 @@ def _restore(tx: TransformInput) -> RasterFact:
             # `richardson_lucy` admits no `channel_axis` (catalog row [07]); the deconvolution family operates
             # on the luminance plane exactly as its Wiener siblings — color-plane policy is the dispatch axis.
             image, iters = util.img_as_float(_luminance(frame)), int(opts["num_iter"])
-            return _save_array(member(image, _psf(opts), num_iter=iters), frozendict({"iterations": float(iters)}))
+            return _save_array(member(image, _psf(opts), num_iter=iters), frozendict({"iterations": float(iters)}), law=row.field)
         case Transform.WIENER:
             balance = float(opts["balance"])
-            return _save_array(member(_luminance(frame), _psf(opts), balance), frozendict({"balance": balance}))
+            return _save_array(member(_luminance(frame), _psf(opts), balance), frozendict({"balance": balance}), law=row.field)
         case Transform.UNSUPERVISED_WIENER:
             restored, _chains = member(_luminance(frame), _psf(opts))
-            return _save_array(restored, frozendict({"self_tuned": 1.0}))
+            return _save_array(restored, frozendict({"self_tuned": 1.0}), law=row.field)
         case Transform.UNWRAP_PHASE:
             unwrapped = member(_luminance(frame))
-            return _save_array(unwrapped, frozendict({"range": float(np.ptp(unwrapped))}))
+            return _save_array(unwrapped, frozendict({"range": float(np.ptp(unwrapped))}), law=row.field)
         case Transform.ROLLING_BALL:
             # float operand: a uint8 subtraction wraps on any pixel darker than its background estimate
             image = util.img_as_float(frame)
@@ -886,7 +935,7 @@ def _geometric(tx: TransformInput) -> RasterFact:
             warped = member(_luminance(image))
         case _ as unreachable:
             assert_never(unreachable)
-    return _save_array(warped, frozendict({"shape": "x".join(str(dim) for dim in warped.shape[:2])}))
+    return _save_array(warped, frozendict({"shape": "x".join(str(dim) for dim in warped.shape[:2])}), law=row.field)
 
 
 def _filter(tx: TransformInput) -> RasterFact:
@@ -924,13 +973,15 @@ TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
     Transform.DENOISE_WAVELET: TransformArm("denoise_wavelet", _denoise),
     Transform.INPAINT: TransformArm("inpaint_biharmonic", _restore, needs=TransformNeeds.MASK),
     Transform.ROLLING_BALL: TransformArm("rolling_ball", _restore, TransformPolicy(radius=50)),
-    Transform.DECONVOLVE: TransformArm("richardson_lucy", _restore, TransformPolicy(deconvolution=(5, 10))),
-    Transform.WIENER: TransformArm("wiener", _restore, TransformPolicy(wiener=(5, 0.1))),
-    Transform.UNSUPERVISED_WIENER: TransformArm("unsupervised_wiener", _restore, TransformPolicy(psf=5)),
-    Transform.UNWRAP_PHASE: TransformArm("unwrap_phase", _restore),
+    # the deconvolution family and the phase unwrap each return an ABSOLUTE intensity or radian field, so the row marks
+    # the fact quantitative and the acceptor emits the pre-rescale octets beside the preview
+    Transform.DECONVOLVE: TransformArm("richardson_lucy", _restore, TransformPolicy(deconvolution=(5, 10)), field=FieldLaw.QUANTITATIVE),
+    Transform.WIENER: TransformArm("wiener", _restore, TransformPolicy(wiener=(5, 0.1)), field=FieldLaw.QUANTITATIVE),
+    Transform.UNSUPERVISED_WIENER: TransformArm("unsupervised_wiener", _restore, TransformPolicy(psf=5), field=FieldLaw.QUANTITATIVE),
+    Transform.UNWRAP_PHASE: TransformArm("unwrap_phase", _restore, field=FieldLaw.QUANTITATIVE),
     Transform.SEPARATE_STAINS: TransformArm("separate_stains", _color),
     Transform.COMBINE_STAINS: TransformArm("combine_stains", _color),
-    Transform.CONVERT_COLORSPACE: TransformArm("convert_colorspace", _color, TransformPolicy(colorspace=(ColorSpace.RGB, ColorSpace.HSV))),
+    Transform.CONVERT_COLORSPACE: TransformArm("convert_colorspace", _color, TransformPolicy(colorspace=(ColorModel.SRGB, ColorModel.HSV))),
     Transform.YCBCR: TransformArm("rgb2ycbcr", _color),
     Transform.RGB2HSV: TransformArm("rgb2hsv", _color),
     Transform.RGB2LAB: TransformArm("rgb2lab", _color),
@@ -1017,8 +1068,10 @@ TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
         "warp", _geometric,
         TransformPolicy(projective=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
     ),
-    Transform.RADON: TransformArm("radon", _geometric),
-    Transform.IRADON: TransformArm("iradon", _geometric),
+    # the projection pair's sinogram and reconstruction ARE the measurement — the angle-by-offset absolute scale is the
+    # result a tomographic consumer reads, and the display PNG is a thumbnail of it
+    Transform.RADON: TransformArm("radon", _geometric, field=FieldLaw.QUANTITATIVE),
+    Transform.IRADON: TransformArm("iradon", _geometric, field=FieldLaw.QUANTITATIVE),
     Transform.CHOPS_MULTIPLY: TransformArm("multiply", _chops, needs=TransformNeeds.REFERENCE),
     Transform.CHOPS_SCREEN: TransformArm("screen", _chops, needs=TransformNeeds.REFERENCE),
     Transform.CHOPS_OVERLAY: TransformArm("overlay", _chops, needs=TransformNeeds.REFERENCE),
@@ -1057,16 +1110,19 @@ config:
 ---
 flowchart LR
     accTitle: Raster transform flow
-    accDescr: The io transform arm crossing the worker seam, row acceptance under policy and the needs gate, TransformInput dispatch across the pillow and scikit-image acceptors, and the canonical RasterFact egress.
-    Tx["graphic/raster/io: transform arm (worker seam via lane.offload, HOSTILE trait)"] --> Table["row accepts policy + needs gate"]
+    accDescr: The io transform arm crossing the worker seam, row acceptance under policy and the needs gate, TransformInput dispatch across the pillow and scikit-image acceptors, the field-law split at the array save, and the canonical RasterFact egress.
+    Tx["graphic/raster/io: transform arm (worker seam via lane.offload, HOSTILE trait)"] --> Table["row accepts policy (colorspace pair proved against _SKIMAGE_SPACE) + needs gate"]
     Table --> Input["TransformInput: image | reference | mask | source"]
     Input --> Pil["5 pillow acceptors: _chops / _math / _enhance / _grade / _source (+ ImageStat facts via _save_pillow)"]
     Input --> Ski["10 scikit-image acceptors: _denoise / _restore / _color / _expose / _segment / _graph / _morphology / _threshold / _geometric / _filter"]
     Pil --> SaveP["_save_pillow (ImageStat.Stat mean/stddev + PNG re-encode)"]
     Ski --> SaveA["_save_array (robust rescale_intensity -> img_as_ubyte + PNG re-encode)"]
+    SaveA --> Law["_fielded(row.field)"]
+    Law -->|"DISPLAY"| Fact
+    Law -->|"QUANTITATIVE"| Field["FieldSpec: pre-rescale contiguous octets + shape + dtype"]
+    Field --> Fact
     SaveP --> Fact["canonical RasterFact + native float|str score band"]
-    SaveA --> Fact
-    Fact --> Receipt["graphic/raster/io: ArtifactReceipt.Preview(key, width, height, bytes_, scores)"]
+    Fact --> Receipt["graphic/raster/io: ArtifactReceipt.Preview(key, width, height, bytes_, scores + field evidence)"]
 ```
 
 ## [03]-[RESEARCH]

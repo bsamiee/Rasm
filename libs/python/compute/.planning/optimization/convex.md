@@ -33,7 +33,7 @@ from rasm.compute.solvers.receipt import SolveStatus
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary, traversed
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] -------------------------------------------------------------------------------
@@ -186,24 +186,32 @@ class ConvexProgram:
 _CEILING: Final[Map[str, float]] = Map.of_seq([("duality_gap", 1e-8), ("primal_infeasibility", 1e-8), ("dual_infeasibility", 1e-8)])
 
 
-async def solve(program: ConvexProgram, lane: LanePolicy) -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
-    # `.bind`-flatten joins the solve fence and the railed digest onto one rail; the weave owns span, fence, and receipt harvest.
+async def solve(program: ConvexProgram, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
+    # `.bind`-flatten joins the solve fence and the railed digest onto one rail; the weave owns span, fence, and receipt
+    # harvest under the caller's composition key, defaulted so the root call shape stays scope-free.
     async def dispatch() -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
         return (await lane.offload(Kernel.of(_sweep, KernelTrait.RELEASING), program)).bind(lambda rail: rail)
 
     facts = {"program": program.tag, "binds": len(program.policy.binds)}
-    return await evidence_run(EvidenceScope.CONVEX, f"convex.{program.tag}", dispatch, facts=facts)
+    return await evidence_run(EvidenceScope.CONVEX, f"convex.{program.tag}", dispatch, facts=facts, composition=composition)
 
 
-def graduates(receipt: ConvexReceipt) -> "RuntimeRail[GraduationReceipt]":
-    # KKT triple is the ledger the hub clears against the family ceiling — a gap above tolerance is an admission rejection.
+def graduates(receipt: ConvexReceipt, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[GraduationReceipt]":
+    # KKT triple is the ledger the hub clears against the family ceiling — a gap above tolerance is an admission
+    # rejection. This is the one producer reaching the hub without the shared solver-axis projection, because the
+    # `convex_program` axis is its own crossing, so it threads the composition key onto `graduates` directly.
     ledger = {
         "duality_gap": receipt.evidence.duality_gap,
         "primal_infeasibility": receipt.evidence.primal_infeasibility,
         "dual_infeasibility": receipt.evidence.dual_infeasibility,
     }
     return GraduationReceipt.graduates(
-        EvidenceScope.CONVEX.value, HandoffAxis(convex_program=receipt.program), receipt.content_key, ledger, dict(_CEILING.items())
+        EvidenceScope.CONVEX.value,
+        HandoffAxis(convex_program=receipt.program),
+        receipt.content_key,
+        ledger,
+        dict(_CEILING.items()),
+        composition=composition,
     )
 
 

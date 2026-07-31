@@ -22,23 +22,22 @@ This page mints the python-produced document: `AssetSetManifest`, the ingest and
 - Law: `MipPolicy.ROUGHNESS_VARIANCE` is a TWO-OPERAND fold and the roster's own policy for five roughness roles, so the paired normal channel is a staged operand and a plan edge, not a lookup. Sets carrying no normal map degrade that role to `BOX` — the declared quality floor — rather than failing a complete set on a channel its author never wrote.
 - Law: a set-level admission proves what no single plane can: every map agrees on extent within a tile, the power-of-two demand when `pot` is set, one normal convention across both normal channels, no `pq`/`hlg` transfer on any channel plane, a `heightScale` present exactly when a `height` map is, no role appearing both standalone and inside a pack, and AT MOST ONE `<variant>` axis across the whole set.
 - Law: `pq` and `hlg` REFUSE on a channel plane. `plane#PLANE` admits them because an environment capture is display-referred; a bake target is scene-referred and a display-referred bake forks the shading value from the stored value. That refusal lands here, at the set, because the plane cannot know which product it belongs to — and it reads `MapSpec.space`, the spec's own DECLARED stored transfer, because the role tables carry `linear`, `srgb`, and `raw` alone and a refusal testing only their projection can never fire.
-- Law: `tiled` enters the spec from classification or a caller declaration and rides straight to the manifest field — this producer synthesizes no tiling and measures none, so the flag admits only what arrives with its own provenance.
+- Law: `tiled` is a PROVED property or false, and this page publishes the EVIDENCE without minting the verdict. The flag still enters from classification or from a caller declaration carrying its own provenance; `tile_score` measures the seam agreement over the roles that carry it — worst axis, worst lag, each seam step judged against the plane's own ordinary interior step rather than an absolute scale — and the number rides the receipt beside the flag, ABSENT where no seam-bearing role reached the probe, because a bare zero there is the worst point on the scale a consumer thresholds and would libel every set carrying neither base colour nor height. What this page will NOT do is threshold it: separating a seam-coherent plane from a cut one needs a cut-off calibrated against the estate's real texture families, a constant asserted ahead of that calibration is the unearned guarantee the flag's own ruling forecloses, and the frozen wire carries the flag to every consumer that would then skip its own check. The measurement is honest, the verdict stays the caller's, and the calibration is a `[04]` research row.
 - Law: an ATLAS is a PLANE-level sharing fact — N sets referencing one blob by content address — never a set-level merge behind one key. Two materials sharing one packed sheet each carry their own manifest and their own key, and the shared plane appears in both under the same digest; merging them into one set forks every consumer that binds one material.
 - Entry: `TextureSet.emit` ADMITS then schedules — it returns `Result`, so an inadmissible spec refuses before a single node burns rather than after the whole fan drains — and `TextureSet.assembled` folds. Arity is a value property of `SetSpec.maps`, never a `batch` knob; a one-slot set and a forty-slot set take the same call and differ only in the node count the plan receives.
-- Auto: `SetSpec.admitted` runs every set-level gate before a single node is scheduled, so the worker interior is total over admitted requests and no arm re-proves an extent. `MapSpec.admitted` proves the storage triple against the SAME `plane#PLANE` row the encode runs through — the slot's component count against `CodecRow.widths`, the depth against `depths`, the transfer against `spaces` under the depth-conditional resolution — so a per-container arm restating one row's shape law never exists here.
+- Auto: `SetSpec.admitted` runs every set-level gate before a single node is scheduled, so the worker interior is total over admitted requests and no arm re-proves an extent. `MapSpec.admitted` proves the storage triple against the SAME `plane#PLANE` row the encode runs through — the slot's component count against `DeepCodecRow.widths`, the depth against `depths`, the transfer against `spaces` under the depth-conditional resolution — so a per-container arm restating one row's shape law never exists here.
 - Auto: `default_spec` DERIVES a slot's storage target from its own law row — a color channel takes the 16-bit lossless container, an unbounded, signed, or solver-grade channel the float one, a pack the four-component integer row — so an ingest bridge hands in overrides alone and a classified slot no caller table anticipated still produces. The `bounded` column is what routes an index of refraction, a nanometre film thickness, a millimetre scattering radius, and an absolute `cd/m²` luminance away from an integer container: `quantized` clips to `[0, 1]`, so each of them wrote a plane of pure white with no error anywhere. `_mip_policy` is the ONE effective-policy resolution both the variant-axis gate and the worker's fold read.
 - Auto: `of_classification` projects every resolved CANDIDATE, not a caller table — one source per tile, the bytes the caller supplies keyed by the classifier's own leaf names, and the transfer chain each candidate's flags demand. `classify` reads headers and never bytes, so the caller that walked the directory carries them and this page still opens no file; a slot whose bytes never arrived degrades to its neutral rather than naming a leaf nothing wrote. `height_scale` enters HERE as a caller value, because a millimetre span is not a fact any filename carries and the set-level gate that demands one otherwise refuses every height-bearing directory the bridge builds.
-- Receipt: `ArtifactReceipt.Texture(key, kind, width, height, maps, bytes_, facts)` serves BOTH altitudes under a non-overlapping `bytes_` split — one per slot carrying its own plane bytes with `maps` at one and the plane's evidence on the band, and one per set carrying the manifest document's own size with `maps` at the produced count, the plane total demoted to the `plane_bytes` band fact, the environment sh scalars when the `ibl` leg fills, and the `deterministic` fact `_FLOOR` decides. Re-summing containers at set level enters `rasm.artifact.byte_volume` a second time and inflates the governed distribution by the fan width. Each per-map `map` band IS one produced FILE's `MapEntry` preimage — role, file, digest, color space, depth, container, channels, mips, ktx payload, byte length, tool, and tool version are exactly the facts recorded, since a band missing two of the keys the fold reads leaves the assembly inventing them — and the assembly GROUPS a ladder's bands into one entry's level-ordered `PlaneRef` list under the plane-levels law while a UDIM tile keeps its own entry. The band carries its own `variant` beside them, so a UDIM sheet and a pyramid ladder order by index rather than by drain completion. Namespace `_BAND` reads `map`, so every entry projects as `map.<fact>` and shadows no fixed name.
+- Receipt: `ArtifactReceipt.Texture(key, kind, width, height, maps, bytes_, mips, texels, facts)` serves BOTH altitudes under a non-overlapping `bytes_` split. `mips` and `texels` are FIXED slots, not band facts: they are the two texture signals carrying real operational trend — pyramid depth and delivered texel volume — and a band fact cannot graduate to a governed metric, so a texture regression trended only inside a benchmark run while every other producer's volume metered in production. The encode leg stays on the band, because it is a dimension rather than a measure — one per slot carrying its own plane bytes with `maps` at one and the plane's evidence on the band, and one per set carrying the manifest document's own size with `maps` at the produced count, the plane total demoted to the `plane_bytes` band fact, the environment sh scalars when the `ibl` leg fills, and the `deterministic` fact `_FLOOR` decides. Re-summing containers at set level enters `rasm.artifact.byte_volume` a second time and inflates the governed distribution by the fan width. Each per-map `map` band IS one produced FILE's `MapEntry` preimage — role, file, digest, color space, depth, container, channels, mips, ktx payload, byte length, tool, and tool version are exactly the facts recorded, since a band missing two of the keys the fold reads leaves the assembly inventing them — and the assembly GROUPS a ladder's bands into one entry's level-ordered `PlaneRef` list under the plane-levels law while a UDIM tile keeps its own entry. The band carries its own `variant` beside them, so a UDIM sheet and a pyramid ladder order by index rather than by drain completion. Namespace `_BAND` reads `map`, so every entry projects as `map.<fact>` and shadows no fixed name.
 - Packages: runtime `lanes`/`workers`/`identity`/`faults` (the crossing, the merkle key, the boundary conversion); `core/plan` (`ArtifactWork`, `Admission`, `Fed`/`Product` — the ladder's shared-intermediate leg); `core/receipt` (`ArtifactReceipt.Texture`); runtime `transport/shapes` (`AssetSetManifest`, `MapEntry`, `PackEntry`, `IblEntry` — the wire structs whose `PROTO_VOCABULARY` row is the codec registry's input); this sub-domain's own `plane`, `derive`, and `ingest`; stdlib `subprocess`, `tempfile`, and `contextlib` for the provisioned `ktx` spawn and its per-level inputs alone.
 - Growth: a new set kind is one `SetKind` row with one manifest `kind` value; a new source modality is one `MapSource` case with one worker arm; a new slot vocabulary is one `ingest#INGEST` member with its law row, which `_ROSTER`, `default_spec`, `emit`, and the egress grammar all pick up unedited; a new set-level gate is one `admitted` arm breaking every capture at type-check; a new producing tool or license class is one `ProducerTool` or `LicenseClass` row, re-frozen in the fragment first.
-- Boundary: durable stores stay peer-owned and cross at the content-keyed wire — this page imports no object egress, and the branch strata carry no such edge. Directory walking and host paths stay at the app root; the manifest's `source` field carries an ingest root or a generator id, never an absolute host path. Eight-bit previews of a produced plane stay `graphic/raster/io#IO`'s `RasterOp`; USD material authoring stays `scene/stage#STAGE`'s.
+- Boundary: durable stores stay peer-owned and cross at the content-keyed wire — this page imports no object egress, and the branch strata carry no such edge. Directory walking and host paths stay at the app root; the manifest's `source` field carries an ingest root or a generator id, never an absolute host path. Eight-bit previews of a produced plane stay `graphic/raster/io#IO`'s `RasterOp`. USD material AUTHORING and render-actor binding stay their own owners' — but the role-to-slot LOWERING is this page's, because it is a projection of this page's own roster onto a foreign token vocabulary: each consuming page holds its graph and its own slot roster while holding no channel roster to project FROM, and its foreign-token law is exactly why the table cannot sit there. A chromaticity MOVE and every ICC or config transform stay `graphic/color/managed#MANAGED`'s; this page declares the datum and routes the conversion, never composing it.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
-from contextlib import ExitStack
+from dataclasses import dataclass
 from functools import partial
-from shutil import which
 from subprocess import run as spawn
 from tempfile import NamedTemporaryFile
 from typing import Final, Literal, assert_never
@@ -54,10 +53,11 @@ from msgspec import Struct
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy, Work
+from rasm.runtime.profiles import KTX_TOOL, resolved
 from rasm.runtime.transport.shapes import AssetSetManifest, IblEntry, MapEntry, PackEntry, PlaneRef
 from rasm.runtime.workers import Kernel, KernelTrait
 
-from rasm.artifacts.core.plan import Admission, ArtifactWork, Fed, Product
+from rasm.artifacts.core.plan import Admission, ArtifactWork, Fed, Product, ProductFact, ProductSink
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.texture.derive import (
     _DERIVE, ChannelPack, DeriveChain, DeriveOp, NormalConvention, chained, derived, signed_decoded, signed_encoded,
@@ -66,8 +66,9 @@ from rasm.artifacts.graphic.texture.ingest import (
     _NORMAL_ROLES, _PACK_MEMBERS, _UDIM_FLOOR, Candidate, Classification, IblProduct, MapSlot, TextureRole, Udim, slot_law,
 )
 from rasm.artifacts.graphic.texture.plane import (
-    DEEP_CODEC, PLANE_FMT, AlphaMode, DeepFormat, DeepPlane, EncodePolicy, Extent, KtxLeg, KtxPayload, MipPolicy, PlaneDepth, PlaneSpace, TextureFault,
-    converted, decode, encode, ktx_leg, ktx_payload_of, quantized, storage_format,
+    DEEP_CODEC, KTX_BINARY, PLANE_FMT, AlphaMode, DeclaredBound, DeepFormat, DeepPlane, EncodePolicy, Extent, KtxLeg, KtxPayload, MipPolicy,
+    PlaneDepth, PlaneFidelity, PlanePrimaries, PlaneSpace, ProducerTool, TextureFault, converted, decode, encode, fidelity, ktx_leg,
+    ktx_payload_of, ktx_probe, ktx_tool, quantized,
 )
 
 from beartype import beartype
@@ -81,11 +82,12 @@ type Variant = int | None
 # the Mari floor is a UDIM tile, and a small value is a mip or layer index. It keys the per-slot source map, so a
 # UDIM sheet and a per-level pyramid are the SAME shape — a slot with N sources fans N nodes and names N leaves.
 type MapKey = tuple[MapSlot, Variant]  # the fan unit: one plan node, one egress leaf, one receipt
-type PlaneSink = Callable[["MapFact"], Result[None, TextureFault]]
-# ^ the caller-threaded egress the produced BYTES cross on. This page imports no object store and joins no host
-# path: the sink receives the fact — its digest, its leaf, its container, and its payload — and the app root
-# composes the store it already owns. Without it the worker's whole product died inside `_previewed`, which
-# records a digest naming bytes nothing ever wrote.
+# The produced BYTES cross `core/plan#PLAN`'s `ProductSink[TextureFault]` — the PRODUCER-AGNOSTIC egress port every
+# artifacts producer that emits a file threads, parameterized on its own fault family. A texture-named, texture-fault-
+# typed port bound the estate's first real asset class to one producer's vocabulary and left the next producer needing
+# egress with no port at all; the fault parameter is what lets each thread its own. `MapFact` survives as this page's
+# INTERNAL carrier and projects a `ProductFact` at the sink call, so the port sees the five facts every produced file
+# shares — key, root, leaf, payload, container — beside the producer's own band, and this page still imports no store.
 
 
 class SetKind(StrEnum):  # the manifest `kind` field verbatim; the C# document carries the baked PBR kind ALONE
@@ -94,14 +96,23 @@ class SetKind(StrEnum):  # the manifest `kind` field verbatim; the C# document c
     IBL = "ibl"
 
 
-class ProducerTool(StrEnum):
-    # `[05.2]` `[09]` BOUNDS this field and this enum transcribes its FOUR-row roster whole — a three-row
-    # transcription is the cardinality defect the cross-branch equality test catches; a free string published
-    # `passthrough` and a `KtxLeg` value into a wire column whose roster admits neither.
-    KTX = "ktx"  # the KTX2 container through EITHER leg — both bind the same libktx; `tool_version` names the leg
-    IMAGECODECS = "imagecodecs"  # every linked-core container
-    PYVIPS = "pyvips"  # the streaming float resample lane `derive#DERIVE` composes
-    OPENEXR = "openexr"  # the `plane#CODEC` named-channel document leg — an AOV bundle or multi-part EXR a branch-local producer wrote
+class VariantAxis(StrEnum):
+    # The `<variant>` infix has ONE slot and three claimants, so the claimants are a roster rather than a hand-summed
+    # boolean census: a three-term `sum((...))` over an axis set the page never declared could not name which two
+    # collided, and a caller with a UDIM sheet beside a mip ladder learned only that a count exceeded one. A fourth
+    # axis is now one `_AXIS_PRESENT` row and the refusal spells the offending pair.
+    UDIM = "udim"
+    MIP = "mip"
+    LAYER = "layer"
+
+
+class CompanionPolicy(StrEnum):
+    # WHICH consumer a set is DESTINED for, which is the one fact the spec cannot recover from its own values: the
+    # slot roster, the extents, and the containers say what the set IS and nothing about who binds it. A boolean
+    # would spell the render case alone; a member per destination lets a second consumer land as one row here and
+    # one `_COMPANION_TARGET` entry, with every producer and every fold untouched.
+    NONE = "none"  # publish the primary alone; a consumer whose reader refuses that container refuses the bind
+    RENDER = "render"  # publish a SAMPLED twin for every render-bound slot whose primary stores an unsampled container
 
 
 class LicenseClass(StrEnum):
@@ -149,6 +160,14 @@ class MapSpec(Struct, frozen=True):
     # referred and a producer may store it that way; every channel plane leaves it None and takes the role law.
     # Without the override no map could ever carry `pq`/`hlg`, and the set-level refusal that exists to catch a
     # display-referred bake target tested a value the role tables can never produce.
+    primaries: PlanePrimaries | None = None
+    # ^ the DECLARED chromaticity, under the same override law as `space`. It is the SOURCE's fact, never the role's:
+    # a base-colour plane's primaries belong to whatever authored it, so the role table carries no column for it and
+    # `None` resolves to the estate default a container-recorded plane actually holds.
+    faces: bool = False
+    # ^ a CUBE spec fans ONE node holding all six faces, never six nodes naming six leaves. The container holds the
+    # faces itself, so the fan unit is the whole cube and the leaf takes no infix — a six-source slot under the
+    # ordinary law produced six separate files for a consumer that binds one cube sampler.
 
     def admitted(self, slot: MapSlot, /) -> Result["MapSpec", TextureFault]:
         # gated against the SAME `plane#PLANE` row the encode runs through — depth, transfer, AND the semantic
@@ -189,13 +208,25 @@ class SetSpec(Struct, frozen=True):
     convention: Option[NormalConvention] = Nothing  # the INGEST source convention; the bytes are always `gl`
     alpha: AlphaMode = AlphaMode.NONE
     height_scale: float = 0.0  # the millimetre span the [0, 1] height plane normalizes against
-    tiled: bool = False  # carried from the caller or the classification, never derived here
+    tiled: bool = False
+    # ^ a PROVED property or false. It enters from classification, from a caller declaration carrying its own
+    # provenance, or from `tiled(planes)` measuring it here — and a manifest asserting it on none of the three
+    # publishes a seam-coherence guarantee no producer holds, to every consumer that then skips its own check.
+    tile_score: Option[float] = Nothing
+    # ^ the MEASURED edge agreement behind the flag, ABSENT where no seam-bearing role reached the probe. A `0.0`
+    # default is the worst point on the scale a consumer thresholds, so a set carrying neither base colour nor
+    # height published the strongest possible cut-seam claim off a measurement nothing took.
     pot: bool = False
     udim: Udim = Udim.NONE
     udim_tiles: tuple[int, ...] = ()
     layers: int = 1
     unresolved: tuple[str, ...] = ()
     license_class: LicenseClass = LicenseClass.PERMISSIVE
+    companion: CompanionPolicy = CompanionPolicy.NONE
+    # ^ WHO this set is destined for, and the only fact its own values cannot answer. Under `RENDER` every slot the
+    # render roster binds whose primary stores a container that reader will not open gains a SAMPLED twin as its
+    # own node, its own leaf, and its own manifest entry — so `lowered` binds the twin instead of refusing, and the
+    # gap is closed at production rather than discovered inside the render capsule where no fault reaches the rail.
     ibl: Option["IblFacts"] = Nothing  # the environment leg `ibl#IBL` fills; a PBR set leaves it Nothing
 
     @staticmethod
@@ -256,15 +287,10 @@ class SetSpec(Struct, frozen=True):
     def admitted(self, /) -> Result["SetSpec", TextureFault]:
         packs = tuple(slot for slot in self.maps if isinstance(slot, ChannelPack))
         packed = {member for pack in packs for member in _PACK_MEMBERS[pack]}
-        variants = sum((
-            bool(self.udim_tiles),
-            # Mip axis spends a variant slot only where the CONTAINER cannot hold its own pyramid, and the
-            # effective policy is the role's own column whenever the spec leaves it NONE — reading the spec field
-            # alone counts the default set as flat and a KTX2 UDIM set as doubly-variant, both wrong
-            any(_mip_policy(slot, spec) is not MipPolicy.NONE and spec.format not in _VARIANT_FREE for slot, spec in self.maps.items()),
-            self.layers > 1,
-        ))
-        match (self.extent, packed & set(self.maps), variants):
+        # the claimants on the single `<variant>` infix read off their own roster, so the refusal NAMES the pair that
+        # collided rather than reporting a count a caller cannot act on, and a fourth claimant is one table row
+        axes = tuple(axis for axis, present in _AXIS_PRESENT.items() if present(self))
+        match (self.extent, packed & set(self.maps), axes):
             case ((width, height), _, _) if min(width, height) < 1:
                 return Error(TextureFault(extent=self.extent))
             case ((width, height), _, _) if self.pot and (width & (width - 1) or height & (height - 1)):
@@ -272,9 +298,9 @@ class SetSpec(Struct, frozen=True):
             case (_, collided, _) if collided:
                 # a channel inside a pack has NO standalone row; carrying both publishes two truths for one channel
                 return Error(TextureFault(role=f"<packed-and-standalone:{sorted(role.value for role in collided)}>"))
-            case (_, _, axes) if axes > 1:
+            case (_, _, claimed) if len(claimed) > 1:
                 # Slot `<variant>` takes AT MOST ONE of {UDIM tile, mip index, layer index}; two collide in one leaf name
-                return Error(TextureFault(encode="<two-variant-axes>"))
+                return Error(TextureFault(encode=f"<two-variant-axes:{','.join(axis.value for axis in claimed)}>"))
         if _NORMAL_ROLES & set(self.maps) and self.convention.is_none():
             # a defaulted convention inverts every green slope and lights the surface backwards, undetectably
             return Error(TextureFault(convention="<unresolved>"))
@@ -315,6 +341,21 @@ class IblFacts(Struct, frozen=True):
     up_axis: str = "z"
     rotation: float = 0.0  # rad about +Z, [0, 2pi); a read-side policy exactly as intensity is — carried, never baked
 
+    def admitted(self, specular_levels: int, /) -> Result["IblFacts", TextureFault]:
+        # The LAST gate before the harmonics reach the wire. `ibl#IBL`'s own verification runs inside its product
+        # fold, so a caller filling these facts directly — an already-computed environment, a hand-assembled set —
+        # reached the manifest with nothing between it and every reader that reshapes the flat list into bands. A
+        # short list does not fail there: it reshapes into the WRONG band count and relights every bound surface.
+        # The ladder length is the same class of silent break — `roughness_per_mip` indexes the specular entry's
+        # levels position for position, so a ladder shorter than its own pyramid maps roughness to the wrong level.
+        match (len(self.sh9), len(self.roughness_per_mip)):
+            case (length, _) if length not in {0, SH_LENGTH}:
+                return Error(TextureFault(encode=f"ibl:<sh9-is-{length}-not-{SH_LENGTH}>"))
+            case (_, ladder) if ladder and ladder != specular_levels:
+                return Error(TextureFault(chain=(ladder, (specular_levels, 0), (ladder, 0))))
+            case _:
+                return Ok(self)
+
 
 class OperandLeg(Struct, frozen=True):
     # ONE staged operand: its bytes (`None` = the slot's neutral materialized at the set extent — an absent
@@ -342,6 +383,9 @@ class MapRequest(Struct, frozen=True):
     companion: OperandLeg | None = None  # the paired normal a ROUGHNESS_VARIANCE fold reads at each level
     convention: Option[NormalConvention] = Nothing
     parents: tuple[ContentKey, ...] = ()  # the parent keys this node's own key merkles; the receipt threads the same one
+    faces: int = 1
+    # ^ `6` marks the CUBE unit whose staged legs are its faces in frozen order; the worker folds them into one
+    # carrier the container writes whole, so the fan stays one node, one leaf, one receipt for the six planes
     leg: KtxLeg = KtxLeg.TOOL
     # the fed-ladder pair — DRAIN-time execution shape, deliberately OUTSIDE the request's key preimage (`_keyed`
     # digests the request BEFORE either fills): `staged` carries this node's own pre-sliced level when its base
@@ -351,11 +395,52 @@ class MapRequest(Struct, frozen=True):
     stage: bool = False
 
 
+@tagged_union(frozen=True)
+class MapError:
+    # WHAT this produced file's error is KNOWN to be, as four states that cannot be mistaken for one another. A
+    # single nullable `PlaneFidelity` slot could spell only two of them and forged the other two: a DECLARED bound
+    # arrived dressed as a perfect measurement, and a re-decode that failed was indistinguishable from a lossless
+    # row. Presence-as-declaration cannot carry four states, so the discriminant is the case.
+    tag: Literal["exact", "declared", "measured", "unmeasured"] = tag()
+    exact: None = case()  # the row round-trips byte-exact under this policy; there is nothing to state or to score
+    declared: DeclaredBound = case()  # the guarantee is the INPUT — the caller asked and the codec holds it
+    measured: PlaneFidelity = case()  # the row promised nothing, so the payload decoded back and scored
+    unmeasured: None = case()
+    # ^ the row promised nothing AND the re-decode did not return. The bytes are produced and keyed, so the map
+    # stands; what is missing is the measurement, and it says so rather than borrowing a lossless row's silence.
+
+    @property
+    def band(self, /) -> frozendict[str, float | str]:
+        # ONE projection onto the receipt band, keyed so a reader distinguishes the four states by the KEYS present
+        # rather than by a sentinel value: a declared bound spells its own kind, a measurement spells its numbers,
+        # an exact round trip spells nothing at all, and an unmeasured lossy encode spells exactly that.
+        match self:
+            case MapError(tag="exact"):
+                return frozendict()
+            case MapError(tag="unmeasured"):
+                return frozendict({"error_kind": "unmeasured"})
+            case MapError(tag="declared", declared=bound):
+                return frozendict({"error_kind": bound.tag, "error_bound": float(getattr(bound, bound.tag))})
+            case MapError(tag="measured", measured=score):
+                return frozendict({
+                    "error_kind": "measured",
+                    "psnr": score.psnr,
+                    "nrmse": score.nrmse,
+                    "data_range": score.data_range,
+                    "fidelity_metric": score.metric.value,
+                    # the perceptual number rides ONLY where the leg took it; an absent key is absence, where a
+                    # zero would read as the flawless colour match a lossy base-colour encode never produces
+                    **score.delta_e.map(lambda value: frozendict({"delta_e": value})).default_value(frozendict()),
+                })
+            case _ as unreachable:
+                assert_never(unreachable)
+
+
 class MapFact(Struct, frozen=True):
-    # one produced plane's whole evidence; `_previewed` projects it onto the `map` band the manifest fold reads
-    # back. `kind` is the ROOT discriminant the sink routes on — an environment product publishes under
-    # `materials/environment/` and a channel plane under `materials/texture/`, and a sink handed a bare leaf with
-    # no kind had no way to know which, so every IBL product landed under the texture root against the freeze.
+    # one produced plane's whole evidence; `_previewed` projects it onto the `map` band the manifest fold reads back
+    # and `product` projects it onto the port every artifacts producer shares. `kind` is the ROOT discriminant — an
+    # environment product publishes under one root and a channel plane under another, and a sink handed a bare leaf
+    # with no root had no way to know which, so every IBL product landed under the texture root against the freeze.
     slot: MapSlot
     kind: SetKind
     file: str
@@ -364,23 +449,45 @@ class MapFact(Struct, frozen=True):
     format: DeepFormat
     depth: PlaneDepth
     space: PlaneSpace
+    primaries: PlanePrimaries
     channels: int
     mips: int
     ktx_payload: KtxPayload | None = None
     tool: ProducerTool = ProducerTool.IMAGECODECS
     tool_version: str = ""
+    error: MapError = MapError(exact=None)
+    # ^ WHAT this file's error is known to be, as a closed four-state case rather than a nullable score. A nullable
+    # slot spelled two states and forged the other two — a declared bound rode as a perfect measurement and a
+    # failed re-decode was indistinguishable from a lossless row — so the discriminant is the case, never presence.
 
     @property
-    def environment(self, /) -> bool:
-        # the egress-root discriminant `egress` reads; the app-root sink composes `egress(set_key, fact.file,
-        # environment=fact.environment)` once the assembly publishes the set key
-        return self.kind is not SetKind.PBR_SET
+    def root(self, /) -> str:
+        # the publication root the port carries, named rather than derived from a boolean: a producer STATES where its
+        # product publishes, so a document, a bundle, a rendered scene, and an environment plane each answer for
+        # themselves and the shared sink grows no per-producer arm
+        return _EGRESS_ROOT if self.kind is SetKind.PBR_SET else _EGRESS_ENVIRONMENT
+
+    @property
+    def product(self, /) -> ProductFact:
+        # The projection onto the shared port. Every field below is a fact EVERY produced file carries; the
+        # texture-only evidence — role, transfer, depth, mip count, payload class, measured fidelity — rides `band`,
+        # which is the receipt-band preimage this page already builds, so the port learns no texture vocabulary.
+        return ProductFact(
+            key=self.digest,
+            root=self.root,
+            file=self.file,
+            payload=self.payload,
+            container=self.format.value,
+            tool=self.tool.value,
+            tool_version=self.tool_version,
+            band=_band(self),
+        )
 
 
 class TextureSet(Struct, frozen=True):
     spec: SetSpec
     lane: LanePolicy  # the caller-threaded offload seam — isolation, band, retry, and boundary are runtime-owned
-    sink: PlaneSink  # the caller-threaded egress the produced bytes cross on; this page imports no store
+    sink: ProductSink[TextureFault]  # the producer-agnostic egress port; this page imports no store and joins no host path
 
     def emit(self, /) -> Result[tuple[ArtifactWork, ...], TextureFault]:
         # one node per SLOT AND VARIANT — channel, environment product, pack, UDIM tile, and pyramid level alike —
@@ -426,6 +533,28 @@ class TextureSet(Struct, frozen=True):
                     fed=Fed(build=partial(TextureSet._leveled, request, self.lane, self.sink)) if laddered else None,
                 )
             )
+            # the SAMPLED COMPANION is a node like any other: its own request, its own key, its own leaf, its own
+            # receipt, and its own manifest entry — because it is its own produced FILE, and the page's one-node-
+            # per-produced-file law admits no second shape. It takes the primary as a plan parent so a spec edit
+            # re-keys both together and the schedule seats the primary first; it runs its OWN fold rather than
+            # riding the primary's `Fed` stage, since it converts to a different depth and transfer and therefore
+            # needs the plane BEFORE conversion, not the primary's converted product. Its leaf differs by
+            # extension alone, so the frozen egress grammar carries it with no infix and no widening.
+            match _companion_spec(spec, slot, map_spec) if _companioned(spec, slot, map_spec, variant) else Nothing:
+                case Option(tag="some", some=twin):
+                    match _requested(spec, slot, _companion_variant(variant), twin, (keys[(slot, variant)],)):
+                        case Error(fault):
+                            return Error(fault)
+                        case Ok(companion):
+                            works.append(
+                                ArtifactWork(
+                                    key=_keyed(companion),
+                                    work=partial(TextureSet._map, companion, self.lane, self.sink),
+                                    parents=(keys[(slot, variant)],),
+                                    admission=Admission(keyed=None),
+                                    cost=float(companion.extent[0] * companion.extent[1]) / 1.0e6,
+                                )
+                            )
         return Ok(tuple(works))
 
     def assembled(self, receipts: tuple[ArtifactReceipt, ...], /) -> Result[tuple[ContentKey, AssetSetManifest, ArtifactReceipt], TextureFault]:
@@ -434,22 +563,29 @@ class TextureSet(Struct, frozen=True):
         # `map` band IS one file's `MapEntry` preimage — role, file, digest, color space, depth, container,
         # channels, mips, ktx payload, byte length — which is exactly why those band facts are the ones recorded;
         # `_entries` groups a ladder's bands into one entry's level-ordered `levels` under the plane-levels law.
-        return self.spec.admitted().bind(lambda ready: _entries(receipts).map(lambda entries: _assembled(ready, entries)))
+        # the environment facts gate HERE, at the last site before they reach the wire: the product fold that
+        # computes them verifies its own, but a caller filling them directly had nothing between it and every reader
+        # that reshapes the flat harmonic list into bands, where a short list does not fail — it relights wrongly.
+        return self.spec.admitted().bind(
+            lambda ready: _entries(receipts).bind(
+                lambda entries: _admitted_ibl(ready, entries).map(lambda proven: _assembled(proven, entries))
+            )
+        )
 
     @staticmethod
-    async def _map(request: MapRequest, lane: LanePolicy, sink: PlaneSink, /) -> RuntimeRail[ArtifactReceipt]:
+    async def _map(request: MapRequest, lane: LanePolicy, sink: ProductSink[TextureFault], /) -> RuntimeRail[ArtifactReceipt]:
         # the produced bytes cross the SINK before the receipt projects: the receipt band records a digest and a
         # leaf, and publishing that pair for a payload nothing stored names a blob no consumer can fetch. The
         # worker's staged half drops here — the plain thunk is the self-sufficient arm and stages nothing.
         produced = await lane.offload(Kernel.of(_worker_texture, KernelTrait.HOSTILE), request)
         return produced.bind(
-            lambda res: res.bind(lambda pair: sink(pair[0]).map(lambda _stored: pair[0]))
+            lambda res: res.bind(lambda pair: sink(pair[0].product).map(lambda _stored: pair[0]))
             .map(lambda fact: _previewed(request, fact))
             .map_error(lambda fault: BoundaryFault(boundary=(f"texture.{request.slot.value}", f"{fault.tag}:{fault}")))
         )
 
     @staticmethod
-    def _leveled(request: MapRequest, lane: LanePolicy, sink: PlaneSink, products: "tuple[Product, ...] | None", /) -> "Work[tuple[ArtifactReceipt, Product | None]]":
+    def _leveled(request: MapRequest, lane: LanePolicy, sink: ProductSink[TextureFault], products: "tuple[Product, ...] | None", /) -> "Work[tuple[ArtifactReceipt, Product | None]]":
         # ONE `core/plan#PLAN` Fed build for every ladder node. The BASE (variant 0) folds the full chain once and
         # returns the folded pyramid for the ledger; a LEVEL with the staged pyramid ships ONLY its own pre-sliced
         # level to the worker (`request.staged` — convert and store, no re-fold); a level whose stage is absent (a
@@ -471,7 +607,7 @@ class TextureSet(Struct, frozen=True):
         async def run() -> "RuntimeRail[tuple[ArtifactReceipt, Product | None]]":
             produced = await lane.offload(Kernel.of(_worker_texture, KernelTrait.HOSTILE), executed)
             return produced.bind(
-                lambda res: res.bind(lambda pair: sink(pair[0]).map(lambda _stored: pair))
+                lambda res: res.bind(lambda pair: sink(pair[0].product).map(lambda _stored: pair))
                 .map(lambda pair: (_previewed(request, pair[0]), pair[1]))
                 .map_error(lambda fault: BoundaryFault(boundary=(f"texture.{request.slot.value}", f"{fault.tag}:{fault}")))
             )
@@ -510,7 +646,11 @@ def _worker_texture(request: MapRequest) -> Result[tuple[MapFact, DeepPlane | No
                 companion = None if request.companion is None else _leveled_leg(request.companion, request)
                 sourced = Block.of_seq(request.legs).fold(
                     lambda railed, leg: railed.bind(lambda planes: _staged_plane(leg, request).map(lambda plane: (*planes, plane))), Ok(())
-                ).bind(lambda planes: _chained_over(planes, request.chain))
+                ).bind(
+                    # a CUBE's legs are its FACES, not its operands: they fold into one carrier the container writes
+                    # whole rather than through a derive chain, so the six planes reach the writer as one texture
+                    lambda planes: _faced(planes, request.faces) if request.faces > 1 else _chained_over(planes, request.chain)
+                )
         return (
             # MIP BEFORE CONVERT. `derive#DERIVE` folds in the LINEAR domain and hands the pyramid back tagged
             # `linear`, so converting to the stored transfer first and folding afterwards left every level's bytes
@@ -551,6 +691,19 @@ def _leveled_leg(leg: OperandLeg, request: MapRequest, /) -> DeepPlane | None:
     # the variance companion decodes once beside the source planes; a faulted companion degrades the fold to the
     # BOX floor `_mipped` already declares rather than failing a channel the author never wrote
     return _staged_plane(leg, request).default_value(None)
+
+
+def _faced(planes: tuple[DeepPlane, ...], faces: int, /) -> Result[DeepPlane, TextureFault]:
+    # Six single-level faces fold into ONE level-major carrier the container writes as a cubemap. The admission on
+    # the carrier proves the arity and the shared extent, so a short or ragged face tuple refuses here rather than
+    # silently mis-slicing the store — a cube one face short is a texture whose sampler reads a neighbour's texels.
+    return (
+        Error(TextureFault(shape=(len(planes), faces)))
+        if len(planes) != faces
+        else DeepPlane.of(
+            tuple(face.base for face in planes), planes[0].depth, planes[0].space, planes[0].alpha, planes[0].primaries, faces
+        )
+    )
 
 
 def _chained_over(planes: tuple[DeepPlane, ...], chain: DeriveChain, /) -> Result[DeepPlane, TextureFault]:
@@ -618,6 +771,10 @@ def _passed(
                 # a pass-through wrote NO bytes, so the producing tool is the one that decoded and probed them
                 tool=ProducerTool.IMAGECODECS,
                 tool_version=_core_version(declared),
+                # and for the same reason its error is the UPSTREAM producer's: this arm ran no encode, so it holds
+                # no bound to declare and no reference to score against. `unmeasured` is that state exactly, where
+                # the `exact` default would certify a byte-exact round trip this page never performed.
+                error=MapError(unmeasured=None),
             )
         )
     )
@@ -678,9 +835,21 @@ def _stored_space(slot: MapSlot, depth: PlaneDepth, declared: PlaneSpace | None 
     return declared or (law.space if law.space is not PlaneSpace.SRGB else (PlaneSpace.SRGB if depth in {PlaneDepth.U8, PlaneDepth.U16} else PlaneSpace.LINEAR))
 
 
+def _stored_primaries(slot: MapSlot, space: PlaneSpace, declared: PlanePrimaries | None = None, /) -> PlanePrimaries:
+    # The chromaticity resolution beside the transfer one, and DELIBERATELY not a role column: a base-colour plane's
+    # primaries are its SOURCE's, so the role tables answer nothing about them. A spec declaration wins outright; a
+    # colour plane otherwise resolves to the estate default every container-recorded plane actually carries, and a
+    # non-colour plane resolves to none at all — a parameter channel has no chromaticity, and stamping one tells a
+    # reader to gamut-map an index of refraction. A gamut MOVE stays the caller's, composed before this producer runs.
+    return declared or (PlanePrimaries.BT709 if space in {PlaneSpace.SRGB, PlaneSpace.LINEAR} else PlanePrimaries.NONE)
+
+
 def _converted_for(plane: DeepPlane, request: MapRequest, /) -> Result[DeepPlane, TextureFault]:
+    space = _stored_space(request.slot, request.spec.depth, request.spec.space)
     return converted(
-        plane, request.spec.format, depth=request.spec.depth, space=_stored_space(request.slot, request.spec.depth, request.spec.space), alpha=plane.alpha
+        plane, request.spec.format, depth=request.spec.depth, space=space, alpha=plane.alpha
+    ).map(
+        lambda ready: msgspec.structs.replace(ready, primaries=_stored_primaries(request.slot, space, request.spec.primaries))
     )
 
 
@@ -715,22 +884,57 @@ def _stored(plane: DeepPlane, request: MapRequest, /) -> Result[MapFact, Texture
         case DeepFormat.KTX2:
             return _ktx_stored(ready, request)
         case fmt:
-            return encode(ready, fmt, _ENCODE_POLICY[fmt]).map(
-                lambda payload: MapFact(
-                    slot=request.slot,
-                    kind=request.kind,
-                    file=leaf(request.slot.value, fmt, variant=request.variant),
-                    payload=payload,
-                    digest=ready.digest(payload),
-                    format=fmt,
-                    depth=request.spec.depth,
-                    space=ready.space,
-                    channels=law.channels,
-                    mips=ready.mips,
-                    tool=ProducerTool.IMAGECODECS,
-                    tool_version=_core_version(fmt),
+            row = DEEP_CODEC[fmt]
+            return encode(ready, fmt, _DEFAULT).bind(
+                lambda payload: _scored(ready, payload, fmt, _DEFAULT).map(
+                    lambda known: MapFact(
+                        slot=request.slot,
+                        kind=request.kind,
+                        file=leaf(request.slot.value, fmt, variant=request.variant),
+                        payload=payload,
+                        digest=ready.digest(payload),
+                        format=fmt,
+                        depth=request.spec.depth,
+                        space=ready.space,
+                        primaries=ready.primaries,
+                        channels=law.channels,
+                        mips=ready.mips,
+                        # the ROW names its own producing tool, so a container written by the named-channel document
+                        # leg or a future engine records that truthfully instead of every arm asserting one literal
+                        tool=row.tool,
+                        tool_version=_core_version(fmt),
+                        error=known,
+                    )
                 )
             )
+
+
+def _scored(reference: DeepPlane, payload: bytes, fmt: DeepFormat, policy: EncodePolicy, /) -> Result["MapError", TextureFault]:
+    # A LOSSY encode carries a DECLARED guarantee or a MEASURED error, and the two are different facts that never
+    # wear each other's shape. The row's own `bound` routes: `exact` needs neither, a bounded case IS the answer and
+    # rides as the declaration, and `unbounded` is the only case that decodes back through the same row and scores.
+    # Publishing a declaration as a measurement is what this rebuild deletes — the declared arm used to mint
+    # `PlaneFidelity(psnr=inf, mse=0.0, nrmse=0.0, delta_e=0.0)`, a flawless round trip nobody ran, on the exact
+    # rows admitted BECAUSE they trade fidelity for size, while `data_range` carried the error bound under a name
+    # that means the span the signal metrics were scored against. A failed re-decode never fails the map: the bytes
+    # are already produced and keyed, so the measurement is absent and reads as absent.
+    # The POLICY rides in because a row's guarantee is a property of the pairing, not the container — the KTX2 row
+    # under a Basis payload and under an uncompressed deep store make different promises, and reading a fixed
+    # default here answered for a policy no writer ran.
+    match DEEP_CODEC[fmt].bound(policy):
+        case DeclaredBound(tag="exact"):
+            return Ok(MapError(exact=None))
+        case DeclaredBound(tag="unbounded"):
+            return Ok(
+                DEEP_CODEC[fmt].decode(payload)
+                .bind(lambda back: fidelity(reference, back))
+                .map(lambda measured: MapError(measured=measured))
+                .default_value(MapError(unmeasured=None))
+            )
+        case DeclaredBound() as declared:
+            return Ok(MapError(declared=declared))
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 def _core_version(fmt: DeepFormat, /) -> str:
@@ -748,18 +952,24 @@ def _core_version(fmt: DeepFormat, /) -> str:
 - Law: every KTX2 file HOLDS its own pyramid, so a `ktx2` channel NEVER carries a mip variant. Per-mip EXR pyramids spell `<channel>.00.exr`, `<channel>.01.exr` ascending; per-channel FILES are the canonical cross-branch EXR form and multipart or named-AOV EXR is branch-local optimization no parity fixture depends on.
 - Law: THREE hex spellings exist and folding two mints an address fork. Python wire keys spell `ContentKey.project("wire")` — the runtime identity owner's bare 32-lowercase-hex view, the python peer of `ContentAddress.ToValue()` — because `ContentKey.hex` carries the `:<fmt>` tail its own projection defines and a wire digest field spelling `.hex` or a hand-formatted `{value:032x}` is that fork. Path segments carry the same lowercase 32 hex through the same view, so the TS `assets/<digest>/<file>` join needs no case move; a consumer joining a wire key to a path lowers the key, and uppercasing a path segment to match is the deleted direction.
 - Law: the SET key is a MERKLE fold over the channel-ordered plane digests under the frozen `texture-set` namespace, never a hash of the spec and never a namespace carrying the kind. `ContentIdentity.key` lifts a `tuple[ContentKey, ...]` to the merkle source, the order is the roster order — which IS the wire's channel order — and a set re-encoded byte-identically re-keys identically while a set whose one roughness plane changed re-keys once. The kind rides its own manifest field; folding it into the namespace re-keyed byte-identical products across the `hdri` and `ibl` kinds.
-- Law: the `ktx` CLI is the ENCODE FLOOR in all three branches and `pyktx` the in-process acceleration row; both bind the SAME `libktx` and agree on the container, the storage texel, the transfer tag, and the payload class. They DO NOT agree byte-for-byte — two entry points run two encoder configurations — so the leg is a declared per-plane fact the receipt carries on `tool_version`, no `ktx2` row sits on the deterministic floor, and a set mixing hosts re-keys. `ktx_leg` reads presence — never a caller flag — and a host carrying neither leg faults `tool_absent`, refusing the whole set rather than silently degrading a `ktx2` map to a `png16` one.
-- Law: the CLI leg spawns ONE INPUT FILE PER LEVEL. `ktx create --raw` counts a concatenated level stream as a single image and refuses `Too few input images for N level`, so the pyramid crosses as N temporaries and the output alone rides stdout. `--encode` admits the eight-bit `--format` rows alone, so a deep store passes neither it nor `--zstd`.
-- Law: COLOR ASSIGNMENT rides every create. `--assign-tf` and `--assign-primaries` RELABEL without touching a texel, so both spell on every spawn and `--fail-on-color-conversions` turns any remaining implicit conversion into a tool refusal rather than a silently re-tagged plane — the scene-linear working space spells `acescc` (AP1), `srgb` spells `bt709`, and a `raw` parameter plane spells `none`, because a reader proving `transferFunction` alone admits a plane carrying foreign chromaticity.
+- Law: the `ktx` CLI is the ENCODE FLOOR in all three branches and `pyktx` the in-process acceleration row; both bind the SAME `libktx` and agree on the container, the storage texel, the transfer tag, and the payload class. They DO NOT agree byte-for-byte — two entry points run two encoder configurations — so the leg is a declared per-plane fact the receipt carries on `tool_version`, no `ktx2` row sits on the deterministic floor, and a set mixing hosts re-keys. They also do not agree on CHROMATICITY, and the shared admission is what keeps that from forking silently: the binding exposes no primaries member at all, so a plane declaring one is refused the in-process leg rather than written twice with two different colour fields. `ktx_leg` reads presence — never a caller flag — and a host carrying neither leg faults `tool_absent`, refusing the whole set rather than silently degrading a `ktx2` map to a `png16` one.
+- Law: BOTH KTX2 LEGS ARE `plane#CODEC`'s and this page names no argv. One binary carried a `create` leg here and an `extract` leg there under two module constants for one tool name, and the encode refusal on a CLI-only host turned away a container that host's own floor writes. The codec owner now dispatches both legs behind one entry, this page imports the single public tool-name constant, and what stays here is what is NOT a codec fact: the conformance proof over a produced artifact, the leg version the receipt records, and the egress grammar.
+- Law: COLOR ASSIGNMENT states the PLANE's own declared facts. A create relabels without touching a texel, so it spells the transfer the bytes already carry and the chromaticity the carrier DECLARES, and `--fail-on-color-conversions` turns any remaining implicit conversion into a tool refusal rather than a silently re-tagged plane. The chromaticity is a `PlanePrimaries` datum on the plane, never a value derived from its transfer tag — a table keyed on the five-row transfer roster asserted a dependency that does not exist and then asserted AP1 for every scene-linear plane, so a base-colour plane decoded from an sRGB source shipped labelled with foreign chromaticity and the conversion guard could not catch a relabel. `--convert-primaries` exists on this leg and is REFUSED: the in-process binding carries no counterpart, so a converting spawn beside a non-converting binding is two codecs wearing one name. A gamut MOVE is `graphic/color/managed#MANAGED`'s, composed by the caller before the set runs.
 - Law: `ktx validate --format mini-json` is the Khronos CONFORMANCE OWNER this producer runs on its own product, and the verdict rides the report's `valid` FIELD — never the process status, which reads success on a failed file. `--gltf-basisu` spells EXACTLY where the effective payload transcodes: the glTF KHR profile check fails an RGBSDA deep container with `error-6301` by design, so the flag reads the payload class and never rides unconditionally — the same conditional the C# gate spells. Level arithmetic, `typeSize`, DFD sample layout, and BasisLZ global data are the validator's to settle; a branch re-deriving them forks the specification against the binary the estate encodes with. Both KTX2 legs cross the proof, because it spawns the provisioned floor binary wherever it stands.
 - Law: LEG ADMISSION is SHARED. The in-process leg rides `encode`'s row gates and the spawned leg would bypass them, so `_ktx_stored` proves depth, transfer, and component width against the ONE `plane#PLANE` KTX2 row before dispatching either leg — two legs with leg-dependent refusals are two codecs wearing one name.
-- Law: the DETERMINISTIC FLOOR is DERIVED from BOTH halves of its own law — a row is on the floor when its `plane#PLANE` `CodecRow.lossless` holds under this page's `_ENCODE_POLICY` default AND its `binary` column is false. A derivation reading losslessness alone stated one half of the rule its own prose stated in two, and hand-listed floors carry a second truth that drifts the first time a policy default moves while both lists still parse. Sets whose maps stay inside the floor produce byte-identically on any host with no provisioned binary; a set reaching for `ktx2` declares a host requirement the caller reads.
+- Law: the DETERMINISTIC FLOOR is DERIVED from the CODEC ROSTER ITSELF — a row is on the floor when its own `DeepCodecRow.default` round-trips byte-exact and its `binary` column is false. This page keeps NO policy table to derive over: the nine option tuples are codec facts with one owner, and a sibling copy here is how one default drifted to two values across two pages while both spellings still parsed. Sets whose maps stay inside the floor produce byte-identically on any host with no provisioned binary; a set reaching for `ktx2` declares a host requirement the caller reads.
 - Law: `tool` and `license_class` are BOUNDED vocabularies, not free strings. `ProducerTool` transcribes the `[05.1]` `[15]` roster and `LicenseClass` the `[07.1]` `[03]` one in snake_case; a free string published a `passthrough` tool and a raw leg value into columns whose rosters admit neither, and it let `blocked` — the one class carrying no grant to use — ride a manifest as a word every consumer ignores.
 - Law: a `ktx` binary prints `GIT-NOTFOUND` for `--version` — KTX-Software bakes its version from `git describe` and the packaging fetch strips git metadata — so the probe asserts PRESENCE and the subcommand roster and the manifest's `tool_version` carries the provisioned attribute, never the binary's own text.
 - Law: encode and transcode in ONE process cross the file. `transcode_basis` refuses on a texture still holding its Zstd supercompression with `KtxError(TRANSCODE_FAILED)`; the reloaded texture reports its scheme back at `NONE` with `needs_transcoding` still true and transcodes clean. Readers branch on `needs_transcoding` and never on `vk_format`, which reads `VK_FORMAT_UNDEFINED` until transcode.
 - Output: `assembled` folds the drained receipts into one `AssetSetManifest` — `manifest_key`, `kind`, `source`, extent, convention, alpha, UDIM, `tiled`, roster-ordered `maps`, `packs`, `ibl`, `unresolved`, `height_scale`, `license_class` — tool facts stay PER MAP — and projects `ArtifactReceipt.Texture`. `unresolved` carries the classification's accumulation verbatim, so a partially-recognized directory publishes what it resolved and names what it did not.
 - Law: the `ibl` leg fills from `SetSpec.ibl` and the drained entries TOGETHER. The harmonics, the roughness ladder, the read-side intensity, and the frozen up axis are facts `ibl#IBL` computes; the per-product files and digests exist only after the fan drains. Neither half can build the entry alone, which is why the spec carries the facts and the fold joins them — a leg pinned to None published every `hdri` and `ibl` set with its harmonics, its ladder, and its up axis silently dropped.
-- Growth: a new set kind is one `SetKind` row with its manifest `kind` value; a new egress slot is one `ingest#INGEST` vocabulary row, which `_ROSTER` and `slot_law` both pick up with no edit here; a new variant axis is refused by construction until the frozen grammar widens.
+- Law: THE ROLE-TO-SLOT LOWERING IS ONE FOLD OVER ONE TARGET. `lowered` takes a `BindTarget` and returns `(foreign slot, egress path, output port, transfer token)` quadruples; the port derives from the entry's own channel count and the transfer from its own recorded tag, so no roster carries a second column to drift, and the per-role selection reads the target's container admission so a sampled consumer binds the twin the companion fan produced. Both folds are TOTAL and LOSSY BY DECLARATION — a role the consumer's roster has no counterpart for gets no row and is simply absent from the binding, never mapped onto its nearest neighbour, which would author the wrong material. The one structural difference between them is the consumer's, not the producer's: the packed sheet is ONE slot on the render path and three separate inputs on the preview surface.
+- Law: A TRANSFER TOKEN RIDES EVERY BOUND SLOT. Left unset, each renderer's own file sniff decides — and for a `raw` normal plane inside an integer container that decision is the silent sRGB decode the whole transfer roster exists to prevent. The render consumer goes further and REFUSES a mismatched pair outright, binding nothing and leaving a surface untextured with no fault to read, so stating the plane's own declared transfer is the only form under which either binding is provable at the seam.
+- Law: A CONSUMER'S BINDING LAW IS ONE VALUE, NEVER THE IDENTITY OF THE TABLE IT WAS HANDED. `BindTarget` carries the slot roster AND whether that reader opens the sampled container set, so `lowered` reads the admission off the value instead of comparing the handed table against a module constant with `is` — an object-identity dispatch under which an equal roster built anywhere else silently took the other consumer's admission. A third consumer is one `BindTarget`, and the companion fan reads the same owner.
+- Law: THE SAMPLED COMPANION IS A PRODUCED FILE, SO IT IS A NODE. A set declaring `CompanionPolicy.RENDER` publishes, for every role that destination binds whose primary stores a container its reader will not open, a SAMPLED TWIN with its own plan node, its own leaf, its own receipt band, and its own `MapEntry`. The twin DERIVES from the primary's storage depth — integer onto the 16-bit raster, float onto the 32-bit float raster, both `_SAMPLED_FLOOR` members by their own columns — so the mechanism cannot leave the deterministic floor and the `deterministic` receipt fact reads the same before and after the policy is declared. Its leaf differs from the primary's by EXTENSION alone, so the frozen egress grammar carries it unwidened; it is single-level by law, because the primary owns the pyramid and a twin that grew one would fan per-level files under a role the manifest already carries; and a cube takes none, since no six-face sampled container exists. `lowered` then binds the twin where it used to refuse the whole set, and the manifest groups by role AND container so the twin is its own entry rather than a phantom second level of the primary's ladder.
+- Law: THE BIND REFUSES WHERE NO ADMITTED ENTRY EXISTS. A set that never declared the policy still names the offending container at the projection, because the alternative is a bind that falls through the consumer's own unadmitted decoder and raises INSIDE its capsule — one process away from the caller that composed the set, where no fault reaches the rail.
+- Law: A DECLARED GUARANTEE AND A MEASURED ERROR ARE DIFFERENT FACTS. `MapError` is the four-state case — exact, declared, measured, unmeasured — because a nullable score spelled two of them and forged the other two: a caller-declared bound rode as `PlaneFidelity(psnr=inf, mse=0.0, nrmse=0.0, delta_e=0.0)`, a flawless round trip nobody ran, on the exact rows admitted BECAUSE they trade fidelity for size, with the bound smuggled into `data_range` under a name meaning the span the signal metrics were scored against; and a re-decode that failed was indistinguishable from a lossless row's silence. `DeepCodecRow.bound` routes: `unbounded` alone pays the round trip, a bounded case rides as the declaration with its own KIND, and the band spells the state through the keys it emits. The KTX2 row reads the policy its leg actually ran, so the heaviest lossy step the estate takes stopped being the one container publishing no error at all.
+- Growth: a new set kind is one `SetKind` row with its manifest `kind` value; a new egress slot is one `ingest#INGEST` vocabulary row, which `_ROSTER` and its two derived indexes all pick up with no edit here; a new consumer of the produced roster is one `BindTarget`, and a consumer wanting companions adds one `CompanionPolicy` member and one `_COMPANION_TARGET` row with the fan, the fold, the grouping, and the band all unedited; a new sampled floor container is one `_SAMPLED_DEPTH` row whose membership `_SAMPLED_FLOOR` already proves; a new variant claimant is one `_AXIS_PRESENT` row; a new variant axis beyond that is refused by construction until the frozen grammar widens.
 - Boundary: the manifest names blobs; it does not store them. Object-store put, presign, lifecycle, and CDN posture stay at the app root and in the peer branches, and the branch strata carry no artifacts-to-egress edge.
 
 ```python signature
@@ -767,29 +977,27 @@ def _core_version(fmt: DeepFormat, /) -> str:
 
 _VARIANT_FREE: Final[frozenset[DeepFormat]] = frozenset({DeepFormat.KTX2})  # a container holding its OWN pyramid spends no variant slot
 _EXT: Final[frozendict[DeepFormat, str]] = frozendict({
+    # TOTAL over the container roster, and the totality is the point: `leaf` indexes this table for every produced
+    # file, so a container the codec owner admitted and this table never gained raised `KeyError` from inside the
+    # egress grammar — past every typed rail, on the exact rows the deep-codec wave added. `ibl#IBL` publishes its
+    # gain-map preview under `ULTRAHDR` and hit it on the first environment set.
     DeepFormat.EXR: "exr", DeepFormat.HDR: "hdr", DeepFormat.PNG16: "png", DeepFormat.TIFF_F32: "tif",
     DeepFormat.JXL: "jxl", DeepFormat.JXL_F16: "jxl", DeepFormat.AVIF12: "avif", DeepFormat.WEBP: "webp", DeepFormat.KTX2: "ktx2",
+    DeepFormat.LERC: "lerc", DeepFormat.HTJ2K: "jph", DeepFormat.ULTRAHDR: "jpg", DeepFormat.ZFP: "zfp",
+    # ^ `jph` is the High-Throughput JPEG 2000 codestream suffix the linked openjph core writes, and an UltraHDR
+    # file IS a JPEG whose gain map rides its own segment, so a viewer that never heard of the format still opens it
 })
-_ENCODE_POLICY: Final[frozendict[DeepFormat, EncodePolicy]] = frozendict({
-    # the DEFAULT policy per container, TOTAL over the roster so the `_FLOOR` derivation tests every row's own
-    # law: the non-binary rows here round-trip byte-exact, and the KTX2 row is lossy-and-binary — both halves of
-    # the floor law real, where a table missing the row made the `binary` half a condition that could never fire.
-    DeepFormat.EXR: EncodePolicy(exr=("zip", 45.0)),
-    DeepFormat.HDR: EncodePolicy(hdr=True),
-    DeepFormat.PNG16: EncodePolicy(png=7),
-    DeepFormat.TIFF_F32: EncodePolicy(tiff=True),
-    DeepFormat.JXL: EncodePolicy(jxl=(True, 0.0, 7)),
-    DeepFormat.JXL_F16: EncodePolicy(jxl=(True, 0.0, 7)),
-    DeepFormat.AVIF12: EncodePolicy(avif=(100, 6, "YUV444")),
-    DeepFormat.WEBP: EncodePolicy(webp=(90, True)),
-    DeepFormat.KTX2: EncodePolicy(ktx=(KtxPayload.UASTC, 128, 2, 10, False)),
-})
+_DEFAULT: Final[EncodePolicy] = EncodePolicy(default=None)
+# ^ the ONE policy this page hands `encode`: `plane#CODEC` `DeepCodecRow.options` resolves it to the row's own default,
+# so the nine option tuples have exactly one owner. A sibling table here spelled them a SECOND time and the two
+# drifted — one leg read a zstd level of zero while two others read ten, all three parsing.
 _FLOOR: Final[frozenset[DeepFormat]] = frozenset(
-    # DERIVED, never restated: a row is on the deterministic floor when its `plane#PLANE` policy round-trips
-    # byte-exact AND it stands on no provisioned binary. BOTH halves are the row's own columns and BOTH are live —
-    # `_ENCODE_POLICY` is total over the roster, so the dual-leg KTX2 row is excluded by its own `lossy` and
-    # `binary` columns rather than by its absence from the input set.
-    fmt for fmt, policy in _ENCODE_POLICY.items() if DEEP_CODEC[fmt].lossless(policy) and not DEEP_CODEC[fmt].binary
+    # DERIVED over the CODEC ROSTER ITSELF, never a policy table this page keeps: a row is on the deterministic floor
+    # when its own default round-trips byte-exact AND it stands on no provisioned binary. Both halves are the row's
+    # own columns, so a new container joins or stays off the floor by its declaration alone and no list drifts —
+    # the dual-leg KTX2 row excludes itself on both counts, and the EXR row's HTJ2K compressions exclude themselves
+    # through the measured inexactness their own `_EXR_ROW` entry records.
+    fmt for fmt, row in DEEP_CODEC.items() if row.lossless(_DEFAULT) and not row.binary
 )
 _CORE_VERSION: Final[frozendict[DeepFormat, Callable[[], str]]] = frozendict({
     DeepFormat.EXR: lambda: imagecodecs.exr_version(), DeepFormat.HDR: lambda: imagecodecs.rgbe_version(),
@@ -797,9 +1005,11 @@ _CORE_VERSION: Final[frozendict[DeepFormat, Callable[[], str]]] = frozendict({
     DeepFormat.JXL: lambda: imagecodecs.jpegxl_version(), DeepFormat.JXL_F16: lambda: imagecodecs.jpegxl_version(),
     DeepFormat.AVIF12: lambda: imagecodecs.avif_version(), DeepFormat.WEBP: lambda: imagecodecs.webp_version(),
     DeepFormat.KTX2: lambda: _KTX_LEG_VERSION[ktx_leg()],  # the leg that would run here; `_ktx_stored` records the one that did
+    DeepFormat.LERC: lambda: imagecodecs.lerc_version(),
+    DeepFormat.HTJ2K: lambda: imagecodecs.htj2k_version(),
+    DeepFormat.ULTRAHDR: lambda: imagecodecs.ultrahdr_version(),
+    DeepFormat.ZFP: lambda: imagecodecs.zfp_version(),
 })
-_KTX_TOOL: Final[str] = "ktx"  # the provisioned unified CLI; `create`/`deflate`/`extract`/`encode`/`transcode`/`info`/`validate`/`compare`
-_KTX_SUBCOMMANDS: Final[frozenset[str]] = frozenset({"create", "deflate", "extract", "encode", "transcode", "info", "validate", "compare"})
 _KTX_LEG_VERSION: Final[frozendict[KtxLeg, str]] = frozendict({
     # the PROVISIONED attribute name per leg, never binary text: every ktx binary prints GIT-NOTFOUND for
     # `--version`. The two legs are what this column DISTINGUISHES, because they do not agree byte-for-byte and
@@ -807,42 +1017,29 @@ _KTX_LEG_VERSION: Final[frozendict[KtxLeg, str]] = frozendict({
     KtxLeg.TOOL: "ktx-tools",
     KtxLeg.IN_PROCESS: "pyktx",
 })
-_KTX_TF: Final[frozendict[PlaneSpace, str]] = frozendict({
-    # `--assign-tf` names the `khr_df_transfer_e` enumerator without its prefix. RAW rides `linear` BY LAW, not by
-    # accident: the DFD vocabulary carries no raw row and the in-process leg's UNORM/SFLOAT formats derive the
-    # same enumerator, so both legs agree — the identity transfer either way — and the ROLE law re-tags the plane
-    # at classification. NO display rows: the `plane#CODEC` KTX2 row admits `srgb`/`linear`/`raw` alone and the
-    # shared leg admission proves it before either leg runs, so a `pq`/`hlg` spelling here was vocabulary nothing
-    # could ever reach — a display capture linearizes at decode and its prefilter products cross scene-linear.
-    PlaneSpace.LINEAR: "linear", PlaneSpace.SRGB: "srgb", PlaneSpace.RAW: "linear",
-})
-_KTX_PRIMARIES: Final[frozendict[PlaneSpace, str]] = frozendict({
-    # `--assign-primaries` RELABELS without touching a texel, exactly as `--assign-tf` does, so BOTH spell on
-    # every create and `--fail-on-color-conversions` then turns any remaining implicit conversion into a tool
-    # refusal rather than a silently re-tagged plane. The scene-linear working space spells `acescc` and reads
-    # back `KHR_DF_PRIMARIES_ACESCC` (AP1), `srgb` spells `bt709`, and a `raw` parameter plane spells `none` and
-    # reads `KHR_DF_PRIMARIES_UNSPECIFIED` — a reader proving `transferFunction` alone admits foreign chromaticity.
-    PlaneSpace.LINEAR: "acescc", PlaneSpace.SRGB: "bt709", PlaneSpace.RAW: "none",
-})
-_KTX_ENCODE: Final[frozendict[KtxPayload, str]] = frozendict({
-    # the `--encode` roster the CLI carries; a class absent here takes NO encode flag and the file ships at its
-    # own `--format` row. `astc` and `rawBcn` are absent by construction — the CLI reaches ASTC through a
-    # `--format ASTC_*` row and BCn through nothing at all, and both refuse the manifest anyway.
-    KtxPayload.UASTC: "uastc",
-    KtxPayload.ETC1S: "basis-lz",
-})
 _ROSTER: Final[tuple[MapSlot, ...]] = (*TextureRole, *IblProduct, *ChannelPack)  # declaration order IS the wire order IS the merkle preimage order
-_UASTC_ROLES: Final[frozenset[MapSlot]] = frozenset({
-    # the frozen [03.7] uastc POLICY column, transcribed: these roles NEVER degrade to ETC1S whatever the spec asks
-    TextureRole.GEOMETRY_NORMAL, TextureRole.GEOMETRY_COAT_NORMAL, TextureRole.GEOMETRY_TANGENT,
-    TextureRole.GEOMETRY_COAT_TANGENT, TextureRole.HEIGHT, TextureRole.CURVATURE,
-})
+_ROSTER_INDEX: Final[frozendict[MapSlot, int]] = frozendict({slot: index for index, slot in enumerate(_ROSTER)})
+_ROSTER_BY_VALUE: Final[frozendict[str, MapSlot]] = frozendict({slot.value: slot for slot in _ROSTER})
+# ^ TWO derived indexes off ONE declaration, both replacing a linear scan run per band inside a sort key: a forty-tile
+# sheet at eleven roles is 440 bands each paying a walk over the whole roster to learn its own position, and the
+# receipt-band lookup paid the same walk again. All three vocabularies stay key-DISJOINT by an `ingest#INGEST` load
+# gate, so the value index is total and unambiguous by construction.
+_UASTC_ROLES: Final[frozenset[MapSlot]] = frozenset(
+    # the frozen [03.7] uastc POLICY column, derived: every NON-COLOUR role never degrades to ETC1S whatever the
+    # spec asks — a scalar parameter plane refuses a chroma-subsampled store exactly as a vector does, and the
+    # colour rows are exactly the SRGB-authored triples, so the set derives from the role law instead of a hand list
+    role for role in TextureRole if slot_law(role).space is not PlaneSpace.SRGB
+)
 _DIRECTION_ROLES: Final[frozenset[MapSlot]] = frozenset({
     # direction semantics ALONE drive the Basis normal_map error metric — a scalar height or curvature plane in
     # UASTC still optimizes the scalar error, and a color channel a floor raised never takes the vector metric
     TextureRole.GEOMETRY_NORMAL, TextureRole.GEOMETRY_COAT_NORMAL, TextureRole.GEOMETRY_TANGENT, TextureRole.GEOMETRY_COAT_TANGENT,
 })
 _SET_FMT: Final[str] = "texture-set"  # the frozen `[05.1]` `[01]` set-key namespace; the kind rides its own manifest field, never the key
+SH_LENGTH: Final[int] = 27
+# ^ nine bands with RGB interleaved at `i * 3 + c`, the layout `tests/contracts/appearance-vocabulary.schema.json`
+# `$defs/sh9` fixes. It is a WIRE fact and lives with the document owner, so the producer computing the harmonics
+# and the fold publishing them read one length rather than two constants that agree until one of them moves.
 _PACK_FORMAT: Final[frozendict[str, str]] = frozendict({
     # depth key -> the 4-component `[03.6]` storage-texel key a `PackEntry.format` column spells: a pack is
     # ALWAYS the four-lane row, so the width never varies and the recorded depth alone selects the member
@@ -850,6 +1047,109 @@ _PACK_FORMAT: Final[frozendict[str, str]] = frozendict({
 })
 _EGRESS_ROOT: Final[str] = "materials/texture"
 _EGRESS_ENVIRONMENT: Final[str] = "materials/environment"  # the frozen second root: IBL/HDRI products never publish under the texture root
+_AXIS_PRESENT: Final[frozendict[VariantAxis, Callable[["SetSpec"], bool]]] = frozendict({
+    # ONE row per claimant on the single `<variant>` infix. The mip axis spends a slot only where the CONTAINER
+    # cannot hold its own pyramid, and the effective policy is the role's own column wherever the spec leaves it
+    # unset — reading the spec field alone counted the default set flat and a self-pyramiding UDIM set doubly
+    # variant, both wrong. A fourth claimant is one row, and the refusal names the pair rather than a bare count.
+    VariantAxis.UDIM: lambda spec: bool(spec.udim_tiles),
+    VariantAxis.MIP: lambda spec: any(
+        _mip_policy(slot, entry) is not MipPolicy.NONE and entry.format not in _VARIANT_FREE for slot, entry in spec.maps.items()
+    ),
+    VariantAxis.LAYER: lambda spec: spec.layers > 1,
+})
+_PREVIEW_SLOT: Final[frozendict[MapSlot, str]] = frozendict({
+    # The role-to-`UsdPreviewSurface`-input lowering, and the ONE place this page's roster meets a foreign token
+    # vocabulary. The USD graph owner consumes a resolved path with a slot and port a caller already chose and holds
+    # NO channel roster, so the table cannot live there; this page owns the roster, so the projection of it is this
+    # page's. The fold is TOTAL and LOSSY BY DECLARATION — a role the preview surface carries no counterpart for
+    # gets NO row and is simply absent from the authored material, never mapped onto an approximation. `specularColor`
+    # is deliberately unmapped: the roster's specular colour is a tint, and binding it to the base-reflectivity input
+    # authors the specular workflow instead of the metallic one. `opacityThreshold` is a scalar policy, never a map.
+    # Every coat-normal, fuzz, thin-film, subsurface, transmission, tangent, and curvature role is unmapped for the
+    # same reason: the wider material model carries them and the preview surface does not.
+    TextureRole.BASE_COLOR: "diffuseColor",
+    TextureRole.BASE_METALNESS: "metallic",
+    TextureRole.SPECULAR_ROUGHNESS: "roughness",
+    TextureRole.SPECULAR_IOR: "ior",
+    TextureRole.COAT_WEIGHT: "clearcoat",
+    TextureRole.COAT_ROUGHNESS: "clearcoatRoughness",
+    TextureRole.EMISSION_COLOR: "emissiveColor",
+    TextureRole.GEOMETRY_OPACITY: "opacity",
+    TextureRole.GEOMETRY_NORMAL: "normal",
+    TextureRole.OCCLUSION: "occlusion",
+    TextureRole.HEIGHT: "displacement",
+})
+_PORT: Final[frozendict[int, str]] = frozendict({1: "r", 2: "rg", 3: "rgb", 4: "rgba"})
+# ^ the output port DERIVES from the slot's own channel count, so the lowering table carries the slot mapping alone
+# and no second column exists to drift out of step with the roster it describes.
+_RENDER_SLOT: Final[frozendict[MapSlot, str]] = frozendict({
+    # The peer lowering onto the RENDER path's own slot roster, valued at the foreign spellings that vocabulary
+    # publishes. The two folds are the same projection onto two consumers and differ in exactly one structural way:
+    # the packed occlusion-roughness-metalness sheet is ONE slot here — the material property binds it whole and one
+    # produced file answers three canonical roles — where the preview-surface fold spreads those roles across three
+    # separate inputs. That is a property of the two consumers, not two producers, so both tables read one roster.
+    TextureRole.BASE_COLOR: "albedoTex",
+    TextureRole.EMISSION_COLOR: "emissiveTex",
+    TextureRole.GEOMETRY_NORMAL: "normalTex",
+    TextureRole.GEOMETRY_COAT_NORMAL: "coatNormalTex",
+    TextureRole.SPECULAR_ROUGHNESS_ANISOTROPY: "anisotropyTex",
+    ChannelPack.ORM: "materialTex",
+})
+_RENDER_SAMPLED: Final[frozendict[DeepFormat, bool]] = frozendict({
+    # The render reader opens a SAMPLED container set that excludes every deep one this page prefers: no KTX2, no
+    # EXR, no JXL, no AVIF, no WebP, no LERC, no HTJ2K, no ZFP. A miss there falls through the reader's own
+    # unadmitted decoder and raises INSIDE the render capsule, one process away from the caller that composed the
+    # set — so the fold refuses at the projection with the container named, and a set declaring the render
+    # companion policy publishes a sampled twin per bound slot rather than discovering the gap at render time.
+    fmt: fmt in {DeepFormat.PNG16, DeepFormat.TIFF_F32, DeepFormat.HDR} for fmt in DeepFormat
+})
+_SAMPLED_FLOOR: Final[frozenset[DeepFormat]] = frozenset(fmt for fmt in _FLOOR if _RENDER_SAMPLED[fmt])
+# ^ DERIVED over the two columns that already exist: a container is a legal companion target when it round-trips
+# byte-exact on no provisioned binary AND the sampled reader opens it. That intersection is what makes the whole
+# companion mechanism floor-safe by construction — a set gains twins without ever leaving the deterministic floor,
+# so the `deterministic` receipt fact reads the same before and after the policy is declared, and no list asserts it.
+_SAMPLED_DEPTH: Final[frozendict[PlaneDepth, tuple[DeepFormat, PlaneDepth]]] = frozendict({
+    # the SAMPLED twin per storage depth, keyed on the DEPTH rather than on the source container because what a
+    # sampled reader needs is the value range, never the primary's own encoding: an integer store twins onto the
+    # 16-bit lossless raster and a float store onto the 32-bit float raster, and both targets are `_SAMPLED_FLOOR`
+    # members by their own columns. A `u8` primary twins UPWARD to `u16` because the twin is a fidelity floor, not
+    # a size optimization — the primary already owns the size question.
+    PlaneDepth.U8: (DeepFormat.PNG16, PlaneDepth.U16),
+    PlaneDepth.U16: (DeepFormat.PNG16, PlaneDepth.U16),
+    PlaneDepth.F16: (DeepFormat.TIFF_F32, PlaneDepth.F32),
+    PlaneDepth.F32: (DeepFormat.TIFF_F32, PlaneDepth.F32),
+})
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BindTarget:
+    # ONE consumer's whole binding law: the slot roster it publishes and whether its reader opens the sampled
+    # container set alone. `lowered` used to recover the second half by comparing the handed table against a module
+    # constant with `is` — a dispatch on object identity, so a caller passing an equal table got the other
+    # consumer's admission silently — and the companion fan needed the same pair from a third place. One value
+    # carrying both facts is what lets the fan and the fold read one owner and a third consumer land as one row.
+    slots: frozendict[MapSlot, str]
+    sampled: bool
+
+
+PREVIEW_TARGET: Final[BindTarget] = BindTarget(slots=_PREVIEW_SLOT, sampled=False)
+RENDER_TARGET: Final[BindTarget] = BindTarget(slots=_RENDER_SLOT, sampled=True)
+_COMPANION_TARGET: Final[frozendict[CompanionPolicy, BindTarget]] = frozendict({CompanionPolicy.RENDER: RENDER_TARGET})
+# ^ `NONE` carries NO row, so the policy resolves through one `.get` and a set that declares nothing fans nothing.
+# A second sampled consumer is one `CompanionPolicy` member, one `BindTarget`, and one row here — the fan, the
+# fold, the manifest grouping, and the receipt band all pick it up unedited.
+_PREVIEW_SPACE: Final[frozendict[PlaneSpace, str]] = frozendict({
+    # the transfer token both foreign vocabularies spell identically. Leaving it unset lets each renderer's own file
+    # sniff decide, and for a `raw` normal plane inside an integer container that decision is the silent sRGB decode
+    # the whole transfer roster exists to prevent — one wrong guess relights every surface bound to that plane.
+    PlaneSpace.SRGB: "sRGB", PlaneSpace.LINEAR: "raw", PlaneSpace.RAW: "raw",
+})
+_TILE_LAG: Final[tuple[int, ...]] = (1, 2, 4, 8)
+# ^ the edge-wrap offsets the periodicity probe correlates at. A seam-continuous plane matches its own wrapped edge
+# at every lag; a cut one diverges at the first. Four lags span the range a visible seam occupies without paying a
+# full autocorrelation over the sheet.
+_TILE_ROLES: Final[tuple[MapSlot, ...]] = (TextureRole.BASE_COLOR, TextureRole.HEIGHT)
+# ^ the planes the score reads: base colour carries the visible seam and height the geometric one, and a set tiling
+# in both tiles in every channel derived from them. Scoring every slot pays the fan width for no additional verdict.
 ```
 
 ```python signature
@@ -866,11 +1166,132 @@ def leaf(channel: str, fmt: DeepFormat, /, *, variant: int | None = None) -> str
     return f"{channel}{infix}.{_EXT[fmt]}"
 
 
-def egress(key: ContentKey, leaf: str, /, *, environment: bool = False) -> str:
+def egress(key: ContentKey, leaf: str, /, *, root: str = _EGRESS_ROOT) -> str:
     # Owns the path join alone: `ContentKey.project("wire")` is the ONE lowering, so the wire key and the path
-    # segment are the same 32 lowercase hex, the TS `assets/<digest>/<file>` join needs no case move, and no
-    # consumer uppercases a path to match. The environment arm publishes IBL/HDRI products under the second root.
-    return f"{_EGRESS_ENVIRONMENT if environment else _EGRESS_ROOT}/{key.project('wire')}/{leaf}"
+    # segment are the same 32 lowercase hex, the consumer-side `<digest>/<file>` join needs no case move, and no
+    # consumer uppercases a path to match. The root is NAMED, never a boolean the join re-interprets — the producer
+    # states where its product publishes and the shared egress port carries that name straight through.
+    return f"{root}/{key.project('wire')}/{leaf}"
+
+
+def lowered(manifest: AssetSetManifest, key: ContentKey, target: BindTarget, /) -> Result[tuple[tuple[str, str, str, str], ...], TextureFault]:
+    # ONE fold serving EVERY consumer, keyed on the target's own law rather than on which module constant it was
+    # handed: an `is` comparison against `_RENDER_SLOT` made object identity the discriminant, so an equal table
+    # built anywhere else took the preview admission silently. Each quadruple is (foreign slot token, egress path,
+    # output port, transfer token) — the port and the transfer DERIVE from the entry's own recorded facts, so
+    # neither roster carries a second column, and the path is the same join the app-root sink composes.
+    # A role with no row in the target's roster is silently absent from that consumer's binding, which is the
+    # declared loss: two consumers carry different rosters and mapping a missing role onto its nearest neighbour
+    # authors the wrong material.
+    # SELECTION is the companion's whole payoff. A role now legitimately holds TWO entries — the primary and its
+    # sampled twin — so the fold picks per role by the target's own container admission, and a sampled consumer
+    # binds the twin where it used to refuse the whole set. It still refuses where no admitted entry exists, which
+    # is the honest answer for a set that never declared the policy: the alternative is a bind that raises inside
+    # the render capsule, one process away from the caller, where no fault reaches the rail.
+    addresses = frozendict(addressed(key, manifest))
+    chosen = _chosen(manifest, target)
+    bound = tuple(
+        (token, path, _PORT[int(entry.channels)], _PREVIEW_SPACE[PlaneSpace(entry.color_space)])
+        for role, entry in chosen
+        if (token := target.slots.get(role, "")) and (path := addresses.get(entry.levels[0].digest, ""))
+    )
+    refused = tuple(
+        entry.container
+        for entry in (*manifest.maps, *manifest.packs)
+        if _ROSTER_BY_VALUE[entry.role] in target.slots
+        and target.sampled
+        and not any(role is _ROSTER_BY_VALUE[entry.role] for role, _entry in chosen)
+    )
+    return Error(TextureFault(encode=f"bind:<unsampled-container:{','.join(sorted(set(refused)))}>")) if refused else Ok(bound)
+
+
+def _chosen(manifest: AssetSetManifest, target: BindTarget, /) -> tuple[tuple[MapSlot, MapEntry], ...]:
+    # ONE entry per bound role, selected by the target's container admission. A sampled consumer takes the sampled
+    # entry and nothing else; a deep consumer prefers the entry the sampled reader would NOT open — the primary,
+    # which is the estate's preferred store — and falls back to the only entry a role carries. Entries arrive in
+    # the roster-then-container order `_entries` fixed, so the preference is deterministic rather than drain-ordered.
+    grouped: dict[MapSlot, tuple[MapEntry, ...]] = {}
+    for entry in (*manifest.maps, *manifest.packs):
+        role = _ROSTER_BY_VALUE[entry.role]
+        grouped[role] = (*grouped.get(role, ()), entry)
+    return tuple(
+        (role, picked)
+        for role, entries in grouped.items()
+        if (
+            picked := next(
+                (entry for entry in entries if _RENDER_SAMPLED[DeepFormat(entry.container)] is target.sampled),
+                None if target.sampled else entries[0],
+            )
+        )
+        is not None
+    )
+
+
+def _periodicity(plane: DeepPlane, /) -> float:
+    # ONE axis-and-lag sweep. Rolling by a lag puts the trailing edge band where the leading one sits, so the first
+    # `lag` slices of the difference ARE the seam and every slice past them is an interior step at the same
+    # separation — one array, both populations, no second traversal. The score is the interior mean over the seam
+    # mean, clipped: a seam-coherent plane's boundary is an ORDINARY step for that texture and the ratio sits near
+    # one, while a cut plane's boundary is a step nothing in its interior produces and the ratio collapses. The
+    # comparison is relative to the plane's own texture rather than its value range, because a smooth gradient and
+    # a high-frequency noise field have wholly different ordinary steps and one absolute scale libels both.
+    field = plane.base
+    return min(
+        1.0 if seam <= interior else min(1.0, interior / seam)
+        for axis in (0, 1)
+        for lag in _TILE_LAG
+        if (step := np.abs(field - np.roll(field, lag, axis=axis)).mean(axis=tuple(k for k in range(3) if k != axis))) is not None
+        for seam in (float(step[:lag].mean()),)
+        for interior in (float(step[lag:].mean()),)
+    )
+
+
+def tile_score(planes: frozendict[MapSlot, DeepPlane], /) -> Option[float]:
+    # The MEASURED seam agreement, published as EVIDENCE and never converted into a claim here. The settled law is
+    # that `tiled` states a PROVED property or stays false, and the proof this producer can honestly offer is the
+    # number, not a verdict: separating a seam-coherent plane from a cut one needs a threshold calibrated against
+    # the estate's real texture families, and a constant asserted ahead of that calibration would publish exactly
+    # the unearned guarantee the flag's own ruling exists to foreclose. So the score rides the receipt beside the
+    # caller's or the classifier's flag, a consumer thresholds it against its own tolerance, and the calibration is
+    # a research row rather than a literal. Reads the roles carrying the seam and takes the worst — one bad channel
+    # is a visible seam whatever the others read — and synthesizes nothing: this measures what arrived.
+    # A set carrying NEITHER seam-bearing role has no measurement, and absence is the answer: a bare `0.0` there is
+    # the WORST point on the very scale a consumer thresholds, so a normal-and-roughness set with no base colour and
+    # no height published the strongest possible claim of a cut seam off a probe that never ran.
+    scored = tuple(_periodicity(plane) for slot, plane in planes.items() if slot in _TILE_ROLES)
+    return Some(min(scored)) if scored else Nothing
+
+
+def _companion_spec(spec: SetSpec, slot: MapSlot, map_spec: MapSpec, /) -> Option[MapSpec]:
+    # The SAMPLED TWIN of one slot's storage target, or `Nothing` where the set declares no destination, the
+    # destination does not bind this role, or the primary already stores a container that reader opens. The twin
+    # DERIVES — depth keys the container and the depth, both `_SAMPLED_FLOOR` members by their own columns — so a
+    # new sampled consumer or a new floor container needs no table here. `MipPolicy.NONE` is the twin's whole
+    # pyramid law: the primary owns the ladder and a twin that grew one would fan per-level files under a role the
+    # manifest already carries, so the companion is one single-level file and its `mips` reads one truthfully.
+    # A CUBE takes no twin by construction — no six-face sampled container exists and the frozen grammar spends no
+    # face infix — and the render roster names no environment product, so the policy's own table already excludes it.
+    target = _COMPANION_TARGET.get(spec.companion)
+    if target is None or slot not in target.slots or map_spec.faces or _RENDER_SAMPLED[map_spec.format] is target.sampled:
+        return Nothing
+    container, depth = _SAMPLED_DEPTH[map_spec.depth]
+    # the twin's own floor membership is PROVEN here rather than asserted in prose: a depth whose target left the
+    # deterministic floor — a container gaining a lossy default, a row growing a binary dependency — yields no
+    # companion at all, so the policy can never quietly turn a floor-clean set into a host-conditional one.
+    return Some(msgspec.structs.replace(map_spec, format=container, depth=depth, mips=MipPolicy.NONE)) if container in _SAMPLED_FLOOR else Nothing
+
+
+def _companioned(spec: SetSpec, slot: MapSlot, map_spec: MapSpec, variant: Variant, /) -> bool:
+    # WHICH variant of a slot carries the twin. A UDIM tile is its own image and each one earns a companion; a mip
+    # LEVEL is not — the twin is single-level, so the ladder contributes exactly one, taken at the base. A flat map
+    # has one variant and it is the one.
+    return variant is None or (isinstance(variant, int) and (variant >= _UDIM_FLOOR or (variant == 0 and _laddered(spec, slot, map_spec))))
+
+
+def _companion_variant(variant: Variant, /) -> Variant:
+    # the twin of a LADDER base carries NO infix: it is a single-level file, not level zero of anything, so it
+    # spells `<channel>.<ext>` beside the primary's `<channel>.00.<ext>` and the two can never be read as one series
+    return variant if isinstance(variant, int) and variant >= _UDIM_FLOOR else None
 
 
 def _mip_policy(slot: MapSlot, spec: MapSpec, /) -> MipPolicy:
@@ -906,6 +1327,20 @@ def _requested(spec: SetSpec, slot: MapSlot, variant: Variant, map_spec: MapSpec
     # source map pickled every sibling tile's bytes per node and folded them into this node's key, collapsing the
     # elision — and a derived map stages one leg per operand in the first op's own order, each leg carrying its
     # own prefix chain, so the worker interior reads nothing the request does not hold.
+    # a FACES spec stages every source as one leg tuple in frozen face order, so the worker folds one carrier
+    # declaring six faces and the container writer places each on its own face coordinate; every other spec projects
+    # to its own single variant, because embedding the whole per-slot source map pickled every sibling tile's bytes
+    # per node AND folded them into this node's key, collapsing the very elision the plan exists for
+    if map_spec.faces:
+        return Block.of_seq(tuple(sorted(map_spec.sources))).fold(
+            lambda railed, face: railed.bind(lambda built: _leg(spec, slot, face).map(lambda leg: (*built, leg))), Ok(())
+        ).map(
+            lambda staged: MapRequest(
+                slot=slot, spec=map_spec, kind=spec.kind, extent=spec.extent, variant=None, legs=staged,
+                faces=len(staged), convention=spec.convention, parents=parents,
+                leg=ktx_leg() if map_spec.format is DeepFormat.KTX2 else KtxLeg.TOOL,
+            )
+        )
     source = spec.maps[slot].sources.get(variant, MapSource(neutral=None))
     legs = (
         Block.of_seq(source.derived[0]).fold(
@@ -964,6 +1399,12 @@ def _ladder(spec: SetSpec, slot: MapSlot, map_spec: MapSpec, /) -> tuple[Variant
     # mip-bearing map in a container that cannot hold its own pyramid expands one node per mip index down to 1x1,
     # which is the producer the frozen `<channel>.NN.<ext>` grammar never had. A KTX2 map keeps one node; a UDIM
     # sheet keeps its tiles (the two axes together already refused at admission).
+    if map_spec.faces:
+        # a CUBE is ONE fan unit: the container holds all six faces, so the node stages the whole face tuple and the
+        # leaf takes no infix. Fanning the sources produced six files for a consumer that binds one cube sampler,
+        # and the USD dome light — the only other environment reader — takes the equirect under its own latlong
+        # token and has no six-face token at all, so nothing anywhere consumed the six-file form.
+        return (None,)
     if _laddered(spec, slot, map_spec):
         width, height = spec.extent
         return tuple(range(max(width, height).bit_length()))
@@ -1018,43 +1459,6 @@ def _keyed(request: MapRequest, /) -> ContentKey:
     return ContentIdentity.key(f"texture-map-{request.slot.value}", (ContentIdentity.key("texture-request", normalized), *request.parents))
 
 
-def _ktx_probe() -> Result[str, TextureFault]:
-    # presence and the SUBCOMMAND ROSTER, never `--version` text: every ktx binary prints GIT-NOTFOUND because the
-    # packaging fetch strips the git metadata the build reads its version string from.
-    probe = spawn([_KTX_TOOL, "--help"], capture_output=True, text=True, check=False)
-    roster = frozenset(line.split()[0] for line in probe.stdout.splitlines() if line.startswith("  ") and line.split())
-    return Ok(_KTX_TOOL) if probe.returncode == 0 and _KTX_SUBCOMMANDS <= roster else Error(TextureFault(tool_absent=_KTX_TOOL))
-
-
-def _ktx_spawned(plane: DeepPlane, policy: EncodePolicy, tool: str, /) -> Result[bytes, TextureFault]:
-    # FLOOR leg: `--raw` demands ONE INPUT FILE PER LEVEL. A concatenated level stream on stdin counts as a single
-    # image and the tool refuses `Too few input images for N level`, so the pyramid crosses as N temporaries and
-    # the output alone rides stdout. `--width`/`--height` are required with `--raw`, `--format` names the VkFormat
-    # WITHOUT its `VK_FORMAT_` prefix, `--levels` declares the caller-built pyramid, and `--assign-tf` STATES the
-    # transfer the bytes already carry rather than converting them. `--encode` (basis-lz | uastc) admits the
-    # eight-bit `--format` rows alone, so a deep store passes neither it nor `--zstd`'s block dependency.
-    _payload, _quality, _level, zstd, _direction = policy.ktx if policy.tag == "ktx" else (KtxPayload.UASTC, 128, 2, 0, False)
-    width, height = plane.extent
-    resolved = ktx_payload_of(plane, policy)
-    with ExitStack() as levels:
-        inputs = tuple(
-            levels.enter_context(NamedTemporaryFile(suffix=f".{index:02d}.raw")) for index in range(plane.mips)
-        )
-        for sink, level in zip(inputs, plane.levels, strict=True):
-            sink.write(quantized(level, plane.depth).tobytes())
-            sink.flush()
-        argv = (
-            tool, "create", "--raw", "--width", str(width), "--height", str(height), "--levels", str(plane.mips),
-            "--format", storage_format(plane.depth, plane.channels, plane.space).removeprefix("VK_FORMAT_"),
-            "--assign-tf", _KTX_TF[plane.space], "--assign-primaries", _KTX_PRIMARIES[plane.space], "--fail-on-color-conversions",
-            *(("--encode", _KTX_ENCODE[resolved]) if resolved in _KTX_ENCODE else ()),
-            *(("--zstd", str(zstd)) if zstd > 0 and resolved in _KTX_ENCODE else ()),
-            *(sink.name for sink in inputs), "-",
-        )
-        produced = spawn(argv, capture_output=True, check=False)
-    return Ok(produced.stdout) if produced.returncode == 0 else Error(TextureFault(encode=f"ktx:{produced.stderr.decode(errors='replace')[:200]}"))
-
-
 def _ktx_validated(payload: bytes, transcodable: bool, /) -> Result[bytes, TextureFault]:
     # the Khronos CONFORMANCE OWNER runs on every product this producer emits: `ktx validate --format mini-json`
     # settles level arithmetic, typeSize, DFD sample layout, and BasisLZ global data — a branch re-deriving them
@@ -1065,12 +1469,19 @@ def _ktx_validated(payload: bytes, transcodable: bool, /) -> Result[bytes, Textu
     # rides unconditionally, the same conditional the C# gate spells. The proof spawns the provisioned binary, so
     # it gates wherever the floor stands; an accelerator-only host already routed its floor absence through
     # `ktx_leg`, and its libktx write carries no second prover.
-    if which(_KTX_TOOL) is None:
-        return Ok(payload)
+    # discovery is the runtime roster's ONE answer — `plane#CODEC` `ktx_tool` reads the deployment path override
+    # first and the row's own probe second — so this proof and the encode leg beside it resolve the same executable.
+    # A local `which` here graded a host unprovable while the roster had already found its binary off PATH, and the
+    # producer then shipped an unvalidated container on exactly the host the override exists to serve.
+    match ktx_tool():
+        case Option(tag="none"):
+            return Ok(payload)
+        case Option(tag="some", some=executable):
+            pass
     with NamedTemporaryFile(suffix=".ktx2") as sink:
         sink.write(payload)
         sink.flush()
-        argv = (_KTX_TOOL, "validate", "--format", "mini-json", *(("--gltf-basisu",) if transcodable else ()), sink.name)
+        argv = (executable, "validate", "--format", "mini-json", *(("--gltf-basisu",) if transcodable else ()), sink.name)
         report = spawn(argv, capture_output=True, check=False)
     verdict = msgspec.json.decode(report.stdout or b"{}", type=dict)
     return (
@@ -1088,51 +1499,78 @@ def _ktx_stored(plane: DeepPlane, request: MapRequest, /) -> Result[MapFact, Tex
     # two encoder configurations, and the receipt carries WHICH leg ran on `tool_version` because the content key
     # is minted over these bytes — which is also why no `ktx2` row is on the deterministic floor.
     law = slot_law(request.slot)
+    row = DEEP_CODEC[DeepFormat.KTX2]
     # the frozen [03.7] POLICY column verbatim, never a proxy predicate: `law.signed` covered the vectors and
     # curvature by coincidence and MISSED `height` (signed=False), so a caller could publish a displacement
-    # field ETC1S — banding invisible until it reaches a tessellator
+    # field ETC1S — banding invisible until it reaches a tessellator. The three slots this page OWNS are the payload
+    # class, the quality, and the direction flag; the compression level and the zstd level are CODEC facts read off
+    # the row's own default, where they used to be hardcoded a third time beside two other spellings.
     payload_class = KtxPayload.UASTC if request.slot in _UASTC_ROLES else request.spec.payload
-    policy = EncodePolicy(ktx=(payload_class, request.spec.quality, 2, 10, request.slot in _DIRECTION_ROLES))
+    _default, _quality, level, zstd, _direction = row.default.ktx
+    policy = EncodePolicy(ktx=(payload_class, request.spec.quality, level, zstd, request.slot in _DIRECTION_ROLES))
     effective = ktx_payload_of(plane, policy)
-    row = DEEP_CODEC[DeepFormat.KTX2]
     if effective in {KtxPayload.RAW_BCN, KtxPayload.ASTC}:
         # the WIRE-LEGALITY re-test at the one site the manifest column is written from: admission refuses the
         # request, but this is the value that lands on `MapEntry.ktx_payload`, and a path that reached here
         # around the admission (a direct caller, a widened resolver) must not put a desktop payload on the wire
         return Error(TextureFault(encode=f"ktx2:<{effective.value}-is-never-manifest-borne>"))
-    match (plane.depth in row.depths, plane.space in row.spaces, plane.channels in row.widths):
-        # the SHARED leg admission: the in-process leg rode `encode`'s row gates and the CLI leg bypassed them,
-        # so a plane the binding refused spawned clean on a CLI-only host — one admission before EITHER leg is
-        # what keeps the two legs one codec rather than two with leg-dependent refusals
-        case (False, _, _):
+    match (plane.depth in row.depths, plane.space in row.spaces, plane.channels in row.widths, plane.primaries):
+        # the SHARED leg admission, proven before EITHER leg runs — the in-process leg rides `encode`'s row gates and
+        # the spawned leg bypasses them, so a plane the binding refused otherwise spawned clean on a CLI-only host.
+        # The FOURTH arm is the colour field the two legs cannot both state: MEASURED, the binding exposes no
+        # primaries member at all, so a plane declaring a chromaticity would ship UNSPECIFIED in process and the
+        # stated value on the CLI — one plane, two files, on a field the leg-agreement law claims and no gate touched.
+        case (False, _, _, _):
             return Error(TextureFault(depth=(DeepFormat.KTX2, plane.depth)))
-        case (_, False, _):
+        case (_, False, _, _):
             return Error(TextureFault(space=(DeepFormat.KTX2, plane.space)))
-        case (_, _, False):
+        case (_, _, False, _):
             return Error(TextureFault(shape=(plane.channels,)))
-    encoded = (
+        case (_, _, _, stated) if stated is not PlanePrimaries.NONE and request.leg is KtxLeg.IN_PROCESS:
+            return Error(TextureFault(primaries=(plane.space, stated)))
+    # ONE entry for both legs: `plane#CODEC` `_ktx_encoded` dispatches on the same probe this request already
+    # recorded, so this page names no argv and holds no second tool constant. The conformance proof stays HERE —
+    # it grades a PRODUCED artifact against the Khronos specification rather than answering a codec question.
+    # the LOSSY-ENCODE-CARRIES-ITS-ERROR law reaches THIS row too, and it is the row that needs it most: a Basis
+    # payload is the heaviest lossy step the estate takes and it published no error at all, so the one container
+    # whose block quantization a caller most needs to see was the one carrying nothing. `_scored` reads the policy
+    # this leg actually ran — an uncompressed deep store answers `exact` and pays no round trip, while a UASTC or
+    # ETC1S payload decodes back through `plane#CODEC`'s own transcoding read-back and scores. A transcode lands
+    # `RGBA32`, so a plane whose store differs in shape scores as `unmeasured` rather than against a mismatched
+    # reference — absence, never a number taken from the wrong array.
+    return (
         encode(plane, DeepFormat.KTX2, policy)
-        if request.leg is KtxLeg.IN_PROCESS
-        else _ktx_probe().bind(lambda tool: _ktx_spawned(plane, policy, tool))
-    ).bind(lambda payload: _ktx_validated(payload, effective in {KtxPayload.UASTC, KtxPayload.ETC1S}))
-    return encoded.map(
-        lambda payload: MapFact(
-            slot=request.slot,
-            kind=request.kind,
-            file=leaf(request.slot.value, DeepFormat.KTX2, variant=request.variant),
-            payload=payload,
-            digest=plane.digest(payload),
-            format=DeepFormat.KTX2,
-            depth=request.spec.depth,
-            space=plane.space,
-            channels=law.channels,
-            mips=plane.mips,
-            # the EFFECTIVE class, never the requested one: a deep store carries no block payload at all, and
-            # recording the request there told every consumer a `uastc` file it would then fail to transcode
-            ktx_payload=effective,
-            tool=ProducerTool.KTX,
-            tool_version=_KTX_LEG_VERSION[request.leg],
+        .bind(lambda payload: _ktx_validated(payload, effective in {KtxPayload.UASTC, KtxPayload.ETC1S}))
+        .bind(lambda payload: _scored(plane, payload, DeepFormat.KTX2, policy).map(lambda known: (payload, known)))
+        .map(
+            lambda produced: _ktx_fact(produced[0], produced[1], plane, request, law, effective)
         )
+    )
+
+
+def _ktx_fact(
+    payload: bytes, known: MapError, plane: DeepPlane, request: MapRequest, law: RoleLaw, effective: KtxPayload, /
+) -> MapFact:
+    # the fact assembly stands as its own head because the produced payload and its error state arrive as a pair;
+    # a nested lambda over both would spell the whole record inside a rail expression twice as deep as it reads
+    return MapFact(
+        slot=request.slot,
+        kind=request.kind,
+        file=leaf(request.slot.value, DeepFormat.KTX2, variant=request.variant),
+        payload=payload,
+        digest=plane.digest(payload),
+        format=DeepFormat.KTX2,
+        depth=request.spec.depth,
+        space=plane.space,
+        primaries=plane.primaries,
+        channels=law.channels,
+        mips=plane.mips,
+        # the EFFECTIVE class, never the requested one: a deep store carries no block payload at all, and
+        # recording the request there told every consumer a `uastc` file it would then fail to transcode
+        ktx_payload=effective,
+        tool=row.tool,
+        tool_version=_KTX_LEG_VERSION[request.leg],
+        error=known,
     )
 
 
@@ -1192,7 +1630,16 @@ def _assembled(spec: SetSpec, entries: tuple[MapEntry, ...], /) -> tuple[Content
     # NO set-level tool census exists: `tool`/`tool_version` are PER-MAP facts on `[05.2]` — a set legitimately
     # spans several producing tools, and a "+"-joined set-level composite was a spelling off every roster a
     # consumer could resolve.
-    return (key, manifest, _set_receipt(key, manifest))
+    return (key, manifest, _set_receipt(key, manifest, spec.tile_score, spec.companion))
+
+
+def _admitted_ibl(spec: SetSpec, entries: tuple[MapEntry, ...], /) -> Result[SetSpec, TextureFault]:
+    # The specular ladder's real depth is a DRAINED fact — it is the produced entry's own level count — so the gate
+    # runs here, where both halves finally exist, and a PBR set with no environment leg passes through untouched.
+    specular = next((entry for entry in entries if entry.role == IblProduct.SPECULAR.value), None)
+    return spec.ibl.map(
+        lambda facts: facts.admitted(len(specular.levels) if specular is not None else 0).map(lambda _proven: spec)
+    ).default_value(Ok(spec))
 
 
 def _ibl_entry(facts: IblFacts, entries: tuple[MapEntry, ...], /) -> IblEntry:
@@ -1200,7 +1647,8 @@ def _ibl_entry(facts: IblFacts, entries: tuple[MapEntry, ...], /) -> IblEntry:
     # read-side intensity, and the frozen up axis come off the spec, and every `PlaneRef` off the entry stream the
     # fan actually wrote — the specular pyramid rides its grouped entry's `levels` WHOLE, every level digested,
     # and `roughness_per_mip` indexes it position for position. `sh9` admits at EXACTLY twenty-seven under the
-    # `[08.2]` layout — a shorter list reshapes into the wrong band count at every reader.
+    # `tests/contracts/appearance-vocabulary.schema.json` `$defs/sh9` layout — band-major with RGB interleaved at
+    # `i * 3 + c`, exactly twenty-seven — and a shorter list reshapes into the wrong band count at every reader.
     addressed = {entry.role: entry for entry in entries}
 
     def _ref(product: IblProduct, /) -> PlaneRef | None:
@@ -1211,6 +1659,8 @@ def _ibl_entry(facts: IblFacts, entries: tuple[MapEntry, ...], /) -> IblEntry:
     return IblEntry(
         sh9=list(facts.sh9),
         equirect=_ref(IblProduct.EQUIRECT),
+        cubemap=_ref(IblProduct.CUBEMAP),
+        preview=_ref(IblProduct.PREVIEW),
         specular=list(specular.levels) if specular is not None else [],
         roughness_per_mip=list(facts.roughness_per_mip),
         brdf_lut=_ref(IblProduct.BRDF_LUT),
@@ -1244,16 +1694,25 @@ def _entries(receipts: tuple[ArtifactReceipt, ...], /) -> Result[tuple[MapEntry,
         case ():
             # roster index THEN variant: a UDIM sheet and a per-level pyramid put many files under one role, so
             # a key on the role alone leaves their relative order to whatever the drain happened to complete first
-            ordered = sorted(bands, key=lambda band: (_ROSTER.index(_slot_of(str(band["role"]))), float(band["variant"])))
-            groups: dict[tuple[str, float], tuple[frozendict[str, float | str], ...]] = {}
+            # roster index, then CONTAINER, then variant. The container joins the key because a role legitimately
+            # carries two files now — its primary and its sampled companion — and grouping on the role alone folded
+            # the twin into the primary's level list as if it were another mip, publishing one entry claiming two
+            # levels of a pyramid that does not exist. It joins the SORT for the same reason the roster index does:
+            # this order reaches the merkle preimage, so two entries under one role must order by a declared fact
+            # rather than by whichever node the drain completed first.
+            ordered = sorted(
+                bands, key=lambda band: (_ROSTER_INDEX[_ROSTER_BY_VALUE[str(band["role"])]], str(band["container"]), float(band["variant"]))
+            )
+            groups: dict[tuple[str, str, float], tuple[frozendict[str, float | str], ...]] = {}
             for band in ordered:
                 variant = float(band["variant"])
-                slot = (str(band["role"]), variant if variant >= _UDIM_FLOOR else -1.0)
+                slot = (str(band["role"]), str(band["container"]), variant if variant >= _UDIM_FLOOR else -1.0)
                 groups[slot] = (*groups.get(slot, ()), band)
             return Ok(tuple(
                 MapEntry(
                     role=str(group[0]["role"]),
                     color_space=str(group[0]["color_space"]),
+                    color_primaries=str(group[0]["color_primaries"]),
                     depth=str(group[0]["depth"]),
                     container=str(group[0]["container"]),
                     channels=int(float(group[0]["channels"])),
@@ -1274,13 +1733,7 @@ def _entries(receipts: tuple[ArtifactReceipt, ...], /) -> Result[tuple[MapEntry,
             return Error(TextureFault(role="<receipt-band-carries-no-role>"))
 
 
-def _slot_of(key: str, /) -> MapSlot:
-    # All three vocabularies stay key-DISJOINT by an `ingest#INGEST` load gate, so first claim wins and no receipt
-    # band needs a second field naming which roster its role came from
-    return next(slot for slot in _ROSTER if slot.value == key)
-
-
-def _set_receipt(key: ContentKey, manifest: AssetSetManifest, /) -> ArtifactReceipt:
+def _set_receipt(key: ContentKey, manifest: AssetSetManifest, spec_score: Option[float], companion: CompanionPolicy, /) -> ArtifactReceipt:
     # ONE set-level receipt beside the per-map ones. `bytes_` measures the MANIFEST DOCUMENT this fold delivers and
     # nothing else: every plane byte already entered `rasm.artifact.byte_volume` through its own node receipt, so a
     # container re-sum here inflates the governed distribution by the fan width. The plane total rides the band.
@@ -1291,6 +1744,13 @@ def _set_receipt(key: ContentKey, manifest: AssetSetManifest, /) -> ArtifactRece
         manifest.height,
         len(manifest.maps),
         len(msgspec.json.encode(manifest)),
+        # the two FIXED slots at set altitude: the deepest pyramid the set publishes and the whole texel volume it
+        # delivers, so both governed signals read off the receipt rather than a band a metric owner cannot meter
+        max((entry.mips for entry in (*manifest.maps, *manifest.packs)), default=0),
+        manifest.width * manifest.height * sum(len(entry.levels) for entry in (*manifest.maps, *manifest.packs)),
+        # set-level tool spells the leg only when EVERY map took one; a mixed set records absence, because a set
+        # dimension asserting one leg over a mixed fan mislabels every series split on it
+        next(iter(tools)) if len(tools := {entry.tool for entry in manifest.maps}) == 1 else "",
         frozendict({
             "manifest_key": manifest.manifest_key,
             # every stored FILE weighs in — map levels and pack levels alike — because the band states the set's
@@ -1302,6 +1762,15 @@ def _set_receipt(key: ContentKey, manifest: AssetSetManifest, /) -> ArtifactRece
             "unresolved": float(len(manifest.unresolved)),
             "udim_tiles": float(len(manifest.udim_tiles)),
             "tiled": float(manifest.tiled),
+            # the MEASURED seam agreement beside the declared flag, so a consumer thresholds the number against its
+            # own tolerance rather than trusting a boolean this producer cannot honestly calibrate. The key is
+            # ABSENT where no seam-bearing role reached the probe, exactly as the fidelity keys are: a zero here is
+            # the worst reading on the scale and would libel every set that simply carries no colour or height map.
+            **spec_score.map(lambda score: frozendict({"tile_score": score})).default_value(frozendict()),
+            # the COMPANION declaration, which the manifest cannot restate: a render-ready set whose every primary
+            # was already sampled produces no companion entry at all, and a consumer reading zero companions off
+            # the entry stream cannot tell that set from one that never declared the policy
+            "companion_policy": companion.value,
             "height_scale": manifest.height_scale,
             # DETERMINISTIC fact a consumer reads before trusting the set key to reproduce: every map inside
             # `_FLOOR` round-trips byte-exact with no provisioned binary, so a false here says the key is host- and
@@ -1312,9 +1781,10 @@ def _set_receipt(key: ContentKey, manifest: AssetSetManifest, /) -> ArtifactRece
             ),
             "normal_convention": manifest.normal_convention,
             "license_class": manifest.license_class,
-            # the frozen [08.2] receipt fan: an environment set carries its twenty-seven SH coefficients as
-            # `sh_<band>_<channel>` scalars — the band type holds one native scalar, so the flat wire list and
-            # this scalar fan are one number set in one order, and a PBR set carries none of them
+            # the receipt fan over the same layout `tests/contracts/appearance-vocabulary.schema.json` `$defs/sh9`
+            # fixes: an environment set carries its twenty-seven SH coefficients as `sh_<band>_<channel>` scalars —
+            # the band type holds one native scalar, so the flat wire list and this scalar fan are one number set in
+            # one order, band-major with RGB interleaved, and a PBR set carries none of them
             **{
                 f"sh_{index // 3}_{'rgb'[index % 3]}": float(value)
                 for index, value in enumerate(manifest.ibl.sh9 if manifest.ibl is not None else ())
@@ -1327,19 +1797,53 @@ def addressed(key: ContentKey, manifest: AssetSetManifest, /) -> tuple[tuple[str
     # the (digest, egress path) join the app-root sink composes: every entry's leaf rides the frozen grammar
     # under the SET key's own root, the environment kinds under `materials/environment/` — this is `egress`'s one
     # caller shape, and without it every IBL product published under the texture root against the freeze.
-    environment = manifest.kind != SetKind.PBR_SET.value
-    return (
-        *((ref.digest, egress(key, ref.file, environment=environment)) for entry in manifest.maps for ref in entry.levels),
-        *((ref.digest, egress(key, ref.file, environment=environment)) for pack in manifest.packs for ref in pack.levels),
+    # the ROOT is named off the manifest's own kind, never derived from a boolean the sink has to interpret: a
+    # producer states where its product publishes and the shared port carries that name, so a document, a bundle,
+    # and an environment plane each answer for themselves with no per-producer arm inside the sink.
+    root = _EGRESS_ROOT if manifest.kind == SetKind.PBR_SET.value else _EGRESS_ENVIRONMENT
+    return tuple(
+        (ref.digest, egress(key, ref.file, root=root))
+        for entry in (*manifest.maps, *manifest.packs)
+        for ref in entry.levels
     )
+
+
+def _band(fact: MapFact, /, *, variant: Variant = None) -> frozendict[str, float | str]:
+    # ONE band builder, TWO readers: the receipt projection and the `ProductFact` the shared egress port carries.
+    # The band IS one file's `MapEntry` preimage, so every field the assembly reads back is recorded here — dropping
+    # two of them left the fold reading keys its own producer never wrote and the manifest could only be built by
+    # inventing them. Building it twice would put that same obligation on two sites that drift independently.
+    return frozendict({
+        "role": fact.slot.value,
+        "digest": fact.digest.project("wire"),
+        "file": fact.file,
+        "container": fact.format.value,
+        "depth": fact.depth.value,
+        "color_space": fact.space.value,
+        # the manifest-side truth a consumer checks a container's own colour field against; without it the join
+        # between a file's declared chromaticity and the document naming that file has no second side
+        "color_primaries": fact.primaries.value,
+        "mips": float(fact.mips),
+        "channels": float(fact.channels),
+        "byte_length": float(len(fact.payload)),
+        # the variant this leaf occupies, so the fold orders a UDIM sheet and a pyramid ladder by their own
+        # index rather than by drain completion; a no-variant leaf reads -1 and sorts ahead of index zero
+        "variant": float(variant if variant is not None else -1),
+        "ktx_payload": fact.ktx_payload.value if fact.ktx_payload else "none",
+        "tool": fact.tool.value,
+        "tool_version": fact.tool_version,
+        # the error state's OWN projection, which spells four cases through the keys it emits rather than through a
+        # sentinel value: a byte-exact row records nothing, a declared bound records its kind beside its number, a
+        # measurement records the numbers it took, and a lossy encode whose re-decode did not return says so.
+        **fact.error.band,
+    })
 
 
 def _previewed(request: MapRequest, fact: MapFact, /) -> ArtifactReceipt:
     # receipt.slot threads the SAME pre-run `_keyed(request)` identity the node scheduled under — parents included,
-    # because the request carries them; the produced-byte address rides the `map` band, never the slot.
-    # The band IS one file's `[05.2]` `MapEntry` preimage, so EVERY field the fold reads back is recorded here:
-    # dropping `container` and `byte_length` left the assembly reading two keys its own producer never wrote, and
-    # the manifest could only be built by inventing them.
+    # because the request carries them; the produced-byte address rides the `map` band, never the slot. The two
+    # FIXED slots are the governed signals: a per-map receipt carries this plane's own mip depth and its texel
+    # count, so a texture regression trends in production rather than only inside a benchmark run.
     return ArtifactReceipt.Texture(
         _keyed(request),
         request.kind.value,
@@ -1347,23 +1851,10 @@ def _previewed(request: MapRequest, fact: MapFact, /) -> ArtifactReceipt:
         request.extent[1],
         1,
         len(fact.payload),
-        frozendict({
-            "role": fact.slot.value,
-            "digest": fact.digest.project("wire"),
-            "file": fact.file,
-            "container": fact.format.value,
-            "depth": fact.depth.value,
-            "color_space": fact.space.value,
-            "mips": float(fact.mips),
-            "channels": float(fact.channels),
-            "byte_length": float(len(fact.payload)),
-            # the variant this leaf occupies, so the fold orders a UDIM sheet and a pyramid ladder by their own
-            # index rather than by drain completion; a no-variant leaf reads -1 and sorts ahead of index zero
-            "variant": float(request.variant if request.variant is not None else -1),
-            "ktx_payload": fact.ktx_payload.value if fact.ktx_payload else "none",
-            "tool": fact.tool.value,
-            "tool_version": fact.tool_version,
-        }),
+        fact.mips,
+        request.extent[0] * request.extent[1] * fact.mips,
+        fact.tool.value,  # the third FIXED slot: the producing leg is a metric DIMENSION, so it graduates off the band
+        _band(fact, variant=request.variant),
     )
 ```
 
@@ -1390,15 +1881,16 @@ flowchart LR
     Src --> Mip["_mipped via _mip_policy; ROUGHNESS_VARIANCE folds the staged paired normal, absent -> BOX floor"]
     Mip --> Conv["_converted_for AFTER the fold: _stored_space depth-conditional srgb/linear, spec override wins"]
     Conv --> Sgn["_stored: signed_encoded at an INTEGER store only"]
-    Sgn -->|"ktx2"| KTX["_ktx_stored: ktx_leg -> pyktx | _ktx_probe -> ktx CLI, one raw file per level; neither leg -> tool_absent"]
-    Sgn -->|"every other row"| Enc["encode under _ENCODE_POLICY; _FLOOR rows are lossless AND binary-free"]
+    Sgn -->|"ktx2"| KTX["_ktx_stored: shared admission incl. primaries-vs-leg, then plane#CODEC encode, then ktx validate"]
+    Sgn -->|"every other row"| Enc["encode under the ROW default; _scored measures a lossy row or records its declared bound"]
     KTX --> Fact["MapFact(digest over ENCODED bytes, file, tool, tool_version)"]
     Enc --> Fact
-    Fact --> Sink["sink(fact): the caller-threaded egress the produced BYTES cross"]
+    Fact --> Sink["sink(fact.product): the producer-agnostic ProductSink the produced BYTES cross, root named"]
     Sink --> Rec["_previewed -> ArtifactReceipt.Texture, map band with container / byte_length / variant"]
-    Rec --> Asm["TextureSet.assembled: PURE fold over the drained map bands -> _entries -> merkle key under texture-set"]
+    Rec --> Asm["TextureSet.assembled: PURE fold over the drained map bands -> _entries -> IblFacts.admitted -> merkle key"]
     Asm --> Man["AssetSetManifest: maps and packs SPLIT from one entry stream, ibl leg joined, per-map tool facts carried"]
-    Asm --> Egr["addressed -> egress: materials/{texture|environment}/<key>/<channel>[.<variant>].<ext>"]
+    Asm --> Egr["addressed -> egress(root=): materials/{texture|environment}/&lt;key&gt;/&lt;channel&gt;[.&lt;variant&gt;].&lt;ext&gt;"]
+    Egr --> Low["lowered(manifest, key, table): preview-surface inputs or render slots, port and transfer derived"]
 ```
 
 ## [04]-[RESEARCH]
@@ -1407,4 +1899,4 @@ flowchart LR
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-(none)
+- [TILE_SCORE_CUTOFF]-[OPEN]: which `tile_score` value separates a seam-coherent plane from a cut one across the estate's real texture families — the measure is sound and its extremes are unambiguous (a non-wrapping gradient collapses toward zero, a plane built by tiling scores near one), but a hard-edged periodic pattern whose period aligns with a probe lag reads the same as its cut sibling because both populations approach zero difference, so a single constant would misjudge that family; calibrate over a labelled corpus spanning organic, hard-edged, gradient, and noise textures, and land the cut-off as a policy row here plus the boolean fill on `tiled` only once the separation holds across all four.

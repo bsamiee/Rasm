@@ -23,13 +23,11 @@
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics.Tensors;
-using System.Text;
-using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
@@ -439,7 +437,7 @@ public abstract partial record FixturingWitness {
 
 public abstract partial record FabricationFault {
     public sealed record FixtureInadmissible(FixturingWitness Witness)
-        : FabricationFault(53, "fabrication:fixture-inadmissible", FabConcern.Fixturing);
+        : FabricationFault(55, "fabrication:fixture-inadmissible", FabConcern.Fixturing);   // code 55 allocated at Process/faults (53 is Forming BendSearchBudgetExceeded)
 }
 
 [SmartEnum<string>]
@@ -535,7 +533,7 @@ public sealed partial class FixtureSet {
 - Law: `ClampTemplate` generates boundary layouts, evaluates every candidate through the same restraint and corridor algebra, ranks the survivors, and derives soft-jaw negatives from the part silhouette. `Programs` enumerates only the admitted cardinalities under `CandidateBudget`, so template-roster growth never costs a powerset.
 - Exemption: statements stay inside the bounded kernels alone — `Canonical`, `ZoneIdentity`, `Frame`, and the typed `Write` overloads serialize the boundary with every union case, optional value, string, and adjacent collection framed and `ZoneIdentity` reusing the complete zone writer; `GateSequence` and `GateDatum` fold aggregate admission; `Rank`, `Hull`, and `Chain` score synthesis and close the support polygon; `ContactPatch.Field`, `Support`, `TangentialSupport`, `NormalSupport`, `MomentSupport`, and `TipMargin` measure contact; `Zone`, `Below`, `Crosses`, `Intersection`, and `ArcSegments` measure geometry.
 - Entry: `Workholding.Apply` is the sole public operation surface; each case carries every discriminant and parameter its arm consumes.
-- Output: `FixtureProjection` selects machine, setup-sheet, inspection, and evidence payloads; `Canonical` dispatches on that family and writes every field of the selected payload before `ContentKey.Of` mints its identity.
+- Output: `FixtureProjection` selects machine, setup-sheet, inspection, and evidence payloads; `Canonical` dispatches on that family and composes the `Rasm.Element` `CanonicalWriter` over every field of the selected payload before `ContentKey.Of` mints its identity.
 - Boundary: geometry, aggregate, and stability failures remain typed; no failure becomes an empty fixture, a clear path, or a passing margin.
 
 ```csharp signature
@@ -736,32 +734,31 @@ public static class Workholding {
                     && step.Release.ForAll(state.Active.Contains);
                 return (next, state.Broken | (ordered && uncovered.IsNone ? None : Some((step, uncovered))));
             });
-        return lifecycle.Broken.IsNone
+        return AdmissionSlots.Gate(
+            lifecycle.Broken.IsNone
             && spec.Sequence.Count > 0
             && spec.Sequence.Map(static step => step.Stage).Distinct().Count == spec.Sequence.Count
             && spec.Sequence.ForAll(step => step.Settle.As(DurationUnit.Second) >= 0.0 && double.IsFinite(step.Settle.As(DurationUnit.Second)))
-            && spec.Elements.ForAll(element => spec.Sequence.Exists(step => step.Activate.Contains(element.Element)))
-                ? Validation<Error, Unit>.Success(unit)
-                : Validation<Error, Unit>.Fail(new FabricationFault.FixtureInadmissible(new FixturingWitness.Lifecycle(
-                    lifecycle.Broken.Map(static broken => broken.Step),
-                    lifecycle.Broken.Bind(static broken => broken.Uncovered),
-                    spec.Sequence.Count,
-                    lifecycle.Active.Count)).ToError());
+            && spec.Elements.ForAll(element => spec.Sequence.Exists(step => step.Activate.Contains(element.Element))),
+            new FabricationFault.FixtureInadmissible(new FixturingWitness.Lifecycle(
+                lifecycle.Broken.Map(static broken => broken.Step),
+                lifecycle.Broken.Bind(static broken => broken.Uncovered),
+                spec.Sequence.Count,
+                lifecycle.Active.Count)));
     }
 
     internal static K<Validation<Error>, Unit> GateDatum(FixtureSpec spec) {
         Set<int> locators = spec.Elements.Filter(static element => element.Role == FixtureRole.Locate).Map(static element => element.Element).ToSet();
         Set<int> datum = spec.Datum.Primary.Concat(spec.Datum.Secondary).Concat(spec.Datum.Tertiary).ToSet();
         bool disjoint = datum.Count == spec.Datum.Primary.Count + spec.Datum.Secondary.Count + spec.Datum.Tertiary.Count;
-        return
-        spec.Datum.Primary.Count >= 1 && spec.Datum.Secondary.Count >= 1 && spec.Datum.Tertiary.Count >= 1
-        && disjoint && datum.ForAll(locators.Contains)
-        && spec.Datum.Work.IsValid
-        && spec.Datum.Repeatability.As(LengthUnit.Millimeter) >= 0.0 && double.IsFinite(spec.Datum.Repeatability.As(LengthUnit.Millimeter))
-            ? Validation<Error, Unit>.Success(unit)
-            : Validation<Error, Unit>.Fail(new FabricationFault.FixtureInadmissible(new FixturingWitness.Datum(
+        return AdmissionSlots.Gate(
+            spec.Datum.Primary.Count >= 1 && spec.Datum.Secondary.Count >= 1 && spec.Datum.Tertiary.Count >= 1
+            && disjoint && datum.ForAll(locators.Contains)
+            && spec.Datum.Work.IsValid
+            && spec.Datum.Repeatability.As(LengthUnit.Millimeter) >= 0.0 && double.IsFinite(spec.Datum.Repeatability.As(LengthUnit.Millimeter)),
+            new FabricationFault.FixtureInadmissible(new FixturingWitness.Datum(
                 spec.Datum.Primary.Count, spec.Datum.Secondary.Count, spec.Datum.Tertiary.Count,
-                datum.Count(element => !locators.Contains(element)))).ToError());
+                datum.Count(element => !locators.Contains(element)))));
     }
 
     internal static K<Validation<Error>, Seq<ExclusionZone>> Zones(FixtureSpec spec) =>
@@ -872,7 +869,7 @@ public static class Workholding {
         contacts.Count > 0
             ? Fin.Succ(Some((contacts.Map(static contact => contact.Footprint), margin, height)))
             : Fin.Fail<Option<(Seq<Loop>, double, double)>>(
-                new GeometryFault.DegenerateInput(Kind.Polyline, 0, nameof(ContactPatch.Footprint)).ToError());
+                new GeometryFault.DegenerateInput(Kind.Polyline, None, nameof(ContactPatch.Footprint)).ToError());
 
     static Fin<Seq<Move>> Condition(Fixture fixture, FixtureState state, Seq<Move> moves) =>
         ValidRuns(fixture.Spec.Profiles, fixture.Spec.Runs)
@@ -883,7 +880,7 @@ public static class Workholding {
                 (rail, move) => rail.Bind(current => Segments(current.Cursor, move, fixture.Spec.ArcChordError.As(LengthUnit.Millimeter)).Bind(path =>
                     Blocks(path, fixture, state).Match(
                         Some: zone => Fin.Fail<(Point3d, Seq<Move>)>(FabricationFault.Collision(zone.Collision, CollisionContact.Cutter).ToError()),
-                        None: () => Fin.Succ((Target(move), current.Accepted.Add(move))))))
+                        None: () => Fin.Succ((Target(move), current.Accepted.Add(move)))))))
             .Map(static current => current.Accepted))
             : Fin.Fail<Seq<Move>>(new FabricationFault.FixtureInadmissible(new FixturingWitness.Partition(
                 fixture.Spec.Runs.Sum(static run => run.Count), moves.Count)).ToError());
@@ -1076,7 +1073,7 @@ public static class Workholding {
     }
 
     static Seq<Point3d> Hull(Seq<Point3d> points) {
-        Seq<Point3d> ordered = points.Distinct().OrderBy(static point => point.X).ThenBy(static point => point.Y).ToSeq();
+        Seq<Point3d> ordered = toSeq(points.Distinct().OrderBy(static point => point.X).ThenBy(static point => point.Y));
         return ordered.Count < 3 ? ordered : Chain(ordered) + Chain(ordered.Reverse());
     }
 
@@ -1140,8 +1137,8 @@ public static class Workholding {
                                 Clear(fixture, FixtureState.Cut, corridor).Map(static blocked => new WorkholdingResult.Clearance(blocked)).ToValidation())
                                 .As().ToFin().Map(clearance => Rank(seed.Objective, fixture, holding, clearance, generated)))));
                     }).ToValidation())
-                .As().ToFin().Map(static candidates => candidates.Filter(static candidate => candidate.Holding.Holds
-                    && candidate.Clearance.ForAll(static receipt => receipt.Clear)).OrderByDescending(static candidate => candidate.Score.Total).ToSeq());
+                .As().ToFin().Map(static candidates => toSeq(candidates.Filter(static candidate => candidate.Holding.Holds
+                    && candidate.Clearance.ForAll(static receipt => receipt.Clear)).OrderByDescending(static candidate => candidate.Score.Total)));
         });
     }
 
@@ -1199,269 +1196,217 @@ public static class Workholding {
             evidence: () => new FixtureArtifact.Evidence(key, fixture)));
     }
 
-    // Projection dispatch writes each exact payload minus its recursively defined key; every collection and optional
-    // value is framed, so payload cardinality, case, absence, and field boundaries remain injective.
+    // Every preimage on this page composes the ONE `Rasm.Element` `CanonicalWriter`: `Double` normalizes `-0.0` and
+    // every NaN payload to a single pattern before framing the IEEE bits, `String` length-prefixes UTF-8 so no
+    // delimiter can forge equality, and `Ordinal(count)` precedes every collection. A page-local primitive would
+    // fork byte identity against every sibling page keying the same artifact.
     static ReadOnlySpan<byte> Canonical(Fixture fixture, FixtureProjection projection) {
-        using ArrayPoolBufferWriter<byte> buffer = new();
-        Write(buffer, projection.Key);
+        CanonicalWriter writer = new(fixture.Spec.ArcChordError.As(LengthUnit.Millimeter));
+        _ = writer.String(projection.Key);
         _ = projection.Switch(
             machine: () => {
-                Frame(buffer, fixture.Zones, Write);
-                Write(buffer, fixture.Spec.Datum);
-                Write(buffer, fixture.Constraint);
+                Frame(writer, fixture.Zones, Write);
+                Write(writer, fixture.Spec.Datum);
+                Write(writer, fixture.Constraint);
                 return unit;
             },
             setupSheet: () => {
-                Frame(buffer, fixture.Spec.Elements, Write);
-                Frame(buffer, fixture.Spec.Sequence, Write);
-                Write(buffer, fixture.Spec.Datum);
-                Write(buffer, fixture.Constraint);
+                Frame(writer, fixture.Spec.Elements, Write);
+                Frame(writer, fixture.Spec.Sequence, Write);
+                Write(writer, fixture.Spec.Datum);
+                Write(writer, fixture.Constraint);
                 return unit;
             },
             inspection: () => {
-                Frame(buffer, fixture.Contacts, Write);
-                Write(buffer, fixture.Spec.Datum);
-                Write(buffer, fixture.Constraint);
+                Frame(writer, fixture.Contacts, Write);
+                Write(writer, fixture.Spec.Datum);
+                Write(writer, fixture.Constraint);
                 return unit;
             },
-            evidence: () => { Write(buffer, fixture); return unit; });
-        return buffer.WrittenSpan.ToArray();
+            evidence: () => { Write(writer, fixture); return unit; });
+        return writer.ToBytes().Span;
     }
 
     internal static ReadOnlySpan<byte> ZoneIdentity(ExclusionZone zone) {
-        using ArrayPoolBufferWriter<byte> buffer = new();
-        Write(buffer, zone);
-        return buffer.WrittenSpan.ToArray();
+        CanonicalWriter writer = new(zone.ArcChordError.As(LengthUnit.Millimeter));
+        Write(writer, zone);
+        return writer.ToBytes().Span;
     }
 
-    static void Frame<T>(ArrayPoolBufferWriter<byte> buffer, Seq<T> rows, Action<ArrayPoolBufferWriter<byte>, T> write) {
-        Write(buffer, rows.Count);
-        _ = rows.Iter(row => write(buffer, row));
+    static void Frame<T>(CanonicalWriter writer, Seq<T> rows, Action<CanonicalWriter, T> write) {
+        _ = writer.Ordinal(rows.Count);
+        _ = rows.Iter(row => write(writer, row));
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(sizeof(int)), value);
-        buffer.Advance(sizeof(int));
+    static void Write(CanonicalWriter writer, Point3d value) =>
+        _ = writer.Double(value.X).Double(value.Y).Double(value.Z);
+
+    static void Write(CanonicalWriter writer, Vector3d value) =>
+        _ = writer.Double(value.X).Double(value.Y).Double(value.Z);
+
+    static void Write(CanonicalWriter writer, Plane value) {
+        Write(writer, value.Origin);
+        Write(writer, value.XAxis);
+        Write(writer, value.YAxis);
+        Write(writer, value.ZAxis);
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, long value) {
-        BinaryPrimitives.WriteInt64LittleEndian(buffer.GetSpan(sizeof(long)), value);
-        buffer.Advance(sizeof(long));
+    static void Write(CanonicalWriter writer, Context value) {
+        _ = writer.Double(value.Absolute.Value).Double(value.Relative.Value).Double(value.Angle.Value)
+            .Ordinal((int)value.Unit.System).Double(value.Unit.MetersPerUnit);
+        _ = value.Unit.Name.Match(
+            Some: name => writer.Bool(true).String(name),
+            None: () => writer.Bool(false));
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, double value) {
-        BinaryPrimitives.WriteInt64LittleEndian(buffer.GetSpan(sizeof(long)), BitConverter.DoubleToInt64Bits(value));
-        buffer.Advance(sizeof(long));
+    static void Write(CanonicalWriter writer, Loop value) {
+        Frame(writer, value.Vertices.ToSeq(), Write);
+        _ = writer.Bool(value.Closed);
+        Frame(writer, value.Bulges.ToSeq(), static (held, bulge) => held.Double(bulge));
+        Write(writer, value.Tolerance);
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, Point3d value) {
-        Write(buffer, value.X);
-        Write(buffer, value.Y);
-        Write(buffer, value.Z);
+    static void Write(CanonicalWriter writer, ContactLaw value) =>
+        _ = writer.Double(value.Friction.As(RatioUnit.DecimalFraction))
+            .Double(value.PressureLimit.As(PressureUnit.Pascal))
+            .Double(value.NormalStiffnessNPerMm)
+            .Double(value.TangentialStiffnessNPerMm)
+            .Double(value.DeflectionLimit.As(LengthUnit.Millimeter))
+            .Double(value.PullOff.As(ForceUnit.Newton));
+
+    static void Write(CanonicalWriter writer, Actuation value) => _ = value.Switch(
+        state: writer,
+        manual: static (held, row) => held.String(nameof(Actuation.Manual)).Double(row.Torque.As(TorqueUnit.NewtonMeter))
+            .Double(row.MeanRadius.As(LengthUnit.Millimeter)).Double(row.Efficiency.As(RatioUnit.DecimalFraction))
+            .Bool(row.SelfLocking),
+        spring: static (held, row) => held.String(nameof(Actuation.Spring)).Double(row.Force.As(ForceUnit.Newton))
+            .Double(row.Stroke.As(LengthUnit.Millimeter)),
+        pneumatic: static (held, row) => held.String(nameof(Actuation.Pneumatic)).Double(row.Pressure.As(PressureUnit.Pascal))
+            .Double(row.Piston.As(AreaUnit.SquareMeter)).Bool(row.ClampsOnLoss),
+        hydraulic: static (held, row) => held.String(nameof(Actuation.Hydraulic)).Double(row.Pressure.As(PressureUnit.Pascal))
+            .Double(row.Piston.As(AreaUnit.SquareMeter)).Bool(row.AccumulatorHeld),
+        electric: static (held, row) => held.String(nameof(Actuation.Electric)).Double(row.Force.As(ForceUnit.Newton))
+            .Double(row.Stroke.As(LengthUnit.Millimeter)).Bool(row.BrakeHeld),
+        field: static (held, row) => held.String(nameof(Actuation.Field)).Double(row.PullOff.As(ForceUnit.Newton))
+            .Double(row.Release.As(DurationUnit.Second)));
+
+    static void Write(CanonicalWriter writer, ContactPatch value) {
+        _ = writer.Ordinal(value.Element);
+        Write(writer, value.Footprint);
+        Write(writer, value.Center);
+        Write(writer, value.Normal);
+        Write(writer, value.Law);
+        _ = writer.Double(value.Preload.As(ForceUnit.Newton));
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, Vector3d value) {
-        Write(buffer, value.X);
-        Write(buffer, value.Y);
-        Write(buffer, value.Z);
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, bool value) => Write(buffer, value ? 1 : 0);
-    static void Write(ArrayPoolBufferWriter<byte> buffer, UInt128 value) {
-        Write(buffer, unchecked((long)(ulong)value));
-        Write(buffer, unchecked((long)(ulong)(value >> 64)));
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, Plane value) {
-        Write(buffer, value.Origin);
-        Write(buffer, value.XAxis);
-        Write(buffer, value.YAxis);
-        Write(buffer, value.ZAxis);
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, string value) {
-        int length = Encoding.UTF8.GetByteCount(value);
-        Write(buffer, length);
-        Encoding.UTF8.GetBytes(value, buffer.GetSpan(length));
-        buffer.Advance(length);
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, Context value) {
-        Write(buffer, value.Absolute.Value);
-        Write(buffer, value.Relative.Value);
-        Write(buffer, value.Angle.Value);
-        Write(buffer, (int)value.Unit.System);
-        Write(buffer, value.Unit.MetersPerUnit);
-        value.Unit.Name.Match(
-            Some: name => { Write(buffer, true); Write(buffer, name); },
-            None: () => Write(buffer, false));
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, Loop value) {
-        Frame(buffer, value.Vertices.ToSeq(), Write);
-        Write(buffer, value.Closed);
-        Frame(buffer, value.Bulges.ToSeq(), Write);
-        Write(buffer, value.Tolerance);
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, ContactLaw value) {
-        Write(buffer, value.Friction.As(RatioUnit.DecimalFraction));
-        Write(buffer, value.PressureLimit.As(PressureUnit.Pascal));
-        Write(buffer, value.NormalStiffnessNPerMm);
-        Write(buffer, value.TangentialStiffnessNPerMm);
-        Write(buffer, value.DeflectionLimit.As(LengthUnit.Millimeter));
-        Write(buffer, value.PullOff.As(ForceUnit.Newton));
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, Actuation value) => _ = value.Switch(
-        state: buffer,
-        manual: static (held, row) => {
-            Write(held, nameof(Actuation.Manual)); Write(held, row.Torque.As(TorqueUnit.NewtonMeter));
-            Write(held, row.MeanRadius.As(LengthUnit.Millimeter)); Write(held, row.Efficiency.As(RatioUnit.DecimalFraction));
-            Write(held, row.SelfLocking); return unit;
-        },
-        spring: static (held, row) => {
-            Write(held, nameof(Actuation.Spring)); Write(held, row.Force.As(ForceUnit.Newton));
-            Write(held, row.Stroke.As(LengthUnit.Millimeter)); return unit;
-        },
-        pneumatic: static (held, row) => {
-            Write(held, nameof(Actuation.Pneumatic)); Write(held, row.Pressure.As(PressureUnit.Pascal));
-            Write(held, row.Piston.As(AreaUnit.SquareMeter)); Write(held, row.ClampsOnLoss); return unit;
-        },
-        hydraulic: static (held, row) => {
-            Write(held, nameof(Actuation.Hydraulic)); Write(held, row.Pressure.As(PressureUnit.Pascal));
-            Write(held, row.Piston.As(AreaUnit.SquareMeter)); Write(held, row.AccumulatorHeld); return unit;
-        },
-        electric: static (held, row) => {
-            Write(held, nameof(Actuation.Electric)); Write(held, row.Force.As(ForceUnit.Newton));
-            Write(held, row.Stroke.As(LengthUnit.Millimeter)); Write(held, row.BrakeHeld); return unit;
-        },
-        field: static (held, row) => {
-            Write(held, nameof(Actuation.Field)); Write(held, row.PullOff.As(ForceUnit.Newton));
-            Write(held, row.Release.As(DurationUnit.Second)); return unit;
-        });
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, ContactPatch value) {
-        Write(buffer, value.Element);
-        Write(buffer, value.Footprint);
-        Write(buffer, value.Center);
-        Write(buffer, value.Normal);
-        Write(buffer, value.Law);
-        Write(buffer, value.Preload.As(ForceUnit.Newton));
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, FixtureElement value) {
-        Write(buffer, value.Element);
-        Write(buffer, value.Role.Key);
-        value.Kind.Match(
-            Some: kind => { Write(buffer, true); Write(buffer, kind.Key); },
-            None: () => Write(buffer, false));
+    // Presence rides `Bool` and the payload follows it, so an absent optional consumes one byte and can never be
+    // confused with a present one whose projection happens to start with a zero.
+    static void Write(CanonicalWriter writer, FixtureElement value) {
+        _ = writer.Ordinal(value.Element).String(value.Role.Key);
+        _ = value.Kind.Match(
+            Some: kind => writer.Bool(true).String(kind.Key),
+            None: () => writer.Bool(false));
         _ = value.Switch(
-            state: buffer,
-            locatingPlane: static (held, row) => { Write(held, nameof(FixtureElement.LocatingPlane)); Write(held, row.Contact); return unit; },
-            roundPin: static (held, row) => { Write(held, nameof(FixtureElement.RoundPin)); Write(held, row.Center); Write(held, row.Radius.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); Frame(held, row.Contacts, Write); return unit; },
-            diamondPin: static (held, row) => { Write(held, nameof(FixtureElement.DiamondPin)); Write(held, row.Center); Write(held, row.FreeAxis); Write(held, row.Radius.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); Frame(held, row.Contacts, Write); return unit; },
-            nest: static (held, row) => { Write(held, nameof(FixtureElement.Nest)); Frame(held, row.Contacts, Write); return unit; },
-            locatingCenter: static (held, row) => { Write(held, nameof(FixtureElement.LocatingCenter)); Write(held, row.Point); Write(held, row.Axis); Write(held, row.IncludedAngle.As(AngleUnit.Degree)); Write(held, row.Contact); return unit; },
-            mandrel: static (held, row) => { Write(held, nameof(FixtureElement.Mandrel)); Write(held, row.Center); Write(held, row.Axis); Write(held, row.Radius.As(LengthUnit.Millimeter)); Write(held, row.Length.As(LengthUnit.Millimeter)); Frame(held, row.Contacts, Write); return unit; },
-            optical: static (held, row) => { Write(held, nameof(FixtureElement.Optical)); Write(held, row.Datum); Write(held, row.Repeatability.As(LengthUnit.Millimeter)); return unit; },
-            fixedSupport: static (held, row) => { Write(held, nameof(FixtureElement.FixedSupport)); Write(held, row.Contact); return unit; },
-            adjustableSupport: static (held, row) => { Write(held, nameof(FixtureElement.AdjustableSupport)); Write(held, row.Contact); Write(held, row.Travel.As(LengthUnit.Millimeter)); return unit; },
-            hydraulicSupport: static (held, row) => { Write(held, nameof(FixtureElement.HydraulicSupport)); Write(held, row.Contact); Write(held, row.EqualizedPressure.As(PressureUnit.Pascal)); return unit; },
-            compliantSupport: static (held, row) => { Write(held, nameof(FixtureElement.CompliantSupport)); Write(held, row.Contact); Write(held, row.DeflectionLimit.As(LengthUnit.Millimeter)); return unit; },
-            steadyRest: static (held, row) => { Write(held, nameof(FixtureElement.SteadyRest)); Frame(held, row.Contacts, Write); Write(held, row.Station.As(LengthUnit.Millimeter)); return unit; },
-            sacrificialSupport: static (held, row) => { Write(held, nameof(FixtureElement.SacrificialSupport)); Write(held, row.Contact); Write(held, row.RemainingThickness.As(LengthUnit.Millimeter)); return unit; },
-            toeClamp: static (held, row) => { Write(held, nameof(FixtureElement.ToeClamp)); Write(held, row.Body); Write(held, row.Contact); Write(held, row.Drive); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            vise: static (held, row) => { Write(held, nameof(FixtureElement.Vise)); Frame(held, row.Bodies, Write); Frame(held, row.Contacts, Write); Write(held, row.Drive); Write(held, row.Opening.As(LengthUnit.Millimeter)); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            chuck: static (held, row) => { Write(held, nameof(FixtureElement.Chuck)); Frame(held, row.Jaws, Write); Frame(held, row.Contacts, Write); Write(held, row.Drive); Write(held, row.AxialCapacity.As(ForceUnit.Newton)); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            collet: static (held, row) => { Write(held, nameof(FixtureElement.Collet)); Write(held, row.Body); Frame(held, row.Contacts, Write); Write(held, row.Drive); Write(held, row.Collapse.As(LengthUnit.Millimeter)); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            arbor: static (held, row) => { Write(held, nameof(FixtureElement.Arbor)); Write(held, row.Body); Frame(held, row.Contacts, Write); Write(held, row.Drive); Write(held, row.Expansion.As(LengthUnit.Millimeter)); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            vacuum: static (held, row) => { Write(held, nameof(FixtureElement.Vacuum)); Write(held, row.Bed); Frame(held, row.Leaks, Write); Write(held, row.Law); Write(held, row.Pressure.As(PressureUnit.Pascal)); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            magnetic: static (held, row) => { Write(held, nameof(FixtureElement.Magnetic)); Write(held, row.Pad); Write(held, row.Law); Write(held, row.Coupling.As(RatioUnit.DecimalFraction)); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            adhesive: static (held, row) => { Write(held, nameof(FixtureElement.Adhesive)); Write(held, row.Bond); Write(held, row.Law); Write(held, row.Cure.As(RatioUnit.DecimalFraction)); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            freeze: static (held, row) => { Write(held, nameof(FixtureElement.Freeze)); Write(held, row.Pad); Write(held, row.Law); Write(held, row.Frozen.As(RatioUnit.DecimalFraction)); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            clampingCenter: static (held, row) => { Write(held, nameof(FixtureElement.ClampingCenter)); Write(held, row.Body); Write(held, row.Contact); Write(held, row.Drive); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            tailstock: static (held, row) => { Write(held, nameof(FixtureElement.Tailstock)); Write(held, row.Body); Write(held, row.Contact); Write(held, row.Drive); Write(held, row.Margin.As(LengthUnit.Millimeter)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; },
-            bed: static (held, row) => { Write(held, nameof(FixtureElement.Bed)); Write(held, row.Contact); Write(held, row.Law); Write(held, row.Pressure.As(PressureUnit.Pascal)); Write(held, row.Height.As(LengthUnit.Millimeter)); return unit; });
+            state: writer,
+            locatingPlane: static (held, row) => { _ = held.String(nameof(FixtureElement.LocatingPlane)); Write(held, row.Contact); return unit; },
+            roundPin: static (held, row) => { _ = held.String(nameof(FixtureElement.RoundPin)); Write(held, row.Center); _ = held.Double(row.Radius.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); Frame(held, row.Contacts, Write); return unit; },
+            diamondPin: static (held, row) => { _ = held.String(nameof(FixtureElement.DiamondPin)); Write(held, row.Center); Write(held, row.FreeAxis); _ = held.Double(row.Radius.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); Frame(held, row.Contacts, Write); return unit; },
+            nest: static (held, row) => { _ = held.String(nameof(FixtureElement.Nest)); Frame(held, row.Contacts, Write); return unit; },
+            locatingCenter: static (held, row) => { _ = held.String(nameof(FixtureElement.LocatingCenter)); Write(held, row.Point); Write(held, row.Axis); _ = held.Double(row.IncludedAngle.As(AngleUnit.Degree)); Write(held, row.Contact); return unit; },
+            mandrel: static (held, row) => { _ = held.String(nameof(FixtureElement.Mandrel)); Write(held, row.Center); Write(held, row.Axis); _ = held.Double(row.Radius.As(LengthUnit.Millimeter)).Double(row.Length.As(LengthUnit.Millimeter)); Frame(held, row.Contacts, Write); return unit; },
+            optical: static (held, row) => { _ = held.String(nameof(FixtureElement.Optical)); Write(held, row.Datum); _ = held.Double(row.Repeatability.As(LengthUnit.Millimeter)); return unit; },
+            fixedSupport: static (held, row) => { _ = held.String(nameof(FixtureElement.FixedSupport)); Write(held, row.Contact); return unit; },
+            adjustableSupport: static (held, row) => { _ = held.String(nameof(FixtureElement.AdjustableSupport)); Write(held, row.Contact); _ = held.Double(row.Travel.As(LengthUnit.Millimeter)); return unit; },
+            hydraulicSupport: static (held, row) => { _ = held.String(nameof(FixtureElement.HydraulicSupport)); Write(held, row.Contact); _ = held.Double(row.EqualizedPressure.As(PressureUnit.Pascal)); return unit; },
+            compliantSupport: static (held, row) => { _ = held.String(nameof(FixtureElement.CompliantSupport)); Write(held, row.Contact); _ = held.Double(row.DeflectionLimit.As(LengthUnit.Millimeter)); return unit; },
+            steadyRest: static (held, row) => { _ = held.String(nameof(FixtureElement.SteadyRest)); Frame(held, row.Contacts, Write); _ = held.Double(row.Station.As(LengthUnit.Millimeter)); return unit; },
+            sacrificialSupport: static (held, row) => { _ = held.String(nameof(FixtureElement.SacrificialSupport)); Write(held, row.Contact); _ = held.Double(row.RemainingThickness.As(LengthUnit.Millimeter)); return unit; },
+            toeClamp: static (held, row) => { _ = held.String(nameof(FixtureElement.ToeClamp)); Write(held, row.Body); Write(held, row.Contact); Write(held, row.Drive); _ = held.Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            vise: static (held, row) => { _ = held.String(nameof(FixtureElement.Vise)); Frame(held, row.Bodies, Write); Frame(held, row.Contacts, Write); Write(held, row.Drive); _ = held.Double(row.Opening.As(LengthUnit.Millimeter)).Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            chuck: static (held, row) => { _ = held.String(nameof(FixtureElement.Chuck)); Frame(held, row.Jaws, Write); Frame(held, row.Contacts, Write); Write(held, row.Drive); _ = held.Double(row.AxialCapacity.As(ForceUnit.Newton)).Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            collet: static (held, row) => { _ = held.String(nameof(FixtureElement.Collet)); Write(held, row.Body); Frame(held, row.Contacts, Write); Write(held, row.Drive); _ = held.Double(row.Collapse.As(LengthUnit.Millimeter)).Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            arbor: static (held, row) => { _ = held.String(nameof(FixtureElement.Arbor)); Write(held, row.Body); Frame(held, row.Contacts, Write); Write(held, row.Drive); _ = held.Double(row.Expansion.As(LengthUnit.Millimeter)).Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            vacuum: static (held, row) => { _ = held.String(nameof(FixtureElement.Vacuum)); Write(held, row.Bed); Frame(held, row.Leaks, Write); Write(held, row.Law); _ = held.Double(row.Pressure.As(PressureUnit.Pascal)).Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            magnetic: static (held, row) => { _ = held.String(nameof(FixtureElement.Magnetic)); Write(held, row.Pad); Write(held, row.Law); _ = held.Double(row.Coupling.As(RatioUnit.DecimalFraction)).Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            adhesive: static (held, row) => { _ = held.String(nameof(FixtureElement.Adhesive)); Write(held, row.Bond); Write(held, row.Law); _ = held.Double(row.Cure.As(RatioUnit.DecimalFraction)).Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            freeze: static (held, row) => { _ = held.String(nameof(FixtureElement.Freeze)); Write(held, row.Pad); Write(held, row.Law); _ = held.Double(row.Frozen.As(RatioUnit.DecimalFraction)).Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            clampingCenter: static (held, row) => { _ = held.String(nameof(FixtureElement.ClampingCenter)); Write(held, row.Body); Write(held, row.Contact); Write(held, row.Drive); _ = held.Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            tailstock: static (held, row) => { _ = held.String(nameof(FixtureElement.Tailstock)); Write(held, row.Body); Write(held, row.Contact); Write(held, row.Drive); _ = held.Double(row.Margin.As(LengthUnit.Millimeter)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; },
+            bed: static (held, row) => { _ = held.String(nameof(FixtureElement.Bed)); Write(held, row.Contact); Write(held, row.Law); _ = held.Double(row.Pressure.As(PressureUnit.Pascal)).Double(row.Height.As(LengthUnit.Millimeter)); return unit; });
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, FixtureStep value) {
-        Write(buffer, value.Stage.Value);
-        Write(buffer, value.State.Key);
-        Frame(buffer, value.Activate.ToSeq(), Write);
-        Frame(buffer, value.Release.ToSeq(), Write);
-        Write(buffer, value.Settle.As(DurationUnit.Second));
+    static void Write(CanonicalWriter writer, FixtureStep value) {
+        _ = writer.Ordinal(value.Stage.Value).String(value.State.Key);
+        Frame(writer, value.Activate.ToSeq(), static (held, index) => held.Ordinal(index));
+        Frame(writer, value.Release.ToSeq(), static (held, index) => held.Ordinal(index));
+        _ = writer.Double(value.Settle.As(DurationUnit.Second));
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, DatumFrame value) {
-        Write(buffer, value.Work);
-        Frame(buffer, value.Primary.ToSeq(), Write);
-        Frame(buffer, value.Secondary.ToSeq(), Write);
-        Frame(buffer, value.Tertiary.ToSeq(), Write);
-        Write(buffer, value.Repeatability.As(LengthUnit.Millimeter));
+    static void Write(CanonicalWriter writer, DatumFrame value) {
+        Write(writer, value.Work);
+        Frame(writer, value.Primary.ToSeq(), static (held, index) => held.Ordinal(index));
+        Frame(writer, value.Secondary.ToSeq(), static (held, index) => held.Ordinal(index));
+        Frame(writer, value.Tertiary.ToSeq(), static (held, index) => held.Ordinal(index));
+        _ = writer.Double(value.Repeatability.As(LengthUnit.Millimeter));
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, ExclusionZone value) {
-        Write(buffer, value.Operation);
-        Write(buffer, value.Element);
-        Write(buffer, value.Role.Key);
-        value.Kind.Match(
-            Some: kind => { Write(buffer, true); Write(buffer, kind.Key); },
-            None: () => Write(buffer, false));
-        Frame(buffer, value.Keepouts, Write);
-        Frame(buffer, value.Walls, Write);
-        Write(buffer, value.Lower.As(LengthUnit.Millimeter));
-        Write(buffer, value.Upper.As(LengthUnit.Millimeter));
-        Frame(buffer, value.Active.OrderBy(static state => state.Key).ToSeq(), static (held, state) => Write(held, state.Key));
-        Write(buffer, value.ArcChordError.As(LengthUnit.Millimeter));
+    static void Write(CanonicalWriter writer, ExclusionZone value) {
+        _ = writer.Ordinal(value.Operation).Ordinal(value.Element).String(value.Role.Key);
+        _ = value.Kind.Match(
+            Some: kind => writer.Bool(true).String(kind.Key),
+            None: () => writer.Bool(false));
+        Frame(writer, value.Keepouts, Write);
+        Frame(writer, value.Walls, Write);
+        _ = writer.Double(value.Lower.As(LengthUnit.Millimeter)).Double(value.Upper.As(LengthUnit.Millimeter));
+        Frame(writer, toSeq(value.Active.OrderBy(static state => state.Key)), static (held, state) => held.String(state.Key));
+        _ = writer.Double(value.ArcChordError.As(LengthUnit.Millimeter));
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, ContactReaction value) {
-        Write(buffer, value.Element);
-        Write(buffer, value.At);
-        Write(buffer, value.Normal);
-        Write(buffer, value.NormalCapacity.As(ForceUnit.Newton));
-        Write(buffer, value.TangentialCapacity.As(ForceUnit.Newton));
-        Write(buffer, value.AreaWeight);
+    // Pull-off is the vacuum, magnetic, and adhesive capacity axis: omitting it collapses the identity of two
+    // fixtures that differ only in hold-down mechanism onto one key, which the injectivity law forbids.
+    static void Write(CanonicalWriter writer, ContactReaction value) {
+        _ = writer.Ordinal(value.Element);
+        Write(writer, value.At);
+        Write(writer, value.Normal);
+        _ = writer.Double(value.NormalCapacity.As(ForceUnit.Newton))
+            .Double(value.TangentialCapacity.As(ForceUnit.Newton))
+            .Double(value.PullOffCapacity.As(ForceUnit.Newton))
+            .Double(value.AreaWeight);
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, ConstraintReceipt value) {
-        Write(buffer, value.Rank);
-        Write(buffer, value.Frictionless);
-        Write(buffer, value.Redundancy);
-        Frame(buffer, value.Reactions, Write);
+    static void Write(CanonicalWriter writer, ConstraintReceipt value) {
+        _ = writer.Ordinal(value.Rank).Ordinal(value.Frictionless).Ordinal(value.Redundancy);
+        Frame(writer, value.Reactions, Write);
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, ContentKey value) {
-        Write(buffer, value.Kind.Key);
-        Write(buffer, value.Digest);
+    static void Write(CanonicalWriter writer, ContentKey value) =>
+        _ = writer.String(value.Kind.Key).U128(value.Digest);
+
+    static void Write(CanonicalWriter writer, StockSnapshot value) {
+        _ = writer.Ordinal(value.Setup);
+        Write(writer, value.Key);
+        Frame(writer, value.Machined.ToSeq(), Write);
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, StockSnapshot value) {
-        Write(buffer, value.Setup);
-        Write(buffer, value.Key);
-        Frame(buffer, value.Machined.ToSeq(), Write);
+    static void Write(CanonicalWriter writer, FixtureSpec value) {
+        _ = writer.Ordinal(value.Operation);
+        Frame(writer, value.Elements, Write);
+        Frame(writer, value.Sequence, Write);
+        Write(writer, value.Datum);
+        Frame(writer, value.Profiles.ToSeq(), Write);
+        Frame(writer, value.Runs, static (held, run) => held.Ordinal(run.Loop).Ordinal(run.Start).Ordinal(run.Count));
+        Write(writer, value.InitialCursor);
+        _ = value.Current.Match(
+            Some: current => { _ = writer.Bool(true); Write(writer, current); return writer; },
+            None: () => writer.Bool(false));
+        _ = writer.Double(value.ArcChordError.As(LengthUnit.Millimeter));
     }
 
-    static void Write(ArrayPoolBufferWriter<byte> buffer, FixtureSpec value) {
-        Write(buffer, value.Operation);
-        Frame(buffer, value.Elements, Write);
-        Frame(buffer, value.Sequence, Write);
-        Write(buffer, value.Datum);
-        Frame(buffer, value.Profiles.ToSeq(), Write);
-        Frame(buffer, value.Runs, static (held, run) => { Write(held, run.Loop); Write(held, run.Start); Write(held, run.Count); });
-        Write(buffer, value.InitialCursor);
-        value.Current.Match(
-            Some: current => { Write(buffer, true); Write(buffer, current); },
-            None: () => Write(buffer, false));
-        Write(buffer, value.ArcChordError.As(LengthUnit.Millimeter));
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, Fixture value) {
-        Write(buffer, value.Spec);
-        Frame(buffer, value.Zones, Write);
-        Frame(buffer, value.Contacts, Write);
-        Write(buffer, value.Constraint);
+    static void Write(CanonicalWriter writer, Fixture value) {
+        Write(writer, value.Spec);
+        Frame(writer, value.Zones, Write);
+        Frame(writer, value.Contacts, Write);
+        Write(writer, value.Constraint);
     }
 
     static Fin<Option<ExclusionZone>> InflatedBlocks(Edge3 axis, double radius, Fixture fixture, FixtureState state) =>
@@ -1516,7 +1461,7 @@ public static class Workholding {
         Vector3d b = to - arc.Center;
         double radius = a.Length;
         if (!double.IsFinite(radius) || radius <= 0.0 || Math.Abs(radius - b.Length) > error)
-            return Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Arc, 0, nameof(ArcCenter)).ToError());
+            return Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Arc, None, nameof(ArcCenter)).ToError());
         double start = Math.Atan2(a.Y, a.X);
         double end = Math.Atan2(b.Y, b.X);
         double sweep = arc.Sense == RotationSense.Clockwise ? -Normalize(start - end) : Normalize(end - start);
@@ -1639,16 +1584,16 @@ public static class Workholding {
     static bool Fraction(Ratio value) => double.IsFinite(value.As(RatioUnit.DecimalFraction)) && value.As(RatioUnit.DecimalFraction) is > 0.0 and <= 1.0;
 
     static Fin<Seq<Loop>> Offset(Seq<Loop> loops, double distance) =>
-        loops.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, 0, nameof(ArcOp.Offset)).ToError()).Bind(basis =>
+        loops.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, nameof(ArcOp.Offset)).ToError()).Bind(basis =>
             ArcForest.Admit(loops, basis.Tolerance, basis.Plane).As().ToFin().Bind(forest =>
                 ArcAlgebra.Apply(new ArcOp.Offset(new ArcOffsetSource.Forest(forest), distance)).Bind(static trace => trace switch {
                     ArcTrace.Forest(var result, _) => Fin.Succ(result.Loops),
                     ArcTrace.Paths(var result, _) => Fin.Succ(result),
-                    _ => Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Polyline, 0, nameof(ArcTrace)).ToError()),
+                    _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, $"{nameof(ArcOp.Offset)}:{nameof(ArcTrace)}")),
                 })));
 
     static Fin<Seq<Loop>> Boolean(Seq<Loop> subject, Seq<Loop> clip, BoolKind kind) =>
-        subject.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, 0, nameof(ArcOp.Boolean)).ToError()).Bind(basis =>
+        subject.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, nameof(ArcOp.Boolean)).ToError()).Bind(basis =>
             (ArcForest.Admit(subject, basis.Tolerance, basis.Plane), ArcForest.Admit(clip, basis.Tolerance, basis.Plane))
                 .Apply((first, second) => ArcAlgebra.Apply(new ArcOp.Boolean(first, second, kind)))
                 .As()
@@ -1656,13 +1601,13 @@ public static class Workholding {
                 .Bind(identity)
                 .Bind(static trace => trace switch {
                     ArcTrace.Forest(var result, _) => Fin.Succ(result.Loops),
-                    _ => Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Polyline, 1, nameof(ArcTrace)).ToError()),
+                    _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, $"{nameof(ArcOp.Boolean)}:{nameof(ArcTrace)}")),
                 }));
 
     static Fin<Loop> Lower(Loop loop, double error) =>
         ArcAlgebra.Densify(new ArcProjection.Lower(loop, error)).Bind(static trace => trace switch {
             ArcTrace.Densified(var receipt) => Fin.Succ(receipt.Result),
-            _ => Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Polyline, 2, nameof(ArcTrace)).ToError()),
+            _ => Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, $"{nameof(ArcProjection.Lower)}:{nameof(ArcTrace)}")),
         });
 
     static Point3d Target(Move move) => move.Switch(rapid: static row => row.Target, linear: static row => row.Target, circular: static row => row.Target);

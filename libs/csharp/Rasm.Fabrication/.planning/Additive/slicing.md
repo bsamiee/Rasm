@@ -8,24 +8,23 @@ Additive slicing consumes kernel `SliceStack` truth once, materializes the layer
 
 ## [02]-[SLICING]
 
-- Owner: `SliceRegion` owns topology-preserving planar set algebra; `InfillPattern` owns line-family, concentric, Voronoi-cell, and injected candidate generation; `BeadGeometry` owns the bead cross-section flow law; `ShellPolicy` owns perimeter count, solid depth, bead law, overlap resolution, and seam placement; `FeedPolicy` owns the per-feature feed table and the minimum-layer-time cooling law; `DepositionSeed` owns per-modality defaults; `InfillPolicy.Planar.Egress` owns physical bead egress; `AdditivePolicy.Build.Egress` owns complete `BuildOutcome` projection; `Slice` owns admission, planning, and dispatch.
-- Entry: `Slice.Layers(SliceStack, InfillPolicy)` consumes kernel contours and returns `AdditiveResult`; `InfillPolicy.Of(DepositionSeed, …)` admits raw scalars once and constructs every generated owner below the gate; `Slice.Solve(FabricationPolicy.Additive, FabricationInput)` dispatches `AdditivePolicy` without a second route table.
-- Auto: `Slice.Layers` admits every `Planar` component through one outer storage seam, including the `BeadGeometry` and `ShellPolicy` default-ghost keys. Layer planning gates open chains, materializes every `SliceRegion` once, preserves every `PolygonTrace.Regions` receipt, classifies unsupported perimeters as `BridgeShell`, and resolves shell overlap by annulus intersection area before routing dropped residue into `GapFill`. Support hatching consumes each row's extent, density, and contact duty; cooling scales every feature feed; egress projects `DepositionPath` rows. `LineFamily` generates line spaces from seed bearings, layer advance, and phase; `CellPattern` admits uniform, Gaussian, explicit, or injected Voronoi sites with relaxation, duplicate, closure, and merge evidence preserved on the rail.
+- Owner: `SliceRegion` owns topology-preserving planar set algebra; `InfillPattern` owns line-family, concentric, Voronoi-cell, and injected candidate generation; `BeadGeometry` owns the bead cross-section flow law; `ShellPolicy` owns perimeter count, solid depth, bead law, overlap resolution, and seam placement; `FeedPolicy` owns the per-feature feed table and the minimum-layer-time cooling law; `DepositionSeed` owns every per-modality policy column and `DepositionOverride` the three axes whose cases carry caller-owned payload; `InfillPolicy.Planar.Egress` owns physical bead egress; `AdditivePolicy.Build.Egress` owns complete `BuildOutcome` projection; `Slice` owns admission, planning, and dispatch.
+- Entry: `Slice.Layers(SliceStack, InfillPolicy)` consumes kernel contours and returns `AdditiveResult`; `InfillPolicy.Of(DepositionSeed, …, Option<DepositionOverride>)` admits raw scalars once through `Seeded` and constructs every generated owner below the gate, selecting no policy of its own — every pattern, bead law, seam, sheet gate, cooling floor, and offset reads the seed's column or the caller's override, so a case with no seed row still has a producer; `Slice.Solve(FabricationPolicy.Additive, FabricationInput)` dispatches `AdditivePolicy` without a second route table.
+- Auto: `Slice.Layers` admits every `Planar` component through one outer storage seam, including the `BeadGeometry` and `ShellPolicy` default-ghost keys. Layer planning gates open chains, materializes every `SliceRegion` once, preserves every `PolygonTrace.Regions` receipt, classifies unsupported perimeters as `BridgeShell`, and resolves shell overlap by annulus intersection area before routing dropped residue into `GapFill`. Support hatching consumes each row's extent, density, and contact duty; cooling scales every feature feed; egress projects `DepositionPath` rows. `LineFamily` generates line spaces from seed bearings, layer advance, and phase; `CellPattern` admits a drawn or explicit site cloud and one `SitePolicy`, and the cell field arrives already relaxed, merged, and clipped to the region outline.
 - Receipt: `AdditiveResult` is planar and implicit evidence — planar routes carry additive `Move` rows and the kernel layer count, while implicit routes carry the `.cli` key and mask keys. Build routes pass complete `BuildOutcome` evidence through `AdditivePolicy.Build.Egress`. `DepositionPath` carries the `Loop` itself with its layer, elevation, bead width and height, feed, measured extent, and deposited volume. `InfillLayer` is plane-local evidence for the region, grounded and bridging shells, skin, gap fill, model infill, and the sparse, interface, and contact support lanes; no `SliceLayer` mesh-section type, PicoGK `Voxels`, or kernel contour row escapes on the owner result.
-- Packages: `Rasm.Meshing` supplies `SliceStack`; `PolygonAlgebra.Apply` supplies topology, Boolean, offset, and open-clip receipts; `Loop.Apply` supplies the arc-exact measure, closest-point, and path-length sampling every extent, seam, and material figure reads; `SharpVoronoiLib` supplies seeded cell topology; `UnitsNet` supplies physical quantities; `LanguageExt` and `Thinktecture` own rails and generated domain shapes.
-- Growth: a line topology is parameterized `LineFamily` data, common families are `LineSeed` rows, a deposition modality is a `DepositionSeed` row, a bead cross-section is a `BeadSection` row, a deposition lane is a `DepositionFeature` row the `Sources` table picks up untouched, a site source is a `CellSites` case, an exceptional candidate generator is `InfillPattern.Generated`, and an implicit interior is `ImplicitOp`.
-- Boundary: `Slice` is the one additive slice-stack consumer and an in-page `Section`/triangle sweep/endpoint chain is the deleted form; variable layer height belongs to K3 and a Fabrication height loop is the sealed-boundary violation; gyroid/TPMS belongs to `Implicit` and a planar gyroid pattern row is the named false collapse; printability belongs to K36 and a slicer-side mesh-defect classifier is the duplicate gate; region Booleans route `PolygonAlgebra` through `SliceRegion` and a slice-local Clipper call site or a bare hole-blind `Seq<Loop>` region is the named duplication defect; path length, closest point, and arc-length station route `Loop.Apply` and a chord-sum or vertex-scan re-derivation is the named duplication defect; `SliceRegion.Bound` folds `Loop.Bound` because an arc span bulges outside its chord hull; `Cells` is the provider-forced statement capsule around mutable `VoronoiPlane`; a shell or cell failure flattened to empty geometry is the erased-rail defect; travel sequencing between deposition rows belongs to the egress consumer; result payloads carry owner atoms and content keys only.
+- Packages: `Rasm.Meshing` supplies `SliceStack`; `PolygonAlgebra.Apply` supplies topology, Boolean, offset, open-clip, and bounded-cell receipts; `Loop.Apply` supplies the arc-exact measure, closest-point, and path-length sampling every extent, seam, and material figure reads; `Rasm` supplies the `Deterministic` lanes each `SiteDistribution` row draws off; `UnitsNet` supplies physical quantities; `LanguageExt` and `Thinktecture` own rails and generated domain shapes.
+- Growth: a line topology is parameterized `LineFamily` data, common families are `LineSeed` rows, a deposition modality is a `DepositionSeed` row, a bead cross-section is a `BeadSection` row, a deposition lane is a `DepositionFeature` row the `Sources` table picks up untouched, a site source is a `CellSites` case, an exceptional candidate generator is `InfillPattern.Generated`, a caller-owned clearance field, site cloud, or seam anchor is one `DepositionOverride` slot, and an implicit interior is `ImplicitOp`.
+- Boundary: `Slice` is the one additive slice-stack consumer and an in-page `Section`/triangle sweep/endpoint chain is the deleted form; variable layer height belongs to K3 and a Fabrication height loop is the sealed-boundary violation; gyroid/TPMS belongs to `Implicit` and a planar gyroid pattern row is the named false collapse; printability belongs to K36 and a slicer-side mesh-defect classifier is the duplicate gate; region Booleans route `PolygonAlgebra` through `SliceRegion` and a slice-local Clipper call site or a bare hole-blind `Seq<Loop>` region is the named duplication defect; path length, closest point, and arc-length station route `Loop.Apply` and a chord-sum or vertex-scan re-derivation is the named duplication defect; `SliceRegion.Bound` folds `Loop.Bound` because an arc span bulges outside its chord hull; `Cells` mints no diagram — a page-local tessellator, relaxation loop, or draw stream is the deleted form; a shell or cell failure flattened to empty geometry is the erased-rail defect; travel sequencing between deposition rows belongs to the egress consumer; result payloads carry owner atoms and content keys only.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------------------------------------------------------------
-extern alias Voronoi;
-
 using System.Runtime.InteropServices;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
+using Rasm.Fabrication.Toolpath;
 using Rasm.Meshing;
 using Rasm.Numerics;
 using Rhino.Geometry;
@@ -34,13 +33,6 @@ using UnitsNet;
 using UnitsNet.Units;
 using static LanguageExt.Prelude;
 using AdditiveResult = Rasm.Fabrication.Process.FabricationResult.AdditiveResult;
-using BorderEdgeGeneration = Voronoi::SharpVoronoiLib.BorderEdgeGeneration;
-using IPointGenerationAlgorithm = Voronoi::SharpVoronoiLib.IPointGenerationAlgorithm;
-using PointGenerationMethod = Voronoi::SharpVoronoiLib.PointGenerationMethod;
-using SeededRandomNumberGenerator = Voronoi::SharpVoronoiLib.SeededRandomNumberGenerator;
-using VoronoiPlane = Voronoi::SharpVoronoiLib.VoronoiPlane;
-using VoronoiSite = Voronoi::SharpVoronoiLib.VoronoiSite;
-using VoronoiSiteMergeQuery = Voronoi::SharpVoronoiLib.VoronoiSiteMergeQuery;
 
 namespace Rasm.Fabrication.Additive;
 
@@ -99,47 +91,38 @@ public sealed partial class LineSeed {
     public LineFamily Family { get; }
 }
 
-[SmartEnum]
-public sealed partial class CellDistribution {
-    public static readonly CellDistribution Uniform = new(PointGenerationMethod.Uniform);
-    public static readonly CellDistribution Gaussian = new(PointGenerationMethod.Gaussian);
-
-    public PointGenerationMethod Value { get; }
-}
-
+// Drawn clouds address lanes off the ONE draw owner, so candidate i is a pure function of (seed, i) and the
+// admitted box; a custom generator is a `SiteDistribution` row on that owner, never an injected provider algorithm.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CellSites {
     private CellSites() { }
 
-    public sealed record Random(int Count, int Seed, CellDistribution Distribution) : CellSites;
+    public sealed record Random(int Count, int Seed, SiteDistribution Distribution) : CellSites;
     public sealed record Explicit(Arr<Point3d> Points) : CellSites;
-    public sealed record Generated(int Count, int Seed, IPointGenerationAlgorithm Generator) : CellSites;
 }
 
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct CellPattern {
     public CellSites Sites { get; }
-    public int Relaxations { get; }
-    public Ratio RelaxationStrength { get; }
-    public Option<VoronoiSiteMergeQuery> Merge { get; }
+    public SitePolicy Policy { get; }
+
+    public Arr<Point3d> Seeds(BoundingBox box) => Sites.Switch(
+        state: box,
+        random: static (bound, source) => toSeq(Enumerable.Range(0, source.Count))
+            .Map(index => source.Distribution.Draw(bound, source.Seed, index)).ToArr(),
+        @explicit: static (_, source) => source.Points);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CellSites sites,
-        ref int relaxations,
-        ref Ratio relaxationStrength,
-        ref Option<VoronoiSiteMergeQuery> merge) =>
+        ref SitePolicy policy) =>
         validationError = sites is null
-            || relaxations < 0
-            || !double.IsFinite(relaxationStrength.DecimalFractions)
-            || relaxationStrength.DecimalFractions is <= 0.0 or > 1.0
-            || merge.Exists(static query => query is null)
+            || policy is null
             || !sites.Switch(
                 random: static source => source.Count > 0 && source.Distribution is not null,
-                @explicit: static source => !source.Points.IsEmpty && source.Points.ForAll(static point => point.IsValid),
-                generated: static source => source.Count > 0 && source.Generator is not null)
+                @explicit: static source => !source.Points.IsEmpty && source.Points.ForAll(static point => point.IsValid))
             ? new ValidationError("<cell-pattern-invalid>")
             : null;
 }
@@ -241,27 +224,27 @@ public sealed partial class SliceRegion {
                 ? Fin.Succ(Create(
                     regions.Result.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary),
                     regions.Result.Nodes.Filter(static node => node.IsHole).Map(static node => node.Boundary)))
-                : Fin.Fail<SliceRegion>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:topology-receipt").ToError()));
+                : Fin.Fail<SliceRegion>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:topology-receipt")));
 
     public Fin<SliceRegion> Difference(SliceRegion b) =>
         IsEmpty || b.IsEmpty
             ? Fin.Succ(this)
-            : Regions(new PolygonOp.Boolean(Loops, b.Loops, PolygonBoolean.Difference, PolygonFill.NonZero));
+            : Regions(new PolygonOp.Boolean(Loops, b.Loops, BooleanOp.Difference, PolygonFill.NonZero));
 
     public Fin<SliceRegion> Intersect(SliceRegion b) =>
         IsEmpty || b.IsEmpty
             ? Fin.Succ(Empty)
-            : Regions(new PolygonOp.Boolean(Loops, b.Loops, PolygonBoolean.Intersection, PolygonFill.NonZero));
+            : Regions(new PolygonOp.Boolean(Loops, b.Loops, BooleanOp.Intersection, PolygonFill.NonZero));
 
     public Fin<SliceRegion> Union(SliceRegion b) =>
         b.IsEmpty ? Fin.Succ(this)
         : IsEmpty ? Fin.Succ(b)
-        : Regions(new PolygonOp.Boolean(Loops, b.Loops, PolygonBoolean.Union, PolygonFill.NonZero));
+        : Regions(new PolygonOp.Boolean(Loops, b.Loops, BooleanOp.Union, PolygonFill.NonZero));
 
     public Fin<SliceRegion> Grow(Length delta, OffsetPolicy offset) =>
         IsEmpty
             ? Fin.Succ(Empty)
-            : Regions(new PolygonOp.Offset(Loops, new OffsetField.Uniform(delta.Millimeters), offset));
+            : Regions(new PolygonOp.Offset(Loops, new OffsetField.Uniform(delta.Millimeters), JoinType.Round, EndType.Closed, offset));
 
     public Fin<Seq<Edge3>> Rays(Seq<Edge3> rays) =>
         IsEmpty
@@ -269,14 +252,14 @@ public sealed partial class SliceRegion {
             : PolygonAlgebra.Apply(new PolygonOp.ClipOpen(Seq(rays), Loops, PolygonFill.NonZero))
                 .Bind(static trace => trace is PolygonTrace.SplitRuns split
                     ? Fin.Succ(split.Inside.Bind(static run => run))
-                    : Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:open-clip-receipt").ToError()));
+                    : Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:open-clip-receipt")));
 
     public Fin<Area> PhysicalArea() => IsEmpty
         ? Fin.Succ(UnitsNet.Area.Zero)
         : PolygonAlgebra.Apply(new PolygonOp.Inspect(Loops, new PolygonQuery.Measure()))
             .Bind(static trace => trace is PolygonTrace.Measured measured
                 ? Fin.Succ(UnitsNet.Area.FromSquareMillimeters(measured.Result.FilledArea))
-                : Fin.Fail<Area>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:measure-receipt").ToError()));
+                : Fin.Fail<Area>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:measure-receipt")));
 
     public bool Covers(Point3d point) =>
         Outers.Count(loop => loop.Covers(point)) - Holes.Count(loop => loop.Covers(point)) > 0;
@@ -291,7 +274,7 @@ public sealed partial class SliceRegion {
             ? Fin.Succ(Create(
                 regions.Result.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary),
                 regions.Result.Nodes.Filter(static node => node.IsHole).Map(static node => node.Boundary)))
-            : Fin.Fail<SliceRegion>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:region-receipt").ToError()));
+            : Fin.Fail<SliceRegion>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:region-receipt")));
 
     private static Fin<Loop> Ring(SliceStack stack, int c, Context tolerance) =>
         Loop.Admit(
@@ -460,6 +443,8 @@ public readonly partial struct ShellPolicy {
 }
 
 // Modality seeds are data over the parameterized policy; a new deposition process is one row, never a factory.
+// Every policy axis the entry once hardcoded is a column here, so `InfillPolicy.Of` selects nothing and every
+// declared `InfillPattern`, `ShellBeadLaw`, `SeamPlacement`, and `OpenSheetPolicy` case reaches a producer.
 [SmartEnum<string>]
 public sealed partial class DepositionSeed {
     private static readonly HashMap<DepositionFeature, Ratio> ExtrusionFeeds = HashMap(
@@ -472,22 +457,36 @@ public sealed partial class DepositionSeed {
         (DepositionFeature.SupportContact, Ratio.FromPercent(45.0)),
         (DepositionFeature.Travel, Ratio.FromPercent(400.0)));
 
+    private static readonly OffsetPolicy BeadOffset =
+        OffsetPolicy.Canonical with { MiterLimit = 2.0, ArcTolerance = 0.01 };
+
     public static readonly DepositionSeed FusedFilament = new(
         "fused-filament", BeadSection.Stadium, shells: 2, top: 4, bottom: 3,
         Angle.FromDegrees(45.0), Ratio.FromPercent(35.0), Duration.FromSeconds(8.0),
-        LineSeed.Alternating, new ShellOverlap.GapFill(Length.FromMillimeters(0.05)), ExtrusionFeeds);
+        new InfillPattern.Lines(LineSeed.Alternating.Family), new ShellOverlap.GapFill(Length.FromMillimeters(0.05)),
+        new ShellBeadLaw.Constant(), new SeamPlacement.Rear(), OpenSheetPolicy.Reject,
+        Ratio.FromPercent(20.0), BeadOffset, ExtrusionFeeds);
     public static readonly DepositionSeed PelletExtrusion = new(
         "pellet-extrusion", BeadSection.Stadium, shells: 1, top: 2, bottom: 2,
         Angle.FromDegrees(45.0), Ratio.FromPercent(60.0), Duration.Zero,
-        LineSeed.Aligned, new ShellOverlap.Drop(), ExtrusionFeeds);
+        new InfillPattern.Lines(LineSeed.Aligned.Family), new ShellOverlap.Drop(),
+        new ShellBeadLaw.Constant(), new SeamPlacement.Nearest(), OpenSheetPolicy.Reject,
+        Ratio.FromPercent(20.0), BeadOffset, ExtrusionFeeds);
+    // A DED bead restarts at a fresh station every layer: a stacked seam welds one cold column through the wall.
     public static readonly DepositionSeed DirectedEnergy = new(
         "directed-energy", BeadSection.Elliptical, shells: 1, top: 0, bottom: 0,
         Angle.FromDegrees(90.0), Ratio.FromPercent(80.0), Duration.Zero,
-        LineSeed.Alternating, new ShellOverlap.Keep(), ExtrusionFeeds);
+        new InfillPattern.Lines(LineSeed.Alternating.Family), new ShellOverlap.Keep(),
+        new ShellBeadLaw.Constant(), new SeamPlacement.Scattered(Length.FromMillimeters(12.0)), OpenSheetPolicy.Reject,
+        Ratio.FromPercent(100.0), BeadOffset, ExtrusionFeeds);
+    // Printed concrete lays contour-parallel beads and prints open single-wall runs, so the sheet gate traces
+    // rather than rejects and the bead law reads the medial clearance the variable-width nozzle follows.
     public static readonly DepositionSeed CementitiousExtrusion = new(
         "cementitious-extrusion", BeadSection.Rectangular, shells: 2, top: 0, bottom: 0,
         Angle.Zero, Ratio.FromPercent(90.0), Duration.FromSeconds(30.0),
-        LineSeed.Aligned, new ShellOverlap.Keep(), ExtrusionFeeds);
+        new InfillPattern.Concentric(), new ShellOverlap.Keep(),
+        new ShellBeadLaw.Constant(), new SeamPlacement.Aligned(Angle.Zero), OpenSheetPolicy.TraceOnly,
+        Ratio.FromPercent(50.0), BeadOffset, ExtrusionFeeds);
 
     public BeadSection Section { get; }
     public int Shells { get; }
@@ -496,10 +495,23 @@ public sealed partial class DepositionSeed {
     public Angle InfillAngle { get; }
     public Ratio BeadFloor { get; }
     public Duration MinimumLayerTime { get; }
-    public LineSeed Hatch { get; }
+    public InfillPattern Pattern { get; }
     public ShellOverlap Overlap { get; }
+    public ShellBeadLaw BeadLaw { get; }
+    public SeamPlacement Seam { get; }
+    public OpenSheetPolicy OpenSheets { get; }
+    public Ratio CoolingFloor { get; }
+    public OffsetPolicy Offset { get; }
     public HashMap<DepositionFeature, Ratio> FeedFactors { get; }
 }
+
+// The three axes whose cases carry a caller-owned payload — a sampled clearance field, a part-specific site cloud
+// or candidate generator, an anchor point — cannot be declared on a static row, so they enter as ONE override
+// bundle and each unsupplied slot derives from the seed's own column.
+public sealed record DepositionOverride(
+    Option<InfillPattern> Pattern = default,
+    Option<ShellBeadLaw> BeadLaw = default,
+    Option<SeamPlacement> Seam = default);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record InfillPolicy {
@@ -519,8 +531,41 @@ public abstract partial record InfillPolicy {
 
     public sealed record Implicit(ImplicitOp Op) : InfillPolicy;
 
-    // Scalars are admitted before construction so every generated factory below the gate is total.
+    // Scalars are admitted before construction so every generated factory below the gate is total, and the
+    // gate is the query's FIRST clause: one admission lifted onto the rail by `Seeded`, never a `let` the query
+    // grammar cannot open with. Every axis reads the seed's column or the caller's override — nothing is fixed here.
     public static Fin<Planar> Of(
+        DepositionSeed seed,
+        Length extrusionWidth,
+        Length layerHeight,
+        Speed feed,
+        DensityPolicy density,
+        Func<Seq<DepositionPath>, int, Fin<AdditiveResult>> egress,
+        Option<DepositionOverride> overrides = default) =>
+        from gate in Seeded(seed, extrusionWidth, layerHeight, feed, density, egress)
+        let policy = new Planar(
+            overrides.Bind(static row => row.Pattern).IfNone(seed.Pattern),
+            BeadGeometry.Create(extrusionWidth, layerHeight, seed.BeadFloor, seed.Section),
+            ShellPolicy.Create(
+                seed.Shells, seed.Top, seed.Bottom,
+                overrides.Bind(static row => row.BeadLaw).IfNone(seed.BeadLaw),
+                seed.Overlap,
+                overrides.Bind(static row => row.Seam).IfNone(seed.Seam)),
+            seed.InfillAngle,
+            FeedPolicy.Create(
+                feed,
+                seed.FeedFactors.Map(factor => Speed.FromMetersPerSecond(
+                    feed.MetersPerSecond * factor.DecimalFractions)),
+                seed.MinimumLayerTime,
+                seed.CoolingFloor),
+            density,
+            seed.OpenSheets,
+            seed.Offset,
+            egress)
+        from admitted in Slice.Admit(policy)
+        select policy;
+
+    private static Fin<Unit> Seeded(
         DepositionSeed seed,
         Length extrusionWidth,
         Length layerHeight,
@@ -534,27 +579,8 @@ public abstract partial record InfillPolicy {
         || layerHeight.Millimeters <= 0.0
         || layerHeight.Millimeters > extrusionWidth.Millimeters
         || feed.MetersPerSecond <= 0.0
-            ? Fin.Fail<Planar>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:deposition-seed-input").ToError())
-            : from offset in OffsetPolicy.Admit(OffsetJoin.Miter, OffsetEnd.Polygon, miterLimit: 2.0, arcTolerance: 0.01)
-              let policy = new Planar(
-                  new InfillPattern.Lines(seed.Hatch.Family),
-                  BeadGeometry.Create(extrusionWidth, layerHeight, seed.BeadFloor, seed.Section),
-                  ShellPolicy.Create(
-                      seed.Shells, seed.Top, seed.Bottom,
-                      new ShellBeadLaw.Constant(), seed.Overlap, new SeamPlacement.Nearest()),
-                  seed.InfillAngle,
-                  FeedPolicy.Create(
-                      feed,
-                      seed.FeedFactors.Map(factor => Speed.FromMetersPerSecond(
-                          feed.MetersPerSecond * factor.DecimalFractions)),
-                      seed.MinimumLayerTime,
-                      Ratio.FromPercent(20.0)),
-                  density,
-                  OpenSheetPolicy.Reject,
-                  offset,
-                  egress)
-              from _ in Slice.Admit(policy)
-              select policy;
+            ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:deposition-seed-input"))
+            : Fin.Succ(unit);
 }
 
 public sealed record InfillLayer(
@@ -597,13 +623,13 @@ public static class Slice {
                 from plan in Additive.Scan.Plan(stack, p.Policy, p.Budget, support)
                 select (FabricationResult)new AdditiveResult(Seq<Move>(), plan.Layers.Count, Seq(plan.Key)),
             build:  static (_, p) => p.Egress is null
-                ? Fin.Fail<FabricationResult>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "build:egress-missing").ToError())
+                ? Fin.Fail<FabricationResult>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "build:egress-missing"))
                 : Production.Plan(p.Policy, p.Job)
                     .Bind(outcome => Capture(() => p.Egress(outcome), "build:egress")));
 
     public static Fin<AdditiveResult> Layers(SliceStack stack, InfillPolicy policy) =>
         stack.LayerCount == 0
-            ? Fin.Fail<AdditiveResult>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:empty-kernel-stack").ToError())
+            ? Fin.Fail<AdditiveResult>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "slice:empty-kernel-stack").ToError())
             : from _ in Admit(policy)
               from result in policy.Switch(
                   state:     stack,
@@ -639,13 +665,13 @@ public static class Slice {
             cells: static pattern => pattern.Policy.Sites is not null,
             generated: static generated => generated.Candidates is not null)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:invalid-infill-policy").ToError());
+            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:invalid-infill-policy"));
 
     internal static Fin<Unit> Gate(SliceStack stack, OpenSheetPolicy open) =>
         toSeq(Enumerable.Range(0, stack.LayerCount))
             .Map(n => (Layer: n, Open: stack.LayerAt(n).Filter(static c => !c.Closed).Count))
             .Filter(static row => row.Open > 0)
-            .HeadOrNone()
+            .Head
             .Match(
                 None: () => Fin.Succ(unit),
                 Some: row => open == OpenSheetPolicy.Reject
@@ -711,7 +737,7 @@ public static class Slice {
             n, elevation, regions[n], bridged.Grounded, bridged.Bridging, skinFill, gaps, model,
             support.Sparse, support.Interface, support.Contact, traces);
 
-    // A perimeter over air prints as a bridge: unsupported shell loops carry their own feature and feed.
+    // Perimeters over air print as bridges: unsupported shell loops carry their own feature and feed.
     private static Fin<(Seq<Loop> Grounded, Seq<Loop> Bridging)> Unsupported(
         Seq<SliceRegion> regions,
         int n,
@@ -746,10 +772,10 @@ public static class Slice {
                             .Map(point => -state.pass * BeadWidth(law.Radius(point), state.policy.Bead).Millimeters)
                             .ToArr())
                         .ToArr()),
-                    state.policy.Offset))
+                    JoinType.Round, EndType.Closed, state.policy.Offset))
                 .Bind(static trace => trace is PolygonTrace.Regions regions
                     ? Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary))
-                    : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:variable-offset-receipt").ToError())));
+                    : Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:variable-offset-receipt"))));
 
     private static Fin<Seq<Loop>> ConstantPass(SliceRegion region, InfillPolicy.Planar policy, int pass) =>
         region.Grow(-pass * policy.Bead.ExtrusionWidth, policy.Offset).Map(static result => result.Loops);
@@ -847,7 +873,7 @@ public static class Slice {
                     pattern.Family)),
                 concentric: static state => Rings(state.region, state.spacing(Centre(state.bound)), state.policy.Offset),
                 cells: static (state, pattern) =>
-                    from candidates in Cells(state.bound, state.z, pattern.Policy)
+                    from candidates in Cells(state.region, state.z, pattern.Policy)
                     from clipped in state.region.Rays(candidates)
                     select clipped,
                 generated: static (state, generated) =>
@@ -929,45 +955,21 @@ public static class Slice {
             },
         };
 
-    private static Fin<Seq<Edge3>> Cells(BoundingBox bound, Length elevation, CellPattern policy) =>
-        Try.lift<Fin<Seq<Edge3>>>(() => {
-                VoronoiPlane plane = new(bound.Min.X, bound.Min.Y, bound.Max.X, bound.Max.Y);
-                _ = policy.Sites.Switch(
-                    state: plane,
-                    random: static (diagram, source) => {
-                        _ = diagram.GenerateRandomSites(
-                            source.Count,
-                            source.Distribution.Value,
-                            new SeededRandomNumberGenerator(source.Seed));
-                        return unit;
-                    },
-                    @explicit: static (diagram, source) => {
-                        diagram.SetSites(source.Points.Select(static point => new VoronoiSite(point.X, point.Y)).ToList());
-                        return unit;
-                    },
-                    generated: static (diagram, source) => {
-                        _ = diagram.GenerateRandomSites(
-                            source.Count,
-                            source.Generator,
-                            new SeededRandomNumberGenerator(source.Seed));
-                        return unit;
-                    });
-                plane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
-                if (policy.Relaxations > 0) {
-                    plane.Relax(policy.Relaxations, (float)policy.RelaxationStrength.DecimalFractions);
-                }
-                _ = policy.Merge.Iter(query => plane.MergeSites(query));
-                return plane.DuplicateCount > 0
-                    ? Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"slice:cell-duplicates:{plane.DuplicateCount}").ToError())
-                    : toSeq(plane.Sites).Exists(static site => !site.Closed)
-                    ? Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:cell-open").ToError())
-                    : Fin.Succ(toSeq(plane.Edges).Map(edge => new Edge3(
-                        new Point3d(edge.Start.X, edge.Start.Y, elevation.Millimeters),
-                        new Point3d(edge.End.X, edge.End.Y, elevation.Millimeters))));
-            })
-            .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"slice:cell-pattern:{error.Message}").ToError())
-            .Bind(static result => result);
+    // Adjacency IS the interior wall set: one segment per shared cell edge, so a wall deposits once. A raw edge list
+    // repeats every interior wall twice and re-emits the outline the shell already lays down. Cells clip to the
+    // region's own outline, so the diagram lands where material is rather than across the layer box.
+    private static Fin<Seq<Edge3>> Cells(SliceRegion region, Length elevation, CellPattern policy) =>
+        from boundary in region.Loops.Head
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, None, "slice:cell-boundary").ToError())
+        from trace in PolygonAlgebra.Apply(
+            new PolygonOp.Cells(policy.Seeds(boundary.Bound()), boundary, policy.Policy),
+            Op.Of(name: nameof(Cells)))
+        from diagram in trace is PolygonTrace.Celled celled
+            ? Fin.Succ(celled.Result)
+            : Fin.Fail<CellReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:cell-trace"))
+        select diagram.Adjacency.ToSeq().Map(edge => new Edge3(
+            new Point3d(edge.Start.X, edge.Start.Y, elevation.Millimeters),
+            new Point3d(edge.End.X, edge.End.Y, elevation.Millimeters)));
 
     private static Fin<Seq<Edge3>> Rings(SliceRegion region, Length spacing, OffsetPolicy offset) =>
         toSeq(Enumerable.Range(
@@ -1020,7 +1022,7 @@ public static class Slice {
                     state.Rows.Concat(raw.Map(row => row with {
                         Feed = Speed.FromMetersPerSecond(row.Feed.MetersPerSecond * cooling.DecimalFractions),
                     })),
-                    raw.LastOrNone().Map(static row => row.Path.At(row.Path.Count - 1))))
+                    raw.Last.Map(static row => row.Path.At(row.Path.Count - 1))))
             .Map(static state => state.Rows);
 
     private static Duration Clock(Seq<DepositionPath> rows) => Duration.FromSeconds(
@@ -1035,7 +1037,7 @@ public static class Slice {
         path.Apply(new ProfileOp.Measure())
             .Bind(static result => result is ProfileResult.Measure measure
                 ? Fin.Succ(measure.Path)
-                : Fin.Fail<Length>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:path-measure-receipt").ToError()))
+                : Fin.Fail<Length>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:path-measure-receipt")))
             .Map(extent => new DepositionPath(
                 path,
                 feature,
@@ -1084,19 +1086,19 @@ public static class Slice {
                     closest.Value.SegPoint.Y,
                     loop.Plane)))
                 : Fin.Fail<(int Segment, Point3d Point)>(
-                    new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:seam-closest-receipt").ToError()));
+                    new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:seam-closest-receipt")));
 
     private static Fin<(int Segment, Point3d Point)> Scattered(Loop loop, int layer, Length stride) =>
         from result in loop.Apply(new ProfileOp.Measure())
         from extent in result is ProfileResult.Measure measure
             ? Fin.Succ(measure.Path)
-            : Fin.Fail<Length>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:seam-measure-receipt").ToError())
+            : Fin.Fail<Length>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:seam-measure-receipt"))
         from sampled in loop.Apply(new ProfileOp.Sample(Length.FromMillimeters(
             extent.Millimeters <= 0.0 ? 0.0 : (stride.Millimeters * layer) % extent.Millimeters)))
         from start in sampled is ProfileResult.Sampled row
             ? Fin.Succ((row.Segment, row.Point))
             : Fin.Fail<(int Segment, Point3d Point)>(
-                new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:seam-sample-receipt").ToError())
+                new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:seam-sample-receipt"))
         select start;
 
     private static int Extremal(Loop loop, Func<Point3d, double> rank) =>
@@ -1119,7 +1121,7 @@ public static class Slice {
 
     private static Fin<SliceStack> Sliced(FabricationInput input, LayerPlan plan, SlicePolicy slice) =>
         input.Model.Match(
-            None: () => Fin.Fail<SliceStack>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "slice:model-missing").ToError()),
+            None: () => Fin.Fail<SliceStack>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:model-missing")),
             Some: model => Slicing.Apply(new SliceOp(model, Plane.WorldXY, plan, slice)));
 
     private static Seq<Edge3> OpenRuns(SliceStack stack, int n) =>
@@ -1132,13 +1134,12 @@ public static class Slice {
             ? Seq<Edge3>()
             : toSeq(Enumerable.Range(0, points.Count - 1)).Map(i => new Edge3(points[i], points[i + 1]));
 
+    // The locus stays the bounded token every consumer keys on; the trapped foreign text rides beside it as its
+    // own accumulated error, so no unbounded exception prose enters the key space and no cause is lost.
     private static Fin<T> Capture<T>(Func<Fin<T>> callback, string locus) =>
         Try.lift<Fin<T>>(callback)
             .Run()
-            .MapFail(error => new GeometryFault.DegenerateInput(
-                Kind.Mesh,
-                -1,
-                $"{locus}:{error.Message}").ToError())
+            .MapFail(error => new GeometryFault.DegenerateInput(Kind.Mesh, None, locus).ToError() + error)
             .Bind(static result => result);
 
     private static Point3d Centre(BoundingBox bound) =>

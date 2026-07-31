@@ -30,7 +30,7 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 ## [04]-[SESSION]
 
 - Owner: `SessionCapture` sealed `IDisposable, IAsyncDisposable` — the leased recording session. `Open(CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, Op? key = null)` → `Task<Fin<Lease<SessionCapture>>>` gates, re-surveys, resolves the target into an `SCContentFilter` (`new SCContentFilter(display, [], SCContentFilterOption.Exclude)` for a display, `new SCContentFilter(window)` for a window), mints one `SCStreamConfiguration` from the plan, constructs `new SCStream(contentFilter, streamConfig, aDelegate)` with the owned stop delegate, adds the owned frame sink through `AddStreamOutput(sink, SCStreamOutputType.Screen, sampleHandlerQueue: null, out error)`, and starts capture through a `RunContinuationsAsynchronously` completion gate so the AppKit callback never runs the continuation inline. One `CaptureState` cell owns frames and counters, the delivery fold and export projection share one snapshot gate so an export stamp cannot straddle a frame commit, and one idempotent release task serves both disposal modalities.
-- Owner: `CaptureFrame` readonly record struct — sequence, journal-grade `MonotonicStamp`, `Bearing` (a pixel buffer arrived with the sample), pixel geometry, and retention-gated detached raster; validity claims a nonnegative sequence, live stamp evidence, and raster-geometry agreement. `CaptureStill` — the one-shot raster from `SCScreenshotManager.CaptureSampleBufferAsync`, always pixel-bearing. `CaptureExport` — sequence-ordered frames with published and shed counts and the capture stamp, detached from every live cell.
+- Owner: `RasterPane` is the ONE pixel-geometry-plus-raster carrier every capture shape composes; `CaptureFrame` — sequence, journal-grade `MonotonicStamp`, and `Option<RasterPane>` where `Bearing` derives as pane presence, so a non-bearing frame carries no zero-filled geometry slots. `CaptureStill` — the one-shot pane from `SCScreenshotManager.CaptureSampleBufferAsync`, always pixel-bearing by its own validity claim. `CaptureExport` — sequence-ordered frames with published and shed counts and the capture stamp, detached from every live cell.
 - Entry: `Snapshot(CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, Op? key = null)` → `Task<Fin<CaptureStill>>` — the single-frame modality over the same gate, filter, and raster kernel; `Export(Op? key = null)` → `Fin<CaptureExport>`; `Published`/`Shed`/`LastFault` — the evidence cells.
 - Law: the frame callback is contained — delivery projects the sample inside `Op.Catch`, stamps from the injected timeline, folds one frame into the ring with head-shedding accounted on `Shed`, and a projection fault records on `LastFault` and emits once through `CaptureLog.FrameFault`; the callback never touches the UI thread, never re-enters the host, and never retains the `CMSampleBuffer` past the projection.
 - Law: the raster kernel is the page's named statement seam — `GetImageBuffer()` pattern-matched to `CVPixelBuffer`, `Lock(CVPixelBufferLock.ReadOnly)` checked against `CVReturn.Success`, one `Marshal.Copy` from `BaseAddress` over `BytesPerRow * Height`, and `Unlock` in `finally`; the detached bytes are the only pixels that outlive the callback.
@@ -106,24 +106,26 @@ public readonly record struct WindowFact(
 
 public sealed record CaptureInventory(Seq<DisplayFact> Displays, Seq<WindowFact> Windows);
 
-internal readonly record struct RasterPane(int Width, int Height, int RowBytes, Option<ImmutableArray<byte>> Raster);
+public readonly record struct RasterPane(int Width, int Height, int RowBytes, Option<ImmutableArray<byte>> Raster) : IValidityEvidence {
+    public bool IsValid =>
+        Width > 0 && Height > 0 && RowBytes > 0 &&
+        Raster.Map(bytes => bytes.Length == (long)RowBytes * Height).IfNone(true);
+}
 
 internal readonly record struct CaptureState(Seq<CaptureFrame> Frames, long Published, long Shed);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CaptureFrame(
-    long Sequence, MonotonicStamp Stamp, bool Bearing, int Width, int Height, int RowBytes,
-    Option<ImmutableArray<byte>> Raster) : IValidityEvidence {
+public readonly record struct CaptureFrame(long Sequence, MonotonicStamp Stamp, Option<RasterPane> Pane) : IValidityEvidence {
+    public bool Bearing => Pane.IsSome;
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(holds: Sequence >= 0L),
         ValidityClaim.Evidence(evidence: Stamp),
-        ValidityClaim.Of(holds: Bearing
-            ? Width > 0 && Height > 0 && RowBytes > 0 &&
-              Raster.Map(bytes => bytes.Length == (long)RowBytes * Height).IfNone(true)
-            : Width == 0 && Height == 0 && RowBytes == 0 && Raster.IsNone));
+        ValidityClaim.Of(holds: Pane.Map(static pane => pane.IsValid).IfNone(true)));
 }
 
-public sealed record CaptureStill(int Width, int Height, int RowBytes, ImmutableArray<byte> Raster, MonotonicStamp Captured);
+public sealed record CaptureStill(RasterPane Pane, MonotonicStamp Captured) : IValidityEvidence {
+    public bool IsValid => Pane.IsValid && Pane.Raster.IsSome;   // a still is always pixel-bearing; Snapshot refuses a non-bearing pane at its binds
+}
 
 public sealed record CaptureExport(Seq<CaptureFrame> Frames, long Published, long Shed, MonotonicStamp Captured);
 
@@ -209,28 +211,12 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
     public static async Task<Fin<Lease<SessionCapture>>> Open(
         CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, Op? key = null) {
         Op op = key.OrDefault();
-        Fin<(CaptureTarget Target, CapturePlan Plan, MonotonicTimeline Clock)> admitted =
-            from _ in MacGate.Demand(key: op)
-            from row in op.Need(target)
-            from bound in op.Need(plan)
-            from clock in op.Need(timeline)
-            from capacity in guard(bound.Capacity > 0 && bound.Queue > 0, op.InvalidInput()).ToFin()
-            select (row, bound, clock);
-        if (admitted.IsFail) return admitted.Map(static _ => default(Lease<SessionCapture>)!);
-        (CaptureTarget row, CapturePlan bound, MonotonicTimeline clock) = ((CaptureTarget, CapturePlan, MonotonicTimeline))admitted;
-
-        Fin<SCShareableContent> content = await Guarded(
-            key: op, body: static () => SCShareableContent.GetShareableContentAsync(excludeDesktopWindows: true, onScreenWindowsOnly: true));
-        return await content.Bind(shareable => Filter(shareable: shareable, target: row, key: op)).Match(
-            Succ: async minted => {
-                Fin<SCStreamConfiguration> configured = Configure(plan: bound, key: op);
-                if (configured.IsFail) {
-                    Fin<Unit> released = ReleaseAll(key: op, minted.Dispose);
-                    return Preserve(
-                        first: configured.Map(static _ => default(Lease<SessionCapture>)!),
-                        next: released);
-                }
-                SCStreamConfiguration streamConfig = (SCStreamConfiguration)configured;
+        Fin<(SCContentFilter Filter, SCStreamConfiguration Config, MonotonicTimeline Clock)> staged =
+            await Staged(target: target, plan: plan, timeline: timeline, requireQueue: true, key: op);
+        return await staged.Match(
+            Succ: async ready => {
+                (SCContentFilter minted, SCStreamConfiguration streamConfig, MonotonicTimeline clock) = ready;
+                CapturePlan bound = plan;
                 SessionCapture? session = null;
                 StreamStop stop = new(record: error => {
                     SessionCapture? live = session;
@@ -280,28 +266,43 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
             Fail: static error => Task.FromResult(Fin.Fail<Lease<SessionCapture>>(error: error)));
     }
 
+    // ONE admission stage for both capture modalities: MacGate + operand admission, the shareable survey, the
+    // filter resolve, and the configuration mint, with prefix custody released on every refusal — success hands
+    // the caller a live (filter, config) pair whose release rides the caller's own paths. `requireQueue`
+    // distinguishes the leased stream (queue depth is load-bearing) from the one-shot still (no queue).
+    private static async Task<Fin<(SCContentFilter Filter, SCStreamConfiguration Config, MonotonicTimeline Clock)>> Staged(
+        CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, bool requireQueue, Op key) {
+        Fin<(CaptureTarget Target, CapturePlan Plan, MonotonicTimeline Clock)> admitted =
+            from _ in MacGate.Demand(key: key)
+            from row in key.Need(target)
+            from bound in key.Need(plan)
+            from clock in key.Need(timeline)
+            from capacity in guard(!requireQueue || (bound.Capacity > 0 && bound.Queue > 0), key.InvalidInput()).ToFin()
+            select (row, bound, clock);
+        return await admitted.Match(
+            Succ: async row => {
+                Fin<SCShareableContent> content = await Guarded(
+                    key: key, body: static () => SCShareableContent.GetShareableContentAsync(excludeDesktopWindows: true, onScreenWindowsOnly: true));
+                return content.Bind(shareable => Filter(shareable: shareable, target: row.Target, key: key)).Bind(minted => {
+                    Fin<SCStreamConfiguration> configured = Configure(plan: row.Plan, key: key);
+                    return configured.Match(
+                        Succ: config => Fin.Succ((minted, config, row.Clock)),
+                        Fail: primary => Preserve(
+                            first: Fin.Fail<(SCContentFilter, SCStreamConfiguration, MonotonicTimeline)>(error: primary),
+                            next: ReleaseAll(key: key, minted.Dispose)));
+                });
+            },
+            Fail: static error => Task.FromResult(Fin.Fail<(SCContentFilter, SCStreamConfiguration, MonotonicTimeline)>(error: error)));
+    }
+
     public static async Task<Fin<CaptureStill>> Snapshot(
         CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, Op? key = null) {
         Op op = key.OrDefault();
-        Fin<(CaptureTarget Target, CapturePlan Plan, MonotonicTimeline Clock)> admitted =
-            from _ in MacGate.Demand(key: op)
-            from row in op.Need(target)
-            from bound in op.Need(plan)
-            from clock in op.Need(timeline)
-            select (row, bound, clock);
-        if (admitted.IsFail) return admitted.Map(static _ => default(CaptureStill)!);
-        (CaptureTarget row, CapturePlan bound, MonotonicTimeline clock) =
-            ((CaptureTarget, CapturePlan, MonotonicTimeline))admitted;
-        Fin<SCShareableContent> content = await Guarded(
-            key: op, body: static () => SCShareableContent.GetShareableContentAsync(excludeDesktopWindows: true, onScreenWindowsOnly: true));
-        return await content.Bind(shareable => Filter(shareable: shareable, target: row, key: op)).Match(
-            Succ: async minted => {
-                Fin<SCStreamConfiguration> configured = Configure(plan: bound, key: op);
-                if (configured.IsFail) {
-                    Fin<Unit> released = ReleaseAll(key: op, minted.Dispose);
-                    return Preserve(first: configured.Map(static _ => default(CaptureStill)!), next: released);
-                }
-                SCStreamConfiguration streamConfig = (SCStreamConfiguration)configured;
+        Fin<(SCContentFilter Filter, SCStreamConfiguration Config, MonotonicTimeline Clock)> staged =
+            await Staged(target: target, plan: plan, timeline: timeline, requireQueue: false, key: op);
+        return await staged.Match(
+            Succ: async ready => {
+                (SCContentFilter minted, SCStreamConfiguration streamConfig, MonotonicTimeline clock) = ready;
                 Fin<CMSampleBuffer> sampled = await Guarded(
                     key: op, body: () => SCScreenshotManager.CaptureSampleBufferAsync(contentFilter: minted, config: streamConfig));
                 Fin<CaptureStill> still = sampled.Bind(buffer => {
@@ -309,10 +310,8 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                         from stamp in clock.Capture(key: op)
                         from pane in Geometry(buffer: buffer, retention: CaptureRetention.Raster, key: op)
                         from bearing in pane.ToFin(op.InvalidResult())
-                        from raster in bearing.Raster.ToFin(op.InvalidResult())
-                        select new CaptureStill(
-                            Width: bearing.Width, Height: bearing.Height, RowBytes: bearing.RowBytes,
-                            Raster: raster, Captured: stamp);
+                        from _ in bearing.Raster.ToFin(op.InvalidResult())
+                        select new CaptureStill(Pane: bearing, Captured: stamp);
                     Fin<Unit> released = op.Catch(body: () => Fin.Succ(Op.Side(action: buffer.Dispose)));
                     return Preserve(first: projected, next: released);
                 });
@@ -343,13 +342,8 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                 from valid in guard(buffer.IsValid, operation.InvalidInput()).ToFin()
                 from stamp in timeline.Capture(key: operation)
                 from pane in Geometry(buffer: buffer, retention: plan.Retention, key: operation)
-                let frame = pane.Match(
-                    Some: bearing => new CaptureFrame(
-                        Sequence: Interlocked.Increment(location: ref nextSequence) - 1L, Stamp: stamp, Bearing: true,
-                        Width: bearing.Width, Height: bearing.Height, RowBytes: bearing.RowBytes, Raster: bearing.Raster),
-                    None: () => new CaptureFrame(
-                        Sequence: Interlocked.Increment(location: ref nextSequence) - 1L, Stamp: stamp, Bearing: false,
-                        Width: 0, Height: 0, RowBytes: 0, Raster: Option<ImmutableArray<byte>>.None))
+                let frame = new CaptureFrame(
+                    Sequence: Interlocked.Increment(location: ref nextSequence) - 1L, Stamp: stamp, Pane: pane)
                 from folded in operation.Catch(body: () => Fin.Succ(Op.Side(action: () => {
                     lock (snapshotGate) {
                         ignore(state.Swap(current => {
@@ -411,9 +405,13 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
     }
 
     // Statement seam: the one async provider-exception funnel and the locked pixel-copy kernel of this page.
+    // It mints `Op.Catch`'s own taxonomy on the awaited leg — a cancel keeps its category instead of
+    // masquerading as a result failure — because a bare `Error.New(exception)` here would hand the estate an
+    // untyped token from the one crossing that knows both the key and the cause.
     internal static async Task<Fin<T>> Guarded<T>(Op key, Func<Task<T>> body) {
         try { return Fin.Succ(await body()); }
-        catch (Exception raised) { return Fin.Fail<T>(error: Error.New(raised)); }
+        catch (OperationCanceledException) { return Fin.Fail<T>(error: new Fault.Cancelled()); }
+        catch (Exception raised) { return Fin.Fail<T>(error: key.InvalidResult(detail: raised.Message)); }
     }
 
     private static async Task<Fin<Unit>> Complete(Action<Action<NSError>?> begin, Op key) {
@@ -434,7 +432,7 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
 
     private static Fin<Unit> Preserve(Fin<Unit> first, Fin<Unit> next) => first.IsFail ? first : next;
 
-    private static Fin<T> Preserve<T>(Fin<T> first, Fin<Unit> next) => first.Match(
+    internal static Fin<T> Preserve<T>(Fin<T> first, Fin<Unit> next) => first.Match(
         Succ: value => next.Map(_ => value),
         Fail: primary => next.Match(
             Succ: _ => Fin.Fail<T>(error: primary),
@@ -559,15 +557,9 @@ public static class CaptureScout {
                     OnScreen: window.OnScreen,
                     Active: window.Active)).Strict())));
             Fin<Unit> released = op.Catch(body: () => Fin.Succ(Op.Side(action: shareable.Dispose)));
-            return Preserve(first: projected, next: released);
+            return SessionCapture.Preserve(first: projected, next: released);
         });
     }
-
-    private static Fin<T> Preserve<T>(Fin<T> first, Fin<Unit> next) => first.Match(
-        Succ: value => next.Map(_ => value),
-        Fail: primary => next.Match(
-            Succ: _ => Fin.Fail<T>(error: primary),
-            Fail: cleanup => Fin.Fail<T>(error: primary + cleanup)));
 }
 
 [BoundaryAdapter]
@@ -602,7 +594,7 @@ public static class PaintProof {
                                .ToOption()
                                .Filter(lag => lag >= TimeSpan.Zero && lag <= window)
                                .Map(lag => new CaptureTie(Row: row.Sequence, Frame: frame.Sequence, Lag: lag)))
-                           .HeadOrNone(),
+                           .Head,
                    _ => Option<CaptureTie>.None,
                }).Strict();
     }

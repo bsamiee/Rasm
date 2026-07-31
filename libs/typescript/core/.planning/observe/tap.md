@@ -17,12 +17,13 @@ Hook-rail vocabulary of the observe plane, the fourth owner beside `convention`,
 - Law: replay is observe with the buffered window — the publisher's own retention (the machine hub's sliding `lag`, a `PubSub` `{ replay }` construction) bounds what a late subscriber sees, so replay is a warm-up window, never durable history, and a point whose publisher retains nothing lawfully refuses the modality at its row.
 - Growth: a new modality is one tuple entry with its row; a new execution axis is one `Row` field with its column on each row.
 - Boundary: fibers, scheduling, and delivery mechanics are the runtime wave's executor — this table is the data it reads.
-- Packages: `effect` (`Array`, `Cause`, `Data`, `Effect`, `Either`, `Metric`, `Option`, `Predicate`, `Schema`, `Struct`); `../value/identity.ts` (`AppIdentity`); `../value/fault.ts` (`FaultClass`).
+- Packages: `effect` (`Array`, `Cause`, `Data`, `Effect`, `Either`, `Metric`, `Option`, `Predicate`, `Schema`, `Struct`); `../value/identity.ts` (`AppIdentity`); `../value/fault.ts` (`FaultClass`); `./convention.ts` (`Convention`).
 
 ```typescript signature
 import { Array, Cause, Data, type Effect, Either, Metric, Option, Predicate, Schema, Struct, type Types } from "effect"
 import type { AppIdentity } from "../value/identity.ts"
 import { FaultClass } from "../value/fault.ts"
+import { Convention } from "./convention.ts"
 
 const _modalities = ["veto", "observe", "replay"] as const
 
@@ -64,15 +65,16 @@ const _point = <A, I>(source: Tap.Text | Tap.PointRow, fact: Schema.Schema<A, I>
 
 ## [04]-[RAIL_CONTRACT]
 
-- Owner: the contract surface — `Tap.Handler`, the generic tagged handler family (`Veto` carries the pure decide, `Observe` and `Replay` carry the forked run) with its interior `WithGenerics` constructor; `subscription`, the one constructor discriminating modality on the single-key handle record; `emitter`, the telemetry-as-tap constructor mapping a fact into a metric's admitted update; `registry`, the reverse-mapped accumulated admission yielding `Tap.Registry` or the retained `TapFault`; `isolated`, the breach fold onto the `FaultClass` lattice; and the `Veto`/`Breach` evidence classes riding the owner.
-- Law: telemetry-as-tap — a signal emitter is an observe subscription over domain facts: `emitter(point, metric, input)` composes `Metric.update` through the metric's own input mapping, so instrument names stay `convention` rows at the consumer, an emit call inside a domain fold is the deleted spelling, and domain code publishes facts while subscribers emit signals.
+- Owner: the contract surface — `Tap.Handler`, the generic tagged handler family (`Veto` carries the pure decide, `Observe` and `Replay` carry the forked run) with its interior `WithGenerics` constructor; `subscription`, the one constructor discriminating modality on the single-key handle record; `emitter`, the telemetry-as-tap constructor taking a convention row and mounting it once into the handle a fact projection updates; `registry`, the reverse-mapped accumulated admission yielding `Tap.Registry` or the retained `TapFault`; `isolated`, the breach fold onto the `FaultClass` lattice; and the `Veto`/`Breach` evidence classes riding the owner.
+- Law: telemetry-as-tap — a signal emitter is an observe subscription over domain facts: `emitter(point, metric, input, ...words)` takes the `Convention.MetricName` ROW, mounts it once at construction, and composes `Metric.update` through the row's own admitted input, so the materialization ruling is enforced by the parameter type instead of stated as prose — a hand-constructed metric no longer type-checks, `Convention.Input<N>` pins the update off the row's unit and width columns so a bare number reaching a temporal distribution refuses at the emitter, and the word roster stays required exactly where the family counts words. An emit call inside a domain fold is the deleted spelling: domain code publishes facts, subscribers emit signals.
+- Law: the `tap -> convention` edge is observe-interior and one-directional, the same shape `slo -> convention` already carries — a point name is hook vocabulary and an instrument name is signal vocabulary, so the rail composes the name owner and the name owner never learns the rail exists.
 - Law: a subscription value is capability-free — handler channels are `Effect<void, unknown>` with an empty requirement tail, so requirements bake at the registration seam the way a resolver bakes context, and the registry stays pure data a runtime executes under any graph.
-- Law: admission is accumulated — the registry fold retains every issue on one `TapFault` rail (a handler whose modality its point refuses), the subscriber label is the record key so a duplicate subscriber is unspellable, and a partial registry never lands; `Either` is the carrier because admission is pure.
+- Law: admission is accumulated — the registry fold retains every issue on one `TapFault` rail (a handler whose modality its point refuses), the subscriber label is the record key so a duplicate subscriber is unspellable, and a partial registry never lands; `Either` is the carrier because admission is pure. The rail's reasons close through the core `FaultClass.family` mint and its `class` reads the dominant kind across the retained issues, so a whole refused registry routes on the one lattice and the recovery decision never re-derives a severity the core table already carries.
 - Law: breach isolation is a pure fold onto the class lattice — `isolated(point, label)` folds a delivery `Cause` through `FaultClass.dominant` into `Breach` evidence carrying the point, the label, the dominant class, and the pretty-rendered detail; `Option.none` lands exactly on an interruption-only cause, so a cancelled delivery never reads as failure and the publisher's channel stays `never` by construction — the runtime lifts a `Breach` into its own capture and metric emission through the floor's owners.
 - Law: veto verdicts are values — `Veto` carries the refusing point and reason, the decide arm returns `Option<Veto>` so allowance is absence, and the emitting fold consumes the verdict as data; a veto that must read capability outgrew the modality and belongs to a port (`invoke`'s `AvailabilityGate` shape), never an effectful handler case.
-- Growth: a new handler modality is one `Handler` case with its `_handlerModality` row and its constructor arm; a new admission axis is one `_ISSUES` row; a new breach evidence axis is one `Breach` field.
+- Growth: a new handler modality is one `Handler` case with its `_handlerModality` row and its constructor arm; a new admission axis is one reason in the family mint with its class row; a new breach evidence axis is one `Breach` field.
 - Boundary: executed dispatch — forked observe deliveries, replay windows, the veto fold inside a publisher's step — is the runtime wave's; crash-grade capture stays `value/fault`'s `FaultCapture`, which a runtime constructs FROM a `Breach` when a breach escalates.
-- Packages: `effect` (`Array`, `Cause`, `Data`, `Effect`, `Either`, `Metric`, `Option`, `Schema`, `Struct`); `../value/fault.ts` (`FaultClass`).
+- Packages: `effect` (`Array`, `Cause`, `Data`, `Effect`, `Either`, `Metric`, `Option`, `Schema`, `Struct`); `../value/fault.ts` (`FaultClass`); `./convention.ts` (`Convention`).
 
 ```typescript signature
 class Veto extends Schema.Class<Veto>("Veto")({
@@ -87,16 +89,29 @@ class Breach extends Schema.Class<Breach>("Breach")({
   detail: Schema.String,
 }) {}
 
-const _ISSUES = ["modality"] as const
+// One row per reason carrying the core kind alone: a handler whose modality its point refuses is a malformed registry
+// — caller-blamed, never re-driven, evidence-preserving — and retryability, blame, and quarantine all read off the
+// core row table, so no local rank, retry, or status column rides beside `class` to fork the taxonomy per folder.
+const _family = FaultClass.family(["modality"] as const, {
+  modality: { class: "invalid" },
+})
+
 const _Issue = Schema.Struct({
-  reason: Schema.Literal(..._ISSUES),
+  reason: _family.schema,
   point: _Name,
   label: Schema.String,
 })
 
 class TapFault extends Schema.TaggedError<TapFault>()("TapFault", {
   issues: Schema.NonEmptyArray(_Issue),
-}) {}
+}) {
+  get class(): FaultClass.Kind {
+    return FaultClass.dominant(Array.map(this.issues, (issue) => _family.classOf(issue.reason)))
+  }
+  override get message(): string {
+    return `<tap:refused> ${Array.join(Array.map(this.issues, (issue) => `${issue.reason}@${issue.label}`), ",")}`
+  }
+}
 
 declare namespace TapFault {
   type Issue = typeof _Issue.Type
@@ -128,10 +143,11 @@ declare namespace Tap {
   type Shape = Types.Simplify<typeof _rows & {
     readonly Breach: typeof Breach
     readonly Veto: typeof Veto
-    readonly emitter: <A, Type, In, Out>(
+    readonly emitter: <N extends Convention.MetricName, A>(
       point: Point<A>,
-      metric: Metric.Metric<Type, In, Out>,
-      input: (fact: A) => In,
+      metric: N,
+      input: (fact: A) => Convention.Input<N>,
+      ...words: Convention.Words<N>
     ) => Subscription<A>
     readonly isolated: (point: Name, label: string) => (cause: Cause.Cause<unknown>) => Option.Option<Breach>
     readonly modalities: Modalities
@@ -170,11 +186,18 @@ const _subscription = <A>(point: Tap.Point<A>, handle: Tap.Handle<A>): Tap.Subsc
       : _Handler.Replay({ run: handle.replay }),
 })
 
-const _emitter = <A, Type, In, Out>(
+const _emitter = <N extends Convention.MetricName, A>(
   point: Tap.Point<A>,
-  metric: Metric.Metric<Type, In, Out>,
-  input: (fact: A) => In,
-): Tap.Subscription<A> => ({ point, handler: _Handler.Observe({ run: (fact) => Metric.update(metric, input(fact)) }) })
+  metric: N,
+  input: (fact: A) => Convention.Input<N>,
+  ...words: Convention.Words<N>
+): Tap.Subscription<A> => {
+  // The mount happens HERE and once, so the materialization ruling is structural rather than prose: a subscription
+  // names a row and receives its handle, `Input<N>` pins the admitted update off that row's own unit and width
+  // columns, and the word roster stays required exactly where the family counts words — the mount's own arity law.
+  const mounted = Convention.mount(metric, ...words)
+  return { point, handler: _Handler.Observe({ run: (fact) => Metric.update(mounted, input(fact)) }) }
+}
 
 const _registry = <T extends Record<string, unknown>>(
   app: AppIdentity.Key,

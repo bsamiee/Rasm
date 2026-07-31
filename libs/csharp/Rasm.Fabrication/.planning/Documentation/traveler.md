@@ -733,7 +733,7 @@ internal static class Traveler {
             characteristic: value => available.Characteristics.Contains(value.Value));
 
     static K<Validation<Error>, Unit> Bound<T>(Seq<T> unbound, string locus) =>
-        guard(unbound.IsEmpty, new GeometryFault.DegenerateInput(Kind.Brep, -1, $"{locus}:{unbound.Count}").ToError())
+        guard(unbound.IsEmpty, (Error)new FabricationFault.PolicyInadmissible(FabConcern.Documentation, $"{locus}:{unbound.Count}"))
             .ToFin()
             .ToValidation();
 

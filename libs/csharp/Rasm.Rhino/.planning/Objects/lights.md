@@ -4,7 +4,7 @@ Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light
 
 ## [01]-[INDEX]
 
-- [02]-[KIND_AND_STAMP]: `LightKind`, `SpotShape`, `AreaShape`, `Falloff`, `LightStamp` — the capability rows and the detached read.
+- [02]-[KIND_AND_STAMP]: `LightKind`, `SpotShape`, `ConeEvidence`, `AreaShape`, `LightFrame`, `Falloff`, `LightStamp` — the capability rows and the detached read.
 - [03]-[SEED_AND_EDIT]: `LightSeed`, `Radiance`, `LightShade`, `LightEdit` — construction and the gated property edits.
 - [04]-[ASK_AND_COMMIT]: `LightSelect`, `LightOp`, `LightFact`, and the `Lights` entry pair.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
@@ -15,7 +15,9 @@ Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light
 - Law: the family is closed at the world styles — `LightKind.Of` resolves through one frozen style index, so a camera-space style, `Ambient`, and the sun style refuse at the gate instead of leaking a sixth modality; the sun's derived `Light` is `SunEvidence` custody on the render settings page and never enters this rail.
 - Law: cone math is kernel-owned — the spot cone crosses as `VectorCone` (apex, unit axis, admitted half-angle), half-angle and solid-angle questions answer through `ConeProjection` rows on the stamped cone, and inline spot trigonometry beside the owner is the deleted form.
 - Law: color is perceptual at the seam — `Diffuse`, `Ambient`, and `Specular` admit into `PerceptualColor` on read and quantize once through `ToRgb()` on write, so no sRGB component math ever rides this page.
-- Law: the stamp is host evidence — intensity, watt, lumen, candela, shadow, spot-angle, and hot-spot values cross raw as read, the admitted cone projects absence over a degenerate document while the raw scalars keep the evidence, and every WRITE payload admits (`UnitInterval` fractions, finite positive radiance, kernel cone), so reads never refuse a degenerate document and writes never pass one. `AreaShape` remains raw read evidence and admits both extent vectors at every write boundary.
+- Law: the stamp is host evidence — intensity, watt, lumen, candela, shadow, spot-angle, and hot-spot values cross raw as read, and every WRITE payload admits (`UnitInterval` fractions, finite positive radiance, kernel cone), so reads never refuse a degenerate document and writes never pass one. `AreaShape` remains raw read evidence and admits both extent vectors at every write boundary.
+- Law: cone absence and cone refusal are DIFFERENT answers — `ConeEvidence` carries `Absent` for a kind with no cone, `Shaped` for an admitted one, and `Degenerate` where the kind carries a cone the document's tolerance cannot admit; collapsing the last two onto one `None` erases the only signal a consumer has that the document, not the light, is the problem, while the raw scalars keep the underlying evidence in every case.
+- Law: the coordinate frame and the attenuation model are bounded reads — `LightFrame` closes the host coordinate roster and `Falloff.Of` REFUSES an unrecognized attenuation row rather than reading its coefficient vector; `Falloff.Coefficients` survives as the write payload a caller seats through `SetAttenuation`, and the host's own read classifies that seated light back onto one of its three named rows.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -60,12 +62,14 @@ public abstract partial record Falloff {
     public sealed record InverseSquared : Falloff;
     public sealed record Coefficients(Vector3d Value) : Falloff;
 
-    internal static Falloff Of(Light native) =>
+    // An unrecognized host attenuation row is a REFUSAL, not a coefficient vector: reading the vector for an
+    // unknown model publishes a law nobody wrote, and the two sibling host-value folds already fail on theirs.
+    internal static Fin<Falloff> Of(Light native, Op key) =>
         native.AttenuationType switch {
-            Light.Attenuation.Constant => new Constant(),
-            Light.Attenuation.Linear => new Linear(),
-            Light.Attenuation.InverseSquared => new InverseSquared(),
-            _ => new Coefficients(Value: native.AttenuationVector),
+            Light.Attenuation.Constant => Fin.Succ<Falloff>(value: new Constant()),
+            Light.Attenuation.Linear => Fin.Succ<Falloff>(value: new Linear()),
+            Light.Attenuation.InverseSquared => Fin.Succ<Falloff>(value: new InverseSquared()),
+            var unknown => Fin.Fail<Falloff>(error: key.InvalidResult(detail: unknown.ToString())),
         };
 
     internal Fin<Falloff> Admit(Op op) =>
@@ -102,6 +106,33 @@ public readonly record struct SpotShape(VectorCone Cone, UnitInterval HotSpot) {
         select new SpotShape(Cone: Cone, HotSpot: hotSpot);
 }
 
+// A spot light's cone answers on three distinguishable states, never one collapsed absence: the kind carries no
+// cone, the kind carries one and the document admits it, or the kind carries one the document degenerates. The
+// raw `SpotAngle`/`HotSpot` scalars survive on the stamp either way, so a consumer separates "no cone" from
+// "cone the model cannot admit" without re-reading the host.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ConeEvidence {
+    private ConeEvidence() { }
+    public sealed record Absent : ConeEvidence;
+    public sealed record Shaped(SpotShape Value) : ConeEvidence;
+    public sealed record Degenerate : ConeEvidence;
+}
+
+[SmartEnum<int>]
+public sealed partial class LightFrame {
+    public static readonly LightFrame World = new(key: (int)CoordinateSystem.World);
+    public static readonly LightFrame Camera = new(key: (int)CoordinateSystem.Camera);
+    public static readonly LightFrame Clip = new(key: (int)CoordinateSystem.Clip);
+    public static readonly LightFrame Screen = new(key: (int)CoordinateSystem.Screen);
+
+    internal CoordinateSystem Host => (CoordinateSystem)Key;
+
+    internal static Fin<LightFrame> Of(CoordinateSystem system, Op key) =>
+        TryGet((int)system, out LightFrame? row) && row is not null
+            ? Fin.Succ(value: row)
+            : Fin.Fail<LightFrame>(error: key.InvalidResult(detail: system.ToString()));
+}
+
 public readonly record struct AreaShape(Vector3d Length, Option<Vector3d> Width = default) {
     internal Fin<AreaShape> Admit(Op op) =>
         from length in op.AcceptInput(value: Length)
@@ -118,7 +149,7 @@ public sealed record LightStamp(
     Point3d Location,
     Vector3d Direction,
     Vector3d PerpendicularDirection,
-    CoordinateSystem CoordinateSystem,
+    LightFrame Frame,
     double Intensity,
     double Watts,
     double Lumens,
@@ -129,13 +160,15 @@ public sealed record LightStamp(
     double Shadow,
     double SpotAngle,
     double HotSpot,
-    Option<SpotShape> Cone,
+    ConeEvidence Cone,
     Option<AreaShape> Area,
     Falloff Attenuation) : IDetachedDocumentResult {
     internal static Fin<LightStamp> Of(int index, LightObject native, Context model, Op key) =>
         key.Catch(() =>
             from light in Optional(native.LightGeometry).ToFin(Fail: key.InvalidResult())
             from kind in LightKind.Of(style: light.LightStyle, key: key)
+            from frame in LightFrame.Of(system: light.CoordinateSystem, key: key)
+            from attenuation in Falloff.Of(native: light, key: key)
             from diffuse in Shade(color: light.Diffuse, key: key)
             from ambient in Shade(color: light.Ambient, key: key)
             from specular in Shade(color: light.Specular, key: key)
@@ -144,9 +177,9 @@ public sealed record LightStamp(
                        apex: light.Location, axis: light.Direction,
                        halfAngleRadians: light.SpotAngleRadians, context: model, key: key)
                    from hot in key.AcceptValidated<UnitInterval>(candidate: light.HotSpot)
-                   select Some(new SpotShape(Cone: value, HotSpot: hot)))
-                    .BindFail(_ => Fin.Succ(value: Option<SpotShape>.None))
-                : Fin.Succ(value: Option<SpotShape>.None)
+                   select (ConeEvidence)new ConeEvidence.Shaped(Value: new SpotShape(Cone: value, HotSpot: hot)))
+                    .BindFail(static _ => Fin.Succ<ConeEvidence>(value: new ConeEvidence.Degenerate()))
+                : Fin.Succ<ConeEvidence>(value: new ConeEvidence.Absent())
             select new LightStamp(
                 Id: native.Id,
                 Index: index,
@@ -156,7 +189,7 @@ public sealed record LightStamp(
                 Location: light.Location,
                 Direction: light.Direction,
                 PerpendicularDirection: light.PerpendicularDirection,
-                CoordinateSystem: light.CoordinateSystem,
+                Frame: frame,
                 Intensity: light.Intensity,
                 Watts: light.PowerWatts,
                 Lumens: light.PowerLumens,
@@ -171,7 +204,7 @@ public sealed record LightStamp(
                 Area: kind.Extent
                     ? Some(new AreaShape(Length: light.Length, Width: kind.Breadth ? Some(light.Width) : Option<Vector3d>.None))
                     : Option<AreaShape>.None,
-                Attenuation: Falloff.Of(native: light)));
+                Attenuation: attenuation));
 
     private static Fin<PerceptualColor> Shade(System.Drawing.Color color, Op key) =>
         PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A, key: key);
@@ -188,6 +221,7 @@ public sealed record LightStamp(
 - Owner: `LightSeed` `[Union]` closes construction — every case mints one admitted `Light` with its style set once; `Radiance` `[Union]` closes the photometric power axis — intensity scale, watts, lumens, candela — as one value; `LightShade` couples the diffuse write with its optional ambient and specular companions; `LightEdit` `[Union]` closes rename, enablement, power, shade, shadow, cone, area, pose, and attenuation over one gated dispatch.
 - Law: modality gates are kind columns — the cone edit demands `Cone`, extent demands `Extent`, breadth demands `Breadth`, a directional pose demands `Aims`, and each refusal is the typed `InvalidInput` fault; a per-arm style ladder re-deriving what the row already states is the deleted form.
 - Law: seeds admit before the host — locations, vectors, and complete area shapes pass admission before the document grant, the spot seed consumes an already-admitted `SpotShape`, and the style writes exactly once at mint, so no half-styled light ever reaches the table.
+- Law: the mint owns its native — `LightSeed.Mint` answers `Fin<Lease<Light>>` and brackets the seat, so a refused or throwing seat releases the fresh `Light` before the fault leaves and the table commit consumes the lease through `Use`; a raw returned handle relies on the caller reaching its own `using` first, which a throwing seat forecloses.
 - Law: photometric power is one axis — `Radiance` discriminates scale from watts, lumens, and candela by case, the host converts between them, and a per-unit sibling edit family is the collapsed form.
 - Boundary: the photometric-web (IES) payload is the render kinds page's `PhotometricWeb` — dialect-admitted by `PhotometricDialect`, minted through `PhotometricPress`, and landed on the light's attached render material child slot by `AttachTo`; this rail's photometric reach ends at `Radiance`, and `LightEdit` never grows an IES case.
 
@@ -249,35 +283,42 @@ public abstract partial record LightSeed {
                 from width in area.Width.ToFin(Fail: key.InvalidResult())
                 select (LightSeed)new Rectangular(Corner: corner, Length: area.Length, Width: width));
 
-    internal Light Mint() =>
+    internal Fin<Lease<Light>> Mint(Op op) =>
         Switch(
-            context: unit,
-            point: static (_, seed) => Styled(kind: LightKind.Point, seat: light => { light.Location = seed.Location; }),
-            spot: static (_, seed) => Styled(kind: LightKind.Spot, seat: light => {
+            context: op,
+            point: static (key, seed) => Styled(kind: LightKind.Point, key: key, seat: light => { light.Location = seed.Location; }),
+            spot: static (key, seed) => Styled(kind: LightKind.Spot, key: key, seat: light => {
                 light.Location = seed.Shape.Cone.Apex;
                 light.Direction = seed.Shape.Cone.Axis.Value;
                 light.SpotAngleRadians = seed.Shape.Cone.HalfAngle.Value;
                 light.HotSpot = (double)seed.Shape.HotSpot;
             }),
-            directional: static (_, seed) => Styled(kind: LightKind.Directional, seat: light => {
+            directional: static (key, seed) => Styled(kind: LightKind.Directional, key: key, seat: light => {
                 light.Location = seed.Location;
                 light.Direction = seed.Direction;
             }),
-            linear: static (_, seed) => Styled(kind: LightKind.Linear, seat: light => {
+            linear: static (key, seed) => Styled(kind: LightKind.Linear, key: key, seat: light => {
                 light.Location = seed.Location;
                 light.Length = seed.Length;
             }),
-            rectangular: static (_, seed) => Styled(kind: LightKind.Rectangular, seat: light => {
+            rectangular: static (key, seed) => Styled(kind: LightKind.Rectangular, key: key, seat: light => {
                 light.Location = seed.Corner;
                 light.Length = seed.Length;
                 light.Width = seed.Width;
             }));
 
-    private static Light Styled(LightKind kind, Action<Light> seat) {
-        Light fresh = new() { LightStyle = kind.Style, IsEnabled = true };
-        seat(fresh);
-        return fresh;
-    }
+    // The mint owns the native from its first statement: a throwing seat releases it before the fault leaves,
+    // so no path can strand a styled `Light` between construction and the caller's lease.
+    private static Fin<Lease<Light>> Styled(LightKind kind, Op key, Action<Light> seat) =>
+        key.Catch(() => Fin.Succ(value: new Light { LightStyle = kind.Style, IsEnabled = true }))
+            .Bind(fresh => key.Catch(() => {
+                    seat(fresh);
+                    return Fin.Succ<Lease<Light>>(value: new Lease<Light>.Owned(Value: fresh));
+                })
+                .MapFail(error => {
+                    fresh.Dispose();
+                    return error;
+                }));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -371,7 +412,7 @@ public sealed record LightShade(
 ## [04]-[ASK_AND_COMMIT]
 
 - Owner: `LightSelect` `[Union]` closes the table address — every row, an index, an object id, a name; `LightOp` `[Union]` closes the commit verbs — mint, amend, purge, revive; `LightFact` owns one typed consequence per verb; `ObjectReceipt<LightFact>` collects facts and undo serials; `Lights.Ask` and `Lights.Commit` are the two entries.
-- Law: resolution is index-paired — every address resolves to `(Index, LightObject)` rows inside the grant through `FindIndex`, `Find`, and `FindName`; one predicate-parameterized scalar projector proves bounds plus live/deleted state for selectors and revival, while the complete roster filters deleted rows; the pair keeps `Modify`, `Delete`, and `Undelete` index-addressed with the object id riding every fact.
+- Law: resolution is index-paired but id-addressed — the complete roster enumerates the table's own `IEnumerable<LightObject>` and resolves each live row's slot from its id, while `Find`, `FindName`, and the revival probe address a single row; one predicate-parameterized scalar projector proves bounds plus live/deleted state for selectors and revival. The slot survives only because `Modify`, `Delete`, and `Undelete` take one, and a deleted row has no live id, so the index address stays the revival ingress alone.
 - Law: the working copy is the mutation site — an amend duplicates through `DuplicateLightGeometry`, applies its admitted edits to the duplicate, and lands once through `Modify(index, working)`, so the live table never observes a half-applied edit and the duplicate disposes on every path.
 - Law: the commit rides `ObjectSpine.Commit` — admission precedes the grant, the spine derives mutate-plus-undo needs with redraw joining by policy, and this page supplies only the per-verb fact fold; every light verb records undo.
 - Law: placement stays the object rail — whole-object transform, delete-by-id, and selection of `LightObject`s ride `TableOp` through `TableTarget.Query` with `IncludeLights`; this rail owns what the object rail cannot spell — light-specific properties, index-addressed table verbs, and kind-gated modality.
@@ -391,11 +432,14 @@ public abstract partial record LightSelect {
     internal Fin<Seq<(int Index, LightObject Native)>> Resolve(RhinoDoc document, Op key) =>
         Switch(
             context: (Document: document, Op: key),
+            // The table enumerates as `IEnumerable<LightObject>` and the host discourages index lookup in favour
+            // of ids, so the roster sweep reads the table directly and pairs each live row with the index its own
+            // id resolves — the index survives only because `Modify`, `Delete`, and `Undelete` address by slot.
             every: static (context, _) => context.Op.Catch(() => Fin.Succ(value:
-                toSeq(Enumerable.Range(start: 0, count: context.Document.Lights.Count))
-                    .Choose(index => Optional(context.Document.Lights.FindIndex(index))
-                        .Filter(static native => !native.IsDeleted)
-                        .Map(native => (index, native))))),
+                context.Document.Lights.AsIterable().ToSeq()
+                    .Filter(static native => !native.IsDeleted)
+                    .Map(native => (Index: context.Document.Lights.Find(native.Id, ignoreDeleted: true), Native: native))
+                    .Filter(static row => row.Index >= 0))),
             at: static (context, address) => context.Op.Catch(() =>
                 from _ in guard(address.Index >= 0 && address.Index < context.Document.Lights.Count, context.Op.InvalidInput()).ToFin()
                 from rows in Row(document: context.Document, index: address.Index, key: context.Op)
@@ -457,21 +501,21 @@ public abstract partial record LightOp {
                 select (LightOp)new Amend(Select: address, Edits: edits),
             purge: static (key, work) =>
                 from address in key.Need(work.Select)
-                from quiet in key.Need(work.Quiet)
+                from _ in key.Need(work.Quiet)
                 select (LightOp)work,
             revive: static (key, work) => guard(work.Index >= 0, key.InvalidInput()).ToFin().Map(_ => (LightOp)work));
 
     internal Fin<Seq<LightFact>> Apply(RhinoDoc document, Op op) =>
         Switch(
             context: (Document: document, Op: op),
-            mint: static (context, work) => context.Op.Catch(() => {
-                using Light fresh = work.Seed.Mint();
-                _ = work.Name.Iter(name => fresh.Name = name);
-                int index = context.Document.Lights.Add(fresh);
-                return from _ in guard(index >= 0, context.Op.InvalidResult()).ToFin()
-                       from native in Optional(context.Document.Lights.FindIndex(index)).ToFin(Fail: context.Op.InvalidResult())
-                       select Seq<LightFact>(new LightFact.Minted(Index: index, Id: native.Id));
-            }),
+            mint: static (context, work) => work.Seed.Mint(op: context.Op).Bind(lease => lease.Use(
+                fresh => context.Op.Catch(() => {
+                    _ = work.Name.Iter(name => fresh.Name = name);
+                    int index = context.Document.Lights.Add(fresh);
+                    return from _ in guard(index >= 0, context.Op.InvalidResult()).ToFin()
+                           from native in Optional(context.Document.Lights.FindIndex(index)).ToFin(Fail: context.Op.InvalidResult())
+                           select Seq<LightFact>(new LightFact.Minted(Index: index, Id: native.Id));
+                }))),
             amend: static (context, work) =>
                 from rows in work.Select.Resolve(document: context.Document, key: context.Op)
                 from facts in rows.TraverseM(row => context.Op.Catch(() =>
@@ -533,7 +577,7 @@ public static class Lights {
     public static Fin<ObjectReceipt<LightFact>> Commit(DocumentSession session, RedrawPolicy redraw, params ReadOnlySpan<LightOp> operations) {
         Op op = Op.Of();
         return from policy in op.Need(redraw)
-               from requested in toSeq(operations.ToArray())
+               from requested in LanguageExt.Iterable<LightOp>.FromSpan(operations).ToSeq()
                    .TraverseM(work => op.Need(work)).As()
                from _ in guard(!requested.IsEmpty, op.InvalidInput()).ToFin()
                from plan in requested.TraverseM(work => work.Admit(op: op)).As()

@@ -116,6 +116,7 @@ public sealed record CommandDeck(
     CommandComposition Composition) {
     public string SurfaceKey => Composition.SurfaceKey;
     public Func<KeyGesture, KeyGesture> Chord => Composition.Chord;
+    public Func<string, string> Label => Composition.Label;
     public IObservable<CommandIntent.Availability> Inputs => Composition.Inputs;
     public Func<CommandIntent.Availability> Snapshot => Composition.Snapshot;
     public IScheduler Scheduler => Composition.Scheduler;
@@ -133,7 +134,7 @@ public sealed record CommandDeck(
                 admitted.Map(static row => KeyValuePair.Create(row.Key, row)).ToFrozenDictionary(StringComparer.Ordinal),
                 admitted.Map(row => KeyValuePair.Create(composition.Label(row.Key).ToLowerInvariant(), row.Key)).ToFrozenDictionary(StringComparer.Ordinal),
                 composition))
-            .Bind(deck => deck.GestureConflicts().HeadOrNone().Match(
+            .Bind(deck => deck.GestureConflicts().Head.Match(
                 Some: conflict => (deck.SealConflict(conflict), Fin.Fail<CommandDeck>(new CommandFault.GestureConflict(
                     $"{conflict.Scope.Key}:{conflict.Gesture}:{string.Join(',', conflict.Keys)}"))).Item2,
                 None: () => Fin.Succ(deck)));
@@ -345,9 +346,12 @@ public static class CommandProjections {
             .ThenBy(static hit => hit.Key, StringComparer.Ordinal));
 
     extension(CommandDeck deck) {
-        // The command provider: the deck's span-ranked Search projected onto the shared hit shape.
-        public PaletteProvider Provider(Func<string, string> label) =>
-            new("command", query => deck.Search(query).Map(found => (found.Key, label(found.Key), found.Rank)));
+        // The command provider: the deck's span-ranked Search projected onto the shared hit shape. The
+        // label reads the frozen index's OWN source, so displayed text and rank basis are one value — a
+        // caller-supplied label parameter admitted a second source whose hits ranked on text they never
+        // showed, against the index owner's normalization monopoly.
+        public PaletteProvider Provider() =>
+            new("command", query => deck.Search(query).Map(found => (found.Key, deck.Label(found.Key), found.Rank)));
 
         public Seq<T> Project<T>(Func<CommandIntent, T> shape) =>
             toSeq(deck.Rows.Values).Map(shape);
@@ -422,6 +426,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Command invocation to receipt spine
+    accDescr: An invocation wire entering the command deck as a payload that lowers to an intent, the outcome sealing a receipt, and that receipt landing on the sink port beside its projected wire.
     CommandInvocationWire --> CommandDeck
     CommandDeck --> CommandPayload
     CommandPayload --> CommandIntent
@@ -459,4 +465,4 @@ interface CommandReceiptWire { readonly key: string; readonly surface: string; r
 
 ## [07]-[RESEARCH]
 
-- [WIRE_DECODE]: Seq-typed payload member round-trip through the Strict camelCase wire options on the inbound remote decode.
+- [WIRE_DECODE]-[OPEN]: does the `CommandPayload.Many` `Seq<string>` member decode through the suite Strict camelCase wire options, when LanguageExt.Core ships no `System.Text.Json` converter and `Seq<T>` carries no parameterless-plus-`Add` collection shape; route: deserialize a `{"ids":[…]}` element as `CommandPayload` against the `SuiteContracts` wire options in a decode probe.

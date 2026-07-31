@@ -38,6 +38,7 @@ from rasm.compute.solvers.receipt import SolverReceipt, graduate, verdict
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 
@@ -199,18 +200,23 @@ class DifferentialIntent:
     ) -> "DifferentialIntent":
         return DifferentialIntent(cde=(vector_field, control, y0, span, solver, policy))
 
-    async def solve(self, lane: LanePolicy) -> "RuntimeRail[SolverReceipt]":
+    async def solve(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
         # one HOSTILE-trait Kernel carries the solve; isolation, band, and worker-death retry derive at
-        # runtime Kernel crossing owner. This weave owns span, fence, and the fenced contributor harvest.
+        # runtime Kernel crossing owner. This weave owns span, fence, and the fenced contributor harvest under the
+        # caller's composition key, defaulted so the root call shape stays scope-free.
         async def dispatch() -> RuntimeRail[SolverReceipt]:
             return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self)
 
-        return await evidence_run(EvidenceScope.DIFFERENTIAL, f"solve.{self.tag}", dispatch, facts={"equation": self.tag})
+        return await evidence_run(EvidenceScope.DIFFERENTIAL, f"solve.{self.tag}", dispatch, facts={"equation": self.tag}, composition=composition)
 
-    def graduates(self, receipt: SolverReceipt, key: ContentKey, ceiling: dict[str, float] | None = None) -> "RuntimeRail[GraduationReceipt]":
+    def graduates(
+        self, receipt: SolverReceipt, key: ContentKey, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> "RuntimeRail[GraduationReceipt]":
         # `graduate` projects the receipt's own ledger, so the receipt IS the evidence; the key names the
         # integrated system the caller already identified — a convergence verdict keys to what was solved, never to itself.
-        return graduate(EvidenceScope.DIFFERENTIAL.value, f"solve.{self.tag}", key, receipt, ceiling or dict(_CEILING.items()))
+        return graduate(
+            EvidenceScope.DIFFERENTIAL.value, f"solve.{self.tag}", key, receipt, ceiling or dict(_CEILING.items()), composition=composition
+        )
 
 
 # Gated modules folded into one value object, behavior built ONCE per solve: every carrier method

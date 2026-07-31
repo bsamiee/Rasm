@@ -17,7 +17,7 @@ Every emitted `NurbsForm.Surface` carries `ToEncodeForm()` into the reconciliati
 - Receipt: `GeodesicField.Grade` records the distance lane a consumer dispatches on; `UvTessellation` carries no receipt, the carrier its own provenance evidence.
 - Packages: `nurbs.md` the vendored engine; MathNet.Numerics for the `Integrate.OnRectangle` area quadrature; Supercluster.KDTree.Net for the dense pullback seed; `Rasm.Meshing` for the `MeshEdit` arena and `MeshSpace` freeze; `Rasm.Processing` for the landed distance lanes; `Rasm.Spatial` for the fields rail and the `EncodeForm` identity target; `Rasm.Numerics` for `ParametricFault`; `Rasm.Domain` for `Op`, `Context`, and the `BenchClaim` ledger row; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core, and System.Numerics.Tensors.
 - Growth: a new tessellation density is one `TessellateRule` case; a new isoline selection one `IsolineRule` case; a second distance lane one `GeodesicGrade` row; a new field quantity one `CurvatureField` column off the same `CurvatureAt` sweep; a lofted, swept, or revolved construction is a growth row on the engine admission.
-- Boundary: basis, derivative, and projection arithmetic stay `nurbs.md`'s engine members; a trimmed region tessellates through `curve.md`'s `Fill` overlay lifted by `PointAt` at the consumer, so this owner tessellates the full tensor-product domain and mints no second constrained substrate.
+- Boundary: basis, derivative, and projection arithmetic stay `nurbs.md`'s engine members; a trimmed region is `Trim` DATA on the one `Tessellate` case — the constrained cells ride the `Meshing/delaunay` `Tessellation.Build` substrate with `PlanarOverlay`'s exact winding classification, so THIS owner emits both the full-domain and the trimmed `UvTessellation` and no consumer mints a constrained substrate beside it.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -102,7 +102,9 @@ public readonly record struct FieldExtrema(double Min, double Max, double Mean) 
 public abstract partial record SurfaceOp {
     private SurfaceOp() { }
 
-    public sealed record Tessellate(NurbsForm.Surface Surface, TessellateRule Rule, Context Tolerance) : SurfaceOp;
+    // Trim is data on the ONE tessellate case — UV-space rings (outer CCW, holes CW) on the Chain carrier;
+    // None tessellates the full tensor-product domain.
+    public sealed record Tessellate(NurbsForm.Surface Surface, TessellateRule Rule, Context Tolerance, Option<Seq<Chain>> Trim = default) : SurfaceOp;
     public sealed record Isolines(NurbsForm.Surface Surface, IsolineRule Rule) : SurfaceOp;
     public sealed record Geodesics(SurfaceResult.UvTessellation Source, GeodesicPlan Plan) : SurfaceOp;
     public sealed record NormalOffset(NurbsForm.Surface Surface, double Distance, FitPolicy Refit, RefinePolicy Refine) : SurfaceOp;
@@ -150,18 +152,32 @@ public static class Surfaces {
 
     // --- [TESSELLATE]
     // ToSpace kills no arena faces, so vertex order survives the freeze: Uv[i] parameterizes vertex i, always.
+    // Trimmed faces route the SAME lattice through the constrained overlay substrate — lattice nodes and ring
+    // vertices enter ONE Tessellation.Build in UV space with every ring edge a Constraint.Segment, cells classify
+    // by exact nonzero winding of their centroid against the rings, interior cells survive — so THIS owner emits the
+    // trimmed UvTessellation the tier consumers admit and no consumer re-derives a constrained substrate.
     static Fin<SurfaceResult> TessellateOf(SurfaceOp.Tessellate op, Op? key) =>
-        Lattice(op.Surface, op.Rule).Bind(grid => {
-            Arr<Point2d> uv = new([.. grid.U.SelectMany(u => grid.V.Select(v => new Point2d(u, v)))]);
-            Point3d[] points = new Point3d[uv.Count];
-            for (int i = 0; i < uv.Count; i++) { points[i] = op.Surface.PointAt(uv[i].X, uv[i].Y); }
-            using MeshEdit arena = MeshEdit.Of(points, CellTriangles(grid.U.Length, grid.V.Length, points));
-            return arena.ToSpace(op.Tolerance, key).Map(space =>
-                (SurfaceResult)new SurfaceResult.UvTessellation(op.Surface, space, uv));
-        });
+        Lattice(op.Surface, op.Rule).Bind(grid =>
+            op.Trim.Match(
+                Some: rings => TrimmedCells(grid, rings, op.Tolerance, key)
+                    .Bind(cells => Lift(op.Surface, cells.Uv, cells.Triangles, op.Tolerance, key)),
+                None: () => {
+                    Arr<Point2d> uv = new([.. grid.U.SelectMany(u => grid.V.Select(v => new Point2d(u, v)))]);
+                    Point3d[] points = new Point3d[uv.Count];
+                    for (int i = 0; i < uv.Count; i++) { points[i] = op.Surface.PointAt(uv[i].X, uv[i].Y); }
+                    using MeshEdit arena = MeshEdit.Of(points, CellTriangles(grid.U.Length, grid.V.Length, points));
+                    return arena.ToSpace(op.Tolerance, key).Map(space =>
+                        (SurfaceResult)new SurfaceResult.UvTessellation(op.Surface, space, uv));
+                }));
 
     static Fin<(double[] U, double[] V)> Lattice(NurbsForm.Surface surface, TessellateRule rule);        // Grid: uniform; Adaptive: per-axis budgets by cumulative mean-|κ| integral
     static ReadOnlySpan<(int A, int B, int C)> CellTriangles(int nu, int nv, ReadOnlySpan<Point3d> points);  // shorter-diagonal split; degenerate cells culled, vertices kept
+    // Constrained UV tessellation: lattice nodes + ring vertices into Tessellation.Build (rings as
+    // Constraint.Segment runs), triangle keep = exact nonzero centroid winding over the ring set — the
+    // PlanarOverlay classification verbatim; emitted Uv covers surviving vertices only, re-indexed dense.
+    static Fin<(Arr<Point2d> Uv, (int A, int B, int C)[] Triangles)> TrimmedCells((double[] U, double[] V) grid, Seq<Chain> rings, Context tolerance, Op? key);
+    // Shared 3D lift: PointAt per surviving UV node, arena, ToSpace freeze — the one freeze both domains ride.
+    static Fin<SurfaceResult> Lift(NurbsForm.Surface surface, Arr<Point2d> uv, (int A, int B, int C)[] triangles, Context tolerance, Op? key);
 
     // --- [ISOLINES]
     static Fin<SurfaceResult> IsolinesOf(SurfaceOp.Isolines op, Op? key) =>

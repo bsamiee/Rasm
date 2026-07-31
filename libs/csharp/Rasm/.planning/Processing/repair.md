@@ -525,6 +525,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Mesh heal operation fold
+    accDescr: A heal plan entering the mesh-edit arena where each repair operation draws on exact predicates, intersection, tessellation, boolean arrangement, proximity, and face-dual traversal, the frozen space projecting manifold status into a rebuild receipt and the healed space into naming identity, with the unrepairable arm leaving as a geometry fault.
     HealPlan -->|MeshEdit.Of + ArenaPolicy| MeshEdit
     MeshEdit -->|Heal.Repair fold| HealOp
     HealOp -->|Orient2D exact signs| Predicate

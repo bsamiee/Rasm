@@ -1,20 +1,20 @@
 # [PY_ARTIFACTS_GRAPHIC_TEXTURE_INGEST]
 
-`ingest` owns the CHANNEL VOCABULARY and the classifier that resolves a directory of loose files into it. `TextureRole` is the closed roster every other page keys on, `_ROLE_SPACE` the one frozen law table carrying each role's component count, transfer, neutral, unit, mip policy, signedness, and mint origin, and `_ALIASES` the alias grammar an artist's naming convention reaches it through. `classify` is TOTAL and PURE: it reads filename stems and header probes, resolves what the tables claim, and ACCUMULATES everything else — an unmatched stem lands in `unresolved`, never a guess and never an exception.
+`ingest` owns the CHANNEL VOCABULARY and the classifier that resolves a directory of loose files into it. `TextureRole` is the closed roster every other page keys on, `_ROLE_SPACE` the one frozen law table carrying each role's component count, transfer, neutral, unit, mip policy, signedness, and mint origin, and `_ALIASES` the alias grammar an artist's naming convention reaches it through. `classify` is TOTAL and PURE: it reads names, header probes, and the channel rosters those headers carry, resolves what the tables claim, and ACCUMULATES everything else — an unmatched name lands in `unresolved`, never a guess and never an exception.
 
 Every roster column TRANSCRIBES the frozen cross-branch fragment: a canonical name that OpenPBR Surface 1.1 defines is the OpenPBR identifier verbatim (`geometry_opacity`, never `opacity`), so the `.mtlx` port binding is mechanical and the C# `TextureChannel` PascalCase, the python `TextureRole` UPPER_SNAKE, and the TS camelCase literal all derive from the one key by casing alone. Cross-branch equality tests the KEY, never the identifier. `plane#PLANE` supplies the transfer, mip, and fault vocabularies; `derive#DERIVE` supplies `NormalConvention` and `ChannelPack`, whose EXECUTION lives with the kernels that flip a green channel and order a pack; this page resolves both from a stem and records the source convention on the provenance leg. `set#TEXTURE_SET` consumes a `Classification` to build its `SetSpec` and mints the manifest; python synthesizes no plane bytes for a role this table marks `BAKED`.
 
 ## [01]-[INDEX]
 
 - [02]-[ROLE]: `TextureRole`, `IblProduct`, and `ChannelPack` close the slot vocabularies, `RoleLaw` lands every column of the frozen fragment, three law tables resolve under one total `slot_law`, and import-time gates keep the rosters, the descent bound, and the alias grammar unambiguous.
-- [03]-[CLASSIFY]: stem normalization, the UDIM grammar, the one-table longest-run resolution descent, and the total accumulating `classify` fold over a source roster and its header probes.
+- [03]-[CLASSIFY]: stem normalization, the UDIM grammar, the one-table longest-run resolution descent over the stem and then the container's own channel layers, and the total accumulating `classify` fold over a source roster.
 
 ## [02]-[ROLE]
 
 - Owner: `TextureRole` is the ONE channel vocabulary and `_ROLE_SPACE` its ONE law table. That roster DERIVES from the `OpenPbrSurface` column set, the OpenPBR geometry group, and four derived fields — a projection of an existing closed vocabulary, not a hand-picked eight, so a coat-roughness or sheen bake has a row on day one and the C# and python cardinalities match by construction.
 - Owner: `IblProduct` is the environment half of the SAME egress slot and `ChannelPack` its packed half; all three land here rather than at their kernels, because one vocabulary owner keeps `slot_law` total over `MapSlot` and keeps `ibl#IBL` free of a cycle back through the producer that consumes it. `slot_law` discriminates on the slot's own TYPE, so a producer carries no "which table" flag and a new vocabulary is one more arm.
 - Owner: `_PACK_MEMBERS` fixes each pack's RGB slot order as ROLES and `_PACK_LAW` DERIVES the pack's own row from them — four components, always `raw`, never associated, and a neutral that is its members' own constants in slot order. Packs are therefore ordinary slots the producer fans a node for and the egress names a leaf for, not a manifest entry hand-built beside the maps; a hand-written pack neutral is where a zero fill re-enters and darkens every unpacked occlusion read.
-- Cases: twenty-six OpenPBR rows, five geometry rows, three derived rows, five environment products, two packs. Two exclusions are set-level facts no per-texel field can carry: the conductor is a `ConductorMetal` key riding the manifest beside the channel list, and `geometry_thin_walled` is a double-sided-shell boolean that admits no plane.
+- Cases: the OpenPBR surface groups, the OpenPBR geometry group, the derived channels, the environment products, and the packs. Two exclusions are set-level facts no per-texel field can carry: the conductor is a `ConductorMetal` key riding the manifest beside the channel list, and `geometry_thin_walled` is a double-sided-shell boolean that admits no plane.
 - Law: `_ROLE_SPACE` is the ONE roster and its `space` column IS the per-role colorspace law. Every other column — `channels`, `neutral`, `unit`, `mip`, `signed`, `bounded`, `mint` — rides the SAME row, so a second table keyed by role cannot fork from it and a page reading one column reads the same row every other page reads.
 - Law: `bounded` is the STORAGE ADMISSION every integer container stands on. `plane#PLANE` `quantized` clips to `[0, 1]`, so a channel whose values leave that band — an index of refraction near `1.5`, a nanometre film thickness near `500`, a millimetre scattering radius, an absolute `cd/m²` luminance, every environment product — writes pure white into an integer store with no error anywhere. Those rows read `bounded=False` and `set#TEXTURE_SET` `default_spec` routes them to the float container; a unit column alone cannot carry it, because `emission_luminance` is dimensioned and neutral at zero while `height` is dimensionless and genuinely unit-normalized.
 - Law: NEUTRAL is the constant a producer writes into an absent packed slot, a mip gutter, and a UDIM hole; it is the OpenPBR Surface 1.1 default converted into the channel's declared unit. Zero is never the generic fill — it is `base_metalness`'s neutral and `occlusion`'s fully-occluded value at once.
@@ -64,6 +64,7 @@ class TextureRole(StrEnum):
     SPECULAR_COLOR = "specular_color"
     SPECULAR_ROUGHNESS = "specular_roughness"
     SPECULAR_ROUGHNESS_ANISOTROPY = "specular_roughness_anisotropy"
+    SPECULAR_ROUGHNESS_ANISOTROPY_ROTATION = "specular_roughness_anisotropy_rotation"
     SPECULAR_IOR = "specular_ior"
     TRANSMISSION_WEIGHT = "transmission_weight"
     TRANSMISSION_ROUGHNESS = "transmission_roughness"
@@ -100,6 +101,8 @@ class IblProduct(StrEnum):
     SPECULAR = "specular"
     BRDF_LUT = "brdf_lut"
     LUMINANCE_CDF = "luminance_cdf"
+    CUBEMAP = "cubemap"  # the SIX-FACE radiance container a GPU cube sampler binds; one file, six faces, no infix
+    PREVIEW = "preview"  # the DISPLAY-REFERRED gain-map preview; the one product whose read-side intensity is baked
 
 
 type MapSlot = TextureRole | IblProduct | ChannelPack  # the `<channel>`, `<product>`, or pack slot of the egress grammar; disjoint by construction
@@ -108,6 +111,14 @@ type MapSlot = TextureRole | IblProduct | ChannelPack  # the `<channel>`, `<prod
 class Udim(StrEnum):
     NONE = "none"
     MARI = "mari"  # the four-digit 1001+ grammar; 1001 + u + 10 * v
+
+
+class SourceOrigin(StrEnum):
+    # WHERE the entry's evidence came from. Origin is a column on ONE entry owner rather than a sibling record,
+    # because both answers share the whole discriminant set — admitted before classification, keyed by name,
+    # evidence-at-probe-time, consumed into `Candidate` — and differ only in which evidence fields are filled.
+    FILE = "file"  # a leaf the app root's directory walk found
+    EMBEDDED = "embedded"  # an image a glTF/GLB container names in its own `images[]` beside a `materials[]` binding
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -137,8 +148,21 @@ class SourceProbe(Struct, frozen=True):
 
 
 class SourceEntry(Struct, frozen=True):
-    name: str  # the leaf filename as found; never an absolute host path
+    # ONE entry owner over every origin: a walked leaf, a glTF-embedded image, and a multi-channel document each
+    # carry a name, a header probe, and whatever extra evidence their origin affords. A sibling record per origin
+    # answers admission, identity, timing, and consumer identically to this one, so it folds here as columns.
+    name: str  # the leaf filename or the container's own image name; never an absolute host path
     probe: SourceProbe = SourceProbe()
+    origin: SourceOrigin = SourceOrigin.FILE
+    channels: tuple[str, ...] = ()
+    # ^ the container's OWN channel roster where its header carries one — an EXR read `header_only` hands back
+    # `header()["channels"]` as `Channel` records with `.name` a plain string, and NO pixel is touched. A
+    # multi-AOV document whose channel names ARE its role roster resolves off this where its stem carries nothing.
+    material: str = ""  # the glTF material the embedded image binds under; empty on a walked leaf
+    space: Option[tuple[str, int]] = Nothing
+    # ^ a CALLER-RESOLVED (colorspace name, file-rule index) pair. `graphic/color/managed#MANAGED` owns the OCIO
+    # config and its `FileRules`, and the strata forbid this page importing it, so the declared-rules answer
+    # arrives resolved and rides through as provenance — this page mints no config and infers no space of its own.
 
 
 class Candidate(Struct, frozen=True):
@@ -153,6 +177,11 @@ class Candidate(Struct, frozen=True):
     tile: int = 0  # the Mari index, or 0 when the set is not UDIM
     gloss: bool = False  # the stem spelled gloss/glossiness/smoothness; resolution attaches the linear inversion
     convention: Option[NormalConvention] = Nothing
+    channel: str = ""
+    # ^ the SOURCE channel inside a multi-channel document, empty where the whole plane is the slot. A multi-AOV
+    # EXR claims one candidate per resolved channel over ONE entry, so the extractor knows which named channel to
+    # read back and the conflict census still groups by (slot, tile) — two AOVs claiming one role is a conflict.
+    space: Option[tuple[str, int]] = Nothing  # the entry's caller-resolved space provenance, carried, never re-derived
 
     @property
     def slot(self, /) -> MapSlot:
@@ -209,7 +238,12 @@ _ROLE_SPACE: Final[frozendict[TextureRole, RoleLaw]] = frozendict({
     ),
     TextureRole.SPECULAR_ROUGHNESS_ANISOTROPY: RoleLaw(
         # Vector columns shorten to `SpecularAnisotropy` on the C# side ALONE; the channel key and the `.mtlx`
-        # port stay canonical, so this is the one row whose branch identifier does not derive mechanically.
+        # port stay canonical, so this is one of the two rows whose branch identifier does not derive mechanically.
+        channels=1, space=PlaneSpace.LINEAR, neutral=(0.0,), unit="", mip=MipPolicy.BOX, signed=False, bounded=True, mint=Mint.BAKED
+    ),
+    TextureRole.SPECULAR_ROUGHNESS_ANISOTROPY_ROTATION: RoleLaw(
+        # The scalar rotation plane carries anisotropy direction — it mips correctly under BOX where a tangent
+        # VECTOR plane cancels; the C# identifier shortens to `SpecularRotation`, the second non-mechanical row.
         channels=1, space=PlaneSpace.LINEAR, neutral=(0.0,), unit="", mip=MipPolicy.BOX, signed=False, bounded=True, mint=Mint.BAKED
     ),
     TextureRole.SPECULAR_IOR: RoleLaw(channels=1, space=PlaneSpace.RAW, neutral=(1.5,), unit="", mip=MipPolicy.BOX, signed=False, bounded=False, mint=Mint.BAKED),
@@ -244,7 +278,7 @@ _ROLE_SPACE: Final[frozendict[TextureRole, RoleLaw]] = frozendict({
         channels=3, space=PlaneSpace.SRGB, neutral=(1.0, 1.0, 1.0), unit="", mip=MipPolicy.KAISER, signed=False, bounded=True, mint=Mint.BAKED
     ),
     TextureRole.EMISSION_LUMINANCE: RoleLaw(
-        channels=1, space=PlaneSpace.LINEAR, neutral=(0.0,), unit="cd/m²", mip=MipPolicy.BOX, signed=False, bounded=False, mint=Mint.BAKED
+        channels=1, space=PlaneSpace.LINEAR, neutral=(0.0,), unit="cd/m2", mip=MipPolicy.BOX, signed=False, bounded=False, mint=Mint.BAKED
     ),
     TextureRole.GEOMETRY_OPACITY: RoleLaw(channels=1, space=PlaneSpace.LINEAR, neutral=(1.0,), unit="", mip=MipPolicy.BOX, signed=False, bounded=True, mint=Mint.BAKED),
     TextureRole.GEOMETRY_NORMAL: RoleLaw(
@@ -275,18 +309,30 @@ _PRODUCT_LAW: Final[frozendict[IblProduct, RoleLaw]] = frozendict({
     # `PYTHON` on every row: the C# document carries no HDRI kind, so a `cs·py` mint here asserts a producer that
     # does not exist.
     IblProduct.EQUIRECT: RoleLaw(
-        channels=3, space=PlaneSpace.LINEAR, neutral=(0.0, 0.0, 0.0), unit="cd/m²", mip=MipPolicy.KAISER, signed=False, bounded=False, mint=Mint.PYTHON
+        channels=3, space=PlaneSpace.LINEAR, neutral=(0.0, 0.0, 0.0), unit="cd/m2", mip=MipPolicy.KAISER, signed=False, bounded=False, mint=Mint.PYTHON
     ),
     IblProduct.IRRADIANCE: RoleLaw(
-        channels=3, space=PlaneSpace.LINEAR, neutral=(0.0, 0.0, 0.0), unit="cd/m²", mip=MipPolicy.NONE, signed=False, bounded=False, mint=Mint.PYTHON
+        channels=3, space=PlaneSpace.LINEAR, neutral=(0.0, 0.0, 0.0), unit="cd/m2", mip=MipPolicy.NONE, signed=False, bounded=False, mint=Mint.PYTHON
     ),
     IblProduct.SPECULAR: RoleLaw(
         # GGX pyramids ship as per-level FILES: no EXR write survives a mip- or rip-tiled part, and the
         # roughness ladder is a manifest list rather than a container-carried level index
-        channels=3, space=PlaneSpace.LINEAR, neutral=(0.0, 0.0, 0.0), unit="cd/m²", mip=MipPolicy.NONE, signed=False, bounded=False, mint=Mint.PYTHON
+        channels=3, space=PlaneSpace.LINEAR, neutral=(0.0, 0.0, 0.0), unit="cd/m2", mip=MipPolicy.NONE, signed=False, bounded=False, mint=Mint.PYTHON
     ),
     IblProduct.BRDF_LUT: RoleLaw(channels=2, space=PlaneSpace.RAW, neutral=(0.0, 0.0), unit="", mip=MipPolicy.NONE, signed=False, bounded=True, mint=Mint.PYTHON),
     IblProduct.LUMINANCE_CDF: RoleLaw(channels=2, space=PlaneSpace.RAW, neutral=(0.0, 0.0), unit="", mip=MipPolicy.NONE, signed=False, bounded=True, mint=Mint.PYTHON),
+    IblProduct.CUBEMAP: RoleLaw(
+        # SIX faces in ONE container, so the row is a radiance plane exactly as the equirect is and the face axis
+        # rides the container's own `num_faces` rather than a variant infix — a cube consumer binds one file
+        channels=3, space=PlaneSpace.LINEAR, neutral=(0.0, 0.0, 0.0), unit="cd/m2", mip=MipPolicy.NONE, signed=False, bounded=False, mint=Mint.PYTHON
+    ),
+    IblProduct.PREVIEW: RoleLaw(
+        # the ONE display-referred product: a gain-map container takes RGBA half-float, so the row is four
+        # components with an opaque neutral, and its values stay ABSOLUTE luminance because the gain map's own
+        # boost range is authored against a declared display peak rather than a normalized [0, 1] band
+        channels=4, space=PlaneSpace.LINEAR, neutral=(0.0, 0.0, 0.0, 1.0), unit="cd/m2", mip=MipPolicy.NONE, signed=False, bounded=False,
+        mint=Mint.PYTHON
+    ),
 })
 
 
@@ -352,6 +398,22 @@ _ALIASES: Final[frozendict[str, TextureRole]] = frozendict({
     "sss": TextureRole.SUBSURFACE_WEIGHT, "subsurface": TextureRole.SUBSURFACE_WEIGHT, "scatter": TextureRole.SUBSURFACE_WEIGHT,
     "clearcoat": TextureRole.COAT_WEIGHT, "coat": TextureRole.COAT_WEIGHT, "cc": TextureRole.COAT_WEIGHT,
     "sheen": TextureRole.FUZZ_WEIGHT, "fuzz": TextureRole.FUZZ_WEIGHT, "velvet": TextureRole.FUZZ_WEIGHT,
+    # The COAT, FUZZ, IOR, ANISOTROPY, and THIN-FILM tails: without them the industry export names fold to their
+    # own last token and land on the wrong shading term with no fault anywhere — `clearcoat_roughness` resolved
+    # `specular_roughness`, `sheen_color` resolved `base_color`, and `clearcoat_normal` resolved the BASE normal
+    # and fought it. That is the exact defect the canonical-key law names, left live for the alias half.
+    "clearcoat_roughness": TextureRole.COAT_ROUGHNESS, "coatrough": TextureRole.COAT_ROUGHNESS, "ccrough": TextureRole.COAT_ROUGHNESS,
+    "clearcoat_normal": TextureRole.GEOMETRY_COAT_NORMAL, "coat_normal": TextureRole.GEOMETRY_COAT_NORMAL,
+    "coatnormal": TextureRole.GEOMETRY_COAT_NORMAL, "ccnormal": TextureRole.GEOMETRY_COAT_NORMAL,
+    "clearcoat_color": TextureRole.COAT_COLOR, "coatcol": TextureRole.COAT_COLOR,
+    "sheen_roughness": TextureRole.FUZZ_ROUGHNESS, "sheenrough": TextureRole.FUZZ_ROUGHNESS,
+    "sheen_color": TextureRole.FUZZ_COLOR, "sheencol": TextureRole.FUZZ_COLOR,
+    "ior": TextureRole.SPECULAR_IOR, "refraction_index": TextureRole.SPECULAR_IOR, "refractive_index": TextureRole.SPECULAR_IOR,
+    "anisotropy": TextureRole.SPECULAR_ROUGHNESS_ANISOTROPY, "aniso": TextureRole.SPECULAR_ROUGHNESS_ANISOTROPY,
+    "specular_level": TextureRole.SPECULAR_WEIGHT, "speclevel": TextureRole.SPECULAR_WEIGHT,
+    "emissive_strength": TextureRole.EMISSION_LUMINANCE, "emission_strength": TextureRole.EMISSION_LUMINANCE,
+    "iridescence": TextureRole.THIN_FILM_WEIGHT, "iridescence_thickness": TextureRole.THIN_FILM_THICKNESS,
+    "sss_radius": TextureRole.SUBSURFACE_RADIUS, "scatter_radius": TextureRole.SUBSURFACE_RADIUS,
 })
 _PACK_ALIASES: Final[frozendict[str, ChannelPack]] = frozendict({
     # a packed stem resolves to a PACK row, never to one channel; `arm` is an alias of `orm` (identical slot order)
@@ -373,6 +435,9 @@ _UDIM = re_compile(r"\.([1-9][0-9]{3})\.[A-Za-z0-9]+$")
 # directory as a one-tile Mari sheet with no fault anywhere. 1001 is (u=0, v=0) and 9999 the ceiling.
 _UDIM_FLOOR: Final[int] = 1001
 _RUN_CEILING: Final[int] = 3  # the longest trailing token run a canonical key spans (`specular_roughness_anisotropy`)
+_COMPONENT: Final[frozenset[str]] = frozenset({"r", "g", "b", "a", "x", "y", "z"})
+# ^ the component tails an EXR channel name takes after its layer; the layer alone carries the role, so these
+# strip before the descent and a bare component name claims nothing at all
 
 _RESOLUTION: Final[frozendict[str, MapSlot | Literal["gloss"]]] = frozendict({
     # ONE lookup the descent reads, keyed by the UNDERSCORE-JOINED token run: every canonical channel key, every
@@ -423,22 +488,26 @@ if any(product.value in _RESOLUTION for product in IblProduct):
 ## [03]-[CLASSIFY]
 
 - Owner: `classify` is the ONE classification entrypoint over a source roster and its header probes. It resolves the role, the pack membership, the UDIM tile, the gloss transfer, and the normal convention per entry, folds them into a `Classification`, and accumulates every failure — it never raises, never returns a bare `Error`, and never infers a role from a probe alone.
+- Law: an entry yields a TUPLE of dispositions, not one. A single-plane leaf resolves to one claim and a multi-AOV document to one claim per resolved channel, so `_resolved` returns `tuple[Resolution, ...]` and `classify` chains them — a scalar return forced a multi-channel document to name exactly one of its own roles and drop the rest, silently, with the roster it carried sitting unread in its own header.
+- Law: the CHANNEL ROSTER is the second resolution surface and it runs only where the stem resolved nothing. A stem naming a role is the author's own declaration and outranks a container's internal names; an EXR whose stem says nothing and whose header says `diffuse`/`normal`/`roughness` resolves off the header, each admitted channel claiming its own candidate under the SAME `_RESOLUTION` descent — one table, two entry points, no second alias vocabulary. The header read touches no pixel, so a directory of multi-AOV documents still classifies at header cost.
+- Law: colorspace provenance ARRIVES; this page resolves none. The strata forbid `graphic/texture` importing `graphic/color/managed#MANAGED`, which owns the OCIO config and its `FileRules`, so a caller that consulted the declared rules hands the `(space name, rule index)` pair in on the entry and classification records it on the candidate. A stem-keyed colorspace table minted here forks the project's own declared rules — the exact drift the config's file rules exist to foreclose — and a bare space name with no rule index leaves the reader unable to say WHICH rule matched, which is the whole provenance.
+- Law: an EMBEDDED entry is a container-named image, and the container groups it. A glTF `images[]` name resolves through the same descent a filename does; its `materials[]` binding rides `SourceEntry.material`, and the caller classifies ONE material's entries per call because one `Classification` is one set — a multi-material GLB is N sets, never one set with N conflicting base-colour claims.
 - Law: `Resolution` is the TYPED disposition per entry — claimed, faulted, or unclaimed — and the fold reads its tag. A `Candidate | tuple | None` union has no reader but an `isinstance` ladder, which no checker proves exhaustive and which spells "unresolved" as the same `None` every optional field on this page already means "absent" by.
 - Law: matching runs over the NORMALIZED stem — `-`, `_`, `.`, and space all fold to one boundary and the whole stem casefolds — so `Wood_Planks-BaseColor.1001.exr`, `wood planks basecolor 1001.exr`, and `WOODPLANKS.BASECOLOR.1001.EXR` resolve identically. Matching anchors at the stem's END, because a material name frequently contains a channel word (`rustmetal_basecolor` is base color, not metalness).
 - Law: the resolution run is the stem MINUS its non-channel tail tokens — a UDIM index and a bare `gl`/`dx`/`opengl`/`directx` are stripped by `_channel_run` before the descent. Matching anchors at the end, so either one standing between the descent and the channel word makes the whole stem unresolvable: `basecolor.1001.exr` and `nor_gl.png` are the two spellings the frozen alias table names by hand, and leaving their suffixes in the run left both unclaimed while every table entry read correct. Compound tokens (`normalgl`, `nordx`) claim the role themselves and stay.
 - Law: the LONGEST TRAILING RUN wins, descending to one token against ONE `_RESOLUTION` table carrying every canonical key, alias, pack alias, and gloss stem. Canonical keys stay load-bearing: the egress grammar writes a leaf `<channel>.<ext>`, so `coat_roughness.exr` is a file this estate itself produces, and a resolver reading single tokens alone re-ingests it as `specular_roughness` — its own output misclassified, silently, into the wrong shading term. `_RUN_CEILING` PROVES its bound against the table at import rather than assuming it.
-- Law: a PACK claim seats the pack and NOTHING else. `Candidate` fills exactly one of `role`, `pack`, and `product`, so an `orm` file never lands as a standalone occlusion map beside its own pack — which is precisely the packed-and-standalone collision `set#TEXTURE_SET` refuses, and which a role-shaped pack candidate trips on every ORM directory ingested.
+- Law: a PACK claim seats the pack and NOTHING else. `Candidate` fills exactly one of `role` and `pack` — no `product` leg exists, because the `[09]` product names are egress-only — so an `orm` file never lands as a standalone occlusion map beside its own pack, which is precisely the packed-and-standalone collision `set#TEXTURE_SET` refuses and which a role-shaped pack candidate trips on every ORM directory ingested.
 - Law: a stem carrying NEITHER a `gl` nor a `dx` token leaves the convention UNRESOLVED and the classification records it. Defaulting a convention is the silent-lighting-inversion defect this refuses: a `dx` plane read as `gl` inverts every green-channel slope and lights every surface backwards, and nothing downstream can detect it. `nor_gl`/`normalgl` resolve `GL`; `nor_dx`/`normaldx` resolve `DX`; both also resolve the ROLE, so the token does double duty and no entry needs two.
 - Law: both normal channels of a set share ONE convention. Sets whose entries resolve divergent conventions fault `convention` rather than converting per file, because a per-file conversion silently accepts a directory an artist assembled from two sources and produces a set whose coat normal fights its base normal.
 - Law: `gloss`, `glossiness`, and `smoothness` resolve `specular_roughness` carrying `gloss=True`, and the resolution attaches the `derive#DERIVE` `gloss_invert` transfer. Inversion happens ONCE, here, in the LINEAR domain; no downstream surface holds a gloss spelling and no wire field carries one.
 - Law: a packed stem resolves to a `ChannelPack` ROW and never to one channel, and a channel appearing in a pack has no standalone map row. `arm` and `orm` are the same slot order; `mra` is the reverse.
 - Law: every UDIM index is `1001 + u + 10 * v` with `u` in `[0, 9]`, spanning `1001` through `9999` — a pattern bounded to `1xxx` drops every tile at `v` of ten or more, which is an ordinary UDIM sheet. That FLOOR is the one real bound: `u` is `(index - 1001) % 10` and no integer leaves that band, so a guard restating the row width is a condition that cannot fail. Four-digit tokens below 1001 are no UDIM and fault `udim` rather than entering the tile set.
-- Law: classification is PURE and reads headers alone. `plane#PLANE` `decode` is never called here, so a thousand-file directory classifies at header cost; the probe supplies extent, component count, depth, and container for the AGREEMENT checks, and a probe-free entry still resolves by stem.
+- Law: classification is PURE and reads headers alone. `plane#PLANE` `decode` is never called here, so a thousand-file directory classifies at header cost; the probe supplies extent, component count, depth, and container for the AGREEMENT checks, the channel roster supplies the names, and a probe-free entry still resolves by stem.
 - Law: extent disagreement across a non-UDIM set faults `extent`. UDIM tiles legitimately differ in extent between tiles, so the check applies within a tile and never across the tile set.
 - Auto: `unresolved` accumulates every stem no table claimed, and `faults` accumulates the typed causes; the caller reads `Classification.faulted` for the reduced monoid and `unresolved` for the raw stems. One hundred files carrying three unrecognized names classify ninety-seven and name three.
 - Output: `Classification` is the input `set#TEXTURE_SET` builds a `SetSpec` from and the source of the manifest's `unresolved` field. Nothing here mints a manifest, a receipt, or a plane.
-- Growth: a new alias is one `_ALIASES` entry, which `_RESOLUTION` folds in with no descent edit; a new UDIM grammar is one `Udim` row with one parse arm; a new convention token is one `_CONVENTION` entry.
-- Boundary: no decode, no derive, no encode, no lane, no receipt. Directory walking, host paths, and object-store listing stay at the app root that hands this page a leaf-name roster — a host path never crosses into a manifest, whose `source` field carries an ingest root or a generator id alone.
+- Growth: a new alias is one `_ALIASES` entry, which `_RESOLUTION` folds in with no descent edit; a new UDIM grammar is one `Udim` row with one parse arm; a new convention token is one `_CONVENTION` entry; a new source origin is one `SourceOrigin` row with the evidence columns it fills, and the descent is unedited because every origin resolves through the same table.
+- Boundary: no decode, no derive, no encode, no lane, no receipt. Directory walking, glTF chunk parsing, host paths, and object-store listing stay at the app root that hands this page a name roster with its header evidence — a host path never crosses into a manifest, whose `source` field carries an ingest root or a generator id alone. The OCIO config, its `FileRules`, and every colorspace transform stay `graphic/color/managed#MANAGED`'s.
 
 ```python signature
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -466,6 +535,19 @@ def _channel_run(tokens: tuple[str, ...], /) -> tuple[str, ...]:
     return kept
 
 
+def _layers(channels: tuple[str, ...], /) -> tuple[str, ...]:
+    # `<layer>.<component>` is the EXR channel grammar, so the LAYER carries the role and the components are the
+    # plane's own lanes: `diffuse.R`/`diffuse.G`/`diffuse.B` is ONE claim and never three, and a bare `R`/`G`/`B`
+    # root layer names no role at all. Resolving the raw channel names instead read `diffuse.R` as `(diffuse, r)`
+    # and its one-token tail claimed `specular_roughness` — a colour AOV silently ingested as a roughness map.
+    # `dict.fromkeys` dedupes first-wins over the header's own order, so the claim set is deterministic.
+    def _layer(name: str, /) -> str:
+        head, _dot, tail = name.rpartition(".")
+        return head if head and tail.casefold() in _COMPONENT else ("" if name.casefold() in _COMPONENT else name)
+
+    return tuple(dict.fromkeys(layer for name in channels if (layer := _layer(name))))
+
+
 def _tile(name: str, /) -> Option[int]:
     # the tile parses from the DOT-DELIMITED position alone — `_UDIM` anchors `<stem>.<tile>.<ext>` at the
     # name's end, so a four-digit run inside the stem never enters the tile set
@@ -490,30 +572,50 @@ def _claimed(tokens: tuple[str, ...], /) -> TextureRole | ChannelPack | Literal[
     return None
 
 
-def _resolved(entry: SourceEntry, /) -> Resolution:
-    # a pack claim carries the PACK and no role, a gloss claim carries the inversion, and an unmatched stem lands
-    # `unclaimed` so the fold accumulates it instead of guessing.
+def _candidate(
+    entry: SourceEntry, claim: TextureRole | ChannelPack | Literal["gloss"], tile: int, convention: NormalConvention | None, channel: str, /
+) -> Resolution:
+    # ONE candidate constructor both resolution surfaces reach, so a stem-resolved claim and a channel-resolved
+    # claim can never carry different evidence for the same slot. The entry's caller-resolved space provenance
+    # rides every claim it produces — the pair belongs to the FILE, so each of a document's channels carries it.
+    match claim:
+        case "gloss":
+            return Resolution(claimed=Candidate(
+                entry=entry, role=TextureRole.SPECULAR_ROUGHNESS, tile=tile, gloss=True, channel=channel, space=entry.space
+            ))
+        case ChannelPack() as pack:
+            # a packed stem claims the PACK ALONE: seating it under a member role too would publish the file as a
+            # standalone map beside its own pack, which is exactly the collision `set#TEXTURE_SET` refuses
+            return Resolution(claimed=Candidate(entry=entry, role=None, pack=Some(pack), tile=tile, channel=channel, space=entry.space))
+        case TextureRole() as role:
+            carried = Some(convention) if convention is not None and role in _NORMAL_ROLES else Nothing
+            return Resolution(claimed=Candidate(entry=entry, role=role, tile=tile, convention=carried, channel=channel, space=entry.space))
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _resolved(entry: SourceEntry, /) -> tuple[Resolution, ...]:
+    # a pack claim carries the PACK and no role, a gloss claim carries the inversion, and an unmatched stem falls
+    # through to the CHANNEL ROSTER before it lands `unclaimed`, so the fold accumulates rather than guessing.
+    # The tuple return is what lets ONE multi-AOV document claim one candidate per resolved channel; a scalar
+    # return made such a file name exactly one of its own roles and drop every other, reading correct throughout.
     tokens = _tokens(entry.name)
     tile = _tile(entry.name).default_value(0)
     if tile and tile < _UDIM_FLOOR:
         # 1001 is the Mari floor and `u` is `(index - 1001) % 10`, which no integer can leave — the floor is the
         # ONE real bound, and a modulo guard restating it is a condition that cannot fail
-        return Resolution(faulted=(entry.name, TextureFault(udim=entry.name)))
+        return (Resolution(faulted=(entry.name, TextureFault(udim=entry.name))),)
     convention = next((_CONVENTION[token] for token in reversed(tokens) if token in _CONVENTION), None)
     match _claimed(_channel_run(tokens)):
         case None:
-            return Resolution(unclaimed=entry.name)
-        case "gloss":
-            return Resolution(claimed=Candidate(entry=entry, role=TextureRole.SPECULAR_ROUGHNESS, tile=tile, gloss=True))
-        case ChannelPack() as pack:
-            # a packed stem claims the PACK ALONE: seating it under a member role too would publish the file as a
-            # standalone map beside its own pack, which is exactly the collision `set#TEXTURE_SET` refuses
-            return Resolution(claimed=Candidate(entry=entry, role=None, pack=Some(pack), tile=tile))
-        case TextureRole() as role:
-            carried = Some(convention) if convention is not None and role in _NORMAL_ROLES else Nothing
-            return Resolution(claimed=Candidate(entry=entry, role=role, tile=tile, convention=carried))
-        case _ as unreachable:
-            assert_never(unreachable)
+            # the STEM outranks the header: a name the author wrote is a declaration, and the roster inside a
+            # container is what answers only when the author wrote nothing. Each admitted channel claims its own
+            # candidate under the SAME descent, so no second alias vocabulary exists for the header half.
+            claimed = tuple((layer, _claimed(_channel_run(_tokens(layer)))) for layer in _layers(entry.channels))
+            resolved = tuple(_candidate(entry, claim, tile, convention, layer) for layer, claim in claimed if claim is not None)
+            return resolved if resolved else (Resolution(unclaimed=entry.name),)
+        case claim:
+            return (_candidate(entry, claim, tile, convention, ""),)
 
 
 def classify(entries: tuple[SourceEntry, ...], /) -> Classification:
@@ -523,7 +625,7 @@ def classify(entries: tuple[SourceEntry, ...], /) -> Classification:
     # `isinstance` ladders erases the three outcomes into runtime shape tests no checker can prove exhaustive,
     # and it makes `None` mean "unresolved" on a page whose every other `None` means "absent" — the two collapse
     # the first time a genuinely optional candidate field wants the same spelling.
-    resolved = tuple(_resolved(entry) for entry in entries)
+    resolved = tuple(item for entry in entries for item in _resolved(entry))
     candidates = tuple(item.claimed for item in resolved if item.tag == "claimed")
     faults = tuple(item.faulted[1] for item in resolved if item.tag == "faulted")
     unresolved = tuple(item.unclaimed for item in resolved if item.tag == "unclaimed")
@@ -586,15 +688,17 @@ config:
 ---
 flowchart LR
     accTitle: Texture ingest classification flow
-    accDescr: Source entries normalized to tokens, UDIM tiles parsed against the Mari floor, the longest trailing run claimed over the one resolution table, normal convention and gloss resolved, and the Classification accumulating unresolved stems beside its typed faults.
-    Entries["tuple[SourceEntry]: leaf name + header SourceProbe"] --> Norm["_tokens: extension stripped, -_. and space folded, casefolded"]
+    accDescr: Source entries normalized to tokens, UDIM tiles parsed against the Mari floor, the longest trailing run claimed over the one resolution table with the container channel roster as the fallback surface, normal convention and gloss resolved, and the Classification accumulating unresolved stems beside its typed faults.
+    Entries["tuple[SourceEntry]: name + header probe + channel roster + origin + caller-resolved space"] --> Norm["_tokens: extension stripped, -_. and space folded, casefolded"]
     Norm --> Tile["_tile: Mari index 1001..9999; 1001 + u + 10v, u in [0, 9]"]
     Tile -->|"below the 1001 floor"| FU["TextureFault.udim"]
     Norm --> Last["_claimed: LONGEST TRAILING RUN wins over ONE _RESOLUTION table, descending to one token"]
     Last -->|"orm / arm / mra"| Pack["ChannelPack SLOT; the member channels get NO standalone map"]
     Last -->|"gloss / glossiness / smoothness"| Gloss["specular_roughness + gloss_invert, LINEAR domain, once"]
     Last -->|"canonical key or alias"| Role["_RESOLUTION -> TextureRole; product names are egress-only and never resolve"]
-    Last -->|"no match"| Unres["unresolved accumulation"]
+    Last -->|"no match"| Hdr["_layers over the header channel roster: layer.component grouped, components dropped, SAME descent"]
+    Hdr -->|"a layer claims"| Role
+    Hdr -->|"still nothing"| Unres["unresolved accumulation"]
     Norm --> Conv["_CONVENTION: gl / dx token; ABSENT stays Nothing"]
     Conv --> Fold
     Role --> Fold["classify fold"]

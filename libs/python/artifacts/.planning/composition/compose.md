@@ -21,6 +21,7 @@
 import math
 from collections.abc import Callable, Iterable, Sequence
 from enum import Enum
+from functools import partial
 from io import BytesIO
 from itertools import pairwise
 from typing import TYPE_CHECKING, Annotated, Final, Literal, NoReturn, Self, assert_never
@@ -417,12 +418,17 @@ class Figure(Struct, frozen=True):
     placed: Option[Placed] = Nothing
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
+        # ONE mint per node, captured into the closure and threaded through `_rendered`: `_key` re-encodes the whole
+        # op payload and opens a `content.derive` span per read, and the annotate/metadata arms read it again.
+        key = self._key
+        return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         # key-over-INPUT: canonical op payload minted PRE-RUN through the bare `ContentIdentity.key`
         # (`of` returns the railed `RuntimeRail[ContentKey]`) — never a key over the placed-figure bytes.
+        # `op` is immutable across `rendered()`, so the standalone `contribute` port's own read answers the SAME
+        # key the plan node carries — the derivation is safe there where a closure cannot reach.
         return ContentIdentity.key(f"figure-{self.op.tag}", _CANON.encode(self.op))
 
     def rendered(self) -> Self:
@@ -431,10 +437,10 @@ class Figure(Struct, frozen=True):
         # PNG mints only inside the subprocess, their receipt riding the async emission outward.
         return structs.replace(self, placed=_placed(self.op))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        return await async_boundary(f"figure.{self.op.tag}", self._rendered, catch=_FAULTS)
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        return await async_boundary(f"figure.{self.op.tag}", partial(self._rendered, key), catch=_FAULTS)
 
-    async def _rendered(self) -> ArtifactReceipt:
+    async def _rendered(self, key: ContentKey, /) -> ArtifactReceipt:
         match self.op:
             case FigureOp(tag="annotate", annotate=(source, render, draws, icc)):
                 # resvg's rasterize AND the pillow fold ride the worker beside each other; only the cheap
@@ -444,12 +450,12 @@ class Figure(Struct, frozen=True):
                     await self.lane.offload(Kernel.of(_gated_annotate, _TRAIT[self.op.tag]), render.kwargs(source.keywords()), draws, icc)
                 )
                 # receipt.slot threads the PRE-RUN node key (core/receipt elision law); the output address rides the band.
-                return ArtifactReceipt.Preview(self._key, width, height, len(data), frozendict({"address": ContentIdentity.key("figure-annotate", data).hex}))
+                return ArtifactReceipt.Preview(key, width, height, len(data), frozendict({"address": ContentIdentity.key("figure-annotate", data).hex}))
             case FigureOp(tag="metadata", metadata=(source, exif, xmp)):
                 data, width, height = _out_of(
                     await self.lane.offload(Kernel.of(_gated_metadata, _TRAIT[self.op.tag]), source, exif, xmp)
                 )
-                return ArtifactReceipt.Preview(self._key, width, height, len(data), frozendict({"address": ContentIdentity.key("figure-metadata", data).hex}))
+                return ArtifactReceipt.Preview(key, width, height, len(data), frozendict({"address": ContentIdentity.key("figure-metadata", data).hex}))
             case _:
                 # `_placed_now` serves the pdf projection and every vector fold at the arm's own `_TRAIT` row —
                 # an INLINE row skips the crossing whole; key, bytes, and receipt derive from the SAME render.

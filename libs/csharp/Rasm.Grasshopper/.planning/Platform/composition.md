@@ -4,33 +4,35 @@
 
 ## [01]-[INDEX]
 
-- [02]-[GRAPH]: `LayerNode` + `LayerMount` + `Compose` — explicit native custody, indexed graph materialization, transaction mutation, and leased teardown.
+- [02]-[GRAPH]: `LayerNode` + `LayerMount` + `LayerPaint` + `Compose` — explicit native custody, the one style mint, indexed graph materialization, transaction mutation, and leased teardown.
 - [03]-[MOTION]: `PaceWindow` + `DriveSpec` + `MotionDrive` + `MotionAttachment` — shared kernel drive sampling, display-link pacing over `MonotonicTimeline`, transaction application, and completion.
 - [04]-[GLIDES]: `GlidePlan` + `TimingCurve` + `Glides` + `Curves` — host-owned animation attachment and the standard timing-function vocabulary.
 - [05]-[EFFECTS]: `FilterKind` + `HapticCue` + `VibrancyPane` + `Effects` — CoreImage filter minting, haptic feedback, and visual-effect views.
-- [06]-[WIDE_COLOR]: `WideColor` — profile-aware kernel projection crossing into AppKit as an owned `NSColor` only.
+- [06]-[WIDE_COLOR]: `WideColor` — profile-aware kernel projection crossing into AppKit and CoreAnimation, and the appearance-live inverse.
 - [07]-[TELEMETRY_ROOT]: `PlatformTelemetry` — the per-ALC telemetry capsule opened at the GH2 plugin app root with the plugin resource discriminator.
 
 ## [02]-[GRAPH]
 
 - Owner: `LayerNode` `[Union]` is the recursive layer graph. `PlainCase` and `ShapeCase` mint boundary-owned layers; `HostedCase(Lease<CALayer>.Owned, ...)` consumes a detached caller-configured layer under sole custody. `LayerStyle` and `StrokeStyle` carry every disposable native payload as `Lease<T>`; an `Owned` row transfers its sole disposal obligation into the resulting mount, a `Borrowed` row remains caller-held for the mount lifetime, and reference-identity deduplication closes repeated occurrences exactly once.
 - Owner: `LayerMount` retains the active `Root`, prior `NSView` backing state, mounted `Top`, preorder `Lookup`, derived `Count`, every graph attachment edge, and every transferred native resource. `Find(int ordinal, Op?)` resolves a mounted node without leaking a second index. `Dispose` marshals one inverse through `EtoDispatch`, removes every edge in reverse order inside one disabled-action transaction, restores `Layer` and `WantsLayer`, and then releases owned resources in reverse acquisition order; an existing borrowed root remains untouched while a root minted by this mount dies after restoration.
-- Entry: `Compose.Mount(MacAnchor anchor, LayerNode node, Op? key = null)` → `Fin<Lease<LayerMount>>`. A recursive admission fold rejects malformed styles, dead lease payloads, and duplicate hosted or mask identities; the mount scope rejects any graph payload identical to the anchor root before custody can double. Its anchor view sets layer backing, reuses its live `Layer`, or installs `MakeBackingLayer()` as an owned root. Materialization remains detached until the complete preorder graph and lookup exist; attachment is the final mutation. Native custody transfers only as each graph value materializes. Any failure reverses edges and view backing, releases every acquired native, and accumulates inverse faults with the originating refusal.
+- Entry: `Compose.Mount(MacAnchor anchor, LayerNode node, Op? key = null)` → `Fin<Lease<LayerMount>>`. One recursive admission fold rejects malformed styles, dead lease payloads, and duplicate hosted or mask identities; the mount scope rejects any graph payload identical to the anchor root before custody can double. Its anchor view sets layer backing, reuses its live `Layer`, or installs `MakeBackingLayer()` as an owned root. Materialization remains detached until the complete preorder graph and lookup exist; attachment is the final mutation. Native custody transfers only as each graph value materializes. Any failure reverses edges and view backing, releases every acquired native, and accumulates inverse faults with the originating refusal.
 - Entry: `Compose.Mutate(Action body, bool animated, Op? key = null)` → `Fin<Unit>` is the public mutation fence. `CATransaction.Commit` always closes the begun transaction, and disabling actions is the default posture for sampled motion and teardown.
-- Boundary: graph ordinals are stable only for one mount lease. A layer obtained from `Lookup` or `Find` is borrowed and remains live only while that lease remains live. `CGPath` construction and managed-to-CoreGraphics projection stay at their owning geometry boundary; this owner retains only the resulting lease.
-- Packages: Microsoft.macOS (`NSView`, `CALayer`, `CAShapeLayer`, `CATransaction`, `CGPath`, `CGColor`, `CGRect`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`, `MacAnchor`), `Eto/runtime.md` (`EtoDispatch`).
+- Law: every scope refusal rides the rail with its own cause — a graph payload aliasing the anchor root is `InvalidInput`, a host backing-layer mint answering null is `InvalidResult` naming the member, a transfer with no captured backing is `MissingContext`, and `[03]`'s second bind against a live callback target is `InvalidContext`. A raw `throw` inside the enclosing `Op.Catch` converts, but flattens all four to one untyped result token exactly where the custody argument needs the cause addressable, so it is the deleted form; the native writes stay downstream of admission, which is what keeps a refused lease from moving any layer state before it refuses.
+- Owner: `LayerPaint` is the one style mint — `Plain` builds a `LayerStyle` and `Stroked` a `StrokeStyle`, every colour crossing `[06]`'s `WideColor.ToLayer` and every path crossing `Eto.Mac.CGConversions.ToCG(this IGraphicsPath)` into an owned `Lease<CGPath>`. Its ingress is admitted domain material — kernel `PerceptualColor` and an already-built Eto `IGraphicsPath` the caller's own geometry owner supplies — so no canvas type crosses down into this stratum and no style field enters a graph unminted. Minting is prefix-safe: a refused colour or path releases every lease already taken in the same call and appends the release fault to the refusal.
+- Boundary: graph ordinals are stable only for one mount lease. Every layer `Lookup` or `Find` hands back is borrowed and remains live only while that lease remains live. `Mount` retains only the leases `LayerPaint` produced and converts nothing itself.
+- Packages: Microsoft.macOS (`NSView`, `CALayer`, `CAShapeLayer`, `CATransaction`, `CGPath`, `CGColor`, `CGRect`), Eto.Drawing (`IGraphicsPath`), Eto.macOS (`CGConversions.ToCG`), `Rasm.Numerics` (`PerceptualColor`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`, `MacAnchor`), `Eto/runtime.md` (`EtoDispatch`).
 - Growth: a new layer family is one `LayerNode` case whose native payload enters through the same scope; graph lookup, transaction fencing, failure cleanup, and teardown do not widen.
 
 ## [03]-[MOTION]
 
 - Owner: `DriveSpec` `[Union]` carries the three kernel-sampled drive algebras: eased cycles, fixed-target springs, and perceptual colour blends. `MotionDrive.Step(DriveSpec, MonotonicBeat, AccessibilityPosture, Op?)` is the shared sampling fold consumed unchanged by this display-link attachment and `Canvas/motion.md`'s `UiClock` pacer; it returns a read-only `DriveFrame` whose non-null `Apply` action and `Continues` verdict are minted only inside the fold. `MotionAttachment` owns the display link, callback target, `MonotonicTimeline` sequence, drive, workspace observation, fault cell, transaction application, and terminal completion as one disposable resource.
-- Entry: `MotionAttachment.Attach(MacAnchor anchor, PaceWindow window, DriveSpec drive, Option<Action> completed, Op? key = null)` → `Fin<Lease<MotionAttachment>>`. This mint admits every nested drive value, acquires one `WorkspaceWatch`, captures a kernel timeline origin, creates an inert callback target, pauses and tunes the view display link, binds the completed attachment, attaches it to `NSRunLoop.Main` under `NSRunLoopMode.Common`, and only then resumes callbacks. A mint or dispatch fault removes the run-loop attachment, invalidates and disposes every native, releases the watch, and accumulates cleanup faults.
+- Entry: `MotionAttachment.Attach(MacAnchor anchor, PaceWindow window, DriveSpec drive, Option<Action> completed, Op? key = null)` → `Fin<Lease<MotionAttachment>>`. This mint admits each nested drive value, acquires one `WorkspaceWatch`, captures a kernel timeline origin, creates an inert callback target, pauses and tunes the view display link, binds the completed attachment onto the rail so a second claim against that target refuses before any run-loop edge exists, attaches it to `NSRunLoop.Main` under `NSRunLoopMode.Common`, and only then resumes callbacks. Any mint or dispatch fault removes the run-loop attachment, invalidates and disposes every native, releases the watch, and accumulates cleanup faults.
 - Law: each callback advances `MonotonicTimeline.Beat` from the origin or prior `MonotonicBeat`; the attachment stores that successful receipt before posture, sampling, or native application can fail because the kernel sequence has already advanced. No host timestamp arithmetic, parallel beat identity, or wall-clock read survives. `MotionDrive.Step` returns the sampled write and continuation decision, and the attachment applies that frame inside `Compose.Fence(animated: false)`; the canvas pacer applies the same frame before its repaint edge.
-- Law: completion belongs to the terminal frame. `SpringSettlement` carries dimensionally distinct positive position and velocity bands; a spring inside both snaps to target at zero velocity. A bounded cycle preserves its yoyo terminal side, and reduce motion selects that same bounded terminal or the far stop of an unbounded cycle. That frame installs an atomic once-gated caller continuation on `CATransaction.CompletionBlock`, pauses the link, and suppresses that continuation after lease teardown begins. A beat, sampling, write, or deferred-completion fault records in `LastFault` and pauses the link.
-- Law: `PerceptualColor.Mix(other, amount, path)` is the sole colour interpolation call. It returns `PerceptualColor` directly; `BlendPath` supplies policy but owns no `Mix` member and no fallible rail.
+- Law: completion belongs to the terminal frame. `SpringSettlement` carries dimensionally distinct positive position and velocity bands; a spring inside both snaps to target at zero velocity. Every bounded cycle preserves its yoyo terminal side, and reduce motion selects that same bounded terminal or the far stop of an unbounded cycle. That frame installs an atomic once-gated caller continuation on `CATransaction.CompletionBlock`, pauses the link, and suppresses that continuation after lease teardown begins. Any beat, sampling, write, or deferred-completion fault records in `LastFault` and pauses the link.
+- Law: `PerceptualColor.Mix(other, amount, path)` is the sole colour interpolation call. It returns `PerceptualColor` directly; `BlendPath` supplies the interpolation space with whatever traversal that space admits, publishes no interpolation entry to this stratum, and carries no fallible rail.
 - Law: one `WorkspaceFact` cell supplies accessibility and pace as a coherent snapshot. Each callback retunes the frame-rate range only when that snapshot's `PaceBounds` changes, then samples against its paired posture; a display migration never combines a stale ceiling with a new accessibility state.
 - Law: disposal marshals through `EtoDispatch`, unbinds the callback before removing the link from its run loop, attempts pause, removal, invalidation, and both native disposals independently, then releases the workspace watch even when UI dispatch refuses. Every inverse fault accumulates, and the link never outlives its anchor view, run-loop attachment, callback object, or workspace observation.
-- Packages: Microsoft.macOS (`CADisplayLink`, `CAFrameRateRange`, `NSRunLoop`, `NSRunLoopMode`, `NSObject`, `Selector`, `ExportAttribute`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`, `MonotonicBeat`, `BeatSeed`, `Easing`, `CyclePlan`, `SpringShape`, `SpringState`), `Rasm.Numerics` (`PerceptualColor`, `BlendPath`, `UnitInterval`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`AccessibilityPosture`, `PaceBounds`, `WorkspaceFact`, `WorkspaceWatch`, `NativeSeam.Watch`).
+- Packages: Microsoft.macOS (`CADisplayLink`, `CAFrameRateRange`, `NSRunLoop`, `NSRunLoopMode`, `NSObject`, `Selector`, `ExportAttribute`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`, `MonotonicBeat`, `BeatSeed`, `Easing`, `CyclePlan`, `SpringShape`, `SpringState`), `Rasm.Numerics` (`PerceptualColor`, `BlendPath`, `UnitInterval`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`AccessibilityAxis`, `AccessibilityPosture`, `PaceBounds`, `WorkspaceFact`, `WorkspaceWatch`, `NativeSeam.Watch`).
 - Growth: a new sampled drive is one `DriveSpec` case in `MotionDrive.Step`; both pacers inherit the same beat, posture, terminal, and write semantics without gaining a parallel sampling arm.
 
 ## [04]-[GLIDES]
@@ -38,7 +40,7 @@
 - Owner: `GlidePlan` pairs an explicitly owned or borrowed `CAAnimation` with the managed `string` key required by `CALayer.AddAnimation`. `Glides.Animate` consumes the animation lease inside one transaction; CoreAnimation copies the attached animation, so an owned plan releases immediately after the call while a borrowed plan remains caller-held. `Glides.Halt` admits the same managed key for `CALayer.RemoveAnimation`; `NSString` remains confined to `CAMediaTimingFunction.FromName`, whose catalog member requires it.
 - Owner: `TimingCurve` `[SmartEnum<int>]` closes the standard CoreAnimation names: `Default`, `EaseIn`, `EaseOut`, `EaseInEaseOut`, and `Linear`. `Curves.Named(TimingCurve, Op?)` mints an owned `CAMediaTimingFunction`; no raw timing-name string crosses the public surface.
 - Entry: `Glides.Animate(CALayer layer, GlidePlan plan, Op? key = null)` and `Glides.Halt(CALayer layer, string glideKey, Op? key = null)` → `Fin<Unit>`; `Curves.Named` → `Fin<Lease<CAMediaTimingFunction>>`.
-- Law: sampled drives and host glides remain distinct by state ownership. A sampled drive exposes kernel state and retained completion through `MotionAttachment`; a glide delegates interpolation to CoreAnimation and owns only attachment and removal. Deferred completion requires a retained callback owner and therefore stays on `MotionAttachment`.
+- Law: sampled drives and host glides remain distinct by state ownership. Each sampled drive exposes kernel state and retained completion through `MotionAttachment`; a glide delegates interpolation to CoreAnimation and owns only attachment and removal. Deferred completion requires a retained callback owner and therefore stays on `MotionAttachment`.
 - Packages: Microsoft.macOS (`CAAnimation`, `CAMediaTimingFunction`, `CALayer`, `NSString`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`).
 - Growth: a new standard timing name is one `TimingCurve` row; a new host animation remains data inside `GlidePlan` and does not create a second attachment lifecycle.
 
@@ -54,10 +56,13 @@
 ## [06]-[WIDE_COLOR]
 
 - Owner: `WideColor.Project(PerceptualColor colour, Op? key = null)` → `Fin<Lease<NSColor>>` composes `PerceptualColor.ToRgb(RgbProfile.DisplayP3)` and passes the returned unit channels directly to `NSColor.FromDisplayP3`. This host boundary neither constructs `Unicolour` nor reads its default `.Rgb` accessor, because that accessor is sRGB and cannot be relabelled as Display-P3.
+- Owner: `WideColor.ToLayer(PerceptualColor colour, Op? key = null)` → `Fin<Lease<CGColor>>` is the layer-graph crossing `[02]`'s `LayerPaint` calls for every one of the four `Option<Lease<CGColor>>` style fields: it mints the `CGColor` DIRECTLY on the `CGColorSpaceNames.DisplayP3` space from the same admitted unit channels `Project` passes to AppKit, so the two faces of one projection share an admission gate and neither derives its custody from the other.
+- Owner: `WideColor.OfSystem(NSColor native, Op? key = null)` → `Fin<PerceptualColor>` is the INBOUND arm — `MacConversions.ToEtoWithAppearance` resolves a dynamic or catalog `NSColor` against the CURRENT appearance and the resulting sRGB channels enter `PerceptualColor.OfRgb`, so a chrome swatch read from `SystemColors` or an `NSAppearance`-dynamic colour crosses live rather than archived; the three arms make the crossing bidirectional on one owner.
 - Law: `RgbProfile` `[SmartEnum<int>]` owns `Srgb` and `DisplayP3` configuration rows. `PerceptualColor.ToRgb(RgbProfile profile)` performs configured conversion with perceptual gamut mapping and returns the normalized `(double Red, double Green, double Blue, double Alpha)` tuple. Parameterless `ToRgb()` remains the mapped sRGB byte egress; profile conversion remains one `PerceptualColor` owner rather than a host-local colour pipeline.
-- Boundary: `NSColor` is the only native colour object minted here, returned as owned custody. All profile selection, chromatic adaptation, transfer encoding, and gamut mapping remain kernel operations.
-- Packages: Microsoft.macOS (`NSColor`), `Rasm.Numerics` (`PerceptualColor`, `RgbProfile`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`).
-- Growth: a new display profile is one kernel `RgbProfile` row; the AppKit projection remains unchanged while the selected row varies.
+- Law: the `NSColor` round trip is REFUSED as the layer crossing — `CGConversions.ToCG(this NSColor)` returns the source-space colour on its primary arm but re-spaces to sRGB and then floors at opaque black without signalling, and its result borrows the receiver's lifetime, so routing the layer face through it both clamps the gamut silently and entangles two custodies on one lease; the direct `CGColorSpaceNames.DisplayP3` mint has one lifetime and no clamp arm.
+- Boundary: `NSColor` and its projected `CGColor` are the only native colour objects minted here, each returned as owned custody. All profile selection, chromatic adaptation, transfer encoding, and gamut mapping remain kernel operations.
+- Packages: Microsoft.macOS (`NSColor`, `CGColor`, `CGColorSpace`, `CGColorSpaceNames`), Eto.macOS (`MacConversions.ToEtoWithAppearance`), `Rasm.Numerics` (`PerceptualColor`, `RgbProfile`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`).
+- Growth: a new display profile is one kernel `RgbProfile` row; the AppKit and CoreAnimation projections remain unchanged while the selected row varies.
 
 ## [07]-[TELEMETRY_ROOT]
 
@@ -136,6 +141,7 @@ using AppKit;
 using CoreAnimation;
 using CoreGraphics;
 using CoreImage;
+using Eto.Mac;
 using Foundation;
 using ObjCRuntime;
 using Rasm.Csp;
@@ -346,21 +352,24 @@ public sealed class MotionAttachment : IDisposable {
                    Fin<Lease<MotionAttachment>> outcome = op.Catch(body: () => {
                        bridge = new LinkTarget();
                        native = view.GetDisplayLink(target: bridge, selector: LinkTarget.TickSelector);
-                       if (native is null) return Fin.Fail<Lease<MotionAttachment>>(op.InvalidResult());
-                       native.Paused = true;
+                       if (native is not { } link) return Fin.Fail<Lease<MotionAttachment>>(op.InvalidResult());
+                       link.Paused = true;
                        WorkspaceFact snapshot = observation.Latest.Value.IfNone(observation.Initial);
-                       Tune(link: native, window: admitted, pace: snapshot.Pace);
+                       Tune(link: link, window: admitted, pace: snapshot.Pace);
                        loop = NSRunLoop.Main;
-                       if (loop is null) return Fin.Fail<Lease<MotionAttachment>>(op.MissingContext());
+                       if (loop is not { } main) return Fin.Fail<Lease<MotionAttachment>>(op.MissingContext());
                        MotionAttachment attachment = new(
-                           link: native, target: bridge, runLoop: loop, runLoopMode: mode,
+                           link: link, target: bridge, runLoop: main, runLoopMode: mode,
                            timeline: timeline, origin: origin, drive: validDrive, window: admitted,
                            workspace: observation.Latest, workspaceWatch: observation.Watch,
                            initial: snapshot, completed: completed);
-                       bridge.Bind(tick: () => attachment.OnTick(key: op));
-                       native.AddToRunLoop(runloop: loop, mode: mode);
-                       native.Paused = false;
-                       return Fin.Succ((Lease<MotionAttachment>)new Lease<MotionAttachment>.Owned(Value: attachment));
+                       // The bind refuses a second callback claim on the rail, so the run-loop attachment and
+                       // the resume both stay behind a target this attachment provably owns.
+                       return bridge.Bind(callback: () => attachment.OnTick(key: op), key: op).Map(_ => {
+                           link.AddToRunLoop(runloop: main, mode: mode);
+                           link.Paused = false;
+                           return (Lease<MotionAttachment>)new Lease<MotionAttachment>.Owned(Value: attachment);
+                       });
                    });
                    return outcome.Match(
                        Succ: static value => Fin.Succ(value),
@@ -475,9 +484,10 @@ public sealed class MotionAttachment : IDisposable {
     private sealed class LinkTarget : NSObject {
         private Action? tick;
         internal static readonly Selector TickSelector = new("pacerTick:");
-        internal void Bind(Action callback) {
-            if (Interlocked.CompareExchange(location1: ref tick, value: callback, comparand: null) is not null) throw new InvalidOperationException();
-        }
+        internal Fin<Unit> Bind(Action callback, Op key) =>
+            Interlocked.CompareExchange(location1: ref tick, value: callback, comparand: null) is null
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(key.InvalidContext());
         internal void Unbind() => Volatile.Write(location: ref tick, value: null);
         [Export("pacerTick:")]
         public void Tick(CADisplayLink _) => Volatile.Read(location: ref tick)?.Invoke();
@@ -493,16 +503,17 @@ internal sealed class NativeScope {
     private CALayer? root;
     private bool transferred;
 
-    internal T Own<T>(T resource) where T : class, IDisposable {
-        RejectRoot(resource: resource);
-        if (identities.Add(item: resource)) owned.Add(item: resource);
-        return resource;
-    }
+    internal Fin<T> Own<T>(T resource, Op key) where T : class, IDisposable =>
+        RejectRoot(resource: resource, key: key).Map(admitted =>
+            (Op.SideWhen(condition: identities.Add(item: admitted), action: () => owned.Add(item: admitted)), admitted).Item2);
 
-    internal T Hold<T>(Lease<T> lease) where T : class, IDisposable => lease.Switch(
-        state: this,
-        owned: static (scope, row) => scope.Own(resource: row.Value),
-        borrowed: static (scope, row) => scope.Borrow(resource: row.Value));
+    internal Fin<T> Hold<T>(Lease<T> lease, Op key) where T : class, IDisposable => lease.Switch(
+        state: (Scope: this, Key: key),
+        owned: static (state, row) => state.Scope.Own(resource: row.Value, key: state.Key),
+        borrowed: static (state, row) => state.Scope.RejectRoot(resource: row.Value, key: state.Key));
+
+    internal Fin<Option<T>> Hold<T>(Option<Lease<T>> lease, Op key) where T : class, IDisposable =>
+        lease.Traverse(active => Hold(lease: active, key: key)).As();
 
     internal CALayer Index(CALayer layer) {
         lookup.Add(key: lookup.Count, value: layer);
@@ -515,33 +526,33 @@ internal sealed class NativeScope {
         return unit;
     }
 
-    internal CALayer Bind(NSView view) {
+    internal Fin<CALayer> Bind(NSView view, Op key) {
         backing = Some(new ViewBacking(View: view, WantsLayer: view.WantsLayer, Layer: view.Layer));
         view.WantsLayer = true;
-        if (view.Layer is { } active) { root = active; return active; }
-        CALayer minted = Own(resource: view.MakeBackingLayer() ?? throw new InvalidOperationException());
-        view.Layer = minted;
-        root = minted;
-        return minted;
+        if (view.Layer is { } active) { root = active; return Fin.Succ(active); }
+        return Optional(view.MakeBackingLayer())
+            .ToFin(key.InvalidResult(detail: nameof(NSView.MakeBackingLayer)))
+            .Bind(candidate => Own(resource: candidate, key: key))
+            .Map(minted => { view.Layer = minted; root = minted; return minted; });
     }
 
-    private T Borrow<T>(T resource) where T : class, IDisposable { RejectRoot(resource: resource); return resource; }
+    private Fin<T> RejectRoot<T>(T resource, Op key) where T : class, IDisposable =>
+        resource is CALayer layer && ReferenceEquals(objA: root, objB: layer)
+            ? Fin.Fail<T>(key.InvalidInput())
+            : Fin.Succ(resource);
 
-    private void RejectRoot<T>(T resource) where T : class, IDisposable {
-        if (resource is CALayer layer && ReferenceEquals(objA: root, objB: layer)) throw new InvalidOperationException();
-    }
-
-    internal LayerMount Transfer(CALayer root, CALayer top) {
-        LayerMount mount = new(
-            root: root,
-            top: top,
-            lookup: new ReadOnlyDictionary<int, CALayer>(dictionary: new Dictionary<int, CALayer>(lookup)),
-            backing: backing.Match(Some: static value => value, None: static () => throw new InvalidOperationException()),
-            edges: [.. edges],
-            owned: [.. owned]);
-        transferred = true;
-        return mount;
-    }
+    internal Fin<LayerMount> Transfer(CALayer root, CALayer top, Op key) =>
+        backing.ToFin(key.MissingContext()).Map(captured => {
+            LayerMount mount = new(
+                root: root,
+                top: top,
+                lookup: new ReadOnlyDictionary<int, CALayer>(dictionary: new Dictionary<int, CALayer>(lookup)),
+                backing: captured,
+                edges: [.. edges],
+                owned: [.. owned]);
+            transferred = true;
+            return mount;
+        });
 
     internal Fin<Unit> Release(Op key) => transferred ? Fin.Succ(unit) : Release(resources: [.. owned], key: key);
 
@@ -621,7 +632,7 @@ public static class MotionDrive {
                from _valid in guard(evidence.IsValid, op.InvalidInput()).ToFin()
                from frame in admitted.Switch(
                    state: (Beat: evidence, Posture: posture, Key: op),
-                   easedCase: static (state, row) => state.Posture.ReduceMotion
+                   easedCase: static (state, row) => state.Posture.Holds(axis: AccessibilityAxis.ReduceMotion)
                        ? Fin.Succ(new DriveFrame(
                            Continues: false,
                            Apply: () => row.Write(obj: row.Curve.Evaluate(t: Terminal(plan: row.Cycle)))))
@@ -632,12 +643,12 @@ public static class MotionDrive {
                            .Map(phase => new DriveFrame(
                                Continues: !phase.Completed,
                                Apply: () => row.Write(obj: row.Curve.Evaluate(t: phase.Local)))),
-                   sprungCase: static (state, row) => state.Posture.ReduceMotion
+                   sprungCase: static (state, row) => state.Posture.Holds(axis: AccessibilityAxis.ReduceMotion)
                        ? Fin.Succ(new DriveFrame(
                            Continues: false,
                            Apply: () => row.Write(obj: new SpringState(Position: row.Target, Velocity: 0.0))))
                        : row.Shape.Evaluate(
-                               @from: row.From,
+                               origin: row.From,
                                target: row.Target,
                                elapsed: state.Beat.Elapsed.TotalSeconds,
                                key: state.Key)
@@ -651,7 +662,7 @@ public static class MotionDrive {
                                    Continues: continues,
                                    Apply: () => row.Write(obj: terminal));
                            }),
-                   blendCase: static (state, row) => state.Posture.ReduceMotion
+                   blendCase: static (state, row) => state.Posture.Holds(axis: AccessibilityAxis.ReduceMotion)
                        ? Fin.Succ(new DriveFrame(
                            Continues: false,
                            Apply: () => row.Write(obj: row.From.Mix(
@@ -709,6 +720,49 @@ public static class MotionDrive {
 }
 
 [BoundaryAdapter]
+public static class LayerPaint {
+    public static Fin<LayerStyle> Plain(
+        CGRect frame, Option<PerceptualColor> fill, Option<PerceptualColor> border, NFloat borderWidth,
+        NFloat cornerRadius, bool clip, Option<Lease<CALayer>> mask, Op? key = null) {
+        Op op = key.OrDefault();
+        return Tints(colours: [fill, border], key: op).Map(minted => new LayerStyle(
+            Frame: frame, Fill: minted[0], Border: minted[1], BorderWidth: borderWidth,
+            CornerRadius: cornerRadius, Clip: clip, Mask: mask));
+    }
+
+    public static Fin<StrokeStyle> Stroked(
+        IGraphicsPath path, Option<PerceptualColor> fill, Option<PerceptualColor> stroke,
+        NFloat width, bool rounded, Op? key = null) {
+        Op op = key.OrDefault();
+        return from managed in op.Need(path)
+               from minted in Tints(colours: [fill, stroke], key: op)
+               from native in op.Catch(body: () => Fin.Succ(managed.ToCG()))
+                   .Bind(value => Optional(value).ToFin(op.InvalidResult()))
+                   .MapFail(fault => Discard(minted: minted, key: op).Match(
+                       Succ: _ => fault, Fail: cleanup => fault + cleanup))
+               select new StrokeStyle(
+                   Path: new Lease<CGPath>.Owned(Value: native), Fill: minted[0], Stroke: minted[1],
+                   Width: width, Rounded: rounded);
+    }
+
+    // One fold mints every colour in declaration order and releases the whole minted prefix when a
+    // later mint refuses, so a refused style leaves no orphaned CGColor behind; `ToLayer` returns
+    // `Owned` alone, which is what makes the prefix release total.
+    private static Fin<Seq<Option<Lease<CGColor>>>> Tints(Seq<Option<PerceptualColor>> colours, Op key) =>
+        colours.Fold(Fin.Succ(Seq<Option<Lease<CGColor>>>()), (held, colour) => held.Bind(minted =>
+            colour.Traverse(value => WideColor.ToLayer(colour: value, key: key)).As().Match(
+                Succ: lease => Fin.Succ(minted.Add(lease)),
+                Fail: fault => NativeScope.Join<Seq<Option<Lease<CGColor>>>>(
+                    primary: fault, cleanup: Discard(minted: minted, key: key)))));
+
+    private static Fin<Unit> Discard(Seq<Option<Lease<CGColor>>> minted, Op key) =>
+        minted.Choose(identity).Fold(
+            Fin.Succ(unit),
+            (held, lease) => NativeScope.Join(
+                left: held, right: key.Catch(body: () => Fin.Succ(lease.Dispose()))));
+}
+
+[BoundaryAdapter]
 public static class Compose {
     public static Fin<Lease<LayerMount>> Mount(MacAnchor anchor, LayerNode node, Op? key = null) {
         Op op = key.OrDefault();
@@ -717,19 +771,17 @@ public static class Compose {
                from validNode in AdmitGraph(node: node, key: op)
                from lease in EtoDispatch.Run(body: () => {
                    NativeScope scope = new();
-                   CALayer? top = null;
                    Fin<Lease<LayerMount>> outcome = op.Catch(body: () => {
-                       CALayer root = null!;
                        CATransaction.Begin();
                        try {
                            CATransaction.DisableActions = true;
-                           root = scope.Bind(view: activeAnchor.View);
-                           top = Materialize(node: validNode, scope: scope);
-                           scope.Attach(parent: root, child: top);
+                           return from root in scope.Bind(view: activeAnchor.View, key: op)
+                                  from top in Materialize(node: validNode, scope: scope, key: op)
+                                  from _attached in Fin.Succ(scope.Attach(parent: root, child: top))
+                                  from mount in scope.Transfer(root: root, top: top, key: op)
+                                  select (Lease<LayerMount>)new Lease<LayerMount>.Owned(Value: mount);
                        }
                        finally { CATransaction.Commit(); }
-                       LayerMount mount = scope.Transfer(root: root, top: top!);
-                       return Fin.Succ((Lease<LayerMount>)new Lease<LayerMount>.Owned(Value: mount));
                    });
                    return outcome.Match(
                        Succ: static value => Fin.Succ(value),
@@ -826,45 +878,61 @@ public static class Compose {
 
     private static bool Finite(NFloat value) => NFloat.IsFinite(value);
 
-    private static CALayer Materialize(LayerNode node, NativeScope scope) => node.Switch(
-        plainCase: row => Settle(
-            layer: scope.Index(layer: Styled(layer: scope.Own(resource: new CALayer()), style: row.Style, scope: scope)),
-            children: row.Children, scope: scope),
-        shapeCase: row => Settle(
-            layer: scope.Index(layer: Stroked(
-                layer: (CAShapeLayer)Styled(layer: scope.Own(resource: new CAShapeLayer()), style: row.Style, scope: scope),
-                stroke: row.Stroke, scope: scope)),
-            children: row.Children, scope: scope),
-        hostedCase: row => Settle(
-            layer: scope.Index(layer: scope.Hold(lease: row.Layer)), children: row.Children, scope: scope));
+    private static Fin<CALayer> Materialize(LayerNode node, NativeScope scope, Op key) => node.Switch(
+        state: (Scope: scope, Key: key),
+        plainCase: static (state, row) =>
+            from minted in state.Scope.Own(resource: new CALayer(), key: state.Key)
+            from styled in Styled(layer: minted, style: row.Style, scope: state.Scope, key: state.Key)
+            from settled in Settle(layer: state.Scope.Index(layer: styled), children: row.Children, scope: state.Scope, key: state.Key)
+            select settled,
+        shapeCase: static (state, row) =>
+            from minted in state.Scope.Own(resource: new CAShapeLayer(), key: state.Key)
+            from styled in Styled(layer: minted, style: row.Style, scope: state.Scope, key: state.Key)
+            from stroked in Stroked(layer: styled, stroke: row.Stroke, scope: state.Scope, key: state.Key)
+            from settled in Settle(layer: state.Scope.Index(layer: stroked), children: row.Children, scope: state.Scope, key: state.Key)
+            select settled,
+        hostedCase: static (state, row) =>
+            from held in state.Scope.Hold(lease: row.Layer, key: state.Key)
+            from settled in Settle(layer: state.Scope.Index(layer: held), children: row.Children, scope: state.Scope, key: state.Key)
+            select settled);
 
-    private static CALayer Settle(CALayer layer, Seq<LayerNode> children, NativeScope scope) {
-        children.Iter(child => scope.Attach(parent: layer, child: Materialize(node: child, scope: scope)));
-        return layer;
-    }
+    private static Fin<CALayer> Settle(CALayer layer, Seq<LayerNode> children, NativeScope scope, Op key) =>
+        children
+            .TraverseM(child => Materialize(node: child, scope: scope, key: key)
+                .Map(materialized => scope.Attach(parent: layer, child: materialized)))
+            .As()
+            .Map(_ => layer);
 
-    private static CALayer Styled(CALayer layer, LayerStyle style, NativeScope scope) {
-        layer.Frame = style.Frame;
-        style.Fill.Iter(colour => layer.BackgroundColor = scope.Hold(lease: colour));
-        style.Border.Iter(colour => layer.BorderColor = scope.Hold(lease: colour));
-        layer.BorderWidth = style.BorderWidth;
-        layer.CornerRadius = style.CornerRadius;
-        layer.MasksToBounds = style.Clip;
-        style.Mask.Iter(mask => layer.Mask = scope.Hold(lease: mask));
-        return layer;
-    }
+    // The native property writes are this owner's platform-forced seam; every lease the writes consume is
+    // admitted onto the rail FIRST, so a root-aliasing or dead payload refuses before one pixel of state moves.
+    private static Fin<TLayer> Styled<TLayer>(TLayer layer, LayerStyle style, NativeScope scope, Op key) where TLayer : CALayer =>
+        from fill in scope.Hold(lease: style.Fill, key: key)
+        from border in scope.Hold(lease: style.Border, key: key)
+        from mask in scope.Hold(lease: style.Mask, key: key)
+        select (Op.Side(action: () => {
+            layer.Frame = style.Frame;
+            fill.Iter(colour => layer.BackgroundColor = colour);
+            border.Iter(colour => layer.BorderColor = colour);
+            layer.BorderWidth = style.BorderWidth;
+            layer.CornerRadius = style.CornerRadius;
+            layer.MasksToBounds = style.Clip;
+            mask.Iter(masking => layer.Mask = masking);
+        }), layer).Item2;
 
-    private static CAShapeLayer Stroked(CAShapeLayer layer, StrokeStyle stroke, NativeScope scope) {
-        layer.Path = scope.Hold(lease: stroke.Path);
-        stroke.Fill.Iter(colour => layer.FillColor = scope.Hold(lease: colour));
-        stroke.Stroke.Iter(colour => layer.StrokeColor = scope.Hold(lease: colour));
-        layer.LineWidth = stroke.Width;
-        Op.SideWhen(condition: stroke.Rounded, action: () => {
-            layer.LineCap = CAShapeLayer.CapRound;
-            layer.LineJoin = CAShapeLayer.JoinRound;
-        });
-        return layer;
-    }
+    private static Fin<CAShapeLayer> Stroked(CAShapeLayer layer, StrokeStyle stroke, NativeScope scope, Op key) =>
+        from path in scope.Hold(lease: stroke.Path, key: key)
+        from fill in scope.Hold(lease: stroke.Fill, key: key)
+        from edge in scope.Hold(lease: stroke.Stroke, key: key)
+        select (Op.Side(action: () => {
+            layer.Path = path;
+            fill.Iter(colour => layer.FillColor = colour);
+            edge.Iter(colour => layer.StrokeColor = colour);
+            layer.LineWidth = stroke.Width;
+            Op.SideWhen(condition: stroke.Rounded, action: () => {
+                layer.LineCap = CAShapeLayer.CapRound;
+                layer.LineJoin = CAShapeLayer.JoinRound;
+            });
+        }), layer).Item2;
 }
 
 [BoundaryAdapter]
@@ -982,6 +1050,36 @@ public static class WideColor {
                    blue: NFloat.CreateChecked(channels.Blue),
                    alpha: NFloat.CreateChecked(channels.Alpha)))))
                select lease;
+    }
+
+    public static Fin<Lease<CGColor>> ToLayer(PerceptualColor colour, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in MacGate.Demand(key: op)
+               from admitted in op.Need(colour)
+               from channels in op.Catch(body: () => Fin.Succ(admitted.ToRgb(profile: RgbProfile.DisplayP3)))
+               from _channels in guard(
+                   Channel(value: channels.Red) && Channel(value: channels.Green) &&
+                   Channel(value: channels.Blue) && Channel(value: channels.Alpha),
+                   op.InvalidResult()).ToFin()
+               from space in op.Catch(body: () => Fin.Succ(CGColorSpace.CreateWithName(name: CGColorSpaceNames.DisplayP3)))
+                                .Bind(value => Optional(value).ToFin(op.InvalidResult()))
+               from lease in op.Catch(body: () => Fin.Succ((Lease<CGColor>)new Lease<CGColor>.Owned(Value: new CGColor(
+                   colorspace: space,
+                   components: [
+                       NFloat.CreateChecked(channels.Red), NFloat.CreateChecked(channels.Green),
+                       NFloat.CreateChecked(channels.Blue), NFloat.CreateChecked(channels.Alpha),
+                   ]))))
+               select lease;
+    }
+
+    public static Fin<PerceptualColor> OfSystem(NSColor native, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in MacGate.Demand(key: op)
+               from admitted in op.Need(native)
+               from eto in op.Catch(body: () => Fin.Succ(admitted.ToEtoWithAppearance()))
+               from colour in PerceptualColor.OfRgb(
+                   red: eto.R, green: eto.G, blue: eto.B, profile: RgbProfile.Srgb, alpha: eto.A, key: op)
+               select colour;
     }
 
     private static bool Channel(double value) => double.IsFinite(value) && value is >= 0.0 and <= 1.0;

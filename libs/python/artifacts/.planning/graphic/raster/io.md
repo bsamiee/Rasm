@@ -1,6 +1,8 @@
 # [PY_ARTIFACTS_GRAPHIC_RASTER_IO]
 
-Raster IO, conversion, and working-surface behavior live on the closed-payload `RasterOp` family. `Raster` holds pillow decode/transpose/resize/alpha/save/montage/contact/geometry, pyvips fused decode/downscale/ICC/smartcrop/pyramid, delegated MIME detection, produced-raster transforms, source generation, and measured transforms. One `_CODEC` row per container binds the writer serving each engine — a pillow or libvips NATIVE encoder under its own linked-build probe, or the imagecodecs ARRAY writer for a container neither linked build writes — beside the `BandLaw` mode admission and the `FrameLaw` clock rung every arm reads, so egress crosses one pillow and one libvips function and no arm re-spells a save, a mode, or a timing key. Every operation folds into `RasterFact` or the closed `RasterFault` vocabulary, and each farm member lowers to its own `ArtifactWork`.
+Raster IO, conversion, and working-surface behavior live on the closed-payload `RasterOp` family. `Raster` holds pillow decode/transpose/resize/alpha/save/montage/contact/geometry, pyvips fused decode/downscale/ICC/smartcrop/pyramid, delegated MIME detection, produced-raster transforms, source generation, and measured transforms. One `CODEC` row per container binds the ORDERED writer preference serving each engine — that engine's own NATIVE encoder first under its linked-build probe, the imagecodecs ARRAY writer behind it — beside the `BandLaw` mode admission and the `FrameLaw` clock rung every arm reads, so capability degrades by probe rather than by an asserted build fact, egress crosses one pillow and one libvips function, and no arm re-spells a save, a mode, or a timing key. Every operation folds into `RasterFact` or the closed `RasterFault` vocabulary, and each farm member lowers to its own `ArtifactWork`.
+
+One `RasterPolicy` carries the three egress axes every producing arm reads — the `CodecPolicy` quality/effort coordinates each row spells in its own encoder dialect, the `IccTransform` bundle imported from `graphic/color/managed#MANAGED`, and the `Resample` light space a reduce runs in — threaded beside `lane` and folded into the pre-run content key, so a re-managed or re-encoded product never collides with its predecessor on one slot and no arm binds a module literal no caller reaches. Colour vocabularies are the color sub-domain's: `BlendMode` and `PorterDuff` arrive from `graphic/color/derive#DERIVE` and lower to the single libvips nickname inside `_composite`, and the ICC coordinates arrive on the `IccTransform` bundle and resolve once per egress — `_vips_managed` for the libvips pipeline, `_managed` over `imagecodecs.cms_transform` for every pillow and array leg — so identical input lands the same destination profile on either engine.
 
 pillow, scikit-image, and pyvips are host-native worker packages off the runtime loader path, so `Raster` carries the caller-threaded `lane: LanePolicy` — the same seam field `exchange/detect#DETECT` and `graphic/color/derive#DERIVE` carry — and every worker arm crosses `lane.offload(Kernel.of(_worker_raster, KernelTrait.HOSTILE), op)` onto the shared runtime process band, never a folder-minted `CapacityLimiter` that oversubscribes the host against libvips's own thread pool, never the unbounded default, never a class-qualified `LanePolicy.offload` with no bound instance. `Detect` is the one arm off that seam: `puremagic` is pure-Python with a bundled `magic_data.json`, so `_emit` delegates it lane-threaded to `exchange/detect#DETECT` in-process (the `PUREMAGIC` engine's `RELEASING` thread kernel) with no process crossing, no retry, no payload pickle. `_worker_raster` is `@beartype(conf=FAULT_CONF)`-woven, so a contract violation raises the one `BeartypeCallHintViolation` the runtime `CLASSIFY` table folds onto the `RuntimeRail` as `BoundaryFault.api`, and an exhausted worker death terminates through the lane's `guard`/`async_boundary` conversion — neither is a `RasterFault` case, because the runtime owns both vocabularies and a parallel local case is a second carrier for one fact.
 
@@ -8,17 +10,17 @@ pillow, scikit-image, and pyvips are host-native worker packages off the runtime
 
 ## [01]-[INDEX]
 
-- [02]-[IO]: `Raster` owns the host-free raster plane — pillow working surface, fused libvips pipeline, delegated `exchange/detect#DETECT` MIME gate, and the scikit-image `Transform` arm the process/measure siblings own — every worker arm crossing the caller-threaded runtime process lane, `Detect` in-process off it, folding into one `RasterFact` projected to `ArtifactReceipt.Preview`.
+- [02]-[IO]: `Raster` owns the host-free raster plane — pillow working surface, fused libvips pipeline, delegated `exchange/detect#DETECT` MIME gate, and the scikit-image `Transform` arm the process/measure siblings own — under one caller-threaded `RasterPolicy` carrying the codec coordinates, the imported `IccTransform` gate, and the resample light space, every worker arm crossing the runtime process lane, `Detect` in-process off it, folding into one `RasterFact` projected to `ArtifactReceipt.Preview`.
 
 ## [02]-[IO]
 
-- Owner: `Raster` owns the closed `RasterOp` family. `GeometryOp` is its payload-carrying geometry sub-axis: fixed transforms carry no payload, `rotate` carries one angle, `affine` carries six coefficients, `perspective` carries eight coefficients, and `reduce` carries one positive factor. `RasterEngine` and `FitMode` remain policy vocabularies because engine reach and sizing behavior vary independently of operation identity. `_ENGINE` is one `frozendict[RasterEngine, EngineOps]`, so `_worker_raster` reads `probe`/`thumbnail`/`convert`/`crop` by one lookup and pillow and libvips share one op shape; `_CODEC` is the peer `frozendict[ConvertFormat, CodecRow]` carrying every codec fact — the per-engine `CodecEmit`, the `BandLaw` mode admission, the `FrameLaw` clock rung — so an arm resolves one row and never consults a parallel membership set the next container silently drops out of. Every static policy table on this page is a `frozendict` row set, the same container the transform tables use, so the composed `TRANSFORMS | MEASURE_TRANSFORMS` union is one total lookup.
+- Owner: `Raster` owns the closed `RasterOp` family beside one `RasterPolicy`. `GeometryOp` is the payload-carrying geometry sub-axis: fixed transforms carry no payload, `rotate` carries one angle, `affine` carries six coefficients, `perspective` carries eight coefficients, and `reduce` carries one positive factor. `RasterEngine` and `FitMode` remain policy vocabularies because engine reach and sizing behavior vary independently of operation identity. `_ENGINE` is one `frozendict[RasterEngine, EngineOps]`, so `_worker_raster` reads `probe`/`thumbnail`/`convert`/`crop` by one lookup and pillow and libvips share one op shape; `_GUARD` is its peer keying each engine to its own provider-exception guard, so `_produced` is the ONE producing tail every arm reaches; `CODEC` carries every codec fact — the ordered per-engine `CodecEmit` preference, the `BandLaw` mode admission, the `FrameLaw` clock rung — so an arm resolves one row and never consults a parallel membership set the next container silently drops out of. Every static policy table on this page is a `frozendict` row set, the same container the transform tables use, so the composed `TRANSFORMS | MEASURE_TRANSFORMS` union is one total lookup.
 - Cases: `Probe`/`Thumbnail`/`Convert`/`Crop` are engine-polymorphic; `Montage`/`Deframe` split by engine; `Composite`/`SmartCrop`/`Pyramid` are libvips-owned; `Geometry`/`Quantize`/`Children`/`Sequence`/`Contact` are pillow-owned; `Detect` delegates in-process; `Transform` carries an encoded operand; `Generate` carries only a source `Transform` and `TransformPolicy`. `Transform` rejects source rows, and `Generate` rejects operand rows before the worker crossing.
-- Entry: `Raster.emit` discriminates on `self.ops` being one `RasterOp` or a tuple — `_normalized` folds either into one `Block[RasterOp]` at the head, so arity is a value property, never a `batch` knob. Each member lowers to its own `ArtifactWork` carrying that member's `RasterFault` as its boundary fault and binding `self.lane` into the work thunk, so one corrupt input faults its node while siblings complete under the plan's front drain — never a fail-fast batch that discards every sibling on the first bad payload.
-- Auto: `RasterOp.admitted` validates empty collections, extents, timing arity, indices, codec ranges, geometry factors, transform operands, policy compatibility, and source payload timing before provider dispatch. `_emit` routes `Detect` in-process and crosses every other admitted op through the worker. `_worker_raster` total-dispatches under provision capture; pillow and libvips arms retain their provider-specific guards. `_transformed` decodes image/reference/mask rows once through `img_as_ubyte`; `_generated` constructs the source-only `TransformInput` without bytes or decode.
-- Receipt: each op folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height, bytes_, scores)` at the rail boundary — `ContentIdentity.key` mints the bare `ContentKey` over the produced bytes, `bytes_` takes `len(fact.data)`, and `fact.score` threads straight onto `Preview.scores` with no coerce; `Detect` reports zero dimensions with the resolved mime/class/container and native-`float` confidence, `Probe` reports header facts without transcoding, and measured transforms report perceptual and geometric facts.
-- Growth: a new raster op is one `RasterOp` case, one `admitted` arm, and one `_worker_raster` arm; a new engine-polymorphic op one `EngineOps` field with a pillow and a libvips arm; a new sizing mode one `FitMode` case with its two branches; a new blend/crop/pyramid form one `BlendMode`/`CropFocus`/`PyramidLayout` member the libvips call resolves by nickname; a new geometric op one payload-correct `GeometryOp` case with one pillow arm; a new scikit-image transform one `Transform` member with a `TRANSFORMS`/`MEASURE_TRANSFORMS` row on the owning page; a new codec one `ConvertFormat` member with one `_CODEC` row naming a `CodecEmit` per engine it serves and answering the `BandLaw` and `FrameLaw` columns — an engine whose linked build writes the container nowhere carries no column and `_writer` faults `codec` for it; a new container band set one `BandLaw` member with its `_BANDS` entry; a new per-frame encoder key one `FrameLaw` rung carrying that key on every wider rung's cumulative `_CLOCK` tuple; a new engine one `RasterEngine` member with one `_ENGINE` bundle and one writer column on every `_CODEC` row that engine can write; a new fault cause one `RasterFault` case breaking every capture at type-check.
-- Boundary: `_CODEC` writer columns carry libvips saver suffixes and pillow format names as literals because provider imports remain worker-local, and each literal is simultaneously the call spelling and its own capability-probe key. Every libvips saver suffix proves the build REGISTERED the operation and never that the operation's own encoder backend linked — `get_suffixes` offers `.heic` on a libheif carrying no HEVC encoder and `heifsave` then refuses, and `.avif` rides that same delegating saver — so the libvips probe is a memoized one-shot trial write and the missing backend refuses at the capability gate exactly as an unregistered suffix does. Container DEPTH stops at 8 bits: `ConvertFormat` names display containers, `Frame` is `uint8` whole, and the 16-bit, half, and float lanes of these same codec families are the deep-pixel texture plane's — a widened member here pushes an 8-bit intermediate onto a texture path and quantizes it silently. `BandLaw` states which MODES a container carries, never how alpha associates: association is a deep-pixel plane fact and a straight-versus-associated conversion at 8 bits quantizes catastrophically at low alpha, so this funnel declares admission and the texture plane owns the conversion. Payload-bearing operations carry canonical bytes rather than `pyvips.Source`/`Target`; `Generate` carries no bytes because source identity derives from its typed operation and policy. Streaming intake belongs to the consumer that owns stream identity. Descriptive EXIF/IPTC/XMP tags stay `exchange/metadata#METADATA`'s; MIME classification stays `exchange/detect#DETECT`'s; transform acceptors stay on process/measure; runtime contract and worker faults stay `BoundaryFault` cases.
+- Entry: `Raster.emit` discriminates on `self.ops` being one `RasterOp` or a tuple — `_normalized` folds either into one `Block[RasterOp]` at the head, so arity is a value property, never a `batch` knob. Each member lowers to its own `ArtifactWork` carrying that member's `RasterFault` as its boundary fault and binding `self.lane` and `self.policy` into the work thunk, so one corrupt input faults its node while siblings complete under the plan's front drain — never a fail-fast batch that discards every sibling on the first bad payload.
+- Auto: `RasterOp.admitted(policy)` is the ONE pre-dispatch gate over both halves — the policy's codec range, its press-bundle refusal, and its ICC depth first, then the op's empty collections, extents, timing arity, indices, geometry factors, transform operands, policy compatibility, and source payload timing. `_emit` routes `Detect` in-process and crosses every other admitted op through the worker. `_worker_raster` total-dispatches under provision capture; each engine's arm reaches its guard through `_produced`. `_transformed` decodes image/reference/mask rows once through `img_as_ubyte`; `_generated` constructs the source-only `TransformInput` without bytes or decode.
+- Receipt: each op folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height, bytes_, scores)` at the rail boundary — `ContentIdentity.key` mints the bare `ContentKey` over the produced bytes, `bytes_` takes `len(fact.data)`, and `fact.score` threads straight onto `Preview.scores` with no coerce; `Detect` reports zero dimensions with the resolved mime/class/container and native-`float` confidence, `Probe` reports header facts without transcoding, measured transforms report perceptual and geometric facts, and a quantitative acceptor's unquantized field reports its dtype, rank, and octet length as scalar evidence while the octets stay on `RasterFact.field`.
+- Growth: a new raster op is one `RasterOp` case, one `admitted` arm, and one `_worker_raster` arm; a new engine-polymorphic op one `EngineOps` field with a pillow and a libvips arm; a new sizing mode one `FitMode` case with its two branches; a new crop or pyramid form one `CropFocus`/`PyramidLayout` member the libvips call resolves by nickname; a new blend or compositing operator one `BlendMode`/`PorterDuff` row at `graphic/color/derive#DERIVE` plus one `_BLEND`/`_PORTER` lowering row here; a new geometric op one payload-correct `GeometryOp` case with one pillow arm; a new scikit-image transform one `Transform` member with a `TRANSFORMS`/`MEASURE_TRANSFORMS` row on the owning page; a new codec one `ConvertFormat` member with one `CODEC` row naming its ordered `CodecEmit` preference per engine and answering the `BandLaw` and `FrameLaw` columns — an engine whose every listed writer probes false carries the container nowhere and `_writer` faults `codec` for it; a new container band set one `BandLaw` member with its `_BANDS` entry; a new per-frame encoder key one `FrameLaw` rung carrying that key on every wider rung's cumulative `_CLOCK` tuple; a new engine one `RasterEngine` member with one `_ENGINE` bundle, one `_GUARD` row, and one writer column on every `CODEC` row that engine can write; a new encoder coordinate one `CodecPolicy` field every option builder already receives whole; a new fault cause one `RasterFault` case breaking every capture at type-check.
+- Boundary: `CODEC` writer columns carry libvips saver suffixes and pillow format names as literals because provider imports remain worker-local, and each literal is simultaneously the call spelling and its own capability-probe key; no column asserts that a build lacks an encoder, because the ordered preference falls through to the array writer whenever the native probe refuses. Every libvips saver suffix proves the build REGISTERED the operation and never that the operation's own encoder backend linked — `get_suffixes` offers `.heic` on a libheif carrying no HEVC encoder and `heifsave` then refuses, and `.avif` rides that same delegating saver — so the libvips probe is a memoized one-shot trial write and the missing backend falls through exactly as an unregistered suffix does. A trial write proves the REGISTERED band shape alone: `jxlsave` accepts the 1-band and 3-band trial and refuses a 2-band or 4-band image mid-write, so a container whose native saver covers less than its `BandLaw` admits lists the array writer FIRST and the native leg nowhere. Container DEPTH stops at 8 bits: `ConvertFormat` names display containers, `Frame` is `uint8` whole, an `IccTransform` past that depth refuses at admission, and the 16-bit, half, and float lanes of these same codec families are the deep-pixel texture plane's — a widened member here pushes an 8-bit intermediate onto a texture path and quantizes it silently. `BandLaw` states which MODES a container carries, never how alpha associates: association is a deep-pixel plane fact and a straight-versus-associated conversion at 8 bits quantizes catastrophically at low alpha, so this funnel declares admission and the texture plane owns the conversion. ICC reach stops at the built-in device profiles: a raw ICC blob destination, soft proofing, separations, and the TAC gate are `graphic/color/managed#MANAGED`'s press legs, which own the temp-file profile capsule this funnel never opens. Payload-bearing operations carry canonical bytes rather than `pyvips.Source`/`Target`; `Generate` carries no bytes because source identity derives from its typed operation and policy. Streaming intake belongs to the consumer that owns stream identity. Descriptive EXIF/IPTC/XMP tags stay `exchange/metadata#METADATA`'s; MIME classification stays `exchange/detect#DETECT`'s; transform acceptors stay on process/measure; runtime contract and worker faults stay `BoundaryFault` cases.
 
 ```python signature
 import os
@@ -35,16 +37,27 @@ import numpy as np
 from beartype import beartype
 from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block
-from msgspec import Struct
+from msgspec import Struct, UnsetType
 
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.graphic.raster.process import ConvertFormat, Frame, RasterFact, Transform, TransformInput, TransformNeeds, TransformPolicy
+from rasm.artifacts.graphic.color.derive import BlendMode, PorterDuff
+from rasm.artifacts.graphic.color.managed import BitDepth, BuiltinProfile, IccTransform, RenderingIntent
+from rasm.artifacts.graphic.raster.process import (
+    ConvertFormat,
+    FieldSpec,
+    Frame,
+    RasterFact,
+    Transform,
+    TransformInput,
+    TransformNeeds,
+    TransformPolicy,
+)
 
 lazy import imagecodecs
 
@@ -53,7 +66,6 @@ lazy import imagecodecs
 os.environ.setdefault("VIPS_CONCURRENCY", "1")
 lazy import pyvips
 lazy from PIL import Image, ImageOps, ImageSequence, UnidentifiedImageError, features
-lazy from skimage import io as skio, util as skutil
 
 lazy from rasm.artifacts.exchange.detect import Detect, DetectEngine, DetectIdentity, Source
 lazy from rasm.artifacts.graphic.raster.measure import MEASURE_TRANSFORMS
@@ -81,13 +93,21 @@ type RasterOpTag = Literal[
 type Pixels = tuple[int, int]
 type Box = tuple[int, int, int, int]
 
-_QUALITY: Final[int] = 80  # the codec-quality coordinate every `_CODEC` option builder reads; `Convert` re-exposes it, the rest bind it
-_EFFORT: Final[int] = 4  # the encoder-effort coordinate each row spells in its own dialect — libvips `effort`/`compression`, pillow `method`/`speed`, libjxl effort
+# The `icc_transform`/`cms_transform` depth coordinate read off `Frame`'s OWN dtype: this funnel is 8-bit whole, an
+# `IccTransform` past it refuses at admission, and the deep lanes are the texture plane's — so no depth literal appears.
+_DISPLAY_BITS: Final[int] = int(np.iinfo(np.uint8).bits)
 
 
 class RasterEngine(StrEnum):
     PILLOW = "pillow"
     LIBVIPS = "libvips"
+
+
+class Resample(StrEnum):
+    # the LIGHT SPACE a reduce runs in — `thumbnail_buffer(linear=)` is the one call exposing it, and the choice is real
+    # policy: a gamma-space reduce darkens a high-contrast edge, a linear reduce pays one linearize/re-encode pair
+    GAMMA = "gamma"
+    LINEAR = "linear"
 
 
 class FitMode(StrEnum):
@@ -130,34 +150,6 @@ class GeometryOp:
     reduce: int = case()
 
 
-class BlendMode(StrEnum):  # the libvips composite2 nickname vocabulary passed by .value (VipsBlendMode order); OVER is the source-over default
-    CLEAR = "clear"
-    SOURCE = "source"
-    OVER = "over"
-    IN = "in"
-    OUT = "out"
-    ATOP = "atop"
-    DEST = "dest"
-    DEST_OVER = "dest-over"
-    DEST_IN = "dest-in"
-    DEST_OUT = "dest-out"
-    DEST_ATOP = "dest-atop"
-    XOR = "xor"
-    ADD = "add"
-    SATURATE = "saturate"
-    MULTIPLY = "multiply"
-    SCREEN = "screen"
-    OVERLAY = "overlay"
-    DARKEN = "darken"
-    LIGHTEN = "lighten"
-    COLOUR_DODGE = "colour-dodge"
-    COLOUR_BURN = "colour-burn"
-    HARD_LIGHT = "hard-light"
-    SOFT_LIGHT = "soft-light"
-    DIFFERENCE = "difference"
-    EXCLUSION = "exclusion"
-
-
 class QuantizeMethod(StrEnum):  # NAMES congruent with Image.Quantize so Image.Quantize[method.name] resolves the provider enum; PIL enum stays at the edge
     MEDIANCUT = "median-cut"
     MAXCOVERAGE = "max-coverage"
@@ -174,14 +166,20 @@ class DitherMode(StrEnum):  # member NAMES congruent with Image.Dither so Image.
 
 @tagged_union(frozen=True)
 class RasterFault:
-    tag: Literal["decode", "bomb", "encode", "engine", "provision", "detect", "codec", "reference", "policy", "bounds", "empty", "extent", "arity", "range"] = tag()
+    tag: Literal[
+        "decode", "bomb", "encode", "engine", "provision", "detect", "codec", "profile", "depth", "blend",
+        "reference", "policy", "bounds", "empty", "extent", "arity", "range",
+    ] = tag()
     decode: str = case()
     bomb: tuple[int, int] = case()
     encode: str = case()
     engine: str = case()
     provision: str = case()
     detect: str = case()
-    codec: ConvertFormat = case()  # a build-dependent AVIF/HEIF/WebP encoder the linked build lacks — the capability gate, distinct from an encode fault
+    codec: ConvertFormat = case()  # every listed writer for the engine probes false — the container capability gate, distinct from an encode fault
+    profile: str = case()  # a destination device profile the leg's own engine ships no built-in for, or a malformed embedded source blob
+    depth: str = case()  # an `IccTransform` depth past this funnel's 8-bit carrier — the deep-plane gate, distinct from a container gate
+    blend: tuple[str, str] = case()  # a canonical (blend, operator) pair libvips cannot spell as ONE nickname — the lowering gate
     reference: Transform = case()  # a row whose needs (reference/mask) the payload omits — the row declares, this seam executes
     policy: tuple[Transform, str, str] = case()
     bounds: str = case()  # a frame/page/child index past the available count — the range fault distinct from a content fault
@@ -191,15 +189,81 @@ class RasterFault:
     range: tuple[RasterOpTag, str, float] = case()
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CodecPolicy:
+    # The two coordinates EVERY producing container reads, each row spelling them in its own encoder dialect —
+    # libvips `Q`/`effort`/`compression`, pillow `quality`/`method`/`speed`/`quality_layers`, libjxl `level`/`effort`.
+    # One owner replaces the module-literal pair fourteen arms bound with no caller reach, and each option builder
+    # takes the WHOLE policy, so a third coordinate is one field here and zero row-signature edits.
+    quality: int = 80
+    effort: int = 4
+
+    @property
+    def rate(self) -> float:
+        # JPEG 2000 states compression as a RATE (n:1) rather than a 0-100 quality, so the coordinate DERIVES instead
+        # of seeding a second knob: quality 100 is the reversible transform and below it the rate is 100/quality.
+        return 100.0 / float(max(self.quality, 1))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RasterPolicy:
+    # The page's three egress axes as ONE caller-threaded owner beside `lane`: the codec coordinates, the ICC bundle
+    # every egress crosses, and the light space a reduce runs in. Both profiles name BUILT-IN devices because a raw
+    # ICC blob, a soft proof, and a separation set are `graphic/color/managed#MANAGED`'s press legs; `source` is the
+    # FALLBACK the transform reads when the payload embeds no profile of its own. The whole owner folds into the
+    # pre-run content key, so two differently-managed products never collide on one slot.
+    codec: CodecPolicy = CodecPolicy()
+    icc: IccTransform = IccTransform()
+    resample: Resample = Resample.LINEAR
+    source: BuiltinProfile = BuiltinProfile.SRGB
+    destination: BuiltinProfile = BuiltinProfile.SRGB
+
+    def admitted(self, /) -> Result["RasterPolicy", RasterFault]:
+        match self:
+            case RasterPolicy(codec=CodecPolicy(quality=quality)) if not 0 <= quality <= 100:
+                return Error(RasterFault(range=("convert", "quality", float(quality))))
+            case RasterPolicy(codec=CodecPolicy(effort=effort)) if effort < 0:
+                return Error(RasterFault(range=("convert", "effort", float(effort))))
+            case RasterPolicy(icc=IccTransform(depth=depth)) if depth is not BitDepth.UINT8:
+                # `Frame` is `uint8` whole and every `ConvertFormat` names a display container, so a deeper ICC
+                # request states a plane this funnel cannot carry — the deep lanes are the texture plane's.
+                return Error(RasterFault(depth=depth.value))
+            case RasterPolicy(icc=icc) if icc.proof.is_some() or icc.separations:
+                # soft proofing and separations are the press owner's legs; refusing beats dropping a coordinate
+                # the caller believes it set, and keeps the content key total over every field that moves a pixel
+                return Error(RasterFault(profile="<press-bundle>"))
+            case RasterPolicy(source=source, destination=destination) if not {source, destination} <= _CMS_PROFILE.keys():
+                # the lcms2 leg behind every pillow and array egress ships built-ins for a NARROWER device set than
+                # libvips resolves by name, so a profile only ONE engine could honour refuses for both rather than
+                # producing different colour per engine — the divergence this whole gate exists to close. A new
+                # device is one `_CMS_PROFILE` row, and a press profile stays the managed owner's arm entirely.
+                # the fault names the MEMBER, because `.value` on this pair is the whole two-column record and a
+                # fault reading `ProfileNames(vips='srgb', cms='srgb')->…` names no device a caller can act on
+                return Error(RasterFault(profile=f"{source.name}->{destination.name}"))
+            case _:
+                return Ok(self)
+
+    @property
+    def preimage(self) -> tuple[object, ...]:
+        # every coordinate that MOVES a produced pixel or byte, in one canonical tuple `_keyed` frames beside the op
+        # payload; the press-only fields never reach it because `admitted` refuses a bundle carrying them
+        return (
+            # the profile coordinates key by MEMBER NAME: `.value` is the two-column `ProfileNames` record, so a
+            # preimage carrying it frames a nested tuple whose per-engine spellings both move whenever either does
+            self.codec.quality, self.codec.effort, self.resample.value, self.source.name, self.destination.name,
+            self.icc.intent.value, self.icc.black_point.value, self.icc.pcs.value, self.icc.depth.value,
+        )
+
+
 @tagged_union(frozen=True)
 class RasterOp:
     tag: RasterOpTag = tag()
     thumbnail: tuple[bytes, Pixels, ConvertFormat, RasterEngine, FitMode] = case()
-    convert: tuple[bytes, ConvertFormat, int, int, RasterEngine] = case()
+    convert: tuple[bytes, ConvertFormat, RasterEngine] = case()
     crop: tuple[bytes, Box, ConvertFormat, RasterEngine] = case()
     probe: tuple[bytes, RasterEngine] = case()
     montage: tuple[tuple[bytes, ...], int, Pixels, ConvertFormat, RasterEngine] = case()
-    composite: tuple[bytes, bytes, Pixels, BlendMode, ConvertFormat] = case()
+    composite: tuple[bytes, bytes, Pixels, BlendMode, PorterDuff, ConvertFormat] = case()
     transform: tuple[bytes, Transform, bytes, bytes, TransformPolicy] = case()
     generate: tuple[Transform, TransformPolicy] = case()
     detect: tuple[bytes] = case()
@@ -223,10 +287,10 @@ class RasterOp:
         return RasterOp(thumbnail=(payload, size, fmt, engine, fit))
 
     @staticmethod
-    def Convert(
-        payload: bytes, codec: ConvertFormat, quality: int = _QUALITY, effort: int = _EFFORT, engine: RasterEngine = RasterEngine.PILLOW
-    ) -> "RasterOp":
-        return RasterOp(convert=(payload, codec, quality, effort, engine))
+    def Convert(payload: bytes, codec: ConvertFormat, engine: RasterEngine = RasterEngine.PILLOW) -> "RasterOp":
+        # the codec coordinates ride `RasterPolicy` beside every OTHER producing arm, so `Convert` re-exposes nothing
+        # a thumbnail, crop, smartcrop, or contact sheet could not already reach
+        return RasterOp(convert=(payload, codec, engine))
 
     @staticmethod
     def Crop(payload: bytes, box: Box, fmt: ConvertFormat = ConvertFormat.PNG, engine: RasterEngine = RasterEngine.PILLOW) -> "RasterOp":
@@ -244,9 +308,16 @@ class RasterOp:
 
     @staticmethod
     def Composite(
-        base: bytes, overlay: bytes, position: Pixels = (0, 0), mode: BlendMode = BlendMode.OVER, fmt: ConvertFormat = ConvertFormat.PNG
+        base: bytes,
+        overlay: bytes,
+        position: Pixels = (0, 0),
+        blend: BlendMode = BlendMode.NORMAL,
+        operator: PorterDuff = PorterDuff.SOURCE_OVER,
+        fmt: ConvertFormat = ConvertFormat.PNG,
     ) -> "RasterOp":
-        return RasterOp(composite=(base, overlay, position, mode, fmt))
+        # the canonical TWO-axis algebra `graphic/color/derive#DERIVE` owns — a separable blend and a Porter-Duff
+        # operator are independent facts; `_composite` lowers the admitted pair to the ONE libvips nickname
+        return RasterOp(composite=(base, overlay, position, blend, operator, fmt))
 
     @staticmethod
     def Transform(
@@ -302,14 +373,17 @@ class RasterOp:
     def Children(payload: bytes, index: int = 0, fmt: ConvertFormat = ConvertFormat.PNG) -> "RasterOp":
         return RasterOp(children=(payload, index, fmt))
 
-    def admitted(self, /) -> Result["RasterOp", RasterFault]:
+    def admitted(self, policy: RasterPolicy, /) -> Result["RasterOp", RasterFault]:
+        # ONE pre-dispatch gate over both halves: the policy's coordinates bind every producing arm, so its range,
+        # depth, and press-bundle refusals thread FIRST and the payload gate proves the op's own fields after.
+        return policy.admitted().bind(lambda _admitted: self._payload())
+
+    def _payload(self, /) -> Result["RasterOp", RasterFault]:
         match self:
+            case RasterOp(tag="composite", composite=(_, _, _, blend, operator, _)):
+                return _lowered(blend, operator).map(lambda _nickname: self)
             case RasterOp(tag="thumbnail", thumbnail=(_, (width, height), _, _, _)) if width <= 0 or height <= 0:
                 return Error(RasterFault(extent=(self.tag, (width, height))))
-            case RasterOp(tag="convert", convert=(_, _, quality, _, _)) if not 0 <= quality <= 100:
-                return Error(RasterFault(range=(self.tag, "quality", float(quality))))
-            case RasterOp(tag="convert", convert=(_, _, _, effort, _)) if effort < 0:
-                return Error(RasterFault(range=(self.tag, "effort", float(effort))))
             case RasterOp(tag="crop", crop=(_, (_, _, width, height), _, _)) if width <= 0 or height <= 0:
                 return Error(RasterFault(extent=(self.tag, (width, height))))
             case RasterOp(tag="montage", montage=((), _, _, _, _)) | RasterOp(tag="sequence", sequence=((), _, _, _, _)):
@@ -375,13 +449,14 @@ class RasterOp:
 class Raster(Struct, frozen=True):
     ops: RasterOp | tuple[RasterOp, ...]
     lane: LanePolicy  # the caller-threaded offload seam — isolation, band, retry, and boundary are runtime-owned
+    policy: RasterPolicy = RasterPolicy()  # the caller-threaded egress seam — codec coordinates, ICC gate, resample light space
 
     def emit(self, /) -> Iterable[ArtifactWork]:
         # one node per member — per-member PRE-RUN input keys keep elision per-member: a re-issued farm re-renders only changed ops.
         return tuple(
             ArtifactWork(
-                key=_keyed(op),
-                work=partial(Raster._emit, op, self.lane),
+                key=_keyed(op, self.policy),
+                work=partial(Raster._emit, op, self.lane, self.policy),
                 parents=(),
                 admission=Admission(keyed=None),
                 cost=1.0,
@@ -390,19 +465,19 @@ class Raster(Struct, frozen=True):
         )
 
     @staticmethod
-    async def _emit(op: RasterOp, lane: LanePolicy, /) -> RuntimeRail[ArtifactReceipt]:
-        match op.admitted():  # Result is a constructor-function rail: patterns match the tagged shape, never Ok/Error class heads
+    async def _emit(op: RasterOp, lane: LanePolicy, policy: RasterPolicy, /) -> RuntimeRail[ArtifactReceipt]:
+        match op.admitted(policy):  # Result is a constructor-function rail: patterns match the tagged shape, never Ok/Error class heads
             case Result(tag="error", error=fault):
                 return Error(BoundaryFault(boundary=(f"raster.{op.tag}", f"{fault.tag}:{fault}")))
             case Result(tag="ok", ok=valid):
                 match valid:
                     case RasterOp(tag="detect", detect=(payload,)):
                         identity = await Detect(lane=lane, engine=DetectEngine.PUREMAGIC).of(Source.Buffer(payload))
-                        return identity.map(lambda di: _detected(valid, payload, di))
+                        return identity.map(lambda di: _detected(valid, policy, payload, di))
                     case _:
-                        produced = await lane.offload(Kernel.of(_worker_raster, KernelTrait.HOSTILE), valid)
+                        produced = await lane.offload(Kernel.of(_worker_raster, KernelTrait.HOSTILE), valid, policy)
                         return produced.bind(
-                            lambda res: res.map(lambda fact: _previewed(valid, fact)).map_error(
+                            lambda res: res.map(lambda fact: _previewed(valid, policy, fact)).map_error(
                                 lambda fault: BoundaryFault(boundary=(f"raster.{valid.tag}", f"{fault.tag}:{fault}"))
                             )
                         )
@@ -421,49 +496,75 @@ def _normalized[T](values: T | Iterable[T], /) -> Block[T]:
             return Block.singleton(lone)
 
 
-def _canonical(value: object, /) -> bytes:
-    # length-framed canonical chunk (patterns rows [05]/[06]): every variable-width field frames its length and
-    # every tuple counts its parts, so two adjacent collections can never shift one digest; bool reads before int.
+def _canonical(value: object, /) -> tuple[bytes, ...]:
+    # ONE semantic field reduced to its bytes and NOTHING ELSE: the length framing that used to ride each arm here
+    # is the runtime identity owner's `[PREIMAGE_FRAMING]` law, and `IdentitySource(parts=...)` is where it landed.
+    # A producer re-spelling `len(raw).to_bytes(8, "little") + raw` per field owns a copy of that law that drifts
+    # the first time the owner's frame width or order moves, so this fold answers the field TUPLE the source case
+    # frames. Nesting flattens: a tuple contributes its own parts in order, which is the same boundary set the
+    # counted form produced, and `bool` still reads before `int` because `True` is an `int` in Python.
     match value:
         case None:
-            return b"\x00"
+            return (b"\x00",)
         case bool() as flag:
-            return b"\x01" if flag else b"\x02"
+            return (b"\x01" if flag else b"\x02",)
         case bytes() as raw:
-            return len(raw).to_bytes(8, "little") + raw
+            return (raw,)
         case str() as text:
-            return len(encoded := text.encode()).to_bytes(8, "little") + encoded
+            return (text.encode(),)
         case int() as number:
-            # length-framed variable-width signed encoding — Python ints are unbounded, so a fixed 8-byte
-            # window overflows on a large admitted reduction; the frame keeps adjacent chunks unshiftable.
-            raw = number.to_bytes(number.bit_length() // 8 + 1, "little", signed=True)
-            return len(raw).to_bytes(8, "little") + raw
+            # variable-width signed encoding — Python ints are unbounded, so a fixed 8-byte window overflows on a
+            # large admitted reduction; the source case frames the width, so this arm carries none of its own.
+            return (number.to_bytes(number.bit_length() // 8 + 1, "little", signed=True),)
         case float() as scalar:
-            return pack("<d", scalar)
+            return (pack("<d", scalar),)
         case GeometryOp() | TransformPolicy() as tagged:
             return _canonical((tagged.tag, getattr(tagged, tagged.tag)))
         case tuple() as parts:
-            return len(parts).to_bytes(8, "little") + b"".join(_canonical(part) for part in parts)
+            return tuple(chunk for part in parts for chunk in _canonical(part))
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _keyed(op: RasterOp, /) -> ContentKey:
-    # bare pre-run input key: `ContentIdentity.key` (not the railed `of`) over the case payload's canonical bytes.
-    return ContentIdentity.key(f"raster-{op.tag}", _canonical(getattr(op, op.tag)))
+def _keyed(op: RasterOp, policy: RasterPolicy, /) -> ContentKey:
+    # bare pre-run input key: `ContentIdentity.key` (not the railed `of`) over the case payload's canonical bytes JOINED
+    # with the policy preimage — the codec coordinates, the ICC gate, and the resample light space each move produced
+    # bytes, so a re-managed or re-encoded product mints its own key instead of colliding on its predecessor's slot.
+    # the framing rides `IdentitySource(parts=...)`, the case that exists to length-frame N SEMANTIC fields, so a
+    # byte moving across a field boundary holds the key still without this page owning a copy of that law.
+    return ContentIdentity.key(
+        f"raster-{op.tag}", IdentitySource(parts=_canonical((getattr(op, op.tag), policy.preimage)))
+    )
 
 
-def _previewed(op: RasterOp, fact: RasterFact, /) -> ArtifactReceipt:
-    # receipt.slot threads the SAME pre-run `_keyed(op)` identity the node scheduled under (the reuse-fold hit/miss
-    # law); the output-byte address rides the score band, never the slot.
+def _field_band(field: "FieldSpec | UnsetType", /) -> frozendict[str, float | str]:
+    # NAMED apart from `graphic/raster/process#PROCESS`'s `_fielded`, which this page imports from: that one BUILDS a
+    # `FieldSpec` from an array and this one PROJECTS a built spec onto the receipt band — two operations, opposite
+    # directions, and one spelling in reach of one reader is the seating failure the twin law names.
+    # a quantitative acceptor's unquantized field reports as SCALAR evidence — dtype, rank, octet length — because the
+    # receipt band carries scalars alone; the octets stay on `RasterFact.field` for the caller that owns both planes.
+    match field:
+        case FieldSpec(dtype=dtype, shape=shape, data=data):
+            return frozendict({"field_dtype": dtype, "field_rank": float(len(shape)), "field_bytes": float(len(data))})
+        case _:
+            return frozendict()
+
+
+def _previewed(op: RasterOp, policy: RasterPolicy, fact: RasterFact, /) -> ArtifactReceipt:
+    # receipt.slot threads the SAME pre-run `_keyed(op, policy)` identity the node scheduled under (the reuse-fold
+    # hit/miss law); the output-byte address rides the score band, never the slot.
     return ArtifactReceipt.Preview(
-        _keyed(op), fact.width, fact.height, len(fact.data), fact.score | {"address": ContentIdentity.key(f"raster-{op.tag}", fact.data).hex}
+        _keyed(op, policy),
+        fact.width,
+        fact.height,
+        len(fact.data),
+        fact.score | _field_band(fact.field) | {"address": ContentIdentity.key(f"raster-{op.tag}", fact.data).hex},
     )
 ```
 
 ```python signature
 @beartype(conf=FAULT_CONF)
-def _worker_raster(op: RasterOp) -> Result[RasterFact, RasterFault]:
+def _worker_raster(op: RasterOp, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     # FAULT_CONF raises the one BeartypeCallHintViolation the runtime CLASSIFY table folds onto the
     # RuntimeRail as BoundaryFault.api — never a bare @beartype throwing an unclassified raise.
     try:
@@ -473,35 +574,35 @@ def _worker_raster(op: RasterOp) -> Result[RasterFact, RasterFault]:
             case RasterOp(tag="probe", probe=(payload, engine)):
                 return _ENGINE[engine].probe(payload)
             case RasterOp(tag="thumbnail", thumbnail=(payload, size, fmt, engine, fit)):
-                return _ENGINE[engine].thumbnail(payload, size, fmt, fit)
-            case RasterOp(tag="convert", convert=(payload, codec, quality, effort, engine)):
-                return _ENGINE[engine].convert(payload, codec, quality, effort)
+                return _ENGINE[engine].thumbnail(payload, size, fmt, fit, policy)
+            case RasterOp(tag="convert", convert=(payload, codec, engine)):
+                return _ENGINE[engine].convert(payload, codec, policy)
             case RasterOp(tag="crop", crop=(payload, box, fmt, engine)):
-                return _ENGINE[engine].crop(payload, box, fmt)
+                return _ENGINE[engine].crop(payload, box, fmt, policy)
             case RasterOp(tag="montage", montage=(tiles, columns, cell, fmt, engine)):
-                return _montage(tiles, columns, cell, fmt, engine)
-            case RasterOp(tag="composite", composite=(base, overlay, position, mode, fmt)):
-                return _composite(base, overlay, position, mode, fmt)
-            case RasterOp(tag="transform", transform=(payload, kind, reference, mask, policy)):
-                return _transformed(payload, kind, reference, mask, policy)
-            case RasterOp(tag="generate", generate=(kind, policy)):
-                return _generated(kind, policy)
+                return _montage(tiles, columns, cell, fmt, engine, policy)
+            case RasterOp(tag="composite", composite=(base, overlay, position, blend, operator, fmt)):
+                return _composite(base, overlay, position, blend, operator, fmt, policy)
+            case RasterOp(tag="transform", transform=(payload, kind, reference, mask, transform_policy)):
+                return _transformed(payload, kind, reference, mask, transform_policy)
+            case RasterOp(tag="generate", generate=(kind, transform_policy)):
+                return _generated(kind, transform_policy)
             case RasterOp(tag="smartcrop", smartcrop=(payload, size, focus, fmt)):
-                return _smartcrop(payload, size, focus, fmt)
+                return _smartcrop(payload, size, focus, fmt, policy)
             case RasterOp(tag="pyramid", pyramid=(payload, layout, tile, fmt)):
-                return _pyramid(payload, layout, tile, fmt)
+                return _pyramid(payload, layout, tile, fmt, policy)
             case RasterOp(tag="geometry", geometry=(payload, geo, fmt)):
-                return _geometry(payload, geo, fmt)
+                return _geometry(payload, geo, fmt, policy)
             case RasterOp(tag="deframe", deframe=(payload, index, fmt, engine)):
-                return _deframe(payload, index, fmt, engine)
+                return _deframe(payload, index, fmt, engine, policy)
             case RasterOp(tag="sequence", sequence=(frames, delays, loop, disposal, fmt)):
-                return _sequence(frames, delays, loop, disposal, fmt)
+                return _sequence(frames, delays, loop, disposal, fmt, policy)
             case RasterOp(tag="contact", contact=(payload, columns, cell, fmt)):
-                return _contact(payload, columns, cell, fmt)
+                return _contact(payload, columns, cell, fmt, policy)
             case RasterOp(tag="quantize", quantize=(payload, colors, method, dither, fmt)):
-                return _quantized(payload, colors, method, dither, fmt)
+                return _quantized(payload, colors, method, dither, fmt, policy)
             case RasterOp(tag="children", children=(payload, index, fmt)):
-                return _children(payload, index, fmt)
+                return _children(payload, index, fmt, policy)
             case _ as unreachable:
                 assert_never(unreachable)
     except ImportError as absent:
@@ -517,6 +618,10 @@ def _pillow_guarded(work: Callable[[], RasterFact], /) -> Result[RasterFact, Ras
         return Error(RasterFault(decode="<pillow-unidentified>"))
     except Image.DecompressionBombError:
         return Error(RasterFault(bomb=(0, int(Image.MAX_IMAGE_PIXELS or 0))))
+    except imagecodecs.CmsError as malformed:
+        # a malformed EMBEDDED source profile refuses at `cms_profile_validate` BEFORE the encode, so no arm ships
+        # bytes an lcms2 transform poisoned; it reads before the LookupError arms because it is neither range nor content
+        return Error(RasterFault(profile=str(malformed)))
     except (EOFError, IndexError) as fault:
         # a seek/get_child_images/crop range overrun; IndexError is a LookupError sibling of KeyError, so it never shadows the encode arm's KeyError
         return Error(RasterFault(bounds=str(fault)))
@@ -532,6 +637,14 @@ def _vips_guarded(work: Callable[[], RasterFact], /) -> Result[RasterFact, Raste
         return Error(RasterFault(bounds=str(fault)))
     except pyvips.Error as fault:
         return Error(RasterFault(engine=str(fault)))
+
+
+_GUARD: Final[frozendict[RasterEngine, Callable[[Callable[[], RasterFact]], Result[RasterFact, RasterFault]]]] = frozendict({
+    # each engine's own provider-exception guard, keyed exactly as `_ENGINE` keys its op bundle, so `_produced` selects
+    # the guard off the engine value and no arm re-spells the writer-then-guard pair
+    RasterEngine.PILLOW: _pillow_guarded,
+    RasterEngine.LIBVIPS: _vips_guarded,
+})
 
 
 class BandLaw(StrEnum):
@@ -576,25 +689,33 @@ _CLOCK: Final[frozendict[FrameLaw, tuple[str, ...]]] = frozendict({
 class CodecEmit:
     # WHO writes the container bytes, orthogonal to the RasterEngine owning the working surface. `native` is the writer the
     # engine's own provider ships — its call spelling, its build probe, its option builder; `array` is the imagecodecs writer
-    # for a container NEITHER provider's linked build carries, taking the 8-bit `Frame` whichever working surface produced it.
+    # taking the 8-bit `Frame` whichever working surface produced it. Both option and encode closures take the WHOLE
+    # `CodecPolicy`, so a new encoder coordinate is one policy field and no row signature moves.
     tag: Literal["native", "array"] = tag()
-    native: tuple[str, Callable[[], bool], Callable[[int, int], frozendict[str, object]]] = case()
-    array: tuple[Callable[[], bool], Callable[[Frame, int, int], bytes]] = case()
+    native: tuple[str, Callable[[], bool], Callable[[CodecPolicy], frozendict[str, object]]] = case()
+    array: tuple[Callable[[], bool], Callable[[Frame, CodecPolicy], bytes]] = case()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CodecRow:
-    # ONE row per container: every codec fact a working arm reads — writer per engine, mode admission, frame law — so an
-    # arm never consults a parallel membership set the next codec silently drops out of. Two row laws close the shape:
-    # a rung past SINGLE names a container pillow's own `SAVE_ALL` registry carries, because `save_all` on a format that
-    # registry lacks raises a bare `KeyError` the encode arm reads as a content fault; and an `array` writer column pairs
-    # only with SINGLE, because the codec substrate takes one `Frame` and composes no container framing.
-    writers: frozendict[RasterEngine, CodecEmit]  # the writer serving each engine; an absent key is a container that engine cannot write
+    # ONE row per container: every codec fact a working arm reads — the ordered writer preference per engine, mode
+    # admission, frame law — so an arm never consults a parallel membership set the next codec silently drops out of.
+    # Three row laws close the shape: a rung past SINGLE names a container pillow's own `SAVE_ALL` registry carries,
+    # because `save_all` on a format that registry lacks raises a bare `KeyError` the encode arm reads as a content
+    # fault; an `array` writer pairs only with SINGLE, because the codec substrate takes one `Frame` and composes no
+    # container framing; and a native writer whose trial-writable band shape is NARROWER than the row's `BandLaw` is
+    # listed nowhere, because the 1x1 3-band trial cannot prove the 2- and 4-band paths the row admits.
+    writers: frozendict[RasterEngine, tuple[CodecEmit, ...]]  # ORDERED preference; `_writer` takes the first whose own probe passes
     bands: BandLaw  # the modes the container carries; every egress resolves its working mode against this set
     frames: FrameLaw  # the cumulative clock rung; SINGLE refuses a multi-frame request at the capability gate
+    palette: bool = False
+    # ^ the container's encoder writes an INDEXED image. It is a row fact rather than a `BandLaw` member because it
+    # is orthogonal to colour-ness and alpha — PNG, GIF, WEBP, TIFF, and BMP all carry a palette across three
+    # different band laws, while JPEG carries none under the same law as PNG. Without it every `Quantize` product
+    # re-expanded to RGB inside `_pillow_bytes` and the op was undone at its own writer.
 
 
-def _pillow_writer(name: str, feature: str | None, options: Callable[[int, int], frozendict[str, object]], /) -> CodecEmit:
+def _pillow_writer(name: str, feature: str | None, options: Callable[[CodecPolicy], frozendict[str, object]], /) -> CodecEmit:
     # `features.check` reads pillow's OPTIONAL-codec table alone, so only a row whose plugin links an external encoder names
     # a flag; a core plugin names `None` because probing an unlisted name warns and answers False, which would refuse a
     # container every pillow build writes. The probe therefore answers the LINKED build and no row asserts a lean wheel's gap.
@@ -620,39 +741,64 @@ def _vips_backed(suffix: str, /) -> bool:
     return True
 
 
-def _vips_writer(suffix: str, options: Callable[[int, int], frozendict[str, object]], /) -> CodecEmit:
+def _vips_writer(suffix: str, options: Callable[[CodecPolicy], frozendict[str, object]], /) -> CodecEmit:
     return CodecEmit(native=(suffix, partial(_vips_backed, suffix), options))
 
 
-def _array_writer(probe: Callable[[], bool], encode: Callable[[Frame, int, int], bytes], /) -> CodecEmit:
+def _array_writer(probe: Callable[[], bool], encode: Callable[[Frame, CodecPolicy], bytes], /) -> CodecEmit:
     # Imagecodecs leg: `<CODEC>.available` is the ONE attribute safe on an absent native core (every other read raises
-    # `DelayedImportError`), and the encode closure drops the quality/effort coordinates its container carries no knob for.
+    # `DelayedImportError`), and the encode closure reads only the coordinates its own container carries a knob for.
     return CodecEmit(array=(probe, encode))
 
 
-def _shared(emit: CodecEmit, /) -> frozendict[RasterEngine, CodecEmit]:
-    # a container NEITHER linked build writes rides one array writer across the whole engine vocabulary — each working
-    # surface hands it the same admitted `Frame`, so the row derives its columns instead of enumerating them per engine
-    return frozendict({engine: emit for engine in RasterEngine})
+def _shared(*preference: CodecEmit) -> frozendict[RasterEngine, tuple[CodecEmit, ...]]:
+    # a container whose writer preference does not vary by engine states it ONCE across the whole engine vocabulary —
+    # each working surface hands the array leg the same admitted `Frame`, so the row derives its columns
+    return frozendict({engine: preference for engine in RasterEngine})
 
 
-def _writer(codec: ConvertFormat, engine: RasterEngine, /) -> Result[CodecEmit, RasterFault]:
-    # Rows DECLARE which writer serves the engine and that writer's own probe READS the linked build, so an unbuilt
-    # AVIF/WebP/JXL encoder faults `codec` — the capability gate — before `save`/`write_to_buffer` raises the opaque
-    # provider error the `encode` arm would misclassify as a content fault. Every producing arm resolves here on the rail
-    # BEFORE its guarded body, so a container the engine cannot write refuses without paying a decode.
-    match _CODEC[codec].writers.get(engine):
-        case CodecEmit(tag="native", native=(_, probe, _)) | CodecEmit(tag="array", array=(probe, _)) as emit if probe():
-            return Ok(emit)
-        case _:
-            return Error(RasterFault(codec=codec))
+def _probed(emit: CodecEmit, /) -> bool:
+    match emit:
+        case CodecEmit(tag="native", native=(_, probe, _)) | CodecEmit(tag="array", array=(probe, _)):
+            return probe()
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
-def _moded(image: "Image.Image", law: BandLaw, /) -> str:
+def writer(codec: ConvertFormat, engine: RasterEngine, /) -> Result[CodecEmit, RasterFault]:
+    # PUBLIC beside `CODEC`: `graphic/color/managed#MANAGED` resolves the same libvips emitter for its device egress,
+    # and a private name with a foreign consumer is either the wrong name or the wrong consumer. Keeping it private
+    # made that page re-derive the preference walk against a tuple-shaped column and answer a fault for every codec.
+    # Rows DECLARE an ORDERED writer preference per engine and each writer's own probe READS the linked build, so the
+    # first passing leg wins and a build missing its native encoder degrades onto the array writer instead of tripping a
+    # column that ASSERTED the gap. Only a container whose every listed leg probes false faults `codec` — the capability
+    # gate — before `save`/`write_to_buffer` raises the opaque provider error the `encode` arm would misclassify as a
+    # content fault. Every producing arm resolves here on the rail BEFORE its guarded body, so a container the engine
+    # cannot write refuses without paying a decode.
+    return next(
+        (Ok(emit) for emit in CODEC[codec].writers.get(engine, ()) if _probed(emit)),
+        Error(RasterFault(codec=codec)),
+    )
+
+
+def _produced(engine: RasterEngine, codec: ConvertFormat, work: Callable[[CodecEmit], RasterFact], /) -> Result[RasterFact, RasterFault]:
+    # the ONE producing tail: resolve the row's writer for the engine on the rail, then run the arm's `work` body under
+    # that engine's guard. Every producing arm contributes its body alone, so a new arm cannot forget the capability
+    # gate and a new engine is one `_GUARD` row rather than an edit at seventeen call sites.
+    return writer(codec, engine).bind(lambda emit: _GUARD[engine](partial(work, emit)))
+
+
+def _moded(image: "Image.Image", law: BandLaw, /, *, palette: bool = False) -> str:
     # Resolves mode ONCE for every egress, native and array alike: the row's admitted set decides and the source's
     # own alpha and gray-ness pick within it, so a flatten never invents color and a promotion never invents alpha. A
-    # palette, CMYK, or high-bit-depth working mode carries neither property into the set and lands on the widest
-    # admitted member; `RGB` closes every `_BANDS` set, so the terminal states the law rather than guarding against it.
+    # CMYK or high-bit-depth working mode carries neither property into the set and lands on the widest admitted
+    # member; `RGB` closes every `_BANDS` set, so the terminal states the law rather than guarding against it.
+    # PALETTE is the one working mode a ROW admits rather than a law: an indexed image is the `Quantize` op's whole
+    # product, and folding it back to RGB at the writer undid the op at its own egress — measured, a 16-colour
+    # quantize of a 256x256 gradient went 8448 bytes indexed to 29603 bytes re-expanded. The row states whether its
+    # encoder writes an indexed image, so a palette survives into PNG or GIF and still flattens ahead of JPEG.
+    if palette and image.mode == "P":
+        return "P"
     admitted, alpha = _BANDS[law], image.has_transparency_data
     gray = image.mode in {"1", "L", "LA", "I;16"}
     for candidate in (image.mode, "LA" if gray else "RGBA", "RGBA", "L" if gray else "RGB"):
@@ -661,15 +807,8 @@ def _moded(image: "Image.Image", law: BandLaw, /) -> str:
     return "RGB"
 
 
-def _banded(image: "Image.Image", /, *, law: BandLaw) -> "Image.Image":
-    return image if image.mode == (admitted := _moded(image, law)) else image.convert(admitted)
-
-
-def _framed(image: "Image.Image", /, *, law: BandLaw) -> Frame:
-    # Array writers admit exactly the modes their container carries — `qoi_encode` answers a gray plane with
-    # "photometric 1 not supported" — so the array leg reads the same row law the native leg does and holds no second
-    # admission literal of its own.
-    return np.asarray(_banded(image, law=law))
+def _banded(image: "Image.Image", /, *, law: BandLaw, palette: bool = False) -> "Image.Image":
+    return image if image.mode == (admitted := _moded(image, law, palette=palette)) else image.convert(admitted)
 
 
 def _framed_vips(image: "pyvips.Image", /, *, law: BandLaw) -> Frame:
@@ -681,49 +820,140 @@ def _framed_vips(image: "pyvips.Image", /, *, law: BandLaw) -> Frame:
     return colored.cast(pyvips.BandFormat.UCHAR).numpy()
 
 
+_CHROMATIC: Final[frozenset[str]] = frozenset({"RGB", "RGBA"})  # the working modes carrying PRIMARIES; a gray plane has none to convert or to tag
+_CMS_PROFILE: Final[frozendict[BuiltinProfile, str]] = frozendict({
+    # the lcms2 built-in set `imagecodecs.cms_profile` mints (`srgb`/`rgb`/`gray`/`adobergb`/`xyz`/`null`) intersected
+    # with the device vocabulary the managed owner declares. `P3` and `CMYK` have no lcms2 built-in, so a P3 egress
+    # rides the libvips native leg — which resolves the device name itself — and a CMYK egress the press owner; the
+    # lcms2 leg refuses either by name rather than synthesizing primaries the color owner already holds.
+    BuiltinProfile.SRGB: "srgb",
+})
+_CMS_INTENT: Final[frozendict[RenderingIntent, str]] = frozendict({
+    # lcms2 spells the two colorimetric intents in full and `AUTO` nowhere, so the correspondence DERIVES off the member
+    # name: `RELATIVE`/`ABSOLUTE` gain the `_COLORIMETRIC` tail and `AUTO` folds onto perceptual exactly as the managed
+    # owner's proof leg does, so one lcms2 vocabulary stands behind both legs and no second hand-listed spelling forms.
+    intent: (RenderingIntent.PERCEPTUAL if intent is RenderingIntent.AUTO else intent).name
+    + ("_COLORIMETRIC" if intent in {RenderingIntent.RELATIVE, RenderingIntent.ABSOLUTE} else "")
+    for intent in RenderingIntent
+})
+
+
+def _validated(profile: bytes, /) -> bytes:
+    imagecodecs.cms_profile_validate(profile)  # raises CmsError on a malformed embedded blob; `_pillow_guarded` rails it
+    return profile
+
+
+def _rejoined(source: Frame, converted: Frame, /) -> Frame:
+    # `cms_transform` returns the three COLOR bands for a four-band input, so the alpha band re-joins from the source:
+    # alpha is coverage, never a colorimetric quantity, and a dropped band silently flattens a transparent egress.
+    return converted if source.shape[-1] == converted.shape[-1] else np.dstack((converted, source[..., 3:]))
+
+
+def _managed(banded: "Image.Image", policy: RasterPolicy, destination: bytes, /) -> "Image.Image":
+    # The ONE non-libvips ICC gate: lcms2 through `imagecodecs.cms_transform`, the engine BOTH the pillow native saver
+    # and the imagecodecs array writer reach, so a `Thumbnail` lands the destination profile on either engine and
+    # identical input stops producing different color per engine. It mirrors `_vips_managed` exactly — the payload's
+    # own embedded profile when it carries one, the declared fallback source when it does not — so the two legs answer
+    # one bundle identically. Three admissions close it: a gray plane carries no primaries, so neither the transform nor
+    # the tag applies to it; a fallback source already equal to the destination needs no identity pass; and a malformed
+    # embedded blob refuses at `cms_profile_validate` BEFORE the encode rather than poisoning the bytes.
+    frame = np.asarray(banded)
+    embedded = banded.info.get("icc_profile")
+    return (
+        banded
+        if banded.mode not in _CHROMATIC or (embedded is None and policy.source is policy.destination)
+        else Image.fromarray(
+            _rejoined(
+                frame,
+                imagecodecs.cms_transform(
+                    frame[..., :3],
+                    _validated(embedded) if embedded is not None else imagecodecs.cms_profile(_CMS_PROFILE[policy.source]),
+                    destination,
+                    intent=_CMS_INTENT[policy.icc.intent],
+                ),
+            ),
+            banded.mode,
+        )
+    )
+
+
+def _vips_managed(image: "pyvips.Image", policy: RasterPolicy, /) -> "pyvips.Image":
+    # The ONE libvips ICC gate, resolved at the egress every arm crosses rather than on the convert arm alone — a
+    # thumbnail, crop, composite, smartcrop, or pyramid of an AdobeRGB source now lands the destination profile a
+    # convert already did. `embedded=True` reads the payload's own profile and `input_profile` is the fallback for a
+    # payload carrying none, so one call covers both and no arm re-probes `get_typeof("icc-profile-data")`.
+    # `RenderingIntent` and `ConnectionSpace` values are the `pyvips.Intent`/`pyvips.PCS` nicknames, so both coordinates
+    # cross by value; the depth reads `Frame`'s own dtype, and a deeper bundle already refused at admission.
+    icc = policy.icc
+    # `BuiltinProfile` is a `(ProfileNames, Enum)` pair, so `.value` is the WHOLE `ProfileNames(vips=…, cms=…)`
+    # record and not the device name libvips reads — passing it handed a namedtuple where a `str` is contracted, on
+    # every managed egress this page owns. The `.vips` column is the one this engine speaks; the lcms2 leg reads
+    # `.cms` from the same row, which is why the pair exists at all.
+    return image.icc_transform(
+        policy.destination.vips,
+        input_profile=policy.source.vips,
+        embedded=True,
+        intent=icc.intent.value,
+        black_point_compensation=icc.black_point.enabled,
+        pcs=icc.pcs.value,
+        depth=_DISPLAY_BITS,
+    )
+
+
 def _pillow_bytes(
-    frames: "Image.Image | Iterable[Image.Image]", codec: ConvertFormat, emit: CodecEmit, quality: int, effort: int, /, **save: object
+    frames: "Image.Image | Iterable[Image.Image]", codec: ConvertFormat, emit: CodecEmit, policy: RasterPolicy, /, **save: object
 ) -> bytes:
     # Owns the ONE pillow egress, arity-polymorphic: a lone image and a frame sequence enter the same call and `_normalized`
     # discriminates, so `save_all`/`append_images` is a property of the payload rather than a second writer. Mode
-    # admission and encoder options both read the row, so no arm re-spells `save(format=...)` and silently hands the
-    # encoder a band set it refuses — the flatten a no-alpha target needs and the promotion a color-only target needs are
-    # one fold; `**save` carries only what the ARM contributes beyond the row (the `_CLOCK` keys `_sequence` folds).
-    block = _normalized(frames).map(partial(_banded, law=_CODEC[codec].bands))
+    # admission, encoder options, and the ICC gate all read one row plus one policy, so no arm re-spells `save(format=...)`
+    # and silently hands the encoder a band set it refuses or drops the profile the libvips leg keeps — the flatten a
+    # no-alpha target needs and the promotion a color-only target needs are one fold; `**save` carries only what the ARM
+    # contributes beyond the row (the `_CLOCK` keys `_sequence` folds). The ICC gate maps over the WHOLE block, so every
+    # appended frame of a sequence lands the same destination its head does; a container carrying no profile box ignores
+    # the `icc_profile` key, so the tag is one derived kwarg rather than a per-format membership set.
+    row = CODEC[codec]
+    destination = imagecodecs.cms_profile(_CMS_PROFILE[policy.destination])
+    block = _normalized(frames).map(partial(_banded, law=row.bands, palette=row.palette)).map(lambda image: _managed(image, policy, destination))
+    tagged = frozendict({"icc_profile": destination}) if block.head().mode in _CHROMATIC else frozendict()
     match emit:
         case CodecEmit(tag="native", native=(name, _, options)):
             multi = frozendict({"save_all": True, "append_images": list(block.tail())}) if len(block) > 1 else frozendict()
             sink = BytesIO()
-            block.head().save(sink, format=name, **options(quality, effort) | multi | save)
+            block.head().save(sink, format=name, **options(policy.codec) | tagged | multi | save)
             return sink.getvalue()
         case CodecEmit(tag="array", array=(_, encode)):
-            # single-frame by the row law: an `array` column pairs only with `FrameLaw.SINGLE`, so no multi-frame block reaches here
-            return encode(_framed(block.head(), law=_CODEC[codec].bands), quality, effort)
+            # single-frame by the row law: an `array` writer pairs only with `FrameLaw.SINGLE`, so no multi-frame block
+            # reaches here, and the imagecodecs containers carry no ICC box — the leg lands the converted PIXELS and the
+            # container's own primaries/transfer tagging is the deep-pixel plane's, never this display funnel's.
+            return encode(np.asarray(block.head()), policy.codec)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _vips_bytes(image: "pyvips.Image", codec: ConvertFormat, emit: CodecEmit, quality: int, effort: int, /) -> bytes:
-    # Owns the ONE libvips egress; `write_to_buffer` strips metadata by default, so every arm — not just Convert — retains
-    # ICC/EXIF/XMP here and an `icc_transform`-managed profile survives a thumbnail, crop, composite, or smartcrop egress.
-    # libvips carries bands rather than modes, so the row's admitted set decides the flatten and `_framed_vips` the promotion.
-    law = _CODEC[codec].bands
-    flat = image.flatten() if image.hasalpha() and _BANDS[law].isdisjoint({"LA", "RGBA"}) else image
+def _vips_bytes(image: "pyvips.Image", codec: ConvertFormat, emit: CodecEmit, policy: RasterPolicy, /) -> bytes:
+    # Owns the ONE libvips egress AND the ONE libvips ICC gate: `_vips_managed` resolves the bundle here, so thumbnail,
+    # crop, composite, smartcrop, and pyramid all cross it and a managed convert stops being the single arm that lands
+    # the destination profile. `write_to_buffer` strips metadata by default, so the `ForeignKeep` mask is what carries
+    # the freshly embedded profile plus EXIF/XMP out of every arm. libvips carries bands rather than modes, so the row's
+    # admitted set decides the flatten and `_framed_vips` the promotion.
+    law = CODEC[codec].bands
+    managed = _vips_managed(image, policy)
+    flat = managed.flatten() if managed.hasalpha() and _BANDS[law].isdisjoint({"LA", "RGBA"}) else managed
     match emit:
         case CodecEmit(tag="native", native=(suffix, _, options)):
             keep = pyvips.ForeignKeep.ICC | pyvips.ForeignKeep.EXIF | pyvips.ForeignKeep.XMP
-            return flat.write_to_buffer(suffix, keep=keep, **options(quality, effort))
+            return flat.write_to_buffer(suffix, keep=keep, **options(policy.codec))
         case CodecEmit(tag="array", array=(_, encode)):
-            return encode(_framed_vips(flat, law=law), quality, effort)
+            return encode(_framed_vips(flat, law=law), policy.codec)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _detected(op: RasterOp, payload: bytes, identity: "DetectIdentity", /) -> ArtifactReceipt:
+def _detected(op: RasterOp, policy: RasterPolicy, payload: bytes, identity: "DetectIdentity", /) -> ArtifactReceipt:
     # project the delegated DetectIdentity onto the shared Preview score band; the puremagic sniff fold owned once
-    # upstream. receipt.slot threads the pre-run `_keyed(op)` identity; the payload address rides the band.
+    # upstream. receipt.slot threads the pre-run `_keyed(op, policy)` identity; the payload address rides the band.
     return ArtifactReceipt.Preview(
-        _keyed(op),
+        _keyed(op, policy),
         0,
         0,
         len(payload),
@@ -741,18 +971,22 @@ def _detected(op: RasterOp, payload: bytes, identity: "DetectIdentity", /) -> Ar
 
 
 def _transformed(payload: bytes, kind: Transform, reference: bytes, mask: bytes, policy: TransformPolicy, /) -> Result[RasterFact, RasterFault]:
+    # DECODE IS PILLOW'S, whichever engine the ARM belongs to. `skimage.io.imread` drags the whole `scikit-image`
+    # import in at the decode step, and that distribution is interpreter-gated off this floor by the folder's own
+    # ruling — so every pillow-family row here (`CHOPS_*`, `MATH_LINEAR`, `ENHANCE_*`, `LUT_3D`, `EFFECT_SPREAD`,
+    # and every sibling needing no skimage arm at all) faulted `provision` on the decode of a payload their own
+    # arm never needed skimage to touch. `Image.open` is the ungated reader this page already composes everywhere
+    # else, and `np.asarray` over the exif-transposed image is the same `(H, W, C)` uint8 `Frame` the arms admit.
     table = TRANSFORMS | MEASURE_TRANSFORMS
     row = table[kind]
     try:
+        frame = _framed_pillow(payload)
         match row.needs:
             case TransformNeeds.NONE:
-                frame = skutil.img_as_ubyte(skio.imread(BytesIO(payload)))
                 tx = TransformInput(image=(frame, kind, policy))
             case TransformNeeds.REFERENCE:
-                frame = skutil.img_as_ubyte(skio.imread(BytesIO(payload)))
                 tx = TransformInput(reference=(frame, kind, reference, policy))
             case TransformNeeds.MASK:
-                frame = skutil.img_as_ubyte(skio.imread(BytesIO(payload)))
                 tx = TransformInput(mask=(frame, kind, mask, policy))
             case TransformNeeds.SOURCE:
                 return Error(RasterFault(policy=(kind, "image", "source")))
@@ -760,7 +994,17 @@ def _transformed(payload: bytes, kind: Transform, reference: bytes, mask: bytes,
                 assert_never(unreachable)
         return Ok(row.arm(tx))
     except (ValueError, OSError, KeyError) as fault:
-        return Error(RasterFault(engine=f"skimage:{kind.value}:{type(fault).__name__}"))
+        # the fault names the TRANSFORM, not a fixed provider: one decoder now serves skimage-armed and pillow-armed
+        # rows alike, so a hardcoded `skimage:` prefix mislabelled every pillow arm's raise
+        return Error(RasterFault(engine=f"transform:{kind.value}:{type(fault).__name__}"))
+
+
+def _framed_pillow(payload: bytes, /) -> Frame:
+    # ONE ungated decode into the 8-bit working frame every transform arm admits: exif orientation applied exactly
+    # as the crop and thumbnail arms apply it, the band law resolved through `_banded` so a palette or CMYK source
+    # never reaches an arm expecting colour, and the array handed out band-interleaved.
+    with Image.open(BytesIO(payload)) as opened:
+        return np.asarray(_banded(ImageOps.exif_transpose(opened), law=BandLaw.FULL), dtype=np.uint8)
 
 
 def _generated(kind: Transform, policy: TransformPolicy, /) -> Result[RasterFact, RasterFault]:
@@ -770,7 +1014,7 @@ def _generated(kind: Transform, policy: TransformPolicy, /) -> Result[RasterFact
         return Error(RasterFault(engine=f"pillow:{kind.value}:{type(fault).__name__}"))
 
 
-def _thumbnail_pillow(payload: bytes, size: Pixels, fmt: ConvertFormat, fit: FitMode) -> Result[RasterFact, RasterFault]:
+def _thumbnail_pillow(payload: bytes, size: Pixels, fmt: ConvertFormat, fit: FitMode, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         image = ImageOps.exif_transpose(Image.open(BytesIO(payload)))
         match fit:
@@ -784,46 +1028,63 @@ def _thumbnail_pillow(payload: bytes, size: Pixels, fmt: ConvertFormat, fit: Fit
                 fitted = ImageOps.pad(image, size)
             case _ as unreachable:
                 assert_never(unreachable)
-        return RasterFact(_pillow_bytes(fitted, fmt, emit, _QUALITY, _EFFORT), *fitted.size)
+        return RasterFact(_pillow_bytes(fitted, fmt, emit, policy), *fitted.size)
 
-    return _writer(fmt, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
+    return _produced(RasterEngine.PILLOW, fmt, work)
 
 
-def _thumbnail_libvips(payload: bytes, size: Pixels, fmt: ConvertFormat, fit: FitMode) -> Result[RasterFact, RasterFault]:
+def _shrunk(payload: bytes, size: Pixels, fit: FitMode, policy: RasterPolicy, /) -> "pyvips.Image":
+    # The fused shrink BOTH libvips reducing arms reach: `thumbnail_buffer` fuses decode and downscale (JPEG DCT
+    # scaling, libvips `shrink-on-load`) so the full-resolution raster is never materialized, where `thumbnail_image`
+    # shrinks an ALREADY-opened SEQUENTIAL pipeline and pays the whole decode first. The buffer form owns the
+    # linear-light reduce and applies orientation itself, so no `autorot` precedes it and no arm re-spells the pair.
+    return pyvips.Image.thumbnail_buffer(
+        payload,
+        size[0],
+        height=size[1],
+        # `Size.BOTH` is the pillow convergence: `ImageOps.contain`/`pad` SCALE UP a smaller source to the box,
+        # where `Size.DOWN` refuses to enlarge — measured, a 10x10 into a 100x100 box gives 10x10 on libvips and
+        # 100x100 on pillow, so one `Size` request produced two different rasters depending on which engine served
+        # it. The convergence is the row's own law, and enlargement is the caller's declared box either way.
+        size=pyvips.Size.FORCE if fit is FitMode.STRETCH else pyvips.Size.BOTH,
+        crop=pyvips.Interesting.ATTENTION if fit is FitMode.COVER else pyvips.Interesting.NONE,
+        linear=policy.resample is Resample.LINEAR,
+        fail_on=pyvips.FailOn.ERROR,
+    )
+
+
+def _thumbnail_libvips(payload: bytes, size: Pixels, fmt: ConvertFormat, fit: FitMode, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
-        crop = pyvips.Interesting.ATTENTION if fit is FitMode.COVER else pyvips.Interesting.NONE
-        sizing = pyvips.Size.FORCE if fit is FitMode.STRETCH else pyvips.Size.DOWN
-        shrunk = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR).thumbnail_image(
-            size[0], height=size[1], size=sizing, crop=crop
-        )
+        shrunk = _shrunk(payload, size, fit, policy)
         image = (
             shrunk.embed((size[0] - shrunk.width) // 2, (size[1] - shrunk.height) // 2, size[0], size[1], extend=pyvips.Extend.BACKGROUND)
             if fit is FitMode.PAD
             else shrunk
         )
-        return RasterFact(_vips_bytes(image, fmt, emit, _QUALITY, _EFFORT), image.width, image.height)
+        return RasterFact(_vips_bytes(image, fmt, emit, policy), image.width, image.height)
 
-    return _writer(fmt, RasterEngine.LIBVIPS).bind(lambda emit: _vips_guarded(partial(work, emit)))
+    return _produced(RasterEngine.LIBVIPS, fmt, work)
 
 
-def _convert_pillow(payload: bytes, codec: ConvertFormat, quality: int, effort: int) -> Result[RasterFact, RasterFault]:
+def _convert_pillow(payload: bytes, codec: ConvertFormat, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         image = ImageOps.exif_transpose(Image.open(BytesIO(payload)))
-        return RasterFact(_pillow_bytes(image, codec, emit, quality, effort), *image.size)
+        return RasterFact(_pillow_bytes(image, codec, emit, policy), *image.size)
 
-    return _writer(codec, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
+    return _produced(RasterEngine.PILLOW, codec, work)
 
 
-def _convert_libvips(payload: bytes, codec: ConvertFormat, quality: int, effort: int) -> Result[RasterFact, RasterFault]:
+def _convert_libvips(payload: bytes, codec: ConvertFormat, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
-        source = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR).autorot()
-        managed = source.icc_transform("srgb", intent=pyvips.Intent.RELATIVE) if source.get_typeof("icc-profile-data") != 0 else source
-        return RasterFact(_vips_bytes(managed, codec, emit, quality, effort), managed.width, managed.height)
+        # the ICC gate is `_vips_bytes`'s, so this arm carries orientation alone and holds no destination or intent of
+        # its own — the coordinate set a one-arm transform used to hide is the policy bundle every arm now crosses
+        image = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR).autorot()
+        return RasterFact(_vips_bytes(image, codec, emit, policy), image.width, image.height)
 
-    return _writer(codec, RasterEngine.LIBVIPS).bind(lambda emit: _vips_guarded(partial(work, emit)))
+    return _produced(RasterEngine.LIBVIPS, codec, work)
 
 
-def _crop_pillow(payload: bytes, box: Box, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
+def _crop_pillow(payload: bytes, box: Box, fmt: ConvertFormat, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         # decoded-extent gate: Pillow `.crop` silently zero-pads past the image edge and libvips `extract_area`
         # raises an opaque engine error — both arms gate identically here, so an out-of-image crop faults `bounds`
@@ -832,21 +1093,24 @@ def _crop_pillow(payload: bytes, box: Box, fmt: ConvertFormat) -> Result[RasterF
         if left < 0 or top < 0 or left + width > image.width or top + height > image.height:
             raise IndexError(f"crop {box} of {image.width}x{image.height}")
         region = image.crop((left, top, left + width, top + height))
-        return RasterFact(_pillow_bytes(region, fmt, emit, _QUALITY, _EFFORT), *region.size)
+        return RasterFact(_pillow_bytes(region, fmt, emit, policy), *region.size)
 
-    return _writer(fmt, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
+    return _produced(RasterEngine.PILLOW, fmt, work)
 
 
-def _crop_libvips(payload: bytes, box: Box, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
+def _crop_libvips(payload: bytes, box: Box, fmt: ConvertFormat, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         left, top, width, height = box
-        source = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR)
+        # `.autorot` matches the pillow arm's `exif_transpose`: without it the two engines measure the box against
+        # DIFFERENT axes, so one `Crop` request lands on transposed pixels depending on which engine served it —
+        # and on a rotated portrait scan the extent gate itself passes on one arm and faults on the other.
+        source = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR).autorot()
         if left < 0 or top < 0 or left + width > source.width or top + height > source.height:
             raise IndexError(f"crop {box} of {source.width}x{source.height}")
         image = source.extract_area(*box)
-        return RasterFact(_vips_bytes(image, fmt, emit, _QUALITY, _EFFORT), image.width, image.height)
+        return RasterFact(_vips_bytes(image, fmt, emit, policy), image.width, image.height)
 
-    return _writer(fmt, RasterEngine.LIBVIPS).bind(lambda emit: _vips_guarded(partial(work, emit)))
+    return _produced(RasterEngine.LIBVIPS, fmt, work)
 
 
 def _probe_pillow(payload: bytes) -> Result[RasterFact, RasterFault]:
@@ -879,7 +1143,14 @@ def _probe_libvips(payload: bytes) -> Result[RasterFact, RasterFault]:
 
 
 def _grid(
-    tiles: list["Image.Image"], columns: int, cell: Pixels, fmt: ConvertFormat, emit: CodecEmit, score: frozendict[str, float | str], /
+    tiles: list["Image.Image"],
+    columns: int,
+    cell: Pixels,
+    fmt: ConvertFormat,
+    emit: CodecEmit,
+    policy: RasterPolicy,
+    score: frozendict[str, float | str],
+    /,
 ) -> RasterFact:
     # Composes the ONE pillow grid both tiled arms reach — Montage over decoded payloads, Contact over the frames of
     # one animation — so the COMPOSED extent obeys Pillow's bomb ceiling exactly once. `Image.new` allocates unchecked and
@@ -895,46 +1166,101 @@ def _grid(
         tile.thumbnail(cell)
         row, col = divmod(index, columns)
         grid.paste(tile, (col * cell_w, row * cell_h))
-    return RasterFact(_pillow_bytes(grid, fmt, emit, _QUALITY, _EFFORT), *grid.size, score)
+    return RasterFact(_pillow_bytes(grid, fmt, emit, policy), *grid.size, score)
 
 
-def _montage(tiles: tuple[bytes, ...], columns: int, cell: Pixels, fmt: ConvertFormat, engine: RasterEngine) -> Result[RasterFact, RasterFault]:
+def _montage(
+    tiles: tuple[bytes, ...], columns: int, cell: Pixels, fmt: ConvertFormat, engine: RasterEngine, policy: RasterPolicy
+) -> Result[RasterFact, RasterFault]:
     match engine:
         case RasterEngine.PILLOW:
 
             def work(emit: CodecEmit) -> RasterFact:
-                return _grid([Image.open(BytesIO(blob)) for blob in tiles], columns, cell, fmt, emit, frozendict({"tiles": float(len(tiles))}))
+                tiled = [Image.open(BytesIO(blob)) for blob in tiles]
+                return _grid(tiled, columns, cell, fmt, emit, policy, frozendict({"tiles": float(len(tiles))}))
 
-            return _writer(fmt, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
         case RasterEngine.LIBVIPS:
 
             def work(emit: CodecEmit) -> RasterFact:
-                # fused arrayjoin grid: each cell shrinks-on-load, the grid computes in one streamed pass — large-tile parity pillow's paste loop cannot match
-                cells = [
-                    pyvips.Image.new_from_buffer(blob, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR).thumbnail_image(
-                        cell[0], height=cell[1], size=pyvips.Size.DOWN
-                    )
-                    for blob in tiles
-                ]
+                # fused arrayjoin grid: each cell rides the same `_shrunk` decode+downscale fusion the Thumbnail arm
+                # takes, so a montage of large tiles never materializes one at full resolution, and the grid computes
+                # in one streamed pass — the large-tile parity pillow's decode-then-paste loop cannot match
+                cells = [_shrunk(blob, cell, FitMode.CONTAIN, policy) for blob in tiles]
                 grid = pyvips.Image.arrayjoin(cells, across=columns)
-                return RasterFact(_vips_bytes(grid, fmt, emit, _QUALITY, _EFFORT), grid.width, grid.height)
+                return RasterFact(_vips_bytes(grid, fmt, emit, policy), grid.width, grid.height)
 
-            return _writer(fmt, RasterEngine.LIBVIPS).bind(lambda emit: _vips_guarded(partial(work, emit)))
         case _ as unreachable:
             assert_never(unreachable)
+    return _produced(engine, fmt, work)
 
 
-def _composite(base: bytes, overlay: bytes, position: Pixels, mode: BlendMode, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
-    def work(emit: CodecEmit) -> RasterFact:
+_BLEND: Final[frozendict[BlendMode, str]] = frozendict({
+    # the SEPARABLE half of the canonical algebra lowered onto its libvips nickname. `NORMAL` names no separable
+    # function at all — the Porter-Duff operator alone decides that composite — and the four non-separable CSS modes
+    # (`HUE`/`SATURATION`/`COLOR`/`LUMINOSITY`) have no `VipsBlendMode` member, so they carry no row and `_lowered`
+    # refuses them by name rather than substituting a mode the caller never asked for.
+    BlendMode.MULTIPLY: "multiply",
+    BlendMode.SCREEN: "screen",
+    BlendMode.OVERLAY: "overlay",
+    BlendMode.DARKEN: "darken",
+    BlendMode.LIGHTEN: "lighten",
+    BlendMode.COLOR_DODGE: "colour-dodge",
+    BlendMode.COLOR_BURN: "colour-burn",
+    BlendMode.HARD_LIGHT: "hard-light",
+    BlendMode.SOFT_LIGHT: "soft-light",
+    BlendMode.DIFFERENCE: "difference",
+    BlendMode.EXCLUSION: "exclusion",
+})
+_PORTER: Final[frozendict[PorterDuff, str]] = frozendict({
+    # the OPERATOR half lowered onto its libvips nickname. `LIGHTER` and `PLUS_LIGHTER` are one additive operator in
+    # libvips, and `PLUS_DARKER` has no member — the subtractive Safari extension libvips never grew — so it carries no
+    # row.
+    PorterDuff.SATURATE: "saturate",
+    PorterDuff.CLEAR: "clear",
+    PorterDuff.COPY: "source",
+    PorterDuff.DESTINATION: "dest",
+    PorterDuff.SOURCE_OVER: "over",
+    PorterDuff.DESTINATION_OVER: "dest-over",
+    PorterDuff.SOURCE_IN: "in",
+    PorterDuff.DESTINATION_IN: "dest-in",
+    PorterDuff.SOURCE_OUT: "out",
+    PorterDuff.DESTINATION_OUT: "dest-out",
+    PorterDuff.SOURCE_ATOP: "atop",
+    PorterDuff.DESTINATION_ATOP: "dest-atop",
+    PorterDuff.XOR: "xor",
+    PorterDuff.LIGHTER: "add",
+    PorterDuff.PLUS_LIGHTER: "add",
+})
+
+
+def _lowered(blend: BlendMode, operator: PorterDuff, /) -> Result[str, RasterFault]:
+    # `composite2` takes ONE nickname off a single-axis `VipsBlendMode`, so the canonical two-axis pair lowers here or
+    # refuses here. A separable blend implies source-over compositing in libvips, so pairing one with any other operator
+    # states a composite the engine cannot spell; `NORMAL` defers wholly to the operator. The refusal names the pair, so
+    # a caller reads which axis it must change rather than receiving a silently substituted mode.
+    match (blend, _PORTER.get(operator), _BLEND.get(blend)):
+        case (BlendMode.NORMAL, str() as composited, _):
+            return Ok(composited)
+        case (_, "over", str() as separable):
+            return Ok(separable)
+        case _:
+            return Error(RasterFault(blend=(blend.name, operator.name)))
+
+
+def _composite(
+    base: bytes, overlay: bytes, position: Pixels, blend: BlendMode, operator: PorterDuff, fmt: ConvertFormat, policy: RasterPolicy
+) -> Result[RasterFact, RasterFault]:
+    def work(nickname: str, emit: CodecEmit) -> RasterFact:
         canvas = pyvips.Image.new_from_buffer(base, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR)
         layer = pyvips.Image.new_from_buffer(overlay, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR)
-        merged = canvas.composite2(layer, mode.value, x=position[0], y=position[1])
-        return RasterFact(_vips_bytes(merged, fmt, emit, _QUALITY, _EFFORT), merged.width, merged.height)
+        merged = canvas.composite2(layer, nickname, x=position[0], y=position[1])
+        return RasterFact(_vips_bytes(merged, fmt, emit, policy), merged.width, merged.height)
 
-    return _writer(fmt, RasterEngine.LIBVIPS).bind(lambda emit: _vips_guarded(partial(work, emit)))
+    # `admitted` already proved the pair lowers, so the rail here re-reads the SAME derivation rather than a second gate
+    return _lowered(blend, operator).bind(lambda nickname: _produced(RasterEngine.LIBVIPS, fmt, partial(work, nickname)))
 
 
-def _smartcrop(payload: bytes, size: Pixels, focus: CropFocus, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
+def _smartcrop(payload: bytes, size: Pixels, focus: CropFocus, fmt: ConvertFormat, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         # content-aware crop: libvips saliency/entropy extracts the interesting window a fixed-box Crop cannot
         image = (
@@ -942,22 +1268,28 @@ def _smartcrop(payload: bytes, size: Pixels, focus: CropFocus, fmt: ConvertForma
             .autorot()
             .smartcrop(size[0], size[1], interesting=focus.value)
         )
-        return RasterFact(_vips_bytes(image, fmt, emit, _QUALITY, _EFFORT), image.width, image.height)
+        return RasterFact(_vips_bytes(image, fmt, emit, policy), image.width, image.height)
 
-    return _writer(fmt, RasterEngine.LIBVIPS).bind(lambda emit: _vips_guarded(partial(work, emit)))
+    return _produced(RasterEngine.LIBVIPS, fmt, work)
 
 
-def _pyramid(payload: bytes, layout: PyramidLayout, tile: int, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
+def _pyramid(payload: bytes, layout: PyramidLayout, tile: int, fmt: ConvertFormat, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     # dzsave keys its TILE encoder by the same saver suffix the row already carries, so the pyramid reads the writer
     # column instead of lowering the enum value — a container libvips writes only through the array leg has no tile
     # spelling at all, and the `array` arm faults `codec` rather than handing dzsave a suffix the build never registered
     def work(suffix: str) -> RasterFact:
         # DeepZoom/Zoomify/IIIF pyramid tiling to one zip blob — the large-scan tiled-viewer export
-        image = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR).autorot()
+        # the ICC gate every other libvips egress crosses reaches the TILES too: `dzsave_buffer` writes each tile
+        # through the suffix's own encoder, so an unmanaged image here shipped a whole DeepZoom set of untagged
+        # tiles while this page's own law claims the pyramid crosses the device transform like every sibling.
+        # `_vips_bytes` is the wrong seam for it — dzsave emits its own zip container rather than one buffer — so
+        # the managed pass runs and the container write stays dzsave's.
+        opened = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR).autorot()
+        image = _vips_managed(opened, policy)
         blob = image.dzsave_buffer(layout=layout.value, tile_size=tile, suffix=suffix, container="zip")
         return RasterFact(blob, image.width, image.height)
 
-    match _writer(fmt, RasterEngine.LIBVIPS):
+    match writer(fmt, RasterEngine.LIBVIPS):
         case Result(tag="error", error=fault):
             return Error(fault)
         case Result(tag="ok", ok=CodecEmit(tag="native", native=(suffix, _, _))):
@@ -968,7 +1300,7 @@ def _pyramid(payload: bytes, layout: PyramidLayout, tile: int, fmt: ConvertForma
             assert_never(unreachable)
 
 
-def _geometry(payload: bytes, op: GeometryOp, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
+def _geometry(payload: bytes, op: GeometryOp, fmt: ConvertFormat, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         image = ImageOps.exif_transpose(Image.open(BytesIO(payload)))
         match op:
@@ -996,12 +1328,12 @@ def _geometry(payload: bytes, op: GeometryOp, fmt: ConvertFormat) -> Result[Rast
                 out = image.transpose(Image.Transpose.TRANSVERSE)
             case _ as unreachable:
                 assert_never(unreachable)
-        return RasterFact(_pillow_bytes(out, fmt, emit, _QUALITY, _EFFORT), *out.size)
+        return RasterFact(_pillow_bytes(out, fmt, emit, policy), *out.size)
 
-    return _writer(fmt, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
+    return _produced(RasterEngine.PILLOW, fmt, work)
 
 
-def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngine) -> Result[RasterFact, RasterFault]:
+def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngine, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     match engine:
         case RasterEngine.PILLOW:
 
@@ -1012,11 +1344,8 @@ def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngin
                 if not 0 <= index < frames:
                     raise IndexError(f"frame {index} of {frames}")
                 image.seek(index)
-                return RasterFact(
-                    _pillow_bytes(image, fmt, emit, _QUALITY, _EFFORT), *image.size, frozendict({"frame": float(index), "frames": float(frames)})
-                )
+                return RasterFact(_pillow_bytes(image, fmt, emit, policy), *image.size, frozendict({"frame": float(index), "frames": float(frames)}))
 
-            return _writer(fmt, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
         case RasterEngine.LIBVIPS:
 
             def work(emit: CodecEmit) -> RasterFact:
@@ -1029,15 +1358,17 @@ def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngin
                     raise IndexError(f"page {index} of {pages}")
                 image = pyvips.Image.new_from_buffer(payload, "", page=index, access=pyvips.Access.SEQUENTIAL, fail_on=pyvips.FailOn.ERROR)
                 return RasterFact(
-                    _vips_bytes(image, fmt, emit, _QUALITY, _EFFORT), image.width, image.height, frozendict({"frame": float(index), "frames": float(pages)})
+                    _vips_bytes(image, fmt, emit, policy), image.width, image.height, frozendict({"frame": float(index), "frames": float(pages)})
                 )
 
-            return _writer(fmt, RasterEngine.LIBVIPS).bind(lambda emit: _vips_guarded(partial(work, emit)))
         case _ as unreachable:
             assert_never(unreachable)
+    return _produced(engine, fmt, work)
 
 
-def _sequence(frames: tuple[bytes, ...], delays: tuple[int, ...], loop: int, disposal: int, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
+def _sequence(
+    frames: tuple[bytes, ...], delays: tuple[int, ...], loop: int, disposal: int, fmt: ConvertFormat, policy: RasterPolicy
+) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         # Multi-frame WRITE: `_pillow_bytes` discriminates on the block arity and composes save_all/append_images, so
         # this arm contributes only the clock the row's rung licenses. `_CLOCK` is cumulative, so the rung NAMES its keys
@@ -1045,10 +1376,10 @@ def _sequence(frames: tuple[bytes, ...], delays: tuple[int, ...], loop: int, dis
         # every key off, and a key its plugin reads nowhere is never spelled at all.
         images = [Image.open(BytesIO(blob)) for blob in frames]
         clock: frozendict[str, object] = frozendict({"duration": delays, "loop": loop, "disposal": disposal})
-        timing = frozendict({key: clock[key] for key in _CLOCK[_CODEC[fmt].frames] if key != "duration" or delays})
-        return RasterFact(_pillow_bytes(images, fmt, emit, _QUALITY, _EFFORT, **timing), *images[0].size, frozendict({"frames": float(len(images))}))
+        timing = frozendict({key: clock[key] for key in _CLOCK[CODEC[fmt].frames] if key != "duration" or delays})
+        return RasterFact(_pillow_bytes(images, fmt, emit, policy, **timing), *images[0].size, frozendict({"frames": float(len(images))}))
 
-    match _CODEC[fmt].frames:
+    match CODEC[fmt].frames:
         case FrameLaw.SINGLE:
             # a SINGLE-frame container composes no framing at all, whichever writer serves it: pillow's own `SAVE_ALL`
             # registry answers `save_all` on a JPEG, BMP, or QOI target with a bare `KeyError` the encode arm would read
@@ -1056,21 +1387,23 @@ def _sequence(frames: tuple[bytes, ...], delays: tuple[int, ...], loop: int, dis
             # rather than paying every decode and then encoding frame zero while discarding the rest of the sequence.
             return Error(RasterFault(codec=fmt))
         case _:
-            return _writer(fmt, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
+            return _produced(RasterEngine.PILLOW, fmt, work)
 
 
-def _contact(payload: bytes, columns: int, cell: Pixels, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
+def _contact(payload: bytes, columns: int, cell: Pixels, fmt: ConvertFormat, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         # filmstrip contact sheet: ImageSequence.Iterator walks every frame of an animated GIF/APNG/WebP or multi-page
         # TIFF and `_grid` tiles each into one grid — the multi-frame READ inverse of Sequence's multi-frame WRITE
         with Image.open(BytesIO(payload)) as image:
             tiles = [frame.copy() for frame in ImageSequence.Iterator(image)]
-        return _grid(tiles, columns, cell, fmt, emit, frozendict({"frames": float(len(tiles))}))
+        return _grid(tiles, columns, cell, fmt, emit, policy, frozendict({"frames": float(len(tiles))}))
 
-    return _writer(fmt, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
+    return _produced(RasterEngine.PILLOW, fmt, work)
 
 
-def _quantized(payload: bytes, colors: int, method: QuantizeMethod, dither: DitherMode, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
+def _quantized(
+    payload: bytes, colors: int, method: QuantizeMethod, dither: DitherMode, fmt: ConvertFormat, policy: RasterPolicy
+) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         # indexed-color small-file export — Image.quantize over the QuantizeMethod/DitherMode vocab resolved to the PIL enum by name; subsumes convert(palette=ADAPTIVE)
         source = ImageOps.exif_transpose(Image.open(BytesIO(payload)))
@@ -1078,14 +1411,12 @@ def _quantized(payload: bytes, colors: int, method: QuantizeMethod, dither: Dith
             source if source.mode in {"RGB", "RGBA", "L"} else source.convert("RGB")
         )  # quantize admits only RGB/RGBA/L; a P/CMYK/I;16 source flattens to RGB first
         indexed = rgb.quantize(colors=colors, method=Image.Quantize[method.name], dither=Image.Dither[dither.name])
-        return RasterFact(
-            _pillow_bytes(indexed, fmt, emit, _QUALITY, _EFFORT), *indexed.size, frozendict({"colors": float(colors), "palette": method.value})
-        )
+        return RasterFact(_pillow_bytes(indexed, fmt, emit, policy), *indexed.size, frozendict({"colors": float(colors), "palette": method.value}))
 
-    return _writer(fmt, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
+    return _produced(RasterEngine.PILLOW, fmt, work)
 
 
-def _children(payload: bytes, index: int, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
+def _children(payload: bytes, index: int, fmt: ConvertFormat, policy: RasterPolicy) -> Result[RasterFact, RasterFault]:
     def work(emit: CodecEmit) -> RasterFact:
         # embedded-thumbnail / multi-resolution sub-image extract via get_child_images — the preview a fresh decode would miss; an index past the count raises IndexError -> bounds
         with Image.open(BytesIO(payload)) as image:
@@ -1094,17 +1425,17 @@ def _children(payload: bytes, index: int, fmt: ConvertFormat) -> Result[RasterFa
                 raise IndexError(f"child {index} of {len(children)}")
             child = children[index]
             return RasterFact(
-                _pillow_bytes(child, fmt, emit, _QUALITY, _EFFORT), *child.size, frozendict({"child": float(index), "children": float(len(children))})
+                _pillow_bytes(child, fmt, emit, policy), *child.size, frozendict({"child": float(index), "children": float(len(children))})
             )
 
-    return _writer(fmt, RasterEngine.PILLOW).bind(lambda emit: _pillow_guarded(partial(work, emit)))
+    return _produced(RasterEngine.PILLOW, fmt, work)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EngineOps:
-    thumbnail: Callable[[bytes, Pixels, ConvertFormat, FitMode], Result[RasterFact, RasterFault]]
-    convert: Callable[[bytes, ConvertFormat, int, int], Result[RasterFact, RasterFault]]
-    crop: Callable[[bytes, Box, ConvertFormat], Result[RasterFact, RasterFault]]
+    thumbnail: Callable[[bytes, Pixels, ConvertFormat, FitMode, RasterPolicy], Result[RasterFact, RasterFault]]
+    convert: Callable[[bytes, ConvertFormat, RasterPolicy], Result[RasterFact, RasterFault]]
+    crop: Callable[[bytes, Box, ConvertFormat, RasterPolicy], Result[RasterFact, RasterFault]]
     probe: Callable[[bytes], Result[RasterFact, RasterFault]]
 
 
@@ -1112,79 +1443,132 @@ _ENGINE: Final[frozendict[RasterEngine, EngineOps]] = frozendict({
     RasterEngine.PILLOW: EngineOps(thumbnail=_thumbnail_pillow, convert=_convert_pillow, crop=_crop_pillow, probe=_probe_pillow),
     RasterEngine.LIBVIPS: EngineOps(thumbnail=_thumbnail_libvips, convert=_convert_libvips, crop=_crop_libvips, probe=_probe_libvips),
 })
-_CODEC: Final[frozendict[ConvertFormat, CodecRow]] = frozendict({
-    # ONE row per display container. The writer column an engine holds IS that engine's capability claim, probed against
-    # its linked build; an engine with no column writes the container nowhere and `_writer` faults `codec` for it.
+CODEC: Final[frozendict[ConvertFormat, CodecRow]] = frozendict({
+    # ONE row per display container. Each engine's column is an ORDERED preference and every leg carries its OWN probe,
+    # so the row states what the build can be ASKED for and the probe answers what it can DO; a container whose every
+    # listed leg refuses writes nowhere for that engine and `_writer` faults `codec` for it.
     ConvertFormat.PNG: CodecRow(
         writers=frozendict({
-            RasterEngine.PILLOW: _pillow_writer("PNG", None, lambda quality, effort: frozendict({"optimize": True})),
-            RasterEngine.LIBVIPS: _vips_writer(".png", lambda quality, effort: frozendict({"compression": effort})),
+            RasterEngine.PILLOW: (_pillow_writer("PNG", None, lambda codec: frozendict({"optimize": True})),),
+            RasterEngine.LIBVIPS: (_vips_writer(".png", lambda codec: frozendict({"compression": codec.effort})),),
         }),
         bands=BandLaw.FULL,
         frames=FrameLaw.DISPOSED,  # APNG: the pillow plugin composes duration, loop, and per-frame disposal through save_all
+        palette=True,
     ),
     ConvertFormat.JPEG: CodecRow(
         writers=frozendict({
-            RasterEngine.PILLOW: _pillow_writer("JPEG", None, lambda quality, effort: frozendict({"quality": quality, "optimize": True})),
-            RasterEngine.LIBVIPS: _vips_writer(".jpg", lambda quality, effort: frozendict({"Q": quality})),
+            RasterEngine.PILLOW: (_pillow_writer("JPEG", None, lambda codec: frozendict({"quality": codec.quality, "optimize": True})),),
+            RasterEngine.LIBVIPS: (_vips_writer(".jpg", lambda codec: frozendict({"Q": codec.quality})),),
         }),
         bands=BandLaw.OPAQUE,
         frames=FrameLaw.SINGLE,
     ),
     ConvertFormat.WEBP: CodecRow(
         writers=frozendict({
-            RasterEngine.PILLOW: _pillow_writer("WEBP", "webp", lambda quality, effort: frozendict({"quality": quality, "method": effort})),
-            RasterEngine.LIBVIPS: _vips_writer(".webp", lambda quality, effort: frozendict({"Q": quality, "effort": effort})),
+            RasterEngine.PILLOW: (_pillow_writer("WEBP", "webp", lambda codec: frozendict({"quality": codec.quality, "method": codec.effort})),),
+            RasterEngine.LIBVIPS: (_vips_writer(".webp", lambda codec: frozendict({"Q": codec.quality, "effort": codec.effort})),),
         }),
         bands=BandLaw.FULL,
         frames=FrameLaw.LOOPED,
+        palette=True,
     ),
     ConvertFormat.AVIF: CodecRow(
         writers=frozendict({
-            RasterEngine.PILLOW: _pillow_writer("AVIF", "avif", lambda quality, effort: frozendict({"quality": quality, "speed": effort})),
-            RasterEngine.LIBVIPS: _vips_writer(".avif", lambda quality, effort: frozendict({"Q": quality, "effort": effort})),
+            RasterEngine.PILLOW: (_pillow_writer("AVIF", "avif", lambda codec: frozendict({"quality": codec.quality, "speed": codec.effort})),),
+            RasterEngine.LIBVIPS: (_vips_writer(".avif", lambda codec: frozendict({"Q": codec.quality, "effort": codec.effort})),),
         }),
         bands=BandLaw.FULL,
         frames=FrameLaw.TIMED,  # the AVIF sequence carries per-frame duration and no loop count
     ),
+    ConvertFormat.HEIF: CodecRow(
+        # The HEVC-in-HEIF sibling of AVIF: pillow registers no HEIF saver at all, so the container is libvips-only and
+        # `heifsave` serves it under the SAME delegating libheif the AVIF row rides — which is why the trial write, not
+        # the registered suffix, is what admits it: a libheif linking no HEVC encoder offers `.heic` and refuses the
+        # write. The array leg carries no HEIF encoder either, so the column is one native leg and no fallback.
+        writers=frozendict({
+            RasterEngine.LIBVIPS: (_vips_writer(".heic", lambda codec: frozendict({"Q": codec.quality, "effort": codec.effort})),),
+        }),
+        bands=BandLaw.FULL,
+        frames=FrameLaw.SINGLE,
+    ),
+    ConvertFormat.JP2: CodecRow(
+        # JPEG 2000 at display depth. Pillow states compression as a RATE in `quality_layers` under `quality_mode`
+        # `"rates"`, so the row reads `CodecPolicy.rate` — the derived coordinate — and turns the reversible transform
+        # off only below full quality, where libvips spells the same axis as its usual `Q`. The `openjpeg` array leg
+        # backs both engines when a build links no native writer and reads the SAME derived rate: `jpeg2k_encode`'s
+        # `level` is a compression rate where `None`/`0` is the reversible transform, not a 0-100 quality, so feeding
+        # it `codec.quality` inverted the axis on one leg of one row — MEASURED on a 256x256 RGB, `level=0` produced
+        # 216632 bytes and `level=1` produced 266, so a caller asking for maximum compression got the largest file
+        # from the array writer and 100:1 from the pillow writer on the identical row.
+        # the 12- and 16-bit JP2 lanes are the texture plane's.
+        writers=frozendict({
+            RasterEngine.PILLOW: (
+                _pillow_writer(
+                    "JPEG2000",
+                    "jpg_2000",
+                    lambda codec: frozendict({"irreversible": codec.quality < 100, "quality_mode": "rates", "quality_layers": (codec.rate,)}),
+                ),
+                _array_writer(lambda: imagecodecs.JPEG2K.available, lambda frame, codec: imagecodecs.jpeg2k_encode(frame, level=None if codec.quality >= 100 else codec.rate)),
+            ),
+            RasterEngine.LIBVIPS: (
+                _vips_writer(".jp2", lambda codec: frozendict({"Q": codec.quality, "lossless": codec.quality >= 100})),
+                _array_writer(lambda: imagecodecs.JPEG2K.available, lambda frame, codec: imagecodecs.jpeg2k_encode(frame, level=None if codec.quality >= 100 else codec.rate)),
+            ),
+        }),
+        bands=BandLaw.FULL,
+        frames=FrameLaw.SINGLE,
+    ),
     ConvertFormat.GIF: CodecRow(
         writers=frozendict({
             # timing rides Sequence, palette rides Quantize
-            RasterEngine.PILLOW: _pillow_writer("GIF", None, lambda quality, effort: frozendict({"optimize": True})),
-            RasterEngine.LIBVIPS: _vips_writer(".gif", lambda quality, effort: frozendict({"effort": effort})),
+            RasterEngine.PILLOW: (_pillow_writer("GIF", None, lambda codec: frozendict({"optimize": True})),),
+            RasterEngine.LIBVIPS: (_vips_writer(".gif", lambda codec: frozendict({"effort": codec.effort})),),
         }),
         bands=BandLaw.FULL,
         frames=FrameLaw.DISPOSED,
+        palette=True,
     ),
     ConvertFormat.TIFF: CodecRow(
         writers=frozendict({
-            RasterEngine.PILLOW: _pillow_writer("TIFF", None, lambda quality, effort: frozendict({"compression": "tiff_lzw"})),
-            RasterEngine.LIBVIPS: _vips_writer(".tif", lambda quality, effort: frozendict({"compression": "lzw"})),
+            RasterEngine.PILLOW: (_pillow_writer("TIFF", None, lambda codec: frozendict({"compression": "tiff_lzw"})),),
+            RasterEngine.LIBVIPS: (_vips_writer(".tif", lambda codec: frozendict({"compression": "lzw"})),),
         }),
         bands=BandLaw.FULL,
         frames=FrameLaw.PAGES,  # the directory composes through save_all and carries no per-frame clock
+        palette=True,
     ),
     ConvertFormat.BMP: CodecRow(
+        # the fused surface prefers `bmpsave` so a BMP egress stays inside the streaming pipeline, and falls through to
+        # the codec substrate on a build registering no `.bmp` saver — the preference states both without asserting either
         writers=frozendict({
-            RasterEngine.PILLOW: _pillow_writer("BMP", None, lambda quality, effort: frozendict()),
-            # libvips ships loaders for BMP and no saver at any build, so the fused surface egresses through the
-            # array writer rather than refusing a container the estate's own codec substrate writes
-            RasterEngine.LIBVIPS: _array_writer(lambda: imagecodecs.BMP.available, lambda frame, quality, effort: imagecodecs.bmp_encode(frame)),
+            RasterEngine.PILLOW: (
+                _pillow_writer("BMP", None, lambda codec: frozendict()),
+                _array_writer(lambda: imagecodecs.BMP.available, lambda frame, codec: imagecodecs.bmp_encode(frame)),
+            ),
+            RasterEngine.LIBVIPS: (
+                _vips_writer(".bmp", lambda codec: frozendict()),
+                _array_writer(lambda: imagecodecs.BMP.available, lambda frame, codec: imagecodecs.bmp_encode(frame)),
+            ),
         }),
         # the WEAKEST writer's reach, stated per writer: `imagecodecs.bmp_encode` carries RGBA on the array leg
         # while the pillow saver is RGB-only, and one band column serves both — so the row flattens for BOTH and
         # an alpha-bearing egress routes through PNG or QOI rather than shipping a container one leg would refuse
         bands=BandLaw.OPAQUE,
         frames=FrameLaw.SINGLE,
+        palette=True,
     ),
     ConvertFormat.JXL: CodecRow(
-        # JPEG XL at DISPLAY depth: neither pillow nor libvips links a JXL saver, so one array writer serves both working
-        # surfaces off the shared 8-bit `Frame`. `level` is the 0-100 quality coordinate every other row already carries
-        # and `effort` the libjxl encode effort; the 16-bit, half, and float JXL lanes are the deep-pixel plane's alone.
+        # JPEG XL at DISPLAY depth. Pillow links no JXL saver, and libvips registers `.jxl` yet its `jxlsave` accepts the
+        # 1- and 3-band shapes ALONE — a 2- or 4-band image raises mid-write, which the 1x1 3-band trial cannot see — so
+        # the native leg would pass its own probe and then refuse exactly the alpha this row's `FULL` band law admits.
+        # One array writer therefore serves both surfaces off the shared 8-bit `Frame`: `level` is the 0-100 quality
+        # coordinate every other row carries and `effort` the libjxl encode effort. The 16-bit, half, and float JXL lanes
+        # are the deep-pixel plane's alone, and the container's primaries/transfer tagging rides there with them.
         writers=_shared(
             _array_writer(
                 lambda: imagecodecs.JPEGXL.available,
-                lambda frame, quality, effort: imagecodecs.jpegxl_encode(frame, level=quality, effort=effort),
+                lambda frame, codec: imagecodecs.jpegxl_encode(frame, level=codec.quality, effort=codec.effort),
             )
         ),
         bands=BandLaw.FULL,
@@ -1194,11 +1578,14 @@ _CODEC: Final[frozendict[ConvertFormat, CodecRow]] = frozendict({
         # Lossless byte-stream container: fixed 8-bit RGB/RGBA by SPECIFICATION, so it carries no quality or effort
         # coordinate on either leg and the row's band law promotes a gray plane before either encoder sees it — pillow
         # answers one with `Unsupported QOI image mode` and imagecodecs with `photometric 1 not supported`, and both are
-        # that same container fact the row states once. Pillow links its own saver; libvips registers no `.qoi` suffix at
-        # any build, so the fused surface takes the array leg — the inverse column shape BMP carries.
+        # that same container fact the row states once. Pillow links its own saver and the codec substrate backs it;
+        # libvips registers no `.qoi` suffix at any build, so the fused surface takes the array leg alone.
         writers=frozendict({
-            RasterEngine.PILLOW: _pillow_writer("QOI", None, lambda quality, effort: frozendict()),
-            RasterEngine.LIBVIPS: _array_writer(lambda: imagecodecs.QOI.available, lambda frame, quality, effort: imagecodecs.qoi_encode(frame)),
+            RasterEngine.PILLOW: (
+                _pillow_writer("QOI", None, lambda codec: frozendict()),
+                _array_writer(lambda: imagecodecs.QOI.available, lambda frame, codec: imagecodecs.qoi_encode(frame)),
+            ),
+            RasterEngine.LIBVIPS: (_array_writer(lambda: imagecodecs.QOI.available, lambda frame, codec: imagecodecs.qoi_encode(frame)),),
         }),
         bands=BandLaw.COLOR,
         frames=FrameLaw.SINGLE,
@@ -1216,23 +1603,26 @@ config:
 ---
 flowchart LR
     accTitle: Raster production flow
-    accDescr: Raster.emit fanning one ArtifactWork per member, op normalization and admission, the engine-polymorphic worker arms, codec resolution across the pillow, libvips, and imagecodecs writers, and the RasterFact egress into ArtifactReceipt.Preview.
-    Emit["Raster.emit: one ArtifactWork per member, lane bound into the thunk"] --> Norm["_normalized(ops) -> Block[RasterOp]"]
-    Norm --> Admit["RasterOp.admitted -> typed empty / extent / arity / range / reference / policy faults"]
-    Admit --> Member["per-member _emit(op, lane)"]
+    accDescr: Raster.emit fanning one ArtifactWork per member under one policy, op and policy admission, the engine-polymorphic worker arms, the single producing tail resolving an ordered writer preference, the two ICC gates, and the RasterFact egress into ArtifactReceipt.Preview.
+    Emit["Raster.emit: one ArtifactWork per member, lane + policy bound into the thunk"] --> Norm["_normalized(ops) -> Block[RasterOp]"]
+    Norm --> Admit["RasterOp.admitted(policy) -> policy range / depth / press-bundle, then empty / extent / arity / range / reference / blend faults"]
+    Admit --> Member["per-member _emit(op, lane, policy)"]
     Member -->|"detect (delegated, in-process)"| Det["Detect(lane, PUREMAGIC).of(Source.Buffer) -> DetectIdentity -> _detected"]
     Member -->|"every other op"| Cross["lane.offload(Kernel.of(_worker_raster, HOSTILE))"]
     Cross -->|"worker death / BeartypeCallHintViolation"| Runtime["runtime BoundaryFault (lanes guard + CLASSIFY api row)"]
     Cross --> Worker["@beartype(conf=FAULT_CONF) _worker_raster match"]
     Worker -->|"ImportError / dlopen OSError"| Prov["RasterFault.provision"]
-    Worker --> Row["every producing arm: _writer(codec, engine) -> _CODEC row's CodecEmit"]
-    Row -->|"no column for the engine / pillow feature absent / libvips trial write refuses"| Codec["RasterFault.codec"]
+    Worker --> Row["every producing arm: _produced(engine, codec, work) -> _writer ordered preference, then the engine guard"]
+    Row -->|"every listed leg probes false"| Codec["RasterFault.codec"]
     Row -->|"native"| Band["_moded: row BandLaw -> admitted mode (flatten | promote)"]
     Row -->|"array"| Band
-    Band --> Egress["_pillow_bytes (arity-polymorphic save_all) | _vips_bytes (ForeignKeep ICC/EXIF/XMP)"]
-    Worker --> Eng["probe / thumbnail / convert / crop -> _ENGINE[engine] (FitMode)"]
-    Worker --> Mont["montage -> _montage (pillow _grid paste | libvips arrayjoin)"]
-    Worker --> Comp["composite -> _composite (libvips composite2 BlendMode)"]
+    Band --> Icc["ICC gate: _managed (imagecodecs cms_transform, alpha rejoined) | _vips_managed (icc_transform embedded + fallback)"]
+    Icc -->|"malformed embedded blob"| Prof["RasterFault.profile"]
+    Icc --> Egress["_pillow_bytes (arity-polymorphic save_all + icc_profile tag) | _vips_bytes (ForeignKeep ICC/EXIF/XMP)"]
+    Worker --> Eng["probe / thumbnail / convert / crop -> _ENGINE[engine] (FitMode, thumbnail_buffer shrink-on-load)"]
+    Worker --> Mont["montage -> _montage (pillow _grid paste | libvips _shrunk cells + arrayjoin)"]
+    Worker --> Comp["composite -> _composite (_lowered BlendMode x PorterDuff -> one composite2 nickname)"]
+    Comp -->|"pair libvips cannot spell"| Blend["RasterFault.blend"]
     Worker --> Sc["smartcrop -> _smartcrop (libvips smartcrop CropFocus)"]
     Worker --> Py["pyramid -> _pyramid (libvips dzsave_buffer PyramidLayout -> zip)"]
     Worker --> Ge["geometry -> _geometry (pillow transpose/rotate/transform/reduce)"]
@@ -1264,10 +1654,12 @@ flowchart LR
     Meas --> Fact
     Egress --> Fact
     Codec --> Rail
+    Prof --> Rail
+    Blend --> Rail
     Prov --> Rail
     Runtime --> Rail
     Det -->|"_detected -> ArtifactReceipt.Preview"| Rail
-    Fact --> Preview["_previewed -> ArtifactReceipt.Preview(key, width, height, bytes_, score)"]
+    Fact --> Preview["_previewed -> ArtifactReceipt.Preview(key, width, height, bytes_, score + _field_band)"]
     Preview --> Rail["per-member RuntimeRail[ArtifactReceipt]"]
 ```
 

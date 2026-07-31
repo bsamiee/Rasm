@@ -9,15 +9,17 @@ Declarative painting for the Grasshopper boundary folds through one owner set �
 - [02]-[PHASES]: `PaintFrame` + `PaintScene` + `PaintPhase` + `PaintAnchor` — snapshot planning, event capability, contained host rows, and lease-owned mounts.
 - [03]-[INTENT]: `PathSpec` + `FillSource` + `StrokeSpec` + `TypeFace` + `TransformSpec` + `Mark` — the declarative paint vocabulary.
 - [04]-[EXECUTOR]: `PaintLifetime` + `PaintStock` + `PaintPlan` + `PaintReceipt` — resource lifetime, graphics-state restoration, culling, and the one execution fold.
-- [05]-[SKIN]: `Pigment` — the one perceptual-colour crossing, and the host-direct skin projection law.
+- [05]-[SKIN]: `Pigment` + `ChromeRole` — the one perceptual-colour crossing, the OS chrome-swatch roster, and the host-direct skin projection law.
 
 ## [02]-[PHASES]
 
 - Owner: `PaintPhase` `[SmartEnum<int>]` — the ordered before/after rows for background, groups, wires, and objects. Its delegate column attaches a contained `Func<PaintScene, Fin<Unit>>`, creates and disposes one scene per raise, records every callback failure, and returns the exact inverse subscription. Both background rows mirror the host `event CanvasBackgroundPaintEventArgs` delegate family with the `OverrideDefaultPainting` suppression action; the six layer rows mirror `event CanvasPaintEventArgs` — each fence spells its exact installed delegate family, which is what makes a wrong wire a compile failure.
-- Owner: `PaintFrame` `readonly record struct` — declarative snapshot data: interpolated `Skin` and admitted content-frame `Visible` bounds. `PaintScene` sealed `IDisposable` — the raw event capability over the raising canvas, `ControlGraphics`, frame, and optional background suppression action. Every getter rejects a closed scene, and disposal clears every live reference and action.
+- Owner: `PaintFrame` `readonly record struct` — declarative snapshot data: interpolated `Skin`, admitted content-frame `Visible` bounds, the raising graphics' `PointsPerPixel` device-pixel ratio, and the anchor view's dark-appearance verdict. `PaintScene` sealed `IDisposable` — the raw event capability over the raising canvas, `ControlGraphics`, frame, and optional background suppression action. Every getter rejects a closed scene, and disposal clears every live reference and action.
+- Law: device-pixel ratio is frame data read once per raise off `PaintScene.ControlGraphics.PointsPerPixel`, never re-derived per mark — on a Retina surface it is `0.5`, so a `StrokeSpec.Width` of `1.0` covers half a device pixel and `[03]`'s stroke-inflation law over-estimates bounds by `2×`, loosening every cull the "a false cull is forbidden" rule depends on; hairline widths and cull margins both resolve against this one value.
+- Law: the appearance flag selects the skin, never a palette — `Canvas.SkinLit` and `Canvas.SkinDim` are the host's own two palettes and `Platform/native.md`'s `WorkspaceFact.DarkAppearance` is the per-view `NSView.EffectiveAppearance` read that chooses between them, so a flip retunes through the workspace lease already republishing on every screen-parameter and display-options notification and no painter caches a swatch across it.
 - Entry: `PaintAnchor.Mount(PaintPhase phase, Func<PaintFrame, Seq<Mark>> plan, MonotonicTimeline timeline, Op? key = null)` → `Fin<Lease<PaintHook>>`; `PaintAnchor.MountRaw(PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, Op? key = null)` → `Fin<Lease<PaintHook>>`. `PaintHook.LastReceipt` and `LastFault` preserve outcomes that event delegates cannot return.
-- Law: attachment and hook release are UI-affine. A subscription established before mount construction completes rolls back through the same inverse and aggregates rollback refusal with the construction fault. Plan-scoped stock releases inside each callback before its monotonic settlement stamp; hook release owns only the exact inverse subscription and records a typed detachment failure.
-- Law: a raw painter uses the scene only inside the callback. A declarative planner never receives the scene or graphics; it receives `PaintFrame`, returns values, and execution remains inside the raise.
+- Law: attachment and hook release are UI-affine, so a subscription established before mount construction completes rolls back through the same inverse and aggregates rollback refusal with the construction fault. Plan-scoped stock releases inside each callback before its monotonic settlement stamp; hook release owns only the exact inverse subscription and records a typed detachment failure.
+- Law: a raw painter uses the scene only inside the callback, and a declarative planner never receives the scene or graphics; it receives `PaintFrame`, returns values, and execution remains inside the raise.
 - Boundary: WHEN a repaint happens is `Shell/session.md`'s `RepaintRow` and the flex redraw on `Canvas/canvas.md`; WHAT a tooltip shows is `Shell/chrome.md`'s; this page owns the pixels inside the host paint fences.
 - Packages: Grasshopper2 (`Canvas.BeforePaintBackground`/`AfterPaintBackground`/`BeforePaintGroups`/`AfterPaintGroups`/`BeforePaintWires`/`AfterPaintWires`/`BeforePaintObjects`/`AfterPaintObjects`, `CanvasPaintEventArgs`, `CanvasBackgroundPaintEventArgs.OverrideDefaultPainting`, `ControlGraphics`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`), `Shell/session.md` (`GhSession`, `ScopeTarget`).
 - Growth: a host layer addition is one row; attachment, containment, snapshotting, and release remain one gate.
@@ -63,6 +65,8 @@ public sealed partial class PaintPhase {
                     skin: e.Skin,
                     graphics: e.Graphics,
                     visible: e.Canvas.VisibleFrame,
+                    pointsPerPixel: e.Graphics.PointsPerPixel,
+                    darkAppearance: ReferenceEquals(e.Skin, e.Canvas.SkinDim),
                     suppressDefault: Some<Action>(e.OverrideDefaultPainting));
                 return body(arg: scene);
             }).IfFail(error => {
@@ -84,6 +88,8 @@ public sealed partial class PaintPhase {
                     skin: e.Skin,
                     graphics: e.Graphics,
                     visible: e.Canvas.VisibleFrame,
+                    pointsPerPixel: e.Graphics.PointsPerPixel,
+                    darkAppearance: ReferenceEquals(e.Skin, e.Canvas.SkinDim),
                     suppressDefault: Option<Action>.None);
                 return body(arg: scene);
             }).IfFail(error => {
@@ -97,9 +103,10 @@ public sealed partial class PaintPhase {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct PaintFrame(Skin Skin, RectangleF Visible) : IValidityEvidence {
+public readonly record struct PaintFrame(Skin Skin, RectangleF Visible, float PointsPerPixel, bool DarkAppearance) : IValidityEvidence {
     public bool IsValid => ValidityClaim.Of(holds:
         Skin is not null &&
+        float.IsFinite(PointsPerPixel) && PointsPerPixel > 0f &&
         float.IsFinite(Visible.X) && float.IsFinite(Visible.Y) &&
         float.IsFinite(Visible.Width) && Visible.Width >= 0f &&
         float.IsFinite(Visible.Height) && Visible.Height >= 0f &&
@@ -112,6 +119,8 @@ public sealed class PaintScene : IDisposable {
     private HostCanvas? surface;
     private Option<Action> suppressDefault;
     private RectangleF visible;
+    private float pointsPerPixel;
+    private bool darkAppearance;
     private int live = 1;
 
     internal PaintScene(
@@ -119,11 +128,15 @@ public sealed class PaintScene : IDisposable {
         Skin skin,
         ControlGraphics graphics,
         RectangleF visible,
+        float pointsPerPixel,
+        bool darkAppearance,
         Option<Action> suppressDefault) {
         this.surface = surface;
         this.skin = skin;
         this.graphics = graphics;
         this.visible = visible;
+        this.pointsPerPixel = pointsPerPixel;
+        this.darkAppearance = darkAppearance;
         this.suppressDefault = suppressDefault;
     }
 
@@ -131,7 +144,11 @@ public sealed class PaintScene : IDisposable {
     public Skin Skin => Require(value: skin);
     public ControlGraphics Graphics => Require(value: graphics);
     public RectangleF Visible => IsLive ? visible : throw new ObjectDisposedException(objectName: nameof(PaintScene));
-    public PaintFrame Frame => new(Skin: Skin, Visible: Visible);
+    public PaintFrame Frame => new(
+        Skin: Skin,
+        Visible: Visible,
+        PointsPerPixel: pointsPerPixel,
+        DarkAppearance: darkAppearance);
 
     public Fin<Unit> SuppressDefault(Op? key = null) {
         Op op = key.OrDefault();
@@ -288,22 +305,24 @@ public static class PaintAnchor {
 
 ## [03]-[INTENT]
 
-- Owner: `PathSpec` `[Union]` — the recursive geometry vocabulary over the host path families. `Build()` returns `Lease<IGraphicsPath>.Owned`; every draw or clip consumes that lease, and the temporary path minted by `GetRoundRect` is disposed immediately after `AddPath`. `Extent` derives conservative finite bounds without building.
-- Owner: `FillSource` `[Union]` — brush intent by source: solid, linear, sheet, radial, and borrowed texture inputs map directly onto the host constructors. `StrokeSpec` carries colour, width, and optional `EdgeDescription`; the host row assigns width, cap, and dash onto the minted pen.
+- Owner: `PathSpec` `[Union]` — the recursive geometry vocabulary over the host path families. `Build()` returns `Lease<IGraphicsPath>.Owned`; every draw or clip consumes that lease, and the temporary path minted by `GetRoundRect` is disposed immediately after `AddPath`. `Extent` derives conservative finite bounds without building, and `Hits(PointF, FillMode, Option<StrokeSpec>, Op?)` answers the exact query off `GraphicsPath.FillContains`/`StrokeContains` — the supplied edge selects the stroke test and its absence the fill test, so pointer arity is the argument's shape and never a mode flag. `Mark.Hits` is its one consumer and `PaintPlan.Probe` the entry: a plan answers which mark a point lands on, back to front, so a custom-painted overlay picks against the geometry it drew.
+- Owner: `FillSource` `[Union]` — brush intent by source: solid, linear, sheet, radial, and borrowed texture inputs map directly onto the host constructors, each gradient case carrying its `GradientWrapMode` extension row and every transformable case an `Option<IMatrix>` warp. `StrokeSpec` carries colour, width, `PenLineCap`, `PenLineJoin`, an optional `DashStyle` over the `DashStyles` presets, and an optional `EdgeDescription`.
+- Law: hit-testing splits by who owns the region — `Components/attributes.md` answers component chrome through the host's own `Capsule`/`SlabF`, which publishes the exact rounded region for every skinned body, while `PathSpec` holds the geometry a plan drew itself and `PaintPlan.Probe` answers against it. Neither owner substitutes for the other: a skinned capsule has a host slab and no `PathSpec`, and a custom overlay has a `PathSpec` and no slab.
+- Law: brush and pen state is spec data, never post-mint mutation — `GradientWrapMode` decides whether a gradient pads, repeats, or reflects past its stops, the warp matrix scales and rotates a tiled `TextureBrush` that is otherwise fixed to canvas axes, and `FillMode` decides a self-intersecting path's interior; each rides its owning record so the executor fold is unchanged and a plan stays diffable, cacheable, and replayable. Each warp lands on its own case rather than through an `is ITransformBrush` probe, because that interface is member-less and the case already discriminates.
 - Owner: `TypeFace` sealed record — `Family` (`string`), `Size` (`float`), `Style` (`FontStyle`), `Decoration` (`FontDecoration`) minting `new Font(family, size, style, decoration)`; the record IS the font cache key. `BlockSpec` sealed record carries the measured-layout axes — `Wrap` (`FormattedTextWrapMode`), `Trim` (`FormattedTextTrimming`), `Align` (`FormattedTextAlignment`), `Option<SizeF> Max` — onto one `FormattedText`.
 - Owner: `Mark` `[Union]` — stroke, fill, text, borrowed image, borrowed image pane, owned icon raster, capsule, wire preview, clip scope, and transform scope. Text measurement and measured drawing each dispose their own `FormattedText`; icon drawing admits the host bitmap and consumes one owned lease. Caller-supplied images remain explicitly borrowed retained assets and are never disposed by the paint plan.
 - Law: intent is value-shaped — a `Mark` carries colours, specs, and geometry values; the only live host objects a case admits are the retained-asset classes the host itself owns (`Image`, `IIcon`, `Capsule`, `WireShape`, `IMatrix`), and no case carries a `Brush`, `Pen`, `Font`, or `IGraphicsPath` — those are executor-minted from the specs, which is what makes a plan diffable, cacheable, and replayable.
 - Law: extent is a fallible stock-aware projection. Stroke bounds inflate by the effective pen width, text uses admitted block bounds or `FormattedText.Measure`, image points use the borrowed image size, and clip bounds constrain their children. Non-finite arc angles, invalid round-rectangle radii, cardinal curves, and unprojected transforms return `None` because their rendered bounds are not proven; an unknown extent draws, and a false cull is forbidden.
 - Boundary: `AnimatedPath` glyph strokes are `Canvas/motion.md`'s draw family run inside a `MountRaw` window; snap-guide overlays (`SnappingConstraints.DrawSnappingBoxes`, `SnappingAction.Draw`) are `Canvas/layout.md`'s, transported through the same window.
-- Packages: Eto.Drawing (`GraphicsPath`, `Pen`, `SolidBrush`, `LinearGradientBrush`, `RadialGradientBrush`, `TextureBrush`, `Font`, `FormattedText`, `Image`, `IMatrix`, `Color`, `DashStyle`), Grasshopper2 (`Capsule`, `Parts`, `Shade`, `Skin`, `WireShape`, `IIcon`, `EdgeDescription`), LanguageExt.Core, `Rasm.Domain`.
-- Growth: a new geometry family is one `PathSpec` case; a new fill is one `FillSource` case; a new modality is one `Mark` case breaking the executor fold loudly.
+- Packages: Eto.Drawing (`GraphicsPath`, `FillMode`, `Pen`, `PenLineCap`, `PenLineJoin`, `DashStyle`, `DashStyles`, `SolidBrush`, `LinearGradientBrush`, `RadialGradientBrush`, `TextureBrush`, `GradientWrapMode`, `Font`, `FormattedText`, `Image`, `IMatrix`, `Matrix`, `Color`), Grasshopper2 (`Capsule`, `Parts`, `Shade`, `Skin`, `WireShape`, `IIcon`, `EdgeDescription`), LanguageExt.Core, `Rasm.Domain`.
+- Growth: a new geometry family is one `PathSpec` case; a new fill is one `FillSource` case; a new pen or brush axis is one column on its owning spec; a new modality is one `Mark` case breaking the executor fold loudly.
 
 ## [04]-[EXECUTOR]
 
 - Owner: `PaintLifetime` internal service — one fallible `Acquire` gate transfers a minted disposable into `Lease<T>.Owned`, while one `Use` gate contains projection and release independently and aggregates both failures. Paths, text layouts, icon rasters, and saved graphics states compose this rail instead of language `using` masking a primary failure with disposal refusal.
 - Owner: `PaintStock` sealed `IDisposable` — one locked spec-to-resource registry and reverse-creation release ledger for brush, pen, and font resources. Minting is fallible, a failed insertion disposes the just-created resource, release attempts every resource even after an earlier failure, and `LastFault` preserves disposal refusal. Construction is internal to `PaintPlan`; callers never hoist an unowned stock.
-- Owner: `PaintPlan` — the one fallible execution fold. `Execute(PaintScene, Seq<Mark>, MonotonicTimeline, Op)` captures entry and settlement from the injected timeline, admits scene/frame evidence, resolves stock-aware extents, culls only proven misses, draws through owned temporary leases, restores clip and transform state, and returns an accepted `PaintReceipt` carrying monotonic stamps, elapsed time, and operational drawn/culled evidence.
-- Law: state restoration is structural. Scope cases are the ONLY sites that mutate transform or clip; a pose scope brackets `Graphics.SaveTransform()` before mutation and `RestoreTransform()` after the child fold, a clip scope brackets `SetClip` and `ResetClip`, and the close arrow runs even when opening or drawing fails. `ResetClip` restores the surface default, so nested clip regions compose at plan level through one intersected `PathSpec`, never through nested clip scopes. A clip path remains owned across the complete child fold and closes only after the graphics state restores.
+- Owner: `PaintPlan` — the one fallible execution fold, with `Probe(Seq<Mark>, PointF, float, Op?)` its read twin: the same plan value answers what to draw and what a point hits, both under one `PaintStock` whose release accumulates into the returned rail. `Execute(PaintScene, Seq<Mark>, MonotonicTimeline, Op)` captures entry and settlement from the injected timeline, admits scene/frame evidence, resolves stock-aware extents, culls only proven misses, draws through owned temporary leases, restores clip and transform state, and returns an accepted `PaintReceipt` carrying monotonic stamps, elapsed time, and operational drawn/culled evidence.
+- Law: state restoration is structural, so scope cases are the ONLY sites that mutate transform or clip; a pose scope brackets `Graphics.SaveTransform()` before mutation and `RestoreTransform()` after the child fold, a clip scope brackets `SetClip` and `ResetClip`, and the close arrow runs even when opening or drawing fails. `ResetClip` restores the surface default, so nested clip regions compose at plan level through one intersected `PathSpec`, never through nested clip scopes. Each clip path stays owned across the complete child fold and closes only after the graphics state restores.
 - Law: settlement is raster truth — `Execute` calls `Graphics.Flush()` after the mark fold and before the settlement capture, so `PaintReceipt.Latency` covers real raster completion, never command buffering.
 - Law: paint cost judges at read time — a consumer folds `PaintReceipt` through `Canvas/motion.md` `BudgetGate.Judge` under the `paint.pass` row, and a violation lands as `BudgetBreach` evidence projected through `Shell/telemetry.md`, never a threshold re-derived at a call site.
 - Law: a fault landing on `PaintHook.LastFault` emits once through the generated `PaintLog.PaintFault` partial under the `GhLog.For` category logger at the record site, so retained paint faults are observable without polling the cell.
@@ -333,16 +352,18 @@ public abstract partial record PathSpec {
     public sealed record CurveCase(Seq<PointF> Points, float Tension) : PathSpec;
     public sealed record CompositeCase(Seq<PathSpec> Figures, bool Connect) : PathSpec;
 
-    internal Fin<Lease<IGraphicsPath>> Build(Op key) {
+    internal Fin<Lease<IGraphicsPath>> Build(FillMode rule, Op key) {
         IGraphicsPath? created = null;
         Fin<Lease<IGraphicsPath>> built = key.Catch(body: () => {
             created = GraphicsPath.Create();
-            return Optional(created).ToFin(key.InvalidResult()).Bind(path =>
-                Accumulate(path: path, connect: false, key: key).Map(_ => {
+            return Optional(created).ToFin(key.InvalidResult()).Bind(path => {
+                path.FillMode = rule;
+                return Accumulate(path: path, connect: false, key: key).Map(_ => {
                     Lease<IGraphicsPath> lease = new Lease<IGraphicsPath>.Owned(Value: path);
                     created = null;
                     return lease;
-                }));
+                });
+            });
         });
         return built.Match(
             Succ: static lease => Fin.Succ(lease),
@@ -351,6 +372,21 @@ public abstract partial record PathSpec {
                     Succ: _ => Fin.Fail<Lease<IGraphicsPath>>(error: primary),
                     Fail: cleanup => Fin.Fail<Lease<IGraphicsPath>>(error: primary + cleanup)),
                 None: () => Fin.Fail<Lease<IGraphicsPath>>(error: primary)));
+    }
+
+    public Fin<bool> Hits(PointF point, FillMode rule, Option<StrokeSpec> edge, Op? key = null) {
+        Op op = key.OrDefault();
+        return from lease in Build(rule: rule, key: op)
+               from pens in edge.Match(
+                   Some: spec => spec.Mint(key: op).Map(pen => Optional((Lease<Pen>)new Lease<Pen>.Owned(Value: pen))),
+                   None: () => Fin.Succ(Option<Lease<Pen>>.None))
+               from verdict in PaintLifetime.Use(lease: lease, body: path => pens.Match(
+                   Some: held => PaintLifetime.Use(
+                       lease: held,
+                       body: pen => op.Catch(body: () => Fin.Succ(path.StrokeContains(pen, point))),
+                       key: op),
+                   None: () => op.Catch(body: () => Fin.Succ(path.FillContains(point)))), key: op)
+               select verdict;
     }
 
     internal Fin<Unit> Accumulate(IGraphicsPath path, bool connect, Op key) => Switch(
@@ -449,17 +485,19 @@ public abstract partial record PathSpec {
 public abstract partial record FillSource {
     private FillSource() { }
     public sealed record SolidCase(Color Colour) : FillSource;
-    public sealed record LinearCase(Color From, Color To, PointF Start, PointF End) : FillSource;
-    public sealed record SheetCase(RectangleF Frame, Color From, Color To, float Angle) : FillSource;
-    public sealed record RadialCase(Color From, Color To, PointF Centre, PointF Origin, SizeF Radius) : FillSource;
-    public sealed record TextureCase(Image Source, float Opacity) : FillSource;
+    public sealed record LinearCase(Color From, Color To, PointF Start, PointF End, GradientWrapMode Wrap, Option<IMatrix> Warp) : FillSource;
+    public sealed record SheetCase(RectangleF Frame, Color From, Color To, float Angle, GradientWrapMode Wrap, Option<IMatrix> Warp) : FillSource;
+    public sealed record RadialCase(Color From, Color To, PointF Centre, PointF Origin, SizeF Radius, GradientWrapMode Wrap, Option<IMatrix> Warp) : FillSource;
+    public sealed record TextureCase(Image Source, float Opacity, Option<IMatrix> Warp) : FillSource;
 
     internal Brush Mint() => Switch(
-        solidCase: static c => new SolidBrush(c.Colour),
-        linearCase: static c => new LinearGradientBrush(c.From, c.To, c.Start, c.End),
-        sheetCase: static c => new LinearGradientBrush(c.Frame, c.From, c.To, c.Angle),
-        radialCase: static c => new RadialGradientBrush(c.From, c.To, c.Centre, c.Origin, c.Radius),
-        textureCase: static c => new TextureBrush(c.Source, c.Opacity));
+        solidCase: static c => (Brush)new SolidBrush(c.Colour),
+        linearCase: static c => new LinearGradientBrush(c.From, c.To, c.Start, c.End) { Wrap = c.Wrap, Transform = c.Warp.IfNoneUnsafe(Identity) },
+        sheetCase: static c => new LinearGradientBrush(c.Frame, c.From, c.To, c.Angle) { Wrap = c.Wrap, Transform = c.Warp.IfNoneUnsafe(Identity) },
+        radialCase: static c => new RadialGradientBrush(c.From, c.To, c.Centre, c.Origin, c.Radius) { Wrap = c.Wrap, Transform = c.Warp.IfNoneUnsafe(Identity) },
+        textureCase: static c => new TextureBrush(c.Source, c.Opacity) { Transform = c.Warp.IfNoneUnsafe(Identity) });
+
+    private static IMatrix Identity() => Matrix.Create();
 }
 
 [Union]
@@ -469,27 +507,43 @@ public abstract partial record TransformSpec {
     public sealed record SpinCase(float Angle) : TransformSpec;
     public sealed record StretchCase(float Sx, float Sy) : TransformSpec;
     public sealed record MatrixCase(IMatrix Matrix) : TransformSpec;
+
+    // Poses apply forward when drawing and invert when probing, so the matrix is minted here rather than read off
+    // the live `Graphics` transform, which no longer exists at probe time. `Matrix.Inverse` is the host's own PURE
+    // inversion factory, so the inverse is one acquire over a fresh matrix — the caller-owned `MatrixCase` payload
+    // is never cloned and never mutated, and no failure path can strand a half-acquired lease. `FromScaleAt` anchors
+    // the scale at the origin, matching the `Graphics.ScaleTransform(Sx, Sy)` the draw leg applies; a two-argument
+    // `FromScale` would leave the anchor implicit and let the two legs disagree.
+    internal Fin<Lease<IMatrix>> Inverse(Op key) =>
+        PaintLifetime.Acquire(
+            mint: () => Matrix.Inverse(Switch(
+                shiftCase: static shift => Matrix.FromTranslation(shift.Dx, shift.Dy),
+                spinCase: static spin => Matrix.FromRotation(spin.Angle),
+                stretchCase: static stretch => Matrix.FromScaleAt(stretch.Sx, stretch.Sy, 0f, 0f),
+                matrixCase: static matrix => matrix.Matrix)),
+            key: key);
 }
 
 [Union]
 public abstract partial record Mark {
     private Mark() { }
     public sealed record StrokeCase(PathSpec Path, StrokeSpec Stroke) : Mark;
-    public sealed record FillCase(PathSpec Path, FillSource Fill) : Mark;
+    public sealed record FillCase(PathSpec Path, FillSource Fill, FillMode Rule) : Mark;
     public sealed record TextCase(TypeFace Face, Option<BlockSpec> Block, Color Colour, PointF At, string Text) : Mark;
     public sealed record ImageCase(Image Source, PointF At) : Mark;
     public sealed record ImagePaneCase(Image Source, RectangleF SourcePane, RectangleF Destination) : Mark;
     public sealed record IconCase(IIcon Icon, Rectangle Frame, int Pad, Color Backdrop) : Mark;
     public sealed record CapsuleCase(Capsule Body, Shade Shade, Option<Parts> Elements) : Mark;
     public sealed record WireGhostCase(WireShape Route, StrokeSpec Stroke) : Mark;
-    public sealed record ClipCase(PathSpec Region, Seq<Mark> Children) : Mark;
+    public sealed record ClipCase(PathSpec Region, FillMode Rule, Seq<Mark> Children) : Mark;
     public sealed record PoseCase(TransformSpec Pose, Seq<Mark> Children) : Mark;
 
-    internal Fin<Option<RectangleF>> Extent(PaintStock stock, Op key) => Switch(
-        state: (Stock: stock, Key: key),
-        strokeCase: static (_, c) => Fin.Succ(c.Path.Extent.Bind(frame => Inflated(
+    internal Fin<Option<RectangleF>> Extent(PaintStock stock, float pointsPerPixel, Op key) => Switch(
+        state: (Stock: stock, Density: pointsPerPixel, Key: key),
+        strokeCase: static (s, c) => Fin.Succ(c.Path.Extent.Bind(frame => Inflated(
             frame: frame,
-            width: c.Stroke.Edge.Map(static edge => edge.Width).IfNone(c.Stroke.Width)))),
+            width: c.Stroke.Edge.Map(static edge => edge.Width).IfNone(c.Stroke.Width),
+            pointsPerPixel: s.Density))),
         fillCase: static (_, c) => Fin.Succ(c.Path.Extent),
         textCase: static (s, c) => TextExtent(spec: c, stock: s.Stock, key: s.Key),
         imageCase: static (s, c) => s.Key.Catch(body: () => Optional(c.Source).ToFin(s.Key.InvalidInput()).Map(image =>
@@ -503,6 +557,42 @@ public abstract partial record Mark {
                 width: c.Stroke.Edge.Map(static edge => edge.Width).IfNone(c.Stroke.Width))))),
         clipCase: static (_, c) => Fin.Succ(c.Region.Extent),
         poseCase: static (_, _) => Fin.Succ(Option<RectangleF>.None));
+
+    internal Fin<bool> Hits(PointF at, PaintStock stock, float pointsPerPixel, Op key) => Switch(
+        state: (At: at, Stock: stock, Density: pointsPerPixel, Key: key),
+        strokeCase: static (s, c) => c.Path.Hits(point: s.At, rule: FillMode.Alternate, edge: Some(c.Stroke), key: s.Key),
+        fillCase: static (s, c) => c.Path.Hits(point: s.At, rule: c.Rule, edge: Option<StrokeSpec>.None, key: s.Key),
+        capsuleCase: static (s, c) => s.Key.Catch(body: () => Optional(c.Body).ToFin(s.Key.InvalidInput())
+            .Map(body => body.Slab.Contains(s.At))),
+        clipCase: static (s, c) =>
+            from inside in c.Region.Hits(point: s.At, rule: c.Rule, edge: Option<StrokeSpec>.None, key: s.Key)
+            from hit in inside ? Any(marks: c.Children, at: s.At, stock: s.Stock, pointsPerPixel: s.Density, key: s.Key) : Fin.Succ(false)
+            select hit,
+        poseCase: static (s, c) =>
+            from inverse in c.Pose.Inverse(key: s.Key)
+            from hit in PaintLifetime.Use(
+                lease: inverse,
+                body: matrix => Any(
+                    marks: c.Children, at: matrix.TransformPoint(s.At),
+                    stock: s.Stock, pointsPerPixel: s.Density, key: s.Key),
+                key: s.Key)
+            select hit,
+        textCase: static (s, c) => Bounded(mark: c, probe: s),
+        imageCase: static (s, c) => Bounded(mark: c, probe: s),
+        imagePaneCase: static (s, c) => Bounded(mark: c, probe: s),
+        iconCase: static (s, c) => Bounded(mark: c, probe: s),
+        wireGhostCase: static (s, c) => Bounded(mark: c, probe: s));
+
+    internal static Fin<bool> Any(Seq<Mark> marks, PointF at, PaintStock stock, float pointsPerPixel, Op key) =>
+        marks.Fold(Fin.Succ(false), (held, mark) => held.Bind(hit => hit
+            ? Fin.Succ(true)
+            : mark.Hits(at: at, stock: stock, pointsPerPixel: pointsPerPixel, key: key)));
+
+    // Five extent-only cases answer through the same conservative frame the cull already trusts;
+    // a host-owned raster or glyph run publishes no finer containment than its own bounds.
+    private static Fin<bool> Bounded(Mark mark, (PointF At, PaintStock Stock, float Density, Op Key) probe) =>
+        mark.Extent(stock: probe.Stock, pointsPerPixel: probe.Density, key: probe.Key)
+            .Map(extent => extent.Map(frame => frame.Contains(probe.At)).IfNone(false));
 
     private static Fin<Option<RectangleF>> TextExtent(TextCase spec, PaintStock stock, Op key) =>
         from font in stock.Font(face: spec.Face)
@@ -523,13 +613,13 @@ public abstract partial record Mark {
             key: key)
         select extent;
 
-    private static Option<RectangleF> Inflated(RectangleF frame, float width) =>
-        float.IsFinite(width) && width > 0f
+    private static Option<RectangleF> Inflated(RectangleF frame, float width, float pointsPerPixel) =>
+        float.Max(width, pointsPerPixel) is var margin && float.IsFinite(margin) && margin > 0f
             ? Admitted(frame: new RectangleF(
-                x: frame.X - (width * 0.5f),
-                y: frame.Y - (width * 0.5f),
-                width: frame.Width + width,
-                height: frame.Height + width))
+                x: frame.X - (margin * 0.5f),
+                y: frame.Y - (margin * 0.5f),
+                width: frame.Width + margin,
+                height: frame.Height + margin))
             : Option<RectangleF>.None;
 
     private static Option<RectangleF> Admitted(RectangleF frame) =>
@@ -542,12 +632,14 @@ public abstract partial record Mark {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record StrokeSpec(Color Colour, float Width, Option<EdgeDescription> Edge) {
+public sealed record StrokeSpec(
+    Color Colour, float Width, PenLineCap Cap, PenLineJoin Join, Option<DashStyle> Dash, Option<EdgeDescription> Edge) {
     internal Fin<Pen> Mint(Op key) {
         Pen? created = null;
         Fin<Pen> configured = key.Catch(body: () => {
-            Pen pen = new(Colour, Width);
+            Pen pen = new(Colour, Width) { LineCap = Cap, LineJoin = Join };
             created = pen;
+            Dash.Iter(dash => pen.DashStyle = dash);
             Edge.Iter(edge => edge.AssignToPen(pen));
             return Fin.Succ(pen);
         });
@@ -707,6 +799,25 @@ public sealed class PaintStock : IDisposable {
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class PaintPlan {
+    // Reverse order buys topmost-wins: the fold walks the plan back to front, making the last mark
+    // drawn the first candidate; one stock serves the whole probe so pens and fonts mint once.
+    public static Fin<Option<Mark>> Probe(Seq<Mark> marks, PointF at, float pointsPerPixel, Op? key = null) {
+        Op op = key.OrDefault();
+        PaintStock stock = new(operation: op);
+        Fin<Option<Mark>> probed = marks.Rev().Fold(
+            Fin.Succ(Option<Mark>.None),
+            (held, mark) => held.Bind(found => found.IsSome
+                ? Fin.Succ(found)
+                : mark.Hits(at: at, stock: stock, pointsPerPixel: pointsPerPixel, key: op)
+                    .Map(hit => hit ? Some(mark) : Option<Mark>.None)));
+        Fin<Unit> released = stock.Release();
+        return probed.Match(
+            Succ: found => released.Map(_ => found),
+            Fail: primary => released.Match(
+                Succ: _ => Fin.Fail<Option<Mark>>(error: primary),
+                Fail: cleanup => Fin.Fail<Option<Mark>>(error: primary + cleanup)));
+    }
+
     internal static Fin<PaintReceipt> Execute(
         PaintScene scene,
         Seq<Mark> marks,
@@ -740,6 +851,7 @@ public static class PaintPlan {
             graphics: scene.Graphics.Content,
             skin: frame.Skin,
             visible: frame.Visible,
+            pointsPerPixel: frame.PointsPerPixel,
             stock: stock,
             marks: marks,
             key: key));
@@ -755,17 +867,19 @@ public static class PaintPlan {
         Graphics graphics,
         Skin skin,
         RectangleF visible,
+        float pointsPerPixel,
         PaintStock stock,
         Seq<Mark> marks,
         Op key) => marks.Fold(
             Fin.Succ(PaintTally.Empty),
-            (rail, mark) => rail.Bind(tally => mark.Extent(stock: stock, key: key).Bind(extent =>
+            (rail, mark) => rail.Bind(tally => mark.Extent(stock: stock, pointsPerPixel: pointsPerPixel, key: key).Bind(extent =>
                 extent.Map(frame => !visible.Intersects(frame)).IfNone(false)
                     ? Fin.Succ(tally.Add(other: PaintTally.CulledOne))
                     : Commit(
                         graphics: graphics,
                         skin: skin,
                         visible: visible,
+                        pointsPerPixel: pointsPerPixel,
                         stock: stock,
                         mark: mark,
                         key: key).Map(tally.Add))));
@@ -774,20 +888,22 @@ public static class PaintPlan {
         Graphics graphics,
         Skin skin,
         RectangleF visible,
+        float pointsPerPixel,
         PaintStock stock,
         Mark mark,
         Op key) => mark.Switch(
-        state: (Graphics: graphics, Skin: skin, Visible: visible, Stock: stock, Key: key),
+        state: (Graphics: graphics, Skin: skin, Visible: visible, Density: pointsPerPixel, Stock: stock, Key: key),
         strokeCase: static (s, c) =>
             from pen in s.Stock.Pen(stroke: c.Stroke)
-            from path in c.Path.Build(key: s.Key)
+            from path in c.Path.Build(rule: FillMode.Alternate, key: s.Key)  // a stroke has no interior; the rule is inert here
+
             from drawn in PaintLifetime.Use(lease: path, body: value => Draw(
                 action: () => s.Graphics.DrawPath(pen, value),
                 key: s.Key), key: s.Key)
             select drawn,
         fillCase: static (s, c) =>
             from brush in s.Stock.Brush(source: c.Fill)
-            from path in c.Path.Build(key: s.Key)
+            from path in c.Path.Build(rule: c.Rule, key: s.Key)
             from drawn in PaintLifetime.Use(lease: path, body: value => Draw(
                 action: () => s.Graphics.FillPath(brush, value),
                 key: s.Key), key: s.Key)
@@ -845,7 +961,7 @@ public static class PaintPlan {
             from drawn in Draw(action: () => route.Draw(s.Graphics, pen), key: s.Key)
             select drawn,
         clipCase: static (s, c) =>
-            from path in c.Region.Build(key: s.Key)
+            from path in c.Region.Build(rule: c.Rule, key: s.Key)
             from tally in PaintLifetime.Use(lease: path, body: value => Scoped(
                 open: () => s.Graphics.SetClip(value),
                 close: s.Graphics.ResetClip,
@@ -853,6 +969,7 @@ public static class PaintPlan {
                     graphics: s.Graphics,
                     skin: s.Skin,
                     visible: s.Visible,
+                    pointsPerPixel: s.Density,
                     stock: s.Stock,
                     marks: c.Children,
                     key: s.Key),
@@ -871,6 +988,7 @@ public static class PaintPlan {
                     graphics: s.Graphics,
                     skin: s.Skin,
                     visible: s.Visible,
+                    pointsPerPixel: s.Density,
                     stock: s.Stock,
                     marks: c.Children,
                     key: s.Key);
@@ -904,10 +1022,13 @@ public static class PaintPlan {
 ## [05]-[SKIN]
 
 - Law: skin projection is host-direct — `Shape`, `Shades`, `Wires`, `Grips`, `Messaging`, `Canvasses`, and `Fades` read from the scene skin; themed variants derive through the corresponding host `With` folds; blending uses `Skin.Interpolate`; persistence uses the host storable surface. No local palette wrapper, serialization, or partial fold roster exists.
-- Owner: `Pigment` — the ONE colour crossing. `ToHost` consumes the kernel's `PerceptualColor.ToRgb()` result after its `OklchChromaReduction` gamut map and quantizes only alpha for Eto; `OfHost` admits host sRGB bytes through `PerceptualColor.OfRgb`; `Blend` mixes through `BlendPath` and then reuses the same mapped egress. No boundary clipping, componentwise lerp, or opponent-space conversion exists here.
+- Owner: `Pigment` — the ONE colour crossing. `ToHost` consumes the kernel's `PerceptualColor.ToRgb()` result after its `OklchChromaReduction` gamut map and quantizes only alpha for Eto; `OfHost` admits host sRGB bytes through `PerceptualColor.OfRgb`; `OfSystem` admits the OS-resolved chrome swatch a `ChromeRole` row names; `Blend` mixes through `BlendPath` and then reuses the same mapped egress. No boundary clipping, componentwise lerp, or opponent-space conversion exists here.
+- Owner: `ChromeRole` `[SmartEnum<string>]` closes the ten `Eto.Drawing.SystemColors` reads — control, control background, control text, disabled text, highlight, highlight text, selection, selection text, window background, link text — each row carrying its handler read as a `[UseDelegateFromConstructor]` column, so a chrome swatch is a row lookup and a literal colour beside a native Rhino panel is the deleted form.
+- Law: the OS palette is READ, never captured — every `SystemColors` member resolves through the active handler on each access and re-resolves on an accent, contrast, or appearance change, so `OfSystem` runs inside the raise beside the skin read and a value held across frames is the staleness defect `[02]`'s frame law already forecloses for `Skin`.
+- Law: `ColorStyles` is NOT a palette — it is the `[Flags]` hex-render policy (`ExcludeAlpha`, `AlphaLast`, `ShortHex`) over `Color`-to-string egress and supplies no colour, so a chrome source names a `ChromeRole` row and never that enum.
 - Law: skin state is scene-scoped — the interpolated `Skin` arrives on every paint args and `Canvas.SkinLit`/`SkinDim`/`Skin` are canvas reads through `Canvas/canvas.md`'s lens; a painter caches no skin across frames because the host interpolates per frame.
-- Packages: Grasshopper2 (`Skin`, `Shape`, `Shades`, `Shade`, `WiresSkin`, `GripsSkin`, `MessagingSkin`, `CanvassesSkin`, `Fades`, `EdgeDescription`), `Rasm.Numerics` (`PerceptualColor`, `BlendPath`, `UnitInterval`), Eto.Drawing (`Color`).
-- Growth: a new palette treatment is a `With` fold composition; a new colour policy is one kernel `BlendPath` row — this page never mints a blend.
+- Packages: Grasshopper2 (`Skin`, `Shape`, `Shades`, `Shade`, `WiresSkin`, `GripsSkin`, `MessagingSkin`, `CanvassesSkin`, `Fades`, `EdgeDescription`), `Rasm.Numerics` (`PerceptualColor`, `BlendPath`, `UnitInterval`), Eto.Drawing (`Color`, `SystemColors`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`).
+- Growth: a new palette treatment is a `With` fold composition; a new host chrome swatch is one `ChromeRole` row; a new colour policy is one kernel `BlendPath` row — this page never mints a blend.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -915,6 +1036,24 @@ using Rasm.Csp;
 using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Canvas;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<string>]
+public sealed partial class ChromeRole {
+    public static readonly ChromeRole Control = new("control", static () => SystemColors.Control);
+    public static readonly ChromeRole ControlBackground = new("control-background", static () => SystemColors.ControlBackground);
+    public static readonly ChromeRole ControlText = new("control-text", static () => SystemColors.ControlText);
+    public static readonly ChromeRole DisabledText = new("disabled-text", static () => SystemColors.DisabledText);
+    public static readonly ChromeRole Highlight = new("highlight", static () => SystemColors.Highlight);
+    public static readonly ChromeRole HighlightText = new("highlight-text", static () => SystemColors.HighlightText);
+    public static readonly ChromeRole Selection = new("selection", static () => SystemColors.Selection);
+    public static readonly ChromeRole SelectionText = new("selection-text", static () => SystemColors.SelectionText);
+    public static readonly ChromeRole WindowBackground = new("window-background", static () => SystemColors.WindowBackground);
+    public static readonly ChromeRole LinkText = new("link-text", static () => SystemColors.LinkText);
+
+    [UseDelegateFromConstructor]
+    public partial Color Read();
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
@@ -934,6 +1073,14 @@ public static class Pigment {
 
     public static Fin<PerceptualColor> OfHost(Color colour, Op? key = null) =>
         PerceptualColor.OfRgb(red: (byte)colour.Rb, green: (byte)colour.Gb, blue: (byte)colour.Bb, alpha: colour.A, key: key);
+
+    public static Fin<PerceptualColor> OfSystem(ChromeRole role, Op? key = null) {
+        Op op = key.OrDefault();
+        return from admitted in op.Need(value: role)
+               from host in op.Catch(body: () => Fin.Succ(role.Read()))
+               from colour in OfHost(colour: host, key: op)
+               select colour;
+    }
 
     public static Fin<Color> Blend(BlendPath path, Color start, Color end, UnitInterval t, Op? key = null) =>
         from left in OfHost(colour: start, key: key)

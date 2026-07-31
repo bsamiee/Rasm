@@ -2,9 +2,9 @@
 
 `Fabrication` admits one complete production request and runtime, dispatches one `FabricationPolicy`, and returns one `FabricationResult` whose evidence projects content identity and lineage without replaying plane logic. `Process` atoms remain the acyclic vocabulary floor, while `Run` remains the terminal consumer of plane kernels.
 
-`FabricationInput.Admit` proves process-machine-strategy-dialect compatibility, geometry presence, prior-state consistency, and requested egress before the `FabricationPolicy.Egress` dispatch. `CanonicalWriter` owns primitive payload framing beside the sole `ContentKey.Of` identity mint; `ContentKey.Of` length-frames `EgressKind` ahead of consumer-ordered bytes, so equal payloads in different families stay distinct. `FabricationResult.Evidence` projects produced artifacts, and `Lineage` folds admitted ancestry.
+`FabricationInput.Admit` proves process-machine-strategy-dialect compatibility, geometry presence, prior-state consistency, and requested egress before the `FabricationPolicy.Egress` dispatch. The `Rasm.Element` `CanonicalWriter` is the one byte codec every preimage composes, and `ContentKey.Of` length-frames `EgressKind` ahead of those bytes, so equal payloads in different families stay distinct. `FabricationResult.Evidence` projects produced artifacts, and `Lineage` folds admitted ancestry.
 
-`Loop.Apply` closes arc-native profile operations over one case family. `Move` carries its endpoint once and projects its circular geometry once. `MotionDirective` preserves spindle law, revolution dwell, channel synchronization, oriented retract, and channel barriers beside atom-safe moves. `MotionEvidence.Admit` preserves one joint row and duration per robot target. `ToolEvidence.Snapshot` binds one provider lifecycle to both evidence and cutter geometry, and provider types terminate at those admission owners.
+`Loop.Apply` closes arc-native profile operations over one case family. `Move` carries its endpoint once and projects its circular geometry once. `MotionDirective` preserves spindle law, revolution dwell, channel synchronization, oriented retract, and channel barriers beside atom-safe moves. `MotionEvidence.Admit` preserves one joint row and duration per motion target. `ToolEvidence` and `CutterIngress` carry already-decoded scalars: no provider type reaches the atoms floor, and `Tooling/magazine` owns every MTConnect read.
 
 ## [01]-[INDEX]
 
@@ -15,28 +15,25 @@
 
 - Owner: `Loop`, `Move`, `MotionDirective`, `SpindleControl`, `PartTransform`, `ProjectionDir`, `CutterForm`, `AdmittedComponent`, `ResidualStock`, `StockSnapshot`, `PlannedStep`, `CamPassPolicy`, `CapabilityVerdict`, and `InspectionFeature` own admitted atoms.
 - Cases: `ProfileOp` carries each arc-native operation's evidence; every `Move` case inherits `Target`, and `Move.Circular` carries feed, centre, sense, and intrinsic signed sweep; `MotionDirective` carries executable non-Cartesian semantics; `SpecializedToolpathRow` preserves wire, bevel, link, inspection, and turning evidence through one case-owned toolpath-kind column.
-- Entry: `Loop.Apply` is the sole profile-operation surface; input shape selects measure, query, sampling, offset, intersection, or Boolean behavior. `CutterForm.Admit` consumes one direct or provider-backed `CutterIngress` case.
+- Entry: `Loop.Apply` is the sole profile-operation surface; input shape selects measure, query, sampling, offset, intersection, or Boolean behavior. `CutterForm.Admit` consumes one `CutterIngress` record of decoded scalars.
 - Auto: generated-owner validation closes invariant-rich atoms, and `Validation<Error, T>` accumulates independent aggregate faults before the `Fin<T>` execution rail.
-- Packages: `CavalierContours`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`, `UnitsNet`, `NodaTime`, `Robots`, and `MTConnect.NET-Common` compose at their owning boundaries.
+- Packages: `CavalierContours`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`, `UnitsNet`, and `NodaTime` compose at their owning boundaries; no provider train reaches the floor.
 - Growth: a profile capability is one `ProfileOp` case with one `ProfileResult` case; a cutter geometry is one `CutterFamily` row over the existing rule columns; an atom invariant extends its generated admission hook.
-- Boundary: provider geometry, mutable tool assets, controller code, and plane-internal carriers terminate at their projection owner.
+- Boundary: provider geometry, mutable tool assets, controller code, and plane-internal carriers terminate at their projection owner; `Robots` and `MTConnect` types never cross into this namespace.
 
 ## [03]-[RUN_FOLD]
 
-- Owner: `FabricationInput`, `FabricationRuntime`, `FabricationPolicy`, `PostSource`, `FabricationResult`, `EgressKind`, `CanonicalWriter`, `ContentKey`, `RunEvidence`, `RunLineage`, and `Fabrication` own the production lifecycle.
+- Owner: `FabricationInput`, `FabricationRuntime`, `FabricationPolicy`, `PostSource`, `FabricationResult`, `EgressKind`, `ContentKey`, `RunEvidence`, `RunLineage`, and `Fabrication` own the production lifecycle.
 - Cases: `FabricationPolicy` carries plane-specific intent, `FabricationResult` carries plane-specific evidence, and `DeliveryTarget` carries destination-specific provenance.
 - Entry: `Fabrication.Run` consumes admitted `FabricationInput` and `FabricationRuntime`, awaits the policy-selected plane kernel, and returns `ValueTask<Fin<RunEvidence>>`; `Fabrication.Lineage` consumes the resulting `RunEvidence` receipt.
 - Auto: generated total dispatch routes each policy case; `FabricationPolicy.Egress` declares admissible artifact alternatives and request cardinality once, and `FabricationResult.Evidence` proves the produced keys cover the request while centralizing consumed and produced content projection.
 - Receipt: `RunEvidence` carries requested and produced artifacts, required motion diagnostics, inspection outcomes, verification state, and content keys. `Run`'s terminal fold fires `FabricationFact.Run.Of(evidence, elapsed)` through `FabricationRuntime.Telemetry` with elapsed read from `Clock`, projecting duration, artifact kinds, and warnings onto `rasm.fabrication.run.duration`, `rasm.fabrication.run.artifacts`, and `rasm.fabrication.run.warnings` through `Process/telemetry#FACT_PROJECTION` as kind `run`.
 - Growth: a production modality adds one policy case, one result case, and one dispatch arm; an artifact adds one `EgressKind` row, one entry on the owning `FabricationPolicy.Egress` arm, and its enrollment counterpart.
-- Boundary: consumers preserve field order while `CanonicalWriter` owns int32, IEEE-754 double, UInt128, UTF-8 string, and presence-tag framing; every egress then hashes those bytes under its unchanged `EgressKind` frame through `ContentKey.Of`. Every ingress re-enters through aggregate admission; clock, cancellation, the `FabricationTap` telemetry port, the `FabricationHooks` point roster, and the optional `HybridCache` solver-memo tier enter through `FabricationRuntime`; `Run` observes cancellation before any plane kernel, fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points off the settled result, and the delivery hand-off after evidence — so any app observes, vetoes, or replays the spine without a code edit — and domain kernels stay tap-free: facts fire only where receipts settle on the run spine.
+- Boundary: consumers preserve field order while the `Rasm.Element` `CanonicalWriter` owns ordinal, IEEE-754 double with `-0.0` and NaN normalization, `U128`, `I64`, length-prefixed UTF-8, and presence-tag framing; a second byte codec beside it is the deleted form, and every egress hashes those bytes under its unchanged `EgressKind` frame through `ContentKey.Of`. Every ingress re-enters through aggregate admission; clock, cancellation, the `FabricationTap` telemetry port, the `FabricationHooks` point roster, and the optional `HybridCache` solver-memo tier enter through `FabricationRuntime`; `Run` observes cancellation before any plane kernel, fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points off the settled result, and the delivery hand-off after evidence — so any app observes, vetoes, or replays the spine without a code edit — and domain kernels stay tap-free: facts fire only where receipts settle on the run spine.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Buffers;
 using System.Buffers.Binary;
-using System.Globalization;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using CavalierContours.Core;
@@ -46,10 +43,6 @@ using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
 using Microsoft.Extensions.Caching.Hybrid;
-using MTConnect;
-using MTConnect.Assets;
-using MTConnect.Assets.CuttingTools;
-using MTConnect.Assets.CuttingTools.Measurements;
 using NodaTime;
 using Rasm.Domain;
 using Rasm.Fabrication.Additive;
@@ -66,8 +59,6 @@ using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
-using UnitsNet.Units;
-using RobotProgram = Robots.Program;
 using TimeDuration = NodaTime.Duration;
 using static LanguageExt.Prelude;
 
@@ -92,7 +83,7 @@ public sealed partial class Loop {
         ref bool closed,
         ref Arr<double> bulges,
         ref Context tolerance) {
-        bulges = bulges.IsEmpty ? Range(0, vertices.Count).Map(static _ => 0.0).ToArr() : bulges;
+        bulges = bulges.IsEmpty ? Range(0, vertices.Count).ToSeq().Map(static _ => 0.0).ToArr() : bulges;
         validationError = Valid(vertices, closed, bulges, tolerance)
             ? null
             : new ValidationError("<loop-degenerate>");
@@ -100,7 +91,7 @@ public sealed partial class Loop {
 
     public static Fin<Loop> Admit(Arr<Point3d> vertices, bool closed, Arr<double> bulges, Context tolerance) =>
         Validate(vertices, closed, bulges, tolerance, out Loop loop) is { } error
-            ? Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Polyline, None, error.Message).ToError())
             : Fin.Succ(loop);
 
     public double Plane => Vertices[0].Z;
@@ -132,7 +123,7 @@ public sealed partial class Loop {
             new Vector2<double>(point.X, point.Y),
             Tolerance.Absolute.Value) is { } rotated
                 ? Rebuilt(rotated, this)
-                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "loop:rotate-start").ToError());
+                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "loop:rotate-start").ToError());
 
     public BoundingBox Bound() => Pline().Extents() is { } bounds
         ? new BoundingBox(
@@ -156,13 +147,13 @@ public sealed partial class Loop {
             new Vector2<double>(op.Point.X, op.Point.Y),
             loop.Tolerance.Absolute.Value) is { } closest
                 ? Fin.Succ<ProfileResult>(new ProfileResult.Closest(closest))
-                : Fin.Fail<ProfileResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "loop:closest").ToError()),
+                : Fin.Fail<ProfileResult>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "loop:closest").ToError()),
         sample: static (loop, op) => loop.Pline().FindPointAtPathLength(op.At.Millimeters) switch {
             (true, int segment, Vector2<double> point, double accumulated) => Fin.Succ<ProfileResult>(new ProfileResult.Sampled(
                 segment,
                 new Point3d(point.X, point.Y, loop.Plane),
                 UnitsNet.Length.FromMillimeters(accumulated))),
-            _ => Fin.Fail<ProfileResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "loop:sample").ToError()),
+            _ => Fin.Fail<ProfileResult>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "loop:sample").ToError()),
         },
         offset: static (loop, op) => loop.Offset(op.Distance.Millimeters),
         boolean: static (loop, op) => loop.Boolean(op.Other, op.Operation),
@@ -203,7 +194,7 @@ public sealed partial class Loop {
 
     private Fin<ProfileResult> Boolean(Loop other, BooleanOp operation) =>
         Math.Abs(Plane - other.Plane) > Tolerance.Absolute.Value || Tolerance != other.Tolerance
-            ? Fin.Fail<ProfileResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "loop:boolean-context").ToError())
+            ? Fin.Fail<ProfileResult>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "loop:boolean-context").ToError())
             : Combined(Pline(), other.Pline(), operation);
 
     private Fin<ProfileResult> Combined(Polyline<double> subject, Polyline<double> clip, BooleanOp operation) =>
@@ -360,7 +351,7 @@ public sealed record SpecializedToolpathEnvelope {
             && double.IsFinite(durationSeconds) && durationSeconds >= 0.0
             && rows.ForAll(row => row is not null && row.ToolpathKind == kind)
                 ? Fin.Succ(new SpecializedToolpathEnvelope(kind, rows, durationSeconds))
-                : Fin.Fail<SpecializedToolpathEnvelope>(FabricationFault.WitnessMalformed(
+                : Fin.Fail<SpecializedToolpathEnvelope>(new FabricationFault.WitnessMalformed(
                     nameof(SpecializedToolpathEnvelope), kind?.Key ?? nameof(SpecializedToolpathKind)));
 }
 
@@ -404,16 +395,16 @@ public abstract partial record Move {
     public static Fin<Move> Admit(Move candidate) => candidate.Switch(
         rapid: static move => move.Target.IsValid
             ? Fin.Succ((Move)move)
-            : Fin.Fail<Move>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "move:rapid").ToError()),
+            : Fin.Fail<Move>(new GeometryFault.DegenerateInput(Kind.Point, None, "move:rapid").ToError()),
         linear: static move => move.Target.IsValid && double.IsFinite(move.Feed) && move.Feed > 0.0
             ? Fin.Succ((Move)move)
-            : Fin.Fail<Move>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "move:linear").ToError()),
+            : Fin.Fail<Move>(new GeometryFault.DegenerateInput(Kind.Point, None, "move:linear").ToError()),
         circular: static move => move.Target.IsValid && move.Arc.Center.IsValid && move.Radius > 0.0
             && double.IsFinite(move.Feed) && move.Feed > 0.0
             && double.IsFinite(move.SweepRadians) && Math.Abs(move.SweepRadians) is > 0.0 and <= Math.Tau
             && (move.Arc.Sense == RotationSense.Clockwise ? move.SweepRadians < 0.0 : move.SweepRadians > 0.0)
                 ? Fin.Succ((Move)move)
-                : Fin.Fail<Move>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "move:circular").ToError()));
+                : Fin.Fail<Move>(new GeometryFault.DegenerateInput(Kind.Arc, None, "move:circular").ToError()));
 }
 
 [ComplexValueObject]
@@ -446,7 +437,7 @@ public sealed partial class PartTransform {
     public static Fin<PartTransform> Admit(
         int partId, int instance, double tx, double ty, double rotationRadians, int sheetIndex, bool mirrored) =>
         Validate(partId, instance, tx, ty, rotationRadians, sheetIndex, mirrored, out PartTransform transform) is { } error
-            ? Fin.Fail<PartTransform>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<PartTransform>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(transform);
 
     public Point3d Apply(Point3d point) {
@@ -503,9 +494,9 @@ public sealed partial class ProjectionDir {
     public static Fin<ProjectionDir> Of(Vector3d forward) =>
         Basis(forward).Match(
             Some: basis => Validate(basis.Forward, basis.ScreenU, basis.ScreenV, out ProjectionDir view) is { } error
-                ? Fin.Fail<ProjectionDir>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+                ? Fin.Fail<ProjectionDir>(new GeometryFault.DegenerateInput(Kind.Plane, None, error.Message).ToError())
                 : Fin.Succ(view),
-            None: () => Fin.Fail<ProjectionDir>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "projection-dir:forward").ToError()));
+            None: () => Fin.Fail<ProjectionDir>(new GeometryFault.DegenerateInput(Kind.Plane, None, "projection-dir:forward").ToError()));
 
     // Project retains depth on the third component, so the correspondence is a change of orthonormal basis and
     // Unproject reconstructs the world point exactly; neither direction is a sibling owner.
@@ -681,111 +672,49 @@ public sealed partial class ToolEvidence {
                 ? null
                 : new ValidationError("<tool-evidence-degenerate>");
 
-    public static Fin<ToolEvidence> Admit(ICuttingToolAsset asset) =>
-        Snapshot(asset).Map(static snapshot => snapshot.Evidence);
-
-    internal static Fin<(ToolEvidence Evidence, ICuttingToolLifeCycle Lifecycle)> Snapshot(ICuttingToolAsset asset) =>
-        from admitted in Optional(asset).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tool:null").ToError())
-        from lifecycle in Lifecycle(admitted)
-        from life in toSeq(lifecycle.ToolLife)
-            .Traverse(value => LifeBasisOf(value.Type).Map(basis => new ToolLifeEvidence(
-                basis,
-                value.Value,
-                Optional(value.Initial),
-                Optional(value.Limit),
-                Optional(value.Warning),
-                value.CountDirection == CountDirectionType.UP)))
-            .As()
-        let inserts = toSeq(lifecycle.CuttingItems)
-        from evidence in Admitted(admitted, lifecycle, life, inserts)
-        select (evidence, lifecycle);
-
-    // One boundary read: the provider reports validity and its diagnostic together, so the verdict binds once.
-    [BoundaryAdapter]
-    private static Fin<ICuttingToolLifeCycle> Lifecycle(ICuttingToolAsset asset) {
-        AssetValidationResult validation = asset.IsValid(MTConnectVersions.Version24);
-        return validation.IsValid
-            ? Optional(asset.CuttingToolLifeCycle).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tool:lifecycle").ToError())
-            : Fin.Fail<ICuttingToolLifeCycle>(new GeometryFault.DegenerateInput(Kind.Brep, -1, validation.Message ?? "tool:invalid").ToError());
-    }
-
-    private static Fin<ToolEvidence> Admitted(
-        ICuttingToolAsset asset,
-        ICuttingToolLifeCycle lifecycle,
+    // Provider decode is `Tooling/magazine`'s: the atoms floor reads no MTConnect surface, so this admission takes
+    // the already-decoded scalars and the S2 catalog owns the asset, its lifecycle validity, and every unit parse.
+    public static Fin<ToolEvidence> Admit(
+        string toolId,
+        string serialNumber,
+        string structuralDigest,
+        Set<ToolState> states,
         Seq<ToolLifeEvidence> life,
-        Seq<ICuttingItem> inserts) =>
-        Validate(
-            asset.ToolId,
-            asset.SerialNumber,
-            asset.GenerateHash(includeTimestamp: false),
-            toSeq(lifecycle.CutterStatus).Map(StateOf).ToSet(),
-            life,
-            Optional(lifecycle.ProcessFeedRate).Map(static value => new FeedEnvelope(
-                Optional(value.Minimum).Map(Speed.FromMillimetersPerMinutes),
-                Optional(value.Maximum).Map(Speed.FromMillimetersPerMinutes),
-                Optional(value.Nominal).Map(Speed.FromMillimetersPerMinutes))),
-            Optional(lifecycle.ProcessSpindleSpeed).Map(static value => new SpindleEnvelope(
-                Optional(value.Minimum).Map(RotationalSpeed.FromRevolutionsPerMinute),
-                Optional(value.Maximum).Map(RotationalSpeed.FromRevolutionsPerMinute),
-                Optional(value.Nominal).Map(RotationalSpeed.FromRevolutionsPerMinute))),
-            Optional(lifecycle.ProgramToolNumber).Filter(static value => !string.IsNullOrWhiteSpace(value)),
-            Optional(lifecycle.ProgramToolGroup).Filter(static value => !string.IsNullOrWhiteSpace(value)),
-            Optional(lifecycle.ReconditionCount).Bind(static value => Optional(value.Value)),
-            Optional(lifecycle.ReconditionCount).Bind(static value => Optional(value.MaximumCount)),
-            inserts.Map(static item => item.ItemId),
-            inserts.Choose(static item => Optional(item.Grade).Filter(static value => !string.IsNullOrWhiteSpace(value))),
-            out ToolEvidence evidence) is { } error
-                ? Fin.Fail<ToolEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+        Option<FeedEnvelope> feed,
+        Option<SpindleEnvelope> spindle,
+        Option<string> programNumber,
+        Option<string> programGroup,
+        Option<int> reconditions,
+        Option<int> reconditionLimit,
+        Seq<string> insertIds,
+        Seq<string> insertGrades) =>
+        Validate(toolId, serialNumber, structuralDigest, states, life, feed, spindle, programNumber, programGroup,
+            reconditions, reconditionLimit, insertIds, insertGrades, out ToolEvidence evidence) is { } error
+                ? Fin.Fail<ToolEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
                 : Fin.Succ(evidence);
-
-    private static ToolState StateOf(CutterStatusType value) => value switch {
-        CutterStatusType.NEW => ToolState.New,
-        CutterStatusType.AVAILABLE => ToolState.Available,
-        CutterStatusType.USED => ToolState.Used,
-        CutterStatusType.MEASURED => ToolState.Measured,
-        CutterStatusType.RECONDITIONED => ToolState.Reconditioned,
-        CutterStatusType.EXPIRED => ToolState.Expired,
-        CutterStatusType.BROKEN => ToolState.Broken,
-        CutterStatusType.ALLOCATED => ToolState.Allocated,
-        CutterStatusType.UNALLOCATED => ToolState.Unallocated,
-        CutterStatusType.NOT_REGISTERED => ToolState.NotRegistered,
-        CutterStatusType.UNAVAILABLE => ToolState.Unavailable,
-        _ => ToolState.Unknown,
-    };
-
-    private static Fin<ToolLifeBasis> LifeBasisOf(ToolLifeType value) => value switch {
-        ToolLifeType.MINUTES => Fin.Succ(ToolLifeBasis.Minutes),
-        ToolLifeType.PART_COUNT => Fin.Succ(ToolLifeBasis.PartCount),
-        ToolLifeType.WEAR => Fin.Succ(ToolLifeBasis.Wear),
-        _ => Fin.Fail<ToolLifeBasis>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"tool:life-basis:{value}").ToError()),
-    };
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record CutterIngress {
-    private CutterIngress() { }
-
-    public sealed record Direct(
-        CutterFamily Family,
-        double Diameter,
-        double CornerRadius,
-        double TaperAngle,
-        double FluteLength,
-        Option<ToolEvidence> Evidence = default,
-        Option<double> UsableLengthMm = default,
-        Option<double> FunctionalLengthMm = default,
-        Option<double> OverallLengthMm = default,
-        Option<double> ShankDiameterMm = default,
-        Option<double> MaxDepthMm = default,
-        Option<double> LeadAngleDeg = default,
-        Option<double> PointAngleDeg = default,
-        Option<double> OrientationDeg = default,
-        Option<int> FluteCount = default,
-        Option<double> MassKg = default,
-        Option<double> ProtrudingLengthMm = default,
-        Option<double> BodyDiameterMm = default) : CutterIngress;
-    public sealed record Asset(CutterFamily Family, ICuttingToolAsset Value) : CutterIngress;
-}
+// Cutter ingress is one shape, never a family: the asset arm carried the whole MTConnect measurement surface under
+// the vocabulary floor, and that decode now lands its scalars at `Tooling/magazine` before this record is built.
+public sealed record CutterIngress(
+    CutterFamily Family,
+    double Diameter,
+    double CornerRadius,
+    double TaperAngle,
+    double FluteLength,
+    Option<ToolEvidence> Evidence = default,
+    Option<double> UsableLengthMm = default,
+    Option<double> FunctionalLengthMm = default,
+    Option<double> OverallLengthMm = default,
+    Option<double> ShankDiameterMm = default,
+    Option<double> MaxDepthMm = default,
+    Option<double> LeadAngleDeg = default,
+    Option<double> PointAngleDeg = default,
+    Option<double> OrientationDeg = default,
+    Option<int> FluteCount = default,
+    Option<double> MassKg = default,
+    Option<double> ProtrudingLengthMm = default,
+    Option<double> BodyDiameterMm = default);
 
 [ComplexValueObject]
 public sealed partial class CutterForm {
@@ -853,15 +782,11 @@ public sealed partial class CutterForm {
                 ? null
                 : new ValidationError("<cutter-form-degenerate>");
 
-    public static Fin<CutterForm> Admit(CutterIngress ingress) => ingress is null
-        ? Fin.Fail<CutterForm>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "cutter-ingress").ToError())
-        : ingress.Switch(
-            direct: static value => AdmitDirect(value),
-            asset: static value => value.Family is null
-                ? Fin.Fail<CutterForm>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "cutter-family").ToError())
-                : AdmitAsset(value));
+    public static Fin<CutterForm> Admit(CutterIngress ingress) => ingress is null || ingress.Family is null
+        ? Fin.Fail<CutterForm>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "cutter-ingress"))
+        : Admitted(ingress);
 
-    private static Fin<CutterForm> AdmitDirect(CutterIngress.Direct value) =>
+    private static Fin<CutterForm> Admitted(CutterIngress value) =>
         Validate(
             value.Family,
             value.Diameter,
@@ -882,94 +807,8 @@ public sealed partial class CutterForm {
             value.BodyDiameterMm,
             value.Evidence,
             out CutterForm cutter) is { } error
-            ? Fin.Fail<CutterForm>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<CutterForm>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(cutter);
-
-    private static Fin<CutterForm> AdmitAsset(CutterIngress.Asset ingress) =>
-        from snapshot in ToolEvidence.Snapshot(ingress.Value)
-        from diameter in RequiredLength<CuttingDiameterMeasurement>(snapshot.Lifecycle.Measurements, "tool:diameter")
-        from flute in (RequiredLength<CuttingEdgeLengthMeasurement>(snapshot.Lifecycle.Measurements, "tool:cutting-length")
-            | RequiredLength<UsableLengthMaxMeasurement>(snapshot.Lifecycle.Measurements, "tool:usable-length"))
-        from corner in LengthScalar<CornerRadiusMeasurement>(snapshot.Lifecycle.Measurements).Map(static value => value.IfNone(0.0))
-        from taper in TaperOf(ingress.Family, snapshot.Lifecycle.Measurements)
-        from usable in LengthScalar<UsableLengthMaxMeasurement>(snapshot.Lifecycle.Measurements)
-        from functional in LengthScalar<FunctionalLengthMeasurement>(snapshot.Lifecycle.Measurements)
-        from overall in LengthScalar<OverallToolLengthMeasurement>(snapshot.Lifecycle.Measurements)
-        from shank in LengthScalar<ShankDiameterMeasurement>(snapshot.Lifecycle.Measurements)
-        from depth in LengthScalar<DepthOfCutMaxMeasurement>(snapshot.Lifecycle.Measurements)
-        from lead in AngleScalar<ToolLeadAngleMeasurement>(snapshot.Lifecycle.Measurements)
-        from point in AngleScalar<PointAngleMeasurement>(snapshot.Lifecycle.Measurements)
-        from orientation in AngleScalar<ToolOrientationMeasurement>(snapshot.Lifecycle.Measurements)
-        from mass in MassScalar<WeightMeasurement>(snapshot.Lifecycle.Measurements)
-        from protruding in LengthScalar<ProtrudingLengthMeasurement>(snapshot.Lifecycle.Measurements)
-        from body in LengthScalar<BodyDiameterMaxMeasurement>(snapshot.Lifecycle.Measurements)
-        from cutter in AdmitDirect(new CutterIngress.Direct(
-            ingress.Family,
-            diameter,
-            corner,
-            taper,
-            flute,
-            Some(snapshot.Evidence),
-            usable,
-            functional,
-            overall,
-            shank,
-            depth,
-            lead,
-            point,
-            orientation,
-            Option<int>.None,
-            mass,
-            protruding,
-            body))
-        select cutter;
-
-    private static Fin<double> TaperOf(CutterFamily family, IEnumerable<IToolingMeasurement> measurements) => family.TaperFrom.Switch(
-        state: measurements,
-        flat: static _ => Fin.Succ(0.0),
-        edgeAngle: static source => AngleScalar<ToolCuttingEdgeAngleMeasurement>(source).Map(static value => value.IfNone(0.0)),
-        halfPointAngle: static source => AngleScalar<PointAngleMeasurement>(source)
-            .Map(static value => value.Map(static angle => angle * 0.5).IfNone(0.0)));
-
-    private static Option<TMeasurement> Measurement<TMeasurement>(IEnumerable<IToolingMeasurement> measurements)
-        where TMeasurement : class, IToolingMeasurement =>
-        Optional(measurements.OfType<TMeasurement>().FirstOrDefault());
-
-    private static Fin<double> RequiredLength<TMeasurement>(IEnumerable<IToolingMeasurement> measurements, string locus)
-        where TMeasurement : class, IToolingMeasurement =>
-        from measurement in Measurement<TMeasurement>(measurements).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, locus).ToError())
-        from value in LengthScalar(measurement)
-        select value;
-
-    private static Fin<Option<double>> LengthScalar<TMeasurement>(IEnumerable<IToolingMeasurement> measurements)
-        where TMeasurement : class, IToolingMeasurement =>
-        Measurement<TMeasurement>(measurements).Traverse(LengthScalar).As();
-
-    private static Fin<Option<double>> AngleScalar<TMeasurement>(IEnumerable<IToolingMeasurement> measurements)
-        where TMeasurement : class, IToolingMeasurement =>
-        Measurement<TMeasurement>(measurements).Traverse(AngleScalar).As();
-
-    private static Fin<double> LengthScalar(IToolingMeasurement measurement) =>
-        UnitParser.Default.TryParse(UnitToken(measurement), CultureInfo.InvariantCulture, out LengthUnit unit)
-            ? Fin.Succ(new UnitsNet.Length(measurement.Value, unit).Millimeters)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tool:length-unit").ToError());
-
-    private static Fin<Option<double>> MassScalar<TMeasurement>(IEnumerable<IToolingMeasurement> measurements)
-        where TMeasurement : class, IToolingMeasurement =>
-        Measurement<TMeasurement>(measurements).Traverse(MassScalar).As();
-
-    private static Fin<double> AngleScalar(IToolingMeasurement measurement) =>
-        UnitParser.Default.TryParse(UnitToken(measurement), CultureInfo.InvariantCulture, out AngleUnit unit)
-            ? Fin.Succ(Quantity.From(measurement.Value, unit).As(AngleUnit.Degree))
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tool:angle-unit").ToError());
-
-    private static Fin<double> MassScalar(IToolingMeasurement measurement) =>
-        UnitParser.Default.TryParse(UnitToken(measurement), CultureInfo.InvariantCulture, out MassUnit unit)
-            ? Fin.Succ(new Mass(measurement.Value, unit).Kilograms)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "tool:mass-unit").ToError());
-
-    private static string? UnitToken(IToolingMeasurement measurement) =>
-        !string.IsNullOrWhiteSpace(measurement.NativeUnits) ? measurement.NativeUnits : measurement.Units;
 }
 
 public sealed record ComponentLayer(string Function, double ThicknessMm, string MaterialKey);
@@ -1021,7 +860,7 @@ public sealed partial class AdmittedComponent {
          Gate(quantities.ForAll(static row => !string.IsNullOrWhiteSpace(row.Key) && double.IsFinite(row.Value)), "component:quantities"),
          Gate(properties.ForAll(static row => !string.IsNullOrWhiteSpace(row.Key)
                 && !string.IsNullOrWhiteSpace(row.Value)), "component:properties"))
-            .Apply(static (_, _, _, _, _, _, _) => unit)
+            .Apply(static (_, _, _, _, _, _) => unit)
             .As()
             .ToFin()
             .Bind(_ =>
@@ -1035,12 +874,12 @@ public sealed partial class AdmittedComponent {
                 quantities,
                 properties,
                 out AdmittedComponent component) is { } error
-                    ? Fin.Fail<AdmittedComponent>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+                    ? Fin.Fail<AdmittedComponent>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
                     : Fin.Succ(component));
     }
 
     private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
-        (valid ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, locus).ToError())).ToValidation();
+        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Process, locus));
 }
 
 [SmartEnum<string>]
@@ -1083,38 +922,6 @@ public sealed record ContentKey {
     }
 }
 
-public static class CanonicalWriter {
-    public static void Write(IBufferWriter<byte> writer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(sizeof(int)), value);
-        writer.Advance(sizeof(int));
-    }
-
-    public static void Write(IBufferWriter<byte> writer, double value) {
-        BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(sizeof(double)), value);
-        writer.Advance(sizeof(double));
-    }
-
-    public static void Write(IBufferWriter<byte> writer, UInt128 value) {
-        BinaryPrimitives.WriteUInt128LittleEndian(writer.GetSpan(16), value);
-        writer.Advance(16);
-    }
-
-    public static void Write(IBufferWriter<byte> writer, string value) {
-        int length = Encoding.UTF8.GetByteCount(value);
-        Write(writer, length);
-        _ = Encoding.UTF8.GetBytes(value, writer.GetSpan(length));
-        writer.Advance(length);
-    }
-
-    public static void Write<T>(
-        IBufferWriter<byte> writer,
-        Option<T> value,
-        Action<IBufferWriter<byte>, T> project) =>
-        value.Match(
-            Some: item => { Write(writer, 1); project(writer, item); return unit; },
-            None: () => { Write(writer, 0); return unit; });
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeliveryTarget {
     private DeliveryTarget() { }
@@ -1144,7 +951,7 @@ public sealed partial class EgressRequest {
 
     public static Fin<EgressRequest> Admit(Set<EgressKind> kinds, DeliveryTarget target) =>
         Validate(kinds, target, out EgressRequest request) is { } error
-            ? Fin.Fail<EgressRequest>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<EgressRequest>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(request);
 }
 
@@ -1164,7 +971,7 @@ public sealed partial class ResidualStock {
 
     public static Fin<ResidualStock> Admit(ContentKey key, Arr<Loop> uncut) =>
         Validate(key, uncut, out ResidualStock stock) is { } error
-            ? Fin.Fail<ResidualStock>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<ResidualStock>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(stock);
 }
 
@@ -1186,7 +993,7 @@ public sealed partial class StockSnapshot {
 
     public static Fin<StockSnapshot> Admit(int setup, ContentKey key, Arr<Loop> machined) =>
         Validate(setup, key, machined, out StockSnapshot snapshot) is { } error
-            ? Fin.Fail<StockSnapshot>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<StockSnapshot>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(snapshot);
 }
 
@@ -1234,7 +1041,7 @@ public sealed partial class PlannedStep {
         Arr<int> operations,
         Option<ContentKey> program) =>
         Validate(order, process, machine, setup, operations, program, out PlannedStep step) is { } error
-            ? Fin.Fail<PlannedStep>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<PlannedStep>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(step);
 }
 
@@ -1253,7 +1060,7 @@ public sealed partial class CamPassPolicy {
 
     public static Fin<CamPassPolicy> Admit(double stepOver, int passes) =>
         Validate(stepOver, passes, out CamPassPolicy policy) is { } error
-            ? Fin.Fail<CamPassPolicy>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<CamPassPolicy>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(policy);
 }
 
@@ -1300,7 +1107,7 @@ public sealed partial class CapabilityVerdict {
 
     public static Fin<CapabilityVerdict> Admit(double cpk, double demandedCpk, int demandedItGrade, bool procedureQualified, bool measurementSystemSuitable) =>
         Validate(cpk, demandedCpk, demandedItGrade, procedureQualified, measurementSystemSuitable, out CapabilityVerdict verdict) is { } error
-            ? Fin.Fail<CapabilityVerdict>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<CapabilityVerdict>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(verdict);
 }
 
@@ -1349,7 +1156,7 @@ public sealed partial class InspectionFeature {
         double uncertaintyMm,
         InspectionMethod method) =>
         Validate(key, nominal, measured, toleranceMm, uncertaintyMm, method, out InspectionFeature feature) is { } error
-            ? Fin.Fail<InspectionFeature>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<InspectionFeature>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(feature);
 }
 
@@ -1383,30 +1190,8 @@ public sealed partial class MotionEvidence {
         Seq<string> controllerCode,
         Seq<string> warnings) =>
         Validate(joints, segmentDurations, cycle, controllerCode, warnings, out MotionEvidence evidence) is { } error
-            ? Fin.Fail<MotionEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<MotionEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(evidence);
-
-    public static Fin<MotionEvidence> Admit(RobotProgram program) =>
-        from admitted in Optional(program).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "robot-program:null").ToError())
-        from clean in Clean(admitted)
-        let targets = toSeq(clean.Targets)
-        from evidence in Admit(
-            targets.Map(static target => target.Joints.ToArr()),
-            targets.Map(static target => TimeDuration.FromSeconds(target.DeltaTime)),
-            TimeDuration.FromSeconds(clean.Duration),
-            Optional(clean.Code).ToSeq()
-                .Bind(static groups => toSeq(groups))
-                .Bind(static files => toSeq(files))
-                .Bind(static lines => toSeq(lines)),
-            toSeq(clean.Warnings))
-        select evidence;
-
-    private static Fin<RobotProgram> Clean(RobotProgram program) =>
-        toSeq(program.Errors) is { IsEmpty: false } errors
-            ? JointDiagnostic
-                .Admit(new JointDiagnostic.Configuration("robot-program:clean", $"robot-program:errors:{errors.Count}"))
-                .Bind(static diagnostic => Fin.Fail<RobotProgram>(new FabricationFault.Unreachable(diagnostic, 0)))
-            : Fin.Succ(program);
 }
 
 [ComplexValueObject]
@@ -1462,7 +1247,7 @@ public sealed partial class FabricationInput {
          Gate(machine is not null && process is not null && machine.Admits(process), "fabrication-input:process-machine"),
          Gate(policy is not null && process is not null && PolicyFits(policy, process), "fabrication-input:policy"),
          Gate(policy is not null && egress is not null && EgressFits(policy, egress), "fabrication-input:egress"))
-            .Apply(static (_, _, _, _, _, _) => unit)
+            .Apply(static (_, _, _, _, _, _, _) => unit)
             .As()
             .ToFin()
             .Bind(_ => Validate(
@@ -1485,11 +1270,11 @@ public sealed partial class FabricationInput {
                 materialCertificate,
                 egress,
                 out FabricationInput input) is { } error
-                    ? Fin.Fail<FabricationInput>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+                    ? Fin.Fail<FabricationInput>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
                     : Fin.Succ(input));
 
     private static K<Validation<Error>, Unit> Gate(bool holds, string locus) =>
-        (holds ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, locus).ToError())).ToValidation();
+        AdmissionSlots.Gate(holds, new FabricationFault.PolicyInadmissible(FabConcern.Process, locus));
 
     private static bool PolicyFits(FabricationPolicy policy, ProcessKind process) => policy.Switch(
         state: process,
@@ -1652,8 +1437,8 @@ public abstract partial record FabricationResult {
         Set<EgressKind> missing = input.Egress.Kinds - evidence.Produced.Map(static key => key.Kind).ToSet();
         return missing.IsEmpty
             ? Fin.Succ(evidence)
-            : Fin.Fail<RunEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1,
-                $"egress:missing:{string.Join(',', missing.Map(static kind => kind.Key))}").ToError());
+            : Fin.Fail<RunEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Process,
+                $"egress:missing:{string.Join(',', missing.Map(static kind => kind.Key))}"));
     }
 }
 
@@ -1714,15 +1499,15 @@ public sealed partial class FabricationRuntime {
         FabricationHooks? hooks = null,
         Option<HybridCache> memo = default) =>
         Validate(clock, cancel, telemetry ?? FabricationTap.Silent, hooks ?? FabricationHooks.Live(), memo, out FabricationRuntime runtime) is { } error
-            ? Fin.Fail<FabricationRuntime>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            ? Fin.Fail<FabricationRuntime>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
             : Fin.Succ(runtime);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Fabrication {
     public static ValueTask<Fin<RunEvidence>> Run(FabricationInput input, FabricationRuntime runtime) =>
-        (from candidate in Optional(input).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:input").ToError())
-         from context in Optional(runtime).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:runtime").ToError())
+        (from candidate in Optional(input).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Process, "fabrication:input"))
+         from context in Optional(runtime).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Process, "fabrication:runtime"))
          from _ in Ready(context)
          let started = context.Clock.GetCurrentInstant()
          from admitted in context.Hooks.Admission.Fire(candidate)
@@ -1732,7 +1517,7 @@ public static class Fabrication {
             Fail: static error => ValueTask.FromResult(Fin.Fail<RunEvidence>(error)));
 
     private static Fin<Unit> Ready(FabricationRuntime runtime) => runtime.Cancel.IsCancellationRequested
-        ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:cancelled").ToError())
+        ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "fabrication:cancelled"))
         : Fin.Succ(unit);
 
     private static async ValueTask<Fin<RunEvidence>> Dispatch(
@@ -1774,7 +1559,7 @@ public static class Fabrication {
     }
 
     public static Fin<RunLineage> Lineage(RunEvidence run) => Optional(run)
-        .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:run-evidence").ToError())
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Process, "fabrication:run-evidence"))
         .Map(evidence => new RunLineage(
             evidence.Policy,
             evidence.Process,

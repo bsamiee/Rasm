@@ -15,12 +15,22 @@ This folder's fail-closed capability rail: one closed row/ensure vocabulary, one
 - Law: `floor` compares segment-numeric through `_byVersion` over one padded width, so a segment count never outranks a segment value and a real two-segment `extversion` meets an equal three-segment floor; `"0.0.0"` is the presence-only floor and the probe still fails closed on absence. Floor gating itself is a pg fact: the sqlite arm answers presence only, so its admission is membership and no pg-authored floor can refuse a present module.
 - Law: ensure rows are authored by the page owning the relation and collected by `lane/tenant.md` at Layer construction; demand pairs are authored by the page owning the matrix (`Pg.demands`). `G` and `F` infer from those values through the service factory, so `require` and `when` accept only the roster's closed grant vocabulary and a misspelled gate is unrepresentable.
 - Law: `transaction` admits `SqlClient.withTransaction`; `batch` admits an engine-native atomic batch but refuses an interactive transaction. PostgreSQL, server sqlite, wasm sqlite, and libSQL seed `transaction`; D1 seeds only `batch`, so the generic journal publisher cannot compose on D1 and a D1 publisher must submit its whole write set through the batch boundary. Atomicity is a demandable grant like any other — `Demand`'s grant slot is the full `Grant<G>` vocabulary, so a flagged row may demand `transaction` or `batch` and the fixed-point fold refuses it on D1 exactly as it refuses an absent extension grant.
-- Law: one `CapabilityFault` family, reason-discriminated — `absent` (extension not installed), `floor` (installed below floor), `schema` (declared relation missing), `requires` (dependency grant refused); all four route identically (fail or shrink at startup, repair provision), so one class carries them and no policy table is earned.
-- Packages: `effect` (`Data`, `Order`, `String`).
+- Law: one `CapabilityFault` family, reason-discriminated and closed through the core `FaultClass.family` seam — `absent` (extension not installed) and `schema` (declared relation missing) classify `absent`, `floor` (installed below floor) classifies `breached` because a declared minimum the environment sits under is a limit break, `requires` (dependency grant refused) classifies `denied`; all four route identically at startup (fail or shrink, repair provision), so retryability and blame derive from the core row table and no local policy column is earned.
+- Packages: `effect` (`Order`, `Schema`, `String`); `@rasm/ts/core` (`FaultClass`).
 - Growth: a new probe posture is a `probeSql` override on the owning matrix row; a new ensure dialect is one field on the ensure shape; a new dependency edge is one demand pair — the shapes never widen per extension.
 
 ```typescript signature
-import { Array, Data, Order, String, pipe } from "effect"
+import { Array, Order, Schema, String, pipe } from "effect"
+import { FaultClass } from "@rasm/ts/core"
+
+// One row per reason: the core kind alone. Retryability, blame, and quarantine are the core FaultClass row
+// table's — a rank or retry column here would fork that taxonomy into this folder.
+const _family = FaultClass.family(["absent", "floor", "schema", "requires"] as const, {
+  absent: { class: "absent" },
+  floor: { class: "breached" },
+  schema: { class: "absent" },
+  requires: { class: "denied" },
+})
 
 declare namespace Capability {
   type Row<G extends string = string, F extends string = string> = {
@@ -39,15 +49,22 @@ declare namespace Capability {
   type Atomicity = "transaction" | "batch"
   type Grant<G extends string = string> = G | Atomicity
   type Demand<F extends string = string, G extends string = string> = readonly [flag: F, grant: Grant<G>]
-  type Reason = "absent" | "floor" | "schema" | "requires"
+  type Reason = (typeof _family.reasons)[number]
   type Fault = CapabilityFault
 }
 
-class CapabilityFault extends Data.TaggedError("CapabilityFault")<{
-  readonly reason: Capability.Reason
-  readonly subject: string
-  readonly detail: string
-}> {}
+class CapabilityFault extends Schema.TaggedError<CapabilityFault>()("CapabilityFault", {
+  reason: _family.schema,
+  subject: Schema.String,
+  detail: Schema.String,
+}) {
+  get class(): FaultClass.Kind {
+    return _family.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<capability:${this.reason}> ${this.subject}: ${this.detail}`
+  }
+}
 
 // `Order.array` compares LENGTH before elements, so a two-segment `extversion` sorts under an equal-valued
 // three-segment floor and a real `1.6` refuses against `1.6.0`; padding both operands to one width makes the
@@ -302,13 +319,13 @@ declare namespace Capability {
 - Law: `failureRank` and `restartClass` decode as closed literals whose tokens are corpus law; `_RESTART_ORDER` declares the restart tokens in rank order and its index IS the rank, so `Backend.worst` folds an aggregated repair to the worst disruption across its gap set rather than the least.
 - Law: provider rows map the contract's canonical capability key onto the GRANT that proves it, and the granted set is the one membership value observation reads; a probed-version lookup answers floor evidence alone, and a semantic fallback proves nothing.
 - Law: generation, required grants, and artifact observations all hold before `Backend.Generation` exists, each proved against the corpus and the transported bytes rather than a local re-encode.
-- Packages: `effect` Schema, JSONSchema, collections, and rails; core `ContentKey` and `Digest`.
+- Packages: `effect` Schema, JSONSchema, collections, and rails; core `ContentKey`, `Digest`, and `FaultClass`.
 - Growth: a provider adds adapter rows over its existing matrix; a new invariant is one `_Check` row; a generated field changes the one projection schema.
 - Boundary: a TypeScript-only application composes, merges, deploys, and admits its backend with no peer branch present; desired rows and local availability never count as realized evidence.
 
 ```typescript signature
-import { ContentKey, Digest } from "@rasm/ts/core"
-import { Array, Data, Effect, Equivalence, HashSet, JSONSchema, Order, Schema, String } from "effect"
+import { ContentKey, Digest, FaultClass } from "@rasm/ts/core"
+import { Array, Effect, Equivalence, HashSet, JSONSchema, Order, Schema, String } from "effect"
 
 // --- [TYPES] ----------------------------------------------------------------------------
 
@@ -374,10 +391,30 @@ const _sameKey = (self: { readonly key: string }, that: { readonly key: string }
 
 // `dependency` carries both dependency-key refusals — an edge naming no artifact in the set, and a set whose
 // edges admit no order — because each names the same broken payload and the subjects name which keys broke it.
-class BackendFault extends Data.TaggedError("BackendFault")<{
-  readonly reason: "wire" | "identity" | "capability" | "artifact" | "dependency" | "collision"
-  readonly subjects: ReadonlyArray<string>
-}> {}
+// One row per reason: the core kind alone, so retryability, blame, and quarantine stay the core row table's.
+const _backendFamily = FaultClass.family(
+  ["wire", "identity", "capability", "artifact", "dependency", "collision"] as const,
+  {
+    wire: { class: "malformed" },
+    identity: { class: "breached" },
+    capability: { class: "absent" },
+    artifact: { class: "invalid" },
+    dependency: { class: "invalid" },
+    collision: { class: "conflicted" },
+  },
+)
+
+class BackendFault extends Schema.TaggedError<BackendFault>()("BackendFault", {
+  reason: _backendFamily.schema,
+  subjects: Schema.Array(Schema.String),
+}) {
+  get class(): FaultClass.Kind {
+    return _backendFamily.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<backend:${this.reason}> ${this.subjects.join(" ")}`
+  }
+}
 
 // --- [MODELS] ---------------------------------------------------------------------------
 

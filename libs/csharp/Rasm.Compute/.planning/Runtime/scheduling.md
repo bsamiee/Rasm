@@ -6,7 +6,7 @@ Clusters own the `WorkLane` axis, the work-item and handle shapes, the GH2 async
 
 ## [01]-[INDEX]
 
-- [02]-[LANE_AXIS]: bounded channel rows; capacity, full-mode, readers, rank as row data.
+- [02]-[LANE_AXIS]: channel rows over one closed `LaneBound` family; parked, shedding, and ranked bounds as row data.
 - [03]-[SOLVE_GUARD]: one enqueue capsule; solve threads receive handles, never execute work.
 - [04]-[CPU_BUDGET]: one processor-budget record shared by lane, model, tensor, and optimizer concurrency; utilization-governed re-resolution at collection cadence.
 - [05]-[JOB_GRAPH]: batch-wave dependency scheduler; speculative run-ahead, QoS-weighted fair-share and gang admission, cooperative spill, content-key reactive reconcile, rolled-up live DAG progress aggregate.
@@ -14,38 +14,84 @@ Clusters own the `WorkLane` axis, the work-item and handle shapes, the GH2 async
 
 ## [02]-[LANE_AXIS]
 
-- Owner: `WorkLane` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor; `LaneHandle` readback handle; `WorkItem` channel element.
-- Cases: interactive, background, bulk, benchmark, capture-ingest.
-- Entry: `public BoundedChannelOptions Options(CpuBudget budget)` — pure row projection; capacity, full-mode, reader fan-out, and continuation isolation are row data, never call-site arguments.
-- Auto: cadence-driven work (compute-model-warmup, scheduled equivalence sweeps) enters as `ScheduleEntry` rows whose `Work` delegate enqueues onto its declared lane — the schedule port owns when, lanes own throughput; receipted-loss rows construct their channel with the drop delegate so every drop lands as a `Backpressure` receipt carrying the dropped item's correlation, never a silent loss; the queue-depth slot reads `ChannelReader<WorkItem>.Count` on the lane's reader at stamp time, never a hand-tracked counter.
-- Receipt: Backpressure — lane row, queue depth from `ChannelReader.Count`, wait elapsed on a parked write, or dropped-item correlation on a `DropWrite`/`DropOldest` lane — materialized at the sink edge on the package receipt union.
+- Owner: `WorkLane` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor; `LaneBound` the closed parked/shedding/ranked bound family each row carries; `LaneHandle` readback handle; `WorkItem` channel element.
+- Cases: interactive, ranked, background, bulk, benchmark, capture-ingest.
+- Entry: `public Channel<WorkItem> Open(CpuBudget budget, Action<WorkItem> dropped)` — the ONE construction, a total `Switch` over the row's `LaneBound` building a parked, a shedding, or a rank-ordered channel; `Bounded`/`Prioritized` are its private per-arm projections. Capacity, drop policy, admission ceiling, comparer, reader fan-out, and continuation isolation are row data, never call-site arguments.
+- Auto: cadence-driven work (compute-model-warmup, scheduled equivalence sweeps) enters as `ScheduleEntry` rows whose `Work` delegate enqueues onto its declared lane — the schedule port owns when, lanes own throughput; the shedding arm alone receives the drop sink so every drop lands as a `Backpressure` receipt carrying the dropped item's correlation, never a silent loss; the queue-depth slot reads `ChannelReader<WorkItem>.Count` on the lane's reader at stamp time, never a hand-tracked counter; a parked write times through `WaitToWriteAsync`, which returns when capacity frees, so the park is measured exactly and a lane deadline cancels the WAIT rather than aborting a write already in flight.
+- Receipt: Backpressure — lane row, queue depth from `ChannelReader.Count`, wait elapsed measured across `WaitToWriteAsync` alone (timing `WriteAsync` conflates the park with the write and leaves cancellation no seam), or dropped-item correlation on a shedding lane — materialized at the sink edge on the package receipt union; a ranked row's ceiling refusal never reaches this receipt because it precedes execution, riding the typed `ComputeFault.LaneSaturated` onto `Refusal.Of` instead.
 - Packages: BCL inbox, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: one lane row with its capacity, full-mode, reader, and rank columns; zero new surface.
-- Boundary: the `WorkLane` name is owned here and `DrainQueue` stays the AppHost process-level altitude — one altitude per name; lane choice is an intent field and full-mode is row data, so a drop flag on another row is the deleted form; capture-ingest drops oldest because the latest geometry state wins, and its consumer is the DocumentService CaptureEvents client-stream; rank is the cross-lane precedence datum ordering drain steps — per-item priority mutation, unbounded channels, per-lane worker class hierarchies, and Dataflow lanes are the deleted patterns; an external lane selector arriving as wire text admits through the generated `WorkLane.Validate`/`TryGet` key seam, never a raw-string comparison against row keys.
+- Growth: one lane row with its `LaneBound` case, reader, and rank columns; a genuinely new bound mechanism is one `LaneBound` case with its `Open` arm, and every consumer breaks loudly at that `Switch`; zero new surface.
+- Boundary: the `WorkLane` name is owned here and `DrainQueue` stays the AppHost process-level altitude — one altitude per name; lane choice is an intent field and the bound is row data, so a drop flag on another row is the deleted form; capture-ingest drops oldest because the latest geometry state wins, and its consumer is the DocumentService CaptureEvents client-stream; rank is the cross-lane precedence datum ordering drain steps and the intent's own `DeadlineAt` is the INTRA-lane one, read by the ranked arm's earliest-deadline-first comparer — per-item priority mutation after admission, a second lane minted to carry urgency, per-lane worker class hierarchies, and Dataflow lanes are the deleted patterns; the ranked arm is unbounded by construction so its `Ceiling` is where the writer refuses on the typed rail, and a shedding policy on that arm is unrepresentable because the case carries no slot for one; an external lane selector arriving as wire text admits through the generated `WorkLane.Validate`/`TryGet` key seam, never a raw-string comparison against row keys.
 
 ```csharp signature
+// The bound is ONE closed payload family, never three loose columns. A capacity, a full-mode, and an admission
+// ceiling riding side by side let a row spell states the channel primitives refuse — a prioritized row still
+// carrying a capacity (`BoundedChannelOptions` throws below one), a shedding full-mode on an unbounded row the
+// primitive silently ignores, a ceiling on a bounded row nothing reads. Each case carries exactly the evidence
+// its own construction arm consumes, so those states are unrepresentable rather than guarded.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record LaneBound {
+    private LaneBound() { }
+
+    // Bounded and back-pressuring: a full lane PARKS the writer, the park is measured, and nothing is lost.
+    public sealed record Parked(int Capacity) : LaneBound;
+
+    // Bounded and receipted-loss: `Mode` is the drop policy and every drop lands a correlated `Backpressure`.
+    public sealed record Shedding(int Capacity, BoundedChannelFullMode Mode) : LaneBound;
+
+    // Unbounded prioritized: the primitive admits no capacity, so the CEILING is where the writer refuses on the
+    // typed rail — which is why a shedding policy has no slot to occupy on this case.
+    public sealed record Ranked(int Ceiling) : LaneBound;
+}
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WorkLane {
-    public static readonly WorkLane Interactive = new("interactive", capacity: 16, fullMode: BoundedChannelFullMode.Wait, rank: 1, readers: static _ => 1);
-    public static readonly WorkLane Background = new("background", capacity: 256, fullMode: BoundedChannelFullMode.Wait, rank: 2, readers: static budget => budget.ReaderCeiling);
-    public static readonly WorkLane Bulk = new("bulk", capacity: 1024, fullMode: BoundedChannelFullMode.DropWrite, rank: 3, readers: static _ => 1);
-    public static readonly WorkLane Benchmark = new("benchmark", capacity: 4, fullMode: BoundedChannelFullMode.Wait, rank: 4, readers: static _ => 1);
-    public static readonly WorkLane CaptureIngest = new("capture-ingest", capacity: 256, fullMode: BoundedChannelFullMode.DropOldest, rank: 5, readers: static _ => 1);
+    public static readonly WorkLane Interactive = new("interactive", new LaneBound.Parked(16), rank: 1, readers: static _ => 1);
+    public static readonly WorkLane Ranked = new("ranked", new LaneBound.Ranked(256), rank: 1, readers: static _ => 1);
+    public static readonly WorkLane Background = new("background", new LaneBound.Parked(256), rank: 2, readers: static budget => budget.ReaderCeiling);
+    public static readonly WorkLane Bulk = new("bulk", new LaneBound.Shedding(1024, BoundedChannelFullMode.DropWrite), rank: 3, readers: static _ => 1);
+    public static readonly WorkLane Benchmark = new("benchmark", new LaneBound.Parked(4), rank: 4, readers: static _ => 1);
+    public static readonly WorkLane CaptureIngest = new("capture-ingest", new LaneBound.Shedding(256, BoundedChannelFullMode.DropOldest), rank: 5, readers: static _ => 1);
 
     private readonly Func<CpuBudget, int> readers;
 
-    public int Capacity { get; }
-
-    public BoundedChannelFullMode FullMode { get; }
+    public LaneBound Bound { get; }
 
     public int Rank { get; }
 
     public int Readers(CpuBudget budget) => Math.Min(readers(budget), budget.ReaderCeiling);
 
-    public BoundedChannelOptions Options(CpuBudget budget) => new(Capacity) {
-        FullMode = FullMode,
+    // The ceiling is the RANKED case's own datum, so a bounded row answers absence rather than a zero the writer
+    // would have to read as "no ceiling" — the one arm that refuses is the one arm that carries the number.
+    public Option<int> Ceiling => Bound.Switch(
+        state: unit,
+        parked: static (_, _) => Option<int>.None,
+        shedding: static (_, _) => Option<int>.None,
+        ranked: static (_, row) => Some(row.Ceiling));
+
+    // ONE construction over the bound family, taking the drop sink the shedding arm alone consumes. Intra-lane
+    // drain RANK lives here: `Rank` orders lanes against one another and arrival order rules within a lane, which
+    // drains a request due in a second behind a queue of requests due in a minute. The prioritized arm re-orders
+    // by the intent's OWN `DeadlineAt` — earliest-deadline-first, the rank admission already carries — so one lane
+    // serves both urgencies with no new column, no second lane, and no post-admission mutation.
+    public Channel<WorkItem> Open(CpuBudget budget, Action<WorkItem> dropped) =>
+        Bound.Switch(
+            state: (Lane: this, Budget: budget, Dropped: dropped),
+            parked: static (s, row) => Channel.CreateBounded<WorkItem>(s.Lane.Bounded(row.Capacity, BoundedChannelFullMode.Wait, s.Budget)),
+            shedding: static (s, row) => Channel.CreateBounded(s.Lane.Bounded(row.Capacity, row.Mode, s.Budget), s.Dropped),
+            ranked: static (s, _) => Channel.CreateUnboundedPrioritized(s.Lane.Prioritized(s.Budget)));
+
+    private BoundedChannelOptions Bounded(int capacity, BoundedChannelFullMode mode, CpuBudget budget) => new(capacity) {
+        FullMode = mode,
+        SingleReader = Readers(budget) is 1,
+        SingleWriter = false,
+        AllowSynchronousContinuations = false,
+    };
+
+    private UnboundedPrioritizedChannelOptions<WorkItem> Prioritized(CpuBudget budget) => new() {
+        Comparer = Comparer<WorkItem>.Create(static (left, right) => left.Intent.DeadlineAt.CompareTo(right.Intent.DeadlineAt)),
         SingleReader = Readers(budget) is 1,
         SingleWriter = false,
         AllowSynchronousContinuations = false,
@@ -83,10 +129,12 @@ public sealed class LaneRuntime(
     Action<WorkLane, WorkItem, Option<Duration>> pressure)
 {
     private readonly Atom<LaneGate> gate = Atom<LaneGate>(new LaneGate.Open());
-    private readonly HashMap<WorkLane, Channel<WorkItem>> channels = toHashMap(toSeq(WorkLane.Items).Map(row =>
-        (row, row.FullMode is BoundedChannelFullMode.Wait
-            ? Channel.CreateBounded<WorkItem>(row.Options(budget))
-            : Channel.CreateBounded<WorkItem>(row.Options(budget), item => pressure(row, item, None)))));
+
+    // Every lane constructs through the row's OWN `Open`, so the bound family decides bounded-versus-prioritized
+    // once and the drop sink reaches only the arm that can drop; a capsule re-deciding the construction here
+    // strands whichever arm it forgets — a ranked row built as bounded throws on its zero capacity.
+    private readonly HashMap<WorkLane, Channel<WorkItem>> channels = toHashMap(toSeq(WorkLane.Items)
+        .Map(row => (row, row.Open(budget, item => pressure(row, item, None)))));
 
     // Execution-time gate reads reject an Enqueue effect composed before a later fence.
     public IO<LaneHandle> Enqueue(AdmittedIntent intent) =>
@@ -127,18 +175,35 @@ public sealed class LaneRuntime(
             intent.Scope.Derive($"{intent.Spec.Lane.Key}/{intent.Correlation}", time),
             clock.GetCurrentInstant()));
 
+    // Admission and park measurement are ONE seam. `TryWrite` takes the uncontended path with no allocation and
+    // no receipt; a refusal parks on `WaitToWriteAsync`, which returns the instant capacity frees, so the elapsed
+    // park is exactly the wait and the lane deadline cancels the WAIT rather than aborting a write already in
+    // flight — the seam `WriteAsync` has no way to expose. A ranked row is unbounded, so nothing frees and nothing
+    // parks; its `Ceiling` is the writer's refusal depth, read at this same seam so one member carries both bound
+    // forms and no lane admits past its declared depth. A completed writer means the drain fenced this lane after
+    // the gate read, which is the one enqueue race the execution-time gate cannot close alone.
     private IO<Unit> Write(WorkItem item) =>
         IO.liftVAsync(async _ => {
-            ValueTask parked = channels[item.Handle.Lane].Writer.WriteAsync(item, item.Handle.Cancel.Token);
-            if (parked.IsCompletedSuccessfully) {
-                await parked.ConfigureAwait(false);
-                return unit;
+            (WorkLane lane, Channel<WorkItem> channel) = (item.Handle.Lane, channels[item.Handle.Lane]);
+            if (lane.Ceiling.Case is int ceiling && channel.Reader.Count >= ceiling) {
+                return Fin.Fail<Unit>(new ComputeFault.LaneSaturated($"{lane.Key}:ceiling={ceiling}:depth={channel.Reader.Count}"));
             }
+
             long mark = time.GetTimestamp();
-            await parked.ConfigureAwait(false);
-            pressure(item.Handle.Lane, item, Some(time.GetElapsedTime(mark).ToDuration()));
-            return unit;
-        });
+            bool parked = false;
+            while (!channel.Writer.TryWrite(item)) {
+                parked = true;
+                if (!await channel.Writer.WaitToWriteAsync(item.Handle.Cancel.Token).ConfigureAwait(false)) {
+                    return Fin.Fail<Unit>(new ComputeFault.ShutdownDrained($"{lane.Key}:writer-completed"));
+                }
+            }
+
+            if (parked) {
+                pressure(lane, item, Some(time.GetElapsedTime(mark).ToDuration()));
+            }
+
+            return Fin.Succ(unit);
+        }).Bind(static landed => landed.Match(Succ: IO.pure, Fail: IO.fail<Unit>));
 }
 ```
 
@@ -303,11 +368,11 @@ Each posture row supplies `hostReserve` per host-profile row at composition:
 - Owner: `JobNode` the dependency-graph node keyed on its input content seed; `JobState` `[SmartEnum<string>]` the node-lifecycle rows with `Terminal`, `Resumable`, and `Phase` (the `Runtime/progress#PROGRESS_CELL` `ProgressPhase` projection) columns; `JobSignal` `[Union]` the per-node execution outcome the runner returns; `CheckpointPort` the spill-to-store persist/resume pair over the Persistence blob lane; `JobLedger` the orchestration result; `JobGraph` the batch-wave dependency scheduler driving speculative run-ahead, QoS-weighted fair-share and gang admission, accelerator-affinity ordering, and cooperative memory-spill bounded by the shared `CpuBudget`, executing each node through the injected `runner`, keying every node on the suite `XxHash128` input digest so a re-run recomputes only the moved subgraph, and folding one coarse per-node `ProgressCell` through `ProgressCell.Aggregate` into one rolled parent cell so the whole DAG surfaces a single live monotonic `ProgressMark`.
 - Cases: `JobState` rows pending · ready · running · speculative · preempted · spilled · completed · faulted; `JobSignal` cases completed · faulted · spilled.
 - Entry: `public (Option<ProgressCell> Progress, IO<Fin<JobLedger>> Ledger) Run(Seq<JobNode> nodes, CpuBudget budget, CorrelationId correlation, CancelScope scope, IClock clock, TimeProvider time)` — `Progress` is absent when no admitted node requested observation, while `Ledger` carries graph admission and execution; `GraphRejected`, `GraphCyclic`, and `GraphStalled` abort on the typed rail, and `Reconcile` mirrors the pair shape.
-- Auto: `Run` admits graph invariants before execution, then `Fill` repeatedly chooses the highest-ranked eligible gang unit against the evolving wave state, so launching an upstream node makes its speculative descendants eligible in the same wave; each unit admits all-or-none under the global and tenant shares, and an empty launch frontier with nonterminal nodes faults `GraphStalled` instead of recurring. `affinityRank` resolves each `AcceleratorAffinity` key against the composition-owned device roster instead of treating every present key alike. Each launch carries its computed `NodeKey`; resume accepts only a checkpoint with the same node id and content key, and a runner-emitted mismatched checkpoint becomes `CheckpointRejected` before persistence. Each wave projects `JobState.Phase` onto subscribed cells, forks admitted runners, advances reports, and poisons fault cones.
+- Auto: `Run` admits graph invariants before execution, then `Fill` repeatedly chooses the highest-ranked eligible gang unit against the evolving wave state, so launching an upstream node makes its speculative descendants eligible in the same wave; each unit admits all-or-none under the global and tenant shares, and an empty launch frontier with nonterminal nodes faults `GraphStalled` instead of recurring. Admission CONTRACTS each strong component into one gang over the acyclic quotient, so a mutually-dependent region schedules as a unit and only a mixed-tenant cycle — which cannot gang — survives as `GraphCyclic`; the acyclicity read and the source-degree order run over the one directed view rather than a hand-carried in-degree map. Wave rank reads a contention COLOUR before affinity: nodes naming one accelerator key are pairwise conflicting, so a colour class is a launch set free of device contention where `affinityRank` alone merely grouped contenders adjacent and let them launch together; `affinityRank` still resolves each key against the composition-owned device roster instead of treating every present key alike. Each launch carries its computed `NodeKey`; resume accepts only a checkpoint with the same node id and content key, and a runner-emitted mismatched checkpoint becomes `CheckpointRejected` before persistence. Each wave projects `JobState.Phase` onto subscribed cells, forks admitted runners, advances reports, and poisons fault cones.
 - Receipt: the graph emits no `ComputeReceipt` case of its own — each node's execution rides its lane's existing receipts (`Backpressure` and the substrate-lane facts the runner emits), and the `JobLedger` carries the graph-level fact: node count, the completed/faulted split, and the speculated/preempted/spilled tally with elapsed; a `Sweep`/`JobReceipt` case on the per-execution receipt union — whose required `(Lane, Substrate)` spine no whole graph carries — is the rejected form, and the live DAG progress rides the rolled-up parent `ProgressCell` (a monotonic `ProgressMark`, not a receipt fact) orthogonal to the post-hoc `JobLedger` count.
-- Packages: BCL inbox, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
-- Growth: a new node lifecycle is one `JobState` row carrying its `Phase` column; a new scheduling policy is one column on `JobNode` the planning fold reads; the reactive recompute is the one `Reconcile` content-key diff over the existing edges; the transitive downstream closure is one `Closure` fixpoint shared by `MarkDirty` and `Poison`; the cycle test is `Cyclic` derived from the one `Topological` Kahn's kernel; zero new surface — a `JobScheduler`/`WorkflowEngine`/`DagRunner`/`IncrementalEngine` sibling surface is the rejected form collapsed onto the one `JobGraph` over the shared `CpuBudget` and the injected runner.
-- Boundary: the job graph forks each node's injected `runner` and owns only dependency order; a node never also enters `LaneRuntime`. Graph admission rejects empty graphs, duplicate ids, missing or self dependencies, mixed-tenant gangs, and cycles before a runner executes. Fair-share reads the per-tenant `QosWeight` slice of `CpuBudget.Workers`; a gang admits as one unit, and a unit larger than every available slice faults through `GraphStalled`. `Preempted` means a preemptible node yielded before launch, while `Spilled` means its runner returned a content-keyed checkpoint; resume never accepts a checkpoint from another semantic node revision, and a deferred wave never demotes a resumable state — a spilled node's checkpoint survives deferral because `Spilled`/`Preempted` hold until launch. `NodeKey` hashes `AdmittedIntent.Digest`, input bytes, and ordered upstream keys, so changing the operation with identical bytes dirties the cone. `MarkDirty` intersects change ids with the live graph before closure, preventing a removed id from reappearing in state. `IClock` supplies semantic instants and `TimeProvider` supplies elapsed measurement; App-owned `ClockPolicy` stays at composition.
+- Packages: QuikGraph (`AdjacencyGraph`/`UndirectedGraph` over `SEdge<string>`, `IsDirectedAcyclicGraph`/`SourceFirstTopologicalSort` ordering, `StronglyConnectedComponents` labelling, `VertexColoringAlgorithm` contention classes), BCL inbox, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
+- Growth: a new node lifecycle is one `JobState` row carrying its `Phase` column; a new scheduling policy is one column on `JobNode` the planning fold reads; the reactive recompute is the one `Reconcile` content-key diff over the existing edges; the transitive downstream closure is one `Closure` fixpoint shared by `MarkDirty` and `Poison`; a new contention class is one grouping key on the `Contention` conflict projection, never a second scheduler pass; zero new surface — a `JobScheduler`/`WorkflowEngine`/`DagRunner`/`IncrementalEngine` sibling surface is the rejected form collapsed onto the one `JobGraph` over the shared `CpuBudget` and the injected runner.
+- Boundary: the job graph forks each node's injected `runner` and owns only dependency order; a node never also enters `LaneRuntime`. Graph admission rejects empty graphs, duplicate ids, missing or self dependencies, and mixed-tenant gangs before a runner executes, and contracts every remaining cycle rather than refusing it — a hand-carried Kahn queue, a hand-rolled strong-component walk, or a managed greedy colouring beside the admitted graph algebra is the named reimplementation defect, and the pattern-graph decomposition of a sparse operator stays on the CSparse `SymbolicColumnStorage` rail, never round-tripped through a vertex-and-edge container. Fair-share reads the per-tenant `QosWeight` slice of `CpuBudget.Workers`; a gang admits as one unit, and a unit larger than every available slice faults through `GraphStalled`. `Preempted` means a preemptible node yielded before launch, while `Spilled` means its runner returned a content-keyed checkpoint; resume never accepts a checkpoint from another semantic node revision, and a deferred wave never demotes a resumable state — a spilled node's checkpoint survives deferral because `Spilled`/`Preempted` hold until launch. `NodeKey` hashes `AdmittedIntent.Digest`, input bytes, and ordered upstream keys, so changing the operation with identical bytes dirties the cone. `MarkDirty` intersects change ids with the live graph before closure, preventing a removed id from reappearing in state. `IClock` supplies semantic instants and `TimeProvider` supplies elapsed measurement; App-owned `ClockPolicy` stays at composition.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -480,8 +545,10 @@ public sealed class JobGraph(
             acc.AddOrUpdate(node.Tenant, held => Math.Max(held, Math.Max(1, node.QosWeight)), Math.Max(1, node.QosWeight)));
         int mass = Math.Max(1, toSeq(weights.Values).Sum());
         HashMap<TenantId, int> shares = weights.Map(weight => Math.Max(1, (budget.Workers * weight) / mass));
+        HashMap<string, int> contention = Contention(active);
         Seq<Seq<JobNode>> units = Units(toSeq(active
-            .OrderBy(node => affinityRank(node.AcceleratorAffinity))
+            .OrderBy(node => contention[node.Id])
+            .ThenBy(node => affinityRank(node.AcceleratorAffinity))
             .ThenByDescending(static node => node.FairShareWeight)));
         (HashMap<string, JobState> States, Seq<JobLaunch> Launches, int Global, HashMap<TenantId, int> Tenant, int Spec, int Pre) seed =
             (states, Seq<JobLaunch>(), budget.Workers, HashMap<TenantId, int>(), 0, 0);
@@ -499,7 +566,7 @@ public sealed class JobGraph(
         HashMap<string, JobState> initial,
         HashMap<TenantId, int> shares,
         HashMap<string, UInt128> keys) =>
-        remaining.Filter(unit => unit.ForAll(node => Eligible(node, acc.States))).HeadOrNone().Match(
+        remaining.Filter(unit => unit.ForAll(node => Eligible(node, acc.States))).Head.Match(
             Some: unit => Fill(
                 remaining.Filter(candidate => UnitKey(candidate) != UnitKey(unit)),
                 Admit(acc, unit, initial, shares, keys),
@@ -606,31 +673,70 @@ public sealed class JobGraph(
             toSeq(states.Values).Filter(static state => state == JobState.Faulted).Count,
             tally, elapsed);
 
-    private static Seq<JobNode> Topological(Seq<JobNode> nodes) =>
-        Ordered(
-            nodes,
-            nodes.Fold(HashMap<string, int>(), static (acc, node) => acc.Add(node.Id, node.DependsOn.Count)),
-            nodes.Fold(HashMap<string, JobNode>(), static (acc, node) => acc.Add(node.Id, node)),
-            nodes.Filter(static node => node.DependsOn.IsEmpty).Map(static node => node.Id),
-            Seq<JobNode>());
+    // One directed view over the node ids serves every structural read — Kahn order, SCC labelling, condensation,
+    // and the undirected contention projection — so the graph algebra has one materialization per admission.
+    private static AdjacencyGraph<string, SEdge<string>> Directed(Seq<JobNode> nodes) {
+        AdjacencyGraph<string, SEdge<string>> graph = new(allowParallelEdges: false);
+        graph.AddVertexRange(nodes.Map(static node => node.Id));
+        graph.AddEdgeRange(nodes.Bind(node => node.DependsOn.Map(dependency => new SEdge<string>(dependency, node.Id))));
+        return graph;
+    }
 
-    private static Seq<JobNode> Ordered(
-        Seq<JobNode> nodes,
-        HashMap<string, int> indegree,
-        HashMap<string, JobNode> byId,
-        Seq<string> queue,
-        Seq<JobNode> ordered) =>
-        queue.HeadOrNone().Match(
-            Some: head => {
-                HashMap<string, int> advanced = nodes
-                    .Filter(node => node.DependsOn.Contains(head))
-                    .Fold(indegree, static (acc, node) => acc.SetItem(node.Id, acc[node.Id] - 1));
-                Seq<string> released = nodes
-                    .Filter(node => node.DependsOn.Contains(head) && advanced[node.Id] == 0)
-                    .Map(static node => node.Id);
-                return Ordered(nodes, advanced, byId, queue.Tail + released, ordered.Add(byId[head]));
-            },
-            None: () => ordered);
+    // `SourceFirstTopologicalSort` is the same Kahn source-degree order, throwing `NonAcyclicGraphException` on a
+    // cycle, so the acyclicity read runs FIRST through the predicate and the order is taken only past it.
+    private static Seq<JobNode> Topological(Seq<JobNode> nodes) {
+        HashMap<string, JobNode> byId = nodes.Fold(HashMap<string, JobNode>(), static (acc, node) => acc.Add(node.Id, node));
+        AdjacencyGraph<string, SEdge<string>> graph = Directed(nodes);
+        return graph.IsDirectedAcyclicGraph()
+            ? toSeq(graph.SourceFirstTopologicalSort()).Map(id => byId[id])
+            : Seq<JobNode>();
+    }
+
+    // Condensation makes a cyclic region a SCHEDULING unit rather than a refusal, contracting each component into one
+    // node over an acyclic quotient, so a mutually-dependent cluster gang-schedules as one unit and the graph runs.
+    // Only a component the caller forbade gang admission for (a mixed-tenant cycle) survives as `GraphCyclic`.
+    private static Fin<Seq<JobNode>> Condensed(Seq<JobNode> nodes) {
+        Dictionary<string, int> components = new(StringComparer.Ordinal);
+        AdjacencyGraph<string, SEdge<string>> graph = Directed(nodes);
+        graph.StronglyConnectedComponents(components);
+        Seq<Seq<JobNode>> cycles = toSeq(nodes.GroupBy(node => components[node.Id]).Filter(static group => group.Count() > 1).Map(static group => toSeq(group)));
+        Seq<Seq<JobNode>> split = cycles.Filter(static cycle => cycle.Map(static node => node.Tenant).Distinct().Count() > 1);
+        return !split.IsEmpty
+            ? Fin.Fail<Seq<JobNode>>(new ComputeFault.GraphCyclic(string.Join(',', split.Map(static cycle => string.Join(">", cycle.Map(static node => node.Id))))))
+            : Fin.Succ(cycles.Fold(nodes, static (acc, cycle) => Gang(acc, cycle)));
+    }
+
+    // Contraction seats one gang per component whose members drop their intra-component edges: the quotient node
+    // is what the wave admits, and a member keeping an edge to a peer inside its own gang never becomes eligible.
+    private static Seq<JobNode> Gang(Seq<JobNode> nodes, Seq<JobNode> cycle) {
+        LanguageExt.HashSet<string> members = toHashSet(cycle.Map(static node => node.Id));
+        string key = $"scc:{cycle.Map(static node => node.Id).OrderBy(static id => id, StringComparer.Ordinal).Head()}";
+        return nodes.Map(node => members.Contains(node.Id)
+            ? node with { Gang = Some(key), DependsOn = node.DependsOn.Filter(dependency => !members.Contains(dependency)) }
+            : node);
+    }
+
+    // Contention colouring over the UNDIRECTED conflict graph: two nodes conflict when they name one accelerator
+    // key, so one colour class is a launch set provably free of device contention. `Colors` is dense from zero,
+    // making the class count the minimum number of waves the device roster forces. `affinityRank` still orders the
+    // classes while the colour bounds each wave's launch set — ordering alone let two contenders launch together.
+    private static HashMap<string, int> Contention(Seq<JobNode> nodes) {
+        UndirectedGraph<string, SEdge<string>> conflicts = new(allowParallelEdges: false);
+        conflicts.AddVertexRange(nodes.Map(static node => node.Id));
+        conflicts.AddEdgeRange(toSeq(nodes
+            .Filter(static node => node.AcceleratorAffinity.IsSome)
+            .GroupBy(static node => node.AcceleratorAffinity.IfNone(string.Empty)))
+            .Bind(static device => Pairs(toSeq(device).Map(static node => node.Id))));
+        VertexColoringAlgorithm<string, SEdge<string>> colouring = new(conflicts);
+        colouring.Compute();
+        return nodes.Fold(HashMap<string, int>(), (acc, node) =>
+            acc.Add(node.Id, colouring.Colors.TryGetValue(node.Id, out int? colour) && colour is int held ? held : 0));
+    }
+
+    private static Seq<SEdge<string>> Pairs(Seq<string> ids) =>
+        ids.Head.Match(
+            Some: head => ids.Tail.Map(other => new SEdge<string>(head, other)) + Pairs(ids.Tail),
+            None: () => Seq<SEdge<string>>());
 
     private static Fin<Seq<JobNode>> AdmitGraph(Seq<JobNode> nodes) {
         Seq<string> ids = nodes.Map(static node => node.Id);
@@ -657,9 +763,9 @@ public sealed class JobGraph(
                 .Map(static gang => $"mixed-tenant-gang:{gang.Key}"));
         return !structural.IsEmpty
             ? Fin.Fail<Seq<JobNode>>(new ComputeFault.GraphRejected(string.Join(',', structural)))
-            : Topological(nodes).Count != nodes.Count
-                ? Fin.Fail<Seq<JobNode>>(new ComputeFault.GraphCyclic(string.Join(">", ids)))
-                : Fin.Succ(nodes);
+            : Condensed(nodes).Bind(static contracted => Topological(contracted).Count == contracted.Count
+                ? Fin.Succ(contracted)
+                : Fin.Fail<Seq<JobNode>>(new ComputeFault.GraphCyclic(string.Join(">", contracted.Map(static node => node.Id)))));
     }
 }
 

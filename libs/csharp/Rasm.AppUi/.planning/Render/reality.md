@@ -13,7 +13,7 @@ The reality-capture rail projects scanned existing-conditions geometry into the 
 ## [02]-[SPLAT_SOURCE]
 
 - Owner: `SplatEllipsoid` the single anisotropic 3D-Gaussian; `SplatSource` the decoded ellipsoid set over the ONE Compute `ResidencyPayload` carrier; `SplatSort` the view-dependent radix-sort fold; `CaptureFault` the typed fault family on the `AppUiFaultBand.Capture` registry row (6130).
-- Cases: `CaptureFault` = Text | PayloadMalformed | SortOverflow | BackendUnsupported | DecodeDeferred | SnapAbsent — codes derive through the `AppUiFaultBand.Capture` registry row (6130).
+- Cases: `CaptureFault` = Text | PayloadMalformed | BackendUnsupported | DecodeDeferred | SnapAbsent — codes derive through the `AppUiFaultBand.Capture` registry row (6130), each case holding the ordinal it was allocated so a retired case leaves its ordinal spent rather than shifting every wire code below it.
 - Entry: `public static Fin<SplatSource> Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget, CaptureDecode decode)` projects a gaussian-splat `ResidencyPayload` into the residency-keyed ellipsoid set under the admission ladder kind → resident count → payload bytes → residency watermark. `CaptureDecode.Decode` returns the `CaptureDecoded.Splats` case from the canonical `Blob`/`Layout` columns; an oversized monolithic payload fails `CaptureFault.DecodeDeferred`, directing the producer to the per-cell `CaptureTileSet.Resident` path.
 - Auto: each ellipsoid carries its mean position, the three scale magnitudes, the rotation quaternion, the spherical-harmonic color coefficients, and the opacity, so a `SplatSource` is the decoded SOG (self-organizing-gaussian) or PLY ellipsoid set the Compute payload streams; `SplatSort` radix-sorts the ellipsoids back-to-front per view by their projected depth so the alpha-composited rasterization composites in order — the 3DGS draw demands depth-sorted ellipsoids and the radix sort is the per-view fold the pass re-runs on a camera change; the ellipsoid bytes stream from the Persistence blob lane through the residency budget exactly as the meshlet tiles do, so a massive splat scene stays VRAM-bounded; the splat tile keys by the PAYLOAD'S OWN `ContentKey` per the single-mint law — a local re-hash over raw component floats is the DELETED form (doubly foreclosed by the kernel one-hasher law: no AppUi-side content-key fold exists beside `ContentHash.Of`), so residency keys the splat tile identically to the meshlet tile.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
@@ -29,7 +29,6 @@ public abstract partial record CaptureFault : Expected, IValidationError<Capture
 
     public sealed record Text : CaptureFault { public Text(string detail) : base(detail, AppUiFaultBand.Capture.Code(0)) { } }
     public sealed record PayloadMalformed : CaptureFault { public PayloadMalformed(string detail) : base(detail, AppUiFaultBand.Capture.Code(1)) { } }
-    public sealed record SortOverflow : CaptureFault { public SortOverflow(string detail) : base(detail, AppUiFaultBand.Capture.Code(2)) { } }
     public sealed record BackendUnsupported : CaptureFault { public BackendUnsupported(string detail) : base(detail, AppUiFaultBand.Capture.Code(3)) { } }
     public sealed record DecodeDeferred : CaptureFault { public DecodeDeferred(string detail) : base(detail, AppUiFaultBand.Capture.Code(4)) { } }
     public sealed record SnapAbsent : CaptureFault { public SnapAbsent(string detail) : base(detail, AppUiFaultBand.Capture.Code(5)) { } }
@@ -87,6 +86,9 @@ public sealed record SplatSource(
                         SplatSort.RadixDepth, payload.HarmonicDegree, BoundsOf(payload)))
                     : Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/decode:{ResidencyMarshal.KeyHex(payload.ContentKey)}")));
 
+    // The sort policy is selected where the PASS is built, because tile coherence is a multi-tile property:
+    // `CaptureTileSet.Resident` takes `RadixTile` for a resident set spanning more than one tile and
+    // `RadixDepth` for a single source, so both rows have an admission and neither is an unreachable branch.
     // REAL LSD radix sort over 32-bit keys DISCRIMINATED by the SplatSort row: RadixDepth quantizes the
     // VIEW-ALIGNED depth (projection onto the camera forward axis) back-to-front across the full key;
     // RadixTile packs a 16x16 screen-tile id (lateral view-basis coordinates over the source bounds)
@@ -158,11 +160,11 @@ flowchart LR
 
 ## [03]-[POINT_SOURCE]
 
-- Owner: `PointSample` the single LiDAR return; `PointCloudSource` the decoded point set; `PointOctree` the level-of-detail residency tree.
+- Owner: `PointSample` the single LiDAR return; `PointClass` `[SmartEnum<byte>]` the ASPRS classification vocabulary carrying each standard code's own colour; `PointCloudSource` the decoded point set; `PointOctree` the level-of-detail residency tree.
 - Entry: `public static Fin<PointCloudSource> Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget, CaptureDecode decode)` projects a point-splat `ResidencyPayload` into the octree-keyed point set under the same kind → resident count → payload bytes → watermark ladder. `CaptureDecode.Decode` returns the `CaptureDecoded.Points` case plus octree depth; an oversized monolithic cloud fails `CaptureFault.DecodeDeferred`, while `CaptureTileSet.Resident` executes the tiled path.
-- Auto: each point carries its position, the classification byte, the intensity, and the RGB color so a `PointCloudSource` is the decoded scan return set the Compute payload streams; `PointOctree` partitions the points into a spatial octree — level L subdivides the bounding cube into `2^L` divisions per axis, occupied cells only, each node carrying ITS OWN cell bounds, resident count, and coarse-level `SampleStride` — so a massive cloud renders the coarse subsample at distance and the full density up close, pop-free because adjacent levels share locked node boundaries exactly as the meshlet cluster-LOD shares cluster boundaries; the octree nodes key into the residency budget by their Morton cell key and the per-cell payload census streams through `CaptureTileSet.Resident` so a billion-point cloud stays VRAM-bounded by the plan itself and adjacent cells sort near for tile-coherent upload; the classification byte routes through the perceptually-uniform colormap so a class-colored cloud maps through one lightness-monotone scale.
+- Auto: each point carries its position, the classification byte, the intensity, and the RGB color so a `PointCloudSource` is the decoded scan return set the Compute payload streams; `PointOctree` partitions the points into a spatial octree in ONE Morton-ordered pass — the leaf code's high `3*level` bits ARE that level's cell key, so every level is a prefix of one ordering, the leaf cells are its sorted runs, and each coarser level FOLDS the level below it (bounds, count, and the child union taken at `SampleStride`) rather than re-sweeping all N points; every level therefore ships a drawable run, so a massive cloud renders the coarse subsample at distance and the full density up close, pop-free because adjacent levels share locked node boundaries exactly as the meshlet cluster-LOD shares cluster boundaries; the octree nodes key into the residency budget by their Morton cell key — the code is the one cell identity and each node recovers its cell index from it rather than carrying a redundant triple — and the per-cell payload census streams through `CaptureTileSet.Resident` so a billion-point cloud stays VRAM-bounded by the plan itself and adjacent cells sort near for tile-coherent upload; the classification byte resolves through the categorical `PointClass` row table, because ASPRS codes are a nominal vocabulary and a sequential lightness-monotone ramp over names asserts an order the codes do not carry.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
-- Growth: a new point attribute is one `PointSample` field; a new LOD policy is one octree subsample value; zero new surface.
+- Growth: a new point attribute is one `PointSample` field; a new classification code is one `PointClass` row; a new LOD policy is one octree subsample value; zero new surface.
 - Boundary: the point source projects off the one Compute `ResidencyPayload` boundary record. Offline LAZ/scan decode crosses as a Compute payload, so AppUi carries no LAZ decoder. Octree LOD and the shared `ResidencyBudget` govern massive clouds; GPU point splatting records through the active render-graph target, and the CPU octree subsample supplies the deterministic 2D fallback.
 
 ```csharp signature
@@ -174,13 +176,42 @@ public readonly record struct PointSample(
     public (double X, double Y, double Z) Position => (X, Y, Z);
 }
 
+// ASPRS LAS classification is a NOMINAL vocabulary keyed by the wire byte, not a scalar. Projecting the code
+// through a sequential lightness-monotone ramp orders ground under building under vegetation as if the codes
+// measured a quantity — two unrelated classes read as neighbours, one class reads as MORE than another, and the
+// ramp's whole perceptual guarantee is spent on an axis that has no order. Each standard code carries its own
+// ARGB as row DATA; the reserved and user-definable blocks carry no row, so an unlisted code is a typed miss the
+// draw answers with the return's own stored RGB rather than an invented pigment.
+[SmartEnum<byte>]
+public sealed partial class PointClass {
+    public static readonly PointClass Created = new(0, 0xFF9E9E9Eu);
+    public static readonly PointClass Unclassified = new(1, 0xFFBDBDBDu);
+    public static readonly PointClass Ground = new(2, 0xFF8D6E63u);
+    public static readonly PointClass LowVegetation = new(3, 0xFF9CCC65u);
+    public static readonly PointClass MediumVegetation = new(4, 0xFF66BB6Au);
+    public static readonly PointClass HighVegetation = new(5, 0xFF2E7D32u);
+    public static readonly PointClass Building = new(6, 0xFFEF5350u);
+    public static readonly PointClass LowPoint = new(7, 0xFF6D4C41u);
+    public static readonly PointClass Water = new(9, 0xFF29B6F6u);
+    public static readonly PointClass Rail = new(10, 0xFF8E24AAu);
+    public static readonly PointClass RoadSurface = new(11, 0xFF455A64u);
+    public static readonly PointClass WireGuard = new(13, 0xFFFFB300u);
+    public static readonly PointClass WireConductor = new(14, 0xFFFFEE58u);
+    public static readonly PointClass TransmissionTower = new(15, 0xFFFF7043u);
+    public static readonly PointClass WireConnector = new(16, 0xFFAB47BCu);
+    public static readonly PointClass BridgeDeck = new(17, 0xFF26A69Au);
+    public static readonly PointClass HighNoise = new(18, 0xFFE91E63u);
+
+    public uint Argb { get; }
+}
+
 public sealed record PointOctreeNode(
-    string Cell,
+    UInt128 ContentKey,
+    uint Morton,
     int Level,
     BoundingSphere Bounds,
     int SampleStride,
     long Count,
-    long LastTouch,
     Seq<int> Samples);
 
 public sealed record PointCloudSource(
@@ -188,7 +219,6 @@ public sealed record PointCloudSource(
     UInt128 ContentKey,
     Seq<PointSample> Points,
     Seq<PointOctreeNode> Octree,
-    Colormap ClassRamp,
     BoundingSphere Bounds) {
     // The SAME admission ladder as the splat arm: kind -> non-empty -> exact wire layout -> residency
     // watermark; an oversized cloud DEFERS so the octree residency streams it instead of materializing.
@@ -203,8 +233,15 @@ public sealed record PointCloudSource(
                     ? Fin.Succ(Materialized(backend, payload, (points.Samples, points.OctreeDepth)))
                     : Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/decode:{ResidencyMarshal.KeyHex(payload.ContentKey)}")));
 
-    public Seq<PointOctreeNode> Visible(Frustum frustum, double lodScale) =>
-        Octree.Filter(node => frustum.Intersects(node.Bounds) && node.Level <= (int)lodScale);
+    // Point LOD reads the SAME camera-projected error the meshlet cut reads, so `lodScale` keeps one meaning
+    // estate-wide: a node draws where its own cell radius projects below the pixel threshold and its parent
+    // cell does not, which is the half-open partition the geometry cut already holds. Truncating an error
+    // multiplier into an octree depth ignores the camera entirely and gives one parameter two meanings.
+    public Seq<PointOctreeNode> Visible(Frustum frustum, ViewCamera camera, double lodScale, LodPolicy lod) =>
+        Octree.Filter(node =>
+            frustum.Intersects(node.Bounds)
+            && ClusterCull.Projected(node.Bounds.Radius, node.Bounds, camera) * lodScale <= lod.PixelThreshold
+            && (node.Level == 0 || ClusterCull.Projected(node.Bounds.Radius * 2d, node.Bounds, camera) * lodScale > lod.PixelThreshold));
 
     public Option<MeasurePoint> Nearest(
         (double X, double Y, double Z) requested,
@@ -212,14 +249,19 @@ public sealed record PointCloudSource(
         if (Octree.IsEmpty) { return None; }
         int leaf = Octree.Map(static node => node.Level).Max();
         double reach = tolerance.Meters;
+        // One min-fold answers the nearest candidate: an O(n log n) sort read only at its head, and the
+        // phantom Seq.HeadOrNone it fed, are both the deleted form — Seq carries Head as an Option property.
         return Octree
             .Filter(node => node.Level == leaf && Distance(requested, (node.Bounds.X, node.Bounds.Y, node.Bounds.Z)) <= reach + node.Bounds.Radius)
             .Bind(static node => node.Samples)
             .Distinct()
             .Map(index => (Index: index, Sample: Points[index], Gap: Distance(requested, Points[index].Position)))
             .Filter(candidate => candidate.Gap <= reach)
-            .OrderBy(static candidate => candidate.Gap)
-            .HeadOrNone()
+            .Fold(
+                Option<(int Index, PointSample Sample, double Gap)>.None,
+                static (best, candidate) => best.Match(
+                    Some: held => candidate.Gap < held.Gap ? Some(candidate) : best,
+                    None: () => Some(candidate)))
             .Map(candidate => new MeasurePoint(ContentKey, candidate.Index, candidate.Sample));
     }
 
@@ -227,31 +269,63 @@ public sealed record PointCloudSource(
         GpuBackend backend,
         ResidencyPayload payload,
         (Seq<PointSample> Points, int OctreeDepth) decoded) =>
-        new(backend, payload.ContentKey, decoded.Points, Octree(payload, decoded.Points, decoded.OctreeDepth), Colormap.Viridis,
+        new(backend, payload.ContentKey, decoded.Points, Octree(payload, decoded.Points, decoded.OctreeDepth),
             new BoundingSphere(payload.Center.X, payload.Center.Y, payload.Center.Z, payload.Radius));
 
-    // A REAL spatial octree: level L partitions the bounding cube into 2^L divisions per axis, occupied
-    // cells only, each node carrying ITS cell bounds, its resident count, and the coarse-level SampleStride
-    // (1 << (depth-1-level)) the LOD subsample reads — the flat one-node-per-level list is the deleted form.
+    // A REAL spatial octree in ONE Morton-ordered pass. Level L partitions the bounding cube into 2^L divisions
+    // per axis, occupied cells only, each node carrying ITS cell bounds, its resident count, and the coarse-level
+    // SampleStride (1 << (leaf-level)) the LOD subsample reads. The leaf Morton code's high 3*L bits ARE level L's
+    // cell key, so every level is a PREFIX of one ordering and the depth-times-N GroupBy sweep over all points is
+    // deleted: the leaf cells fall out of the sorted runs, and each coarser level FOLDS the level below it —
+    // bounds, count, and a strided sample union — so no level re-reads the point set and a distance draw gets a
+    // real subsample rather than an empty run.
     private static Seq<PointOctreeNode> Octree(ResidencyPayload payload, Seq<PointSample> points, int decodedDepth) {
-        int depth = int.Max(decodedDepth, 1);
+        int leaf = int.Max(decodedDepth, 1) - 1;
         (float ox, float oy, float oz) = (payload.Center.X - payload.Radius, payload.Center.Y - payload.Radius, payload.Center.Z - payload.Radius);
         float span = float.Max(payload.Radius * 2f, 1e-6f);
-        return toSeq(Enumerable.Range(0, depth).SelectMany(level => {
-            int divisions = 1 << level;
-            float cell = span / divisions;
-            return points
-                .Select((point, index) => (Point: point, Index: index))
-                .GroupBy(row => Cell(row.Point, ox, oy, oz, cell, divisions))
-                .Select(bucket => new PointOctreeNode(
-                    $"{ResidencyMarshal.KeyHex(payload.ContentKey)}/{level.ToString(System.Globalization.CultureInfo.InvariantCulture)}/{Morton(bucket.Key).ToString(System.Globalization.CultureInfo.InvariantCulture)}", level,
-                    new BoundingSphere(
-                        ox + ((bucket.Key.X + 0.5f) * cell), oy + ((bucket.Key.Y + 0.5f) * cell), oz + ((bucket.Key.Z + 0.5f) * cell),
-                        cell * 0.8660254f),
-                    1 << (depth - 1 - level), bucket.LongCount(), 0L,
-                    level == depth - 1 ? toSeq(bucket.Select(static row => row.Index)) : Seq<int>()));
-        }));
+        float leafCell = span / (1 << leaf);
+        IGrouping<uint, int>[] runs = [.. points
+            .Select((point, index) => (Code: Morton(Cell(point, ox, oy, oz, leafCell, 1 << leaf)), Index: index))
+            .OrderBy(static row => row.Code)
+            .GroupBy(static row => row.Code, static row => row.Index)];
+        Seq<PointOctreeNode> finest = toSeq(runs.Select(run => Node(
+            payload, run.Key, leaf, leaf, span, ox, oy, oz, run.LongCount(), toSeq(run))));
+        return toSeq(Enumerable.Range(0, leaf).Reverse())
+            .Fold((Tree: finest, Finer: finest), (state, level) =>
+                Coarsened(payload, state.Finer, level, leaf, span, ox, oy, oz) switch {
+                    var coarser => (state.Tree + coarser, coarser),
+                }).Tree;
     }
+
+    // One coarse level folded off the level below: the eight children sharing a 3-bit Morton prefix are one cell,
+    // its count their sum, and its sample run their union taken at THIS level's stride — so `SampleStride` is a
+    // read column the draw consumes rather than a decoration, and a coarse node is drawable.
+    private static Seq<PointOctreeNode> Coarsened(
+        ResidencyPayload payload, Seq<PointOctreeNode> finer, int level, int leaf, float span, float ox, float oy, float oz) =>
+        toSeq(finer
+            .GroupBy(static child => child.Morton >> 3)
+            .Select(run => Node(
+                payload, run.Key, level, leaf, span, ox, oy, oz,
+                run.Sum(static child => child.Count),
+                toSeq(run
+                    .SelectMany(static child => child.Samples)
+                    .Where((_, at) => at % (1 << (leaf - level)) == 0)))));
+
+    // One node from its Morton code: the code's per-axis digits recover the cell index, the cell's circumsphere
+    // radius is half its diagonal (cell x sqrt(3)/2), and the stride is this level's own subsample step.
+    private static PointOctreeNode Node(
+        ResidencyPayload payload, uint morton, int level, int leaf, float span, float ox, float oy, float oz,
+        long count, Seq<int> samples) =>
+        (Cell: span / (1 << level), Index: Unspread(morton)) switch {
+            var seat => new PointOctreeNode(
+                payload.ContentKey, morton, level,
+                new BoundingSphere(
+                    ox + ((seat.Index.X + 0.5f) * seat.Cell),
+                    oy + ((seat.Index.Y + 0.5f) * seat.Cell),
+                    oz + ((seat.Index.Z + 0.5f) * seat.Cell),
+                    seat.Cell * 0.8660254f),
+                1 << (leaf - level), count, samples),
+        };
 
     private static double Distance((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
         Math.Sqrt(Math.Pow(a.X - b.X, 2d) + Math.Pow(a.Y - b.Y, 2d) + Math.Pow(a.Z - b.Z, 2d));
@@ -272,19 +346,32 @@ public sealed record PointCloudSource(
         v = (v | (v << 4)) & 0x030C30C3;
         return (v | (v << 2)) & 0x09249249;
     }
+
+    // The interleave inverted: a node recovers its cell index from the code it is keyed by, so the code is the
+    // ONE cell identity and no node carries a redundant (x, y, z) triple beside it.
+    private static (int X, int Y, int Z) Unspread(uint morton) =>
+        ((int)Gather(morton), (int)Gather(morton >> 1), (int)Gather(morton >> 2));
+
+    private static uint Gather(uint v) {
+        v &= 0x09249249;
+        v = (v | (v >> 2)) & 0x030C30C3;
+        v = (v | (v >> 4)) & 0x0300F00F;
+        v = (v | (v >> 8)) & 0x030000FF;
+        return (v | (v >> 16)) & 0x3FF;
+    }
 }
 ```
 
 ## [04]-[CAPTURE_PASS]
 
-- Owner: `CapturePass` `[Union]` the reality-capture render-pass family; `CaptureVisual` the pass-to-`RenderPass` projection; `CaptureTileSet` the out-of-core continuation folding the `Render/meshlets` `ResidencyPlan` into decoded per-tile capture passes.
+- Owner: `CapturePass` `[Union]` the reality-capture render-pass family; `CaptureVisual` the pass-to-`RenderPass` projection; `SplatPlacement` the projected-and-shaded splat value; `CaptureRaster` the Skia CPU composite floor both draw delegates bind when no GPU backend row claims them; `CaptureTileSet` the out-of-core continuation folding the `Render/meshlets` `ResidencyPlan` into decoded per-tile capture passes.
 - Cases: `CapturePass` = Splat | Point under the locked kind literals splat, point.
 - Law: a massive scan arrives as MANY per-cell Compute payloads — each under the watermark, each carrying its OWN `ContentKey` — and `CaptureTileSet.Resident` folds the ONE `ResidencyBudget` plan into decoded passes: only admitted, frustum-visible tiles decode, an evicted tile's decode drops with its plan row, and the resident byte total is the plan's own bound, so the billion-point and whole-city-splat cases have a REPRESENTABLE executable path and whole-cloud materialization never occurs; the `DecodeDeferred` fault narrows to a monolithic payload above the watermark — the typed instruction that the producer must deliver the tiled census.
 - Entry: `public RenderPass Pass()` projects the capture source into one viewport `RenderPass` case. The render graph hands its already leased `RenderTarget` to the composition-bound splat or point draw delegate, so the pass cannot allocate a nested target or leak a second native lease.
-- Auto: both cases emit one `Geometry`-family `RenderPass` over the active target. The composition-bound draw delegate owns backend divergence below the pass algebra, and its returned primitive count feeds the same frame-budget verdict as meshlet geometry.
+- Auto: both cases emit one `Geometry`-family `RenderPass` over the active target. The composition-bound draw delegate owns backend divergence below the pass algebra, and its returned primitive count feeds the same frame-budget verdict as meshlet geometry. `CaptureRaster` is the floor those delegates bind: a Gaussian splat is a similarity transform of ONE kernel sprite, so the whole sorted ellipsoid set composites in a SINGLE `DrawAtlas` over `SKRotationScaleMatrix.Create` transforms under `SKBlendMode.Plus`, and a resident point cell composites in a SINGLE `DrawVertices` over one `SKVertices.CreateCopy` batch — N per-primitive draw calls are the deleted form on both arms.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, SkiaSharp
-- Growth: a new capture render path is one `CapturePass` case plus its `CaptureTileSet.Resident` dispatch arm; zero new surface.
-- Boundary: the capture pass is a viewport `RenderPass` case, so reality-capture geometry and BIM geometry share one graph and one target lease. The splat and point delegates consume the active `RenderTarget`; allocating through `GpuBinding.Target` inside a pass creates a nested native lease and is rejected. Backend divergence stays inside the composition-bound draw delegates, with CPU ellipsoid projection and octree subsampling as the floor.
+- Growth: a new capture render path is one `CapturePass` case plus its `CaptureTileSet.Resident` dispatch arm; a retuned point footprint is one `CaptureRaster.PointRadius` value; zero new surface.
+- Boundary: the capture pass is a viewport `RenderPass` case, so reality-capture geometry and BIM geometry share one graph and one target lease. The splat and point delegates consume the active `RenderTarget`; allocating through `GpuBinding.Target` inside a pass creates a nested native lease and is rejected. Backend divergence stays inside the composition-bound draw delegates, with `CaptureRaster` as the floor: it draws only into `RenderTarget.Surface`, so a target leased from a GPU backend row refuses as `CaptureFault.BackendUnsupported` rather than drawing nowhere. The floor's back-to-front ordering IS `SplatSort.RadixDepth` realized on the projected depth `SplatPlacement` already carries — the radix variants are the GPU path's key-quantized form of that SAME order, not a second ordering, so the two paths composite identically. `SKVertexMode` carries no point mode and `DrawPoints` admits one paint, so per-return classification colour rides the three-vertex expansion; a single-paint point draw silently erases classification and is the rejected form.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -292,13 +379,93 @@ public abstract partial record CapturePass(string Key) {
     public sealed record Splat(string Key, SplatSource Source, Func<RenderTarget, SplatSource, Fin<int>> Composite) : CapturePass(Key);
     public sealed record Point(string Key, PointCloudSource Source, Func<RenderTarget, PointCloudSource, Fin<int>> Splat) : CapturePass(Key);
 
+    // Splat and point composites draw no triangles, so both arms charge zero and return zero drawn triangles
+    // under the RenderPass.Geometry triangle contract — the pass-local primitive count stays each composite's own
+    // Fin<int> measure and never folds into FrameReceipt.Triangles. Both take CutPhase.Whole: a capture composite
+    // sits outside the meshlet occlusion ladder and consumes no phase of its cut, so naming a ladder phase here
+    // would claim a scheduling position the pass does not hold, and its cut is the empty one either way.
     public RenderPass Pass() => Switch(
         splat: static s => (RenderPass)new RenderPass.Geometry(
             s.Key,
-            (target, _, _) => s.Composite(target, s.Source)),
+            CutPhase.Whole,
+            static _ => 0L,
+            (target, _, _) => s.Composite(target, s.Source).Map(static _ => 0L)),
         point: static p => new RenderPass.Geometry(
             p.Key,
-            (target, _, _) => p.Splat(target, p.Source)));
+            CutPhase.Whole,
+            static _ => 0L,
+            (target, _, _) => p.Splat(target, p.Source).Map(static _ => 0L)));
+}
+
+// Skia is the CPU floor both composites bind when no GPU backend row claims them. A Gaussian splat is
+// a similarity transform of ONE kernel sprite — scale, in-plane rotation, translation — which is
+// exactly SKRotationScaleMatrix, so the whole sorted ellipsoid set draws in a SINGLE DrawAtlas call
+// rather than N per-ellipsoid draws: one atlas image, one sprite rect per ellipsoid, one transform per
+// ellipsoid, one tint modulated by opacity, and SKBlendMode.Plus for the additive alpha composite the
+// back-to-front order already sequenced. Points collapse the same way over SKVertices — one coloured
+// batch drawn once, never a per-point DrawCircle loop.
+// One projected splat: the similarity placement the atlas draw consumes, the view depth the composite
+// orders on, and the shaded tint the spherical harmonics resolved to. The composition binds ONE delegate
+// because projection, depth, and harmonic shading all read the same camera — a second knob would let the
+// three drift apart.
+public readonly record struct SplatPlacement(float Scale, float Radians, float X, float Y, float Depth, SKColor Tint);
+
+public sealed record CaptureRaster(SKImage Kernel, SKSamplingOptions Sampling, SKRect Cull, float PointRadius) {
+    // Every atlas sprite is the WHOLE kernel image; per-ellipsoid variation lives entirely in the
+    // transform and the tint, so the sprite roster is one rect repeated and carries no per-splat state.
+    // Projected depth IS the back-to-front order the alpha composite demands, so the sort is this draw's
+    // own fold rather than a prior pass the caller must remember to run.
+    public Fin<int> Composite(RenderTarget target, SplatSource source, Func<SplatSource, SplatEllipsoid, SplatPlacement> place) =>
+        Raster(target, $"splat/{ResidencyMarshal.KeyHex(source.ContentKey)}", canvas => {
+            SplatPlacement[] ordered = [.. source.Ellipsoids
+                .Map(ellipsoid => place(source, ellipsoid))
+                .OrderByDescending(static placement => placement.Depth)];
+            SKRect sprite = SKRect.Create(Kernel.Width, Kernel.Height);
+            float anchorX = Kernel.Width / 2f;
+            float anchorY = Kernel.Height / 2f;
+            SKRect[] sprites = [.. ordered.Select(_ => sprite)];
+            SKRotationScaleMatrix[] transforms = [.. ordered.Select(placement =>
+                SKRotationScaleMatrix.Create(placement.Scale, placement.Radians, placement.X, placement.Y, anchorX, anchorY))];
+            SKColor[] tints = [.. ordered.Select(static placement => placement.Tint)];
+            using SKPaint paint = new() { IsAntialias = true };
+            canvas.DrawAtlas(Kernel, sprites, transforms, tints, SKBlendMode.Plus, Sampling, Cull, paint);
+            return transforms.Length;
+        });
+
+    // Points draw as ONE coloured vertex batch, so a million-return cell is one DrawVertices and the
+    // octree subsample stays the only density knob — a per-point DrawCircle loop is the deleted form.
+    // SKVertexMode carries no point mode (Triangles, TriangleStrip, TriangleFan only) and DrawPoints
+    // takes ONE paint, so per-return classification colour survives exactly one way: each return expands
+    // to one screen-space triangle covering PointRadius whose three vertices carry that return's colour.
+    // Classification colour reads the CATEGORICAL PointClass row, never a sequential ramp sampled at
+    // code/255 — the ASPRS codes are names, and a lightness-monotone ramp over names asserts an order the
+    // vocabulary does not carry. A code outside the standard block (reserved or user-definable) has no row and
+    // falls to the return's own stored RGB rather than to an invented colour.
+    public Fin<int> Points(RenderTarget target, PointCloudSource source, Func<PointSample, SKPoint> project) =>
+        Raster(target, $"point/{ResidencyMarshal.KeyHex(source.ContentKey)}", canvas => {
+            Seq<(SKPoint At, SKColor Tint)> placed = source.Points.Map(sample => (
+                At: project(sample),
+                Tint: PointClass.TryGet(sample.Classification, out PointClass? row)
+                    ? new SKColor(row.Argb)
+                    : new SKColor(sample.R, sample.G, sample.B)));
+            SKPoint[] positions = [.. placed.Bind(point => Seq(
+                new SKPoint(point.At.X, point.At.Y - PointRadius),
+                new SKPoint(point.At.X - PointRadius, point.At.Y + PointRadius),
+                new SKPoint(point.At.X + PointRadius, point.At.Y + PointRadius)))];
+            SKColor[] colors = [.. placed.Bind(point => Seq(point.Tint, point.Tint, point.Tint))];
+            using SKVertices vertices = SKVertices.CreateCopy(SKVertexMode.Triangles, positions, colors);
+            using SKPaint paint = new() { IsAntialias = true };
+            canvas.DrawVertices(vertices, SKBlendMode.SrcOver, paint);
+            return placed.Count;
+        });
+
+    // The floor is a CPU floor by construction: it draws into the target's raster surface, and a target
+    // leased from a GPU backend row carries none, so the mismatch refuses by name instead of drawing
+    // nowhere. Both arms share this one admission — a second surface probe beside it is the deleted form.
+    private static Fin<int> Raster(RenderTarget target, string key, Func<SKCanvas, int> draw) =>
+        target.Surface.Match(
+            Some: surface => Fin.Succ(draw(surface.Canvas)),
+            None: () => Fin.Fail<int>(new CaptureFault.BackendUnsupported($"raster/{key}: {target.Backend.Key} leases no raster surface")));
 }
 
 // The out-of-core continuation: the census maps each per-cell payload by its OWN ContentKey, and Resident
@@ -311,17 +478,26 @@ public sealed record CaptureTileSet(
     CaptureDecode Decode,
     Func<RenderTarget, SplatSource, Fin<int>> CompositeSplat,
     Func<RenderTarget, PointCloudSource, Fin<int>> SplatPoints) {
+    // The resident set's own cardinality selects the splat sort: one tile sorts by depth alone, while a
+    // multi-tile set sorts tile-major so adjacent cells composite coherently — the policy is a property of
+    // the RESIDENT SET, so it is decided here rather than frozen at each source's decode.
     public Fin<Seq<CapturePass>> Resident(ResidencyPlan plan) =>
-        plan.Resident
-            .Choose(tile => Census.Find(tile.ContentKey))
-            .Choose(payload => payload.Kind == ResidencyKind.PointSplat
-                ? Some(PointCloudSource.Decode(Backend, payload, Budget, Decode)
-                    .Map(source => (CapturePass)new CapturePass.Point($"point/{ResidencyMarshal.KeyHex(payload.ContentKey)}", source, SplatPoints)))
-                : payload.Kind == ResidencyKind.GaussianSplat
-                    ? Some(SplatSource.Decode(Backend, payload, Budget, Decode)
-                        .Map(source => (CapturePass)new CapturePass.Splat($"splat/{ResidencyMarshal.KeyHex(payload.ContentKey)}", source, CompositeSplat)))
-                    : Option<Fin<CapturePass>>.None)
-            .TraverseM(identity).As();
+        plan.Resident.Choose(tile => Census.Find(tile.ContentKey)) switch {
+            var payloads => payloads
+                .Choose(payload => Sorted(payloads.Count) switch {
+                    var sort => payload.Kind == ResidencyKind.PointSplat
+                        ? Some(PointCloudSource.Decode(Backend, payload, Budget, Decode)
+                            .Map(source => (CapturePass)new CapturePass.Point($"point/{ResidencyMarshal.KeyHex(payload.ContentKey)}", source, SplatPoints)))
+                        : payload.Kind == ResidencyKind.GaussianSplat
+                            ? Some(SplatSource.Decode(Backend, payload, Budget, Decode)
+                                .Map(source => (CapturePass)new CapturePass.Splat(
+                                    $"splat/{ResidencyMarshal.KeyHex(payload.ContentKey)}", source with { Sort = sort }, CompositeSplat)))
+                            : Option<Fin<CapturePass>>.None,
+                })
+                .TraverseM(identity).As(),
+        };
+
+    private static SplatSort Sorted(int tiles) => tiles > 1 ? SplatSort.RadixTile : SplatSort.RadixDepth;
 }
 ```
 
@@ -351,7 +527,7 @@ public sealed record MeasureOverlay(string Key, Seq<MeasurePoint> Vertices, Seq<
         cloud.Nearest(requested, tolerance)
             .ToFin(new CaptureFault.SnapAbsent(
                 $"measure/snap:{Key}:{tolerance.Meters.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}m"))
-            .Map(point => Vertices.LastOrNone().Match(
+            .Map(point => Vertices.Last.Match(
                 None: () => this with { Vertices = Vertices.Add(point) },
                 Some: previous => this with {
                     Vertices = Vertices.Add(point),
@@ -410,7 +586,7 @@ public sealed record MeasureOverlay(string Key, Seq<MeasurePoint> Vertices, Seq<
 - Boundary: the capture-frame scrub is an animation `FieldIndex` track so the capture playback rides the one playhead and a second capture timeline is the deleted form — the same frame-indexed deterministic clock the transient field scrub uses; the frame index selects the active capture payload so a wall-clock capture playback is the rejected form; the capture clip mints no second scrub owner and the animation `Scrub` drives it.
 
 ```csharp signature
-public readonly record struct CaptureFrame(int Index, Instant Epoch, string PayloadKey);
+public readonly record struct CaptureFrame(int Index, Instant Epoch, UInt128 PayloadKey);
 
 public sealed record CaptureClip(string Key, Seq<CaptureFrame> Frames) {
     public Option<CaptureFrame> At(int index) => Frames.Find(frame => frame.Index == index);
@@ -418,7 +594,7 @@ public sealed record CaptureClip(string Key, Seq<CaptureFrame> Frames) {
     // Routes through the Track.OfFieldIndex admission rail so the sorted non-empty track invariant holds
     // at construction; an epoch-free clip faults typed instead of dereferencing an absent head.
     public Fin<Track> OnTimeline(string key) =>
-        Frames.HeadOrNone().Match(
+        Frames.Head.Match(
             None: () => Fin.Fail<Track>(new CaptureFault.PayloadMalformed($"clip/empty:{Key}")),
             Some: head => Track.OfFieldIndex(key, Frames.Map(frame => new Keyframe<int>(
                 frame.Epoch - head.Epoch, frame.Index, MotionToken.Standard)).ToSeq()));

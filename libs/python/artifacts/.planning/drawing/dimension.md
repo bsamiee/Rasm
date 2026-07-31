@@ -478,7 +478,7 @@ def _lower(msp: "Modelspace", op: DimOp, standard: Standard, offset: Option[floa
             assert_never(unreachable)
 
 
-def _lowered(dim: Dimension, /) -> tuple["Drawing", "Modelspace", int, str]:
+def _lowered(dim: Dimension, /) -> tuple["Drawing", "Modelspace", int]:
     # seed the ISO resources, solve the offset stack once, fold every DimOp onto its builder — the shared native lowering the DXF/SVG/PDF engines egress differently.
     doc = ezdxf.new("R2018", setup=True)
     msp = doc.modelspace()
@@ -487,7 +487,7 @@ def _lowered(dim: Dimension, /) -> tuple["Drawing", "Modelspace", int, str]:
     offsets = _stack(dim)
     for index, op in enumerate(dim.ops):
         _lower(msp, op, dim.standard, offsets.try_find(index))
-    return doc, msp, len(dim.ops), families[0].value if families else "ISO-129"
+    return doc, msp, len(dim.ops)
 
 
 def _page(width: float, height: float, /) -> "dxflayout.Page":
@@ -1124,14 +1124,16 @@ _BACKENDS: frozendict[DimTarget, DimBackend] = frozendict({
 
 
 def _native(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-    doc, msp, count, dimstyle = _lowered(dim)
+    doc, msp, count = _lowered(dim)
     width, height = _extent(msp)
     backend = _BACKENDS[dim.target]
     data = backend.egress(doc, msp, width, height)
     receipt: ArtifactReceipt = (
         ArtifactReceipt.Pdf(dim._key, len(data), 1)
         if backend.kind == "pdf"
-        else ArtifactReceipt.Drawing(dim._key, "drawing-dimension", count, dimstyle, round(width), round(height), len(data))
+        # `style` names the LOWERING, not the caller's `DimStyleFamily`: the family is an echoed request knob the
+        # content key already folds, while every native target here renders through the one ezdxf document.
+        else ArtifactReceipt.Drawing(dim._key, "dimension", count, "ezdxf", round(width), round(height), len(data))
     )
     return (_row(f"dimension.{dim.target.value}", data),), receipt
 
@@ -1157,9 +1159,9 @@ def _layered(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
     layers = tuple(_row(name, source, z) for z, (name, source) in enumerate(rows))
     facts = ArtifactReceipt.Drawing(
         dim._key,
-        "drawing-dimension",
+        "dimension",
         len(dim.ops),
-        "ISO-129",
+        "drawsvg",  # the LAYERED rows are authored drawsvg geometry, so the lowering the bytes carry is this one
         round(envelope[2] - envelope[0]),
         round(envelope[3] - envelope[1]),
         sum(len(source) for _name, source in rows),

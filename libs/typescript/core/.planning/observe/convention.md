@@ -86,7 +86,7 @@ import {
   NETWORK_CONNECTION_TYPE_VALUE_WIFI,
   NETWORK_CONNECTION_TYPE_VALUE_WIRED,
 } from "@opentelemetry/semantic-conventions/incubating" // feature_flag.result.* supersedes the deprecated feature_flag.evaluation.* family: the alias row absorbs the next move
-import { Array, Duration, Metric, MetricBoundaries, Option, Record, type Types } from "effect"
+import { Array, Cause, Duration, Effect, Exit, Metric, MetricBoundaries, Option, Record, type Types } from "effect"
 import type { AppIdentity } from "../value/identity.ts"
 
 const _attr = {
@@ -165,9 +165,10 @@ const _value = {
 - Law: the display column splits `level` from `rate` because the fold decides the id — an instant, a distribution rung, and a threshold read the quantity while a windowed rate reads it per second, so a byte counter's rate is a throughput id and a temporal counter's rate is an occupancy fraction; a panel builder picks the column its own fold reads and no row carries a second unit field.
 - Law: `_tail` keys the type tail on the kind column, so that column IS the wire form a receiver reads — `counter` and `frequency` export a monotonic sum, `updown` the non-monotonic one, `gauge` a level, `histogram` a distribution — and a level maintained by increment and release takes the `updown` row rather than a gauge row no mount can honour.
 - Law: a level counting things takes the annotation code naming them, because the `1` code turns a gauge into a RATIO at the suffixing receiver — a depth, an occurrence tally, or a drain position minted dimensionless renders `<name>_ratio` through `Convention.translated` and reaches every board panel and alert rule under a noun it never measures.
-- Law: `bounds` rides the distribution rows alone and names a GENERATED ladder — `exponential` and `linear` derive their edges from three scalars, `explicit` carries the edges an external contract already fixes — so one row spells the bucket vector the whole branch mints from.
+- Law: a distribution answers its range twice over and the row picks by whether that range is known ahead — `bounds` rides the bucketed rows and names a GENERATED ladder (`exponential` and `linear` derive their edges from three scalars, `explicit` carries the edges an external contract already fixes), `window` rides the summary rows and names the sliding reservoir (`maxAge`, `maxSize`, `error`, and the quantile roster a read may name) — so a measure spanning a local `stat` and a multi-gigabyte transfer under one name takes the window rather than a ladder useless at both ends, and a row carrying both columns or neither refuses at the guard.
 - Law: `count` counts the FINITE edges a ladder mints, because `MetricBoundaries` appends its own `+Inf` bucket and spends one generator slot on it — the row generates its rungs and hands them over, so the projected edge set is exactly the set a `le` can name.
 - Law: edges freeze at the mint because a collected point cannot be re-bucketed, so a ladder reads no tunable policy row — a cost, budget, or ceiling bump moves the objective naming the series and leaves the ladder standing.
+- Law: a summary's quantile roster freezes at the mint on the same argument — the reservoir samples the ranks the row named and no other, so a read naming an unrostered quantile answers nothing and the roster is projected rather than guessed; the window is the row's own, so a query naming a range beside a summary series states a width the mint already fixed.
 - Law: `bigint` marks a row whose value outgrows the double-safe integer range, so the mount takes Effect's 64-bit posture and the bridge exports an integer point; the column rides the counting kinds, a distribution and a word census carrying no such value.
 - Law: `dimensions` names the keys a row's series FANS on, so the metric-plane roster folds from the instrument table rather than from the attribute vocabulary — a key the census carries for span or log use widens no allow-list, and an axis a governor must pass is one entry on the row minting it.
 - Law: a row declares only what its own producer stamps, so a board grouping on a key no row names reads one flat series and the divergence surfaces at the census rather than at the panel; the gateway-verb axis rides spans, which is why its counter names no fan.
@@ -187,6 +188,10 @@ const _value = {
 - Law: `assetTransformed` partitions on OUTCOME beside the engine plane exactly as the object write counter does, so a boot-refused gate, an absent decoder, and a spawned-encoder failure each land on the one counter that already carries the landed half. Counters admitting only landed transforms strand every success share on a denominator nothing mounts, and the refused pipeline then reads exactly like an idle one; a second counter carrying the refusals doubles the mounted series and re-forks the share the tag partition exists to spell.
 - Law: the lake rows are the storage-harvest projection family — the olap trio meters the lake-engine admission lanes, `profileDuration` lands the harvested DuckDB/SQLite/pg engine profiles, and `cacheHits`/`cacheMisses`/`poolHeld` project the data-lane cache and pool census — every row a data-lane tap with its `board#PACKS` `lake` consumer, so lake-engine profile parity reads as OTel series beside every other signal.
 - Law: the bench rows are the claim bridge's lossy projection — the runtime meter bridge mints the timing, GC, heap, and hardware-counter bands from landed benchmark claims and `benchVerdicts` from the `board#PACKS` regression fold's grades — so boards trend claims while every dispute settles against the decoded claim landing, exactly the journal-versus-series split the work plane holds.
+- Law: `benchBand` is the rung axis and answers the GC, heap, and timing bands whole, but the hardware-counter block's shape is `{leaf}.avg` — five distinct measures sharing one band value — so `benchCounterKind` is the leaf axis that splits them; without it every counter lands on one `(band, label, suite)` series and the enrichment panel renders five superimposed measures under a band the row cannot distinguish.
+- Law: the admit rows are the front door's own accounting — `admitRefused` fans on the gate's closed refusal partition, `admitPassed` gives that refusal series its denominator by authentication scheme, and `idempotencyOutcome` fans the replay bracket's three dispositions — so a refusal spike separates from a traffic spike and a duplicated command reads as a replay rather than as silence; a refusal counter with no admitted denominator strands every share it exists to answer.
+- Law: the security plane carries admission beside refusal on ONE closed vocabulary — `securityAdmitted` fans on the same `rasm.security.kind` axis the reject stream already closes, so admit and reject join without a second key, and `securityCeremony` measures the establish/refresh/assert/callback wall time the two existing histograms (JWKS fetch, key derivation) never cover; a refusal-only roster makes a credential-stuffing spike and a traffic spike produce the identical curve.
+- Law: the remote rows are the transfer plane's economics — one operation counter fanned by scheme, verb, and fault class carries the six-reason refusal fan and its landed half on one series, `remoteBytes` and the windowed `remoteDuration` price the move, `remoteSessionsHeld` makes pooled reuse visible, `remoteResumed` is the only evidence the resume flags ever resumed, and the reconciliation, watch, and exec rows measure the three lanes whose refusals are otherwise silent; the receipts stay the evidence truth exactly as the object plane holds.
 - Law: `_profile.id` is the one profile-link attribute the runtime profiling bridge stamps on the long-lived scoped spans.
 - Law: `_profile.spanId` and `_profile.traceId` carry those same identifiers back as the store's own sample labels.
 - Law: that identifier pair closes the join both directions, so a profile query resolves its span rather than a time window.
@@ -201,7 +206,7 @@ const _value = {
 - Law: one OTLP metric name carries one descriptor unit, so the vital level family splits per UCUM code on the `bench*` precedent.
 - Growth: a new metered resource, vital kind, audit axis, work-plane instrument, security facet, object receipt axis, lake-harvest lane, bench band, or capability-plane dimension lands as one row here with its consuming row on the owning signal page; a measure whose subject no `_domain` row holds lands that row first, and a new emitter under a standing subject is one `emitters` entry.
 - Growth: a new fan axis is one `_rasm` row beside one `dimensions` entry on the instrument slicing it, so every metric-plane governor admits it with zero edits of its own.
-- Growth: a new distribution is one row answering `bounds`; a wire form Effect gains is one `InstrumentKind` case answering `_tail` beside its own mount arm.
+- Growth: a new distribution is one row answering `bounds` or `window`, whichever its range admits; a wire form Effect gains is one `InstrumentKind` case answering `_tail` beside its own mount arm.
 - Growth: a temporal row is one `_durations` entry beside its own instrument row, because the multiplier already derives from the unit column.
 
 ```typescript signature
@@ -223,6 +228,7 @@ const _module = {
 // key resolves against. Each row fixes a capability subject, so `emitters` grows while the subject holds; a package
 // name promoted to a row strands every consumer joining on capability the moment a second package serves it.
 const _domain = {
+  admit: { emitters: ["runtime"], subject: "front-door admission decisions and the pressure windows refusing them" },
   asset: { emitters: ["data"], subject: "served-asset transform fanout and transcode economics" },
   audit: { emitters: ["data"], subject: "actor-attributed access decisions and the retention class each carries" },
   batch: { emitters: ["data"], subject: "resolver batching windows" },
@@ -231,6 +237,7 @@ const _domain = {
   chart: { emitters: ["ui"], subject: "pivot delta delivery into a live chart view" },
   crash: { emitters: ["runtime"], subject: "fatal captures and the breadcrumb replay riding them" },
   derivative: { emitters: ["data"], subject: "derivative render pressure over stored objects" },
+  export: { emitters: ["ui"], subject: "surface serialization into content-minted parcels and their egress routes" },
   fact: { emitters: ["data"], subject: "journal fact drain into the queryable fact table" },
   form: { emitters: ["ui"], subject: "form submit round-trip settlement by outcome" },
   gateway: { emitters: ["core"], subject: "command-gateway dispatch by verb and outcome" },
@@ -244,6 +251,7 @@ const _domain = {
   profile: { emitters: ["data"], subject: "harvested engine profiles and the store selectors keying them" },
   queue: { emitters: ["runtime"], subject: "durable-queue settlement and the dead set" },
   relay: { emitters: ["runtime"], subject: "relay claim settlement by channel" },
+  remote: { emitters: ["data"], subject: "remote-origin transfer, reconciliation, and the refusal economics of each scheme" },
   scene: { emitters: ["ui/viewer"], subject: "scene graft admission and the refusals gating it" },
   security: { emitters: ["security"], subject: "authenticity, authorization, and key-custody decisions" },
   slo: { emitters: ["core"], subject: "objective burn and severity axes" },
@@ -253,6 +261,9 @@ const _domain = {
 } as const
 
 const _rasm = {
+  admitDisposition: "rasm.admit.disposition",
+  admitReason: "rasm.admit.reason",
+  admitScheme: "rasm.admit.scheme",
   assetEngine: "rasm.asset.engine",
   assetOutcome: "rasm.asset.outcome",
   auditAction: "rasm.audit.action",
@@ -262,11 +273,14 @@ const _rasm = {
   auditTargetKey: "rasm.audit.target.key",
   auditTargetKind: "rasm.audit.target.kind",
   benchBand: "rasm.bench.band",
+  benchCounterKind: "rasm.bench.counter.kind", // the leaf axis: five addon counters share one band value, so the band alone cannot split them
   benchLabel: "rasm.bench.label",
   benchSuite: "rasm.bench.suite",
   benchVerdict: "rasm.bench.verdict",
   cacheName: "rasm.cache.name",
   crashHop: "rasm.crash.hop",
+  exportFormat: "rasm.export.format",
+  exportSource: "rasm.export.source",
   factStream: "rasm.fact.stream",
   formOutcome: "rasm.form.outcome",
   gatewayFrame: "rasm.gateway.frame",
@@ -282,6 +296,11 @@ const _rasm = {
   olapEngine: "rasm.olap.engine",
   poolScheme: "rasm.pool.scheme",
   profileEngine: "rasm.profile.engine",
+  remoteAction: "rasm.remote.action",
+  remoteEngine: "rasm.remote.engine",
+  remoteOp: "rasm.remote.op",
+  remoteScheme: "rasm.remote.scheme",
+  remoteWatch: "rasm.remote.watch",
   ring: "rasm.ring",
   securityDialect: "rasm.security.dialect",
   securityKind: "rasm.security.kind",
@@ -332,6 +351,8 @@ const _rasm = {
 const _ESTATE = ["ring", "tenant"] as const
 
 const _metric = {
+  admitPassed: "rasm.admit.passed",
+  admitRefused: "rasm.admit.refused",
   assetTranscodeDuration: "rasm.asset.transcode.duration",
   assetTransformed: "rasm.asset.transformed",
   batchDuration: "rasm.batch.duration",
@@ -346,6 +367,8 @@ const _metric = {
   crashCaptured: "rasm.crash.captured",
   derivativeActive: "rasm.derivative.active",
   derivativeQueued: "rasm.derivative.queued",
+  exportParcels: "rasm.export.parcels",
+  exportSize: "rasm.export.size",
   factDeduped: "rasm.fact.deduped",
   factDeferred: "rasm.fact.deferred",
   factDrained: "rasm.fact.drained",
@@ -353,6 +376,7 @@ const _metric = {
   gatewayCommands: "rasm.gateway.commands",
   gatewayDuration: "rasm.gateway.duration",
   httpServerDuration: METRIC_HTTP_SERVER_REQUEST_DURATION,
+  idempotencyOutcome: "rasm.admit.idempotency",
   invokeCalls: "rasm.invoke.calls",
   invokeDuration: "rasm.invoke.duration",
   invokeFault: "rasm.invoke.fault",
@@ -372,8 +396,19 @@ const _metric = {
   queueDepth: "rasm.queue.depth",
   queueParked: "rasm.queue.parked",
   relayDrained: "rasm.relay.drained",
+  remoteBytes: "rasm.remote.bytes",
+  remoteDuration: "rasm.remote.duration",
+  remoteExecExits: "rasm.remote.exec.exits",
+  remoteOps: "rasm.remote.ops",
+  remoteResumed: "rasm.remote.resumed",
+  remoteSessionsHeld: "rasm.remote.sessions.held",
+  remoteSyncActions: "rasm.remote.sync.actions",
+  remoteWatchChanges: "rasm.remote.watch.changes",
+  sceneBackend: "rasm.scene.backend",
   sceneGrafts: "rasm.scene.grafts",
   sceneRefusals: "rasm.scene.refusals",
+  securityAdmitted: "rasm.security.admitted",
+  securityCeremony: "rasm.security.ceremony",
   securityJwksMiss: "rasm.security.jwks.miss",
   securityJwksQuarantined: "rasm.security.jwks.quarantined",
   securityJwksResolve: "rasm.security.jwks.resolve",
@@ -394,10 +429,14 @@ const _metric = {
 // UCUM codes this branch mints under — the closed unit vocabulary every instrument row names, so a mistyped code
 // refuses at the row instead of landing on a backend axis, and an annotation code carries the counted thing.
 const _unit = {
+  action: "{action}",
+  admission: "{admission}",
   byte: "By",
+  change: "{change}",
   decision: "{decision}",
   deliverable: "{deliverable}",
   event: "{event}",
+  exit: "{exit}",
   frame: "{frame}",
   graft: "{graft}",
   hit: "{hit}",
@@ -407,11 +446,15 @@ const _unit = {
   miss: "{miss}",
   nano: "ns",
   object: "{object}",
+  op: "{op}",
+  parcel: "{parcel}",
   position: "{position}",
+  refusal: "{refusal}",
   reject: "{reject}",
   render: "{render}",
   rotation: "{rotation}",
   second: "s",
+  transfer: "{transfer}",
   trip: "{trip}",
   unity: "1",
 } as const
@@ -419,9 +462,10 @@ const _unit = {
 // Ordered code roster: `_unit` owns lookup by semantic name and this tuple owns order, iteration, and non-emptiness, so
 // every entry reads its own `_unit` row and a consumer's schema spreads the tuple instead of re-listing the code set.
 const _units = [
-  _unit.byte, _unit.decision, _unit.deliverable, _unit.event, _unit.frame, _unit.graft, _unit.hit, _unit.key,
-  _unit.lease, _unit.milli, _unit.miss, _unit.nano, _unit.object, _unit.position, _unit.reject, _unit.render,
-  _unit.rotation, _unit.second, _unit.trip, _unit.unity,
+  _unit.action, _unit.admission, _unit.byte, _unit.change, _unit.decision, _unit.deliverable, _unit.event, _unit.exit,
+  _unit.frame, _unit.graft, _unit.hit, _unit.key, _unit.lease, _unit.milli, _unit.miss, _unit.nano, _unit.object,
+  _unit.op, _unit.position, _unit.refusal, _unit.reject, _unit.render, _unit.rotation, _unit.second, _unit.transfer,
+  _unit.trip, _unit.unity,
 ] as const
 
 // One millisecond expressed in each temporal code: presence here is what makes a code temporal, so every duration
@@ -432,10 +476,14 @@ const _scale = { [_unit.milli]: 1, [_unit.nano]: 1_000_000, [_unit.second]: 0.00
 // code contributes none because the counted thing is no unit — total over `_unit`, so a new code answers its store-side
 // spelling here or mints a series no board resolves.
 const _promUnit = {
+  [_unit.action]: "",
+  [_unit.admission]: "",
   [_unit.byte]: "bytes",
+  [_unit.change]: "",
   [_unit.decision]: "",
   [_unit.deliverable]: "",
   [_unit.event]: "",
+  [_unit.exit]: "",
   [_unit.frame]: "",
   [_unit.graft]: "",
   [_unit.hit]: "",
@@ -445,11 +493,14 @@ const _promUnit = {
   [_unit.miss]: "",
   [_unit.nano]: "nanoseconds",
   [_unit.object]: "",
+  [_unit.op]: "",
   [_unit.position]: "",
+  [_unit.refusal]: "",
   [_unit.reject]: "",
   [_unit.render]: "",
   [_unit.rotation]: "",
   [_unit.second]: "seconds",
+  [_unit.transfer]: "",
   [_unit.trip]: "",
   [_unit.unity]: "",
 } as const
@@ -459,10 +510,14 @@ const _promUnit = {
 // distribution rung, `rate` answers a windowed rate fold. Ids are the Grafana unit registry's own, so a code lands a
 // word the renderer resolves rather than the UCUM code itself, which Grafana reads as an unknown id and prints bare.
 const _grafanaUnit = {
+  [_unit.action]: { level: "short", rate: "cps" },
+  [_unit.admission]: { level: "short", rate: "cps" },
   [_unit.byte]: { level: "bytes", rate: "binBps" },        // IEC on both halves: a level in 1024-scaled bytes and a rate in the matching per-second id
+  [_unit.change]: { level: "short", rate: "cps" },
   [_unit.decision]: { level: "short", rate: "cps" },
   [_unit.deliverable]: { level: "short", rate: "cps" },
   [_unit.event]: { level: "short", rate: "cps" },
+  [_unit.exit]: { level: "short", rate: "cps" },
   [_unit.frame]: { level: "short", rate: "cps" },
   [_unit.graft]: { level: "short", rate: "cps" },
   [_unit.hit]: { level: "short", rate: "cps" },
@@ -473,18 +528,21 @@ const _grafanaUnit = {
   [_unit.miss]: { level: "short", rate: "cps" },
   [_unit.nano]: { level: "ns", rate: "percentunit" },
   [_unit.object]: { level: "short", rate: "cps" },
+  [_unit.op]: { level: "short", rate: "cps" },
   [_unit.position]: { level: "short", rate: "cps" },
+  [_unit.refusal]: { level: "short", rate: "cps" },
   [_unit.reject]: { level: "short", rate: "cps" },
   [_unit.render]: { level: "short", rate: "cps" },
   [_unit.rotation]: { level: "short", rate: "cps" },
   [_unit.second]: { level: "s", rate: "percentunit" },
+  [_unit.transfer]: { level: "short", rate: "cps" },
   [_unit.trip]: { level: "short", rate: "cps" },
   [_unit.unity]: { level: "short", rate: "cps" },
 } as const
 
 // Wire forms close as a tuple, because the roster is read at runtime as often as it is read as a type: the kind union
 // derives from it, so one entry widens the tail table, the mount table, and every consumer's own literal schema.
-const _kinds = ["counter", "frequency", "gauge", "histogram", "updown"] as const
+const _kinds = ["counter", "frequency", "gauge", "histogram", "summary", "updown"] as const
 
 // Type tails per kind, the dimensionless column selected by the `1` code alone: a monotonic sum takes `total` whatever
 // it measures, a non-monotonic one takes none because the receiver reads the sum's own monotonicity flag, a gauge takes
@@ -495,18 +553,25 @@ const _tail = {
   frequency: { dimensionless: "total", measured: "total" },
   gauge: { dimensionless: "ratio", measured: "" },
   histogram: { dimensionless: "", measured: "" },
+  summary: { dimensionless: "", measured: "" }, // the quantile series carries the bare name; the receiver mints the `_count`/`_sum` siblings itself
   updown: { dimensionless: "", measured: "" },
 } as const
 
 // Kind IS the wire form: a counter and a frequency sum monotonically, an updown sums both ways, a gauge levels, a
-// histogram spans — so the mount reads the column instead of a site picking a constructor whose monotonicity the row
-// cannot see, and the unit column alone decides duration-ness. `bounds` rides the distributions, `bigint` the counting
-// rows, and `dimensions` the rows whose series fans, each column earned by the row consuming it rather than blank.
+// histogram spans, a summary answers quantiles over a sliding window — so the mount reads the column instead of a site
+// picking a constructor whose monotonicity the row cannot see, and the unit column alone decides duration-ness.
+// `bounds` rides the distributions and `window` the summaries — the two distribution answers, picked by whether the
+// range is known ahead — while `bigint` rides the counting rows and `dimensions` the rows whose series fans, each
+// column earned by the row consuming it rather than blank.
 const _instrument = {
+  admitPassed: { description: "front-door admissions by authentication scheme", dimensions: [_rasm.admitScheme], kind: "counter", name: _metric.admitPassed, unit: _unit.admission },
+  admitRefused: { description: "front-door refusals by reason", dimensions: [_rasm.admitReason], kind: "counter", name: _metric.admitRefused, unit: _unit.refusal },
   assetTranscodeDuration: { bounds: { count: 11, factor: 2, ladder: "exponential", start: 16 }, description: "asset transcode wall span", kind: "histogram", name: _metric.assetTranscodeDuration, unit: _unit.milli },
   assetTransformed: { description: "asset transforms by engine plane and outcome", dimensions: [_rasm.assetEngine, _rasm.assetOutcome], kind: "counter", name: _metric.assetTransformed, unit: _unit.object },
   batchDuration: { bounds: { count: 11, factor: 2, ladder: "exponential", start: 1 }, description: "resolver window wall span", kind: "histogram", name: _metric.batchDuration, unit: _unit.milli },
-  benchCounter: { description: "hardware-counter band by axis", dimensions: [_rasm.benchBand, _rasm.benchLabel, _rasm.benchSuite], kind: "gauge", name: _metric.benchCounter, unit: _unit.event },
+  // the counter block's shape is `{leaf}.avg`, so the band value is `avg` on all five leaves and the leaf axis is what
+  // splits them — without it every counter lands on one `(band, label, suite)` series and the panel superimposes five measures
+  benchCounter: { description: "hardware-counter band by counter kind and axis", dimensions: [_rasm.benchBand, _rasm.benchCounterKind, _rasm.benchLabel, _rasm.benchSuite], kind: "gauge", name: _metric.benchCounter, unit: _unit.event },
   benchGc: { description: "benchmark GC-timing band", dimensions: [_rasm.benchBand, _rasm.benchLabel, _rasm.benchSuite], kind: "gauge", name: _metric.benchGc, unit: _unit.nano },
   benchHeap: { description: "benchmark heap-delta band", dimensions: [_rasm.benchBand, _rasm.benchLabel, _rasm.benchSuite], kind: "gauge", name: _metric.benchHeap, unit: _unit.byte },
   benchTime: { description: "benchmark timing ladder by band", dimensions: [_rasm.benchBand, _rasm.benchLabel, _rasm.benchSuite], kind: "gauge", name: _metric.benchTime, unit: _unit.nano },
@@ -517,6 +582,8 @@ const _instrument = {
   crashCaptured: { description: "fatal captures by fault class", dimensions: [_attr.errorType], kind: "counter", name: _metric.crashCaptured, unit: _unit.unity },
   derivativeActive: { description: "derivative renders in flight", kind: "gauge", name: _metric.derivativeActive, unit: _unit.render },
   derivativeQueued: { description: "derivative renders awaiting a worker", kind: "gauge", name: _metric.derivativeQueued, unit: _unit.render },
+  exportParcels: { description: "export parcels minted by format and source", dimensions: [_rasm.exportFormat, _rasm.exportSource], kind: "counter", name: _metric.exportParcels, unit: _unit.parcel },
+  exportSize: { bounds: { count: 11, factor: 4, ladder: "exponential", start: 1024 }, description: "parcel octets by format", dimensions: [_rasm.exportFormat], kind: "histogram", name: _metric.exportSize, unit: _unit.byte },
   // Redeliveries the content key matched, the one series proving at-least-once delivery is happening at all: an
   // implementation folding them into `factDrained` claims zero redelivery, and zero redelivery is exactly what a
   // wedged retry re-offering one window forever looks like from the drain's own series
@@ -532,6 +599,7 @@ const _instrument = {
   gatewayDuration: { bounds: { count: 5, factor: 4, ladder: "exponential", start: 25 }, description: "gateway dispatch wall span", kind: "histogram", name: _metric.gatewayDuration, unit: _unit.milli },
   // semconv fixes this advisory ladder for http.server.request.duration in seconds, so the row transcribes edges an external contract owns rather than generating them, and the gateway connector derives the series off span keys this table already carries
   httpServerDuration: { bounds: { edges: [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10], ladder: "explicit" }, description: "server request wall span", dimensions: [_attr.httpMethod, _attr.httpRoute], kind: "histogram", name: _metric.httpServerDuration, unit: _unit.second },
+  idempotencyOutcome: { description: "idempotency-key dispositions", dimensions: [_rasm.admitDisposition], kind: "counter", name: _metric.idempotencyOutcome, unit: _unit.decision },
   invokeCalls: { description: "capability calls by outcome", dimensions: [_rasm.invokeOutcome], kind: "counter", name: _metric.invokeCalls, unit: _unit.unity },
   invokeDuration: { bounds: { count: 5, factor: 4, ladder: "exponential", start: 25 }, description: "capability call wall span", kind: "histogram", name: _metric.invokeDuration, unit: _unit.milli },
   invokeFault: { description: "capability fault reasons", kind: "frequency", name: _metric.invokeFault, unit: _unit.unity },
@@ -551,8 +619,24 @@ const _instrument = {
   queueDepth: { description: "durable-queue rows awaiting settlement", kind: "gauge", name: _metric.queueDepth, unit: _unit.deliverable },
   queueParked: { description: "deliverables parked to the dead set", dimensions: [_rasm.workChannel], kind: "counter", name: _metric.queueParked, unit: _unit.deliverable },
   relayDrained: { description: "relay claims settled by channel", dimensions: [_rasm.workChannel], kind: "counter", name: _metric.relayDrained, unit: _unit.deliverable },
+  remoteBytes: { description: "remote-origin octets moved by scheme and verb", dimensions: [_rasm.remoteOp, _rasm.remoteScheme], kind: "counter", name: _metric.remoteBytes, unit: _unit.byte },
+  // A local `stat` and a multi-gigabyte rsync ride one instrument, so no frozen ladder answers both — the sliding
+  // window is the second distribution answer the range decides, and the quantile roster IS the read a panel names
+  remoteDuration: { description: "remote-origin operation wall span", dimensions: [_rasm.remoteOp, _rasm.remoteScheme], kind: "summary", name: _metric.remoteDuration, unit: _unit.milli, window: { error: 0.01, maxAge: Duration.minutes(10), maxSize: 4096, quantiles: [0.5, 0.9, 0.99] } },
+  remoteExecExits: { description: "remote command exits by scheme and fault class", dimensions: [_attr.errorType, _rasm.remoteScheme], kind: "counter", name: _metric.remoteExecExits, unit: _unit.exit },
+  // one series carries the six-reason fan and the landed half, so the refusal share has its own denominator
+  remoteOps: { description: "remote-origin operations by scheme, verb, and fault class", dimensions: [_attr.errorType, _rasm.remoteOp, _rasm.remoteScheme], kind: "counter", name: _metric.remoteOps, unit: _unit.op },
+  remoteResumed: { description: "transfers resumed by engine", dimensions: [_rasm.remoteEngine], kind: "counter", name: _metric.remoteResumed, unit: _unit.transfer },
+  remoteSessionsHeld: { description: "pooled remote sessions held by scheme", dimensions: [_rasm.remoteScheme], kind: "updown", name: _metric.remoteSessionsHeld, unit: _unit.lease },
+  remoteSyncActions: { description: "reconciliation actions by kind", dimensions: [_rasm.remoteAction], kind: "counter", name: _metric.remoteSyncActions, unit: _unit.action },
+  remoteWatchChanges: { description: "watch changes by scheme and strategy", dimensions: [_rasm.remoteScheme, _rasm.remoteWatch], kind: "counter", name: _metric.remoteWatchChanges, unit: _unit.change },
+  sceneBackend: { description: "backend lifecycle turns by landed phase", kind: "frequency", name: _metric.sceneBackend, unit: _unit.unity },
   sceneGrafts: { description: "committed graft arrivals", kind: "counter", name: _metric.sceneGrafts, unit: _unit.graft },
   sceneRefusals: { description: "graft refusals by fault reason", kind: "frequency", name: _metric.sceneRefusals, unit: _unit.unity },
+  // the admission denominator the reject counter never had: both fan on the SAME closed reject-kind vocabulary, so
+  // admit and reject join on one axis and a credential-stuffing spike separates from a traffic spike
+  securityAdmitted: { description: "authenticity admissions by kind", dimensions: [_rasm.securityKind], kind: "counter", name: _metric.securityAdmitted, unit: _unit.admission },
+  securityCeremony: { bounds: { count: 6, factor: 2, ladder: "exponential", start: 125 }, description: "credential-ceremony wall span", dimensions: [_rasm.securityKind], kind: "histogram", name: _metric.securityCeremony, unit: _unit.milli }, // rungs 125..4000 land 1000 as a declared edge — the audit ceremony objective pins its p99 ceiling there, and a ceiling must land on a bound
   securityJwksMiss: { description: "cold JWKS resolutions missing the cache", kind: "counter", name: _metric.securityJwksMiss, unit: _unit.miss },
   securityJwksQuarantined: { description: "JWKS keys quarantined by the breaker", kind: "counter", name: _metric.securityJwksQuarantined, unit: _unit.key },
   securityJwksResolve: { bounds: { edges: [5, 25, 100, 250, 1000, 5000], ladder: "explicit" }, description: "JWKS resolve wall span", kind: "histogram", name: _metric.securityJwksResolve, unit: _unit.milli },
@@ -574,7 +658,8 @@ const _instrument = {
 const _durations = [
   _metric.assetTranscodeDuration, _metric.batchDuration, _metric.benchGc, _metric.benchTime, _metric.gatewayDuration, _metric.httpServerDuration,
   _metric.invokeDuration, _metric.olapDeferred, _metric.olapWait, _metric.outboxAge, _metric.profileDuration,
-  _metric.securityJwksResolve, _metric.securityKdf, _metric.vitalDuration,
+  _metric.remoteDuration, _metric.securityCeremony, _metric.securityJwksResolve, _metric.securityKdf,
+  _metric.vitalDuration,
 ] as const
 
 const _event = {
@@ -604,10 +689,12 @@ const _profile = {
 - Law: `Convention.mount(metric)` is the one instrument materialization — the kind column selects the constructor and its monotonicity, `bounds` arms the distribution, `bigint` selects the value width, name and description ride the row, and the UCUM code lands as the `wire.unit` tag — so a signal site names an instrument and receives its handle.
 - Law: a mount is a module-scope value, because Effect keys an instrument by name and tag set, so a mount inside a fold re-derives one registry entry per call and buys nothing.
 - Law: a temporal distribution mounts over `Duration`, its input mapped through the row's own `_scale` factor, so an elapsed span records in the unit the row declares and the duration aspect composes at the site untouched.
-- Law: the mapping rides the distributions alone because Effect constrains a level's and a counter's carrier to `number | bigint`, so a mapped temporal level forfeits its `Gauge` interface and the `set` aspect narrowed to it — a temporal level therefore takes `Convention.duration` at its own site, and widening the mapping to those kinds trades one call for a broken update surface.
+- Law: the mapping rides the BUCKETED distributions alone because Effect constrains a level's, a counter's, and a summary's carrier to a bare number, so a mapped temporal row of those kinds forfeits the interface its update aspect narrows to — a temporal level and a temporal summary therefore take `Convention.duration` at their own sites, and widening the mapping trades one call for a broken update surface.
 - Law: Effect's timer constructors hardcode milliseconds and stamp their own unit tag, so a `s`-coded or `ns`-coded row minted through one exports the wrong magnitude under the wrong unit — the mapped input is why no timer constructor has a seat here.
 - Law: a frequency row mounts against its publisher's closed word roster, so every admitted word reports zero before its first occurrence and a panel never reads an unseen reason as a missing series; the roster stays the publisher's because the vocabulary is its own, and `Convention.Word` closes it non-empty because an empty roster pre-registers nothing and forfeits exactly the guarantee the law claims — a publisher projecting its vocabulary through a plain key walk lands the non-empty proof at that projection, never at this mint.
-- Law: `Convention.bounds(metric)` projects a distribution row's finite edge set, so an objective, a bucket-bound query, and the mounted ladder read one generated array and a `le` never names an edge no bucket carries.
+- Law: `Convention.bounds(metric)` projects a bucketed row's finite edge set, so an objective, a bucket-bound query, and the mounted ladder read one generated array and a `le` never names an edge no bucket carries; `Convention.quantiles(metric)` is its windowed twin, projecting the summary roster the reservoir samples so a panel's `quantile` label names a rank the mint actually holds and never one the read invented.
+- Law: `Convention.outcome(metric, key, reason)` is the one outcome-partition aspect every outcome-fanned counter composes — `Effect.onExit` is the single emission point, the interrupt-first `Exit.match` discriminates `halted`, then `crashed`, then the caller's own reason word, and `Metric.increment(Metric.tagged(...))` stamps the axis — so the discipline lands once at the mount owner instead of at each of the six consuming pages, where a word minted inside a recovery arm double-counts every retried attempt and never sees a defect. The aspect mounts its handle at construction, so the value binds at module scope exactly as `Convention.mount` does; the `Outcome<W>` anchor is the vocabulary, so a new reason widens the emitting family's own axis and never an arm inside the fold, and `Fan<N>` binds the stamped key to the row's OWN `dimensions` column so the axis a governor allow-lists and the axis the aspect stamps are one declaration.
+- Law: the aspect owns the FAILURE partition and fixes `resolved` as the success word, so a family whose SUCCESS is itself partitioned — the gateway's `Granted`/`Refused` disposition — folds its own `Exit` at its site over this same `Outcome<W>` anchor rather than forcing a success projection onto every other consumer; the interrupt-first discrimination is transcribed there, never re-invented, and the vocabulary stays one owner's.
 - Law: an `explicit` vector arrives ASCENDING, because Effect appends its own `+Inf` and dedupes without sorting — a descending or shuffled transcription mints a distribution whose every bucket bound lies and whose projected edge set a query re-reads unchallenged; both generators rise by construction, so the obligation rides the transcribed case alone.
 - Law: `Convention.kinds` publishes the wire-form roster as data, so a consumer building a literal schema over instrument families derives it here rather than re-listing the forms beside its own panel or residence table.
 - Law: `Convention.units` publishes the UCUM roster the same way, so a panel feed, claim schema, or residence column decodes its unit closed rather than admitting a free string beside a kind column already decoding against `kinds`.
@@ -625,11 +712,11 @@ const _profile = {
 - Law: `Convention.identity` is the one `AppIdentity -> Identity` correspondence — `service.name` carries the app key, `service.namespace` the estate pin an identity's own service group overrides, `service.version` the build version, `service.instance.id` the boot-minted instance guid, `deployment.environment.name` the environment tier, `host.name` the host print through the incubating alias row, and `rasm.ring` the exposure rung, while `cloud.region`, `cloud.availability_zone`, `k8s.cluster.name`, and `rasm.tenant` stamp only when the identity pins the dimension: a multi-tenant process emits no resource-level tenant and per-fact tenancy rides the audit/meter streams — and every identity-bearing surface (the runtime OTLP `Resource`, the fact stamps on the runtime signal streams, the dashboard identity on `board#MODEL`) derives from this one projection, so a per-app telemetry fork is structurally impossible.
 - Law: a dimension is projected only once its value settles — the projection line lands in the same edit that adds the identity field, never ahead of it — so the projection reads settled `instance`/`environment`/`ring`/`region`/`zone`/`cluster` values and never re-mints a dimension the floor owns; an absent `Option` dimension is omission, never a sentinel, so a backend filter never matches an empty string. `service.namespace` is the one always-present fold: the estate value settles on the wire triple, so the identity's `Option` reads as an override rather than as presence.
 - Law: `Convention.profiled(identity)` is the one profile-store selector projection — the `service_name` label bound to the identity's app key — so the board `profile` pack and the runtime pyroscope seat derive one series identity and a hand-spelled profile label never exists; `ProfileLabel` spans the store-label keys alone (`service_name`, `span_name`, `span_id`, `trace_id`) — `_profile.id` is the span-correlation attribute a label-only consumer never accepts — while the `id` row rides `Convention.keys`, so a stamped record's census walk emits it in canonical order.
-- Entry: `Convention.mount(metric, ...words)`, `Convention.bounds(metric)`, `Convention.identity(identity)`, `Convention.profiled(identity)`, `Convention.duration(metric, span)`, `Convention.translated(metric, strategy)`, and `Convention.scope(module, version)` — the operation set; row families read as properties (`Convention.attr.httpRoute`, `Convention.incubating.flagKey`, `Convention.domain.olap`, `Convention.metric.meterUsage`, `Convention.instrument.meterUsage`, `Convention.unit.milli`, `Convention.grafanaUnit[code].level`, `Convention.named[name]`, `Convention.event.exception`, `Convention.value.flagTargeting`, `Convention.profile.id`, `Convention.wire.schemaUrl`, `Convention.translation.NoTranslation`); the `Convention.keys`, `Convention.dimensions`, `Convention.kinds`, `Convention.units`, and `Convention.durations` rosters at every iteration, governor, and schema seam. `_module` and `_ESTATE` stay interior — it names scopes and closes emitter columns, and a consumer walking the branch's own subpaths reads the exports map.
+- Entry: `Convention.mount(metric, ...words)`, `Convention.outcome(metric, key, reason)`, `Convention.bounds(metric)`, `Convention.quantiles(metric)`, `Convention.identity(identity)`, `Convention.profiled(identity)`, `Convention.duration(metric, span)`, `Convention.translated(metric, strategy)`, and `Convention.scope(module, version)` — the operation set; row families read as properties (`Convention.attr.httpRoute`, `Convention.incubating.flagKey`, `Convention.domain.olap`, `Convention.metric.meterUsage`, `Convention.instrument.meterUsage`, `Convention.unit.milli`, `Convention.grafanaUnit[code].level`, `Convention.named[name]`, `Convention.event.exception`, `Convention.value.flagTargeting`, `Convention.profile.id`, `Convention.wire.schemaUrl`, `Convention.translation.NoTranslation`); the `Convention.keys`, `Convention.dimensions`, `Convention.kinds`, `Convention.units`, and `Convention.durations` rosters at every iteration, governor, and schema seam. `_module` and `_ESTATE` stay interior — it names scopes and closes emitter columns, and a consumer walking the branch's own subpaths reads the exports map.
 - Growth: a new identity dimension is one projection line with its `_rasm` row; a new bounded-value binding is one `ValueOf` clause beside its prefixed `_value` rows; a new sub-domain is one `_module` row carrying whether it mounts instruments, and every scope name, emitter column, and `_domain` row it earns follows from that one entry.
 - Growth: a new UCUM code is one `_unit` row answering `_promUnit` and `_grafanaUnit` and one `_units` entry; a receiver strategy the ecosystem adds is one `_translation` row every store dialect then spells.
 - Growth: a bounded semconv key a `rasm.*` instrument slices on is one `dimensions` entry on that instrument, so every metric-plane governor admits it with zero edits of its own.
-- Growth: a ladder family the bucket algebra gains is one `Bounds` case answering `_LADDER`; a wire form Effect gains is one `InstrumentKind` case answering `_MOUNT` beside its `_tail` row.
+- Growth: a ladder family the bucket algebra gains is one `Bounds` case answering `_LADDER`; a wire form Effect gains is one `InstrumentKind` case answering `_MOUNT` beside its `_tail` row, its own column obligation on the row guard, and its carrier branch on `Mounted`.
 - Boundary: `AppIdentity` is `value/identity`'s value — this page projects it into attribute space and owns nothing about its construction; `value/fault` owns the forensic anchors whole, importing `ATTR_EXCEPTION_*` and the `code.*` frame quartet straight from the spec surface, so the `exception.*` keys carry no row here while `error.type` does — the fatal capture's bounded class dimension is a signal this page's consumers query, the free-form exception fields are forensics only the fault floor writes. Two owners share one spec vocabulary across that import boundary, never a re-export hop.
 
 ```typescript signature
@@ -683,6 +770,8 @@ const _LADDER: { readonly [L in Convention.Ladder]: (bounds: Extract<Convention.
   linear: (bounds) => Array.makeBy(bounds.count, (rung) => bounds.start + rung * bounds.width),
 }
 
+const _quantiles = (metric: Convention.MetricName<"summary">): ReadonlyArray<number> => _named[metric].window.quantiles
+
 const _edges = (metric: Convention.MetricName<"histogram">): ReadonlyArray<number> =>
   // BOUNDARY ADAPTER: a keyed dispatch erases the case-to-arm correlation the mapped table declares, so one cast rejoins each
   // arm to the case its own discriminant selected
@@ -713,6 +802,17 @@ const _MOUNT: { readonly [K in Convention.InstrumentKind]: (row: Extract<Convent
       ? Metric.gauge(row.name, { bigint: true, description: row.description })
       : Metric.gauge(row.name, { description: row.description }),
   histogram: _spanned,
+  // Every leading option is required with no default, so the row's own window column supplies all four and a summary
+  // takes the bare number a temporal site already scaled — the `mapInput` a histogram earns would forfeit `Summary`
+  summary: (row) =>
+    Metric.summary({
+      description: row.description,
+      error: row.window.error,
+      maxAge: row.window.maxAge,
+      maxSize: row.window.maxSize,
+      name: row.name,
+      quantiles: row.window.quantiles,
+    }),
   updown: (row) => _counted(row, false),
 }
 
@@ -728,6 +828,26 @@ const _mount = <N extends Convention.MetricName>(metric: N, ...words: Convention
     _wire.unit,
     _named[metric].unit,
   ) as Convention.Mounted<N>
+
+// One emission point per computation: `Effect.onExit` fires ONCE after the outcome settles, so a word minted inside a
+// recovery arm — double-counted on every retried attempt and blind to defects — has no site left. The interrupt-first
+// discrimination lands here rather than at each consumer, and the caller supplies only its own reason projection, so
+// the vocabulary anchors as `Outcome<W>` and a new reason widens it at the family that owns the reason.
+const _outcome = <N extends Convention.MetricName<"counter">, E, W extends string>(
+  metric: N,
+  key: Convention.Fan<N>, // the row's OWN declared fan: an axis the instrument never mints is unspellable here
+  reason: (fault: E) => W,
+): (<A, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>) => {
+  const mounted = _mount(metric)
+  const worded: (exit: Exit.Exit<unknown, E>) => Convention.Outcome<W> = Exit.match({
+    onFailure: (cause) =>
+      Cause.isInterruptedOnly(cause)
+        ? ("halted" as const)
+        : Option.match(Cause.failureOption(cause), { onNone: () => "crashed" as const, onSome: reason }),
+    onSuccess: () => "resolved" as const,
+  })
+  return (self) => Effect.onExit(self, (exit) => Metric.increment(Metric.tagged(mounted, key, worded(exit))))
+}
 
 const _keys: ReadonlyArray<Convention.Key> = [
   ...Record.values(_attr),
@@ -796,6 +916,18 @@ declare namespace Convention {
     | { readonly count: number; readonly factor: number; readonly ladder: "exponential"; readonly start: number }
     | { readonly count: number; readonly ladder: "linear"; readonly start: number; readonly width: number }
     | { readonly edges: readonly [number, ...ReadonlyArray<number>]; readonly ladder: "explicit" }
+  // The sliding-window answer a distribution takes where no ladder can pre-name its range: `maxAge` is the window the
+  // quantiles hold over, `maxSize` its reservoir, `error` the rank tolerance, and the roster is what a read may name.
+  type Window = {
+    readonly error: number
+    readonly maxAge: Duration.Duration
+    readonly maxSize: number
+    readonly quantiles: readonly [number, ...ReadonlyArray<number>]
+  }
+  type Outcome<W extends string = string> = "crashed" | "halted" | "resolved" | W // the fold's three cause rows beside the family's own reason axis
+  // The axis an outcome aspect may stamp is the row's own declared fan, so the metric-plane roster and the stamped key
+  // are one fact: a counter declaring no fan admits no outcome partition at all rather than minting an ungoverned axis.
+  type Fan<N extends MetricName> = Named[N] extends { readonly dimensions: infer D extends ReadonlyArray<Dimension> } ? D[number] : never
   type MetricName<K extends InstrumentKind = InstrumentKind> = {
     readonly [N in keyof typeof _instrument]: (typeof _instrument)[N]["kind"] extends K ? (typeof _instrument)[N]["name"] : never
   }[keyof typeof _instrument]
@@ -805,8 +937,10 @@ declare namespace Convention {
   // counting families' value — so the declaration alone types every mounted handle.
   type Mounted<N extends MetricName, R = Named[N]> = R extends { readonly kind: "frequency" } ? Metric.Metric.Frequency<string>
     : R extends { readonly kind: "histogram" } ? Metric.Metric.Histogram<R extends { readonly unit: TimeUnit } ? Duration.Duration : number>
+    : R extends { readonly kind: "summary" } ? Metric.Metric.Summary<number>
     : R extends { readonly kind: "gauge" } ? Metric.Metric.Gauge<R extends { readonly bigint: true } ? bigint : number>
     : Metric.Metric.Counter<R extends { readonly bigint: true } ? bigint : number>
+  type Input<N extends MetricName> = Mounted<N> extends Metric.Metric<infer _Type, infer In, infer _Out> ? In : never // the admitted update a named row's own carrier takes, so a subscriber's projection types off the name alone
   type Instrument = Mounted<MetricName> // every carrier the census admits, which is exactly what one mount arm returns
   type Word = readonly [string, ...ReadonlyArray<string>] // an empty roster forfeits the zero-before-first-occurrence guarantee the frequency law claims, so the tuple refuses it at the mint
   type Words<N extends MetricName> = Named[N] extends { readonly kind: "frequency" } ? [words: Word] : [] // the roster is required where the family counts words and unspellable everywhere else
@@ -858,8 +992,14 @@ declare namespace Convention {
     readonly metric: typeof _metric
     readonly mount: <N extends MetricName>(metric: N, ...words: Words<N>) => Mounted<N>
     readonly named: Named
+    readonly outcome: <N extends MetricName<"counter">, E, W extends string>(
+      metric: N,
+      key: Fan<N>,
+      reason: (fault: E) => W,
+    ) => <A, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
     readonly profile: typeof _profile
     readonly profiled: (identity: AppIdentity) => { readonly [K in (typeof _profile)["service"]]: string }
+    readonly quantiles: (metric: MetricName<"summary">) => ReadonlyArray<number>
     readonly rasm: typeof _rasm
     readonly scope: (module: Module, version: AppIdentity.Version) => Scope
     readonly translated: (metric: MetricName, strategy?: Translation) => string
@@ -878,15 +1018,17 @@ declare namespace Convention {
   > = Overlap // pairwise key disjointness: a promotion landing the stable row without retiring its incubating twin doubles a `keys` entry and forks every census-ordered render
   type _Domain<T extends Record<Domain, { readonly emitters: readonly [Emitter, ...ReadonlyArray<Emitter>]; readonly subject: string }> = typeof _domain> = T // a subject with no emitter is a segment nothing mints
   type _Event<T extends Record<Exclude<keyof typeof _event, "exception">, `rasm.${Domain}.${string}`> = typeof _event> = T // the semconv event keeps its spec spelling; every Rasm event name closes against the domain roster
-  // Each column is obligated by the row's OWN kind, read back off the table: a distribution without its ladder, a
-  // distribution or word census claiming a value width, and a counting row carrying edges each refuse right here. A
-  // word census names no fan either, because its one axis is the kind's own and the bridge appends it unasked.
+  // Each column is obligated by the row's OWN kind, read back off the table: a bucketed distribution without its
+  // ladder, a windowed one without its quantile roster, either claiming the other's column, a distribution or word
+  // census claiming a value width, and a counting row carrying edges each refuse right here. A word census names no
+  // fan either, because its one axis is the kind's own and the bridge appends it unasked.
   type _InstrumentRows<
     T extends {
       readonly [K in keyof typeof _metric]:
         & { readonly description: string; readonly kind: InstrumentKind; readonly name: (typeof _metric)[K]; readonly unit: Unit }
         & ((typeof _instrument)[K]["kind"] extends "histogram" ? { readonly bounds: Bounds } : { readonly bounds?: never })
-        & ((typeof _instrument)[K]["kind"] extends "frequency" | "histogram" ? { readonly bigint?: never } : { readonly bigint?: true })
+        & ((typeof _instrument)[K]["kind"] extends "summary" ? { readonly window: Window } : { readonly window?: never })
+        & ((typeof _instrument)[K]["kind"] extends "frequency" | "histogram" | "summary" ? { readonly bigint?: never } : { readonly bigint?: true })
         & ((typeof _instrument)[K]["kind"] extends "frequency" ? { readonly dimensions?: never }
           : { readonly dimensions?: readonly [Exclude<Key, EstateKey>, ...ReadonlyArray<Exclude<Key, EstateKey>>] })
     } = typeof _instrument,
@@ -930,8 +1072,10 @@ const Convention: Convention.Shape = {
   metric: _metric,
   mount: _mount,
   named: _named,
+  outcome: _outcome,
   profile: _profile,
   profiled: (identity) => ({ [_profile.service]: identity.app }),
+  quantiles: _quantiles,
   rasm: _rasm,
   scope: (module, version) => ({ name: `@rasm/ts/${module}`, schemaUrl: _wire.schemaUrl, version }),
   translated: _translated,

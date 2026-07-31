@@ -24,7 +24,7 @@ One discriminant rules the plane: `CodecProfile.tag` is the algorithm, `ALGO_OF`
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never
+from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never, get_args
 
 import xxhash
 from expression import case, tag, tagged_union
@@ -424,6 +424,20 @@ DELTA_MATRIX: Final[frozenset[tuple[DeltaAlgorithm, DeltaPatchType]]] = frozense
 
 _SEVEN_Z_CODECS: Final[frozenset[SevenZFilter]] = frozenset({"lzma", "lzma2", "bzip2", "ppmd", "zstd", "brotli", "deflate", "copy"})
 _SEVEN_Z_PREPROCESSORS: Final[frozenset[SevenZFilter]] = frozenset({"delta", "x86", "arm", "armthumb", "powerpc", "sparc", "ia64"})
+
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form. Pair one: `CodecProfile.algo` indexes `ALGO_OF` by tag on every dispatch, key, and manifest label, so an
+# algorithm whose tag carries no row is a runtime `KeyError` at the discriminant the whole plane reads. Pair two is
+# the PARTITION `Bundle.of`'s chain guard folds over — a `SevenZFilter` token in neither set can never pass the
+# terminal-codec/preprocessor test, so it is admitted nowhere and the vocabulary refuses the dead token at import.
+# `DEFAULT_PROFILE` carves `DELTA` BY DECLARATION (a patch binds its parent image, so the delta profile is always
+# explicit) and takes no pair: its `try_find` already answers absence with the loud `_profile_required` refusal.
+_COVERED: Final[tuple[tuple[frozenset[object], frozenset[object]], ...]] = (
+    (frozenset(value for _tag, value in ALGO_OF.to_seq()), frozenset(CompressionAlgo)),
+    (_SEVEN_Z_CODECS | _SEVEN_Z_PREPROCESSORS, frozenset(get_args(SevenZFilter))),
+)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("bundle tables do not cover their vocabularies")
 
 
 # every knob leaf is msgpack-native once `keyable` nulls the delta parent key; the null key is the one spec

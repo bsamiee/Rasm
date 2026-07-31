@@ -324,7 +324,7 @@ public abstract partial record ToolAxisDemand {
             ? row.Rows[Math.Min(state.Index, row.Rows.Count - 1)]
                 .Project<Plane>(row.Context, row.Key)
                 .Map(static frame => frame.ZAxis)
-            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:intent-census").ToError()),
+            : Fin.Fail<Vector3d>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:intent-census")),
         cone: static (state, row) =>
             from contains in row.Domain.Contains(row.Preferred, row.Context, row.Key)
             from axis in contains
@@ -334,18 +334,18 @@ public abstract partial record ToolAxisDemand {
                         .OrderBy(direction => Vector3d.VectorAngle(row.Preferred, direction.Value))
                         .Head
                         .Map(static direction => direction.Value)
-                        .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:empty-cone").ToError()))
+                        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:empty-cone")))
             select axis,
         indexed: static (state, row) => state.Index >= 0 && state.Index < row.Directions.Count
             ? Fin.Succ(row.Directions[state.Index])
-            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:indexed-census").ToError()))
+            : Fin.Fail<Vector3d>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:indexed-census")))
         .Bind(AdmitAxis);
 
     private static Fin<Vector3d> AdmitAxis(Vector3d axis) {
         Vector3d admitted = axis;
         return admitted.IsValid && admitted.Unitize()
             ? Fin.Succ(admitted)
-            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:axis-demand").ToError());
+            : Fin.Fail<Vector3d>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:axis-demand"));
     }
 }
 
@@ -483,10 +483,10 @@ public static class MachineTool {
         select new MachineSolution(motion, state.Stations);
 
     private static Fin<(MachineKinematics Kinematics, Seq<Move> Moves)> Admit(MachineKinematics kinematics, Seq<Move> moves) =>
-        from admittedKinematics in Optional(kinematics).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:kinematics").ToError())
+        from admittedKinematics in Optional(kinematics).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:kinematics"))
         from admittedMoves in moves.Traverse(static move => Move.Admit(move).ToValidation()).As().ToFin()
         from _ in admittedMoves.IsEmpty
-            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:moves").ToError())
+            ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:moves"))
             : Fin.Succ(unit)
         select (Kinematics: admittedKinematics, Moves: admittedMoves);
 
@@ -533,7 +533,7 @@ public static class MachineTool {
         MachineChain.Delta chain,
         Arr<double> values) {
         if (values.Count != 3)
-            return Fin.Fail<MachinePose>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:delta-home-rank").ToError());
+            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-rank"));
         Arr<Point3d> centers = chain.Geometry.Towers.Map((tower, index) => new Point3d(
             tower.X - chain.Geometry.EffectorJoints[index].X,
             tower.Y - chain.Geometry.EffectorJoints[index].Y,
@@ -541,21 +541,21 @@ public static class MachineTool {
         Vector3d ex = centers[1] - centers[0];
         double d = ex.Length;
         if (d <= kinematics.Inverse.RootTolerance || !ex.Unitize())
-            return Fin.Fail<MachinePose>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:delta-home-basis").ToError());
+            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-basis"));
         Vector3d third = centers[2] - centers[0];
         double i = ex * third;
         Vector3d transverse = third - (i * ex);
         double j = transverse.Length;
         if (j <= kinematics.Inverse.RootTolerance || !transverse.Unitize())
-            return Fin.Fail<MachinePose>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:delta-home-basis").ToError());
+            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-basis"));
         double x = d * 0.5;
         double y = (i * i + j * j - (2.0 * i * x)) / (2.0 * j);
         double zSquared = chain.Geometry.RodLength * chain.Geometry.RodLength - x * x - y * y;
         if (zSquared < -kinematics.Inverse.RootTolerance)
-            return Fin.Fail<MachinePose>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:delta-home-unreachable").ToError());
+            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-unreachable"));
         Vector3d normal = Vector3d.CrossProduct(ex, transverse);
         if (!normal.Unitize())
-            return Fin.Fail<MachinePose>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:delta-home-basis").ToError());
+            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-basis"));
         Point3d basis = centers[0] + (x * ex) + (y * transverse);
         double z = Math.Sqrt(Math.Max(0.0, zSquared));
         return Seq(basis + (z * normal), basis - (z * normal))
@@ -564,7 +564,7 @@ public static class MachineTool {
             .OrderBy(static candidate => candidate.Z)
             .Head
             .Map(point => new MachinePose(point, kinematics.ToolFrame.ZAxis))
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:delta-home-branch").ToError());
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-branch"));
     }
 
     private static MachinePose ApplyAuxiliaries(
@@ -673,7 +673,7 @@ public static class MachineTool {
             .Fold(new Vector3d(), static (sum, offset) => sum + offset);
         return (realized - local).Length <= kinematics.Inverse.RootTolerance
             ? CandidateRows(kinematics, joints.Map(static joint => joint.Limit), pose, values)
-            : Fin.Fail<Seq<MachineCandidate>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:cartesian-subspace").ToError());
+            : Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:cartesian-subspace"));
     }
 
     private static Fin<Seq<MachineCandidate>> Serial(MachineKinematics kinematics, MachinePose pose, Arr<MachineJoint> joints, Arr<double> previous) {
@@ -693,10 +693,10 @@ public static class MachineTool {
                     isFixed: null)
                 .MinimizingPoint)
             .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"machine-tool:inverse:{error.Message}").ToError())
+            .MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"machine-tool:inverse:{error.Message}"))
             .Bind(fitted => Residual(kinematics, joints, fitted, pose).L2Norm() <= kinematics.Inverse.RootTolerance
                 ? CandidateRows(kinematics, limits, pose, fitted.ToArray().ToArr())
-                : Fin.Fail<Seq<MachineCandidate>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:inverse-residual").ToError()));
+                : Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:inverse-residual")));
     }
 
     private const int TaskRank = 6;
@@ -761,14 +761,14 @@ public static class MachineTool {
         MachinePose pose,
         Arr<double> raw) {
         if (raw.Count != limits.Count)
-            return Fin.Fail<Seq<MachineCandidate>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:inverse-rank").ToError());
+            return Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:inverse-rank"));
         if (raw.Exists(static value => !double.IsFinite(value)))
-            return Fin.Fail<Seq<MachineCandidate>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:inverse-unreachable").ToError());
+            return Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:inverse-unreachable"));
         int cyclicAxes = limits.Count(static limit => limit.Periodicity.Cyclic);
         if (!kinematics.Inverse.AdmitsWindings(cyclicAxes))
-            return Fin.Fail<Seq<MachineCandidate>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:winding-budget").ToError());
+            return Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:winding-budget"));
         Seq<Arr<double>> windings = limits.Map((limit, index) => limit.Periodicity.Cyclic
-                ? Range(-kinematics.Inverse.WindingSpan, kinematics.Inverse.WindingWidth).Map(turn => raw[index] + turn * 2.0 * Math.PI)
+                ? Range(-kinematics.Inverse.WindingSpan, kinematics.Inverse.WindingWidth).ToSeq().Map(turn => raw[index] + turn * 2.0 * Math.PI)
                 : Seq(raw[index]))
             .Sequence()
             .Map(static row => row.ToArr());
@@ -794,7 +794,7 @@ public static class MachineTool {
                         None: () => Some((Candidate: candidate, Score: score)));
                 })
             .Map(static row => row.Candidate)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"machine-tool:unreachable:{station}").ToError());
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"machine-tool:unreachable:{station}"));
     }
 
     private static int CompareJoints(Arr<double> left, Arr<double> right) =>
@@ -882,7 +882,7 @@ public static class MachineTool {
     private static Fin<double> SCurve(double distance, double velocity, double acceleration, double jerk, InversePolicy inverse) {
         if (distance <= double.Epsilon) return Fin.Succ(0.0);
         if (!double.IsFinite(velocity) || velocity <= 0.0)
-            return Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:nonpositive-velocity").ToError());
+            return Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:nonpositive-velocity"));
         double rampDistance = AccelDistance(velocity, acceleration, jerk);
         if (distance >= rampDistance)
             return Fin.Succ(2.0 * AccelTime(velocity, acceleration, jerk) + (distance - rampDistance) / velocity);
@@ -894,7 +894,7 @@ public static class MachineTool {
                 inverse.RootIterations,
                 out double peak)
             ? Fin.Succ(2.0 * AccelTime(peak, acceleration, jerk))
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "machine-tool:s-curve-root").ToError());
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:s-curve-root"));
     }
 
     private static double AccelTime(double velocity, double acceleration, double jerk) =>

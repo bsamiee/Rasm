@@ -116,13 +116,13 @@ public static class TransportRows {
 ## [03]-[TRANSPORT_BINDING]
 
 - Owner: `TransportRows.Read`/`TransportRows.Write` the per-case `ExternalTransport.Switch` dispatch from row to its protocol binding; `OpcUaLane` the held OPC-UA session/subscription/monitored-item owner whose subscription callbacks feed one bounded lane; `MqttLane` the held `IMqttClient` owner whose `ApplicationMessageReceivedAsync` callback feeds the same lane shape; `PubSubLane` the held `UaPubSubApplication` owner whose `DataReceived` dataset fan feeds the SAME bounded lane the per-node OPC-UA subscription drains into; `HttpPoll` the REST/GraphQL/spreadsheet/ERP-PLM body over the row's `OutboundHop.HttpApi`; `ModbusLane` the `FluentModbus` `ModbusClient` register-window body and `SerialLane` the `System.IO.Ports` `SerialPort` line-frame body, both over the row's `OutboundHop.CompanionSpawn`; `BacnetLane` the `BacnetClient` COV-subscription owner whose notification callback feeds the same bounded lane with `ReadPropertyRequest` the poll fallback; `MtconnectLane` the read-only `-Common` model-slice decode over the row's HTTP hop with the `MTConnectClientInformation` durable cursor; `MachineLane` the machine-observation decode lane — a `BindingSpec.Machine`-sliced inbound value projects once into one typed `MachineObservationWire` (value, unit, machine identity, freshness instant) fanned under `InstrumentFan.ObservationKind`, the single decoded truth Fabrication's wear, fleet-performance, and engagement consumers read, never a direct transport reference and never three decoders; `SubscriptionLane` the bounded `Channel<ExternalValue>` value carrier the foreign callback writes and the reactive read drains, holding the `Atom<Gate>` lifecycle cell; `LiveClient` `[Union]` the held-connection family — `Opc` carries the `Session`, `Mqtt` the `IMqttClient`, `Serial` the `SerialPort`, `Modbus` the `ModbusClient`, `PubSub` the `UaPubSubApplication`, `Bacnet` the `BacnetClient`, `Mtconnect` the cursor — so one `Gate.Live(Guid, LiveClient)` cell serves every protocol; `OpcUaRuntime`/`MqttRuntime`/`ModbusRuntime`/`SerialRuntime`/`PubSubRuntime`/`BacnetRuntime`/`MtconnectRuntime` the held per-protocol configuration, factory, and lane-accessor state the `LiveWireRuntime` composes.
-- Cases: read dispatch is the ten-arm `Transport.Switch` — OPC-UA, MQTT, and OPC-UA-PubSub drain their lane's `ReadAllAsync` head, Modbus reads its register window through `ModbusClient.ReadHoldingRegistersAsync<short>`, serial reads its line frame through `SerialPort.ReadLine`/`ReadExisting`, BACnet drains its COV lane (with `ReadPropertyRequest` the poll fallback), MTConnect parses the `/sample` document through `ResponseDocumentFormatter` into the `Observation` stream over the row's HTTP hop, REST/GraphQL/spreadsheet/ERP-PLM read once through `OutboundHop.HttpApi`; write dispatch is the same ten-arm `Switch` — OPC-UA writes one `WriteValue`, MQTT publishes one `MqttApplicationMessage`, Modbus writes through `WriteMultipleRegistersAsync`, serial writes one `WriteLine`, the HTTP transports ride a `PutAsync` body, BACnet writes one confirmed `WritePropertyRequest`, the non-writable spreadsheet and MTConnect rows reject at the row.
+- Cases: read dispatch is the ten-arm `Transport.Switch` — OPC-UA, MQTT, and OPC-UA-PubSub drain their lane's `ReadAllAsync` head, Modbus reads its window through the window's own `ModbusSpace` row body, serial reads its line frame through `SerialPort.ReadLine`/`ReadExisting` behind a `BytesToRead` gate, BACnet drains its COV lane (with the `Recover` stale-lane read), MTConnect parses the `/sample` document through `ResponseDocumentFormatter` into the `Observation` stream over the row's HTTP hop, REST/GraphQL/spreadsheet/ERP-PLM read once through `OutboundHop.HttpApi`; write dispatch is the same ten-arm `Switch` — OPC-UA writes one `WriteValue`, MQTT publishes one `MqttApplicationMessage`, Modbus writes through the space row's write body, serial writes one `WriteLine`, the HTTP transports ride a `PutAsync` body, BACnet writes one confirmed `WritePropertyRequest` at the point's priority-array slot, the non-writable spreadsheet and MTConnect rows reject at the row and the read-only Modbus spaces at theirs.
 - Entry: each subscribe adapter owns its concrete opener — `OpcUaLane.Subscribe`, `MqttLane.Subscribe`, `PubSubLane.Subscribe`, `SerialLane.Attach`, or `BacnetLane.Subscribe` — returning `IO<SubscriptionLane>` after attaching its foreign callback; `TransportRows.Read` drains the composition-held lane for subscribe rows or runs one poll body over the row's hop; `TransportRows.Write` dispatches the at-edge value through the row's protocol or hop.
-- Auto: the OPC-UA leg composes the high-level managed `Opc.Ua.Client` API — `Session.CreateAsync(configuration, reverseConnectManager, endpoint, updateBeforeConnect, checkDomain, sessionName, sessionTimeout, userIdentity, preferredLocales, ct)` mints the session over the configuration-loaded endpoint, a `Subscription(telemetry)` carries `PublishingInterval`, `KeepAliveCount`, and `LifetimeCount` as policy ints read off the row, `subscription.AddItem(new MonitoredItem(telemetry){ StartNodeId, AttributeId, MonitoringMode, SamplingInterval })` and `subscription.CreateAsync(ct)` arm the monitored node, and the `monitoredItem.Notification` event hands each `MonitoredItemNotificationEventArgs.NotificationValue` cast to `MonitoredItemNotification` whose `Value` is one `DataValue` — the callback projects `DataValue.Value`/`StatusCode`/`SourceTimestamp` into `ExternalValue` and `TryWrite`s it into the bounded lane, never running the interior on the foreign thread; the OPC-UA read-back and write-back ride `Session.ReadAsync(requestHeader, maxAge, TimestampsToReturn.Both, nodesToRead, ct)` and `Session.WriteAsync(requestHeader, nodesToWrite, ct)` inherited from `SessionClient`, building `ReadValueIdCollection`/`WriteValueCollection` from the binding's node id; the MQTT leg composes `MqttClientFactory.CreateMqttClient()` returning `IMqttClient` (v5 keeps the interface), `ConnectAsync(options, ct)` over a `MqttClientOptionsBuilder` carrying connection uri, client id, keep-alive, clean-start, session-expiry, and last-will as policy data, `SubscribeAsync(options, ct)` over one `WithTopicFilter(topic, qos, noLocal, retainAsPublished, retainHandling)`, and the `ApplicationMessageReceivedAsync` handler decodes `MqttApplicationMessageReceivedEventArgs.ApplicationMessage.Payload` (`ReadOnlySequence<byte>`) at the boundary and `TryWrite`s into the same bounded lane, with the inbound write-back as one `PublishAsync` over a `MqttApplicationMessageBuilder` carrying topic, payload, qos, and retain; QoS, retain, last-will, and session-expiry are policy columns on `TransportRow`, never new cases or transports; the Modbus leg composes the `FluentModbus` `ModbusClient` base surface (the TCP/RTU clients inherit the function-code operations) — `ReadHoldingRegistersAsync<short>(unitId, startAddress, count, ct)` (or `ReadInputRegistersAsync<short>` when the window is non-holding) reinterprets the register window as a `Task<Memory<short>>` the `Decode` fold collapses into one `double` under the row's `ModbusEndianness`, and `WriteMultipleRegistersAsync(unitId, startAddress, short[], ct)` writes one register block; the `ModbusWindow` (`unitId`/`startAddress`/`count`/`endianness`/`holding`) is `PollPolicy.Register` binding-spec policy data, never a per-read flag; the serial leg composes `System.IO.Ports.SerialPort` — `ReadLine`/`ReadExisting` for a line-framed protocol and `WriteLine` for the inbound write, the `SerialFraming` (`baudRate`/`parity`/`dataBits`/`stopBits`/`handshake`/`newLine`/`lineFramed`) carried as `PollPolicy.Line` binding-spec policy; the serial subscribe variant `SerialLane.Attach` opens the port, wires the `DataReceived` event (firing on a `ThreadPool` thread) to `TryWrite` one parsed `ExternalValue` into the bounded lane at the boundary and `ErrorReceived` to a not-good value, so a streaming serial line rides the SAME bounded lane the OPC-UA/MQTT subscriptions ride; the REST/GraphQL/spreadsheet/ERP-PLM legs compose the held `HttpClient` over `OutboundHop.HttpApi` — a `PollPolicy.Http` carries the resource path and the optional GraphQL query, REST a `GetAsync`, GraphQL a `PostAsync` of the query body, spreadsheet a read-only range fetch, each projecting the response body into one `ExternalValue`; the OPC-UA PubSub leg composes `UaPubSubApplication.Create(configPath, telemetry, dataStore)`/`Start`/`Stop` whose `DataReceived` `SubscribedDataEventArgs` dataset fan projects each `DataSet.Fields` field into one `ExternalValue` and `TryWrite`s into the SAME bounded lane the per-node OPC-UA subscription drains into — one PubSub application per process, the high-throughput fan-in path the per-item subscription cannot scale to, a `WireProtocol` row variant (mqtt-json/mqtt-uadp/udp-uadp) on the OPC-UA transport, never a parallel transport; the BACnet leg composes `BacnetClient` over `BacnetIpUdpProtocolTransport` — `Start()` opens the UDP line, `WhoIs` discovers devices, `SubscribeCOVRequest` arms the metered points and `OnCOVNotification` (firing on a transport thread) projects each `BacnetValue` into one `ExternalValue` and `TryWrite`s into the SAME bounded lane every subscribe transport rides, with `ReadPropertyRequest(BacnetAddress, BacnetObjectId, BacnetPropertyIds, out IList<BacnetValue>, byte)` the poll fallback and the confirmed write the write arm — the point map (object id / property id / COV lifetime / unit) is binding-spec DATA; the MTConnect leg composes the `-Common` MODEL slice ONLY (no bundled HTTP/MQTT client — transport is firewalled to the row's `OutboundHop.HttpApi`): `ResponseDocumentFormatter` parses the `/sample` body into a `StreamsResponseDocument` whose traversal projects each `Observation` into one `ExternalValue`, and `MTConnectClientInformation` is the durable poll cursor (`InstanceId` + `LastSequence`, `Save` after each drain, an `InstanceId` change forcing re-`current`) mirroring the outbox watermark discipline.
+- Auto: the OPC-UA leg composes the high-level managed `Opc.Ua.Client` API — `Session.CreateAsync(configuration, reverseConnectManager, endpoint, updateBeforeConnect, checkDomain, sessionName, sessionTimeout, userIdentity, preferredLocales, ct)` mints the session over the configuration-loaded endpoint, a `Subscription(telemetry)` carries `PublishingInterval`, `KeepAliveCount`, and `LifetimeCount` as policy ints read off the row, `subscription.AddItem(new MonitoredItem(telemetry){ StartNodeId, AttributeId, MonitoringMode, SamplingInterval })` and `subscription.CreateAsync(ct)` arm the monitored node, and the `monitoredItem.Notification` event hands each `MonitoredItemNotificationEventArgs.NotificationValue` cast to `MonitoredItemNotification` whose `Value` is one `DataValue` — the callback projects `DataValue.Value`/`StatusCode`/`SourceTimestamp` into `ExternalValue` and `TryWrite`s it into the bounded lane, never running the interior on the foreign thread; the OPC-UA read-back and write-back ride `Session.ReadAsync(requestHeader, maxAge, TimestampsToReturn.Both, nodesToRead, ct)` and `Session.WriteAsync(requestHeader, nodesToWrite, ct)` inherited from `SessionClient`, building `ReadValueIdCollection`/`WriteValueCollection` from the binding's node id; the MQTT leg composes `MqttClientFactory.CreateMqttClient()` returning `IMqttClient` (v5 keeps the interface), `ConnectAsync(options, ct)` over a `MqttClientOptionsBuilder` carrying connection uri, client id, keep-alive, clean-start, session-expiry, and last-will as policy data, `SubscribeAsync(options, ct)` over one `WithTopicFilter(topic, qos, noLocal, retainAsPublished, retainHandling)`, and the `ApplicationMessageReceivedAsync` handler decodes `MqttApplicationMessageReceivedEventArgs.ApplicationMessage.Payload` (`ReadOnlySequence<byte>`) at the boundary and `TryWrite`s into the same bounded lane, with the inbound write-back as one `PublishAsync` over a `MqttApplicationMessageBuilder` carrying topic, payload, qos, and retain; QoS, retain, last-will, and session-expiry are policy columns on `TransportRow`, never new cases or transports; the Modbus leg composes the `FluentModbus` `ModbusClient` base surface (the TCP/RTU clients inherit the function-code operations) through the window's own `ModbusSpace` row, which carries its read and write bodies as `[UseDelegateFromConstructor]` columns over all four protocol address spaces — the register spaces reinterpret their window as `Task<Memory<short>>` through `ReadHoldingRegistersAsync<short>`/`ReadInputRegistersAsync<short>(unitId, startAddress, count, ct)` and fold it into one `double` under the window's `ModbusEndianness`, the bit spaces read `Task<Memory<byte>>` through `ReadCoilsAsync`/`ReadDiscreteInputsAsync(unitId, startAddress, quantity, ct)` one bit per point and cross as 0/1 against a dimensionless family, `WriteSingleRegisterAsync(unitId, registerAddress, short, ct)` writes the one-register window and `WriteMultipleRegistersAsync(unitId, startAddress, short[], ct)` the block, `WriteSingleCoilAsync(unitId, registerAddress, bool, ct)` the coil, and the input-register and discrete-input rows refuse their write at the row because the protocol declares them read-only; the `ModbusWindow` (`unitId`/`startAddress`/`count`/`endianness`/`space`) is `PollPolicy.Register` binding-spec policy data, never a per-read flag; the serial leg composes `System.IO.Ports.SerialPort` — `ReadLine`/`ReadExisting` for a line-framed protocol behind a `BytesToRead` presence gate and `WriteLine` for the inbound write, the `SerialFraming` (`baudRate`/`parity`/`dataBits`/`stopBits`/`handshake`/`newLine`/`lineFramed`/`readTimeout`/`writeTimeout`/`rts`/`dtr`) carried as `PollPolicy.Line` binding-spec policy, `ReadTimeout`/`WriteTimeout` bounding a wait that otherwise defaults to `InfiniteTimeout` and `RtsEnable` driving the RS-485 half-duplex transceiver line under every Modbus-RTU and BACnet MS/TP bus; the serial subscribe variant `SerialLane.Attach` opens the port, wires the `DataReceived` event (firing on a `ThreadPool` thread) to `TryWrite` one parsed `ExternalValue` into the bounded lane at the boundary and `ErrorReceived` to a not-good value, so a streaming serial line rides the SAME bounded lane the OPC-UA/MQTT subscriptions ride; the REST/GraphQL/spreadsheet/ERP-PLM legs compose the held `HttpClient` over `OutboundHop.HttpApi` — a `PollPolicy.Http` carries the resource path and the optional GraphQL query, REST a `GetAsync`, GraphQL a `PostAsync` of the query body, spreadsheet a read-only range fetch, each projecting the response body into one `ExternalValue`; the OPC-UA PubSub leg composes `UaPubSubApplication.Create(configPath, telemetry, dataStore)`/`Start`/`Stop` whose `DataReceived` `SubscribedDataEventArgs` dataset fan projects each `DataSet.Fields` field into one `ExternalValue` and `TryWrite`s into the SAME bounded lane the per-node OPC-UA subscription drains into — one PubSub application per process, the high-throughput fan-in path the per-item subscription cannot scale to, a `WireProtocol` row variant (mqtt-json/mqtt-uadp/udp-uadp) on the OPC-UA transport, never a parallel transport; the BACnet leg composes `BacnetClient` over `BacnetIpUdpProtocolTransport` — `RegisterAsForeignDevice(bbmdIp, ttl, port)` registers with the BBMD BEFORE `Start()` where the runtime carries a `BbmdRegistration`, since `WhoIs` reaches the local broadcast domain alone and a controller on another VLAN never answers without it, and the TTL renewal is one `OccurrenceSpec.Every` `ScheduleEntry` on the page's own `SchedulePort`; `SubscribeCOVRequest(adr, objectId, subscribeId, cancel, issueConfirmedNotifications, lifetime, invokeId)` arms the metered points under the point's own `Confirmed` column and `OnCOVNotification` (the `COVNotificationHandler` firing on a transport thread with the `ICollection<BacnetPropertyValue>` triple set) projects each `BacnetValue` into one `ExternalValue` and `TryWrite`s into the SAME bounded lane every subscribe transport rides, the detach closure calling that same member with `cancel: true` before disposal so the device stops publishing into a closed transport; the stale-lane `Recover` reads the point's `TrendLog` column — `ReadRangeRequest(adr, trendLog, readFrom, ref quantity, out range)` drains the device's own history from the lane watermark into that same bounded lane when the point names a history object, `ReadPropertyRequest(adr, objectId, propertyId, out IList<BacnetValue>, invokeId)` reads the one current value when it does not — and `WritePropertyRequest(adr, objectId, propertyId, valueList, invokeId, priority)` writes at the point's priority-array slot (1-16, the assembly's own admitted range) with a `None` value the RELEASE at that same slot; the point map (object id / property id / COV lifetime / confirmed / priority / trend log) is binding-spec DATA; the MTConnect leg composes the `-Common` MODEL slice ONLY (no bundled HTTP/MQTT client — transport is firewalled to the row's `OutboundHop.HttpApi`): `ResponseDocumentFormatter` parses the `/sample` body into a `StreamsResponseDocument` whose traversal projects each `Observation` into one `ExternalValue`, and `MTConnectClientInformation` is the durable poll cursor (`InstanceId` + `LastSequence`, `Save` after each drain, an `InstanceId` change forcing re-`current`) mirroring the outbox watermark discipline.
 - Receipt: the OPC-UA `DataValue`, the MQTT decoded payload, the Modbus register window, the serial line frame, the HTTP response body, and the PubSub dataset field each mint one `ExternalValue` carrying raw value, declared unit, the source quality flag, and the source timestamp; MQTT CONNACK and every SUBACK item admit before the live client publishes, with a refused reason code projected onto `WireFault`; the lane drain at `BINDING_SPEC` coerces the unit before the value enters the suite.
 - Packages: OPCFoundation.NetStandard.Opc.Ua, OPCFoundation.NetStandard.Opc.Ua.PubSub, MQTTnet, FluentModbus, System.IO.Ports, BACnet, MTConnect.NET-Common, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL `System.Net.Http`/`System.Text.Json`
-- Growth: a new subscribe transport is one `Subscribe`/`Attach` arm feeding the one lane shape; a new poll transport is one `Read`/`Write` arm over its hop; a new PubSub message mapping is one `WireProtocol` row; one bounded lane shape serves every subscribe transport; zero new surface.
-- Boundary: this cluster is the only protocol-client owner — a per-protocol binding service and a parallel poller are the deleted forms; the foreign OPC-UA monitored-item thread, the MQTT message-pump thread, the serial `DataReceived` `ThreadPool` thread, and the PubSub interval-runner thread never run the interior — each callback projects its raw value into `ExternalValue` and `TryWrite`s into the bounded `Channel<ExternalValue>` under `BoundedChannelFullMode.DropOldest` (boundaries.md SUBSCRIPTION_VALUE/HANDOFF_DRAIN), so producer back-pressure is the lane's declared drop policy and the reactive consumer drains at its own pace; the held session, client, port, Modbus connection, and PubSub application live in one `Atom<Gate>` token-gated state cell per binding carrying a `LiveClient.Opc`/`Mqtt`/`Serial`/`Modbus`/`PubSub` (boundaries.md TOKEN_LIFECYCLE) so a reconnect replaces the whole cell and a stale teardown that lost its token never disposes a fresh handle; the per-row retry is the channel's own auto-reconnect (MQTT) XOR the seam's `OutboundHop` redial — never both — so a subscribe transport's reconnect rides the protocol client and a poll transport's retry rides the `CompanionSpawn`/`HttpApi` hop, the one-retry-owner law the transport axis declares — never a FluentModbus or `SerialPort` reconnect loop; a `ModbusException`/`SerialError`/`ModbusFrameError` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating into the interior; the register-window decode reads the `ModbusEndianness` off the window, never a guessed byte order; the OPC-UA `Subscription.CurrentPublishingInterval` is a `double`, never a `TimeSpan`, so the row carries the publishing interval as the int `PublishingInterval` the subscription sets and reads the negotiated `double` back without a unit cast; the at-edge `DataValue.SourceTimestamp`, the MQTT receive instant, the serial/Modbus/HTTP read instant, and the PubSub `Value.SourceTimestamp` cross as the value's `SourceAt` so the staleness check at `BINDING_HEALTH` reads a real source clock, never the host clock; the MQTT legs are the trace-carrier mount — `MqttLane.Write` threads `TraceContext.Inject` over the message builder before `Build()` and the receive pump continues the propagated context through the seam owner's own `MqttApplicationMessage` overload, consumer-kinded, so broker-hop trace continuity is wholly the adapter's and this runtime carries no extraction delegate to compose; the BACnet point map (`BacnetObjectId`/`BacnetPropertyIds`/COV lifetime) is `PollPolicy.Point` binding-spec DATA and the COV/write request bindings are `BacnetRuntime` composition slots, so protocol-signature drift lands at one composition seat; the MTConnect cursor is durable poll state — `MTConnectClientInformation.Read(string deviceKey, string path = null)` restores it, `Save(string path = null)` commits it after each drain, and an `InstanceId` change forces a full re-current, the outbox watermark discipline at the machine edge.
+- Growth: a new subscribe transport is one `Subscribe`/`Attach` arm feeding the one lane shape; a new poll transport is one `Read`/`Write` arm over its hop; a new Modbus address space is one `ModbusSpace` row carrying its two bodies and the lane gains no branch; a new serial line-discipline knob is one `SerialFraming` column; a new BACnet request knob is one `BacnetPoint` column; a new PubSub message mapping is one `WireProtocol` row; one bounded lane shape serves every subscribe transport and every backfilled history sample; zero new surface.
+- Boundary: this cluster is the only protocol-client owner — a per-protocol binding service and a parallel poller are the deleted forms; the foreign OPC-UA monitored-item thread, the MQTT message-pump thread, the serial `DataReceived` `ThreadPool` thread, and the PubSub interval-runner thread never run the interior — each callback projects its raw value into `ExternalValue` and `TryWrite`s into the bounded `Channel<ExternalValue>` under `BoundedChannelFullMode.DropOldest` (boundaries.md SUBSCRIPTION_VALUE/HANDOFF_DRAIN), so producer back-pressure is the lane's declared drop policy and the reactive consumer drains at its own pace; the held session, client, port, Modbus connection, and PubSub application live in one `Atom<Gate>` token-gated state cell per binding carrying a `LiveClient.Opc`/`Mqtt`/`Serial`/`Modbus`/`PubSub` (boundaries.md TOKEN_LIFECYCLE) so a reconnect replaces the whole cell and a stale teardown that lost its token never disposes a fresh handle; the per-row retry is the channel's own auto-reconnect (MQTT) XOR the seam's `OutboundHop` redial — never both — so a subscribe transport's reconnect rides the protocol client and a poll transport's retry rides the `CompanionSpawn`/`HttpApi` hop, the one-retry-owner law the transport axis declares — never a FluentModbus or `SerialPort` reconnect loop; a `ModbusException`/`SerialError`/`ModbusFrameError` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating into the interior; the register-window decode reads the `ModbusEndianness` off the window, never a guessed byte order, and the address space is the closed `ModbusSpace` row carrying its own read and write bodies, so a `bool Holding` two-valued switch reaching half a closed protocol — leaving every coil and discrete input unbindable — and a lane-side space branch beside it are both the deleted forms; a transport call whose VALUE the read reports runs INSIDE the hop through `OutboundSurface.Carry`, so the reported value and the receipt describe one frame and the second raw untimed call is the deleted form; a serial read gates on `BytesToRead` under a finite `ReadTimeout` and parses into `Option<double>`, so a silent line neither parks the poll thread nor mints a `NaN` the coercion admits as a real measurement — the sentinel-as-value pair is the deleted form; a BACnet write carries the point's priority-array slot and its `None` release, so a host override is revocable, and a device-default write no later write can distinguish is the deleted form; a stale COV lane recovers through the point's declared history object, so the samples between a dropped subscription and its recovery are read back rather than lost, and a current-value-only fallback beside a device that buffers them is the deleted form; a BBMD-routed binding registers as a foreign device before `Start()` and renews on one `ScheduleEntry`, so a background re-registration timer beside the scheduler is the deleted form; the OPC-UA `Subscription.CurrentPublishingInterval` is a `double`, never a `TimeSpan`, so the row carries the publishing interval as the int `PublishingInterval` the subscription sets and reads the negotiated `double` back without a unit cast; the at-edge `DataValue.SourceTimestamp`, the MQTT receive instant, the serial/Modbus/HTTP read instant, and the PubSub `Value.SourceTimestamp` cross as the value's `SourceAt` so the staleness check at `BINDING_HEALTH` reads a real source clock, never the host clock; the MQTT legs are the trace-carrier mount — `MqttLane.Write` threads `TraceContext.Inject` over the message builder before `Build()` and the receive pump continues the propagated context through the seam owner's own `MqttApplicationMessage` overload, consumer-kinded, so broker-hop trace continuity is wholly the adapter's and this runtime carries no extraction delegate to compose; the BACnet point map (`BacnetObjectId`/`BacnetPropertyIds`/COV lifetime) is `PollPolicy.Point` binding-spec DATA and the COV/write request bindings are `BacnetRuntime` composition slots, so protocol-signature drift lands at one composition seat; the MTConnect cursor is durable poll state — `MTConnectClientInformation.Read(string deviceKey, string path = null)` restores it, `Save(string path = null)` commits it after each drain, and an `InstanceId` change forces a full re-current, the outbox watermark discipline at the machine edge.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -195,18 +195,50 @@ public sealed record PubSubRuntime(
     Func<string, UaPubSubApplication> Held,
     Func<string, Channel<ExternalValue>> Lane);
 
+// The BACnet point map, binding-spec DATA. Priority is the BACnet COMMAND PRIORITY ARRAY slot (1-16, the
+// assembly's own admitted range): every host write lands at that slot and a RELEASE writes a null value at
+// the SAME slot, so a host override is distinguishable from — and revocable against — a manual one, which a
+// priority-less write can neither express nor undo. Confirmed selects the COV notification service
+// (issueConfirmedNotifications) and TrendLog names the device's own history object the stale-lane recovery
+// drains, so the samples a dropped subscription lost are read back rather than skipped.
 public sealed record BacnetPoint(
     BacnetObjectId Object,
     BacnetPropertyIds Property,
-    uint CovLifetime);
+    uint CovLifetime,
+    Option<byte> Priority = default,
+    bool Confirmed = true,
+    Option<BacnetObjectId> TrendLog = default);
+
+// BBMD foreign-device registration, the ONLY way a BACnet/IP binding crosses a subnet: the IP transport's
+// WhoIs reaches the local broadcast domain alone, so a controller on another VLAN — the normal building
+// deployment this transport row exists for — never answers. Ttl is the device's registration lifetime, and
+// the re-registration cadence rides the page's own ScheduleEntry, never a background timer.
+public sealed record BbmdRegistration(string BbmdIp, short Ttl, int Port = 47808);
 
 public sealed record BacnetRuntime(
     Func<string, BacnetClient> Held,
     Func<string, BacnetAddress> Address,
-    // COV arm and confirmed-write bindings pin at composition; exact request/callback signatures
-    // ride the terminal RESEARCH row.
+    // Cov binds SubscribeCOVRequest(adr, objectId, subscribeId, cancel, issueConfirmedNotifications, lifetime,
+    // invokeId) and the OnCOVNotification handler whose ICollection<BacnetPropertyValue> carries each
+    // (property, value, priority) triple; cancel: true is the SAME member the detach closure calls, so
+    // subscribe and unsubscribe are one binding rather than an orphaned lane the device keeps feeding.
     Action<BacnetClient, BacnetAddress, BacnetPoint, ChannelWriter<ExternalValue>> Cov,
-    Func<BacnetClient, BacnetAddress, BacnetPoint, double, bool> Write,
+    Func<BacnetClient, BacnetAddress, BacnetPoint, bool> Unsubscribe,
+    // Write binds WritePropertyRequest(adr, objectId, propertyId, valueList, invokeId, priority) — the None
+    // value is the priority-array RELEASE the same slot revokes.
+    Func<BacnetClient, BacnetAddress, BacnetPoint, Option<double>, bool> Write,
+    // DecodeTrend binds Serialize.Services.DecodeLogRecord(byte[] buffer, int offset, int length, int nCurves,
+    // out BacnetLogRecord[] records), each record carrying `DateTime timestamp`, `BacnetTrendLogValueType type`,
+    // the boxed `object Value` its type column decodes, and `BacnetBitString statusFlags` — the record's own
+    // timestamp becomes the sample's SourceAt so a backfilled point reads on the SOURCE clock the staleness
+    // check already trusts, never the host clock the drain happened to run under, and the status flags decide
+    // Good rather than a blanket true.
+    Func<string, byte[], uint, Seq<ExternalValue>> DecodeTrend,
+    Option<BbmdRegistration> Bbmd,
+    // The COV watermark: the last instant a lane accepted a good value, read by the stale recovery to bound
+    // its ReadRangeRequest and advanced exactly as MtconnectRuntime.Advance commits its LastSequence.
+    Func<string, Instant> Watermark,
+    Action<string, Instant> Advance,
     Func<string, Channel<ExternalValue>> Lane);
 
 public sealed record MtconnectRuntime(
@@ -242,7 +274,7 @@ public static class TransportRows {
                 mqtt: static (s, _) => MqttLane.Write(s.Runtime, s.Spec, s.Value, s.Token),
                 modbus: static (s, _) => ModbusLane.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
                 serial: static (s, _) => SerialLane.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
-                bacnet: static (s, _) => BacnetLane.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
+                bacnet: static (s, _) => BacnetLane.Write(s.Runtime, s.Row, s.Spec, Some(s.Value), s.Token),
                 mtconnect: static (s, _) => IO.fail<HopReceipt>(new WireFault.WriteRejected(s.Spec.ExternalAddress)),
                 rest: static (s, _) => HttpPoll.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
                 graphQl: static (s, _) => HttpPoll.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
@@ -294,61 +326,50 @@ public static class HttpPoll {
             : IO.fail<ExternalValue>(new WireFault.ReadFailed($"poll-read:{spec.Transport.Key}"));
 }
 
+// Both legs read the window's OWN ModbusSpace row and invoke its body, so the four address spaces cost this
+// lane zero branches, the read-only refusal is the row's, and the register decode lives beside the read it
+// gates. The prior form ran its transport call TWICE — once inside the hop for the outcome and once outside
+// for the value — so every poll issued two frames and the reported value came from the untimed second one.
 public static class ModbusLane {
     public static IO<ExternalValue> Read(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, CancellationToken token) =>
         spec.Poll is PollPolicy.Register { Window: var w }
-            ? OutboundSurface.Run(runtime.Outbound, row.Hop, async ct => {
-                  var client = runtime.Modbus.Held(spec.BindingId);
-                  Memory<short> window = w.Holding
-                      ? await client.ReadHoldingRegistersAsync<short>(w.UnitId, w.StartAddress, w.Count, ct).ConfigureAwait(false)
-                      : await client.ReadInputRegistersAsync<short>(w.UnitId, w.StartAddress, w.Count, ct).ConfigureAwait(false);
-                  return new HopOutcome.Delivered();
-              }).Bind(receipt => receipt.Outcome is HopOutcome.Delivered
-                  ? IO.liftAsync(async () => {
-                        var window = await runtime.Modbus.Held(spec.BindingId)
-                            .ReadHoldingRegistersAsync<short>(w.UnitId, w.StartAddress, w.Count, token).ConfigureAwait(false);
-                        return new ExternalValue(
-                            Raw: Decode(window.Span, w.Endianness),
-                            Unit: spec.Family.Canonical.ToString(),
-                            Good: true,
-                            SourceAt: runtime.Clocks.Now);
-                    })
-                  : IO.fail<ExternalValue>(new WireFault.ReadFailed($"modbus:{spec.BindingId}")))
+            ? OutboundSurface.Carry(runtime.Outbound, row.Hop, async ct =>
+                  ((HopOutcome)new HopOutcome.Delivered(),
+                   await w.Space.Read(runtime.Modbus.Held(spec.BindingId), w, ct).RunAsync().ConfigureAwait(false)))
+                  .Map(raw => new ExternalValue(raw, spec.Family.Canonical.ToString(), Good: true, runtime.Clocks.Now))
             : IO.fail<ExternalValue>(new WireFault.ReadFailed($"modbus-window-missing:{spec.BindingId}"));
 
     public static IO<HopReceipt> Write(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, ExternalValue value, CancellationToken token) =>
         spec.Poll is PollPolicy.Register { Window: var w }
-            ? OutboundSurface.Run(runtime.Outbound, row.Hop, async ct => {
-                  await runtime.Modbus.Held(spec.BindingId)
-                      .WriteMultipleRegistersAsync(w.UnitId, w.StartAddress, new[] { (short)value.Raw }, ct).ConfigureAwait(false);
-                  return new HopOutcome.Delivered();
-              })
+            ? !w.Space.Writable
+                ? IO.fail<HopReceipt>(new WireFault.WriteRejected($"modbus-space-read-only:{w.Space.Key}:{spec.BindingId}"))
+                : OutboundSurface.Run(runtime.Outbound, row.Hop, async ct => {
+                      await w.Space.Write(runtime.Modbus.Held(spec.BindingId), w, value.Raw, ct).RunAsync().ConfigureAwait(false);
+                      return (HopOutcome)new HopOutcome.Delivered();
+                  })
             : IO.fail<HopReceipt>(new WireFault.WriteRejected($"modbus-window-missing:{spec.BindingId}"));
-
-    static double Decode(ReadOnlySpan<short> window, ModbusEndianness endianness) =>
-        window.Length >= 2
-            ? (endianness == ModbusEndianness.BigEndian
-                ? ((ushort)window[0] << 16) | (ushort)window[1]
-                : ((ushort)window[1] << 16) | (ushort)window[0])
-            : window.Length == 1 ? (ushort)window[0] : 0d;
 }
 
+// The read is gated TWICE and the parse is total: BytesToRead proves the line has a frame before ReadLine —
+// the port's ReadTimeout bounds the wait, so a silent line surfaces as a not-good value inside the hop rather
+// than parking the poll thread — and ParseFrame yields Option<double>, so an unparseable or empty frame is
+// Good: false. The prior form turned an empty read into double.NaN and stamped Good: true, which LiveWire.Coerce
+// admits and pushes into the suite as a real measurement.
 public static class SerialLane {
     public static IO<ExternalValue> Read(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, CancellationToken token) =>
         spec.Poll is PollPolicy.Line { Framing: var f }
-            ? OutboundSurface.Run(runtime.Outbound, row.Hop, _ => Task.FromResult<HopOutcome>(
-                  runtime.Serial.Held(spec.BindingId).IsOpen ? new HopOutcome.Delivered() : new HopOutcome.Faulted(Error.New(new WireFault.ConnectRejected(spec.BindingId)))))
-                  .Bind(receipt => receipt.Outcome is HopOutcome.Delivered
-                      ? IO.liftAsync(async () => {
-                            var port = runtime.Serial.Held(spec.BindingId);
-                            var frame = f.LineFramed ? port.ReadLine() : port.ReadExisting();
-                            return new ExternalValue(
-                                Raw: ParseFrame(frame, spec),
-                                Unit: spec.Family.Canonical.ToString(),
-                                Good: true,
-                                SourceAt: runtime.Clocks.Now);
-                        })
-                      : IO.fail<ExternalValue>(new WireFault.ReadFailed($"serial:{spec.BindingId}")))
+            ? OutboundSurface.Carry(runtime.Outbound, row.Hop, _ => {
+                  SerialPort port = runtime.Serial.Held(spec.BindingId);
+                  return Task.FromResult(port switch {
+                      { IsOpen: false } => ((HopOutcome)new HopOutcome.Faulted(Error.New(new WireFault.ConnectRejected(spec.BindingId))), Option<double>.None),
+                      { BytesToRead: 0 } => (new HopOutcome.Delivered(), Option<double>.None),
+                      _ => (new HopOutcome.Delivered(), ParseFrame(f.LineFramed ? port.ReadLine() : port.ReadExisting())),
+                  });
+              }).Map(parsed => new ExternalValue(
+                  Raw: parsed.IfNone(0d),
+                  Unit: spec.Family.Canonical.ToString(),
+                  Good: parsed.IsSome,
+                  SourceAt: runtime.Clocks.Now))
             : IO.fail<ExternalValue>(new WireFault.ReadFailed($"serial-framing-missing:{spec.BindingId}"));
 
     public static IO<HopReceipt> Write(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, ExternalValue value, CancellationToken token) =>
@@ -359,14 +380,23 @@ public static class SerialLane {
               })
             : IO.fail<HopReceipt>(new WireFault.WriteRejected($"serial-not-line-framed:{spec.BindingId}"));
 
-    static double ParseFrame(string frame, BindingSpec spec) =>
-        double.TryParse(frame.AsSpan().Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : double.NaN;
+    // Absence, not a sentinel: a blank or malformed frame yields None and the constructing read stamps
+    // Good: false, so no unparseable line ever crosses the edge wearing a value.
+    static Option<double> ParseFrame(ReadOnlySpan<char> frame) =>
+        double.TryParse(frame.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) && double.IsFinite(parsed)
+            ? Some(parsed)
+            : None;
 
     public static IO<SubscriptionLane> Attach(LiveWireRuntime runtime, TransportRow row, BindingSpec spec) =>
         spec.Poll is PollPolicy.Line { Framing: var f }
-            ? from port in IO.lift(() => new SerialPort(spec.ExternalAddress, f.BaudRate, f.Parity, f.DataBits, f.StopBits) { Handshake = f.Handshake, NewLine = f.NewLine })
+            ? from port in IO.lift(() => new SerialPort(spec.ExternalAddress, f.BaudRate, f.Parity, f.DataBits, f.StopBits) {
+                  Handshake = f.Handshake,
+                  NewLine = f.NewLine,
+                  ReadTimeout = f.ReadTimeout,
+                  WriteTimeout = f.WriteTimeout,
+                  RtsEnable = f.Rts,
+                  DtrEnable = f.Dtr,
+              })
               let lane = SubscriptionLane.Open()
               from _ in IO.lift(() => Wire(port, spec, lane.Writer, runtime))
               from __ in IO.lift(() => { port.Open(); return unit; })
@@ -374,12 +404,13 @@ public static class SerialLane {
             : IO.fail<SubscriptionLane>(new WireFault.ConnectRejected($"serial-framing-missing:{spec.BindingId}"));
 
     static Unit Wire(SerialPort port, BindingSpec spec, ChannelWriter<ExternalValue> sink, LiveWireRuntime runtime) {
-        port.DataReceived += (_, args) => {
+        port.DataReceived += (_, args) => {                                     // Exemption: the platform-forced callback seam; the interior never runs on this thread
             if (args.EventType == SerialData.Chars) {
+                Option<double> parsed = ParseFrame(port.ReadLine());
                 ignore(sink.TryWrite(new ExternalValue(
-                    Raw: ParseFrame(port.ReadLine(), spec),
+                    Raw: parsed.IfNone(0d),
                     Unit: spec.Family.Canonical.ToString(),
-                    Good: true,
+                    Good: parsed.IsSome,
                     SourceAt: runtime.Clocks.Now)));
             }
         };
@@ -552,33 +583,100 @@ public static class PubSubLane {
 }
 
 public static class BacnetLane {
+    // BBMD registration precedes Start(): WhoIs discovers only the local broadcast domain, so a foreign-device
+    // registration is what makes the routed network answer at all, and the Ttl rides one ScheduleEntry on the
+    // page's own SchedulePort — the row IS the re-registration mechanism, never a background timer beside it.
+    // Detach unsubscribes at the device (cancel: true) BEFORE disposing the client, so a torn-down binding
+    // stops the notification stream rather than leaving the device publishing into a closed transport.
     public static IO<SubscriptionLane> Subscribe(LiveWireRuntime runtime, TransportRow row, BindingSpec spec) =>
         spec.Poll is PollPolicy.Point { Map: var point }
             ? from client in IO.lift(() => runtime.Bacnet.Held(spec.BindingId))
+              let address = runtime.Bacnet.Address(spec.ExternalAddress)
               let lane = SubscriptionLane.Open()
-              from _ in IO.lift(() => { runtime.Bacnet.Cov(client, runtime.Bacnet.Address(spec.ExternalAddress), point, lane.Writer); return unit; })
-              from __ in IO.lift(() => { client.Start(); client.WhoIs(); return unit; })
-              select new SubscriptionLane(lane, () => client.Dispose(), Atom<Gate>(new Gate.Live(Guid.NewGuid(), new LiveClient.Bacnet(client))))
+              from _ in IO.lift(() => { runtime.Bacnet.Cov(client, address, point, lane.Writer); return unit; })
+              from __ in IO.lift(() => runtime.Bacnet.Bbmd.Match(
+                  Some: bbmd => { client.RegisterAsForeignDevice(bbmd.BbmdIp, bbmd.Ttl, bbmd.Port); return unit; },
+                  None: static () => unit))
+              from ___ in IO.lift(() => { client.Start(); client.WhoIs(); return unit; })
+              select new SubscriptionLane(
+                  lane,
+                  () => { ignore(runtime.Bacnet.Unsubscribe(client, address, point)); client.Dispose(); },
+                  Atom<Gate>(new Gate.Live(Guid.NewGuid(), new LiveClient.Bacnet(client))))
             : IO.fail<SubscriptionLane>(new WireFault.ConnectRejected($"bacnet-point-missing:{spec.BindingId}"));
+
+    // The BBMD re-registration cadence: one ScheduleEntry at a fraction of the declared Ttl, so the foreign
+    // device stays registered across the device table's own expiry without a second timing owner.
+    public static Option<ScheduleEntry> Renewal(LiveWireRuntime runtime, BindingSpec spec, TransportRow row, CancelScope scope) =>
+        runtime.Bacnet.Bbmd.Map(bbmd => new ScheduleEntry(
+            $"bacnet-bbmd-{spec.BindingId}",
+            new OccurrenceSpec.Every(Duration.FromSeconds(bbmd.Ttl / 2d)),
+            row.Attempt,
+            None,
+            () => IO.lift(() => {
+                runtime.Bacnet.Held(spec.BindingId).RegisterAsForeignDevice(bbmd.BbmdIp, bbmd.Ttl, bbmd.Port);
+                return unit;
+            })));
 
     public static IO<ExternalValue> Read(LiveWireRuntime runtime, BindingSpec spec, CancellationToken token) =>
         SubscriptionLane.Drain(runtime.Bacnet.Lane(spec.BindingId), token);
 
-    // ReadPropertyRequest(BacnetAddress, BacnetObjectId, BacnetPropertyIds, out IList<BacnetValue>, byte)
-    // is the poll fallback when a COV lane runs dry past the staleness window.
-    public static IO<ExternalValue> Fallback(LiveWireRuntime runtime, BindingSpec spec) =>
+    // ONE stale-COV recovery, the point map's own TrendLog column selecting its depth: a point naming a history
+    // object DRAINS the samples the dropped subscription lost — ReadRangeRequest(adr, trendLog, readFrom, ref
+    // quantity, out range) reads BY TIME from the lane's watermark — and every drained sample enters the SAME
+    // bounded lane an ordinary COV notification does, the watermark advancing exactly as MtconnectRuntime.Advance
+    // commits its LastSequence. A point with no history object reads its one CURRENT value. The prior form had
+    // only the current read, so every sample between the subscription dropping and the fallback firing was lost
+    // while the device's own TrendLog still held it.
+    public static IO<ExternalValue> Recover(LiveWireRuntime runtime, BindingSpec spec) =>
         spec.Poll is PollPolicy.Point { Map: var point }
-            ? IO.lift(() => runtime.Bacnet.Held(spec.BindingId).ReadPropertyRequest(
-                    runtime.Bacnet.Address(spec.ExternalAddress), point.Object, point.Property, out IList<BacnetValue> values, 0)
-                && values is [{ } head, ..]
-                    ? new ExternalValue(Convert.ToDouble(head.Value, CultureInfo.InvariantCulture), spec.Family.Canonical.ToString(), Good: true, runtime.Clocks.Now)
-                    : new ExternalValue(0d, spec.Family.Canonical.ToString(), Good: false, runtime.Clocks.Now))
+            ? point.TrendLog.Match(
+                Some: log => Backfill(runtime, spec, point, log),
+                None: () => Current(runtime, spec, point))
             : IO.fail<ExternalValue>(new WireFault.ReadFailed($"bacnet-point-missing:{spec.BindingId}"));
 
-    public static IO<HopReceipt> Write(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, ExternalValue value, CancellationToken token) =>
+    static IO<ExternalValue> Current(LiveWireRuntime runtime, BindingSpec spec, BacnetPoint point) =>
+        IO.lift(() => runtime.Bacnet.Held(spec.BindingId).ReadPropertyRequest(
+                runtime.Bacnet.Address(spec.ExternalAddress), point.Object, point.Property, out IList<BacnetValue> values, 0)
+            && values is [{ } head, ..]
+                ? new ExternalValue(Convert.ToDouble(head.Value, CultureInfo.InvariantCulture), spec.Family.Canonical.ToString(), Good: true, runtime.Clocks.Now)
+                : new ExternalValue(0d, spec.Family.Canonical.ToString(), Good: false, runtime.Clocks.Now));
+
+    static IO<ExternalValue> Backfill(LiveWireRuntime runtime, BindingSpec spec, BacnetPoint point, BacnetObjectId log) =>
+        IO.lift(() => {                                                          // Exemption: the ref/out request seam the assembly forces; the rail resumes at the drained value
+            uint quantity = BackfillCeiling;
+            return runtime.Bacnet.Held(spec.BindingId).ReadRangeRequest(
+                runtime.Bacnet.Address(spec.ExternalAddress), log,
+                runtime.Bacnet.Watermark(spec.BindingId).ToDateTimeUtc(), ref quantity, out byte[] range)
+                ? Some((range, quantity))
+                : Option<(byte[] Range, uint Count)>.None;
+        })
+        .Bind(drained => drained.Match(
+            Some: window => Drain(runtime, spec, window.Item1, window.Item2),
+            None: () => Current(runtime, spec, point)));
+
+    // Each decoded trend sample enters the ONE bounded lane every subscribe transport writes into, so a
+    // backfilled history and a live notification are indistinguishable downstream; the watermark advances to
+    // the newest drained instant so the next recovery reads only what this one did not.
+    static IO<ExternalValue> Drain(LiveWireRuntime runtime, BindingSpec spec, byte[] range, uint count) =>
+        IO.lift(() => runtime.Bacnet.DecodeTrend(spec.BindingId, range, count))
+            .Bind(samples => samples.Last.Match(
+                Some: newest => IO.lift(() => {
+                    ChannelWriter<ExternalValue> sink = runtime.Bacnet.Lane(spec.BindingId).Writer;
+                    samples.Iter(sample => ignore(sink.TryWrite(sample)));
+                    runtime.Bacnet.Advance(spec.BindingId, newest.SourceAt);
+                    return newest;
+                }),
+                None: () => IO.fail<ExternalValue>(new WireFault.StaleSource($"bacnet-trend-empty:{spec.BindingId}"))));
+
+    const uint BackfillCeiling = 512;
+
+    // The write lands at the point's OWN priority-array slot and a None value is the RELEASE at that same
+    // slot — the pair a BMS operator needs to take and then hand back control of a commandable point. A
+    // priority-less write lands at the device default, which no later write can distinguish or revoke.
+    public static IO<HopReceipt> Write(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, Option<ExternalValue> value, CancellationToken token) =>
         spec.Poll is PollPolicy.Point { Map: var point }
             ? OutboundSurface.Run(runtime.Outbound, row.Hop, _ => Task.FromResult<HopOutcome>(
-                  runtime.Bacnet.Write(runtime.Bacnet.Held(spec.BindingId), runtime.Bacnet.Address(spec.ExternalAddress), point, value.Raw)
+                  runtime.Bacnet.Write(runtime.Bacnet.Held(spec.BindingId), runtime.Bacnet.Address(spec.ExternalAddress), point, value.Map(static v => v.Raw))
                       ? new HopOutcome.Delivered()
                       : new HopOutcome.Faulted(new WireFault.WriteRejected(spec.ExternalAddress))))
             : IO.fail<HopReceipt>(new WireFault.WriteRejected($"bacnet-point-missing:{spec.BindingId}"));
@@ -645,6 +743,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Live-wire transport ingress lanes
+    accDescr: Subscription transports delivering notifications on their own threads into one bounded drop-oldest channel drained into unit coercion, while the polled request transports reach the same coercion through their companion and HTTP hops.
     OpcUa[OPC-UA Session/Subscription/MonitoredItem] -->|Notification thread| Lane[(bounded Channel DropOldest)]
     Mqtt[MQTT IMqttClient ApplicationMessageReceivedAsync] -->|message-pump thread| Lane
     PubSub[OPC-UA PubSub UaPubSubApplication DataReceived] -->|interval-runner thread| Lane
@@ -675,13 +775,85 @@ public enum BindingDirection {
     Bidirectional = Inbound | Outbound,
 }
 
+// The Modbus ADDRESS SPACE the window addresses — the closed four-row protocol vocabulary carrying its OWN
+// read and write bodies, so ModbusLane holds no space branch and a Modbus device's binary points (run/stop,
+// alarm, valve open) are bindable. The register spaces reinterpret their window as Memory<short> and decode
+// under the window's ModbusEndianness; the bit spaces read Memory<byte> one bit per point and carry 0/1
+// against a dimensionless family. Read-only spaces (input registers, discrete inputs) refuse at the row, so
+// the write refusal is protocol truth rather than a caller-side guard, and a `bool Holding` two-valued switch
+// reaching half a closed protocol is the deleted form.
+[SmartEnum<string>]
+public sealed partial class ModbusSpace {
+    public static readonly ModbusSpace Holding  = new("holding",  writable: true,  ReadRegisters, WriteRegisters);
+    public static readonly ModbusSpace Input    = new("input",    writable: false, ReadInputs,    RefuseWrite);
+    public static readonly ModbusSpace Coil     = new("coil",     writable: true,  ReadBits,      WriteBit);
+    public static readonly ModbusSpace Discrete = new("discrete", writable: false, ReadDiscrete,  RefuseWrite);
+
+    public bool Writable { get; }
+
+    [UseDelegateFromConstructor]
+    public partial IO<double> Read(ModbusClient client, ModbusWindow window, CancellationToken token);
+
+    [UseDelegateFromConstructor]
+    public partial IO<Unit> Write(ModbusClient client, ModbusWindow window, double value, CancellationToken token);
+
+    static IO<double> ReadRegisters(ModbusClient c, ModbusWindow w, CancellationToken t) =>
+        IO.liftAsync(async () => Decode((await c.ReadHoldingRegistersAsync<short>(w.UnitId, w.StartAddress, w.Count, t).ConfigureAwait(false)).Span, w.Endianness));
+
+    static IO<double> ReadInputs(ModbusClient c, ModbusWindow w, CancellationToken t) =>
+        IO.liftAsync(async () => Decode((await c.ReadInputRegistersAsync<short>(w.UnitId, w.StartAddress, w.Count, t).ConfigureAwait(false)).Span, w.Endianness));
+
+    // A coil read returns one BIT PER COIL bit-packed into bytes, so the first coil of the window is the low
+    // bit of the first byte — the window's own address IS the point, and the value crosses as 0/1.
+    static IO<double> ReadBits(ModbusClient c, ModbusWindow w, CancellationToken t) =>
+        IO.liftAsync(async () => Bit((await c.ReadCoilsAsync(w.UnitId, w.StartAddress, w.Count, t).ConfigureAwait(false)).Span));
+
+    static IO<double> ReadDiscrete(ModbusClient c, ModbusWindow w, CancellationToken t) =>
+        IO.liftAsync(async () => Bit((await c.ReadDiscreteInputsAsync(w.UnitId, w.StartAddress, w.Count, t).ConfigureAwait(false)).Span));
+
+    // A single-register write is function 06, never a one-element function-16 block: the count is the window's
+    // own value, so the arity is recoverable from the window and no caller passes a mode.
+    static IO<Unit> WriteRegisters(ModbusClient c, ModbusWindow w, double value, CancellationToken t) =>
+        IO.liftAsync(async () => {
+            await (w.Count == 1
+                ? c.WriteSingleRegisterAsync(w.UnitId, w.StartAddress, (short)value, t)
+                : c.WriteMultipleRegistersAsync(w.UnitId, w.StartAddress, new[] { (short)value }, t)).ConfigureAwait(false);
+            return unit;
+        });
+
+    static IO<Unit> WriteBit(ModbusClient c, ModbusWindow w, double value, CancellationToken t) =>
+        IO.liftAsync(async () => {
+            await c.WriteSingleCoilAsync(w.UnitId, w.StartAddress, value != 0d, t).ConfigureAwait(false);
+            return unit;
+        });
+
+    static IO<Unit> RefuseWrite(ModbusClient _, ModbusWindow w, double __, CancellationToken ___) =>
+        IO.fail<Unit>(new WireFault.WriteRejected($"modbus-space-read-only:{w.UnitId}:{w.StartAddress}"));
+
+    static double Decode(ReadOnlySpan<short> window, ModbusEndianness endianness) =>
+        window switch {
+            [var high, var low, ..] => endianness == ModbusEndianness.BigEndian
+                ? ((ushort)high << 16) | (ushort)low
+                : ((ushort)low << 16) | (ushort)high,
+            [var only] => (ushort)only,
+            _ => 0d,
+        };
+
+    static double Bit(ReadOnlySpan<byte> packed) => packed is [var head, ..] && (head & 1) == 1 ? 1d : 0d;
+}
+
 public sealed record ModbusWindow(
     int UnitId,
     int StartAddress,
     int Count,
     ModbusEndianness Endianness,
-    bool Holding);
+    ModbusSpace Space);
 
+// ReadTimeout/WriteTimeout are LOAD-BEARING columns: SerialPort defaults both to InfiniteTimeout, so an
+// unset ReadLine on a silent line blocks the poll past DeadlineClass.HopAttempt with nothing to cancel it.
+// Rts is the RS-485 half-duplex transceiver DE/RE line every Modbus-RTU and BACnet MS/TP bus drives off RTS —
+// a Handshake row alone cannot express it, so a serial binding on the bus type it exists for stays unusable
+// without this column.
 public sealed record SerialFraming(
     int BaudRate,
     Parity Parity,
@@ -689,7 +861,11 @@ public sealed record SerialFraming(
     StopBits StopBits,
     Handshake Handshake,
     string NewLine,
-    bool LineFramed);
+    bool LineFramed,
+    int ReadTimeout,
+    int WriteTimeout,
+    bool Rts = false,
+    bool Dtr = false);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PollPolicy {
@@ -922,6 +1098,8 @@ public static class BindingHealth {
 
 ```mermaid
 stateDiagram-v2
+    accTitle: Live-wire connection lifecycle
+    accDescr: A connecting endpoint resolving to the subscribed or polled arm, either aging into stale past its window and resuming on the next value, and a transport fault routing through the breaker-gated reconnect.
     [*] --> Connecting
     Connecting --> Subscribed : subscribe transport
     Connecting --> Polling : poll transport
@@ -1062,7 +1240,6 @@ interface MachineObservationWire {
 
 ## [08]-[RESEARCH]
 
-- [BACNET_REQUEST_SIGNATURES]-[BLOCKED]: Which exact `SubscribeCOVRequest` arity, `OnCOVNotification` callback signature, `WritePropertyRequest` overload, and client teardown member bind the `BacnetRuntime.Cov`/`Write` slots and `BacnetLane` detach?; route through `.api/api-bacnet.md` and `tools.assay api query` over `BACnet` at the central pin.
 - [MTCONNECT_DECODE_MEMBERS]-[BLOCKED]: Which per-observation value/timestamp accessors and `MTConnectClientInformation.LastSequence` numeric type bind the projection and cursor? Route: query `MTConnect.Observations.IObservation` and `MTConnect.Clients.MTConnectClientInformation` through `tools.assay api` under `MTConnect.NET-Common`; `ResponseDocumentFormatter.CreateStreamsResponseDocument(string, Stream)` and `IStreamsResponseDocument.GetObservations()` remain settled.
 - [FEEDBACK_GUARD]-[BLOCKED]: Which transport-stable sequence, timestamp, or source token proves an inbound value echoes this binding's acknowledged write so the engine can suppress only that echo? Route: `libs/csharp/Rasm.AppHost/.planning/Wire/livewire.md#[TRANSPORT_ROWS]`, then the owning industrial-source catalog row; keep source-echo suppression out of settled claims until one discriminator is admitted.
 - [WRITE_TARGET_UNIT]-[BLOCKED]: Which exact `QuantityFamily` member renders a canonical value into an arbitrary admitted source unit so a bidirectional non-canonical binding can write without local conversion math? Route: `libs/csharp/Rasm.Compute/.planning/Symbolic/units.md`, then `libs/csharp/.api/api-unitsnet.md`; keep foreign-unit writes rejected before transport until the owner admits the member.

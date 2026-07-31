@@ -191,9 +191,10 @@ public static class GraphSession {
 
     const string SessionLoad = "LOAD 'age'; SET search_path = ag_catalog, \"$user\", public;";
 
-    // Daemon projection rebuilds AGE and pgRouting relations from the authoritative Marten generation.
-    // Interactive correctness remains on synchronous topology.
-    public static IO<Unit> Rebuild(IDocumentStore store) =>
+    // Daemon projection rebuilds AGE and pgRouting relations from the authoritative Marten generation and
+    // returns the MEASURED non-stale wait for the store.query.wait seal. Interactive correctness remains on
+    // synchronous topology.
+    public static IO<Duration> Rebuild(IDocumentStore store) =>
         IO.liftAsync(async () => {
             await using IProjectionDaemon daemon = await store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);

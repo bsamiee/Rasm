@@ -1,21 +1,22 @@
 # [PY_ARTIFACTS_SCENE_SPEC]
 
-`SceneGrid`, `RenderSpec`, and the closed scene vocabularies form the parse-floor seam both interpreters resolve: every value crossing the pickled process lane is admitted, frozen, and provider-free here, and a worker kernel crosses by qualified name through the runtime `runtime/execution/workers#CROSSING` `Kernel`/`shipped` gate — `WORKER_MODULE` names the worker floor once as this page's composed constant. Provider types remain quoted `TYPE_CHECKING` annotations, so importing this module loads no native provider on either floor.
+`SceneGrid`, `RenderSpec`, and the closed scene vocabularies form the parse-floor seam both interpreters resolve: every value crossing the pickled process lane is admitted, frozen, and provider-free here, and a worker kernel crosses by qualified name through the runtime `runtime/execution/workers#CROSSING` `Kernel`/`shipped` gate — `WORKER_MODULE` names the worker floor once as this page's composed constant. Provider types stay quoted and `pyvista` binds as one module-scope `lazy` proxy whose single reifying site is the sampler mint, so importing this module loads no native provider on either floor.
 
 Pickle-by-reference re-imports the defining module on the far interpreter, so this module parses and imports on both floors by construction — no gated native, no runtime-only syntax. `SceneGrid.spans` feeds the `scene/render#SCENE` identity preimage; `SceneTarget` and `SceneSource` compose downward into `scene/export#EXPORT` and the worker tables; `render.py`, `render_worker.py`, and `export.py` import this floor, `media/container#CONTAINER` composes its `framed`/`CANON` identity-preimage discipline, the `pxr`-only `scene/stage#STAGE` leaf stands apart, and this floor imports no scene module.
 
 ## [01]-[INDEX]
 
-- [02]-[SPEC]: the admitted `SceneGrid` owner, the `RenderSpec` policy value with its bound `staged`/`added`/`viewed` projections over the closed style, camera, normalization, feature, and filter families, and the `WORKER_MODULE` floor anchor the runtime kernel crossing resolves against.
+- [02]-[SPEC]: the admitted `SceneGrid` owner, the `RenderSpec` policy value with its bound `staged`/`added`/`viewed` projections over the closed style, camera, normalization, feature, texture, and filter families, and the `WORKER_MODULE` floor anchor the runtime kernel crossing resolves against.
 
 ## [02]-[SPEC]
 
-- Owner: `RenderSpec` carries its own `staged`/`added`/`viewed` projections so a new render knob is one band field bound into an existing projection, never a constructor-parameter tail; `scalars` and `colormap` default, so a field-free GLB or CSG render is spellable and `_pruned` drops the absent scalar band at every provider call. `Style` is one closed-payload style family whose every case carries exactly its own provider band, so each behavior travels with the style that selects it; `LinesBand.passes` derives wireframe and silhouette behavior through `_LINE`.
-- Cases: `ColorNorm` closes the scalar-normalization vocabulary, `symlog` and `diverging` carrying their thresholds as payload while the worker `_norm` arm owns each matplotlib projection. `Camera` holds `auto` framing, an explicit `pose`, or a `standard` drafting viewpoint over `StandardView`. `SceneLight` carries the azimuth/elevation/intensity/color values both `pv.Light.set_direction_angle` and the authored `UsdLux.DistantLight` consume; `LightPreset` selects the `Plotter(lighting=)` base rig, and `RenderFeature.SHADOWS` casts the resulting lights. `RenderFeature` collapses publication behavior into the `_FEATURE`-folded `frozenset`. `OrbitPath` parameterizes azimuth, radius, and elevation intervals, so one generator spans turntables, partial arcs, reverse sweeps, dollies, and helices.
+- Owner: `RenderSpec` carries its own `staged`/`added`/`viewed` projections so a new render knob is one band field bound into an existing projection, never a constructor-parameter tail; `scalars` and `colormap` default, so a field-free GLB or CSG render is spellable and `_pruned` drops the absent scalar band at every provider call. `Style` is one closed-payload style family whose every case carries exactly its own provider band, so each behavior travels with the style that selects it; `LinesBand.passes` derives wireframe and silhouette behavior through `_LINE`. `SurfaceBand` carries the whole PBR map set beside its scalars — `maps` keys the closed `TextureSlot` roster the provider's material property exposes and `set_key` anchors the bound planes to the produced set's own content address — so a textured render is that band, never a seventh `Style` case answering identically on admission, identity, payload timing, and consumer; shading is the surface style's concern, and every other style renders the same planes as decoration nothing samples.
+- Cases: `ColorNorm` closes the scalar-normalization vocabulary, `symlog` and `diverging` carrying their thresholds as payload while the worker `_norm` arm owns each matplotlib projection. `Camera` holds `auto` framing, an explicit `pose`, or a `standard` drafting viewpoint over `StandardView`. `SceneLight` carries the azimuth/elevation/intensity/color values both `pv.Light.set_direction_angle` and the authored `UsdLux.DistantLight` consume; `LightPreset` selects the `Plotter(lighting=)` base rig, and `RenderFeature.SHADOWS` casts the resulting lights. `RenderFeature` collapses publication behavior into the `_FEATURE`-folded `frozenset`. `OrbitPath` parameterizes azimuth, radius, and elevation intervals, so one generator spans turntables, partial arcs, reverse sweeps, dollies, and helices. `TextureSlot` closes the PBR slot roster and `_SLOT` is the ONE law row a binding reads — setter plus admitted file encoding — so `TextureMap` carries the sampler surface (container, declared transfer, wrap, filtering, mip chain) and `TextureSpace`/`TextureWrap` hold the two vocabularies a slot binding needs; `UvProjection` closes the coordinate frames `_UV` generates.
 - Entry: `WORKER_MODULE` names the worker floor once — a kernel travels as its `(module, name)` pair inside the runtime `Kernel` value, never as an object whose defining module the far interpreter cannot load, and the crossing law lives at `runtime/execution/workers#CROSSING`, composed here with zero re-derivation. `framed` and `CANON` fix the length-framed, deterministic-msgpack identity-preimage discipline; `scene/render#SCENE` and `media/container#CONTAINER` compose them rather than forking a local copy.
-- Auto: `SceneGrid` factories prove each payload once — every structural, finiteness, bounds, and cardinality invariant its case carries — returning `Result[SceneGrid, GridFault]`, so every downstream consumer trusts the evidence and constructs without revalidation. `source` carries a `SourceKind` parametric primitive whose param names stay caller data — the worker factory row alone refuses an unknown kwarg — so context massing and furniture never route through a mesh round-trip. `spans` lowers each case onto the byte chunks the render identity preimage digests. `RenderSpec.staged` folds `FieldFilter` through `reduce`; `RenderSpec.added` binds only its selected `Style` band; every `FieldFilter` factory and the `SceneLight`/`RenderSpec` mints prove their policy scalars at construction (finiteness, ordered ranges, positive counts), so no unproven render value crosses to the worker; `_LINE` derives line passes; `aa_samples` tunes the `AntiAlias.MSAA` arm alone; `OrbitPath.of` proves samples, finiteness, and a positive radius before any interval reaches a generator; an import-time coverage gate proves `_FEATURE`, `_LINE`, and `_VIEW` span their vocabularies, so an unruled member fails at import, never as a runtime key miss.
-- Growth: a new render knob is one band field bound into an existing projection or capture call; a new quality toggle is one `RenderFeature` member plus one `_FEATURE` row; a new line pass is one `LinePass` member plus one `_LINE` row; a new render style is one `Style` case carrying its own band plus one `added` arm; a new filter is one `FieldFilter` case plus one `apply` arm, and a filter kwarg is one payload slot on its existing case; a new scalar normalization is one `ColorNorm` case with its worker `_norm` arm; a new viewpoint preset is one `StandardView` member plus one `_VIEW` row; a new light is one `SceneLight` value, and a new base rig is one `LightPreset` member; orbit growth changes the three interval values rather than the type surface; a new grid source is one `SceneGrid` case plus one admission gate, one `spans` arm, and one worker `_hydrate` arm; a new parametric primitive is one `SourceKind` member plus one worker `_SOURCE` row; a new export target or importable format is one `SceneTarget` or `SceneSource` member, priced at the consumer table that proves coverage.
-- Boundary: `FieldFilter.apply` and the `RenderSpec` projections take live provider handles only as quoted parameter types — the worker floor supplies the objects, this floor owns the dispatch bodies over them; the single-operand `FieldFilter` is why binary CSG rides `scene/render#SCENE`'s dedicated two-operand modality.
+- Auto: `SceneGrid` factories prove each payload once — every structural, finiteness, bounds, and cardinality invariant its case carries — returning `Result[SceneGrid, GridFault]`, so every downstream consumer trusts the evidence and constructs without revalidation. `source` carries a `SourceKind` parametric primitive whose param names stay caller data — the worker factory row alone refuses an unknown kwarg — so context massing and furniture never route through a mesh round-trip. `spans` lowers each case onto the byte chunks the render identity preimage digests. `RenderSpec.staged` folds `FieldFilter` through `reduce`; `RenderSpec.added` binds only its selected `Style` band; every `FieldFilter` factory and the `SceneLight`/`RenderSpec` mints prove their policy scalars at construction (finiteness, ordered ranges, positive counts), so no unproven render value crosses to the worker; `_LINE` derives line passes; `aa_samples` tunes the `AntiAlias.MSAA` arm alone; `OrbitPath.of` proves samples, finiteness, and a positive radius before any interval reaches a generator; one derived import-time witness folds every table-plus-vocabulary pair through `_COVERED`, so an unruled member fails at import, never as a runtime key miss, and a new table joins the gate as one pair.
+- Auto: the texture binding proves whole at the mint, because every failure past it is silent. `TextureMap` refuses an unresolved path and a container `_SAMPLED` does not name — the reader's own miss path falls through to an unadmitted decoder and raises inside the render capsule. `SurfaceBand` proves each slot's declared transfer against `_SLOT`'s admitted encoding, since the provider rejects a mismatched pair and binds nothing, leaving a render untextured with no fault to read, and it proves a bound band names its set key, because the identity preimage digests this band and file paths address the planes where only the merkle set key identifies their bytes. `SurfaceBand.shaded` is the one derived PBR predicate both lowerings read — `added` forces the interpolation the slots live on and `scene/export#EXPORT`'s material authoring gates on the same property, so a maps-bearing band can never render textured through the plotter and un-materialed through USD. `added` folds the maps slot-sorted off the returned actor's material property and reads the packed occlusion-roughness-metalness sheet as ONE slot, so one produced file answers three canonical roles without a second sampler; `_texture` is the module's single provider dereference and resolves the wrap mode through the live enum by member name. Every declared shading scalar and every `SceneLight` value proves at its own mint against the bound its DOWNSTREAM consumer enforces — the provider property setter and the `UsdPreviewSurface` input admission — because both raise a process away from the caller.
+- Growth: a new render knob is one band field bound into an existing projection or capture call; a new texture slot is one `TextureSlot` member plus one `_SLOT` row, which admission and binding both pick up unedited; a new sampler knob is one `TextureMap` field, joining the render identity through the band's own encode with no `spans` or projection edit; a new coordinate frame is one `UvProjection` member plus one `_UV` row; a new quality toggle is one `RenderFeature` member plus one `_FEATURE` row; a new line pass is one `LinePass` member plus one `_LINE` row; a new render style is one `Style` case carrying its own band plus one `added` arm; a new filter is one `FieldFilter` case plus one `apply` arm, and a filter kwarg is one payload slot on its existing case; a new scalar normalization is one `ColorNorm` case with its worker `_norm` arm; a new viewpoint preset is one `StandardView` member plus one `_VIEW` row; a new light is one `SceneLight` value, and a new base rig is one `LightPreset` member; orbit growth changes the three interval values rather than the type surface; a new grid source is one `SceneGrid` case plus one admission gate, one `spans` arm, and one worker `_hydrate` arm; a new parametric primitive is one `SourceKind` member plus one worker `_SOURCE` row; a new export target or importable format is one `SceneTarget` or `SceneSource` member, priced at the consumer table that proves coverage.
+- Boundary: `FieldFilter.apply` and the `RenderSpec` projections take live provider handles only as quoted parameter types — the worker floor supplies the objects, this floor owns the dispatch bodies over them; the single-operand `FieldFilter` is why binary CSG rides `scene/render#SCENE`'s dedicated two-operand modality. Texture PRODUCTION — the channel roster, the transfer and packing law, the deep codecs, and the egress paths — stays `graphic/texture/set#TEXTURE_SET`'s and never reaches this floor, which composes only the slot roster its own provider exposes and consumes resolved paths, transfers, and a set key a caller already chose; the set-to-slot fold is that producer's, exactly as the preview-surface fold is. A sampler reads through texture coordinates, so a grid carrying none unwraps through the filter chain where the caller orders it, and a set whose planes no single slot addresses — a per-tile UDIM roster — has no binding here and refuses at the producer that would flatten it.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -23,7 +24,8 @@ from collections.abc import Callable
 from enum import StrEnum
 from functools import reduce
 from itertools import chain
-from typing import TYPE_CHECKING, Literal, assert_never
+from pathlib import Path
+from typing import Literal, assert_never
 
 import numpy as np
 from builtins import frozendict
@@ -32,8 +34,9 @@ from msgspec import Struct
 from msgspec.msgpack import Encoder
 from numpy.typing import NDArray
 
-if TYPE_CHECKING:
-    import pyvista as pv
+# the one native provider this floor names; every other body calls methods on a handle the worker floor supplied,
+# so `_texture` is the single site that reifies the proxy and the parse floor imports this module untouched
+lazy import pyvista as pv
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
@@ -73,6 +76,7 @@ type FieldFilterTag = Literal[
     "clean",
     "cell_to_point",
     "point_to_cell",
+    "unwrap",
 ]
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -80,6 +84,12 @@ type FieldFilterTag = Literal[
 _GLB_MAGIC = b"glTF"
 _ORIGIN: Vec3 = (0.0, 0.0, 0.0)
 _UP: Vec3 = (0.0, 0.0, 1.0)
+# the container suffixes the provider's own image-reader registry opens, transcribed rather than read: resolving
+# that registry dereferences the lazy provider and would reify it on the parse floor this module must stay clean of.
+# The deep-pixel containers the texture plane emits are deliberately absent — a KTX2 or EXR plane transcodes to a
+# sampled container at its producer, because the reader's own miss path falls to an unadmitted decoder and raises
+# inside the render capsule instead of refusing at the caller that composed the set.
+_SAMPLED: frozenset[str] = frozenset({".bmp", ".hdr", ".jpeg", ".jpg", ".nrrd", ".png", ".pnm", ".slc", ".tif", ".tiff"})
 # one worker-floor anchor: render.py builds its Kernel values against this module name, and the worker
 # floor's import-time `covered` witness proves every kernel name resolves inside it.
 WORKER_MODULE = "rasm.artifacts.scene.render_worker"
@@ -159,6 +169,40 @@ class LinePass(StrEnum):
     SILHOUETTE = "silhouette"
 
 
+class TextureSlot(StrEnum):
+    # every PBR texture slot the provider's material property carries, valued at the slot name its own readback
+    # keys, so the roster needs no second column; `MATERIAL` is the packed occlusion-roughness-metalness sheet,
+    # which is why one produced file legitimately answers three canonical roles at once
+    BASE_COLOR = "albedoTex"
+    EMISSIVE = "emissiveTex"
+    MATERIAL = "materialTex"
+    NORMAL = "normalTex"
+    ANISOTROPY = "anisotropyTex"
+    COAT_NORMAL = "coatNormalTex"
+
+
+class TextureSpace(StrEnum):
+    # the transfer a bound plane DECLARES, spelled as the set document spells it; the display-referred transfers
+    # refuse upstream at the set producer, so a channel plane reaching this floor carries one of these three
+    LINEAR = "linear"
+    SRGB = "srgb"
+    RAW = "raw"
+
+
+class TextureWrap(StrEnum):
+    # valued at the provider's own wrap-mode member NAMES, resolved through the live enum at the sampler mint —
+    # a module-scope reference to that enum reifies the lazy proxy at import and defeats the parse-floor guarantee
+    CLAMP = "CLAMP_TO_EDGE"
+    REPEAT = "REPEAT"
+    MIRROR = "MIRRORED_REPEAT"
+    BORDER = "CLAMP_TO_BORDER"
+
+
+class UvProjection(StrEnum):
+    PLANE = "plane"
+    SPHERE = "sphere"
+
+
 class FieldAssociation(StrEnum):
     POINT = "point"
     CELL = "cell"
@@ -200,7 +244,41 @@ class OrbitPath(Struct, frozen=True, gc=False):
         )
 
 
-class SurfaceBand(Struct, frozen=True, gc=False):
+class TextureMap(Struct, frozen=True, kw_only=True):
+    # one produced plane bound into one slot: the resolved egress path plus the sampler policy the provider reads
+    # off the texture rather than off the file. `color_space` is what the plane DECLARES, never what the slot
+    # wants — the slot's own law proves the two agree, because the provider refuses a mismatched pair outright.
+    file: str
+    color_space: TextureSpace
+    wrap: TextureWrap = TextureWrap.REPEAT
+    interpolate: bool = True
+    mipmap: bool = True
+
+    def __post_init__(self) -> None:
+        # msgspec runs no field validation, so the mint proves the path — an unresolved or unsampled container
+        # otherwise raises inside the render capsule, one process away from the caller that composed the set.
+        if not self.file or Path(self.file).suffix.lower() not in _SAMPLED:
+            raise ValueError(f"texture map needs a resolved path in a sampled container: {self.file!r}")
+
+
+class SlotLaw(Struct, frozen=True):
+    # ONE row per slot — the property setter and the file encoding the slot admits. The encoding column is a
+    # REFUSAL, not a preference: the provider rejects an unflagged base-colour or emissive plane and a flagged
+    # material, normal, anisotropy, or coat-normal plane, binding NOTHING and leaving the render silently
+    # untextured, so proving the pair at the mint is the only place the mismatch is still addressable.
+    bind: Callable[["pv.Property", "pv.Texture"], object]
+    srgb: bool
+
+
+class UvLaw(Struct, frozen=True):
+    # ONE row per projection — the anchor arity the frame takes and the generator; an empty anchor tuple is the
+    # derived frame, so the anchors themselves discriminate explicit from derived and no flag rides beside them.
+    project: Callable[["pv.DataSet", tuple[Vec3, ...]], "pv.DataSet"]
+    anchors: int
+
+
+class SurfaceBand(Struct, frozen=True):
+    # the map set makes this band a container, so it tracks like `LinesBand` and unlike its scalar-only siblings
     pbr: bool = False
     metallic: float | None = None
     roughness: float | None = None
@@ -210,6 +288,36 @@ class SurfaceBand(Struct, frozen=True, gc=False):
     specular: float | None = None
     smooth_shading: bool = False
     culling: Literal["back", "front"] | None = None
+    maps: frozendict[TextureSlot, TextureMap] = frozendict()
+    set_key: str | None = None  # the produced set's own content address; the paths in `maps` address, they do not identify
+
+    @property
+    def shaded(self) -> bool:
+        # THE derived PBR predicate every lowering reads — the slots live on that shading model alone, so a bound
+        # map set forces it. Both the plotter binding and the USD material authoring key off this ONE property:
+        # a per-consumer `pbr`-only test renders a maps-bearing band textured on one leg and un-materialed on the
+        # other, so the maps silently vanish from whichever leg re-derived the predicate more narrowly.
+        return self.pbr or bool(self.maps)
+
+    def __post_init__(self) -> None:
+        # The whole PBR binding proves at the mint. A bound set names its content address because the render
+        # identity preimage digests this band: paths alone digest the ADDRESSING, so two sets written to one
+        # path fold onto one render key, while the set key is the merkle address of the bytes themselves.
+        if self.maps and not self.set_key:
+            raise ValueError("a textured surface names the set key its planes were addressed from")
+        # every declared shading scalar rides the unit window BOTH the provider's property setters and the
+        # `UsdPreviewSurface` input admission enforce — proving it here is the only place the refusal still names
+        # the caller, because the render capsule and the USD authoring both raise one process away from them.
+        unit = ((band, value) for band, value in
+                (("metallic", self.metallic), ("roughness", self.roughness), ("ambient", self.ambient),
+                 ("diffuse", self.diffuse), ("specular", self.specular)) if value is not None)
+        if (flawed := next((band for band, value in unit if not (np.isfinite(value) and 0.0 <= value <= 1.0)), None)) is not None:
+            raise ValueError(f"surface band {flawed} is a finite value in [0, 1]")
+        for slot, mapped in sorted(self.maps.items()):  # slot-sorted, so a refusal names the same slot every run
+            law = _SLOT[slot]
+            if law.srgb is not (mapped.color_space is TextureSpace.SRGB):
+                wanted = "an sRGB-encoded" if law.srgb else "a scene-linear or raw"
+                raise ValueError(f"{slot.value} takes {wanted} plane, not {mapped.color_space.value}")
 
 
 class VolumeBand(Struct, frozen=True, gc=False):
@@ -246,9 +354,18 @@ class SceneLight(Struct, frozen=True, gc=False):
     color: Vec3 = (1.0, 1.0, 1.0)
 
     def __post_init__(self) -> None:
-        # msgspec runs no field validation, so the mint itself proves the light — the Camera.Pose raise pattern at struct scope.
-        if not np.isfinite((self.azimuth, self.elevation, self.intensity, *self.color)).all() or self.intensity < 0.0:
-            raise ValueError("scene light requires finite azimuth/elevation/color and a non-negative intensity")
+        # msgspec runs no field validation, so the mint itself proves the light — the Camera.Pose raise pattern at
+        # struct scope. Elevation and colour carry the SAME bounds the authored `UsdLux.DistantLight` admits, since
+        # this value crosses to `scene/export#EXPORT` unchanged: an out-of-window channel or a below-horizon-wrapping
+        # elevation otherwise raises inside the USD authoring, one process away from the caller that chose it.
+        flawed = (
+            not np.isfinite((self.azimuth, self.elevation, self.intensity, *self.color)).all()
+            or self.intensity < 0.0
+            or not -90.0 <= self.elevation <= 90.0
+            or any(not 0.0 <= channel <= 1.0 for channel in self.color)
+        )
+        if flawed:
+            raise ValueError("scene light requires a finite azimuth, elevation in [-90, 90], non-negative intensity, and colour channels in [0, 1]")
 
 
 class FieldData(Struct, frozen=True):
@@ -515,6 +632,7 @@ class FieldFilter:
     clean: None = case()
     cell_to_point: None = case()
     point_to_cell: None = case()
+    unwrap: tuple[UvProjection, tuple[Vec3, ...]] = case()
 
     @staticmethod
     def Clip(normal: Vec3, origin: Vec3, crinkle: bool = False) -> "FieldFilter":
@@ -613,6 +731,15 @@ class FieldFilter:
     def PointToCell() -> "FieldFilter":
         return FieldFilter(point_to_cell=None)
 
+    @staticmethod
+    def Unwrap(projection: UvProjection, *anchors: Vec3) -> "FieldFilter":
+        # a sampler reads through texture coordinates the grid may never have carried — a GLB brings its own, a
+        # parametric primitive brings none — so unwrapping is one filter the caller ORDERS in the chain, because
+        # a frame derived before a decimation and one derived after it are different coordinates, not one default.
+        law = _UV[projection]
+        proven = len(anchors) in (0, law.anchors) and _finite(*chain.from_iterable(anchors))
+        return _proved(FieldFilter(unwrap=(projection, anchors)), proven, f"{law.anchors} finite anchors or none for a derived frame")
+
     def apply(self, dataset: "pv.DataSet", scalars: str | None) -> "pv.DataSet":
         match self:
             case FieldFilter(tag="clip", clip=((normal, origin), crinkle)):
@@ -662,6 +789,8 @@ class FieldFilter:
                 return dataset.cell_data_to_point_data()
             case FieldFilter(tag="point_to_cell", point_to_cell=_):
                 return dataset.point_data_to_cell_data()
+            case FieldFilter(tag="unwrap", unwrap=(projection, anchors)):
+                return _UV[projection].project(dataset, anchors)
             case _:
                 assert_never(self)
 
@@ -685,6 +814,7 @@ class RenderSpec(Struct, frozen=True):
     zoom: float | None = None
     light_preset: LightPreset = LightPreset.LIGHT_KIT
     lights: tuple[SceneLight, ...] = ()
+    environment: TextureMap | None = None  # the image-based light a PBR surface reflects; an equirect radiance plane, never a colour
     title: str | None = None
     annotations: tuple[tuple[str, str], ...] = ()
     up_axis: Literal["y", "z"] = "z"
@@ -720,7 +850,9 @@ class RenderSpec(Struct, frozen=True):
         match self.style:
             case Style(tag="surface", surface=band):
                 material = {
-                    "pbr": band.pbr or None,
+                    # `shaded` is the ONE derived predicate; the USD material arm reads the same property, so a
+                    # maps-bearing band never renders textured on one leg and un-materialed on the other
+                    "pbr": band.shaded or None,
                     "metallic": band.metallic,
                     "roughness": band.roughness,
                     "show_edges": band.show_edges or None,
@@ -731,7 +863,10 @@ class RenderSpec(Struct, frozen=True):
                     "culling": band.culling,
                     "log_scale": log_scale,
                 }
-                plotter.add_mesh(mesh, **_pruned(shared | material))
+                # the mesh call returns the actor whose material property owns the slots; the map fold is slot-sorted
+                # so a refusal and a rebind name their slots in one order, and an empty band folds to no call at all
+                actor = plotter.add_mesh(mesh, **_pruned(shared | material))
+                tuple(_SLOT[slot].bind(actor.prop, _texture(band.maps[slot])) for slot in sorted(band.maps))
             case Style(tag="volume", volume=band):
                 volume = {**shared, "opacity": band.transfer or self.opacity, "blending": band.blending, "mapper": band.mapper, "shade": band.shade or None}
                 plotter.add_volume(mesh, **_pruned(volume))
@@ -752,6 +887,11 @@ class RenderSpec(Struct, frozen=True):
 
     def viewed(self, plotter: "pv.Plotter") -> None:
         plotter.set_background(self.background)
+        # the environment binding follows the flat background and supersedes it: the same radiance plane lights every
+        # PBR surface and paints the sky, which is why a textured render without one reflects black metal
+        option.of_optional(self.environment).map(
+            lambda light: plotter.set_environment_texture(_texture(light), is_srgb=light.color_space is TextureSpace.SRGB)
+        )
         tuple(_FEATURE[feature](plotter) for feature in sorted(self.features))
         option.of_optional(self.title).map(lambda title: plotter.add_text(title, position="upper_edge"))
         tuple(plotter.add_text(text, position=position) for text, position in self.annotations)
@@ -795,7 +935,25 @@ _VIEW: frozendict[StandardView, Callable[["pv.Plotter", bool], object]] = frozen
     StandardView.ISOMETRIC: lambda plotter, negative: plotter.view_isometric(negative=negative),
 })
 
-if frozenset(_FEATURE) != frozenset(RenderFeature) or frozenset(_LINE) != frozenset(LinePass) or frozenset(_VIEW) != frozenset(StandardView):
+_SLOT: frozendict[TextureSlot, SlotLaw] = frozendict({
+    TextureSlot.BASE_COLOR: SlotLaw(lambda prop, texture: prop.SetBaseColorTexture(texture), srgb=True),
+    TextureSlot.EMISSIVE: SlotLaw(lambda prop, texture: prop.SetEmissiveTexture(texture), srgb=True),
+    TextureSlot.MATERIAL: SlotLaw(lambda prop, texture: prop.SetORMTexture(texture), srgb=False),
+    TextureSlot.NORMAL: SlotLaw(lambda prop, texture: prop.SetNormalTexture(texture), srgb=False),
+    TextureSlot.ANISOTROPY: SlotLaw(lambda prop, texture: prop.SetAnisotropyTexture(texture), srgb=False),
+    TextureSlot.COAT_NORMAL: SlotLaw(lambda prop, texture: prop.SetCoatNormalTexture(texture), srgb=False),
+})
+
+_UV: frozendict[UvProjection, UvLaw] = frozendict({
+    # the plane frame derives from the dataset bounds when no anchors are given; the sphere frame prevents the
+    # seam wrap by the provider's own default, so neither row grows a knob the anchor arity already answers
+    UvProjection.PLANE: UvLaw(lambda dataset, anchors: dataset.texture_map_to_plane(*anchors, use_bounds=not anchors), anchors=3),
+    UvProjection.SPHERE: UvLaw(lambda dataset, anchors: dataset.texture_map_to_sphere(*anchors), anchors=1),
+})
+
+# one derived coverage witness over every table-plus-vocabulary pair, so a new table joins the gate as one row
+_COVERED = ((_FEATURE, RenderFeature), (_LINE, LinePass), (_VIEW, StandardView), (_SLOT, TextureSlot), (_UV, UvProjection))
+if any(frozenset(table) != frozenset(vocabulary) for table, vocabulary in _COVERED):
     raise RuntimeError("spec tables do not cover their vocabularies")
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
@@ -803,6 +961,17 @@ if frozenset(_FEATURE) != frozenset(RenderFeature) or frozenset(_LINE) != frozen
 
 def _pruned(row: dict[str, object]) -> dict[str, object]:
     return {key: value for key, value in row.items() if value is not None}
+
+
+def _texture(mapped: TextureMap, /) -> "pv.Texture":
+    # one sampler per bound plane and the module's only provider dereference: the reader factory opens the container
+    # the mint already proved, and the encoding flag states what the FILE holds so the slot's own admission holds.
+    texture = pv.Texture(mapped.file)
+    texture.wrap = pv.Texture.WrapType[mapped.wrap.value]
+    texture.interpolate = mapped.interpolate
+    texture.mipmap = mapped.mipmap
+    texture.SetUseSRGBColorSpace(mapped.color_space is TextureSpace.SRGB)
+    return texture
 
 
 def _shaped(array: NDArray[np.float64] | NDArray[np.int64], /) -> tuple[bytes, bytes, bytes]:

@@ -7,20 +7,23 @@
 - [02]-[ABILITY_AXES]: `CodecAbility` the capability vocabulary, `CodecPhase` the dispatch phases, `CodecFidelity`/`CodecAxis`/`CodecResource` the tune policy rows, and `CodecTune` the one option-policy record.
 - [03]-[VECTOR_SCALE]: `VectorUnit` the unit correspondence rows, `VectorLens<TOptions>` the per-option-type setter row, and `VectorScale` the one generic application.
 - [04]-[CODEC_MATRIX]: `FileCodec` — the generated row set with engine adapters and option projections, and the derived lookup, filter, and extension surfaces.
-- [05]-[DIALOG_PORT]: `CodecPort` — `FileTypeList` registration and index-keyed host dialog dispatch over the matrix.
+- [05]-[DIALOG_PORT]: `CodecPort` — `FileTypeList` minting and plug-in-keyed index dispatch over the matrix.
 
 ## [02]-[ABILITY_AXES]
 
-- Owner: `CodecAbility` `[SmartEnum<int>]` — the combinable capability vocabulary a row declares as a set: `Archive` (3dm-native), `Import`, `Export`, `Vector` (page-space vector interchange), `Raster` (pixel egress rows the publish pipeline encodes), `Selection` (rows whose selected-object write is non-interactive — the host-native `3dm` selected export plus the carrier-threading engines whose typed options embed the host `FileWriteOptions`, so `WriteSelectedObjectsOnly` reaches the writer; every other row's dictionary-less selected export falls back to the format plug-in's interactive option getter and is refused at the gate). `CodecPhase` `[SmartEnum<int>]` — the dispatch phases: `Import` and `Export` each carry a `Demands` ability column the filter derivation and the entry gates read, so phase validation is one membership probe against the row's set, never a per-phase branch. `CodecFidelity` `[SmartEnum<int>]` — `Model`/`Small`/`GeometryOnly` rows with `IsModel`, `Measured`, and `Draco` compression columns. `CodecAxis` `[SmartEnum<int>]` — the grouping/ordering vocabulary: `Stable`, `Document`, `File`, `Layer`, `ObjectName`, `ObjectType`, `Material`, `Block`, `UserString`. `CodecResource` `[SmartEnum<int>]` — `Reference`/`Embed`/`Copy`. `CodecTune` — the one option-policy record every option projection reads; its presets are the policy values, per-format depth enters only as the one `Dial` slot carrying the closed dial family, and a per-format knob on a signature is unrepresentable because rows read the tune, never a parameter.
+- Owner: `CodecAbility` `[SmartEnum<int>]` — the combinable capability vocabulary a row declares as a set: `Archive` (3dm-native), `Import`, `Export`, `Vector` (page-space vector interchange), `Raster` (pixel egress rows the publish pipeline encodes), `Selection` (rows whose selected-object write is non-interactive — the host-native `3dm` selected export plus the carrier-threading engines whose typed options embed the host `FileWriteOptions`, so `WriteSelectedObjectsOnly` reaches the writer; every other row's dictionary-less selected export falls back to the format plug-in's interactive option getter and is refused at the gate). `CodecPhase` `[SmartEnum<int>]` — the dispatch phases: `Import` and `Export` each carry a `Demands` ability column the filter derivation and the entry gates read, so phase validation is one membership probe against the row's set, never a per-phase branch. `CodecFidelity` `[SmartEnum<int>]` — `Model`/`Small`/`GeometryOnly` rows carrying `IsModel`, `Measured`, and one `Option<DracoDial>` column whose `IsSome` IS Draco enablement, so a compression-free row spells absence rather than an out-of-band level the host silently clamps. `CodecAxis` `[SmartEnum<int>]` — the grouping/ordering vocabulary: `Stable`, `Document`, `File`, `Layer`, `ObjectName`, `ObjectType`, `Material`, `Block`, `UserString`. `CodecResource` `[SmartEnum<int>]` — `Reference`/`Embed`/`Copy`. `CodecTune` — the one option-policy record every option projection reads; its presets are the policy values, per-format depth enters only as the one `Dial` slot carrying the closed dial family, and a per-format knob on a signature is unrepresentable because rows read the tune, never a parameter.
 - Law: capability is set membership, not flags — a row's `Abilities` is declared once and probed through `Has`; a phase admits a row only when `Demands` is a member, so an engine-less raster row structurally never reaches an engine delegate.
+- Law: every ability carries a live reader, so no row is decoration — `Import`/`Export` gate `Codecs.Apply` through `CodecPhase.Demands`, `Vector` gates the scale axis at that same entry, `Selection` gates `ExportScope.Carrier`, `Raster` gates `RasterCodec`'s extension admission, and `Archive` is the discriminant `DocumentWritePolicy.Codec` reads to decide which write target is `3dm`-bound.
 - Law: `CodecTune` arrives pre-constructed and carries its whole policy; no codec entrypoint grows a boolean beside it, a consumer needing one divergent tune axis takes `with` on a preset, and a consumer needing per-format depth sets `Dial` to the owning dial case.
 - Growth: a new fidelity, axis, or resource stance is one row; every option projection that reads the new column breaks loudly at the row constructor, never silently at a call site.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
+using Rasm.Numerics;
 using Rasm.Rhino.Document;
 using Rhino.FileIO;
+using Rhino.PlugIns;
 using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Exchange;
@@ -46,13 +49,21 @@ public sealed partial class CodecPhase {
 
 [SmartEnum<int>]
 public sealed partial class CodecFidelity {
-    public static readonly CodecFidelity Model = new(key: 0, isModel: true, measured: true, draco: (0, 14, 10, 12));
-    public static readonly CodecFidelity Small = new(key: 1, isModel: false, measured: false, draco: (7, 11, 8, 10));
-    public static readonly CodecFidelity GeometryOnly = new(key: 2, isModel: false, measured: true, draco: (0, 14, 10, 12));
+    public static readonly CodecFidelity Model = new(key: 0, isModel: true, measured: true, draco: None);
+    public static readonly CodecFidelity Small = new(key: 1, isModel: false, measured: false,
+        draco: Some(Compressed(level: 7, positionBits: 11, normalBits: 8, textureBits: 10)));
+    public static readonly CodecFidelity GeometryOnly = new(key: 2, isModel: false, measured: true, draco: None);
 
     public bool IsModel { get; }
     public bool Measured { get; }
-    public (int Compression, int BitsPos, int BitsNormal, int BitsTexCoord) Draco { get; }
+    public Option<DracoDial> Draco { get; }
+
+    private static DracoDial Compressed(int level, int positionBits, int normalBits, int textureBits) =>
+        DracoDial.Create(
+            level: Dimension.Create(value: level),
+            positionBits: Dimension.Create(value: positionBits),
+            normalBits: Dimension.Create(value: normalBits),
+            textureBits: Dimension.Create(value: textureBits));
 }
 
 [SmartEnum<int>]
@@ -100,7 +111,7 @@ public sealed record CodecTune(
 
 - Owner: `VectorUnit` `[SmartEnum<int>]` carries host unit correspondences. `VectorLens<TOptions>` carries the four option setters. `VectorScale` `[ComplexValueObject]` admits the complete scale product and applies it through one generic lens.
 - Law: an explicit scale member (`Unit`, `Source`, `Rhino`) forces `PreserveModelScale` false unless `Preserve` is explicitly set; declaring both `Preserve = true` and an explicit member is a construction refusal, so a contradictory scale never reaches a host option.
-- Law: scale participation is a row fact — only rows whose option projection threads `Scale` consume it; a scale supplied to a non-vector row is inert by construction because no lens exists for its option type.
+- Law: scale participation is a row fact `Codecs.Apply` enforces — a `Some` scale against a codec lacking `CodecAbility.Vector` is a typed refusal at the entry gate, never a value the dispatch silently discards for want of a lens.
 - Boundary: `VectorScale.Apply` is the host-mutation capsule; its four ordered `Iter` statements are the platform-forced statement exemption, and every caller remains expression-shaped.
 
 ```csharp signature
@@ -202,10 +213,10 @@ internal static class VectorLenses {
 
 - Owner: `FileCodec` `[SmartEnum<string>]` is the interchange matrix. Each row declares extensions, abilities, and two engine columns; each engine composes polymorphic `Dials.Resolve`, while unsupported legs share one typed refusal.
 - Entry: `Codecs.Apply(RhinoDoc, DocumentPath, FileCodec, CodecTune, CodecRequest, Op?)` accepts one carrier union and dispatches once through the selected row. `Exchanges.Run` and `CodecPort.Dispatch` remain the only raw-document consumers.
-- Law: `Detect`, `Of`, `Filter`, and `EnsureExtension` derive from `Items` through lazy frozen indexes — the declaration list is the single source, a new row lands in every derived surface with zero additional edits, and a reserved key (`json`) is refused at the row-lookup boundary so wire payload spellings never collide with interchange formats.
+- Law: `Detect`, `Of`, `Filter`, `Archive`, and `EnsureExtension` derive from `Items` through lazy frozen indexes — the declaration list is the single source, a new row lands in every derived surface with zero additional edits, and a reserved key (`json`) is refused at the row-lookup boundary so wire payload spellings never collide with interchange formats.
 - Law: the vocabulary is closed — the census's runtime custom-registration cell is dead; a format the matrix lacks is one new row, and a foreign plug-in's format reaches the document only through the host's own dialog dispatch, never through this matrix.
 - Law: engine outcomes normalize at the row — a `bool` engine and a `WriteFileResult` engine both fold to `Fin<Unit>` through the overloaded `Reader`/`Writer` factories, so a standard row is one factory call per direction and a hand-spelled engine closure survives only where the row composes a scale lens or a host-owned transport (`Ai`, `Eps`, `Pdf`, `3dm`, `Xaml`).
-- Boundary: `FilePdf` page authoring and raster encoding are `publish.md` egress; the `pdf`/`svg` rows here own only page-space vector import, and the raster rows exist as capability data the publish target vocabulary keys on.
+- Boundary: `FilePdf` page authoring and raster encoding are `publish.md` egress; the `pdf`/`svg` rows here own only page-space vector import, and the raster rows are the extension authority each `RasterCodec` row admits itself against — the publish target vocabulary keys on `FileCodec` row identity, never on the raster ability.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -418,6 +429,11 @@ public static class Codecs {
             .SelectMany(static row => row.Extensions.Map(ext => KeyValuePair.Create(ext, row)))
             .ToFrozenDictionary(comparer: StringComparer.OrdinalIgnoreCase));
 
+    private static readonly Lazy<Option<FileCodec>> ArchiveRow = new(static () =>
+        toSeq(FileCodec.Items).Find(static row => row.Has(CodecAbility.Archive)));
+
+    public static Option<FileCodec> Archive => ArchiveRow.Value;
+
     public static Option<FileCodec> Detect(string path) =>
         Optional(System.IO.Path.GetExtension(path))
             .Filter(static ext => !string.IsNullOrWhiteSpace(value: ext))
@@ -454,6 +470,7 @@ public static class Codecs {
         Op? key = null) {
         Op op = key.OrDefault();
         return from _ability in guard(codec.Has(request.Phase.Demands), op.InvalidInput()).ToFin()
+               from _scale in guard(tune.Scale.IsNone || codec.Has(CodecAbility.Vector), op.InvalidInput()).ToFin()
                from _seat in guard(tune.Dial.ForAll(dial => dial.Seat.Codec == codec && dial.Seat.Phase == request.Phase), op.InvalidInput()).ToFin()
                from done in op.Catch(() => request.Dispatch(codec: codec, tune: tune, document: document, path: path.Value, op: op))
                select done;
@@ -463,33 +480,36 @@ public static class Codecs {
 
 ## [05]-[DIALOG_PORT]
 
-- Owner: `CodecPort` — the host file-dialog seam. `Register` folds every phase-capable row except the host-native `3dm` row into the host `FileTypeList` and records the host-returned index against its row in one phase-keyed committed cell, so the later index-keyed `ReadFile`/`WriteFile` dispatch is a frozen lookup, never a re-parsed extension. One `CodecRequest`-discriminated `Dispatch` core owns index resolution, path admission, and the matrix entry; each plug-in base contributes only its host carrier case and folds the shared rail into its verdict currency.
-- Law: the index registry is one cell keyed on phase — each `AddFileTypes` invocation replaces its own phase's rows whole while the sibling phase's rows stand — the host owns registration timing, and a dispatch against an unregistered index is a typed refusal, never an index-out-of-range escape.
+- Owner: `CodecPort` — the host file-dialog seam. `Register` MINTS the `FileTypeList` the host contract demands as a return value, folds every phase-capable row except the host-native `3dm` row into it, records each `AddFileType` index against its row, and swaps that plug-in's rows into one committed cell; the later index-keyed `ReadFile`/`WriteFile` dispatch is a frozen lookup, never a re-parsed extension. One `CodecRequest`-discriminated `Dispatch` core owns index resolution, path admission, and the matrix entry; each plug-in base contributes only its own identity with its host carrier case and folds the shared rail into its verdict currency.
+- Law: the registry keys on `(PlugInId, Phase, Index)` — the host hands one index space per plug-in per phase, so a second derived plug-in registering the same phase adds its own rows and resolves its own later dispatch instead of replacing the first plug-in's roster and answering with a wrong codec. Each `AddFileTypes` invocation replaces exactly that `(plug-in, phase)` slice while every sibling slice stands, the host owns registration timing, and a dispatch against an unregistered index is a typed refusal, never an index-out-of-range escape.
+- Law: index correspondence is earned, not assumed — the host re-walks the returned list and skips any entry carrying a blank description or an empty extension set, and each skip slides every later host index off its managed twin. `Register` folds only rows the host keeps and refuses a negative `AddFileType` return, so the recorded index and the dispatched index are one integer by construction.
 - Law: the port dispatches with `CodecTune.Model` and the host-supplied `FileReadOptions`/`FileWriteOptions` carrier — dialog traffic carries host intent (import-versus-open, selected-versus-all) in the carrier, and the tune stays the canonical default because the dialog carries no policy surface.
-- Boundary: `Result`/`WriteFileResult` are the host's dialog verdict currencies; the port folds the matrix rail into them at the seam and nothing above the port sees them.
+- Boundary: `bool` and `WriteFileResult` are the host's two dialog verdict currencies — the import override answers a bare `bool`, the export override a `WriteFileResult` — and the port folds the matrix rail into each at the seam so nothing above the port sees either.
 
 ```csharp signature
 // --- [COMPOSITION] --------------------------------------------------------------------------
 public static class CodecPort {
-    private static readonly Atom<HashMap<(CodecPhase Phase, int Index), FileCodec>> Registry =
-        Atom(HashMap<(CodecPhase, int), FileCodec>());
+    private static readonly Atom<HashMap<(Guid PlugIn, CodecPhase Phase, int Index), FileCodec>> Registry =
+        Atom(HashMap<(Guid, CodecPhase, int), FileCodec>());
 
-    internal static Unit Register(FileTypeList list, CodecPhase phase) {
-        HashMap<(CodecPhase, int), FileCodec> bound = toSeq(FileCodec.Items)
-            .Filter(row => row.Has(phase.Demands) && row != FileCodec.ThreeDm)
-            .Fold(HashMap<(CodecPhase, int), FileCodec>(), (map, row) =>
+    internal static FileTypeList Register(Guid plugIn, CodecPhase phase) {
+        FileTypeList list = new();
+        HashMap<(Guid, CodecPhase, int), FileCodec> bound = toSeq(FileCodec.Items)
+            .Filter(row => row.Has(phase.Demands) && row != FileCodec.ThreeDm && !row.Extensions.IsEmpty)
+            .Fold(HashMap<(Guid, CodecPhase, int), FileCodec>(), (map, row) =>
                 list.AddFileType(
                     description: $"{row.Key.ToUpperInvariant()} ({string.Join(", ", row.Extensions)})",
-                    extensions: row.Extensions,
+                    extensions: row.Extensions.AsIterable(),
                     showOptionsButtonInFileDialog: false) is var index && index >= 0
-                    ? map.AddOrUpdate((phase, index), row)
+                    ? map.AddOrUpdate((plugIn, phase, index), row)
                     : map);
-        return ignore(Registry.Swap(map => map.Filter((key, _) => key.Phase != phase) + bound));
+        _ = Registry.Swap(map => map.Filter((key, _) => key.PlugIn != plugIn || key.Phase != phase) + bound);
+        return list;
     }
 
-    internal static Fin<Unit> Dispatch(int index, RhinoDoc document, string filename, CodecRequest request) {
+    internal static Fin<Unit> Dispatch(Guid plugIn, int index, RhinoDoc document, string filename, CodecRequest request) {
         Op op = Op.Of();
-        return Admitted(index: index, phase: request.Phase, filename: filename, op: op).Bind(seat =>
+        return Admitted(plugIn: plugIn, index: index, phase: request.Phase, filename: filename, op: op).Bind(seat =>
             Codecs.Apply(
                 document: document,
                 path: seat.Path,
@@ -499,31 +519,34 @@ public static class CodecPort {
                 key: op));
     }
 
-    private static Fin<(FileCodec Codec, DocumentPath Path)> Admitted(int index, CodecPhase phase, string filename, Op op) =>
-        from codec in Registry.Value.Find((phase, index)).ToFin(Fail: op.InvalidInput())
+    private static Fin<(FileCodec Codec, DocumentPath Path)> Admitted(
+        Guid plugIn, int index, CodecPhase phase, string filename, Op op) =>
+        from codec in Registry.Value.Find((plugIn, phase, index)).ToFin(Fail: op.InvalidInput())
         from path in op.Catch(() => Fin.Succ(value: DocumentPath.Create(value: filename)))
         select (Codec: codec, Path: path);
 }
 
 public abstract class CodecImportPort : FileImportPlugIn {
-    protected sealed override void AddFileTypes(FileTypeList list, FileReadOptions options) =>
-        ignore(CodecPort.Register(list: list, phase: CodecPhase.Import));
+    protected sealed override FileTypeList AddFileTypes(FileReadOptions options) =>
+        CodecPort.Register(plugIn: Id, phase: CodecPhase.Import);
 
-    protected sealed override Result ReadFile(string filename, int index, RhinoDoc doc, FileReadOptions options) =>
+    protected sealed override bool ReadFile(string filename, int index, RhinoDoc doc, FileReadOptions options) =>
         CodecPort.Dispatch(
+                plugIn: Id,
                 index: index,
                 document: doc,
                 filename: filename,
                 request: new CodecRequest.ImportCase(Carrier: options))
-            .Match(Succ: static _ => Result.Success, Fail: static _ => Result.Failure);
+            .IsSucc;
 }
 
 public abstract class CodecExportPort : FileExportPlugIn {
-    protected sealed override void AddFileTypes(FileTypeList list, FileWriteOptions options) =>
-        ignore(CodecPort.Register(list: list, phase: CodecPhase.Export));
+    protected sealed override FileTypeList AddFileTypes(FileWriteOptions options) =>
+        CodecPort.Register(plugIn: Id, phase: CodecPhase.Export);
 
     protected sealed override WriteFileResult WriteFile(string filename, int index, RhinoDoc doc, FileWriteOptions options) =>
         CodecPort.Dispatch(
+                plugIn: Id,
                 index: index,
                 document: doc,
                 filename: filename,
@@ -542,12 +565,12 @@ config:
 ---
 flowchart LR
     accTitle: Codec matrix dispatch topology
-    accDescr: FileCodec rows feed derived lookup surfaces, one carrier-union entry with ability and dial-seat gates, and the host dialog port whose callbacks route back onto that entry.
+    accDescr: FileCodec rows feed derived lookup surfaces, one carrier-union entry with ability, vector-scale, and dial-seat gates, and the host dialog port whose minted file-type list and plug-in-keyed registry route callbacks back onto that entry.
     Rows["FileCodec rows — extensions · abilities · engine columns"] --> Lookup["derived: Detect · Of · Filter · EnsureExtension"]
     Rows --> Entry[["Codecs.Apply — one carrier-union entry"]]
-    Entry -->|ability + dial-seat gates, then one dispatch| Direct["engine column — typed host options from Dials.Resolve, attached lane inside the row"]
-    Rows --> Port["CodecPort — FileTypeList registration, index registry"]
-    Port --> Dialog["CodecRequest carrier → one index-keyed CodecPort.Dispatch"]
+    Entry -->|ability + vector-scale + dial-seat gates, then one dispatch| Direct["engine column — typed host options from Dials.Resolve, attached lane inside the row"]
+    Rows --> Port["CodecPort — minted FileTypeList, plug-in · phase · index registry"]
+    Port --> Dialog["CodecRequest carrier → one plug-in-keyed CodecPort.Dispatch"]
     Dialog --> Entry
 ```
 

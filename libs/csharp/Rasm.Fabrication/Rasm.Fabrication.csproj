@@ -13,7 +13,6 @@
         <PackageReference Include="CavalierContours" />
         <PackageReference Include="Clipper2" />
         <PackageReference Include="geometry3Sharp" />
-        <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
     </ItemGroup>
 
     <ItemGroup Label="Exchange Ingress">

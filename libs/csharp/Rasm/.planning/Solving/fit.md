@@ -14,9 +14,9 @@ Refinement INSTANTIATES the `Solving/solver` `Lm.Minimize` functor through a `Fi
 - Entry: `Fit.Apply(FitOp, Context, Op?) → Fin<FitReceipt>` is the one fitting entrypoint; its `Context.Absolute` band sets the inlier threshold through `FitPolicy.Threshold` and the LM convergence floor, never a domain-local epsilon. Admission ACCUMULATES every defect through one `Validation<Error, T>` traverse exiting `.ToFin()`, each `GeometryFault.DegenerateInput` carrying its kind `Carrier` and the offending index; a consensus never reaching `FitPolicy.InlierFloor` routes `GeometryFault.FitFault`.
 - Auto: one `Apply` call internalizes the pipeline — kd-tree index built once, draw order derived, per-kind adaptive-budget draw and score, lowest cost kept across kinds, `InlierFloor` gated, winner refined — so a caller supplies data and policy alone, and the trial budget re-estimates downward as the inlier fraction rises.
 - Receipt: `FitReceipt` is typed `IValidityEvidence` over the refined primitive and its consensus evidence, never a generic ledger; `Rasm.Bim` reconstruction reads `Primitive`+`Inliers` to mint a `ReconstructionPrimitive`+`ElementPredicate`, and the learned-segmentation peer graduates onto this SAME shape.
-- Packages: `Rasm.Spatial` (`CloudKernel.CovarianceOf`), `Rasm.Numerics` (`SymmetricMatrix.DecomposeEigen`, `Matrix.SolveDetailed`/`LeastSquaresDetailed`, `EpsilonPolicy`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane`/`Sphere`/`Cylinder`/`Line` carriers), `Rasm.Solving` (`Lm.Minimize`/`ILmModel`/`SolvePolicy`/`Lm.PackedIndex`), `Spatial/neighbors` (`NeighborIndex.Of`/`NeighborSource.StaticCase`/`NeighborKernel.GraphOf`), TYoshimura.DoubleDouble (`ddouble`/`ddouble.Sqrt` + `DoubleDoubleEnumerableExpand.Sum`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`/`[UseDelegateFromConstructor]`, generated `Switch`), LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Option`, accumulating `Traverse`), BCL inbox (`BitArray`, seeded `System.Random`, `[InlineArray]`).
+- Packages: `Rasm.Spatial` (`CloudKernel.CovarianceOf`), `Rasm.Numerics` (`SymmetricMatrix.DecomposeEigenDetailed` + `EigenSolveReceipt.PairsIn`, `Matrix.SolveDetailed`/`LeastSquaresDetailed`, `EpsilonPolicy`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane`/`Sphere`/`Cylinder`/`Line` carriers), `Rasm.Solving` (`Lm.Minimize`/`ILmModel`/`SolvePolicy`/`Lm.PackedIndex`), `Spatial/neighbors` (`NeighborIndex.Of`/`NeighborSource.StaticCase`/`NeighborKernel.GraphOf`), `Rasm.Domain` (`Deterministic.Stream`/`Deterministic.NextBelow` — the ONE threaded draw state), TYoshimura.DoubleDouble (`ddouble`/`ddouble.Sqrt`/`ddouble.Erf`/`ddouble.Exp`/`ddouble.Log` + `DoubleDoubleEnumerableExpand.Sum`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`/`[UseDelegateFromConstructor]`, generated `Switch`), LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Option`, accumulating `Traverse`), BCL inbox (`BitArray`, `[InlineArray]`).
 - Growth: a new fittable primitive is ONE `FitKind` row and one `FitPrimitive` case with its fold arms; a new consensus cost is ONE `ConsensusScore` row's `Cost` delegate, a new draw strategy ONE `DrawOrder` row, a new refine knob one `FitPolicy` column on the same functor; multi-primitive extraction is a consumer fold over `Apply` with inlier masking, never a second sampler.
-- Boundary: one `Fit.Apply` over one `FitOp` owns fitting entirely — never a per-kind fitter family nor a `Detect` surface — and every `FitPrimitive` dispatch is the compile-exhaustive generated `Switch`, so a new case breaks every fold arm loudly. Consensus is the truncated-cost M-estimator under the two-gate law: distance band AND `Agreement ≥ NormalBand` whenever the op carries normals, so a plane cutting a cylinder's diameter collects distance-near points whose normals disagree and charges them the saturated `t²`. Bounded-support pruning is exact by saturation — a candidate exposing `Support` scores its ball and charges every outside point `t²`, a kind exposing none reduces the full cloud. Refinement minimizes true orthogonal distance with every `Gradient` arm closed-form, and every draw seeds from `FitPolicy.Seed` so a fit is reproducible. `Apply` is total over `Fin` with every failure a band-2400 `GeometryFault` case; the trial loops, the score reduces, the defect-collect pass, and the `Gradient` arms are the named span-kernel statement exemption.
+- Boundary: one `Fit.Apply` over one `FitOp` owns fitting entirely — never a per-kind fitter family nor a `Detect` surface — and every `FitPrimitive` dispatch is the compile-exhaustive generated `Switch`, so a new case breaks every fold arm loudly. Consensus defaults to the truncated-cost M-estimator (`Msac`) with the MLESAC mixture likelihood one `ConsensusScore` row beside it, both under the two-gate law: distance band AND `Agreement ≥ NormalBand` whenever the op carries normals, so a plane cutting a cylinder's diameter collects distance-near points whose normals disagree and charges them the saturated `t²`; the score folds accumulate at 106 bits so the likelihood row's cancelling terms survive a hundred-thousand-point reduce. Bounded-support pruning is exact by saturation and gates on the cost row's own `Saturating` column — a saturating candidate exposing `Support` scores its ball and charges every outside point `t²`, while a non-saturating cost row (the mixture NLL, still rising past the band) and a kind exposing no `Support` both reduce the full cloud. Refinement minimizes true orthogonal distance with every `Gradient` arm closed-form, and every draw advances ONE `Deterministic.Stream`-minted state seeded from `FitPolicy.Seed` and the kind-set lanes at the `Apply` entry, so a fit replays across runtimes and the candidate shuffle and the minimal-set draws are independent reads of one sequence — never two same-seed mints correlating the permutation with the first trials. `Apply` is total over `Fin` with every failure a band-2400 `GeometryFault` case; the trial loops, the score reduces, the defect-collect pass, and the `Gradient` arms are the named span-kernel statement exemption.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -126,7 +126,7 @@ public sealed partial class FitKind {
                 double half = HalfAngle(cloud, draw, apex, axis);
                 return Fin.Succ((FitPrimitive)new FitPrimitive.Cone(apex, Unit(axis), half));
             },
-            None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Cone, -1, "no-normal-field").ToError()));
+            None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Cone, None, "no-normal-field").ToError()));
 
     static Fin<FitPrimitive> MinimalTorus(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) =>
         normals.Match(
@@ -138,7 +138,7 @@ public sealed partial class FitKind {
                 (double major, double minor) = TorusRadii(cloud, draw, center, axis);
                 return Fin.Succ((FitPrimitive)new FitPrimitive.Torus(center, Unit(axis), major, minor));
             },
-            None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Torus, -1, "no-normal-field").ToError()));
+            None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Torus, None, "no-normal-field").ToError()));
 
     static Fin<FitPrimitive> MinimalLine(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) {
         Point3d a = cloud[draw[0]], b = cloud[draw[1]];
@@ -282,12 +282,39 @@ public sealed partial class FitKind {
 
 [SmartEnum<int>]
 public sealed partial class ConsensusScore {
-    public static readonly ConsensusScore Mlesac = new(key: 0, Truncated);
+    // Msac is the truncated M-estimator min(d², t²). MaximumLikelihood is the MLESAC mixture negative
+    // log-likelihood — inliers Gaussian at the two-sigma truncation (t = 2σ) normalized over the band by erf,
+    // outliers uniform over [−t, t]; its per-sample terms cancel over thousands of samples, so the score folds
+    // accumulate at 106 bits and compare in double only at the candidate gate.
+    public static readonly ConsensusScore Msac = new(key: 0, inlierRatio: 1.0, saturating: true, Truncated);
+    public static readonly ConsensusScore MaximumLikelihood = new(key: 1, inlierRatio: MixturePrior, saturating: false, MixtureNll);
+
+    // Gamma is the γ prior of the two-component mixture; the saturated Msac cost reads none of it.
+    public double InlierRatio { get; }
+
+    // Saturating states whether Cost(d², t²) is CONSTANT for every d² ≥ t² — the identity the bounded-support
+    // shell prefilter charges outside points on. Msac truncates (min(d², t²) = t² exactly); the mixture NLL keeps
+    // rising past the band toward its outlier asymptote, so MixtureNll(t², t²) UNDERCHARGES an outside point and
+    // the prefilter would return a wrong likelihood — a non-saturating row full-reduces by this column.
+    public bool Saturating { get; }
 
     [UseDelegateFromConstructor]
     public partial double Cost(double squaredDistance, double squaredThreshold);
 
+    const double MixturePrior = 0.5;
+    // erf(√2) — the Gaussian mass inside the fixed two-sigma truncation band; hoisted so no call re-pays it.
+    static readonly ddouble BandNormalization = ddouble.Erf(ddouble.Sqrt(2.0));
+
     static double Truncated(double d2, double t2) => Math.Min(d2, t2);
+
+    // −log(γ·N(d; 0, σ²)/Z + (1−γ)/2t) with σ² = t²/4; the Gaussian term underflows naturally past the band, so
+    // saturation needs no min, and the constant offset per fit never reorders candidates sharing one threshold.
+    static double MixtureNll(double d2, double t2) {
+        double sigma2 = t2 / 4.0;
+        ddouble inlier = ddouble.Exp(-(ddouble)d2 / (2.0 * sigma2)) / (ddouble.Sqrt(Math.Tau * sigma2) * BandNormalization);
+        ddouble outlier = 0.5 / ddouble.Sqrt(t2);
+        return (double)(-ddouble.Log((MixturePrior * inlier) + ((1.0 - MixturePrior) * outlier)));
+    }
 }
 
 [SmartEnum<int>]
@@ -312,12 +339,12 @@ public sealed record FitPolicy(
     double InlierScale,
     double NormalBand,
     int MaxTrials,
-    int Seed,
+    long Seed,
     int Neighborhood,
     int RefineMaxIterations,
     double RefineTolerance) {
     public static readonly FitPolicy Canonical = new(
-        Score: ConsensusScore.Mlesac, Order: DrawOrder.Uniform,
+        Score: ConsensusScore.Msac, Order: DrawOrder.Uniform,
         InlierFloor: 0.5, Confidence: 0.999, InlierScale: 2.5, NormalBand: 0.9,
         MaxTrials: 1 << 16, Seed: 0x5EED, Neighborhood: 32,
         RefineMaxIterations: 60, RefineTolerance: 1e-9);
@@ -619,11 +646,17 @@ sealed class FitModel(FitPrimitive template, Point3d[] cloud, int[] inliers) : I
 public static class Fit {
     public static Fin<FitReceipt> Apply(FitOp op, Context tolerance, Op? key = null) {
         Op ok = key.OrDefault();
+        // ONE splitmix state for the whole fit — the kind-set lanes and FitPolicy.Seed mint it once at the entry,
+        // and the candidate shuffle and every minimal-set draw then advance the SAME sequence, so no two draws
+        // share a seed and the permutation never correlates with the first trials.
+        // The lane is the kind's DECLARATION ORDINAL, never `Key.GetHashCode()`: .NET randomizes string hashing
+        // per process, so a key-hashed lane re-seeds the whole fit on every run and the replay law above is void.
+        ulong state = Deterministic.Stream(lanes: [.. op.Kinds.Map(static kind => (long)FitKind.Items.IndexOf(kind))], seed: op.Policy.Seed);
         return Validate(op)
             .Bind(_ => NeighborIndex.Of(new NeighborSource.StaticCase(toSeq(op.Cloud)), ok))
-            .Bind(index => Order(op.Cloud, op.Normals, op.Policy, tolerance, ok)
+            .Bind(index => Order(op.Cloud, op.Normals, op.Policy, tolerance, ref state, ok)
                 .Bind(order => op.Kinds
-                    .Fold(Option<Candidate>.None, (best, kind) => Draw(op.Cloud, op.Normals, index, order, kind, op.Policy, tolerance, ok).Match(
+                    .Fold(Option<Candidate>.None, (best, kind) => Draw(op.Cloud, op.Normals, index, order, kind, op.Policy, tolerance, ref state, ok).Match(
                         Some: next => Some(best.Case is Candidate held && held.Cost <= next.Cost ? held : next),
                         None: () => best))
                     .Match(
@@ -641,37 +674,38 @@ public static class Fit {
         op.Normals.Iter(field => { for (int i = 0; i < field.Length; i++) { if (!field[i].IsValid) badNormals.Add(i); } });
         Seq<Validation<Error, Unit>> probes =
             (op.Kinds.IsEmpty
-                ? Seq((Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.PointCloud, -1, "empty-kind-set").ToError())
+                ? Seq((Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.PointCloud, None, "empty-kind-set").ToError())
                 : Seq<Validation<Error, Unit>>())
             + (op.Cloud.Length < minimal
-                ? Seq((Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.PointCloud, -1, $"fewer-than-minimal:{op.Cloud.Length}<{minimal}").ToError())
+                ? Seq((Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.PointCloud, None, $"fewer-than-minimal:{op.Cloud.Length}<{minimal}").ToError())
                 : Seq<Validation<Error, Unit>>())
             + toSeq(badPoints).Map(index =>
                 (Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.Point, index, "non-finite").ToError())
             + op.Normals.Match(
                 Some: field => field.Length != op.Cloud.Length
-                    ? Seq((Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.PointCloud, -1, $"normals-arity:{field.Length}!={op.Cloud.Length}").ToError())
+                    ? Seq((Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.PointCloud, None, $"normals-arity:{field.Length}!={op.Cloud.Length}").ToError())
                     : Seq<Validation<Error, Unit>>(),
                 None: static () => Seq<Validation<Error, Unit>>())
             + toSeq(badNormals).Map(index =>
                 (Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.PointCloud, index, "non-finite-normal").ToError())
             + (op.Normals.IsNone
                 ? op.Kinds.Filter(static kind => kind.NeedsNormals).Map(kind =>
-                    (Validation<Error, Unit>)new GeometryFault.DegenerateInput(kind.Carrier, -1, "no-normal-field").ToError())
+                    (Validation<Error, Unit>)new GeometryFault.DegenerateInput(kind.Carrier, None, "no-normal-field").ToError())
                 : Seq<Validation<Error, Unit>>());
         return probes.Traverse(identity).As().Map(_ => op).ToFin();
     }
 
     // --- [CONSENSUS]
     // Total per-kind lane: a degenerate draw or minimal solve burns its trial; a kind whose every trial burns reports None, never an aborting rail.
-    static Option<Candidate> Draw(Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] order, FitKind kind, FitPolicy policy, Context tolerance, Op key) {
-        Random rng = new(policy.Seed);
+    static Option<Candidate> Draw(Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] order, FitKind kind, FitPolicy policy, Context tolerance, ref ulong state, Op key) {
         double threshold = policy.Threshold(tolerance.Absolute.Value);
         double t2 = threshold * threshold;
         Option<Candidate> best = None;
         int budget = policy.MaxTrials;
         for (int trial = 0; trial < budget; trial++) {
-            if (Sample(order, cloud, index, kind, policy, trial, rng, key).Case is not int[] sample) continue;
+            if (Sample(order, cloud, index, kind, policy, trial, state, key).Case is not ValueTuple<int[], ulong> draw) continue;
+            (int[] sample, ulong advanced) = draw;
+            state = advanced;
             if (kind.Minimal(cloud, sample, normals, tolerance, key).Case is not FitPrimitive primitive) continue;
             (double cost, BitArray inliers, int count) = Score(primitive, cloud, normals, index, policy, t2, threshold, key);
             if (best.Case is Candidate held && cost >= held.Cost) continue;
@@ -681,40 +715,46 @@ public static class Fit {
         return best;
     }
 
-    // Bounded-support prefilter (EXACT): Σ min(d²,t²) = Σ_ball min(d²,t²) + t²·(N − |ball|) by saturation; unbounded kinds full-reduce.
+    // Bounded-support prefilter (EXACT only under saturation): Σ min(d²,t²) = Σ_ball min(d²,t²) + t²·(N − |ball|)
+    // holds because the truncated cost is constant past the band; the prefilter gates on the row's OWN Saturating
+    // column, so a non-saturating cost (the mixture NLL) full-reduces and can never ride an identity it breaks.
     static (double Cost, BitArray Inliers, int Count) Score(FitPrimitive primitive, Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, FitPolicy policy, double t2, double threshold, Op key) =>
-        primitive.Support(threshold).Match(
-            Some: ball => NeighborKernel.GraphOf(index: index, needles: [ball.Center], count: Option<int>.None, radius: Some(ball.Reach), key: key).Match(
-                Succ: graph => ShellScore(primitive, cloud, graph.Ids[0], normals, policy, t2, threshold),
-                Fail: _ => FullScore(primitive, cloud, normals, policy, t2, threshold)),
-            None: () => FullScore(primitive, cloud, normals, policy, t2, threshold));
+        policy.Score.Saturating
+            ? primitive.Support(threshold).Match(
+                Some: ball => NeighborKernel.GraphOf(index: index, needles: [ball.Center], count: Option<int>.None, radius: Some(ball.Reach), key: key).Match(
+                    Succ: graph => ShellScore(primitive, cloud, graph.Ids[0], normals, policy, t2, threshold),
+                    Fail: _ => FullScore(primitive, cloud, normals, policy, t2, threshold)),
+                None: () => FullScore(primitive, cloud, normals, policy, t2, threshold))
+            : FullScore(primitive, cloud, normals, policy, t2, threshold);
 
+    // 106-bit accumulation: the Msac min-fold never cancels, but the likelihood row's near-equal log terms do, so
+    // ONE ddouble accumulator serves both rows and the candidate gate compares the projected double.
     static (double Cost, BitArray Inliers, int Count) FullScore(FitPrimitive primitive, Point3d[] cloud, Option<Vector3d[]> normals, FitPolicy policy, double t2, double threshold) {
         BitArray inliers = new(cloud.Length);
-        double cost = 0.0;
+        ddouble cost = 0.0;
         int count = 0;
         Vector3d[]? field = normals.Case as Vector3d[];
         for (int i = 0; i < cloud.Length; i++) {
             double d = primitive.Distance(cloud[i]);
             bool agrees = field is null || primitive.Agreement(cloud[i], field[i]) >= policy.NormalBand;
-            cost += agrees ? policy.Score.Cost(d * d, t2) : t2;
+            cost += agrees ? policy.Score.Cost(d * d, t2) : policy.Score.Cost(t2, t2);
             if (agrees && Math.Abs(d) <= threshold) { inliers[i] = true; count++; }
         }
-        return (cost, inliers, count);
+        return ((double)cost, inliers, count);
     }
 
     static (double Cost, BitArray Inliers, int Count) ShellScore(FitPrimitive primitive, Point3d[] cloud, int[] shell, Option<Vector3d[]> normals, FitPolicy policy, double t2, double threshold) {
         BitArray inliers = new(cloud.Length);
-        double cost = t2 * (cloud.Length - shell.Length);
+        ddouble cost = policy.Score.Cost(t2, t2) * (cloud.Length - shell.Length);
         int count = 0;
         Vector3d[]? field = normals.Case as Vector3d[];
         foreach (int i in shell) {
             double d = primitive.Distance(cloud[i]);
             bool agrees = field is null || primitive.Agreement(cloud[i], field[i]) >= policy.NormalBand;
-            cost += agrees ? policy.Score.Cost(d * d, t2) : t2;
+            cost += agrees ? policy.Score.Cost(d * d, t2) : policy.Score.Cost(t2, t2);
             if (agrees && Math.Abs(d) <= threshold) { inliers[i] = true; count++; }
         }
-        return (cost, inliers, count);
+        return ((double)cost, inliers, count);
     }
 
     static int AdaptiveBudget(int inlierCount, int total, int minimalSamples, FitPolicy policy) {
@@ -726,22 +766,21 @@ public static class Fit {
         return Math.Clamp(estimate, minimalSamples, policy.MaxTrials);
     }
 
-    static Fin<int[]> Order(Point3d[] cloud, Option<Vector3d[]> normals, FitPolicy policy, Context tolerance, Op key) {
+    static Fin<int[]> Order(Point3d[] cloud, Option<Vector3d[]> normals, FitPolicy policy, Context tolerance, ref ulong state, Op key) {
         int[] indices = Enumerable.Range(0, cloud.Length).ToArray();
-        Random rng = new(policy.Seed);
         return policy.Order == DrawOrder.QualityFront
             ? Quality(cloud, normals, tolerance, key).Map(quality => {
                 Array.Sort(indices, (a, b) => quality[b].CompareTo(quality[a]));
                 return indices;
             })
-            : key.AcceptValue(Shuffled(indices, rng));
+            : key.AcceptValue(Shuffled(indices, ref state));
     }
 
     static Fin<double[]> Quality(Point3d[] cloud, Option<Vector3d[]> normals, Context tolerance, Op key) =>
         normals.Match(
             Some: field => key.AcceptValue(ModePrior(field)),
             None: () => CloudKernel.CovarianceOf(toSeq(cloud), Option<Arr<double>>.None, key)
-                .Bind(stats => stats.Cov.DecomposeEigen(key).Map(eigen => (stats.Mean, Eigen: eigen)))
+                .Bind(stats => stats.Cov.DecomposeEigenDetailed(key).Bind(receipt => receipt.PairsIn(expected: EigenOrder.DescendingMagnitude, key: key)).Map(eigen => (stats.Mean, Eigen: eigen)))
                 .Bind(pca => pca.Eigen.Count >= 3
                     ? key.AcceptValue(PlanarityPrior(cloud, pca.Mean, pca.Eigen, tolerance))
                     : Fin.Fail<double[]>(key.InvalidResult())));
@@ -768,56 +807,69 @@ public static class Fit {
         return quality;
     }
 
-    static Fin<int[]> Sample(int[] order, Point3d[] cloud, NeighborIndex index, FitKind kind, FitPolicy policy, int trial, Random rng, Op key) =>
+    // State threads by VALUE through the generated Switch — each arm advances a local copy and returns it in the
+    // tuple, so every arm stays static and the caller commits the advanced state; a ref cannot cross the arm lambda.
+    static Fin<(int[] Sample, ulong State)> Sample(int[] order, Point3d[] cloud, NeighborIndex index, FitKind kind, FitPolicy policy, int trial, ulong state, Op key) =>
         policy.Order.Switch(
-            state: (Order: order, Cloud: cloud, Index: index, Kind: kind, Policy: policy, Trial: trial, Rng: rng, Key: key),
-            uniform: static s => s.Key.AcceptValue(UniformDraw(s.Order, s.Kind.MinimalSamples, s.Rng)),
+            state: (Order: order, Cloud: cloud, Index: index, Kind: kind, Policy: policy, Trial: trial, State: state, Key: key),
+            uniform: static s => {
+                ulong draw = s.State;
+                int[] sample = UniformDraw(s.Order, s.Kind.MinimalSamples, ref draw);
+                return s.Key.AcceptValue((Sample: sample, State: draw));
+            },
             qualityFront: static s => {
                 // PROSAC growth draw: the newest front point enters every sample, the remainder draws DISTINCT from the preceding window — trial 0 is the top-m set.
                 int window = Math.Min(s.Order.Length, s.Kind.MinimalSamples + s.Trial);
                 int[] sample = new int[s.Kind.MinimalSamples];
                 sample[0] = s.Order[window - 1];
+                ulong draw = s.State;
                 for (int i = 1; i < sample.Length; i++) {
                     int pick;
-                    do { pick = s.Order[s.Rng.Next(window - 1)]; } while (Array.IndexOf(sample, pick, 0, i) >= 0);
+                    do { pick = s.Order[Deterministic.NextBelow(state: ref draw, exclusiveCeiling: window - 1)]; } while (Array.IndexOf(sample, pick, 0, i) >= 0);
                     sample[i] = pick;
                 }
-                return s.Key.AcceptValue(sample);
+                return s.Key.AcceptValue((Sample: sample, State: draw));
             },
             neighborhood: static s => {
                 // NAPSAC: a seeded local draw is likelier all-inlier on a multi-structure scan; the kNN ring returns the seed itself, so it is excluded.
-                int seed = s.Order[s.Rng.Next(s.Order.Length)];
-                return NeighborKernel.GraphOf(index: s.Index, needles: [s.Cloud[seed]], count: Some(s.Policy.Neighborhood), radius: Option<double>.None, key: s.Key)
-                    .Bind(graph => graph.Ids[0].Where(id => id != seed).ToArray() is var pool && pool.Length >= s.Kind.MinimalSamples - 1
-                        ? s.Key.AcceptValue(NeighborhoodDraw(seed, pool, s.Kind.MinimalSamples, s.Rng))
-                        : s.Key.AcceptValue(UniformDraw(s.Order, s.Kind.MinimalSamples, s.Rng)));
+                ulong draw = s.State;
+                int seed = s.Order[Deterministic.NextBelow(state: ref draw, exclusiveCeiling: s.Order.Length)];
+                // TOTAL on the draw path: a failed index query recovers to the uniform draw WITH the advanced
+                // state — a Fin.Fail here once returned the un-advanced state to Draw's burn arm, so every
+                // remaining trial re-picked the identical seed and burned identically; NAPSAC is a draw-order
+                // heuristic, never a correctness gate, so uniform is the honest degradation.
+                return NeighborKernel.GraphOf(index: s.Index, needles: [s.Cloud[seed]], count: Some(s.Policy.Neighborhood), radius: Option<double>.None, key: s.Key).Match(
+                    Succ: graph => graph.Ids[0].Where(id => id != seed).ToArray() is var pool && pool.Length >= s.Kind.MinimalSamples - 1
+                        ? s.Key.AcceptValue((Sample: NeighborhoodDraw(seed, pool, s.Kind.MinimalSamples, ref draw), State: draw))
+                        : s.Key.AcceptValue((Sample: UniformDraw(s.Order, s.Kind.MinimalSamples, ref draw), State: draw)),
+                    Fail: _ => s.Key.AcceptValue((Sample: UniformDraw(s.Order, s.Kind.MinimalSamples, ref draw), State: draw)));
             });
 
     // Distinct minimal draw: a with-replacement duplicate degenerates every minimal solver, so membership rejection guarantees distinctness.
-    static int[] UniformDraw(int[] order, int count, Random rng) {
+    static int[] UniformDraw(int[] order, int count, ref ulong state) {
         int[] sample = new int[count];
         for (int i = 0; i < count; i++) {
             int pick;
-            do { pick = order[rng.Next(order.Length)]; } while (Array.IndexOf(sample, pick, 0, i) >= 0);
+            do { pick = order[Deterministic.NextBelow(state: ref state, exclusiveCeiling: order.Length)]; } while (Array.IndexOf(sample, pick, 0, i) >= 0);
             sample[i] = pick;
         }
         return sample;
     }
 
-    static int[] NeighborhoodDraw(int seed, int[] pool, int count, Random rng) {
+    static int[] NeighborhoodDraw(int seed, int[] pool, int count, ref ulong state) {
         int[] sample = new int[count];
         sample[0] = seed;
         for (int i = 1; i < count; i++) {
-            int pick = rng.Next(pool.Length - (i - 1));
+            int pick = Deterministic.NextBelow(state: ref state, exclusiveCeiling: pool.Length - (i - 1));
             sample[i] = pool[pick];
             (pool[pick], pool[pool.Length - i]) = (pool[pool.Length - i], pool[pick]);
         }
         return sample;
     }
 
-    static int[] Shuffled(int[] order, Random rng) {
+    static int[] Shuffled(int[] order, ref ulong state) {
         for (int i = order.Length - 1; i > 0; i--) {
-            int j = rng.Next(i + 1);
+            int j = Deterministic.NextBelow(state: ref state, exclusiveCeiling: i + 1);
             (order[i], order[j]) = (order[j], order[i]);
         }
         return order;

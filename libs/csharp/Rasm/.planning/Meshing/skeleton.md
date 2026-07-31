@@ -2,7 +2,7 @@
 
 `Skeletonize` owns 3D curve-skeleton extraction in `Rasm.Meshing`: ONE `Skeletonize.Apply(SkeletonOp, Op? key = null)` folds mean-curvature-flow contraction toward the medial curve, cost-ordered edge-collapse surgery that eliminates every face-bearing edge to the 1D remnant, and QuikGraph tree extraction into one `Fin<CurveSkeleton>`. Admission gates a watertight oriented manifold: the contraction flows a closed surface toward its interior medial, so an open shell carries no interior curve-skeleton and refuses.
 
-`CurveSkeleton` composes `offset.md`'s clearance vocabulary and widens the family by zero types: nodes are `ClearanceNode` rows, arcs `SkeletonArc` rows, the typed view the SAME `SkeletonGraph` the 2D medial emits, and `Clearance(Point3d)` answers an arbitrary probe with the SAME distance-to-boundary semantics (`r(foot) − |probe − foot|`), so 2D medial and 3D curve-skeleton speak one clearance language across the `Rasm.Fabrication` toolpath seam. Skeleton topology is a kernel-owned SoA wire whose `SkeletonGraph` and `ClearanceNode` rows mint FROM the columns on read, QuikGraph serving in-computation only with the frozen columns the complete decode contract.
+`CurveSkeleton` composes `offset.md`'s clearance vocabulary whole: nodes are `ClearanceNode` rows, arcs `SkeletonArc` rows, the typed view the `SkeletonGraph` the 2D medial emits, and `Clearance(Point3d)` answers an arbitrary probe with the same distance-to-boundary semantics (`r(foot) − |probe − foot|`), so medial and curve-skeleton speak one clearance language across the `Rasm.Fabrication` toolpath seam. Skeleton topology is a kernel-owned SoA wire minting those rows FROM the columns on read, QuikGraph serving in-computation only.
 
 ## [01]-[INDEX]
 
@@ -10,16 +10,16 @@
 
 ## [02]-[SKELETONIZATION]
 
-- Owner: `SkeletonPolicy` the Au weight/convergence/surgery policy row registering `IValidityEvidence`; `SkeletonOp(Mesh, Policy)` the request record, one modality with the probe query a result member; `CurveSkeleton` the frozen SoA result — node position/radius/witness columns and arc endpoint/provenance/component columns — projecting the composed `SkeletonGraph` through `Graph` and answering `Clearance(Point3d)`; `Skeletonize` the static surface.
+- Owner: `SkeletonPolicy` the Au weight/convergence/surgery policy row registering `IValidityEvidence`; `SkeletonOp(Mesh, Policy)` the request record, one modality with the probe query a result member; `CurveSkeleton` the frozen SoA result — node position/radius/section-ellipse/witness columns and arc endpoint/provenance/component columns — projecting the composed `SkeletonGraph` through `Graph` and answering `Clearance(Point3d)`; `Skeletonize` the static surface.
 - Cases: none minted — the clearance family (`ClearanceNode` · `SkeletonArc` · `SkeletonGraph`) is `offset.md`'s, composed verbatim, and the result's node and arc rows ARE that family's rows read off the columns.
 - Entry: `public static Fin<CurveSkeleton> Apply(SkeletonOp op, Op? key = null)` — the ONE entry, the probe riding the result with no `Contract`/`ExtractSkeleton`/`ProbeClearance` sibling. Admission gates `IsManifold ∧ IsOriented ∧ BoundaryComponents == 0` over the landed `MeshKernel.TopologyDetailed` witness, routing `DegenerateInput` 2400 on an empty mesh, an invalid policy row, or an open shell rather than a silent garbage graph; a stalled area ratio routes `CollapseStalled` 2418, an exhausted surgery queue `SkeletonStalled` 2417.
-- Auto: admission snapshots the ORIGINAL positions and one-ring areas (the `W_H` anchoring denominators and the radius provenance) and opens ONE `MeshEdit.Of` arena with the policy floor threaded into `ArenaPolicy`. Each contraction round re-assembles the clamped cotangent stiffness from LIVE arena positions, factors `diag(W_H) + w_L·L_k` once through `CholeskySparse`, solves the three coordinate axes' mass-weighted right-hand sides, writes contracted positions back, kills sub-floor faces, refreshes `W_H` off the collapsing one-ring areas, and scales `w_L` — until the area ratio meets `CollapseAreaRatio` or stalls inside `StallBand`. Surgery then drains a cost-ordered `PriorityQueue` over FACE-BEARING edges: a dequeued edge collapses only while a live face carries both endpoints, so every accepted collapse kills at least one face and a face-less edge — the emerging 1D skeleton — survives untouched, each collapse folding the victim's merge set into the survivor. Extraction folds the survivors into a transient `UndirectedGraph`, takes `MinimumSpanningTreeKruskal` to prune contraction-noise cycles to the tree and span a multi-shell remnant as a forest, labels branches through `ConnectedComponents`, recovers `Radius` and `Witness` from the merge provenance, and under `SmoothBranches` re-samples each maximal degree-2 chain's interior through `Interpolate.CubicSplineRobust`.
+- Auto: admission snapshots the ORIGINAL positions and one-ring areas (the `W_H` anchoring denominators and the radius provenance) and opens ONE `MeshEdit.Of` arena with the policy floor threaded into `ArenaPolicy`. Each contraction round re-assembles the clamped cotangent stiffness from LIVE arena positions, factors `diag(W_H) + w_L·L_k` once through `CholeskySparse`, solves the three coordinate axes' mass-weighted right-hand sides, writes contracted positions back, kills sub-floor faces, refreshes `W_H` off the collapsing one-ring areas, and scales `w_L` — until the area ratio meets `CollapseAreaRatio` or stalls inside `StallBand`. Surgery then drains a cost-ordered `PriorityQueue` over FACE-BEARING edges: a dequeued edge collapses only while a live face carries both endpoints, so every accepted collapse kills at least one face and a face-less edge — the emerging 1D skeleton — survives untouched, each collapse folding the victim's merge set into the survivor. Extraction folds the survivors into a transient `UndirectedGraph`, takes `MinimumSpanningTreeKruskal` to prune contraction-noise cycles to the tree and span a multi-shell remnant as a forest, labels branches through `ConnectedComponents`, recovers `Radius` and `Witness` from the merge provenance — through the policy's `RadiusMeasure` binding when supplied, the Euclidean witness distance otherwise — fits `SectionA`/`SectionB` as the merge set's two principal spreads in the arc-normal plane (frame from the arc tangent and the witness direction; an isotropic section reports `SectionB == Radius`), and under `SmoothBranches` re-samples each maximal degree-2 chain's interior through `Interpolate.CubicSplineRobust`.
 - Receipt: none on a dedicated rail — `CurveSkeleton` IS the typed result and the wire; the frozen node/arc/radius columns are the evidence the Fabrication decoder binds, never the live arena or the transient graph.
 - Packages: `Rasm.Meshing` sibling file (`ClearanceNode`/`SkeletonArc`/`SkeletonGraph`, composed never re-minted), `Rasm.Meshing` (`MeshEdit.Of`/`SetPosition`/`SetFace`/`KillFace`/`Parallel` the arena; `ArenaPolicy` the floor carrier; `MeshSpace` the admission snapshot; `MeshKernel.TopologyDetailed` the watertight gate; `Cotangent.OfEdges` THE cotangent arithmetic), `Rasm.Numerics` (`SparseMatrix.FromTriplets` + `CholeskySparse.Of`/`Solve` the landed sparse owners; `GeometryFault`), `Rhino.Geometry` (`Point3d`/`Vector3d`), MathNet.Numerics (`Interpolate.CubicSplineRobust` → `IInterpolation.Interpolate` the branch-smoothing pass), QuikGraph (`UndirectedGraph<int, SEdge<int>>`, `AddVertexRange`, `MinimumSpanningTreeKruskal`, `ConnectedComponents`), CommunityToolkit.HighPerformance (`IAction` struct actions through the arena's `Parallel` verb), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`PriorityQueue<TElement,TPriority>`).
-- Growth: a new contraction law (anisotropic weighting, feature-pinned contraction) is a policy column feeding the SAME assembly; a new surgery cost term is one addend in the cost fold; a per-node cross-section ellipse beyond the scalar radius is one further node column pair; a geodesic-distance radius is one policy row re-routing the provenance measure through the landed `geodesics.md` distance arm; a cycle-preserving policy for genus-bearing input retains the MST's dropped longest-cycle edge; zero new entry surface, zero new clearance types.
+- Growth: a new contraction law (anisotropic weighting, feature-pinned contraction) is a policy column feeding the SAME assembly; a new surgery cost term is one addend in the cost fold; a further per-node section measure follows the `SectionA`/`SectionB` column pair; a new provenance measure is a `RadiusMeasure` binding, the consumer supplying its own arm at its own stratum; a cycle-preserving policy for genus-bearing input retains the MST's dropped longest-cycle edge; zero new entry surface, zero new clearance types.
 - Boundary: the clearance vocabulary is `offset.md`'s ONE family — `Radius` means distance-to-boundary on BOTH pages and the probe returns `r(foot) − |probe − foot|`. Contraction composes the landed owners and re-derives none: `Cotangent.OfEdges` is the one cotangent arithmetic, `SparseMatrix.FromTriplets`/`CholeskySparse` the one sparse rail, while the per-round re-assembly is skeleton's OWN loop because the substrate `Laplacian(Cotangent)` row quality-gates exactly the degenerate regime the contraction inhabits and `IntrinsicDelaunay` re-triangulates away the connectivity the surgery must own — the composed-primitive/authored-loop split is the design. `geodesics.md`'s memoized MCF arm stays the SCALAR-FIELD owner (fixed connectivity, one factor, displacement magnitudes) and the two MCF forms share no interior. QuikGraph stays transient in-computation state with the frozen SoA columns the complete contract. Arena state stays single-writer with the surgery's adjacency scratch kernel-local, and the ORIGINAL mesh is never mutated — the arena copies at admission and radius provenance reads the snapshot. `Apply` is total over the `Fin` rail, so a thrown exception on a stalled contraction or an open shell is forbidden.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -46,7 +46,11 @@ namespace Rasm.Meshing;
 public sealed record SkeletonPolicy(
     double LaplaceSeed, double ContractionScale, double Attraction, double CotangentCeiling,
     int MaxIterations, double CollapseAreaRatio, double StallBand, double SamplingWeight,
-    bool SmoothBranches, int ParallelFloor) : IValidityEvidence {
+    bool SmoothBranches, int ParallelFloor,
+    // Consumer-assigned radius measure — the seam the geodesic-distance radius rides: None keeps the Euclidean
+    // witness distance; a higher-stratum consumer binds the geodesics distance arm at ITS stratum, so this S1
+    // owner re-routes the provenance measure without referencing S2.
+    Option<Func<Point3d, Point3d, Fin<double>>> RadiusMeasure = default) : IValidityEvidence {
     public static readonly SkeletonPolicy Canonical = new(
         LaplaceSeed: 1e-3, ContractionScale: 2.0, Attraction: 1.0, CotangentCeiling: 1e4,
         MaxIterations: 24, CollapseAreaRatio: 1e-6, StallBand: 1e-2, SamplingWeight: 0.1,
@@ -68,8 +72,11 @@ public sealed record SkeletonPolicy(
 public sealed record SkeletonOp(MeshSpace Mesh, SkeletonPolicy Policy);
 
 // SoA wire: node position/radius/witness + arc endpoint/provenance/component columns; the typed view is offset's clearance family minted FROM the columns.
+// SectionA/SectionB carry the per-node cross-section ellipse semiaxes in the arc-normal plane (frame derived
+// from the arc tangent and the witness direction) — Radius stays the scalar clearance measure the offset family
+// reads, with SectionB == Radius on an isotropic section.
 public sealed record CurveSkeleton(
-    double[] NodeX, double[] NodeY, double[] NodeZ, double[] Radius, int[] Witness,
+    double[] NodeX, double[] NodeY, double[] NodeZ, double[] Radius, double[] SectionA, double[] SectionB, int[] Witness,
     int[] ArcFrom, int[] ArcTo, int[] ArcOrigin, int[] Component) {
 
     public int NodeCount => Radius.Length;
@@ -81,7 +88,7 @@ public sealed record CurveSkeleton(
         toSeq(Enumerable.Range(0, ArcCount).Select(a => new SkeletonArc(ArcFrom[a], ArcTo[a], ArcOrigin[a]))));
 
     // Arbitrary-probe clearance, offset's distance-to-boundary semantics: the exact scan finds the nearest arc foot, Radius = r(foot) − |probe − foot|.
-    // A zero-arc skeleton (fully merged shells, one isolated node each) answers from its nearest node.
+    // Zero-arc skeletons (fully merged shells, one isolated node each) answer from its nearest node.
     public ClearanceNode Clearance(Point3d probe) {
         if (ArcCount == 0) {
             (double near, int at) = (double.PositiveInfinity, 0);
@@ -118,8 +125,8 @@ public static class Skeletonize {
 
     // Watertight gate over the landed TOTAL topology witness — the contraction flows a closed surface to its interior medial, so an open shell refuses.
     static Fin<Unit> Admit(SkeletonOp op) =>
-        op.Mesh.Native.Faces.Count == 0 ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "empty mesh").ToError())
-        : !op.Policy.IsValid ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "invalid skeleton policy").ToError())
+        op.Mesh.Native.Faces.Count == 0 ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "empty mesh").ToError())
+        : !op.Policy.IsValid ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "invalid skeleton policy").ToError())
         : MeshKernel.TopologyDetailed(op.Mesh).Bind(static topology =>
             topology.IsManifold && topology.IsOriented && topology.BoundaryComponents == 0
                 ? Fin.Succ(unit)
@@ -241,7 +248,7 @@ public static class Skeletonize {
 
     // --- [SURGERY]
     // Cost-ordered half-edge collapses over FACE-BEARING edges until no face survives: cost = length + λ·(length × adjacent-sum), centering AND evenly sampling the 1D remnant.
-    // A face-less edge (the emerging skeleton) skips, so each accepted collapse kills ≥1 face and bounds the loop by face count; vertex→face/vertex indexes update per collapse, merges route the union-find parents.
+    // Face-less edges (the emerging skeleton) skip, so each accepted collapse kills ≥1 face and bounds the loop by face count; vertex→face/vertex indexes update per collapse, merges route the union-find parents.
     static Fin<ContractState> Surgery(ContractState state, SkeletonPolicy policy) {
         MeshEdit arena = state.Arena;
         Dictionary<int, IndexSet> adjacency = [];
@@ -417,6 +424,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Curve-skeleton flow
+    accDescr: Meshes flow through contraction rounds, edge-collapse surgery, and tree extraction into the frozen skeleton columns.
     SkeletonOp -->|TopologyDetailed watertight gate| MeshKernel
     SkeletonOp -->|MeshEdit.Of — the arena| MeshEdit
     MeshEdit -->|clamped Cotangent.OfEdges triplets per round| SparseMatrix

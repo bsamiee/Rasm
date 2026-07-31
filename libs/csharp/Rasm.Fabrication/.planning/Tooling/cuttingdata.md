@@ -439,12 +439,12 @@ public sealed partial class CuttingData {
     public static Fin<CuttingData> Of(MaterialSource source, CutterForm form, Operation operation,
         CuttingTable table, Option<CorrectionInputs> correction = default) =>
         from material in source.Switch(
-            family: row => table.Material(row.Value).ToFin(FabricationFault.MachinabilityUnknown(row.Value, operation)),
+            family: row => table.Material(row.Value).ToFin(new FabricationFault.MachinabilityUnknown(row.Value, operation)),
             spec: row => table.Materials.Contains(row.Value)
                 ? Fin.Succ(row.Value)
-                : Fin.Fail<MaterialCutSpec>(FabricationFault.MachinabilityUnknown(row.Value.Material, operation)))
+                : Fin.Fail<MaterialCutSpec>(new FabricationFault.MachinabilityUnknown(row.Value.Material, operation)))
         from trait in table.Operation(operation)
-            .ToFin(FabricationFault.MachinabilityUnknown(material.Material, operation))
+            .ToFin(new FabricationFault.MachinabilityUnknown(material.Material, operation))
         from resolved in Resolve(material, form, trait, table, correction)
         select resolved;
 
@@ -641,7 +641,7 @@ public static class CutterFormProjection {
             Fin.Succ(Geometry(assembly)).Bind(geometry =>
                 from family in (policy.DeclaredFamily | Infer(assembly, policy, geometry))
                     .ToFin(Error.New(message: $"cutter-form-unclassified:{assembly.Identity}"))
-                from form in CutterForm.Admit(new CutterIngress.Direct(family, geometry.Diameter,
+                from form in CutterForm.Admit(new CutterIngress(family, geometry.Diameter,
                     geometry.Radius, geometry.Taper, geometry.Flute))
                 select form);
     }
@@ -662,11 +662,12 @@ public static class CutterFormProjection {
         Taper: assembly.Snapshot.Metric(ToolMeasure.LeadAngle)
             .OrElse(assembly.Snapshot.Metric(ToolMeasure.CuttingEdgeAngle).Map(static angle => 90.0 - angle))
             .IfNone(0.0),
-        Flute: Seq(assembly.Snapshot.Metric(ToolMeasure.MaximumUsableLength),
-                assembly.Snapshot.Metric(ToolMeasure.CuttingEdgeLength),
-                assembly.Snapshot.Metric(ToolMeasure.MaximumDepthOfCut),
-                Some(assembly.Stickout))
-            .Choose(static value => value).OrderBy(static value => value).HeadOrNone().IfNone(0.0));
+        Flute: toSeq(Seq(assembly.Snapshot.Metric(ToolMeasure.MaximumUsableLength),
+                    assembly.Snapshot.Metric(ToolMeasure.CuttingEdgeLength),
+                    assembly.Snapshot.Metric(ToolMeasure.MaximumDepthOfCut),
+                    Some(assembly.Stickout))
+                .Choose(static value => value).OrderBy(static value => value))
+            .Head.IfNone(0.0));
 
     private static Option<CutterFamily> Infer(ToolAssembly assembly, CutterFormPolicy policy,
         (double Diameter, double Radius, double Taper, double Flute) geometry) =>
@@ -801,16 +802,17 @@ public abstract partial record StabilityEvidence {
 public sealed record StabilityReceipt(Seq<StabilityBand> Bands, ModalResponse Modal,
     Seq<StabilityGap> Gaps, Pressure TangentialCoefficient, ScalarBand Search, Length TargetDepth) {
     public Option<StabilityPoint> Recommend(Length depth) =>
-        Bands.Bind(static band => band.Points)
-            .Filter(point => point.AxialDepthLimit >= depth && point.Evidence is StabilityEvidence.Stable)
-            .OrderByDescending(static point => point.Margin).HeadOrNone();
+        toSeq(Bands.Bind(static band => band.Points)
+                .Filter(point => point.AxialDepthLimit >= depth && point.Evidence is StabilityEvidence.Stable)
+                .OrderByDescending(static point => point.Margin))
+            .Head;
 }
 
 public static class ChatterStability {
     public static Fin<StabilityReceipt> Apply(StabilityRequest request) =>
         from coefficient in request.Cutting.Kc(request.ChipThickness.Millimeters).Map(Pressure.FromMegapascals)
         let requests = toSeq(Enumerable.Range(0, request.Modal.Modes.Count)).Bind(mode =>
-            Range(0, request.Policy.Lobes).Map(lobe => (Mode: mode, Lobe: lobe, Response: request.Modal.Modes[mode])))
+            Range(0, request.Policy.Lobes).ToSeq().Map(lobe => (Mode: mode, Lobe: lobe, Response: request.Modal.Modes[mode])))
         from results in requests.Traverse(row => Band(row.Mode, row.Lobe, row.Response, coefficient, request).ToValidation()).As().ToFin()
         let bands = results.Bind(static row => row is StabilityAttempt.Solved solved ? solved.Bands : Seq<StabilityBand>())
         let gaps = results.Bind(static row => row switch {
@@ -850,8 +852,8 @@ public static class ChatterStability {
 
     private static Fin<Option<StabilityBand>> BuildBand(Seq<StabilityPoint> candidates, int mode, int lobe,
         ModalMode response, Pressure coefficient, StabilityRequest request) {
-        Seq<StabilityPoint> points = candidates.OrderBy(static point => point.Spindle.RevolutionsPerMinute).ToSeq();
-        return (points.Head, points.Last, points.OrderByDescending(static point => point.AxialDepthLimit).HeadOrNone())
+        Seq<StabilityPoint> points = toSeq(candidates.OrderBy(static point => point.Spindle.RevolutionsPerMinute));
+        return (points.Head, points.Last, toSeq(points.OrderByDescending(static point => point.AxialDepthLimit)).Head)
             .Apply(static (first, last, peak) => (First: first, Last: last, Peak: peak))
             .Bind(bounds => Optional(ScalarBand.Create(bounds.First.Spindle.RevolutionsPerMinute,
                 bounds.Peak.Spindle.RevolutionsPerMinute, bounds.Last.Spindle.RevolutionsPerMinute)))

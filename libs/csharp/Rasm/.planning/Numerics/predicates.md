@@ -1,6 +1,6 @@
 # [RASM_NUMERICS_PREDICATES]
 
-`Predicate` owns the adaptive-precision exact-sign floor every higher geometry owner composes, returning a total `Sign` for explicit and constructed points alike. A constructed intersection point travels as defining-point carriage with exact coordinates derived on demand, so no rounded coordinate enters a predicate and rounding happens once at the consumer's emission seam.
+`Predicate` owns the adaptive-precision exact-sign floor every higher geometry owner composes, returning a total `Sign` for explicit and constructed points alike. Constructed intersection points travel as defining-point carriage with exact coordinates derived on demand, so no rounded coordinate enters a predicate and rounding happens once at the consumer's emission seam.
 
 Every fold is one polynomial instantiated at both the `Interval` filter and `Expansion` exact carriers through the `IExact<TSelf>` algebra, so the filter never tests a different polynomial than the exact branch decides.
 
@@ -13,14 +13,14 @@ Every fold is one polynomial instantiated at both the `Interval` filter and `Exp
 
 - Owner: `Sign` `[SmartEnum<int>]` is the closed ternary verdict every predicate returns, carrying the `Flip`/`Times` parity algebra; `Axis` `[SmartEnum<int>]` is the closed coordinate vocabulary and the ONE generator every axis-projected member spans its three planes over; `Implicit` `[Union<Point3d, Ssi, Lpi, Tpi>]` carries a constructed point as DEFINING POINTS ONLY, its exact homogeneous coordinates derived on demand through `Homogeneous<T>`; `Predicate` is the ONE static surface owning both the direct ladders and the implicit folds.
 - Cases: `Sign`, `Axis`, and the four `Implicit` constructions are the closed vocabularies; `Predicate` carries the four direct members `Orient2D`/`Orient3D`/`InCircle`/`InSphere` beside `Orient2D(in Implicit, in Implicit, in Implicit, Axis)` spanning every explicit/implicit combination × projection plane, `Compare(in Implicit, in Implicit, Axis)` the exact per-coordinate order key, and the in-circum `InCircle`/`InSphere` implicit queries.
-- Entry: every member is a total pure exact function returning `Sign` with no rail; the raw-`double` direct entries are the core cross-package consumers bind, since the Compute lane bars host value types on interior signatures, and the `Point3d` overloads adapt at the seam. Implicit entries discriminate on the carrier's case shape and the `Axis` row. A degenerate construction (`lambda = 0`) yields `Sign.Zero` through the `Times` flip algebra, the degeneracy witness the consumer's recovery reads.
+- Entry: every member is a total pure exact function returning `Sign` with no rail; the raw-`double` direct entries are the core cross-package consumers bind, since the Compute lane bars host value types on interior signatures, and the `Point3d` overloads adapt at the seam. Implicit entries discriminate on the carrier's case shape and the `Axis` row. Degenerate constructions (`lambda = 0`) yield `Sign.Zero` through the `Times` flip algebra, the degeneracy witness the consumer's recovery reads.
 - Auto: each direct member filters in `double`, refines at 106-bit `ddouble`, then folds the sign-exact `Expansion`; each implicit member runs the `Interval` directed-rounding filter on the SAME polynomial first, escalating the indeterminate residue to `Expansion` and the in-circum queries on to `RationalOracle.InCircum`. Every member walks its tiers inline as one `??`-chain over the uniform `Sign?`-or-escalate protocol, allocation-free with no captured thunk; every tier is monotone and sign-consistent, so the verdict is always the true sign.
 - Receipt: none — a `Sign` verdict carries no residual. Its one emission-side materialization is `Implicit.Round()`, the rounded `Point3d` a consumer emits at its own seam, never a value any predicate reads back.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`), RhinoCommon (`Point3d`), TYoshimura.DoubleDouble (106-bit refine), ExtendedNumerics.BigRational (exact-rational oracle), PeterO.Numbers (interval filter, second-source adjudicator), Rasm.Domain (`Op`/`Fault.InvalidInput`, the `DominantOf` refusal rail), BCL inbox (`FusedMultiplyAdd`, intrinsics probes, `BigInteger`).
 - Growth: a new implicit construction is one `Implicit` case carrying its defining points and one `Homogeneous<T>` arm, every fold and emission member widening by that arm with the generated dispatch breaking loudly; a new direct predicate is one member and one `ErrorBound` row; a new precision stage is one `PrecisionTier` row with one escalation arm per member tail. Multi-implicit in-circum combinations and the 3D multi-implicit `Orient3D`/`InSphere` family are CDTet-gated arms on the existing members — zero new surface.
-- Boundary: the whole family lives on ONE `Predicate` static owner — a per-predicate class or a `FastOrient2D`/`ExactOrient2D` pair is the deleted form. Verdicts are the closed `Sign` and a raw `int`/`double` sign crossing a public signature is the named defect; coordinates are `Point3d` read at the seam, a domain-local point struct the deleted form. A constructed point travels as `Implicit` defining-point carriage rounded ONCE at `Round()` — a `Denominator`-as-`double` field or an `Estimate()` inside an exact carrier is the named robustness defect — and derived `Plane` inputs are dead, so a three-plane point is its NINE points. `DominantOf` is the ONE geometry admission, its float normals barred from every exact carrier; every leaf difference rides the error-free `IExact.Diff`, a raw `double` subtraction wrapped in an exact type the deleted rounded-leaf form. Loosening a filter band to pass a near-degenerate case instead of taking the exact branch is the named correctness defect — a sign verdict is exact or it is a defect.
+- Boundary: the whole family lives on ONE `Predicate` static owner — a per-predicate class or a `FastOrient2D`/`ExactOrient2D` pair is the deleted form. Verdicts are the closed `Sign` and a raw `int`/`double` sign crossing a public signature is the named defect; coordinates are `Point3d` read at the seam, a domain-local point struct the deleted form. Constructed points travel as `Implicit` defining-point carriage rounded ONCE at `Round()` — a `Denominator`-as-`double` field or an `Estimate()` inside an exact carrier is the named robustness defect — and derived `Plane` inputs are dead, so a three-plane point is its NINE points. `DominantOf` is the ONE geometry admission, its float normals barred from every exact carrier; every leaf difference rides the error-free `IExact.Diff`, a raw `double` subtraction wrapped in an exact type the deleted rounded-leaf form. Loosening a filter band to pass a near-degenerate case instead of taking the exact branch is the named correctness defect — a sign verdict is exact or it is a defect.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using DoubleDouble;
@@ -46,14 +46,14 @@ public sealed partial class Sign {
     public Sign Times(Sign other) => Of(Key * other.Key);
 }
 
-// A rounded-coordinate Double filter cannot exist for a constructed point, so implicit members open at Interval.
+// Rounded-coordinate Double filters cannot exist for a constructed point, so implicit members open at Interval.
 [SmartEnum<int>]
 public sealed partial class PrecisionTier {
     public static readonly PrecisionTier Double       = new(0); // IEEE-754 forward-error filter (direct only)
     public static readonly PrecisionTier DoubleDouble = new(1); // ddouble 106-bit error-free-transform refine (direct only)
     public static readonly PrecisionTier Interval     = new(2); // directed-rounding EFloat bracket filter (implicit only)
-    public static readonly PrecisionTier Expansion    = new(3); // sign-exact nonoverlapping expansion
-    public static readonly PrecisionTier Rational     = new(4); // Fraction BigInteger exact-rational oracle
+    public static readonly PrecisionTier Expansion    = new(3); // sign-exact nonoverlapping expansion — the direct predicates' terminal tier
+    public static readonly PrecisionTier Rational     = new(4); // implicit in-circum terminal: PRIMARY Fraction + INDEPENDENT ERational, verdicts agreeing
 }
 
 // Key = the axis' coordinate ordinal (the Compare column); U/V = the plane NORMAL to it (the
@@ -106,7 +106,7 @@ public readonly partial struct Implicit {
             lpi:       static l => l.Homogeneous<T>(),
             tpi:       static t => t.Homogeneous<T>());
 
-    // A zero-lambda construction rounds to non-finite coordinates the freeze gate rejects; rounding never
+    // Zero-lambda constructions round to non-finite coordinates the freeze gate rejects; rounding never
     // invents a point the construction lacks.
     public Point3d Round() =>
         IsExplicit ? AsExplicit : Materialized(Homogeneous<Expansion>());
@@ -177,7 +177,7 @@ public readonly record struct Tpi(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Predicate {
-    // A captured-closure fold would allocate two delegates per call on the hottest path — hence the inline `??`-chain.
+    // Captured-closure folds would allocate two delegates per call on the hottest path — hence the inline `??`-chain.
     // Middle and exact tiers share the `TwoProduct`/`TwoSum` model, so they never disagree on a sign both resolve.
 
     // --- [COORDINATE_CORE]
@@ -391,7 +391,7 @@ public static class Predicate {
         new(Axis.Coord(p, axis.U), Axis.Coord(p, axis.V), 0.0);
 
     // --- [EXACT_FALLBACKS]
-    // A raw rounded `a.X - c.X` would decide the sign of a DIFFERENT determinant exactly — hence the TwoSum leaf.
+    // Raw rounded `a.X - c.X` decides the sign of a DIFFERENT determinant exactly — hence the TwoSum leaf.
     static Expansion Diff(double p, double q) => Expansion.TwoSum(p, -q);
 
     static Sign Orient2DExact(Point3d a, Point3d b, Point3d c) =>
@@ -509,51 +509,32 @@ public static class Predicate {
 }
 
 public static class RationalOracle {
-    // Topmost exact-rational tier: each ordinate widens losslessly through `(Fraction)double` and the
-    // verdict is `Fraction.Sign` — never a `double`/`decimal` readout.
-    public static Sign Orient2D(Point3d a, Point3d b, Point3d c) {
-        Fraction acx = (Fraction)a.X - (Fraction)c.X, acy = (Fraction)a.Y - (Fraction)c.Y;
-        Fraction bcx = (Fraction)b.X - (Fraction)c.X, bcy = (Fraction)b.Y - (Fraction)c.Y;
-        return Sign.Of(Fraction.Subtract(acx * bcy, acy * bcx).Sign);
-    }
-
-    public static Sign Orient3D(Point3d a, Point3d b, Point3d c, Point3d d) {
-        Fraction adx = (Fraction)a.X - (Fraction)d.X, ady = (Fraction)a.Y - (Fraction)d.Y, adz = (Fraction)a.Z - (Fraction)d.Z;
-        Fraction bdx = (Fraction)b.X - (Fraction)d.X, bdy = (Fraction)b.Y - (Fraction)d.Y, bdz = (Fraction)b.Z - (Fraction)d.Z;
-        Fraction cdx = (Fraction)c.X - (Fraction)d.X, cdy = (Fraction)c.Y - (Fraction)d.Y, cdz = (Fraction)c.Z - (Fraction)d.Z;
-        Fraction det = adz * (bdx * cdy - cdx * bdy) + bdz * (cdx * ady - adx * cdy) + cdz * (adx * bdy - bdx * ady);
-        return Sign.Of(det.Sign);
-    }
-
-    public static Sign InCircle(Point3d a, Point3d b, Point3d c, Point3d d) {
-        Fraction adx = (Fraction)a.X - (Fraction)d.X, ady = (Fraction)a.Y - (Fraction)d.Y;
-        Fraction bdx = (Fraction)b.X - (Fraction)d.X, bdy = (Fraction)b.Y - (Fraction)d.Y;
-        Fraction cdx = (Fraction)c.X - (Fraction)d.X, cdy = (Fraction)c.Y - (Fraction)d.Y;
-        Fraction det =
-            (adx * adx + ady * ady) * (bdx * cdy - cdx * bdy)
-            + (bdx * bdx + bdy * bdy) * (cdx * ady - adx * cdy)
-            + (cdx * cdx + cdy * cdy) * (adx * bdy - bdx * ady);
-        return Sign.Of(det.Sign);
-    }
-
-    public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, Point3d e) {
-        (Fraction x, Fraction y, Fraction z, Fraction lift) Row(Point3d p) {
-            Fraction px = (Fraction)p.X - (Fraction)e.X, py = (Fraction)p.Y - (Fraction)e.Y, pz = (Fraction)p.Z - (Fraction)e.Z;
-            return (px, py, pz, px * px + py * py + pz * pz);
-        }
-        ((Fraction x, Fraction y, Fraction z, Fraction lift) ra, (Fraction x, Fraction y, Fraction z, Fraction lift) rb, (Fraction x, Fraction y, Fraction z, Fraction lift) rc, (Fraction x, Fraction y, Fraction z, Fraction lift) rd) = (Row(a), Row(b), Row(c), Row(d));
-        Fraction Det3((Fraction x, Fraction y, Fraction z, Fraction lift) u, (Fraction x, Fraction y, Fraction z, Fraction lift) v, (Fraction x, Fraction y, Fraction z, Fraction lift) w) =>
-            u.x * (v.y * w.z - v.z * w.y) - u.y * (v.x * w.z - v.z * w.x) + u.z * (v.x * w.y - v.y * w.x);
-        Fraction det = rd.lift * Det3(ra, rb, rc) - rc.lift * Det3(ra, rb, rd) + rb.lift * Det3(ra, rc, rd) - ra.lift * Det3(rb, rc, rd);
-        return Sign.Of(det.Sign);
-    }
-
     // `lambda.ToFraction().Sign` reads the denominator sign exactly — never a rounded estimate; `lambdaDegree`
-    // is the structural lambda power the Sign.Times parity composes.
+    // is the structural lambda power the Sign.Times parity composes. The PRIMARY Fraction verdict returns only
+    // when the INDEPENDENT ERational verdict agrees — two exact oracles over disjoint bignum substrates, so a
+    // transcription defect in either lift is caught structurally; disagreement is a broken-proof state, never
+    // an answer.
     public static Sign InCircum(Expansion det, Expansion lambda, int lambdaDegree) {
         Sign fl = Sign.Of(lambda.ToFraction().Sign);
         Sign parity = (lambdaDegree & 1) == 0 ? fl.Times(fl) : fl;
-        return Sign.Of(det.ToFraction().Sign).Times(parity);
+        Sign primary = Sign.Of(det.ToFraction().Sign).Times(parity);
+        return primary == RationalOf(det: det, lambda: lambda, lambdaDegree: lambdaDegree)
+            ? primary
+            : throw new UnreachableException("exact-oracle disagreement: Fraction vs ERational");
+    }
+
+    // RationalOf is the INDEPENDENT second source on the ratio path: each Expansion component lifts losslessly through
+    // `ERational.FromDouble` (EInteger substrate — no representation shared with Fraction's BigInteger), the
+    // fold stays exact at infinite precision, and the SAME parity composition reads `ERational.Sign`.
+    internal static Sign RationalOf(Expansion det, Expansion lambda, int lambdaDegree) {
+        static ERational Lift(Expansion e) {
+            ERational acc = ERational.FromEInteger(EInteger.Zero);
+            foreach (double component in e.Components) acc = acc.Add(ERational.FromDouble(component));
+            return acc;
+        }
+        Sign fl = Sign.Of(Lift(lambda).Sign);
+        Sign parity = (lambdaDegree & 1) == 0 ? fl.Times(fl) : fl;
+        return Sign.Of(Lift(det).Sign).Times(parity);
     }
 
     // `EFloat.FromDouble` sums the `Expansion` determinant to an exact binary value under `EContext.Unlimited`,
@@ -579,7 +560,7 @@ public static class RationalOracle {
 - Growth: a new exact carrier (a hardware `Float128` bracket) is one `IExact` conformance every construction instantiates with zero polynomial edits; a new predicate's filter is one `ErrorBound` row; a longer computation grows the `Expansion` component buffer, never a parallel arbitrary-precision type; the interior-`double` scope widens to a new kernel only by naming it in `NumericsPolicy`.
 - Boundary: `Expansion` is ONE owner for sign-exact arithmetic — a free `TwoSum`/`TwoProduct` set or a parallel `BigFloat`/`MPFR` type is the deleted form. `Interval` is ONE owner for the directed-rounding bracket — a per-predicate epsilon-inflation filter is the deleted form, the bracket sound by construction where an epsilon guess is a tuned lie. Both `TwoProduct` rows share one member gated once on `NumericsPolicy.HardwareFma`; a per-call-site FMA probe or a second product type is the deleted form. `ErrorBound` is the single permanence-threshold table, an inlined magic-number literal the named defect. `NumericsPolicy` states the strict-IEEE-754/RID invariant as the floor the forward-error coefficients derive against, and a runtime violating it is outside the support matrix, not a tolerated mode.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 // Struct-constrained static-abstract dispatch, JIT-specialized, zero boxing.
 public interface IExact<TSelf> where TSelf : struct, IExact<TSelf> {
@@ -735,11 +716,28 @@ public readonly struct Expansion : IExact<Expansion> {
     Sign? IExact<Expansion>.Verdict => SignOf(this);
 
     // --- [RATIONAL_LIFT]
-    // Each nonoverlapping component is a lossless `(Fraction)double`, so the exact value crosses to the BigInteger tier unrounded.
+    // Every component is dyadic, so the exact sum is ONE BigInteger numerator over ONE shared power-of-two
+    // denominator — mantissas shift to the common exponent and the Fraction constructs once. The pairwise
+    // `Fraction.Add` fold was the deleted form: its unreduced denominator product grew as the SUM of the
+    // per-component bit-lengths, quadratic-cost `BigInteger.Multiply` at every step on exactly the degenerate
+    // inputs the oracle exists to adjudicate.
     public Fraction ToFraction() {
-        Fraction acc = Fraction.Zero;
-        for (int i = 0; i < length; i++) acc = Fraction.Add(acc, (Fraction)components[i]);
-        return acc;
+        int shared = int.MaxValue;
+        Span<int> exponents = stackalloc int[length];
+        for (int i = 0; i < length; i++) {
+            if (components[i] == 0.0) continue;
+            exponents[i] = Math.ILogB(components[i]) - 52;
+            shared = Math.Min(shared, exponents[i]);
+        }
+        if (shared == int.MaxValue) return Fraction.Zero;
+        BigInteger numerator = BigInteger.Zero;
+        for (int i = 0; i < length; i++) {
+            if (components[i] == 0.0) continue;
+            numerator += new BigInteger((long)Math.ScaleB(components[i], -exponents[i])) << (exponents[i] - shared);
+        }
+        return shared >= 0
+            ? new Fraction(numerator << shared, BigInteger.One)
+            : new Fraction(numerator, BigInteger.One << -shared);
     }
 
     // Nonoverlapping components in magnitude order — the exact bridge `RationalOracle.BinaryOf` lifts losslessly.

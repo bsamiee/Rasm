@@ -11,7 +11,7 @@ Each payload discriminant composes from its owning sibling's vocabulary — the 
 ## [02]-[FAULT_BAND]
 
 - Owner: `GeometryFault` the closed `[Union]` at the `Rasm.Numerics` root, one case per reachable failure carrying its typed payload and band-2400 `Code`, lowered to the `Error` rail through `ToError()`; `FaultCluster` the `[SmartEnum<int>]` taxonomy resolving a code's cluster name and owning namespace by stride arithmetic with no lookup table beside the vocabulary; `ParametricStage`/`DevelopmentStage` the `StringOrdinal`-keyed stage vocabularies, string-keyed because the stage renders into the wire-bound `Message`.
-- Cases: cases sub-band by cluster across the 2400-2449 century — each sibling's cluster owns a four-wide stride, the `parametric` tail spending the final two codes; `DegenerateInput` at the band base is the one cross-cutting admission case every namespace routes, the recorded exception to cluster-locality, and the fence carries the case, code, and payload roster.
+- Cases: cases sub-band by cluster across the 2400-2449 century — each sibling's cluster owns a four-wide stride, the `parametric` tail spending the final two codes; `DegenerateInput` at the band base is the one cross-cutting admission case every namespace routes, the recorded exception to cluster-locality, and the fence carries the case, code, and payload roster; its `Index` is `Option<int>` — a per-element degeneracy threads the real ordinal through the implicit lift, a whole-input degeneracy states absence as `None`, and a sentinel ordinal is the deleted form.
 - Entry: each case is a positional record constructor returning the union; a sibling routes a failure as `GeometryFault.<Case>(...).ToError()`, the payload matched and read before lowering, `ToError` projecting the band `Code` and the parseable `Message` into the `Error` the `Fin<T>` failure channel carries.
 - Auto: `Code`, `Message`, and `Cluster` are total generated folds — a new case breaks every site at compile time, never a silent `_` arm; `Message` renders the `geometry:<case>:<field>=<value>` wire grammar with every keyed discriminant projected through its `Key`; `Cluster` is stride arithmetic over the single `FaultCluster` declaration.
 - Receipt: none — `GeometryFault` is the failure rail itself, the terminal value a `Fin<T>` carries; a fault is the residual.
@@ -21,6 +21,7 @@ Each payload discriminant composes from its owning sibling's vocabulary — the 
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -82,7 +83,7 @@ public sealed partial class DevelopmentStage {
 public abstract partial record GeometryFault {
     private GeometryFault() { }
 
-    public sealed record DegenerateInput(Kind Kind, int Index, string Witness) : GeometryFault;
+    public sealed record DegenerateInput(Kind Kind, Option<int> Index, string Witness) : GeometryFault;
     public sealed record IndexMismatch(EntityKind Kind, int Expected, int Actual) : GeometryFault;
     public sealed record KindMismatch(SpatialKind Index, QueryKind Query) : GeometryFault;
 
@@ -111,6 +112,7 @@ public abstract partial record GeometryFault {
     public sealed record ParameterizationFault(ChartId Chart, double Distortion) : GeometryFault;
 
     public sealed record ProjectionFault(EdgeKind Kind, int Segment) : GeometryFault;
+    public sealed record HatchFault(HatchPattern Pattern, int Region, string Witness) : GeometryFault;
 
     public sealed record DecimationFault(int FaceBudget, int Achieved) : GeometryFault;
     public sealed record RemeshStalled(double TargetLength, double Achieved, int Iterations) : GeometryFault;
@@ -142,6 +144,7 @@ public abstract partial record GeometryFault {
             fitFault:                static _ => 2428,
             parameterizationFault:   static _ => 2432,
             projectionFault:         static _ => 2436,
+            hatchFault:              static _ => 2437,
             decimationFault:         static _ => 2440,
             remeshStalled:           static _ => 2441,
             encodingFault:           static _ => 2444,
@@ -154,7 +157,7 @@ public abstract partial record GeometryFault {
 
     public string Message =>
         Switch(
-            degenerateInput:         static f => $"geometry:degenerate-input:kind={f.Kind.Key}:index={f.Index}:{f.Witness}",
+            degenerateInput:         static f => $"geometry:degenerate-input:kind={f.Kind.Key}{f.Index.Map(static i => $":index={i}").IfNone("")}:{f.Witness}",
             indexMismatch:           static f => $"geometry:index-mismatch:kind={f.Kind.Key}:expected={f.Expected}:actual={f.Actual}",
             kindMismatch:            static f => $"geometry:kind-mismatch:index={f.Index.Key}:query={f.Query.Key}",
             nameCollision:           static f => $"geometry:name-collision:name={f.Name}:kind={f.Kind}",
@@ -174,6 +177,7 @@ public abstract partial record GeometryFault {
             fitFault:                static f => $"geometry:fit-fault:inliers={f.AchievedInlierFraction}:floor={f.Floor}",
             parameterizationFault:   static f => $"geometry:parameterization-fault:chart={f.Chart.Value}:distortion={f.Distortion}",
             projectionFault:         static f => $"geometry:projection-fault:kind={f.Kind.Key}:segment={f.Segment}",
+            hatchFault:              static f => $"geometry:hatch-fault:pattern={f.Pattern.Key}:region={f.Region}:{f.Witness}",
             decimationFault:         static f => $"geometry:decimation-fault:budget={f.FaceBudget}:achieved={f.Achieved}",
             remeshStalled:           static f => $"geometry:remesh-stalled:target={f.TargetLength}:achieved={f.Achieved}:iterations={f.Iterations}",
             encodingFault:           static f => $"geometry:encoding-fault:channel={f.Channel.Key}:dtype={f.Dtype.Key}:{f.Detail}",

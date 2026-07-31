@@ -11,7 +11,7 @@ Furniture is owned geometry over the vector plane, generated under one `Furnitur
 ## [02]-[SOLAR]
 
 - Owner: one site-bound ephemeris seam, one projection law, and one policy-seeded furniture generator. `Site(latitude, longitude, altitude, tz, pressure, temperature)` anchors every solver; `_located` lowers it once. `positions(site, times)` returns `Result[tuple[SunSample, ...], SolarFault]` with apparent angles, true zenith, and AU distance, never a provider frame. Rise/set/transit remains the second provider operation required to bound arcs and discs; both operations close on the same rail.
-- Cases: `SolarProjection` closes the hemisphere-to-sheet family. `STEREOGRAPHIC`, `EQUIDISTANT`, `ORTHOGRAPHIC`, and equal-area `LAMBERT` map the horizon to `radius`; `GNOMONIC` normalizes its low-altitude clamp to the same boundary. `HourConvention.CLOCK` produces analemmas, while `SOLAR` corrects each sample to hour angle `15·(H-12)`. `SolarFault.admission` accumulates independent site, projection, calendar, and furniture-policy defects; `provider` carries a trapped pvlib/pandas refusal.
+- Cases: `SolarProjection` closes the hemisphere-to-sheet family. `STEREOGRAPHIC`, `EQUIDISTANT`, `ORTHOGRAPHIC`, and equal-area `LAMBERT` map the horizon to `radius`; `GNOMONIC` normalizes its low-altitude clamp to the same boundary. `HourConvention.CLOCK` produces analemmas, while `SOLAR` corrects each sample to hour angle `15·(H-12)`. `SolarFault.admission` accumulates independent site, radius, cadence, calendar, and furniture-policy defects; `provider` carries a trapped pvlib/pandas refusal. Projection needs no admission clause — `SolarProjection` is closed and `_R` is total over it, so an unreachable member cannot arrive.
 - Auto: `day_arc`, `analemma`, `hour_line`, `solstices`, and `furniture` stay on the `Result` spine. Polar `NaT` rise/set stamps fall to a civil-day above-horizon filter. `solstices` sweeps `365` or `366` days and returns March/June/September/December identities, so hemisphere semantics remain a consumer decision. `furniture` sequences date arcs, hour lines, and transit discs only after admission and scales each disc by `1 / distance_au`.
 - Growth: a new projection is one `SolarProjection` member plus one `_R` row; a new furniture element one `FurnishingKind` member plus one generator arm; a new chart convention one `FurniturePolicy` value — ring roster, azimuth rays, compass division, hour band, cadence, disc scale all seed data; a new hour semantics one `HourConvention` member plus one `hour_line` arm; a new solver one typed fold over `positions`; site vocabularies (climate, obstruction masks) are upstream data — zero new surface here.
 - Boundary: no rendering, styling, or layer projection (`visualization/diagram/draw#DRAW`'s); no coordinate assignment of diagram marks (`visualization/diagram/layout#LAYOUT` composes this owner for its `SUN_PATH` arm); no shading/energy analysis (the geometry/compute tracks read the true `zenith` column); no receipt, no entry, no async — the SPA kernel is numpy-vectorized pure computation the consuming producer offloads inside its own seam; no ladybug (AGPL, process boundary, geometry track); only `pvlib.solarposition` and `pvlib.location` are admitted, never the PV-system/irradiance surface. A hardcoded solstice calendar, a per-timestamp scalar provider call, bare lat/lon threaded past the `Location`, and a generator body legislating a chart convention the policy value owns are the rejected forms.
@@ -288,9 +288,9 @@ def _furnished(
     ticks = tuple(
         Furnishing(
             FurnishingKind.COMPASS_TICK,
-            _tick(azimuth, radius),
+            _tick(azimuth, kind, radius),
             "NESW"[i // cardinal_step] if i % cardinal_step == 0 else "",
-            anchor=project(azimuth, 0.0, SolarProjection.EQUIDISTANT, radius),
+            anchor=project(azimuth, 0.0, kind, radius),
         )
         for i in range(policy.compass)
         for azimuth in (i * 360.0 / policy.compass,)
@@ -353,9 +353,11 @@ def _ray(azimuth: float, kind: SolarProjection, radius: float, /) -> str:
     return fragment(f"M {x0:.2f} {y0:.2f} L {x1:.2f} {y1:.2f}")
 
 
-def _tick(azimuth: float, radius: float, /) -> str:
-    (x0, y0), (x1, y1) = (project(azimuth, 0.0, SolarProjection.EQUIDISTANT, radius * 0.97),
-                          project(azimuth, 0.0, SolarProjection.EQUIDISTANT, radius))
+def _tick(azimuth: float, kind: SolarProjection, radius: float, /) -> str:
+    # the chart's OWN projection, never a hardcoded row: every admitted projection maps the horizon to `radius`
+    # today, so this reads identically — but that equality is an invariant of the `_R` roster, not a law, and a
+    # future member normalizing elsewhere would silently drift the tick ring off the horizon circle it annotates.
+    (x0, y0), (x1, y1) = (project(azimuth, 0.0, kind, radius * 0.97), project(azimuth, 0.0, kind, radius))
     return fragment(f"M {x0} {y0} L {x1} {y1}")
 
 

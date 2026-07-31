@@ -14,6 +14,7 @@ Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes
 - Owner: `OverrideMove` `[SmartEnum<int>]` parameterizes impose, extend, and retract over set-valued carriers; `ShadowPolicy` owns every cast/receive combination; `DecalSeed` and `MaterialRefSeed` are generated admitted products; `AttributeEdit` `[Union]` owns the assigned stored-attribute mutations and one total `Apply` over the working duplicate.
 - Law: source-dependent payloads admit one coherent product. Object-sourced color, plot color, plot weight, linetype, and material edits require their object value; every other source rejects that irrelevant value. `LinetypePatternScale` remains independent of source and may accompany any line-pattern edit.
 - Law: mode and visibility are refused by absence — no case writes `Mode` or `Visible`, because object mode transitions are the table rail's `TableOp.State` and a second write path forks the undo story; `Realm` writes the catalogued space and optional viewport anchor, which no table op carries.
+- Law: the space partition is `Document`'s `ActiveSpaceUse`, composed here and re-declared nowhere — the same rows the enumerator's `SpaceFilter`, a conduit criterion, and a gumball seat read — so a `Realm` edit carries a row and writes its `Key`, and the snapshot resolves the host read through the complete roster.
 - Law: the three override families are three cases — `ModeOverride` collapses the four display-mode host members onto one `(viewport, mode)` option pair where `None` removes, `DetailHide` is one per-detail toggle, and `Activity` is the `OverrideMove`-dispatched set edit over `SetActiveInViewportOverrides`/`AddActiveInViewportOverride`/`RemoveActiveInViewportOverride`; a per-member sibling verb roster is the deleted form.
 - Law: removal is the `None` arm of the same case — `CustomLine`, `SectionFace`, and `Meshing` remove their custom carrier when absent and install it when present; `Meshing` admits and normalizes `MeshingParameters.ToEncodedString()` output once, then reconstructs the disposable carrier only inside `Apply`.
 - Law: display-mode override carries the mode id and resolves it with `DisplayModeDescription.GetDisplayMode(Guid)` inside `Apply`; an unresolved id is typed failure, never a retained `DisplayModeDescription`.
@@ -200,7 +201,7 @@ public abstract partial record AttributeEdit {
     public sealed record Wires(int Density) : AttributeEdit;
     public sealed record DrawOrder(int Rank) : AttributeEdit;
     public sealed record Decorate(ObjectDecoration Ends) : AttributeEdit;
-    public sealed record Realm(ActiveSpace Space, Option<Guid> Viewport = default) : AttributeEdit;
+    public sealed record Realm(ActiveSpaceUse Space, Option<Guid> Viewport = default) : AttributeEdit;
     public sealed record Groups(OverrideMove Move, Seq<int> Indices) : AttributeEdit;
     public sealed record ModeOverride(Option<Guid> Viewport, Option<Guid> Mode) : AttributeEdit;
     public sealed record DetailHide(Guid Detail, ObjectSignal Signal) : AttributeEdit;
@@ -262,7 +263,7 @@ public abstract partial record AttributeEdit {
             drawOrder: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             decorate: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             realm: static (key, edit) => guard(
-                edit.Space is not ActiveSpace.None
+                edit.Space is not null && edit.Space != ActiveSpaceUse.None
                 && edit.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true),
                 key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
             groups: static (key, edit) => SetValues(
@@ -423,7 +424,7 @@ public abstract partial record AttributeEdit {
             drawOrder: static (context, edit) => context.Op.Catch(() => context.Attributes.DisplayOrder = edit.Rank),
             decorate: static (context, edit) => context.Op.Catch(() => context.Attributes.ObjectDecoration = edit.Ends),
             realm: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.Space = edit.Space;
+                context.Attributes.Space = edit.Space.Key;
                 context.Attributes.ViewportId = edit.Viewport.IfNone(noneValue: Guid.Empty);
             }),
             groups: static (context, edit) => edit.Move.Switch(
@@ -546,7 +547,7 @@ public abstract partial record AttributeEdit {
 ## [03]-[PROGRAM]
 
 - Owner: `AttributeProgram` — the admitted edit sequence with one fold: `Apply(ObjectAttributes) : Fin<Unit>` runs every edit in declaration order over the working set and short-circuits on the first refusal, matching the `TableOp.Amend` change-callback contract exactly.
-- Law: the program IS the `Amend` payload — `TableOp.Amend(target, program.Apply, notice)` is the one write path: the table rail duplicates the live attribute set, the program mutates the duplicate, `ModifyAttributes` commits it under the undo bracket, and the duplicate disposes before the operation leaves the host boundary; a consumer holding a live `ObjectAttributes` and mutating it in place has no undo story and is the deleted form.
+- Law: the program IS the `Amend` payload — `TableOp.Amend(target, program.Apply, notice)` is the one write path: the table rail duplicates the live attribute set, the program mutates the duplicate, `ModifyAttributes` commits it under the undo bracket, and the duplicate disposes before the operation leaves the host boundary; a consumer holding a live `ObjectAttributes` and mutating it in place has no undo story and is the deleted form. `Apply` is therefore `internal` — the rail is its only caller, and a public overload would be that deleted form with a supported spelling.
 - Law: the fold is short-circuit by construction — a program is one attribute transaction, so a mid-sequence refusal abandons the working duplicate uncommitted and the live object never sees a half-applied program; accumulation belongs to the caller batching programs across objects on the table rail's traversal.
 - Law: `Tag` read verbs are refused at admission — `Of` rejects a program carrying a non-mutating `TagOp` so the refusal is a construction fact, never a mid-commit surprise.
 - Growth: a new edit case rides every existing program untouched; a program-level policy is a field on this record, never a parallel program type.
@@ -560,14 +561,16 @@ public sealed class AttributeProgram {
 
     public static Fin<AttributeProgram> Of(params ReadOnlySpan<AttributeEdit> edits) {
         Op op = Op.Of(name: nameof(AttributeProgram));
-        return from values in toSeq(edits.ToArray())
+        return from values in LanguageExt.Iterable<AttributeEdit>.FromSpan(edits).ToSeq()
                    .TraverseM(edit => op.Need(edit)).As()
                from _ in guard(!values.IsEmpty, op.InvalidInput()).ToFin()
                from admitted in values.TraverseM(edit => edit.Admit(op: op)).As()
                select new AttributeProgram(edits: admitted);
     }
 
-    public Fin<Unit> Apply(ObjectAttributes attributes) {
+    // `internal` is the write-path law made structural: `TableOp.Amend` is the one caller, it hands the duplicate
+    // it owns, and a public overload would be exactly the in-place live-set mutation the `[03]` law deletes.
+    internal Fin<Unit> Apply(ObjectAttributes attributes) {
         Op op = Op.Of(name: nameof(AttributeProgram));
         return from working in op.Need(attributes)
                from _ in Edits.TraverseM(edit => edit.Apply(attributes: working, op: op)).As()
@@ -583,6 +586,8 @@ public sealed class AttributeProgram {
 - Law: stored and effective are different questions — the snapshot reports what the attribute set declares, `EffectiveDisplay` reports what `DrawColor`/`ComputedPlotColor`/`ComputedPlotWeight` resolve after source dispatch against layer, parent, and material; a consumer diffing the two reads exactly which sources defer.
 - Law: detail-hide is census membership — `HasHideInDetailOverrideSet(detailId)` is set membership in `GetHideInDetailOverrides()`, so the snapshot's `HiddenInDetails` roster answers any detail id and `EffectiveDisplay` stays a pure viewport question; a detail object id passed where a viewport id belongs is the conflation this split forecloses.
 - Law: snapshot products contain detached values only. Decals and material references project their catalogued read surfaces into records, and custom meshing round-trips through the normalized encoded value. Custom linetype, custom section style, mapping, and mesh modifiers remain foreign-owner presence facts.
+- Law: render-material identity is NOT an attribute-set read — `ObjectAttributes.RenderMaterial` is a SET-ONLY property whose setter resolves the content's document owner, projects it to a `Material`, and lands it on `MaterialIndex`, so the stored render-material identity reads through `MaterialIndex` against the document material table on `materials.md`'s resolution rail; a read of the write-only property is a compile error wearing the shape of a projection.
+- Law: the decal read composes the axes that READ TRUE — `HorzSweep`/`VertSweep` are the host's own replacements for the deprecated latitude and longitude properties, whose names invert their meaning, so the snapshot names its columns after the true axes and matches `DecalSeed`'s write vocabulary exactly; a round trip therefore requires no consumer to know the host's inversion, which stays confined to `DecalSeed.Build`.
 - Boundary: `ComputedSectionStyle` demands a sectioner's attributes and stays a direct host call at the display seam; this page resolves the three display scalars every consumer needs.
 
 ```csharp signature
@@ -627,10 +632,10 @@ public readonly record struct DecalSnapshot(
     bool Visible,
     double Height,
     double Radius,
-    double StartLatitude,
-    double EndLatitude,
-    double StartLongitude,
-    double EndLongitude,
+    double HorzStart,
+    double HorzEnd,
+    double VertStart,
+    double VertEnd,
     double MinU,
     double MinV,
     double MaxU,
@@ -638,6 +643,8 @@ public readonly record struct DecalSnapshot(
     Guid TextureInstanceId) {
     internal static DecalSnapshot Of(Decal decal) {
         decal.GetUVBounds(out double minU, out double minV, out double maxU, out double maxV);
+        decal.HorzSweep(out double horzStart, out double horzEnd);
+        decal.VertSweep(out double vertStart, out double vertEnd);
         return new DecalSnapshot(
             Crc: decal.CRC,
             Mapping: decal.Mapping,
@@ -650,10 +657,10 @@ public readonly record struct DecalSnapshot(
             Visible: decal.IsVisible,
             Height: decal.Height,
             Radius: decal.Radius,
-            StartLatitude: decal.StartLatitude,
-            EndLatitude: decal.EndLatitude,
-            StartLongitude: decal.StartLongitude,
-            EndLongitude: decal.EndLongitude,
+            HorzStart: horzStart,
+            HorzEnd: horzEnd,
+            VertStart: vertStart,
+            VertEnd: vertEnd,
             MinU: minU,
             MinV: minV,
             MaxU: maxU,
@@ -679,13 +686,12 @@ public sealed record AttributeSnapshot(
     int LinetypeIndex,
     int MaterialIndex,
     Guid ViewportId,
-    ActiveSpace Space,
+    ActiveSpaceUse Space,
     ObjectColorSource ColorSource,
     ObjectPlotColorSource PlotColorSource,
     ObjectPlotWeightSource PlotWeightSource,
     ObjectLinetypeSource LinetypeSource,
     ObjectMaterialSource MaterialSource,
-    Option<Guid> RenderMaterialId,
     ObjectSectionAttributesSource SectionSource,
     System.Drawing.Color ObjectColor,
     System.Drawing.Color PlotColor,
@@ -725,7 +731,10 @@ public sealed record AttributeSnapshot(
             System.Collections.Specialized.NameValueCollection tags = attributes.GetUserStrings();
             using SectionStyle? customSection = attributes.GetCustomSectionStyle();
             using Linetype? customLine = attributes.GetCustomLinetype();
-            using MeshingParameters? customMesh = attributes.EnableCustomMeshingParameters
+            // No `using`: the getter hands back a wrapper over the attribute set's OWN stored parameters and
+            // `MeshingParameters.Dispose` unconditionally frees the pointer it holds, so bracketing this read
+            // would free host-owned memory the attribute set still indexes. The encoded value detaches instead.
+            MeshingParameters? customMesh = attributes.EnableCustomMeshingParameters
                 ? attributes.CustomMeshingParameters
                 : null;
             return Fin.Succ(value: new AttributeSnapshot(
@@ -736,13 +745,12 @@ public sealed record AttributeSnapshot(
                 LinetypeIndex: attributes.LinetypeIndex,
                 MaterialIndex: attributes.MaterialIndex,
                 ViewportId: attributes.ViewportId,
-                Space: attributes.Space,
+                Space: ActiveSpaceUse.Get(key: attributes.Space),
                 ColorSource: attributes.ColorSource,
                 PlotColorSource: attributes.PlotColorSource,
                 PlotWeightSource: attributes.PlotWeightSource,
                 LinetypeSource: attributes.LinetypeSource,
                 MaterialSource: attributes.MaterialSource,
-                RenderMaterialId: Optional(attributes.RenderMaterial).Map(static material => material.Id),
                 SectionSource: attributes.SectionAttributesSource,
                 ObjectColor: attributes.ObjectColor,
                 PlotColor: attributes.PlotColor,
@@ -858,15 +866,15 @@ public static class Attributes {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]             | [FORM]                                                 | [ENTRY]                        |
-| :-----: | :----------------- | :------------------ | :----------------------------------------------------- | :----------------------------- |
-|  [01]   | attribute mutation | `AttributeEdit`     | admitted union, total `Apply`, host enums at the seam  | program payloads               |
-|  [02]   | set-valued edits   | `OverrideMove`      | impose/extend/retract over groups, overrides, carriers | owning edit payloads           |
-|  [03]   | detached carriers  | generated products  | `DecalSeed`/`MaterialRefSeed` onto host create params  | `Decals` / `FaceMaterials`     |
-|  [04]   | write program      | `AttributeProgram`  | short-circuit fold matching the `Amend` callback shape | `TableOp.Amend(target, Apply)` |
-|  [05]   | read dispatch      | `AttributeAsk`      | stored and resolved questions, one typed answer union  | `Attributes.Ask`               |
-|  [06]   | stored state       | `AttributeSnapshot` | detached scalars, rosters, and catalogued carriers     | `AttributeAsk.Stored`          |
-|  [07]   | resolved display   | `EffectiveDisplay`  | resolved scalars and viewport overrides                | `AttributeAsk.Resolved`        |
+| [INDEX] | [CONCERN]          | [OWNER]             | [FORM]                                                   | [ENTRY]                        |
+| :-----: | :----------------- | :------------------ | :------------------------------------------------------- | :----------------------------- |
+|  [01]   | attribute mutation | `AttributeEdit`     | admitted union with one total `Apply` over the duplicate | program payloads               |
+|  [02]   | set-valued edits   | `OverrideMove`      | impose/extend/retract over groups, overrides, carriers   | owning edit payloads           |
+|  [03]   | detached carriers  | generated products  | `DecalSeed`/`MaterialRefSeed` onto host create params    | `Decals` / `FaceMaterials`     |
+|  [04]   | write program      | `AttributeProgram`  | short-circuit fold matching the `Amend` callback shape   | `TableOp.Amend(target, Apply)` |
+|  [05]   | read dispatch      | `AttributeAsk`      | stored and resolved questions, one typed answer union    | `Attributes.Ask`               |
+|  [06]   | stored state       | `AttributeSnapshot` | detached scalars, rosters, and catalogued carriers       | `AttributeAsk.Stored`          |
+|  [07]   | resolved display   | `EffectiveDisplay`  | resolved scalars and viewport overrides                  | `AttributeAsk.Resolved`        |
 
 ## [06]-[RESEARCH]
 

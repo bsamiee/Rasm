@@ -18,7 +18,8 @@
 - Law: the armed roster is policy, not a fan — `profilers` names which native samplers run, so a deployment carrying wall attribution without heap retention pressure arms one row and pays one sampler's overhead. Aggregate `start`/`stop` covers wall and heap alone while shipping a third `cpu` pair it never reaches, so the roster is strictly wider than the aggregate and arming every row loses nothing the package can do.
 - Law: the posture rows are compliance data — `strip` selects `"all" | "dependencies"` path stripping where a deployment's posture forbids source paths on the wire, `shorten` collapses surviving paths to their tail for a store whose label budget the full path exceeds, and `roots` names the sourcemap search directories `SourceMapper.create` walks so transpiled frames resolve to source; all three are policy values, never init-site literals.
 - Law: every package type this owner spells reads off the surface that carries it, because the package root re-exports its three config interfaces alone — the strip mode indexes `PyroscopeConfig`, the symbolicator takes `InstanceType` of the default object's class, and the log sink takes `Parameters` of the setter — so an upstream field or signature change breaks the policy row rather than leaving a name that resolves nowhere.
-- Boundary: arming is the composition root's decision — `Setting.otel.profile` resolving no origin means the root composes no `Profile.live`, so an unarmed deployment loads zero profiler code and this owner carries no unarmed branch.
+- Law: `backend.origin` is a SELF-EGRESS coordinate, so the root that arms this lane hands the same origin to `Export.Policy.egress` — the push rides `@datadog/pprof`'s own HTTP on `flushIntervalMs`, outside any Effect region and outside every `SpanProcessor`, `LogRecordProcessor`, and metric reader, so the `suppressTracing` wrap that fences the OTLP legs reaches it never and `emit#INSTRUMENT`'s hostname roster is its only exclusion. Unrostered, an armed profiler under an SDK lane mints a traced outbound span per flush whose export mints another — continuous noise proportional to `flush`, and it is the profiler's own transport reading as application egress.
+- Boundary: arming is the composition root's decision — `Setting.otel.profile` resolving no origin means the root composes no `Profile.live` and contributes no `egress` row, so an unarmed deployment loads zero profiler code and this owner carries no unarmed branch.
 - Growth: a new profiling decision is one policy field consumed by the lifecycle bracket; a new native sampler is one `_PROFILERS` row; a new auth shape is one `Credential` case with its `_credential` arm; a new backend speaking this dialect is an origin value, and the one lane this owner ever admits is the OTLP profiles transport the swap row names.
 - Packages: `effect` (`Duration`, `Match`, `Option`, `Redacted`), `@rasm/ts/core` (`AppIdentity`, `Convention`), `@pyroscope/nodejs` (`PyroscopeConfig` and the per-sampler rows off the default export).
 
@@ -193,7 +194,7 @@ const _live = (policy: Profile.Policy): Layer.Layer<never, never, Life> =>
 - Law: the package ships no span processor, so the branch writes both label halves itself through the label bag `wrapWithLabels` admits.
 - Law: the band is synchronous by the engine's contract — `wrapWithLabels` tags every sample taken during the callback, and the ambient label set is thread-global, so an effectful region whose fibers interleave cannot hold a band. Effectful work therefore carries the span stamp alone as its whole contract, since banding it attributes a peer fiber's samples to this region — worse than no band. Long-lived anchors (a machine actor, a gateway duplex) take that arm and join on region name and time window.
 - Law: the identifier labels ride the synchronous arm alone, sharing the band's thread-global limit; the effectful arm joins by name and window.
-- Law: every distinct label value mints a profile series exactly as a metric tag mints a metric series, so band values decode through the caller's non-empty literal roster with excess keys rejected before the engine sees them.
+- Law: every distinct label value mints a profile series exactly as a metric tag mints a metric series, so band values decode through the caller's non-empty literal roster with excess keys rejected before the engine sees them, and an all-absent band OMITS the region key rather than writing the empty string — an empty label is a series named nothing that every unbanded region joins, which is the store's version of the zero a producer never measured.
 - Law: the vocabulary's parser is minted once per vocabulary and held weakly — a schema compiles its parser on first decode and caches it on the instance, so re-minting the struct inside the entry throws that cache away on every banded region and pays an AST compile at a workload seam; the table keys on the caller's own vocabulary value, so the entry stays one member and the parser dies with the roster that owns it.
 - Entry: `Profile.banded(vocabulary, { channel }, () => kernel())` at a synchronous workload seam; `Profile.banded(vocabulary, { channel, step }, effect)` at a long-lived scoped span.
 - Packages: `@pyroscope/nodejs` (`wrapWithLabels`), `effect` (`Effect`, `Option`, `Schema`), `@rasm/ts/core` (`Convention`).
@@ -218,12 +219,17 @@ const _admits = (vocabulary: Profile.BandVocabulary): ReturnType<typeof _bandSch
     return minted
   })
 
+const _region = (admitted: { readonly channel?: string; readonly step?: string }): string =>
+  [admitted.channel, admitted.step].filter((part): part is string => part !== undefined).join(".")
+
 const _labels = (
   admitted: { readonly channel?: string; readonly step?: string },
   live: Option.Option<Tracer.Span>,
 ): Record<string, string> => ({
-  // one store-dialect key: the caller's bounded vocabulary is input, the region label is the projection
-  [Convention.profile.span]: [admitted.channel, admitted.step].filter((part): part is string => part !== undefined).join("."),
+  // one store-dialect key: the caller's bounded vocabulary is input, the region label is the projection. An all-absent
+  // band OMITS the key on the same conditional spread `_config` uses, rather than writing "": both spellings are a
+  // distinct series to the store, and one of them is a dimension named nothing every unbanded region joins.
+  ...(_region(admitted).length > 0 && { [Convention.profile.span]: _region(admitted) }),
   // `spanId` and `traceId` carry the identifier half a region label cannot, so a profile query joins its span on them
   ...Option.match(live, {
     onNone: () => ({}),

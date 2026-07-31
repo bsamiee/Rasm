@@ -289,13 +289,13 @@ public static class Coordinate {
         budgetCredit: _ => rows.Find(static r => r.State == "fenced").Match(
             Some: r => Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(held.IfNone(LeaseToken.Create(0L)), r.Fence)),
             None: () => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Debited(toHashMap(rows.Map(static r => (r.Key, r.Value.IfNone(0L)))), frame.Now(), frame.Correlation, frame.Elapsed(mark)))),
-        signalPut: s => rows.HeadOrNone().Match(
+        signalPut: s => rows.Head.Match(
             Some: r  => r.State == "signaled"
                 ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Signaled(s.Instance, s.Channel, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
                 : Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(held.IfNone(LeaseToken.Create(0L)), r.Fence)),
             None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.Refused($"<signal:{s.Instance.Value}/{s.Channel.Value}>"))),
         signalLoad: _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
-        stepStateCas: c => rows.HeadOrNone().Match(
+        stepStateCas: c => rows.Head.Match(
             Some: r => r.State == c.Next.Key
                 ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Stepped(c.Workflow, c.Step, c.Next, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
                 : r.Fence > held.Map(static token => token.Value).IfNone(0L)
@@ -304,7 +304,7 @@ public static class Coordinate {
             None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.Refused($"<step-missing:{c.Workflow.Value}/{c.Step.Value}>"))),
         stepStateInFlight: _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
         stepStateLoad:     _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
-        leaseAcquire: a => rows.HeadOrNone().Match(
+        leaseAcquire: a => rows.Head.Match(
             Some: r => r.State == "held"
                 ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Leased(a.Lease, LeaseToken.Create(r.Fence), r.Until, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
                 : Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(LeaseToken.Create(0L), r.Fence)),
@@ -312,18 +312,18 @@ public static class Coordinate {
         leaseRenew: n => Held(rows, n.Lease, n.Token, frame, mark),
         leaseRelease: n => Held(rows, n.Lease, n.Token, frame, mark),
         expiredScan: _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
-        membershipUpsert: m => rows.HeadOrNone().Match(
+        membershipUpsert: m => rows.Head.Match(
             Some: r  => r.State == "serving"
                 ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Member(m.Group, m.Member, r.Until, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
                 : Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(held.IfNone(LeaseToken.Create(0L)), r.Fence)),
             None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.MembershipLapsed(m.Group, m.Member))),
-        membershipRelease: m => rows.HeadOrNone().Match(
+        membershipRelease: m => rows.Head.Match(
             Some: r  => r.State == "departed"
                 ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Member(m.Group, m.Member, r.Until, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
                 : Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(held.IfNone(LeaseToken.Create(0L)), r.Fence)),
             None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.MembershipLapsed(m.Group, m.Member))),
         membershipScan: _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
-        outboxAdvance: a => rows.HeadOrNone().Match(
+        outboxAdvance: a => rows.Head.Match(
             Some: r => r.Value.IfNone(0L) >= a.Through
                 ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Advanced(a.Sink, r.Value.IfNone(0L), frame.Now(), frame.Correlation, frame.Elapsed(mark)))
                 : Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(a.Sink, a.Through)),
@@ -332,7 +332,7 @@ public static class Coordinate {
     // The shared renew/release verdict arm: an applied row carries the validated generation ("held"/"released"),
     // a current-truth row with a higher fence is the stale-token refusal carrying the CURRENT generation.
     static Fin<CoordinationReceipt> Held(Seq<CoordRow> rows, LeaseKey lease, LeaseToken token, ProjectionContext frame, long mark) =>
-        rows.HeadOrNone().Match(
+        rows.Head.Match(
             Some: r => r.State is "held" or "released"
                 ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Leased(lease, LeaseToken.Create(r.Fence), r.Until, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
                 : Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(token, r.Fence)),

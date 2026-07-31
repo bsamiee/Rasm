@@ -1,6 +1,6 @@
 # [RASM_RHINO_DISPLAY_MODES]
 
-`Modes.Configure` owns display-mode appearance, descriptor policy, viewport binding, mode-scoped capture, and built-in analysis attachment as one request algebra. Raw host editors remain inside the fold, every viewport touch stays leased, and every successful mutation returns detached mode evidence.
+`Modes.Configure` owns display-mode appearance, descriptor policy, table operations, viewport binding, mode-scoped capture, and built-in analysis attachment as one request algebra. Raw host editors remain inside the fold, every viewport touch stays leased, and every successful mutation returns detached mode evidence.
 
 `ModeOp` remains the display-mode table seam, `ViewportTarget` remains the viewport identity seam, and `CaptureArtifact` remains bitmap custody. `DisplayModeDescription`, `DisplayPipelineAttributes`, `RhinoViewport`, and `VisualAnalysisMode` never cross the receipt boundary.
 
@@ -8,7 +8,7 @@
 
 - [02]-[APPEARANCE]: `Appearance` folds complete concern values over the live mode editor.
 - [03]-[MODE_FAMILY]: `ModeKind`, `ModePolicy`, and `ModePlan` own identity, policy, and derivation.
-- [04]-[CONFIGURE]: `ModeRequest` closes every mode, viewport, capture, and analysis modality behind `Modes.Configure`.
+- [04]-[CONFIGURE]: `ModeRequest` closes every mode, table, viewport, capture, and analysis modality behind `Modes.Configure`; `ModeSummary` is the detached descriptor projection every query answers with.
 
 ## [02]-[APPEARANCE]
 
@@ -16,8 +16,10 @@
 - Entry: `Appearance.Write` is the only surface that receives `DisplayPipelineAttributes`.
 - Auto: `Appearance.Write` traverses the immutable case sequence and captures host rejection on one rail.
 - Law: the concern sequence admits one row per case — duplicate discriminants reject at request admission, so no later row silently overwrites an earlier host write.
+- Law: the case set spans the WHOLE public attribute model, so an attribute family with no writer is a defect the case that owns its concern absorbs — the tangent, single-curve, and iso-colour band widens `Edges`, the shadow band rides one `ShadowBand` carrier on `Lighting`, the top-level grid, plane, and axes members widen `Grid`, the backface-material and per-face override band widens `Shading` over two `FaceOverride` carriers, and the two genuinely homeless scene concerns (`BoundingBoxMode`, `DynamicDisplayUsage`) seat on `Pipeline`; a sibling record beside the owning case is the deleted form.
+- Law: a thickness-, colour-, or display-usage discriminant is a bounded row carrying ONE native column per host family — the four thickness families and the two colour families are distinct nested enums whose rosters diverge, and `BoundingBoxDisplayMode` is non-sequential, so an ordinal cast or a single native value fanned across four writers is unrepresentable.
 - Receipt: appearance contributes only through the enclosing `ModeReceipt.Configured` case.
-- Growth: a host appearance concern lands as one `Appearance` case and one total dispatch arm.
+- Growth: a host appearance concern lands as one row or carrier field on the case that owns its concern, and only a genuinely new concern earns an `Appearance` case with its dispatch arm.
 - Boundary: colors quantize once at the writer; raw host colors and attribute editors stay inside the boundary.
 
 ```csharp signature
@@ -30,22 +32,86 @@ using Rasm.Rhino.Viewport;
 namespace Rasm.Rhino.Display;
 
 // --- [TYPES] --------------------------------------------------------------------------------
+// Host truth: the four thickness-use families are DISTINCT nested enums with divergent rosters, and each writer takes only
+// its own, so one shared row carries a native column per family rather than one value cast across four signatures.
 [SmartEnum<int>]
 public sealed partial class WidthUse {
     public static readonly WidthUse Object = new(
         key: 0,
         curve: DisplayPipelineAttributes.CurveThicknessUse.ObjectWidth,
         surface: DisplayPipelineAttributes.SurfaceThicknessUse.ObjectWidth,
+        naked: DisplayPipelineAttributes.SurfaceNakedEdgeThicknessUse.ObjectWidth,
+        iso: DisplayPipelineAttributes.SurfaceIsoThicknessUse.ObjectWidth,
         subD: DisplayPipelineAttributes.SubDThicknessUse.ObjectWidth);
     public static readonly WidthUse Pixels = new(
         key: 1,
         curve: DisplayPipelineAttributes.CurveThicknessUse.Pixels,
         surface: DisplayPipelineAttributes.SurfaceThicknessUse.Pixels,
+        naked: DisplayPipelineAttributes.SurfaceNakedEdgeThicknessUse.Pixels,
+        iso: DisplayPipelineAttributes.SurfaceIsoThicknessUse.PixelsUV,
         subD: DisplayPipelineAttributes.SubDThicknessUse.Pixels);
+    // The two rows above are the axes every family shares; these carry the extra row one family alone admits.
+    public static readonly WidthUse InheritEdge = new(
+        key: 2,
+        curve: DisplayPipelineAttributes.CurveThicknessUse.ObjectWidth,
+        surface: DisplayPipelineAttributes.SurfaceThicknessUse.ObjectWidth,
+        naked: DisplayPipelineAttributes.SurfaceNakedEdgeThicknessUse.UseSurfaceEdgeSettings,
+        iso: DisplayPipelineAttributes.SurfaceIsoThicknessUse.SingleWidthForAllCurves,
+        subD: DisplayPipelineAttributes.SubDThicknessUse.ObjectWidth);
 
     internal DisplayPipelineAttributes.CurveThicknessUse Curve { get; }
     internal DisplayPipelineAttributes.SurfaceThicknessUse Surface { get; }
+    internal DisplayPipelineAttributes.SurfaceNakedEdgeThicknessUse Naked { get; }
+    internal DisplayPipelineAttributes.SurfaceIsoThicknessUse Iso { get; }
     internal DisplayPipelineAttributes.SubDThicknessUse SubD { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class IsoColorUse {
+    public static readonly IsoColorUse ObjectColor = new(0, DisplayPipelineAttributes.SurfaceIsoColorUse.ObjectColor);
+    public static readonly IsoColorUse SingleColor = new(1, DisplayPipelineAttributes.SurfaceIsoColorUse.SingleColorForAll);
+    public static readonly IsoColorUse SpecifiedUv = new(2, DisplayPipelineAttributes.SurfaceIsoColorUse.SpecifiedUV);
+    internal DisplayPipelineAttributes.SurfaceIsoColorUse Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class EdgeColorUse {
+    public static readonly EdgeColorUse ObjectColor = new(0, DisplayPipelineAttributes.SurfaceEdgeColorUse.ObjectColor);
+    public static readonly EdgeColorUse IsocurveColor = new(1, DisplayPipelineAttributes.SurfaceEdgeColorUse.IsocurveColor);
+    public static readonly EdgeColorUse SingleColor = new(2, DisplayPipelineAttributes.SurfaceEdgeColorUse.SingleColorForAll);
+    internal DisplayPipelineAttributes.SurfaceEdgeColorUse Native { get; }
+}
+
+// Host truth: `BoundingBoxDisplayMode` is NON-SEQUENTIAL (`None = 0`, `OnAlways = 1`, `OnDuringDynamicDisplay = 2`), so the
+// key is the declaration ordinal and the native row is carried, never cast.
+[SmartEnum<int>]
+public sealed partial class BoundsUse {
+    public static readonly BoundsUse None = new(0, DisplayPipelineAttributes.BoundingBoxDisplayMode.None);
+    public static readonly BoundsUse Always = new(1, DisplayPipelineAttributes.BoundingBoxDisplayMode.OnAlways);
+    public static readonly BoundsUse Dynamic = new(2, DisplayPipelineAttributes.BoundingBoxDisplayMode.OnDuringDynamicDisplay);
+    internal DisplayPipelineAttributes.BoundingBoxDisplayMode Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class DynamicUse {
+    public static readonly DynamicUse Application = new(0, DisplayPipelineAttributes.DynamicDisplayUse.UseAppSettings);
+    public static readonly DynamicUse BoundingBox = new(1, DisplayPipelineAttributes.DynamicDisplayUse.DisplayObjectBoundingBox);
+    internal DisplayPipelineAttributes.DynamicDisplayUse Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class GridPlaneUse {
+    public static readonly GridPlaneUse WithGrid = new(0, DisplayPipelineAttributes.GridPlaneVisibilityMode.ShowOnlyIfGridVisible);
+    public static readonly GridPlaneUse Always = new(1, DisplayPipelineAttributes.GridPlaneVisibilityMode.AlwaysShow);
+    internal DisplayPipelineAttributes.GridPlaneVisibilityMode Native { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class AxesColorUse {
+    public static readonly AxesColorUse Application = new(0, DisplayPipelineAttributes.WorldAxesIconColorUse.UseApplicationSettings);
+    public static readonly AxesColorUse GridAxes = new(1, DisplayPipelineAttributes.WorldAxesIconColorUse.SameAsGridAxesColors);
+    public static readonly AxesColorUse Custom = new(2, DisplayPipelineAttributes.WorldAxesIconColorUse.Custom);
+    internal DisplayPipelineAttributes.WorldAxesIconColorUse Native { get; }
 }
 
 [SmartEnum<int>]
@@ -136,46 +202,105 @@ public abstract partial record Fill {
         }));
 }
 
+// --- [MODELS] -------------------------------------------------------------------------------
+// The per-face override band and the shadow band are products with no discriminant, so each is one carrier its owning
+// `Appearance` case holds rather than a per-flag parameter tail on the case itself.
+public readonly record struct FaceOverride(bool Color, bool Transparency, bool Reflectivity) {
+    public static FaceOverride None { get; } = new(Color: false, Transparency: false, Reflectivity: false);
+}
+
+[ComplexValueObject]
+public sealed partial class ShadowBand {
+    public bool On { get; }
+    public PerceptualColor Color { get; }
+    public int Intensity { get; }
+    public int MemoryUsage { get; }
+    public int SkylightQuality { get; }
+    public int SoftEdgeQuality { get; }
+    public double EdgeBlur { get; }
+    public double Bias { get; }
+    public int TransparencyTolerance { get; }
+    public float ClippingRadius { get; }
+    public bool IgnoreUserClipping { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref bool on,
+        ref PerceptualColor color,
+        ref int intensity,
+        ref int memoryUsage,
+        ref int skylightQuality,
+        ref int softEdgeQuality,
+        ref double edgeBlur,
+        ref double bias,
+        ref int transparencyTolerance,
+        ref float clippingRadius,
+        ref bool ignoreUserClipping) =>
+        validationError = intensity >= 0
+            && memoryUsage >= 0
+            && skylightQuality >= 0
+            && softEdgeQuality >= 0
+            && transparencyTolerance >= 0
+            && double.IsFinite(edgeBlur) && edgeBlur >= 0.0
+            && double.IsFinite(bias)
+            && float.IsFinite(clippingRadius) && clippingRadius >= 0f
+                ? null
+                : new ValidationError(message: "Shadow band carries a negative or non-finite quantity.");
+}
+
+// --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Appearance {
     private const double MinimumMaterialValue = 0.0;
     private const double MaximumMaterialTransparency = 100.0;
     private Appearance() { }
-    public sealed record Shading(bool Enabled, bool VertexColors, bool Flat, bool AssignedMaterial, Option<PerceptualColor> ObjectColor, BackfaceUse Backface, bool CullBackfaces, double Shine, double Transparency, PerceptualColor Diffuse, PerceptualColor BackDiffuse, Fill Fill) : Appearance;
-    public sealed record Edges(bool Curves, bool Surfaces, bool Naked, bool Isocurves, int Width, WidthUse WidthUse, float Scale, PerceptualColor Color, int ReductionPercent, bool Pattern) : Appearance;
-    public sealed record Lighting(LightingUse Scheme, PerceptualColor Ambient, bool UseLightColor, bool ShowLights, bool CastShadows, int SkylightShadowQuality) : Appearance;
+    public sealed record Shading(bool Enabled, bool VertexColors, bool Flat, bool AssignedMaterial, Option<PerceptualColor> ObjectColor, BackfaceUse Backface, bool CullBackfaces, double Shine, double Transparency, PerceptualColor Diffuse, PerceptualColor BackDiffuse, Fill Fill, bool Highlight, bool CustomMaterial, bool CustomMaterialBackfaces, bool BackfaceMaterial, double BackShine, double BackTransparency, FaceOverride Front, FaceOverride Back) : Appearance;
+    public sealed record Edges(bool Curves, bool Surfaces, bool Naked, bool Isocurves, bool TangentEdges, bool TangentSeams, int Width, WidthUse WidthUse, float Scale, PerceptualColor Color, int ReductionPercent, bool Pattern, Option<PerceptualColor> SingleCurveColor, EdgeColorUse EdgeColorUse, IsoColorUse IsoColorUse, PerceptualColor IsoUv, PerceptualColor IsoU, PerceptualColor IsoV) : Appearance;
+    public sealed record Lighting(LightingUse Scheme, PerceptualColor Ambient, bool UseLightColor, bool ShowLights, bool CastShadows, ShadowBand Shadows) : Appearance;
     public sealed record Ground(ScopeUse Usage, bool Enabled, bool ShowUnderside, double Altitude, PerceptualColor Color, bool Shadows, bool AutoAltitude) : Appearance;
-    public sealed record Grid(bool GridVisible, bool Axes, bool WorldAxes, bool Transparent, bool OnTop, int ThinFrequency, int ThickFrequency, PerceptualColor Thin, PerceptualColor Thick, PerceptualColor X, PerceptualColor Y, PerceptualColor Z) : Appearance;
+    public sealed record Grid(bool GridVisible, bool Axes, bool WorldAxes, bool Transparent, bool OnTop, int ThinFrequency, int ThickFrequency, PerceptualColor Thin, PerceptualColor Thick, PerceptualColor X, PerceptualColor Y, PerceptualColor Z, int GridTransparency, int PlaneTransparency, GridPlaneUse PlaneVisibility, PerceptualColor PlaneColor, bool PlaneUsesGridColor, int AxesSizePercent, AxesColorUse AxesColorUse) : Appearance;
     public sealed record SubD(bool Smooth, bool Creases, bool NonManifold, bool Boundary, int Width, WidthUse WidthUse, float Scale, PerceptualColor SmoothColor, PerceptualColor CreaseColor, PerceptualColor NonManifoldColor, PerceptualColor BoundaryColor) : Appearance;
-    public sealed record Mesh(bool Wires, bool Naked, bool NonManifold, bool Vertices, int Width, PerceptualColor WireColor, PerceptualColor NakedColor, PerceptualColor NonManifoldColor) : Appearance;
-    public sealed record Clipping(bool Planes, bool Fills, bool Edges, bool SectionStyles, ClippingFillUse FillUse, ClippingEdgeUse EdgeUse, PerceptualColor FillColor, PerceptualColor EdgeColor, int EdgeWidth) : Appearance;
+    public sealed record Mesh(bool Wires, bool Naked, bool NonManifold, bool Vertices, int Width, int VertexSize, PerceptualColor WireColor, PerceptualColor NakedColor, PerceptualColor NonManifoldColor) : Appearance;
+    public sealed record Clipping(bool Planes, bool Fills, bool Edges, bool SectionStyles, bool IntersectionSurfaces, bool IntersectionEdges, ClippingFillUse FillUse, ClippingEdgeUse EdgeUse, PerceptualColor FillColor, PerceptualColor EdgeColor, int EdgeWidth, int ShadeTransparency) : Appearance;
     public sealed record Technical(bool Hidden, bool Edges, bool Silhouettes, bool Creases, bool Seams, bool Intersections, bool Lighting) : Appearance;
-    public sealed record Locked(LockedUse Usage, PerceptualColor Color, int Transparency, bool Behind, bool Ghost) : Appearance;
+    public sealed record Locked(LockedUse Usage, PerceptualColor Color, int Transparency, bool Behind, bool Ghost, bool LayersFollowLock) : Appearance;
     public sealed record Points(bool Visible, PointUse PointStyle, float PointRadius, bool Clouds, PointUse CloudStyle, float CloudRadius) : Appearance;
     public sealed record Grips(bool Visible, bool Polygon, PointUse Style, int WireWidth, int Size, Option<PerceptualColor> FixedColor) : Appearance;
     public sealed record Fade(PerceptualColor Color, float Amount) : Appearance;
     public sealed record Dither(float Amount) : Appearance;
     public sealed record Hatch(float Strength, float Width) : Appearance;
-    public sealed record Pipeline(bool Xray, bool IgnoreHighlights, bool DisableConduits, bool DisableTransparency, bool Text, bool Annotations, ScopeUse Workflow, float PreGamma, float PostGamma, bool BakeTextures, int RealtimePasses, bool RealtimeProgress) : Appearance;
+    public sealed record Pipeline(bool Xray, bool IgnoreHighlights, bool DisableConduits, bool DisableTransparency, bool Text, bool Annotations, ScopeUse Workflow, float PreGamma, float PostGamma, bool BakeTextures, int RealtimePasses, bool RealtimeProgress, BoundsUse Bounds, DynamicUse Dynamic) : Appearance;
 
     internal bool Valid => Switch(
         shading: static row => row.Backface is not null
             && row.Fill is not null
-            && row.Shine >= MinimumMaterialValue
-            && row.Shine <= Material.MaxShine
-            && row.Transparency >= MinimumMaterialValue
-            && row.Transparency <= MaximumMaterialTransparency,
+            && Shine(row.Shine)
+            && Shine(row.BackShine)
+            && Fraction(row.Transparency)
+            && Fraction(row.BackTransparency),
         edges: static row => row.WidthUse is not null
+            && row.EdgeColorUse is not null
+            && row.IsoColorUse is not null
             && row.Width > 0
             && float.IsFinite(row.Scale)
             && row.Scale > 0f
             && row.ReductionPercent is >= 0 and <= 100,
-        lighting: static row => row.Scheme is not null && row.SkylightShadowQuality >= 0,
+        lighting: static row => row.Scheme is not null && row.Shadows is not null,
         ground: static row => row.Usage is not null && double.IsFinite(row.Altitude),
-        grid: static row => row.ThinFrequency > 0 && row.ThickFrequency > 0,
+        grid: static row => row.ThinFrequency > 0
+            && row.ThickFrequency > 0
+            && row.PlaneVisibility is not null
+            && row.AxesColorUse is not null
+            && row.GridTransparency is >= 0 and <= 255
+            && row.PlaneTransparency is >= 0 and <= 255
+            && row.AxesSizePercent > 0,
         subD: static row => row.WidthUse is not null && row.Width > 0 && float.IsFinite(row.Scale) && row.Scale > 0f,
-        mesh: static row => row.Width > 0,
-        clipping: static row => row.FillUse is not null && row.EdgeUse is not null && row.EdgeWidth > 0,
+        mesh: static row => row.Width > 0 && row.VertexSize > 0,
+        clipping: static row => row.FillUse is not null
+            && row.EdgeUse is not null
+            && row.EdgeWidth > 0
+            && row.ShadeTransparency is >= 0 and <= 100,
         technical: static _ => true,
         locked: static row => row.Usage is not null && row.Transparency is >= 0 and <= 100,
         points: static row => row.PointStyle is not null
@@ -192,11 +317,18 @@ public abstract partial record Appearance {
             && float.IsFinite(row.Width)
             && row.Width > 0f,
         pipeline: static row => row.Workflow is not null
+            && row.Bounds is not null
+            && row.Dynamic is not null
             && float.IsFinite(row.PreGamma)
             && row.PreGamma > 0f
             && float.IsFinite(row.PostGamma)
             && row.PostGamma > 0f
             && row.RealtimePasses > 0);
+
+    // Host truth: `Material.MaxShine` is 255.0 and the host transparency axis is a 0..100 percentage.
+    private static bool Shine(double value) => value >= MinimumMaterialValue && value <= Material.MaxShine;
+
+    private static bool Fraction(double value) => value >= MinimumMaterialValue && value <= MaximumMaterialTransparency;
 
     internal static Fin<Unit> Write(Seq<Appearance> concerns, DisplayPipelineAttributes target, Op key) =>
         concerns.TraverseM(concern => key.Catch(() => Fin.Succ(concern.Write(target)))).As().Map(static _ => unit);
@@ -217,7 +349,7 @@ public abstract partial record Appearance {
         }),
         locked: static (a, row) => Op.Side(() => {
             (a.LockedObjectUsage, a.LockedColor, a.LockedObjectTransparency) = (row.Usage.Native, Quant.Sys(row.Color), row.Transparency);
-            (a.LockedObjectsDrawBehindOthers, a.GhostLockedObjects) = (row.Behind, row.Ghost);
+            (a.LockedObjectsDrawBehindOthers, a.GhostLockedObjects, a.LayersFollowLockUsage) = (row.Behind, row.Ghost, row.LayersFollowLock);
         }),
         points: static (a, row) => Op.Side(() => {
             (a.ShowPoints, a.PointStyle, a.PointRadius) = (row.Visible, row.PointStyle.Native, row.PointRadius);
@@ -238,9 +370,16 @@ public abstract partial record Appearance {
         (a.ShadingEnabled, a.ShadeVertexColors, a.FrontFlatShaded) = (row.Enabled, row.VertexColors, row.Flat);
         (a.UseAssignedObjectMaterial, a.UseCustomObjectColor) = (row.AssignedMaterial, row.ObjectColor.IsSome);
         _ = row.ObjectColor.Iter(color => a.ObjectColor = Quant.Sys(color));
-        (a.BackfaceDisplayStyle, a.CullBackfaces) = (row.Backface.Native, row.CullBackfaces);
+        (a.BackfaceDisplayStyle, a.CullBackfaces, a.HighlightSurfaces) = (row.Backface.Native, row.CullBackfaces, row.Highlight);
+        (a.UseCustomObjectMaterial, a.UseCustomObjectMaterialBackfaces, a.UseBackfaceMaterial) =
+            (row.CustomMaterial, row.CustomMaterialBackfaces, row.BackfaceMaterial);
         (a.FrontMaterialShine, a.FrontMaterialTransparency, a.FrontDiffuse, a.BackMaterialDiffuseColor) =
             (row.Shine, row.Transparency, Quant.Sys(row.Diffuse), Quant.Sys(row.BackDiffuse));
+        (a.BackMaterialShine, a.BackMaterialTransparency) = (row.BackShine, row.BackTransparency);
+        (a.FrontOverrideObjectColor, a.FrontOverrideObjectTransparency, a.FrontOverrideObjectReflectivity) =
+            (row.Front.Color, row.Front.Transparency, row.Front.Reflectivity);
+        // Host truth: the back face publishes no colour-override slot, so only two of the three axes cross.
+        (a.BackOverrideObjectTransparency, a.BackOverrideObjectReflectivity) = (row.Back.Transparency, row.Back.Reflectivity);
         return row.Fill.Switch(
             a,
             @default: static (target, _) => Op.Side(() => target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.DefaultColor),
@@ -254,19 +393,31 @@ public abstract partial record Appearance {
 
     private static Unit Write(DisplayPipelineAttributes a, Edges row) {
         (a.ShowCurves, a.ShowSurfaceEdges, a.ShowSurfaceNakedEdge, a.ShowIsoCurves) = (row.Curves, row.Surfaces, row.Naked, row.Isocurves);
+        (a.ShowTangentEdges, a.ShowTangentSeams) = (row.TangentEdges, row.TangentSeams);
         (a.CurveThickness, a.SurfaceEdgeThickness, a.SurfaceNakedEdgeThickness, a.SurfaceIsoThickness) = (row.Width, row.Width, row.Width, row.Width);
         (a.CurveThicknessScale, a.SurfaceEdgeThicknessScale, a.SurfaceNakedEdgeThicknessScale, a.SurfaceIsoThicknessScale) = (row.Scale, row.Scale, row.Scale, row.Scale);
+        // Each usage writer takes its own nested vocabulary, so the shared row hands each its own native column.
         a.SetCurveThicknessUsage(row.WidthUse.Curve); a.SetSurfaceEdgeThicknessUsage(row.WidthUse.Surface);
-        a.SetSurfaceNakedEdgeThicknessUsage(row.WidthUse.Surface); a.SetSurfaceIsoThicknessUsage(row.WidthUse.Surface);
-        (a.SurfaceEdgeColor, a.SurfaceNakedEdgeColor) = (Quant.Sys(row.Color), Quant.Sys(row.Color));
+        a.SetSurfaceNakedEdgeThicknessUsage(row.WidthUse.Naked); a.SetSurfaceIsoThicknessUsage(row.WidthUse.Iso);
+        a.UseSingleCurveColor = row.SingleCurveColor.IsSome;
+        _ = row.SingleCurveColor.Iter(color => a.CurveColor = Quant.Sys(color));
+        (a.SurfaceEdgeColor, a.SurfaceNakedEdgeColor, a.SurfaceEdgeColorUsage) = (Quant.Sys(row.Color), Quant.Sys(row.Color), row.EdgeColorUse.Native);
         (a.SurfaceEdgeColorReduction, a.SurfaceNakedEdgeColorReduction) = (row.ReductionPercent, row.ReductionPercent);
+        (a.SurfaceIsoUVColor, a.SurfaceIsoUColor, a.SurfaceIsoVColor) = (Quant.Sys(row.IsoUv), Quant.Sys(row.IsoU), Quant.Sys(row.IsoV));
+        a.SetSurfaceIsoColorUsage(row.IsoColorUse.Native);
         a.SetSurfaceIsoApplyPattern(row.Pattern, row.Pattern, row.Pattern);
         return unit;
     }
 
     private static Unit Write(DisplayPipelineAttributes a, Lighting row) {
         (a.LightingScheme, a.AmbientLightingColor, a.UseLightColor, a.ShowLights) = (row.Scheme.Native, Quant.Sys(row.Ambient), row.UseLightColor, row.ShowLights);
-        (a.CastShadows, a.SkylightShadowQuality) = (row.CastShadows, row.SkylightShadowQuality);
+        a.CastShadows = row.CastShadows;
+        (a.ShadowsOn, a.ShadowColor, a.ShadowIntensity, a.ShadowMemoryUsage) =
+            (row.Shadows.On, Quant.Sys(row.Shadows.Color), row.Shadows.Intensity, row.Shadows.MemoryUsage);
+        (a.SkylightShadowQuality, a.ShadowSoftEdgeQuality, a.ShadowEdgeBlur, a.ShadowBiasX) =
+            (row.Shadows.SkylightQuality, row.Shadows.SoftEdgeQuality, row.Shadows.EdgeBlur, row.Shadows.Bias);
+        (a.ShadowTransparencyTolerance, a.ShadowClippingRadius, a.ShadowsIgnoreUserDefinedClippingPlanes) =
+            (row.Shadows.TransparencyTolerance, row.Shadows.ClippingRadius, row.Shadows.IgnoreUserClipping);
         return unit;
     }
 
@@ -282,6 +433,10 @@ public abstract partial record Appearance {
         (a.ViewSpecificAttributes.ThinGridLineFrequency, a.ViewSpecificAttributes.ThickGridLineFrequency) = (row.ThinFrequency, row.ThickFrequency);
         (a.ViewSpecificAttributes.ThinGridLineColor, a.ViewSpecificAttributes.ThickGridLineColor) = (Quant.Sys(row.Thin), Quant.Sys(row.Thick));
         (a.ViewSpecificAttributes.WorldAxisColorX, a.ViewSpecificAttributes.WorldAxisColorY, a.ViewSpecificAttributes.WorldAxisColorZ) = (Quant.Sys(row.X), Quant.Sys(row.Y), Quant.Sys(row.Z));
+        // The top-level grid band sits on the attribute set itself, not the view-specific nest, so both write from one case.
+        (a.GridTransparency, a.GridPlaneTransparency, a.GridPlaneVisibility) = (row.GridTransparency, row.PlaneTransparency, row.PlaneVisibility.Native);
+        (a.GridPlaneColor, a.PlaneUsesGridColor) = (Quant.Sys(row.PlaneColor), row.PlaneUsesGridColor);
+        (a.AxesSizePercentage, a.WorldAxesIconColorUsage) = (row.AxesSizePercent, row.AxesColorUse.Native);
         return unit;
     }
 
@@ -298,13 +453,14 @@ public abstract partial record Appearance {
         (a.ShowMeshEdges, a.ShowMeshNakedEdges, a.ShowMeshNonmanifoldEdges) = (row.Wires, row.Naked, row.NonManifold);
         (a.MeshEdgeThickness, a.MeshNakedEdgeThickness, a.MeshNonmanifoldEdgeThickness) = (row.Width, row.Width, row.Width);
         (a.MeshEdgeColor, a.MeshNakedEdgeColor, a.MeshNonmanifoldEdgeColor) = (Quant.Sys(row.WireColor), Quant.Sys(row.NakedColor), Quant.Sys(row.NonManifoldColor));
-        a.MeshSpecificAttributes.ShowMeshVertices = row.Vertices;
+        (a.MeshVertexSize, a.MeshSpecificAttributes.ShowMeshVertices) = (row.VertexSize, row.Vertices);
         return unit;
     }
 
     private static Unit Write(DisplayPipelineAttributes a, Clipping row) {
         (a.ShowClippingPlanes, a.ShowClippingFills, a.ShowClippingEdges, a.UseSectionStyles) = (row.Planes, row.Fills, row.Edges, row.SectionStyles);
-        (a.ClippingPlaneFillColorUsage, a.ClippingFillColor) = (row.FillUse.Native, Quant.Sys(row.FillColor));
+        (a.ShowClipIntersectionSurfaces, a.ShowClipIntersectionEdges) = (row.IntersectionSurfaces, row.IntersectionEdges);
+        (a.ClippingPlaneFillColorUsage, a.ClippingFillColor, a.ClippingShadeTransparency) = (row.FillUse.Native, Quant.Sys(row.FillColor), row.ShadeTransparency);
         (a.ClippingEdgeColorUsage, a.ClippingEdgeColor, a.ClippingEdgeThickness) = (row.EdgeUse.Native, Quant.Sys(row.EdgeColor), row.EdgeWidth);
         return unit;
     }
@@ -314,6 +470,7 @@ public abstract partial record Appearance {
         (a.ShowText, a.ShowAnnotations, a.LinearWorkflowUsage) = (row.Text, row.Annotations, row.Workflow.Workflow);
         (a.PreProcessGamma, a.PostProcessGamma, a.BakeTextures) = (row.PreGamma, row.PostGamma, row.BakeTextures);
         (a.RealtimeRenderPasses, a.ShowRealtimeRenderProgressBar) = (row.RealtimePasses, row.RealtimeProgress);
+        (a.BoundingBoxMode, a.DynamicDisplayUsage) = (row.Bounds.Native, row.Dynamic.Native);
         return unit;
     }
 }
@@ -409,11 +566,13 @@ public abstract partial record ModePlan {
 
 - Owner: `ModeRequest` is the complete ingress family and `ModeReceipt` is the detached egress family.
 - Entry: `Modes.Configure` dispatches every modality; request shape carries singular, batch, query, and capture intent without flags or sibling verbs.
+- Law: the ingress family covers every `ModeOp` case, so the table vocabulary and the public entry agree case for case — census, name lookup, blank mint, retire, `.ini` import, and `.ini` export each reach a consumer, and a table verb whose only argument is a live descriptor has no admissible ingress and does not exist.
+- Law: a descriptor never crosses the receipt boundary; `ModeSummary` is the detached projection every query answers with, carrying identity, both names, and the whole policy band.
 - Law: analysis attachment admits a unique requested set, separates requested and changed subjects in the receipt, and restores a failed prefix in reverse while retaining every cleanup fault.
 - Growth: `AnalysisKind` carries every built-in host analysis identity as a table row.
-- Law: `Apply` stages by plan case — an existing descriptor proves every concern and policy write on a host-minted staging copy first, deleted after the proof, because `DisplayPipelineAttributes` admits no external clone; a derived plan's registered copy is itself the stage and deletes on a failed commit.
+- Law: `Apply` runs ONE write path for both plan cases. The host publishes no `DisplayPipelineAttributes` clone and no assign, so a written descriptor cannot be rolled back and a staging copy proves nothing request admission already proved while replaying every non-idempotent effect setter (`SetColorFadeEffect`, `SetDitherTransparencyEffect`, `SetDiagonalHatchEffect`) twice — a mid-commit failure therefore leaves an existing descriptor partially written and says so on the rail, and only a derived plan's own minted copy is recoverable, deleted on a failed commit.
 - Boundary: UI adjustment and analysis-dialog requests demand dialog capability; bitmap custody exits only as `CaptureArtifact`.
-- Growth: a new mode operation is one request case and one receipt projection inside the existing dispatch.
+- Growth: a new mode operation is one request case, one `ModeOp` case, and one receipt projection inside the existing dispatch.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -488,6 +647,12 @@ public abstract partial record ModeRequest {
     public sealed record Inspect(DocumentSession Session, ViewportTarget Target) : ModeRequest;
     public sealed record Capture(DocumentSession Session, ViewportTarget Target, ModeId Mode, Option<Size2i> Extent) : ModeRequest;
     public sealed record Analyze(DocumentSession Session, AnalysisEdit Edit) : ModeRequest;
+    public sealed record Census : ModeRequest;
+    public sealed record Named(string Name) : ModeRequest;
+    public sealed record Mint(string Name) : ModeRequest;
+    public sealed record Retire(ModeId Mode) : ModeRequest;
+    public sealed record Import(string Path, bool Interactive) : ModeRequest;
+    public sealed record Export(ModeId Mode, string Path) : ModeRequest;
 
     internal bool Valid => Switch(
         apply: static row => row.Plan is not null
@@ -502,10 +667,42 @@ public abstract partial record ModeRequest {
             && row.Target is not null
             && row.Mode.Value != Guid.Empty
             && row.Extent.Match(Some: static size => size.IsValid, None: static () => true),
-        analyze: static row => row.Session is not null && row.Edit is not null && row.Edit.Valid);
+        analyze: static row => row.Session is not null && row.Edit is not null && row.Edit.Valid,
+        census: static _ => true,
+        named: static row => !string.IsNullOrWhiteSpace(row.Name),
+        mint: static row => !string.IsNullOrWhiteSpace(row.Name),
+        retire: static row => row.Mode.Value != Guid.Empty,
+        import: static row => !string.IsNullOrWhiteSpace(row.Path),
+        export: static row => row.Mode.Value != Guid.Empty && !string.IsNullOrWhiteSpace(row.Path));
 
     private static bool Unique<T>(Seq<T> rows) where T : class =>
         rows.Map(static row => row.GetType()).Distinct().Count == rows.Count;
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+// The detached descriptor projection: identity, both names, and the policy band, so a census answers without a host handle.
+public readonly record struct ModeSummary(
+    ModeId Id,
+    string Name,
+    string LocalName,
+    bool InMenu,
+    bool SupportsShadeCommand,
+    bool SupportsShading,
+    bool AllowObjectAssignment,
+    bool ShadedPipelineRequired,
+    bool WireframePipelineRequired,
+    bool PipelineLocked) {
+    internal static ModeSummary Of(DisplayModeDescription mode) => new(
+        Id: ModeId.Create(mode.Id),
+        Name: mode.EnglishName,
+        LocalName: mode.LocalName,
+        InMenu: mode.InMenu,
+        SupportsShadeCommand: mode.SupportsShadeCommand,
+        SupportsShading: mode.SupportsShading,
+        AllowObjectAssignment: mode.AllowObjectAssignment,
+        ShadedPipelineRequired: mode.ShadedPipelineRequired,
+        WireframePipelineRequired: mode.WireframePipelineRequired,
+        PipelineLocked: mode.PipelineLocked);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -515,6 +712,9 @@ public abstract partial record ModeReceipt : IDetachedDocumentResult {
     public sealed record Bound(ModeId Mode) : ModeReceipt;
     public sealed record Inspected(ModeId Mode, Fill Fill) : ModeReceipt;
     public sealed record Captured(CaptureArtifact Artifact) : ModeReceipt;
+    public sealed record Resolved(Seq<ModeSummary> Modes) : ModeReceipt;
+    public sealed record Retired(ModeId Mode) : ModeReceipt;
+    public sealed record Exported(ModeId Mode, string Path) : ModeReceipt;
     public sealed record AnalysisChanged(Seq<Guid> Requested, Seq<Guid> Changed, AnalysisId Mode, AnalysisState State) : ModeReceipt;
     public sealed record AnalysisCensus(Guid Object, Seq<AnalysisId> Active) : ModeReceipt;
     public sealed record AnalysisAdjusted(AnalysisId Mode) : ModeReceipt;
@@ -531,8 +731,7 @@ public static class Modes {
             apply: static (op, row) => row.Plan.Switch(
                 (Policies: row.Policies, Concerns: row.Concerns, Op: op),
                 existing: static (held, plan) => Resolve(plan.Id, held.Op)
-                    .Bind(mode => Staged(mode, held.Policies, held.Concerns, held.Op)
-                        .Bind(_ => Commit(mode, held.Policies, held.Concerns, held.Op))),
+                    .Bind(mode => Commit(mode, held.Policies, held.Concerns, held.Op)),
                 derived: static (held, plan) => new ModeOp.CopyCase(plan.Source, plan.Name).Apply(held.Op)
                     .Bind(modes => modes.Head.ToFin(held.Op.InvalidResult()))
                     .Bind(mode => Commit(mode, held.Policies, held.Concerns, held.Op)
@@ -554,35 +753,32 @@ public static class Modes {
                         None: () => borrow.View.CaptureToBitmap(mode))).ToFin(op.InvalidResult())), op)))
                 .Bind(bitmap => CaptureArtifact.Raster(bitmap, op))
                 .Map(artifact => (ModeReceipt)new ModeReceipt.Captured(artifact)),
-            analyze: static (op, row) => Analyze(row.Session, row.Edit, op)));
+            analyze: static (op, row) => Analyze(row.Session, row.Edit, op),
+            census: static (op, _) => Summarize(new ModeOp.CensusCase(), op),
+            named: static (op, row) => Summarize(new ModeOp.NamedCase(row.Name), op),
+            mint: static (op, row) => Summarize(new ModeOp.BlankCase(row.Name), op),
+            retire: static (op, row) => new ModeOp.DeleteCase(row.Mode).Apply(op)
+                .Map(_ => (ModeReceipt)new ModeReceipt.Retired(row.Mode)),
+            import: static (op, row) => Summarize(new ModeOp.ImportCase(row.Path, row.Interactive), op),
+            export: static (op, row) => new ModeOp.ExportCase(row.Mode, row.Path).Apply(op)
+                .Map(_ => (ModeReceipt)new ModeReceipt.Exported(row.Mode, row.Path))));
     }
 
     private static Fin<DisplayModeDescription> Resolve(ModeId id, Op key) =>
         new ModeOp.FindCase(id).Apply(key).Bind(modes => modes.Head.ToFin(key.InvalidResult()));
 
+    private static Fin<ModeReceipt> Summarize(ModeOp op, Op key) =>
+        op.Apply(key).Bind(modes => key.Catch(() =>
+            Fin.Succ<ModeReceipt>(new ModeReceipt.Resolved(modes.Map(ModeSummary.Of).Strict()))));
+
+    // Host truth: `DisplayPipelineAttributes` publishes no clone and no assign, so a written descriptor cannot be restored
+    // and a staging copy proves nothing admission has not already proved — it only replays every non-idempotent effect
+    // setter twice. One write path serves both plans, and only the derived plan's own minted copy is recoverable.
     private static Fin<ModeReceipt> Commit(DisplayModeDescription mode, Seq<ModePolicy> policies, Seq<Appearance> concerns, Op key) =>
         Appearance.Write(concerns, mode.DisplayAttributes, key)
             .Bind(_ => ModePolicy.Write(policies, mode, key))
             .Bind(_ => new ModeOp.UpdateCase(mode).Apply(key))
             .Map(_ => (ModeReceipt)new ModeReceipt.Configured(ModeId.Create(mode.Id)));
-
-    private static Fin<Unit> Staged(DisplayModeDescription target, Seq<ModePolicy> policies, Seq<Appearance> concerns, Op key) =>
-        new ModeOp.CopyCase(ModeId.Create(target.Id), $"staging-{Guid.NewGuid():N}").Apply(key)
-            .Bind(modes => modes.Head.ToFin(key.InvalidResult()))
-            .Bind(probe => DeleteAfter(
-                Appearance.Write(concerns, probe.DisplayAttributes, key)
-                    .Bind(_ => ModePolicy.Write(policies, probe, key)),
-                ModeId.Create(probe.Id),
-                key));
-
-    private static Fin<Unit> DeleteAfter(Fin<Unit> primary, ModeId temporary, Op key) {
-        Fin<Unit> cleanup = new ModeOp.DeleteCase(temporary).Apply(key).Map(static _ => unit);
-        return primary.Match(
-            Succ: _ => cleanup,
-            Fail: failure => cleanup.Match(
-                Succ: _ => Fin.Fail<Unit>(failure),
-                Fail: secondary => Fin.Fail<Unit>(failure + secondary)));
-    }
 
     private static Fin<ModeReceipt> Analyze(DocumentSession session, AnalysisEdit edit, Op key) => edit.Switch(
         (Session: session, Op: key),

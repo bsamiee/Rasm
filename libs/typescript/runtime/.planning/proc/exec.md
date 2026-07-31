@@ -133,27 +133,43 @@ const _halted = (): Promise<void> => _host.dispose();
 ## [04]-[COMMAND_SPEC]
 
 [COMMAND_SPEC]:
-- Owner: `Proc` — spec-driven subprocess execution over one Schema authority. `Proc.Spec` is a `Schema.Class`: `command`, defaulted `args`, the closed `capture` modality vocabulary (`"receipt" | "text" | "lines" | "stream"`, defaulted `"receipt"` at the declaration so absence is unspellable in the interior), `Option`-admitted `env`, `cwd`, and `feed` (stdin text folded through `Command.feed`), defaulted `shell` (`Command.runInShell`), defaulted `pipes` (pipeline stages folded through `Command.pipeTo`), `Option`-admitted `budget` and `demand` (the expected exit code); `Proc.run` is the one entry, its return following the spec's own `capture` discriminant — `"receipt"` yields the `Proc.Receipt` class (exit code and elapsed), `"text"` captured stdout, `"lines"` the `Command.lines` split, `"stream"` the live byte stream; `Proc.open` is the interactive modality — a scoped acquisition of the executor's live `Process` handle for a long-lived child a caller feeds and reads (the compute-host case), released by scope close as interruption; a `runText`/`runStream`/`spawn` sibling family is the deleted spelling.
+- Owner: `Proc` — spec-driven subprocess execution over one Schema authority. `Proc.Spec` is a `Schema.Class`: `command`, defaulted `args`, the closed `capture` modality vocabulary (`"receipt" | "text" | "lines" | "stream"`, defaulted `"receipt"` at the declaration so absence is unspellable in the interior), `Option`-admitted `env`, `cwd`, and `feed` (the closed stdin family folded through `Command.feed`/`Command.stdin`), defaulted `shell` (`Command.runInShell`), defaulted `stderr` (the capture posture folded through `Command.stderr`), defaulted `pipes` (pipeline stages folded through `Command.pipeTo`), `Option`-admitted `budget` and `demand` (the expected exit code); `Proc.run` is the one entry, its return following the spec's own `capture` discriminant — `"receipt"` yields the `Proc.Receipt` class (exit code and elapsed), `"text"` captured stdout, `"lines"` the `Command.lines` split, `"stream"` the live byte stream; `Proc.open` is the interactive modality — a scoped acquisition of the executor's live `Process` handle for a long-lived child a caller feeds and reads (the compute-host case), released by scope close as interruption; a `runText`/`runStream`/`spawn` sibling family is the deleted spelling.
 - Law: the class is the admission seam and the constructor — raw spec material (an ops verb's arguments, a config-declared job) decodes once through `Schema.decodeUnknown(Proc.Spec)`, trusted interior construction rides `new Proc.Spec({ command })` running the same filters, and the executor consumes only admitted values: capture is a total literal read, absence is `Option`, and no execution arm re-validates or branches on `undefined`; `Proc.Receipt` is the same authority on the result side, so an ops surface encodes receipts through the derived wire twin with zero hand serialization.
-- Law: the fault surface is two families sized by routing — the platform's own `PlatformError` carries spawn and I/O failure untouched (re-wrapping a tagged family is ceremony), and `ExecFault` mints exactly the two causes the platform cannot: `exit` (a settled code refusing `demand`, the code as evidence) and `budget` (the expiry `Effect.timeoutFail` mints); the fault carries `class: FaultClass.Kind` so the core budget gate re-drives it — `budget` folds to `expired` (retryable), `exit` to `invalid` (terminal).
+- Law: the fault surface is two families sized by routing — the platform's own `PlatformError` carries spawn and I/O failure untouched (re-wrapping a tagged family is ceremony), and `ExecFault` mints exactly the two causes the platform cannot: `exit` (a settled code refusing `demand`, carrying that code and the child's own stderr text as evidence) and `budget` (the expiry `Effect.timeoutFail` mints, carrying neither because its child reached no exit and its drain died with the fiber). The reason roster and its class column come from ONE core `FaultClass.family` mint, so `class` is a getter projecting `classOf(reason)` rather than a field an instance could contradict — `budget` folds to `expired` (retryable, system-blamed), `exit` to `invalid` (terminal, caller-blamed) — and no local rank, retry, or status row stands beside it because the core kind already carries all three.
+- Law: the diagnostic is captured, never discarded — `_settled` takes the live `Process` handle instead of `Command.exitCode` and drains `child.stderr` CONCURRENTLY with the exit wait, because a child that fills its stderr pipe while the parent waits on exit deadlocks. `spec.stderr` is the two-arm posture over that: `capture` folds the drained text into `ExecFault.detail`, and `inherit` hands the stream to the parent's own stderr through `Command.stderr("inherit")` — the arm a long-lived child with unbounded diagnostic output takes so no buffer grows behind the wait.
+- Law: `feed` is the platform's whole stdin vocabulary as a closed tagged family, never a text field — `Text` keeps the UTF-8 encode `Command.feed` owns, `Inherit` hands the child the parent's own stdin, and `Bytes` folds a live `Stream` through `Command.stdin` so a piped archive or a generated payload feeds a child the text arm cannot express; the stream arm declares `FromSelf` against the carrier's own `Stream.StreamTypeId`, so a process-bound value is admitted by nominal identity and never pretends to serialize.
 - Law: teardown is interruption — the budget interrupt, a parent scope closing, and a race loss all release the child through the executor's own bracket; a hand `kill`, a PID ledger, and a signal listener beside the rail are rejected, and escalation policy (grace then hard) is the budget value itself.
 - Law: `demand` rides the receipt modality only — text, lines, and stream captures are byte lanes whose consumer owns interpretation; `budget` rides the settled modalities only — receipt, text, and lines captures are bounded whole, while the live stream and the open handle outlive any spec deadline by nature. Receipt elapsed time derives from `Clock.currentTimeNanos`, so wall-clock adjustment cannot produce a negative or inflated process duration.
 - Boundary: `CommandExecutor` arrives from the runtime row's `context`; stdio bridges (`NodeStream.stdin`, `NodeSink.stdout`) are row-tier members an ops verb composes at its own seam, never re-exported here.
 - Entry: `Proc.run(spec)`; `Proc.open(spec)` under `Scope`; the executor requirement rides `R` to the root.
-- Packages: `@effect/platform` (`Command`, `CommandExecutor`), `effect` (`Clock`, `Data`, `Duration`, `Effect`, `Option`, `Schema`, `Stream`), `@rasm/ts/core` (`FaultClass`).
+- Packages: `@effect/platform` (`Command` incl. `start`/`stdin`/`stderr`, `CommandExecutor.Process`), `effect` (`Clock`, `Duration`, `Effect`, `Match`, `Option`, `Predicate`, `Schema`, `Stream`), `@rasm/ts/core` (`FaultClass.family`).
 
 ```typescript signature
 import { Command, type CommandExecutor, type PlatformError } from '@effect/platform';
-import { Array, Clock, Data, DateTime, Duration, Effect, Option, Schema, type Scope, type Stream, pipe } from 'effect';
-import { Claim, type FaultClass } from '@rasm/ts/core';
+import { Array, Clock, DateTime, Duration, Effect, Match, Option, Predicate, Schema, type Scope, Stream, pipe } from 'effect';
+import { Claim, FaultClass } from '@rasm/ts/core';
 
-class ExecFault extends Data.TaggedError('ExecFault')<{
-    readonly reason: 'exit' | 'budget';
-    readonly command: string;
-    readonly code: Option.Option<number>;
-}> {
+// One core family mint owns the reason roster and its class column, so `class` is a projection of `reason` rather
+// than a second field an instance can contradict, and the branch taxonomy stays unforked: no local rank, retry, or
+// status row stands beside it — `FaultClass` already carries all three off the kind.
+const _exec = FaultClass.family(['budget', 'exit'] as const, {
+    budget: { class: 'expired' }, // system-blamed and retryable: the core budget gate re-drives it
+    exit: { class: 'invalid' }, // caller-blamed and terminal: a refused demand is not a transient
+});
+
+class ExecFault extends Schema.TaggedError<ExecFault>()('ExecFault', {
+    reason: _exec.schema,
+    command: Schema.NonEmptyString,
+    code: Schema.optionalWith(Schema.Int, { as: 'Option' }),
+    // the child's own diagnostic, captured whole on the settled modalities; absent on a budget expiry, whose child
+    // never reached an exit and whose stderr drain the interrupt cancelled
+    detail: Schema.optionalWith(Schema.String, { as: 'Option' }),
+}) {
     get class(): FaultClass.Kind {
-        return this.reason === 'budget' ? 'expired' : 'invalid';
+        return _exec.classOf(this.reason);
+    }
+    override get message(): string {
+        return `<${this.reason}> ${this.command}`;
     }
 }
 
@@ -164,7 +180,28 @@ class Spec extends Schema.Class<Spec>('Proc/Spec')({
     env: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { as: 'Option' }),
     cwd: Schema.optionalWith(Schema.String, { as: 'Option' }),
     shell: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-    feed: Schema.optionalWith(Schema.String, { as: 'Option' }),
+    // stdin admits the platform's whole input vocabulary, not text alone: the text arm keeps `Command.feed`'s UTF-8
+    // encode while `inherit` hands the child the parent's own stdin and a `Stream` feeds a piped archive or a
+    // generated payload — the same widening `capture: "stream"` already grants the read side
+    feed: Schema.optionalWith(
+        Schema.Union(
+            Schema.TaggedStruct('Text', { text: Schema.String }),
+            Schema.TaggedStruct('Inherit', {}),
+            // a live stream is process-bound by construction, so the arm is a FromSelf declaration keyed on the
+            // carrier's own nominal symbol — the branded identity the package publishes, never a structural guess
+            Schema.TaggedStruct('Bytes', {
+                stream: Schema.declare(
+                    (input): input is Stream.Stream<Uint8Array, PlatformError.PlatformError> =>
+                        Predicate.hasProperty(input, Stream.StreamTypeId),
+                    { identifier: 'ProcStdin' },
+                ),
+            }),
+        ),
+        { as: 'Option' },
+    ),
+    // "capture" holds the child's diagnostic for the receipt fault; "inherit" hands it to the parent's own stderr,
+    // the arm a long-lived child with unbounded diagnostic output takes so no buffer grows behind the wait
+    stderr: Schema.optionalWith(Schema.Literal('capture', 'inherit'), { default: () => 'capture' as const }),
     pipes: Schema.optionalWith(Schema.Array(Schema.Tuple(Schema.NonEmptyString, Schema.Array(Schema.String))), { default: () => [] }),
     budget: Schema.optionalWith(Schema.Duration, { as: 'Option' }),
     demand: Schema.optionalWith(Schema.Int, { as: 'Option' }),
@@ -187,8 +224,18 @@ const _staged = (spec: Spec): Command.Command =>
         (head) => Option.match(spec.env, { onNone: () => head, onSome: (env) => head.pipe(Command.env(env)) }),
         (homed) => Option.match(spec.cwd, { onNone: () => homed, onSome: (cwd) => homed.pipe(Command.workingDirectory(cwd)) }),
         (placed) => (spec.shell ? placed.pipe(Command.runInShell(true)) : placed),
-        (shaped) => Option.match(spec.feed, { onNone: () => shaped, onSome: (text) => shaped.pipe(Command.feed(text)) }),
-        (fed) => Array.reduce(spec.pipes, fed, (acc, [command, args]) => acc.pipe(Command.pipeTo(Command.make(command, ...args)))),
+        (shaped) =>
+            Option.match(spec.feed, {
+                onNone: () => shaped,
+                onSome: (input) =>
+                    Match.valueTags(input, {
+                        Bytes: ({ stream }) => shaped.pipe(Command.stdin(stream)),
+                        Inherit: () => shaped.pipe(Command.stdin('inherit')),
+                        Text: ({ text }) => shaped.pipe(Command.feed(text)), // the text arm keeps the encode Command.feed owns
+                    }),
+            }),
+        (fed) => (spec.stderr === 'inherit' ? fed.pipe(Command.stderr('inherit')) : fed),
+        (wired) => Array.reduce(spec.pipes, wired, (acc, [command, args]) => acc.pipe(Command.pipeTo(Command.make(command, ...args)))),
     );
 
 const _budgeted =
@@ -199,20 +246,40 @@ const _budgeted =
             onSome: (budget) =>
                 Effect.timeoutFail(self, {
                     duration: budget,
-                    onTimeout: () => new ExecFault({ reason: 'budget', command: spec.command, code: Option.none() }),
+                    // a budget expiry reaches no exit and cancels the stderr drain with the fiber, so neither evidence
+                    // field can be filled — absence here is the honest reading, never a zero code or an empty string
+                    onTimeout: () => new ExecFault({ reason: 'budget', command: spec.command, code: Option.none(), detail: Option.none() }),
                 }),
         });
 
 const _settled = (spec: Spec): Effect.Effect<Receipt, Proc.Faults, CommandExecutor.CommandExecutor> =>
-    Effect.gen(function* () {
-        const opened = yield* Clock.currentTimeNanos;
-        const code = yield* _staged(spec).pipe(Command.exitCode);
-        const closed = yield* Clock.currentTimeNanos;
-        const refused = Option.filter(spec.demand, (demanded) => code !== demanded);
-        return Option.isSome(refused)
-            ? yield* new ExecFault({ reason: 'exit', command: spec.command, code: Option.some(code) })
-            : new Receipt({ command: spec.command, code, elapsed: Duration.nanos(closed - opened) });
-    }).pipe(_budgeted(spec));
+    Effect.scoped(
+        Effect.gen(function* () {
+            const opened = yield* Clock.currentTimeNanos;
+            // the live handle rather than `Command.exitCode`, because the exit code alone is what discards the child's
+            // own message: an ops verb that fails reports a number and the diagnostic is unrecoverable
+            const child = yield* Command.start(_staged(spec));
+            // the drain runs CONCURRENTLY with the wait — a child filling its stderr pipe while the parent waits on
+            // exit deadlocks, so the diagnostic is consumed as it is produced; the inherit arm left no pipe to read
+            const [code, detail] = yield* Effect.zip(
+                child.exitCode,
+                spec.stderr === 'inherit'
+                    ? Effect.succeed('')
+                    : Effect.map(Stream.mkString(Stream.decodeText(child.stderr)), (text) => text.trim()),
+                { concurrent: true },
+            );
+            const closed = yield* Clock.currentTimeNanos;
+            const refused = Option.filter(spec.demand, (demanded) => code !== demanded);
+            return Option.isSome(refused)
+                ? yield* new ExecFault({
+                      reason: 'exit',
+                      command: spec.command,
+                      code: Option.some(code),
+                      detail: detail === '' ? Option.none() : Option.some(detail),
+                  })
+                : new Receipt({ command: spec.command, code, elapsed: Duration.nanos(closed - opened) });
+        }),
+    ).pipe(_budgeted(spec));
 
 function run(spec: Spec & { readonly capture: 'text' }): Effect.Effect<string, Proc.Faults, CommandExecutor.CommandExecutor>;
 function run(spec: Spec & { readonly capture: 'lines' }): Effect.Effect<ReadonlyArray<string>, Proc.Faults, CommandExecutor.CommandExecutor>;

@@ -5,7 +5,7 @@ Block state vocabulary (`Rasm.Rhino.Blocks`) owns one live address, one whole-st
 ## [01]-[INDEX]
 
 - [02]-[ADDRESS]: `Definitions.Lens` this folder's one `ResourceLens<InstanceDefinition>` row over the document spine's `ResourceRef`, resolution re-entering the mutable table per use so no native definition escapes its owning document window.
-- [03]-[SNAPSHOT]: `BlockSnapshot` capturing identity, normalized source state, member order, placement evidence, usage, containers, and both change probes in one host read, `BlockDependency` folding the native table probes, and `LinkState` normalizing obsolete embedded definitions.
+- [03]-[SNAPSHOT]: `BlockSnapshot` capturing identity, normalized source state, member order, placement evidence, usage, containers, and both change probes in one host read, `BlockDependency` folding the native table probes, `SourceMode` and `LayerScope` closing the host source and layer discriminants at the boundary, and `LinkState` carrying their interior meaning.
 - [04]-[POLICY_VALUES]: closed `ConflictPolicy`, `DeletionPolicy`, `ExplodePolicy`, `Placement`, and `BlockPreview` owners carrying host arguments as data, `PreviewFrame` admitting projection, extent, and raster scale once for every modality.
 - [05]-[SURFACE_LEDGER]: owner-to-kind-to-ingress-to-egress roster across the lens row, snapshot, link state, policy owners, and preview union.
 
@@ -31,7 +31,9 @@ public static class Definitions {
 
 `BlockSnapshot` resolves its `ResourceRef` through `Definitions.Lens`, then captures identity, normalized source state, member order, placed-reference evidence, usage, containers, and both change probes in one host read. Member admission revalidates geometry and attributes with native diagnostic evidence before either enters identity. `BlockDependency` admits table indexes against their live bounds before one table fold composes the native dependency probes; its single integer result is `0` when absent, `1` for a present table dependency, and the host nesting depth for a definition dependency.
 
-`LinkState` normalizes obsolete `Embedded` definitions to `Static`. Linked cases require a nonblank source and preserve embed, tenuous, nested-link, layer-style, and archive-health evidence for refresh policy.
+`SourceMode` is the boundary owner for the definition's source axis: three live rows keyed on `InstanceDefinitionUpdateType` ordinals, the retired ordinal `1` folded onto `Static` at admission so a legacy archive reads without the fence ever spelling the `[Obsolete]` host case, and a `Regenerates` behavior column the refresh rail reads. `LayerScope` closes the linked-definition layer policy the same way, so no raw host discriminant crosses into a public payload. `LinkState` linked cases require a nonblank source and preserve embed, tenuous, nested-link, layer-scope, and archive-health evidence for refresh policy.
+
+Every host read on this page runs inside `DocumentSession.Demand`, which resolves on the host command thread — live sessions marshal through `RhinoApp.InvokeAndWait` and headless sessions stay on the caller. That demand IS the affinity rail the thread-affine members (`GetReferences`, every `CreatePreviewBitmap` overload) require; composing one outside a demand is the deleted form.
 
 `BlockStamp.Geometry` remains an in-process invalidation probe. `BlockStamp.Content` hashes length-prefixed definition fields and a detached `File3dm` serialization of every admitted geometry and attribute payload. Ordinal-derived archive ids preserve member order without admitting live definition, member, or archive-minted identity.
 
@@ -42,6 +44,14 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using CommunityToolkit.HighPerformance.Buffers;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.Display;
+using Rhino.DocObjects;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Blocks;
 
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<int>]
@@ -51,6 +61,53 @@ public sealed partial class ReferenceScope {
     public static readonly ReferenceScope Definition = new(key: 2, hostValue: 2);
 
     public int HostValue { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class SourceMode {
+    public static readonly SourceMode Static = new(
+        key: (int)InstanceDefinitionUpdateType.Static,
+        regenerates: static (_, _) => true);
+    public static readonly SourceMode LinkedAndEmbedded = new(
+        key: (int)InstanceDefinitionUpdateType.LinkedAndEmbedded,
+        regenerates: static (styled, _) => styled);
+    public static readonly SourceMode Linked = new(
+        key: (int)InstanceDefinitionUpdateType.Linked,
+        regenerates: static (styled, readable) => styled && readable);
+
+    // Retired host ordinal: the source axis once carried a fourth case the host marks `[Obsolete("Always use Static")]`.
+    // Admission folds it onto `Static` so a legacy archive reads and no fence spells the obsolete member.
+    private const int RetiredEmbeddedOrdinal = 1;
+
+    internal InstanceDefinitionUpdateType Host => (InstanceDefinitionUpdateType)Key;
+
+    internal bool Reads => this != Static;
+
+    internal bool Embeds => this != Linked;
+
+    [UseDelegateFromConstructor]
+    internal partial bool Regenerates(bool styled, bool readable);
+
+    internal static Fin<SourceMode> Of(InstanceDefinitionUpdateType update, Op key) =>
+        (int)update is RetiredEmbeddedOrdinal
+            ? Fin.Succ(value: Static)
+            : TryGet((int)update, out SourceMode? row) && row is not null
+                ? Fin.Succ(value: row)
+                : Fin.Fail<SourceMode>(error: key.InvalidResult(detail: update.ToString()));
+}
+
+[SmartEnum<int>]
+public sealed partial class LayerScope {
+    public static readonly LayerScope None = new(key: (int)InstanceDefinitionLayerStyle.None);
+    public static readonly LayerScope Active = new(key: (int)InstanceDefinitionLayerStyle.Active);
+    public static readonly LayerScope Reference = new(key: (int)InstanceDefinitionLayerStyle.Reference);
+
+    internal InstanceDefinitionLayerStyle Host => (InstanceDefinitionLayerStyle)Key;
+
+    internal static Fin<LayerScope> Of(InstanceDefinitionLayerStyle style, Op key) =>
+        TryGet((int)style, out LayerScope? row) && row is not null
+            ? Fin.Succ(value: row)
+            : Fin.Fail<LayerScope>(error: key.InvalidResult(detail: style.ToString()));
 }
 
 [SmartEnum<int>]
@@ -74,30 +131,29 @@ public abstract partial record LinkState {
     private LinkState() { }
     public sealed record Static : LinkState;
     public sealed record Linked(
-        string Path,
+        DocumentPath Path,
         bool AlsoEmbedded,
         SourceHealth Health,
-        InstanceDefinitionLayerStyle LayerStyle,
+        LayerScope LayerStyle,
         bool Tenuous,
         bool SkipNested) : LinkState;
 
     internal static Fin<LinkState> Of(InstanceDefinition definition, Op key) =>
-        definition.UpdateType switch {
-            InstanceDefinitionUpdateType.Static or InstanceDefinitionUpdateType.Embedded =>
-                Fin.Succ<LinkState>(value: new Static()),
-            InstanceDefinitionUpdateType.Linked or InstanceDefinitionUpdateType.LinkedAndEmbedded =>
-                from path in key.AcceptText(value: definition.SourceArchive)
-                from health in SourceHealth.Of(status: definition.ArchiveFileStatus)
-                    .ToFin(Fail: key.InvalidResult(detail: definition.ArchiveFileStatus.ToString()))
-                select (LinkState)new Linked(
-                    Path: path,
-                    AlsoEmbedded: definition.UpdateType is InstanceDefinitionUpdateType.LinkedAndEmbedded,
-                    Health: health,
-                    LayerStyle: definition.LayerStyle,
-                    Tenuous: definition.IsTenuous,
-                    SkipNested: definition.SkipNestedLinkedDefinitions),
-            var unknown => Fin.Fail<LinkState>(error: key.InvalidResult(detail: unknown.ToString())),
-        };
+        from mode in SourceMode.Of(update: definition.UpdateType, key: key)
+        from state in mode.Reads
+            ? from path in DocumentPath.Of(value: definition.SourceArchive, key: key)
+              from health in SourceHealth.Of(status: definition.ArchiveFileStatus)
+                  .ToFin(Fail: key.InvalidResult(detail: definition.ArchiveFileStatus.ToString()))
+              from scope in LayerScope.Of(style: definition.LayerStyle, key: key)
+              select (LinkState)new Linked(
+                  Path: path,
+                  AlsoEmbedded: mode.Embeds,
+                  Health: health,
+                  LayerStyle: scope,
+                  Tenuous: definition.IsTenuous,
+                  SkipNested: definition.SkipNestedLinkedDefinitions)
+            : Fin.Succ<LinkState>(value: new Static())
+        select state;
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -158,12 +214,11 @@ public sealed partial class BlockUsage {
             ? validationError
             : new ValidationError(message: "usage counts are inconsistent");
 
-    internal static Fin<BlockUsage> Of(int total, int topLevel, int nested, Op key) {
-        ValidationError? error = Validate(total, topLevel, nested, out BlockUsage? usage);
-        return error is null && usage is not null
-            ? Fin.Succ(value: usage)
-            : Fin.Fail<BlockUsage>(error: key.InvalidResult(detail: error?.ToString() ?? nameof(BlockUsage)));
-    }
+    internal static Fin<BlockUsage> Of(int total, int topLevel, int nested, Op key) =>
+        Admission.Admitted(
+            fault: Validate(total, topLevel, nested, out BlockUsage? admitted),
+            value: admitted,
+            refusal: key.InvalidResult(detail: nameof(BlockUsage)));
 }
 
 public sealed record BlockStamp(GeometryCrc Geometry, UInt128 Content);
@@ -236,12 +291,13 @@ public sealed record BlockSnapshot(
                        member.Geometry.DataCRC(currentRemainder: chain))
                    let geometry = GeometryCrc.Create(value: crc)
                    from link in LinkState.Of(definition: active, key: key)
+                   from mode in SourceMode.Of(update: active.UpdateType, key: key)
                    from usage in BlockUsage.Of(total: total, topLevel: topLevel, nested: nested, key: key)
                    let description = Optional(active.Description).Filter(static text => text.Length > 0)
                    from content in Identity(
                        name: active.Name,
                        description: description,
-                       update: active.UpdateType,
+                       mode: mode,
                        status: active.ArchiveFileStatus,
                        style: active.LayerStyle,
                        source: Optional(active.SourceArchive).Filter(static path => path.Length > 0),
@@ -278,7 +334,7 @@ public sealed record BlockSnapshot(
     private static Fin<UInt128> Identity(
         string name,
         Option<string> description,
-        InstanceDefinitionUpdateType update,
+        SourceMode mode,
         InstanceDefinitionArchiveFileStatus status,
         InstanceDefinitionLayerStyle style,
         Option<string> source,
@@ -291,7 +347,7 @@ public sealed record BlockSnapshot(
         using ArrayPoolBufferWriter<byte> bytes = new();
         Write(bytes: bytes, value: name);
         Write(bytes: bytes, value: description.IfNone(string.Empty));
-        Write(bytes: bytes, value: (int)update);
+        Write(bytes: bytes, value: mode.Key);
         Write(bytes: bytes, value: (int)status);
         Write(bytes: bytes, value: (int)style);
         Write(bytes: bytes, value: source.IfNone(string.Empty));
@@ -415,7 +471,7 @@ public abstract partial record Placement {
     public sealed record Recorded(
         Transform Motion,
         ObjectAttributes Attributes,
-        HistoryRecord History,
+        Lease<HistoryRecord> History,
         PlacementKind Kind) : Placement;
 }
 
@@ -564,9 +620,11 @@ public abstract partial record BlockPreview {
 | :-----: | :-------------- | :--------------- | :------------------ | :------------------------- |
 |  [01]   | `Definitions`   | lens row         | `Lens`              | `Resolve`                  |
 |  [02]   | `BlockSnapshot` | record           | `Of` · `Probe`      | state · dependency measure |
-|  [03]   | `LinkState`     | union            | `Of`                | static or linked evidence  |
-|  [04]   | policy owners   | generated values | generated admission | native arguments           |
-|  [05]   | `BlockPreview`  | union            | factories           | `Render`                   |
+|  [03]   | `SourceMode`    | keyed vocabulary | `Of`                | regeneration column · host |
+|  [04]   | `LayerScope`    | keyed vocabulary | `Of`                | layer policy · host        |
+|  [05]   | `LinkState`     | union            | `Of`                | static or linked evidence  |
+|  [06]   | policy owners   | generated values | generated admission | native arguments           |
+|  [07]   | `BlockPreview`  | union            | factories           | `Render`                   |
 
 ## [06]-[RESEARCH]
 

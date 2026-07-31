@@ -11,9 +11,9 @@ Compute wraps `EncodedGeometry.Payload` and its descriptors as an `EncodedTensor
 
 ## [02]-[ENCODING]
 
-- Owner: `PackKind` binds each representation to its active `EncodingChannel` set, each channel composing its live kernel reader as the sole owner of its curvature, geodesic, or normal field through a `[UseDelegateFromConstructor]` `Read` column no channel can omit. `ChannelDtype` owns the quantization seam — width, tolerance, and the bulk pack/unpack arms — and every channel writes into one descriptor-tiled byte arena carrying its round-trip proof.
-- Cases: `ToolpathSpan` splits `Line` and `Arc`, the arc retaining its analytic centre and sense; every `PackKind` shares one `Apply`, one `Read` column, and one witness fold.
-- Entry: `Encode.Apply(PackOp, Op?)` is the ONE encoding entrypoint, discriminating by `PackOp` case on the `Fin` rail and gating `EncodedGeometry` at `key.AcceptValue`. `PackPolicy.Tolerance` sets the voxel SDF iso-band and the field-sampling floor, never a domain-local epsilon. `EncodingFault` 2444 routes a reader bind failure, an extent-versus-arity disagreement, or an unpack breaching `Dtype.Tolerance`; `DegenerateInput` 2400 routes an empty or sub-floor source; a non-digest reconcile answer routes the `Op` admission channel.
+- Owner: `PackKind` binds each representation to its active `EncodingChannel` set, each channel composing its live kernel reader as the sole owner of its curvature, geodesic, normal, or UV field through a `[UseDelegateFromConstructor]` `Read` column no channel can omit. `ChannelDtype` owns the quantization seam — width, tolerance, the `Complex` pairing column, and the bulk pack/unpack arms — as the ONE storage-type roster the `Rasm.Element` raster sample vocabulary and the `Rasm.Materials` plane depth vocabulary seat onto; every channel writes into one descriptor-tiled byte arena carrying its round-trip proof. `Uv` stays `Float32` by law — the surface parameter domain is unbounded and a normalized dtype clamps silently while passing its own witness — and it reads the per-corner UV column the `Meshing/edit` arena publishes through its `ToSpace` freeze, so a textured `MeshPatch` travels as one payload.
+- Cases: `ToolpathSpan` splits `Line` and `Arc`, the arc retaining its analytic centre and sense; the voxel sweep addresses through the `Numerics/atoms` `CellLattice`; `GaussianSplat` packs per-point scale, rotation, and SH-coefficient blocks over the SAME witness and schema identity; every `PackKind` shares one `Apply`, one `Read` column, and one witness fold.
+- Entry: `Encode.Apply(PackOp, Op?)` is the ONE encoding entrypoint, discriminating by `PackOp` case on the `Fin` rail and gating `EncodedGeometry` at `key.AcceptValue`; `Encode.Of(int count, Seq<(EncodingChannel, float[])> lanes, Op?)` is its raw-lane modality — the interchange seam's mint for a decode already holding per-lane floats, running the SAME reserve/pack/witness tail with the digest rooted on the packed payload. `PackPolicy.Tolerance` sets the voxel SDF iso-band and the field-sampling floor, never a domain-local epsilon. `EncodingFault` 2444 routes a reader bind failure, an extent-versus-arity disagreement, or an unpack breaching `Dtype.Tolerance`; `DegenerateInput` 2400 routes an empty or sub-floor source; a non-digest reconcile answer routes the `Op` admission channel.
 - Auto: `SourceDigest` projects a `ToolpathPath` through a canonical vertex stream, so reconciliation observes every analytic distinction rather than sampled chords.
 - Receipt: `EncodedGeometry` is the `IValidityEvidence` carrier; its claim set rejects any descriptor set that gaps, overlaps, or carries a non-finite witness error, so a hand-assembled carrier fails the acceptance oracle. `View<T>` dispatches on the `Dtype` row, answering the empty view for an absent channel or a width-mismatched `T`.
 - Packages: `Rasm.Meshing`, `Rasm.Spatial`, `Rasm.Processing`, `Rasm.Numerics`, `Rasm.Domain`, RhinoCommon, `System.Numerics.Tensors`, `CommunityToolkit.HighPerformance`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`, and BCL inbox.
@@ -43,28 +43,75 @@ using static LanguageExt.Prelude;
 namespace Rasm.Drawing;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// Width is the residency fact (bytes per scalar); the span arms are the ONE quantization seam.
-// Generated Switch cannot carry ref-struct operands, so the three-row if-chain IS the dispatch.
+// Width is the residency fact (bytes per SCALAR — a complex row's width already counts its (re, im) pair); the
+// span arms are the ONE quantization seam. Generated Switch cannot carry ref-struct operands, so the
+// storage-grouped if-chain IS the dispatch. The full storage roster seats the Rasm.Element RasterSampleType
+// and Rasm.Materials PlaneDepth vocabularies onto this one owner: Complex is a COLUMN, never a sibling type
+// family, and a complex row shares its component arm because the (re, im) interleave is the caller's layout.
+// Unorm16 is the normalized row for genuinely unit-bounded raster channels — never Uv, whose surface
+// parameter domain is unbounded and would clamp silently while passing its own round-trip witness.
 [SmartEnum<int>]
 public sealed partial class ChannelDtype {
-    public static readonly ChannelDtype Float32 = new(key: 0, width: 4, tolerance: 0.0);
-    public static readonly ChannelDtype Float16 = new(key: 1, width: 2, tolerance: 9.77e-4);
-    public static readonly ChannelDtype Unorm8  = new(key: 2, width: 1, tolerance: 1.0 / 255.0);
+    public static readonly ChannelDtype Float32  = new(key: 0,  width: 4,  tolerance: 0.0,           complex: false);
+    public static readonly ChannelDtype Float16  = new(key: 1,  width: 2,  tolerance: 9.77e-4,       complex: false);
+    public static readonly ChannelDtype Unorm8   = new(key: 2,  width: 1,  tolerance: 1.0 / 255.0,   complex: false);
+    public static readonly ChannelDtype Unorm16  = new(key: 3,  width: 2,  tolerance: 1.0 / 65535.0, complex: false);
+    public static readonly ChannelDtype Int8     = new(key: 4,  width: 1,  tolerance: 0.5,           complex: false);
+    public static readonly ChannelDtype Int16    = new(key: 5,  width: 2,  tolerance: 0.5,           complex: false);
+    public static readonly ChannelDtype UInt16   = new(key: 6,  width: 2,  tolerance: 0.5,           complex: false);
+    public static readonly ChannelDtype Int32    = new(key: 7,  width: 4,  tolerance: 0.5,           complex: false);
+    public static readonly ChannelDtype UInt32   = new(key: 8,  width: 4,  tolerance: 0.5,           complex: false);
+    public static readonly ChannelDtype Int64    = new(key: 9,  width: 8,  tolerance: 0.5,           complex: false);
+    public static readonly ChannelDtype UInt64   = new(key: 10, width: 8,  tolerance: 0.5,           complex: false);
+    public static readonly ChannelDtype Float64  = new(key: 11, width: 8,  tolerance: 0.0,           complex: false);
+    public static readonly ChannelDtype CInt16   = new(key: 12, width: 4,  tolerance: 0.5,           complex: true);
+    public static readonly ChannelDtype CInt32   = new(key: 13, width: 8,  tolerance: 0.5,           complex: true);
+    public static readonly ChannelDtype CFloat32 = new(key: 14, width: 8,  tolerance: 0.0,           complex: true);
+    public static readonly ChannelDtype CFloat64 = new(key: 15, width: 16, tolerance: 0.0,           complex: true);
+    // UInt8 is the RAW unsigned byte row (GDAL GDT_Byte, the dominant ortho type) — value-preserving 0..255,
+    // never Unorm8's unit-scaled quantization; CFloat16 (GDT_CFloat16) shares Float16's component arms
+    // exactly as CFloat32 shares Float32's.
+    public static readonly ChannelDtype UInt8    = new(key: 16, width: 1,  tolerance: 0.5,           complex: false);
+    public static readonly ChannelDtype CFloat16 = new(key: 17, width: 4,  tolerance: 9.77e-4,      complex: true);
 
     public int Width { get; }
     public double Tolerance { get; }
+    public bool Complex { get; }
+
+    // Component scalar count per logical value: a complex row stores two components per scalar slot.
+    public int Components => Complex ? 2 : 1;
 
     // Any dtype row extending neither arm packs nothing and the witness routes 2444 — no silent fall-through.
     public void Pack(ReadOnlySpan<float> raw, Span<byte> stored) {
-        if (this == Float32) { MemoryMarshal.AsBytes(raw).CopyTo(stored); return; }
-        if (this == Float16) { TensorPrimitives.ConvertToHalf(raw, MemoryMarshal.Cast<byte, Half>(stored)); return; }
-        if (this == Unorm8) { for (int i = 0; i < raw.Length; i++) stored[i] = (byte)MathF.Round(Math.Clamp(raw[i], 0f, 1f) * 255f); }
+        if (this == Float32 || this == CFloat32) { MemoryMarshal.AsBytes(raw).CopyTo(stored); return; }
+        if (this == Float16 || this == CFloat16) { TensorPrimitives.ConvertToHalf(raw, MemoryMarshal.Cast<byte, Half>(stored)); return; }
+        if (this == Unorm8) { for (int i = 0; i < raw.Length; i++) stored[i] = (byte)MathF.Round(Math.Clamp(raw[i], 0f, 1f) * 255f); return; }
+        if (this == UInt8) { for (int i = 0; i < raw.Length; i++) stored[i] = (byte)Math.Clamp(MathF.Round(raw[i]), byte.MinValue, byte.MaxValue); return; }
+        if (this == Unorm16) { Span<ushort> u16 = MemoryMarshal.Cast<byte, ushort>(stored); for (int i = 0; i < raw.Length; i++) u16[i] = (ushort)MathF.Round(Math.Clamp(raw[i], 0f, 1f) * 65535f); return; }
+        if (this == Int8) { Span<sbyte> s8 = MemoryMarshal.Cast<byte, sbyte>(stored); for (int i = 0; i < raw.Length; i++) s8[i] = (sbyte)Math.Clamp(MathF.Round(raw[i]), sbyte.MinValue, sbyte.MaxValue); return; }
+        if (this == Int16 || this == CInt16) { Span<short> s16 = MemoryMarshal.Cast<byte, short>(stored); for (int i = 0; i < raw.Length; i++) s16[i] = (short)Math.Clamp(MathF.Round(raw[i]), short.MinValue, short.MaxValue); return; }
+        if (this == UInt16) { Span<ushort> u16 = MemoryMarshal.Cast<byte, ushort>(stored); for (int i = 0; i < raw.Length; i++) u16[i] = (ushort)Math.Clamp(MathF.Round(raw[i]), ushort.MinValue, ushort.MaxValue); return; }
+        if (this == Int32 || this == CInt32) { Span<int> s32 = MemoryMarshal.Cast<byte, int>(stored); for (int i = 0; i < raw.Length; i++) s32[i] = (int)Math.Clamp(Math.Round((double)raw[i]), int.MinValue, int.MaxValue); return; }
+        if (this == UInt32) { Span<uint> u32 = MemoryMarshal.Cast<byte, uint>(stored); for (int i = 0; i < raw.Length; i++) u32[i] = (uint)Math.Clamp(Math.Round((double)raw[i]), uint.MinValue, uint.MaxValue); return; }
+        if (this == Int64) { Span<long> s64 = MemoryMarshal.Cast<byte, long>(stored); for (int i = 0; i < raw.Length; i++) s64[i] = (long)Math.Clamp(Math.Round((double)raw[i]), long.MinValue, long.MaxValue); return; }
+        if (this == UInt64) { Span<ulong> u64 = MemoryMarshal.Cast<byte, ulong>(stored); for (int i = 0; i < raw.Length; i++) u64[i] = (ulong)Math.Clamp(Math.Round((double)raw[i]), ulong.MinValue, ulong.MaxValue); return; }
+        if (this == Float64 || this == CFloat64) { Span<double> f64 = MemoryMarshal.Cast<byte, double>(stored); for (int i = 0; i < raw.Length; i++) f64[i] = raw[i]; }
     }
 
     public void Unpack(ReadOnlySpan<byte> stored, Span<float> restored) {
-        if (this == Float32) { MemoryMarshal.Cast<byte, float>(stored).CopyTo(restored); return; }
-        if (this == Float16) { TensorPrimitives.ConvertToSingle(MemoryMarshal.Cast<byte, Half>(stored), restored); return; }
-        if (this == Unorm8) { for (int i = 0; i < stored.Length; i++) restored[i] = stored[i] / 255f; }
+        if (this == Float32 || this == CFloat32) { MemoryMarshal.Cast<byte, float>(stored).CopyTo(restored); return; }
+        if (this == Float16 || this == CFloat16) { TensorPrimitives.ConvertToSingle(MemoryMarshal.Cast<byte, Half>(stored), restored); return; }
+        if (this == Unorm8) { for (int i = 0; i < stored.Length; i++) restored[i] = stored[i] / 255f; return; }
+        if (this == UInt8) { for (int i = 0; i < stored.Length; i++) restored[i] = stored[i]; return; }
+        if (this == Unorm16) { ReadOnlySpan<ushort> u16 = MemoryMarshal.Cast<byte, ushort>(stored); for (int i = 0; i < u16.Length; i++) restored[i] = u16[i] / 65535f; return; }
+        if (this == Int8) { ReadOnlySpan<sbyte> s8 = MemoryMarshal.Cast<byte, sbyte>(stored); for (int i = 0; i < s8.Length; i++) restored[i] = s8[i]; return; }
+        if (this == Int16 || this == CInt16) { ReadOnlySpan<short> s16 = MemoryMarshal.Cast<byte, short>(stored); for (int i = 0; i < s16.Length; i++) restored[i] = s16[i]; return; }
+        if (this == UInt16) { ReadOnlySpan<ushort> u16 = MemoryMarshal.Cast<byte, ushort>(stored); for (int i = 0; i < u16.Length; i++) restored[i] = u16[i]; return; }
+        if (this == Int32 || this == CInt32) { ReadOnlySpan<int> s32 = MemoryMarshal.Cast<byte, int>(stored); for (int i = 0; i < s32.Length; i++) restored[i] = s32[i]; return; }
+        if (this == UInt32) { ReadOnlySpan<uint> u32 = MemoryMarshal.Cast<byte, uint>(stored); for (int i = 0; i < u32.Length; i++) restored[i] = u32[i]; return; }
+        if (this == Int64) { ReadOnlySpan<long> s64 = MemoryMarshal.Cast<byte, long>(stored); for (int i = 0; i < s64.Length; i++) restored[i] = s64[i]; return; }
+        if (this == UInt64) { ReadOnlySpan<ulong> u64 = MemoryMarshal.Cast<byte, ulong>(stored); for (int i = 0; i < u64.Length; i++) restored[i] = u64[i]; return; }
+        if (this == Float64 || this == CFloat64) { ReadOnlySpan<double> f64 = MemoryMarshal.Cast<byte, double>(stored); for (int i = 0; i < f64.Length; i++) restored[i] = (float)f64[i]; }
     }
 }
 
@@ -82,6 +129,15 @@ public sealed partial class EncodingChannel {
     public static readonly EncodingChannel Weight    = new("weight",     arity: 1, dtype: ChannelDtype.Float16, read: static (op, _) => Encode.ReadWeight(op));
     public static readonly EncodingChannel ArcCenter = new("arc-center", arity: 3, dtype: ChannelDtype.Float32, read: static (op, _) => Encode.ReadArcCenter(op));
     public static readonly EncodingChannel ArcSense  = new("arc-sense",  arity: 1, dtype: ChannelDtype.Float32, read: static (op, _) => Encode.ReadArcSense(op));
+    // Uv is Float32 BY LAW: UvTessellation.Uv and PanelField.Uv carry the unbounded surface parameter domain,
+    // and a normalized dtype would clamp a real parameter while passing its own round-trip witness.
+    public static readonly EncodingChannel Uv        = new("uv",         arity: 2, dtype: ChannelDtype.Float32, read: static (op, _) => Encode.ReadUv(op));
+    // Gaussian-splat capture feature set: per-point anisotropic scale, rotation quaternion, and the SH3
+    // color coefficient block (16 coefficients x 3 channels); a different SH degree is a per-instance block
+    // descriptor column per the growth law, never a second harmonic channel.
+    public static readonly EncodingChannel Scale     = new("scale",      arity: 3,  dtype: ChannelDtype.Float32, read: static (op, _) => Encode.ReadScale(op));
+    public static readonly EncodingChannel Rotation  = new("rotation",   arity: 4,  dtype: ChannelDtype.Float32, read: static (op, _) => Encode.ReadRotation(op));
+    public static readonly EncodingChannel Harmonic  = new("harmonic",   arity: 48, dtype: ChannelDtype.Float16, read: static (op, _) => Encode.ReadHarmonic(op));
 
     public int Arity { get; }
     public ChannelDtype Dtype { get; }
@@ -95,28 +151,21 @@ public sealed partial class EncodingChannel {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PackKind {
     public static readonly PackKind PointCloud = new("point-cloud", Seq(EncodingChannel.Position, EncodingChannel.Normal, EncodingChannel.ColorRgba, EncodingChannel.Intensity));
-    public static readonly PackKind MeshPatch  = new("mesh-patch",  Seq(EncodingChannel.Position, EncodingChannel.Normal, EncodingChannel.Curvature, EncodingChannel.Geodesic, EncodingChannel.Weight));
+    public static readonly PackKind MeshPatch  = new("mesh-patch",  Seq(EncodingChannel.Position, EncodingChannel.Normal, EncodingChannel.Uv, EncodingChannel.Curvature, EncodingChannel.Geodesic, EncodingChannel.Weight));
     public static readonly PackKind VoxelGrid  = new("voxel-grid",  Seq(EncodingChannel.Position, EncodingChannel.Occupancy, EncodingChannel.Weight));
     public static readonly PackKind BrepPatch  = new("brep-patch",  Seq(EncodingChannel.Position, EncodingChannel.Normal, EncodingChannel.Curvature));
     public static readonly PackKind Field      = new("field",       Seq(EncodingChannel.Geodesic, EncodingChannel.Weight));
     public static readonly PackKind Toolpath   = new("toolpath",    Seq(EncodingChannel.Position, EncodingChannel.ArcCenter, EncodingChannel.ArcSense, EncodingChannel.Weight));
+    // Gaussian-splat capture rides the SAME witness, descriptor arena, and schema identity as every kind — the
+    // modality Compute residency (ResidencyStream) and AppUi reality consume with no second vocabulary.
+    public static readonly PackKind GaussianSplat = new("gaussian-splat", Seq(EncodingChannel.Position, EncodingChannel.Scale, EncodingChannel.Rotation, EncodingChannel.ColorRgba, EncodingChannel.Harmonic, EncodingChannel.Weight));
 
     public Seq<EncodingChannel> Channels { get; }
 }
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
-public sealed record PackGrid(int Nx, int Ny, int Nz, BoundingBox Bounds) {
-    public int CellCount => Nx * Ny * Nz;
-
-    public Point3d CellCenter(int linear) {
-        int k = linear / (Nx * Ny);
-        int r = linear - k * (Nx * Ny);
-        int j = r / Nx;
-        int i = r - j * Nx;
-        double sx = Bounds.Diagonal.X / Nx, sy = Bounds.Diagonal.Y / Ny, sz = Bounds.Diagonal.Z / Nz;
-        return new Point3d(Bounds.Min.X + (i + 0.5) * sx, Bounds.Min.Y + (j + 0.5) * sy, Bounds.Min.Z + (k + 0.5) * sz);
-    }
-}
+// --- [CONSTANTS] -------------------------------------------------------------------------- The
+// voxel sweep addresses through the Numerics/atoms CellLattice — the one bounded rectangular cell
+// lattice; a page-local grid re-deriving anisotropic cell scale per call was the deleted fourth mint.
 
 // Cloud defaults through its own AdmitOrDefault on None.
 public sealed record PackPolicy(
@@ -218,10 +267,13 @@ public abstract partial record PackOp {
 
     public sealed record PointCloud(VectorCloud.ClusterCase Source, PackPolicy Policy) : PackOp;
     public sealed record MeshPatch(MeshSpace Source, PackPolicy Policy) : PackOp;
-    public sealed record VoxelGrid(MeshSpace Source, PackGrid Grid, PackPolicy Policy) : PackOp;
+    public sealed record VoxelGrid(MeshSpace Source, CellLattice Grid, PackPolicy Policy) : PackOp;
     public sealed record BrepPatch(MeshSpace Source, PackPolicy Policy) : PackOp;
     public sealed record Field(MeshSpace Source, ScalarField Values, PackPolicy Policy) : PackOp;
     public sealed record Toolpath(ToolpathPath Source, PackPolicy Policy) : PackOp;
+    // Splat attributes arrive per point beside the cluster: lengths validate against the source count at the
+    // reader, so a torn attribute set routes 2444 instead of packing a misaligned block.
+    public sealed record GaussianSplat(VectorCloud.ClusterCase Source, Arr<float> Scales, Arr<float> Rotations, Arr<float> Harmonics, PackPolicy Policy) : PackOp;
 
     public PackKind Kind =>
         Switch(
@@ -230,12 +282,14 @@ public abstract partial record PackOp {
             voxelGrid:  static _ => PackKind.VoxelGrid,
             brepPatch:  static _ => PackKind.BrepPatch,
             field:      static _ => PackKind.Field,
-            toolpath:   static _ => PackKind.Toolpath);
+            toolpath:   static _ => PackKind.Toolpath,
+            gaussianSplat: static _ => PackKind.GaussianSplat);
 
     internal PackPolicy Policy =>
         Switch(
             pointCloud: static p => p.Policy, meshPatch: static m => m.Policy, voxelGrid: static v => v.Policy,
-            brepPatch:  static b => b.Policy, field:     static f => f.Policy, toolpath:  static t => t.Policy);
+            brepPatch:  static b => b.Policy, field:     static f => f.Policy, toolpath:  static t => t.Policy,
+            gaussianSplat: static g => g.Policy);
 }
 
 public static class Encode {
@@ -246,6 +300,46 @@ public static class Encode {
                 .Bind(packed => Witness(op, packed, k)
                     .Map(witness => new EncodedGeometry(packed.Store.Descriptors.ToSeq(), packed.Store.Payload, packed.Store.Count, witness))))
             .Bind(geometry => k.AcceptValue(geometry));
+    }
+
+    // Raw-lane mint — the interchange seam's entry: a decode already holding per-lane floats (the Element
+    // ImportedGeometry producer) reserves, packs, and witnesses through the SAME tail Apply runs once
+    // PackChannels has produced its Raws, so a decoded arena and a kernel-packed one mint identically; the
+    // digest folds the packed payload itself because a foreign decode carries no kernel EncodeForm source.
+    public static Fin<EncodedGeometry> Of(int count, Seq<(EncodingChannel Channel, float[] Raw)> lanes, Op? key = null) {
+        Op k = key.OrDefault();
+        if (count <= 0 || lanes.IsEmpty) return Fin.Fail<EncodedGeometry>(k.InvalidInput());
+        long bytes = lanes.Fold(0L, (extent, lane) => extent + ((long)count * lane.Channel.Arity * lane.Channel.Dtype.Width));
+        if (bytes > Array.MaxLength) {
+            EncodingChannel channel = lanes[0].Channel;
+            return Fin.Fail<EncodedGeometry>(new GeometryFault.EncodingFault(
+                channel, channel.Dtype, $"payload extent {bytes} exceeds {Array.MaxLength}").ToError());
+        }
+        EncodedStore store = EncodedStore.Reserve(count, lanes.Map(static lane => lane.Channel));
+        List<(EncodingChannel Channel, float[] Raw)> raws = new(lanes.Count);
+        return lanes.Fold(Fin.Succ((slot: 0, offset: 0)), (state, lane) =>
+                state.Bind(s => lane.Raw.Length == count * lane.Channel.Arity
+                    ? Fin.Succ(WriteChannel(store, s.slot, s.offset, lane.Channel, count, lane.Raw, raws))
+                    : Fin.Fail<(int, int)>(new GeometryFault.EncodingFault(
+                        lane.Channel, lane.Channel.Dtype, $"arity {lane.Raw.Length} != {count * lane.Channel.Arity}").ToError())))
+            .Map(_ => new PackedChannels(store, raws.ToArray()))
+            .Bind(packed => PayloadWitness(packed).Map(witness =>
+                new EncodedGeometry(packed.Store.Descriptors.ToSeq(), packed.Store.Payload, packed.Store.Count, witness)))
+            .Bind(geometry => k.AcceptValue(geometry));
+    }
+
+    // Payload-rooted witness for the raw-lane mint: identical per-channel round-trip screen, the digest the
+    // seed-zero content key over the packed payload — one identity space with every other content address.
+    static Fin<RoundTripWitness> PayloadWitness(PackedChannels packed) {
+        GeometryHash digest = GeometryHash.Create(ContentHash.Of(packed.Store.Payload));
+        Seq<(EncodingChannel Channel, double Error)> errors = toSeq(packed.Raws).Map(row => {
+            EncodingChannelDescriptor descriptor = System.Array.Find(packed.Store.Descriptors, d => d.Channel == row.Channel)!;
+            return (row.Channel, ChannelError(row.Raw, packed.Store.Payload.AsSpan(descriptor.ByteOffset, descriptor.Bytes), row.Channel.Dtype));
+        });
+        return errors.Find(e => e.Error > e.Channel.Dtype.Tolerance).Match(
+            Some: breach => Fin.Fail<RoundTripWitness>(new GeometryFault.EncodingFault(
+                breach.Channel, breach.Channel.Dtype, $"round-trip {breach.Error:e3} > {breach.Channel.Dtype.Tolerance:e3}").ToError()),
+            None: () => Fin.Succ(RoundTripWitness.Of(digest, errors)));
     }
 
     // --- [PACK]
@@ -302,16 +396,18 @@ public static class Encode {
         return TensorPrimitives.MaxMagnitude<float>(restored) / Math.Max(1f, TensorPrimitives.MaxMagnitude<float>(raw));
     }
 
-    static Fin<GeometryHash> SourceDigest(PackOp op, Op key) => op switch {
-        PackOp.PointCloud source => Digest(EncodeForm.Of(source.Source), key),
-        PackOp.MeshPatch source  => Digest(EncodeForm.Of(source.Source), key),
-        PackOp.VoxelGrid source  => Digest(EncodeForm.Of(source.Source), key),
-        PackOp.BrepPatch source  => Digest(EncodeForm.Of(source.Source), key),
-        PackOp.Field source      => Digest(EncodeForm.Of(source.Source), key),
-        PackOp.Toolpath source   => VectorCloud.Polyline(source.Source.CanonicalVertices, source.Policy.Tolerance, key)
-            .Bind(cloud => Digest(EncodeForm.Of(cloud), key)),
-        _ => Fin.Fail<GeometryHash>(key.InvalidResult()),
-    };
+    // The generated total Switch, never a raw `op switch` with a `_` tail: under the tail the newest PackKind
+    // fell through to InvalidResult, so a splat could never mint an EncodedGeometry and nothing broke the build.
+    static Fin<GeometryHash> SourceDigest(PackOp op, Op key) => op.Switch(
+        state: key,
+        pointCloud:    static (k, s) => Digest(EncodeForm.Of(s.Source), k),
+        meshPatch:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
+        voxelGrid:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
+        brepPatch:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
+        field:         static (k, s) => Digest(EncodeForm.Of(s.Source), k),
+        toolpath:      static (k, s) => VectorCloud.Polyline(s.Source.CanonicalVertices, s.Policy.Tolerance, k)
+            .Bind(cloud => Digest(EncodeForm.Of(cloud), k)),
+        gaussianSplat: static (k, s) => Digest(EncodeForm.Of(s.Source), k));
 
     static Fin<GeometryHash> Digest(EncodeForm form, Op key) =>
         Reconciliation.Apply(new ReconcileOp.Encode(form), key)
@@ -323,26 +419,32 @@ public static class Encode {
     static Fin<int> ElementCount(PackOp op) => op.Switch(
         pointCloud: static c => Elements(c.Source.Vertices.Count, 1, Kind.PointCloud),
         meshPatch:  static m => MeshVertexCount(m.Source),
-        voxelGrid:  static v => Elements(v.Grid.CellCount, 1, Kind.BoundingBox),
+        // Lattice ceiling gates the census at admission; the int narrowing is re-proven here because the
+        // descriptor arena's byte extents are int-bounded by its own validity claims.
+        voxelGrid:  static v => v.Grid.CellCount <= int.MaxValue
+            ? Elements((int)v.Grid.CellCount, 1, Kind.BoundingBox)
+            : Fin.Fail<int>(new GeometryFault.DegenerateInput(Kind.BoundingBox, None, "cell-census-over-int").ToError()),
         brepPatch:  static b => MeshVertexCount(b.Source),
         field:      static f => MeshVertexCount(f.Source),
-        toolpath:   static t => Elements(t.Source.Vertices.Count, 2, Kind.Polyline));
+        toolpath:   static t => Elements(t.Source.Vertices.Count, 2, Kind.Polyline),
+        gaussianSplat: static g => Elements(g.Source.Vertices.Count, 1, Kind.PointCloud));
 
     static Fin<int> Elements(int count, int floor, Kind kind) =>
         count >= floor
             ? Fin.Succ(count)
-            : Fin.Fail<int>(new GeometryFault.DegenerateInput(kind, -1, $"under {floor} elements").ToError());
+            : Fin.Fail<int>(new GeometryFault.DegenerateInput(kind, None, $"under {floor} elements").ToError());
 
     static Fin<int> MeshVertexCount(MeshSpace space) => Elements(space.Native.Vertices.Count, 1, Kind.Mesh);
 
     internal static Fin<float[]> ReadPosition(PackOp op) =>
         op switch {
-            PackOp.PointCloud c => Fin.Succ(PackPoints(c.Source.Vertices)),
-            PackOp.Toolpath t   => Fin.Succ(PackPoints(t.Source.Vertices)),
-            PackOp.VoxelGrid v  => Fin.Succ(PackCells(v.Grid)),
-            PackOp.MeshPatch m  => Fin.Succ(PackVertices(m.Source)),
-            PackOp.BrepPatch b  => Fin.Succ(PackVertices(b.Source)),
-            _                   => NoReader(EncodingChannel.Position, op),
+            PackOp.PointCloud c    => Fin.Succ(PackPoints(c.Source.Vertices)),
+            PackOp.Toolpath t      => Fin.Succ(PackPoints(t.Source.Vertices)),
+            PackOp.VoxelGrid v     => Fin.Succ(PackCells(v.Grid)),
+            PackOp.MeshPatch m     => Fin.Succ(PackVertices(m.Source)),
+            PackOp.BrepPatch b     => Fin.Succ(PackVertices(b.Source)),
+            PackOp.GaussianSplat g => Fin.Succ(PackPoints(g.Source.Vertices)),
+            _                      => NoReader(EncodingChannel.Position, op),
         };
 
     internal static Fin<float[]> ReadNormal(PackOp op, Op key) =>
@@ -354,7 +456,36 @@ public static class Encode {
         };
 
     internal static Fin<float[]> ReadColor(PackOp op) =>
-        op is PackOp.PointCloud c ? Fin.Succ(PackColors(c.Source)) : NoReader(EncodingChannel.ColorRgba, op);
+        op switch {
+            PackOp.PointCloud c    => Fin.Succ(PackColors(c.Source)),
+            PackOp.GaussianSplat g => Fin.Succ(PackColors(g.Source)),
+            _                      => NoReader(EncodingChannel.ColorRgba, op),
+        };
+
+    // Reads the per-corner UV column the Meshing/edit arena publishes through its ToSpace freeze; a mesh
+    // without the column REFUSES — a fabricated (0,0) UV plane would pass the round-trip witness trivially.
+    internal static Fin<float[]> ReadUv(PackOp op) =>
+        op is PackOp.MeshPatch m
+            ? m.Source.Native.TextureCoordinates.Count == m.Source.Native.Vertices.Count
+                ? Fin.Succ(PackUvs(m.Source))
+                : NoReader(EncodingChannel.Uv, op)
+            : NoReader(EncodingChannel.Uv, op);
+
+    // Splat attribute readers validate length against the source census, so a torn block routes 2444.
+    internal static Fin<float[]> ReadScale(PackOp op) =>
+        op is PackOp.GaussianSplat g && g.Scales.Count == g.Source.Vertices.Count * EncodingChannel.Scale.Arity
+            ? Fin.Succ(g.Scales.ToArray())
+            : NoReader(EncodingChannel.Scale, op);
+
+    internal static Fin<float[]> ReadRotation(PackOp op) =>
+        op is PackOp.GaussianSplat g && g.Rotations.Count == g.Source.Vertices.Count * EncodingChannel.Rotation.Arity
+            ? Fin.Succ(g.Rotations.ToArray())
+            : NoReader(EncodingChannel.Rotation, op);
+
+    internal static Fin<float[]> ReadHarmonic(PackOp op) =>
+        op is PackOp.GaussianSplat g && g.Harmonics.Count == g.Source.Vertices.Count * EncodingChannel.Harmonic.Arity
+            ? Fin.Succ(g.Harmonics.ToArray())
+            : NoReader(EncodingChannel.Harmonic, op);
 
     internal static Fin<float[]> ReadCurvature(PackOp op, Op key) =>
         op switch {
@@ -385,11 +516,12 @@ public static class Encode {
 
     internal static Fin<float[]> ReadWeight(PackOp op) =>
         op switch {
-            PackOp.MeshPatch m => Fin.Succ(VertexAreaWeight(m.Source)),
-            PackOp.Field f     => Fin.Succ(VertexAreaWeight(f.Source)),
-            PackOp.VoxelGrid v => Fin.Succ(Fill(v.Grid.CellCount, 1f)),
-            PackOp.Toolpath t  => Fin.Succ(ChordWeight(t.Source.Vertices)),
-            _                  => NoReader(EncodingChannel.Weight, op),
+            PackOp.MeshPatch m     => Fin.Succ(VertexAreaWeight(m.Source)),
+            PackOp.Field f         => Fin.Succ(VertexAreaWeight(f.Source)),
+            PackOp.VoxelGrid v     => Fin.Succ(Fill((int)v.Grid.CellCount, 1f)),
+            PackOp.Toolpath t      => Fin.Succ(ChordWeight(t.Source.Vertices)),
+            PackOp.GaussianSplat g => Fin.Succ(Fill(g.Source.Vertices.Count, 1f)),
+            _                      => NoReader(EncodingChannel.Weight, op),
         };
 
     internal static Fin<float[]> ReadArcCenter(PackOp op) => op is PackOp.Toolpath toolpath
@@ -425,10 +557,11 @@ public static class Encode {
             return Fin.Succ(values);
         });
 
-    static Fin<float[]> GridOccupancy(ScalarField field, PackGrid grid, Context tolerance, Op key) {
-        float[] values = new float[grid.CellCount];
+    static Fin<float[]> GridOccupancy(ScalarField field, CellLattice grid, Context tolerance, Op key) {
+        float[] values = new float[(int)grid.CellCount];
         for (int i = 0; i < values.Length; i++) {
-            Fin<SdfSample> sample = field.SampleSdfDetailed(grid.CellCenter(i), tolerance, key);
+            (int column, int row, int layer) = grid.Coordinate(i);
+            Fin<SdfSample> sample = field.SampleSdfDetailed(grid.Center(column: column, row: row, layer: layer), tolerance, key);
             if (sample.IsFail) return sample.Map(static _ => System.Array.Empty<float>());
             values[i] = sample.IfFail(static _ => default).Value <= 0.0 ? 1f : 0f;
         }
@@ -496,7 +629,9 @@ public static class Encode {
     }
 
     static float[] PackNormals(MeshSpace space) {
-        Mesh native = space.DuplicateNative();
+        // The duplicate exists solely for the ComputeNormals mutation — scoped disposal returns the native copy
+        // the moment the buffer fills; an undisposed duplicate per pack call leaked its unmanaged mesh.
+        using Mesh native = space.DuplicateNative();
         if (native.Normals.Count != native.Vertices.Count) native.Normals.ComputeNormals();
         float[] buffer = new float[native.Vertices.Count * 3];
         for (int i = 0; i < native.Normals.Count; i++) {
@@ -506,11 +641,22 @@ public static class Encode {
         return buffer;
     }
 
-    static float[] PackCells(PackGrid grid) {
-        float[] buffer = new float[grid.CellCount * 3];
-        for (int i = 0; i < grid.CellCount; i++) {
-            Point3d c = grid.CellCenter(i);
+    static float[] PackCells(CellLattice grid) {
+        int cells = (int)grid.CellCount;
+        float[] buffer = new float[cells * 3];
+        for (int i = 0; i < cells; i++) {
+            (int column, int row, int layer) = grid.Coordinate(i);
+            Point3d c = grid.Center(column: column, row: row, layer: layer);
             (buffer[3 * i], buffer[3 * i + 1], buffer[3 * i + 2]) = ((float)c.X, (float)c.Y, (float)c.Z);
+        }
+        return buffer;
+    }
+
+    static float[] PackUvs(MeshSpace space) {
+        Mesh native = space.Native;
+        float[] buffer = new float[native.TextureCoordinates.Count * 2];
+        for (int i = 0; i < native.TextureCoordinates.Count; i++) {
+            (buffer[2 * i], buffer[(2 * i) + 1]) = (native.TextureCoordinates[i].X, native.TextureCoordinates[i].Y);
         }
         return buffer;
     }

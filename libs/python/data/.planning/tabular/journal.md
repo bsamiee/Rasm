@@ -14,13 +14,13 @@ Two CALLER tables riding `Lakehouse.run` carry the plane — the append-only str
 
 - Owner: `FactJournal` — the one `Ledger` implementer, holding an opened `Lakehouse` handle beside a `DatasetRef` per residence so a committing member reaches the matrix and a reading member reaches the scan plane without either re-opening the other's provider. `_FACT_SCHEMA` and `_CUSTODY_SCHEMA` pin the two durable shapes, `_FACT_LAYOUT` and `_CUSTODY_LAYOUT` carry them as arming specs, and `_subject` spells a custody identity once so claim, read, and destroy cannot key differently.
 - Cases: every member awaits, because the port's install proof refuses a member present yet not a coroutine function. Committing members ride `Lakehouse.run_async`, which owns the band hop; reading members fold the synchronous `columnar.execute` rail inside `async_boundary` over `on_thread`, since a scan on the drain's own loop stalls every producer suspended behind it.
-- Entry: `FactJournal.of` admits the two dataset refs and one `TableFormat`, opening both handles through `Lakehouse.open` so a format-refused ref fails at admission rather than inside a member. Separate refs are load-bearing: a custody plane and an evidence plane carry different retention and different access posture, and folding them onto one table turns an erasure into a rewrite of the stream it must not touch.
+- Entry: `FactJournal.of` admits the two dataset refs, one `TableFormat`, and the in-engine credential rows both planes share, opening both handles through `Lakehouse.open` so a format-refused ref fails at admission rather than inside a member. Separate refs are load-bearing: a custody plane and an evidence plane carry different retention and different access posture, and folding them onto one table turns an erasure into a rewrite of the stream it must not touch.
 - Auto: `landed` proves the offered keys distinct, resolves the matched KEYS through one bounded probe, and then merges on `key`, so `accepted` names the rows the plane did not hold and `duplicate` names the redeliveries, the two partitioning the offered batch by construction and giving the port's drain the identity its accepted-only projection filters on. Distinctness is the merge's own precondition — two source rows matching one target abort the commit — and refusing the batch by name keeps each half counting every offered key exactly once. Order carries the whole correctness here: after the commit every offered key reads present, and no merge receipt slot names which rows inserted — deriving either half from a fused output tally reports zero duplicates forever, because that count includes rows merely COPIED into a rewritten file and so exceeds the batch it was handed. `scanned` lowers a `Scan` case to one predicate over the pinned columns and decodes each `payload` through the port's own `DECODE`, never a local codec.
 - Auto: `tallied` pushes its group-by INTO the engine — the port lifts `(resource, quantity)` onto `FactRow`, so `_TALLY_SQL` groups on `(tenant, resource)` over the bound `source` view and only the aggregate rows cross, where a row-wise fold allocates one object per metered fact of a settlement month to produce a handful of slots. `_billed` rebuilds `Priced`/`Aggregate` off those four columns, deriving `attributed` from the empty-tenant spelling exactly as `Priced.of` derives it from an absent one, so a pushed-down tally and `Aggregate.rolled` answer the identical `Map`.
 - Auto: `groomed` folds the horizon map into ONE predicate per retention class and answers the summed reclaim; a class whose horizon is absent contributes no clause, so a permanent class is untouched by construction rather than by a guard a later edit can drop.
 - Receipt: each member contributes through the `LakeReceipt` and `QueryReceipt` its composed owner already mints — this page adds no receipt family, records no measure, and opens no span, because the port's own drain projects the series and a second recording double-counts the spine.
-- Packages: `tabular/lakehouse#LAKEHOUSE` (`Lakehouse.open`/`run_async`, `LakeOp.Ensure`/`Merge`/`Delete`/`Read`, `TableLayout`, `LakeReceipt`), `tabular/columnar#SCAN` (`DatasetRef`/`ScanPlan.DuckDb`/`execute`/`quote_literal`), `pyarrow` (the row projection and the scan-side column reads), `expression` (`Block`/`Map`/`Option` the folds ride), `msgspec` (`Struct` the frozen owner), `beartype` (`@beartype(conf=FAULT_CONF)` on `of`), runtime (`RuntimeRail`/`FAULT_CONF`/`BoundaryFault`/`async_boundary`/`on_thread`, `clock.Hlc`, `identity.ContentKey`) and the port's own `FactRow`/`Fact`/`DECODE`/`Scan`/`Landing`/`Billed`/`Priced`/`Aggregate`/`Resource`/`Groomed`/`Tombstone`/`SubjectKey` vocabulary.
-- Growth: a new port member is one method composing the same two owners; a new landing half is one `Landing` column the probe already resolves; a new lifted column is one `_FACT_SCHEMA` field beside its `_rowed` projection at the port and one `_framed` row here; a new rollup axis is one `_TALLY_SQL` group key beside its `_billed` key field; a new table posture is one `TableLayout` edit; a new table format under this ledger costs zero edits here, the matrix already carrying every arm.
+- Packages: `tabular/lakehouse#LAKEHOUSE` (`Lakehouse.open`/`run_async`, `LakeOp.Ensure`/`Merge`/`Delete`/`Read`, `TableLayout`, `LakeReceipt`), `tabular/columnar#SCAN` (`DatasetRef`/`ScanPlan.DuckDb`/`SecretRow`/`execute`/`quote_literal`), `pyarrow` (the row projection and the scan-side column reads), `expression` (`Block`/`Map`/`Option` the folds ride), `msgspec` (`Struct` the frozen owner), `beartype` (`@beartype(conf=FAULT_CONF)` on `of`), runtime (`RuntimeRail`/`FAULT_CONF`/`BoundaryFault`/`async_boundary`/`on_thread`, `clock.Hlc`, `identity.ContentKey`) and the port's own `FactRow`/`Fact`/`DECODE`/`Scan`/`Landing`/`Billed`/`Priced`/`Aggregate`/`Resource`/`Groomed`/`Tombstone`/`SubjectKey` vocabulary.
+- Growth: a new port member is one method composing the same two owners; a new object-plane identity is one `SecretRow` both handles inherit; a new landing half is one `Landing` column the probe already resolves; a new lifted column is one `_FACT_SCHEMA` field beside its `_rowed` projection at the port and one `_framed` row here; a new rollup axis is one `_TALLY_SQL` group key beside its `_billed` key field; a new table posture is one `TableLayout` edit; a new table format under this ledger costs zero edits here, the matrix already carrying every arm.
 - Boundary: no provider opens here, no engine is named, and no duration is spelled — `WINDOWS` prices retention at the port and this owner executes the reclaim the horizon hands it. Deleted forms: a second codec beside the port's `ENCODE`/`DECODE`, a landing half derived from a merge receipt's fused output tally, a matched-key probe run after the commit that resolved it, an erasure touching the fact stream, and a custody row on the evidence table.
 
 ```python signature
@@ -33,7 +33,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.data.tabular.columnar import DatasetRef, ScanPlan, execute, quote_literal
+from rasm.data.tabular.columnar import DatasetRef, ScanPlan, SecretRow, execute, quote_literal
 from rasm.data.tabular.lakehouse import Lakehouse, LakeOp, TableFormat, TableLayout
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, async_boundary
 from rasm.runtime.clock import Hlc
@@ -170,12 +170,16 @@ class FactJournal(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def of(cls, facts: DatasetRef, custody: DatasetRef, table_format: TableFormat = TableFormat.DELTA) -> "RuntimeRail[FactJournal]":
+    def of(
+        cls, facts: DatasetRef, custody: DatasetRef, table_format: TableFormat = TableFormat.DELTA, *, secrets: tuple[SecretRow, ...] = ()
+    ) -> "RuntimeRail[FactJournal]":
         # both handles admit through the SAME `_ADMIT` row read every other lakehouse consumer crosses, so a ref whose
         # source shape the format refuses fails here rather than inside a port member the retry cannot distinguish
-        # from a dead ledger.
-        return Lakehouse.open(facts, table_format).bind(
-            lambda held: Lakehouse.open(custody, table_format).map(
+        # from a dead ledger. Both take the SAME credential rows: the two planes carry different retention and
+        # different access posture but one object-plane identity, and a custody plane whose wrapped keys sit under a
+        # credential the fact plane resolved and it did not is a shred no erasure can reach.
+        return Lakehouse.open(facts, table_format, secrets=secrets).bind(
+            lambda held: Lakehouse.open(custody, table_format, secrets=secrets).map(
                 lambda keys: cls(facts=held, custody=keys, fact_ref=facts, custody_ref=custody)
             )
         )

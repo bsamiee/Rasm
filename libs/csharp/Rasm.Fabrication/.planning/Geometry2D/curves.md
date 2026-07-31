@@ -95,7 +95,7 @@ public sealed partial class PassPolicy {
                 Validate(total, progression, refine, distances, out PassPolicy? policy) is null
                     ? Validation<Error, PassPolicy>.Success(policy!)
                     : Validation<Error, PassPolicy>.Fail(
-                        new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-passes:policy").ToError()));
+                        new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:policy")));
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -119,7 +119,7 @@ public sealed partial class PassPolicy {
             Fail: static _ => false);
 
     private static Fin<Arr<double>> Generate(double total, PassProgression progression) => progression is null
-        ? Fin.Fail<Arr<double>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-passes:progression").ToError())
+        ? Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:progression"))
         : progression.Switch(
             count: request => CountDistances(total, request.Passes),
             maximumStep: request => MaximumDistances(total, request.Step),
@@ -127,23 +127,23 @@ public sealed partial class PassPolicy {
 
     private static Fin<Arr<double>> CountDistances(double total, int passes) =>
         passes is >= 1 and <= Array.MaxLength
-            ? AdmitDistances(Range(1, passes).Map(pass => total * ((double)pass / passes)).ToArr(), total)
-            : Fin.Fail<Arr<double>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-passes:count").ToError());
+            ? AdmitDistances(Range(1, passes).ToSeq().Map(pass => total * ((double)pass / passes)).ToArr(), total)
+            : Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:count"));
 
     private static Fin<Arr<double>> MaximumDistances(double total, double step) {
         double passes = Math.Ceiling(total / step);
         return double.IsFinite(step) && step > 0.0
             && double.IsFinite(passes) && passes is >= 1.0 and <= Array.MaxLength
                 ? CountDistances(total, (int)passes)
-                : Fin.Fail<Arr<double>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-passes:step").ToError());
+                : Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:step"));
     }
 
     private static Fin<Arr<double>> GeometricDistances(double total, int passes, double ratio) {
         if (passes is < 1 or > Array.MaxLength || !double.IsFinite(ratio) || ratio <= 0.0)
-            return Fin.Fail<Arr<double>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-passes:geometric").ToError());
+            return Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:geometric"));
         Arr<double> weights = ratio <= 1.0
-            ? Range(0, passes).Map(pass => Math.Pow(ratio, pass)).ToArr()
-            : Range(0, passes).Map(pass => Math.Pow(ratio, pass - passes + 1)).ToArr();
+            ? Range(0, passes).ToSeq().Map(pass => Math.Pow(ratio, pass)).ToArr()
+            : Range(0, passes).ToSeq().Map(pass => Math.Pow(ratio, pass - passes + 1)).ToArr();
         double scale = total / weights.Sum();
         Arr<double> generated = weights
             .Scan(0.0, (distance, weight) => distance + (weight * scale))
@@ -156,7 +156,7 @@ public sealed partial class PassPolicy {
     private static Fin<Arr<double>> AdmitDistances(Arr<double> distances, double total) =>
         Admissible(distances, total)
             ? Fin.Succ(distances)
-            : Fin.Fail<Arr<double>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-passes:distances").ToError());
+            : Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:distances"));
 
     private static bool Admissible(Arr<double> distances, double total) =>
         !distances.IsEmpty
@@ -266,7 +266,7 @@ public static class CurveAlgebra {
         outline: request =>
             from trace in ArcAlgebra.Densify(new ArcProjection.Lower(request.Profile, request.ChordError))
             from receipt in trace.DensifiedReceipt.ToFin(
-                new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-admit:outline").ToError())
+                new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-admit:outline"))
             let closure = SampleClosure.From(request.Profile.Closed)
             from fitted in Fit(
                 closure.Samples(receipt.Result.Vertices, request.Profile.Tolerance),
@@ -279,7 +279,7 @@ public static class CurveAlgebra {
             from trace in ArcAlgebra.Densify(new ArcProjection.Recover(
                 request.Profile, request.FitError, request.ProbeFloor))
             from receipt in trace.RecoveredReceipt.ToFin(
-                new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-admit:chords").ToError())
+                new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-admit:chords"))
             let closure = SampleClosure.From(request.Profile.Closed)
             from fitted in Fit(
                 closure.Samples(receipt.Result.Vertices, request.Profile.Tolerance),
@@ -296,11 +296,11 @@ public static class CurveAlgebra {
         Op? key,
         CurveAdmissionReceipt receipt) =>
         points.Count < policy.Degree + 1
-            ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-admit:samples").ToError())
+            ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:samples").ToError())
             : Nurbs.Of(new NurbsWire.CurveThrough(points, policy), key)
                 .Bind(form => AsCurve(form, "curve-admit:form"))
                 .Bind(curve => closure.IsClosed && !curve.IsClosed
-                    ? Fin.Fail<NurbsForm.Curve>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-admit:closure").ToError())
+                    ? Fin.Fail<NurbsForm.Curve>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:closure").ToError())
                     : Fin.Succ(curve))
                 .Map<CurveTrace>(curve => new CurveTrace.Fitted(curve, receipt));
 
@@ -326,7 +326,7 @@ public static class CurveAlgebra {
 
     private static Fin<CurveTrace> Region(CurveOp.Region request) =>
         request.Loops.IsEmpty || request.Loops.Exists(static curve => !curve.IsClosed)
-            ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-region:open-loop").ToError())
+            ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-region:open-loop").ToError())
             : from result in Parametric.Fill(request.Loops, request.Plane, request.Policy, request.Key)
               from overlay in AsOverlay(result, "curve-region:overlay")
               from loops in overlay.Loops.Traverse(chain => LowerChain(chain, request.Tolerance)).As()
@@ -344,7 +344,7 @@ public static class CurveAlgebra {
                 lowering.Error,
                 lowering.ProbeFloor))
             from receipt in trace.RecoveredReceipt.ToFin(
-                new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-lower:recover").ToError())
+                new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-lower:recover"))
             select (CurveTrace)new CurveTrace.Lowered(
                 receipt.Result,
                 new CurveLoweringReceipt.Recovered(
@@ -374,7 +374,7 @@ public static class CurveAlgebra {
         ParametricResult.Division division) {
         double deviation = division.Parameters.Count < 2
             ? 0.0
-            : Range(0, division.Parameters.Count - 1).Map(index => {
+            : Range(0, division.Parameters.Count - 1).ToSeq().Map(index => {
                 double parameter = (division.Parameters[index] + division.Parameters[index + 1]) / 2.0;
                 Point3d point = curve.PointAt(parameter);
                 Line chord = new(division.Points[index], division.Points[index + 1]);
@@ -382,7 +382,7 @@ public static class CurveAlgebra {
             }).Max();
         return double.IsFinite(deviation)
             ? Fin.Succ(deviation)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-lower:deviation").ToError());
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-lower:deviation").ToError());
     }
 
     private static Fin<Loop> LowerChain(Chain chain, Context tolerance) {
@@ -390,16 +390,16 @@ public static class CurveAlgebra {
         Arr<Point3d> vertices = SampleClosure.From(chain.Closed).Vertices(points, tolerance);
         return chain.Closed
             ? Loop.Admit(vertices, closed: true, toArr(Enumerable.Repeat(0.0, vertices.Count)), tolerance)
-            : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "curve-region:open-result").ToError());
+            : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-region:open-result").ToError());
     }
 
     private static Fin<NurbsForm.Curve> AsCurve(NurbsForm form, string locus) => form.Switch(
-        state: new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError(),
+        state: (Error)new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus),
         curve: static (_, curve) => Fin.Succ(curve),
         surface: static (error, _) => Fin.Fail<NurbsForm.Curve>(error));
 
     private static Fin<ParametricResult.Offsets> AsOffsets(ParametricResult result, string locus) => result.Switch(
-        state: new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError(),
+        state: (Error)new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus),
         sample: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error),
         measured: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error),
         division: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error),
@@ -410,7 +410,7 @@ public static class CurveAlgebra {
         crossings: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error));
 
     private static Fin<ParametricResult.Division> AsDivision(ParametricResult result, string locus) => result.Switch(
-        state: new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError(),
+        state: (Error)new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus),
         sample: static (error, _) => Fin.Fail<ParametricResult.Division>(error),
         measured: static (error, _) => Fin.Fail<ParametricResult.Division>(error),
         division: static (_, division) => Fin.Succ(division),
@@ -421,7 +421,7 @@ public static class CurveAlgebra {
         crossings: static (error, _) => Fin.Fail<ParametricResult.Division>(error));
 
     private static Fin<ArrangementResult.Overlay> AsOverlay(ArrangementResult result, string locus) => result.Switch(
-        state: new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError(),
+        state: (Error)new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus),
         boolean: static (error, _) => Fin.Fail<ArrangementResult.Overlay>(error),
         overlay: static (_, overlay) => Fin.Succ(overlay),
         complex: static (error, _) => Fin.Fail<ArrangementResult.Overlay>(error));

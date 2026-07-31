@@ -32,9 +32,10 @@ Composed settled: the kernel capsule — `HookPoint<TFact>` with its synchronous
 
 ## [03]-[RAIL]
 
-- Owner: `HookScope` `[ValueObject<string>]` — the per-plugin namespace admitted trimmed and nonblank; subscriber identity is the `(point, scope)` composite instance, so two composing plugins subscribe the same point without collision and a scope's subscribers release together. `HookSignal` `[Union]` — `EventCase` carries a typed `UiEvent` fact, `EvidenceCase` carries a `GhEvidence` receipt, `IntentCase` carries the pre-commit `Op` and owning document identity a veto point judges. `GhHooks` — the per-load-context composition folding kernel `HookPoint<HookSignal>` instances.
-- Entry: `Subscribe` discriminates by subscriber shape — a veto gate `Func<HookSignal, Fin<HookSignal>>` reaches the instance's `Veto` (a gate on a non-veto point refuses typed from the capsule), an observe tap `Func<HookSignal, IO<Unit>>` reaches `Observe` — each returning the capsule's detacher; `GhHooks.Raise(GrasshopperPoint, HookSignal, Option<HookScope> = default, Op? = null)` → `Fin<HookSignal>` — the one raise fold; `GhHooks.Replay(HookScope, GrasshopperPoint, Seq<HookSignal> captured, Op? = null)` → `Fin<Unit>` — re-fires captured signals at one scope's instance on a `Replay` point, aborting on the first veto or firing failure so `Ok` certifies the whole window re-fired; `GhHooks.ReleaseScope(HookScope, Op? = null)` → `Fin<Unit>` — drains every instance of one plugin namespace in a single swap; `GhHooks.Faults` — the shared `Atom<Seq<IsolatedFault>>` evidence cell the telemetry fold subscribes.
-- Law: the registry key IS the `(point, scope)` composite — a boundary raise leaves `scope` as `None` and every scope's instance witnesses the host truth, a `Some` raise bounds delivery to one plugin namespace, and `ReleaseScope` realizes the release-together contract at plugin unload; each instance mints on first touch with the roster row's modality and the shared evidence cell, so delivery never crosses into a scope the subscriber did not admit.
+- Owner: `HookScope` `[ValueObject<string>]` — the per-plugin namespace admitted trimmed and nonblank; subscriber identity is the `(point, scope)` composite instance, so two composing plugins subscribe the same point without collision and a scope's subscribers release together. `HookSignal` `[Union]` — `EventCase` carries a typed `UiEvent` fact, `EvidenceCase` carries a `GhEvidence` receipt, `IntentCase` carries the pre-commit `Op` and owning document identity a veto point judges. `GhHooks` — the per-load-context composition folding kernel `HookPoint<HookSignal>` instances, each seated as a `HookRegistration` carrying its rank beside the cell holding that seat's live detachers.
+- Entry: `Subscribe` discriminates by subscriber shape — a veto gate `Func<HookSignal, Fin<HookSignal>>` reaches the instance's `Veto` (a gate on a non-veto point refuses typed from the capsule), an observe tap `Func<HookSignal, IO<Unit>>` reaches `Observe` — each returning a TRACKED detacher that drops its own row from the seat before disposing the capsule's; `GhHooks.Raise(GrasshopperPoint, HookSignal, Option<HookScope> = default, Op? = null)` → `Fin<HookSignal>` — the one raise fold; `GhHooks.Replay(HookScope, GrasshopperPoint, Seq<HookSignal> captured, Op? = null)` → `Fin<Unit>` — re-fires captured signals at one scope's instance on a `Replay` point, aborting on the first veto or firing failure so `Ok` certifies the whole window re-fired; `GhHooks.ReleaseScope(HookScope, Op? = null)` → `Fin<Unit>` — releases every subscriber of one plugin namespace and drops its seats; `GhHooks.Faults` — the shared `Atom<Seq<IsolatedFault>>` evidence cell the telemetry fold subscribes.
+- Law: the registry key IS the `(point, scope)` composite — a boundary raise leaves `scope` as `None` and every scope's instance witnesses the host truth, a `Some` raise bounds delivery to one plugin namespace; each seat mints on first touch with the roster row's modality and the shared evidence cell, so delivery never crosses into a scope the subscriber did not admit. Seat resolution is a typed rail: a registry that fails to publish the seat it just installed is `Fault.InvalidResult`, never an unregistered capsule minted on the miss — such a capsule is invisible to the raise fold, never fires, and never releases.
+- Law: release is subscriber-deep, so the release-together contract has a producer — `ReleaseScope` drains each seat's detacher cell and disposes them in reverse-registration order BEFORE the map rows drop, the first fault settling the returned rail while every later detacher still runs, so one throwing subscriber never strands a plugin's teardown. A subscription attached after that drain lands on an unreachable seat and delivers nothing, which is release-equivalent.
 - Law: the raise fold fires every resolved instance in first-registration order — each successful instance hands its transformed signal to the next, while the first `Fail` settles the returned verdict and later instances witness the original signal only on that explicit failure-observation path. Subscriber isolation is the capsule's — a throwing or refused tap parks as `IsolatedFault` on the shared cell and delivery continues, so no subscriber sinks the raise site or starves a sibling.
 - Law: replay is deterministic capture re-entry — captured signals come from `Shell/journal.md` `SessionJournal.Export` or the `HistoryLedger` action stream, re-fired in captured order at exactly one scope, so a late-mounted panel reads the recent path without a second recording surface; the capsule's own bounded buffer hands a fresh subscriber the recent window on attach.
 - Law: subscription state is per-load-context — the registry and evidence cells live in plugin ALC statics, so co-resident plugins hold disjoint rails even before scoping discriminates.
@@ -83,12 +84,12 @@ public abstract partial record HookSignal {
     public sealed record IntentCase(Op Operation, Option<Guid> DocumentId) : HookSignal;
 }
 
-internal readonly record struct HookRegistration(long Rank, HookPoint<HookSignal> Instance);
+internal readonly record struct HookRegistration(long Rank, HookPoint<HookSignal> Instance, Atom<Seq<IDisposable>> Detachers);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
-// Per-load-context composition of the kernel capsule: one HookPoint<HookSignal> instance per
-// (point, scope) composite, minted on first touch with the roster row's modality, every instance
-// sharing one evidence cell; collectible plugin ALCs isolate both statics per plugin.
+// Per-load-context composition of the kernel capsule: one HookPoint<HookSignal> seat per (point, scope) composite,
+// minted on first touch with the roster row's modality, every seat sharing one evidence cell and owning the detacher
+// set release drains; collectible plugin ALCs isolate both statics per plugin.
 [BoundaryAdapter]
 public static class GhHooks {
     private static readonly Atom<HashMap<(string Point, HookScope Scope), HookRegistration>> Points =
@@ -97,19 +98,34 @@ public static class GhHooks {
 
     public static Atom<Seq<IsolatedFault>> Faults { get; } = Atom(Seq<IsolatedFault>());
 
-    public static Fin<IDisposable> Subscribe(HookScope scope, GrasshopperPoint point, Func<HookSignal, Fin<HookSignal>> gate, Op? key = null) =>
-        key.OrDefault().Need(gate).Bind(valid => Resolve(point: point, scope: scope).Veto(gate: valid));
+    public static Fin<IDisposable> Subscribe(HookScope scope, GrasshopperPoint point, Func<HookSignal, Fin<HookSignal>> gate, Op? key = null) {
+        Op op = key.OrDefault();
+        return from valid in op.Need(gate)
+               from row in op.Need(point)
+               from seat in Resolve(point: row, scope: scope, op: op)
+               from detacher in seat.Instance.Veto(gate: valid)
+               select Tracked(seat: seat, detacher: detacher);
+    }
 
-    public static Fin<IDisposable> Subscribe(HookScope scope, GrasshopperPoint point, Func<HookSignal, IO<Unit>> tap, Op? key = null) =>
-        key.OrDefault().Need(tap).Map(valid => Resolve(point: point, scope: scope).Observe(tap: valid));
+    public static Fin<IDisposable> Subscribe(HookScope scope, GrasshopperPoint point, Func<HookSignal, IO<Unit>> tap, Op? key = null) {
+        Op op = key.OrDefault();
+        return from valid in op.Need(tap)
+               from row in op.Need(point)
+               from seat in Resolve(point: row, scope: scope, op: op)
+               select Tracked(seat: seat, detacher: seat.Instance.Observe(tap: valid));
+    }
 
+    // The fold's verdict is the RESULT, so it binds as a query step: selecting an already-Fin expression nests the
+    // rail one deep and the member's own return type refuses it. op.Catch funnels a throwing veto gate — the capsule
+    // shields its observe taps but folds veto gates bare — so no subscriber can raise into the host callback.
     public static Fin<HookSignal> Raise(GrasshopperPoint point, HookSignal signal, Option<HookScope> scope = default, Op? key = null) {
         Op op = key.OrDefault();
         return from row in op.Need(point)
                from fact in op.Need(signal)
-               select Instances(point: row, scope: scope)
+               from settled in op.Catch(body: () => Instances(point: row, scope: scope)
                    .Fold(Fin.Succ(fact), (verdict, instance) =>
-                       Witness(verdict: verdict, instance: instance, original: fact));
+                       Witness(verdict: verdict, instance: instance, original: fact)))
+               select settled;
     }
 
     public static Fin<Unit> Replay(HookScope scope, GrasshopperPoint point, Seq<HookSignal> captured, Op? key = null) {
@@ -119,26 +135,55 @@ public static class GhHooks {
         // Fire, and op.Catch keeps the host-raise funnel — isolation preserved, verdicts no longer discarded.
         return from row in op.Need(point)
                from replayable in guard(row.Modality == HookModality.Replay, op.InvalidInput()).ToFin()
-               from replayed in op.Catch(body: () => {
-                   HookPoint<HookSignal> instance = Resolve(point: row, scope: scope);
-                   return captured.TraverseM(fact => instance.Fire(fact: fact)).As().Map(static _ => unit);
-               })
+               from seat in Resolve(point: row, scope: scope, op: op)
+               from replayed in op.Catch(body: () =>
+                   captured.TraverseM(fact => seat.Instance.Fire(fact: fact)).As().Map(static _ => unit))
                select replayed;
     }
 
-    public static Fin<Unit> ReleaseScope(HookScope scope, Op? key = null) =>
-        key.OrDefault().Catch(body: () => Fin.Succ(ignore(Points.Swap(current =>
-            current.Filter((pair, _) => pair.Scope != scope)))));
+    public static Fin<Unit> ReleaseScope(HookScope scope, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Catch(body: () => {
+            Seq<HookRegistration> released = toSeq(Points.Value)
+                .Filter(pair => pair.Key.Scope == scope)
+                .Map(static pair => pair.Value);
+            ignore(Points.Swap(current => current.Filter((pair, _) => pair.Scope != scope)));
+            return released.Fold(Fin.Succ(unit), (settled, seat) => Drop(settled: settled, seat: seat, op: op));
+        });
+    }
 
-    private static HookPoint<HookSignal> Resolve(GrasshopperPoint point, HookScope scope) =>
-        Points.Swap(held => held.ContainsKey((point.Key, scope))
-                ? held
-                : held.Add((point.Key, scope), new HookRegistration(
-                    Rank: Interlocked.Increment(location: ref nextRank) - 1L,
-                    Instance: new HookPoint<HookSignal>(id: HookId.Create(value: point.Key), modality: point.Modality, faults: Faults))))
-            .Find((point.Key, scope))
-            .Map(static registration => registration.Instance)
-            .IfNone(() => new HookPoint<HookSignal>(id: HookId.Create(value: point.Key), modality: point.Modality, faults: Faults));
+    // The candidate mints ONCE outside the transition: Swap re-runs its body on every CAS retry, so a rank increment
+    // or a capsule mint inside it burns identity per contended attempt (rails-and-effects [ATOM_STATE]). A losing
+    // candidate is inert — an unpublished capsule holds no subscriber and no host handle.
+    private static Fin<HookRegistration> Resolve(GrasshopperPoint point, HookScope scope, Op op) {
+        (string Point, HookScope Scope) seat = (point.Key, scope);
+        HookRegistration candidate = new(
+            Rank: Interlocked.Increment(location: ref nextRank) - 1L,
+            Instance: new HookPoint<HookSignal>(id: HookId.Create(value: point.Key), modality: point.Modality, faults: Faults),
+            Detachers: Atom(Seq<IDisposable>()));
+        return Points.Swap(held => held.ContainsKey(seat) ? held : held.Add(seat, candidate))
+            .Find(seat)
+            .ToFin(op.InvalidResult(detail: point.Key));
+    }
+
+    private static IDisposable Tracked(HookRegistration seat, IDisposable detacher) {
+        ignore(seat.Detachers.Swap(held => held.Add(detacher)));
+        return new HookDetacher(Detach: () => {
+            ignore(seat.Detachers.Swap(held => held.Filter(entry => !ReferenceEquals(entry, detacher)).ToSeq().Strict()));
+            detacher.Dispose();
+        });
+    }
+
+    // Take-and-clear reads the honest snapshot first: Swap hands back the value it just installed, so draining
+    // through the return alone would dispose nothing.
+    private static Fin<Unit> Drop(Fin<Unit> settled, HookRegistration seat, Op op) {
+        Seq<IDisposable> held = seat.Detachers.Value;
+        ignore(seat.Detachers.Swap(static _ => Seq<IDisposable>()));
+        return held.Rev().Fold(settled, (first, detacher) => {
+            Fin<Unit> next = op.Catch(body: () => Fin.Succ(Op.Side(action: detacher.Dispose)));
+            return first.IsFail ? first : next;
+        });
+    }
 
     private static Seq<HookPoint<HookSignal>> Instances(GrasshopperPoint point, Option<HookScope> scope) =>
         toSeq(Points.Value)

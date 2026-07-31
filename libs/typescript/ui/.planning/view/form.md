@@ -132,7 +132,7 @@ const _submit = (
     // it in its own transition and useFormStatus reads the trip; the draft reads from the atom cursor
     // root at submit time, never from the platform FormData
     const outcome = await Effect.runPromiseExit(
-      Form.observed(
+      _observed(
         Effect.flatMap(Effect.promise(() => write(draft())), (exit) =>
           Exit.match(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })),
         registry,
@@ -182,14 +182,16 @@ const _useQuery = (): string => useDeferredValue(useAtomRefPropValue(_draft, "ti
 
 [UPLOAD_LANE]:
 - Owner: `Form.upload(file, policy, progress)` — one resumable session per source: the session constructs over the endpoint policy row, proves prior progress through `findPreviousUploads` and binds the first candidate through `resumeFromPreviousUpload` before `start()`, and completion resolves with the `OnSuccessPayload` receipt; interruption runs `abort()` — the stored URL survives, so the next session resumes at the proven offset — and an explicit cancel escalates `Upload.terminate(url)`.
-- Packages: `tus-js-client` (`Upload`, `UploadOptions`, `PreviousUpload`, `OnSuccessPayload`, `DetailedError`, the event and policy hooks); `effect` (`Data`, `Effect`, `Option`).
+- Packages: `tus-js-client` (`Upload`, `UploadOptions`, `PreviousUpload`, `OnSuccessPayload`, `DetailedError`, the event and policy hooks); `effect` (`Effect`, `Option`, `Schema`); `@rasm/ts/core` (`FaultClass`).
 - Law: progress is a tap parameter — `onProgress` folds into the app-composed sink (an atom write the `Meter`/`ProgressBar` gauges read), never component state; `onChunkComplete` rides the same sink where chunk grain matters.
-- Law: refusal classes by status — `DetailedError.originalResponse.getStatus()` and the `onShouldRetry` hook own retry refusal; string-matching an error message is the named defect.
+- Law: refusal reads the endpoint's own status and BANDS it into a reason — `DetailedError.originalResponse.getStatus()` folds through `Form.refusal` into the closed reason axis (`endpoint-denied` on an unauthorized or forbidden transfer, `payload-rejected` on a refused body, `transfer-lost` on a server or transport failure with no response), and the core `FaultClass.family` mint projects each reason's kind, so severity, blame, and retryability all derive from the core row table. The banding is load-bearing, not presentation: a permission refusal folded to `unavailable` reads as retryable, so a budget gate re-drives a `403` until its window expires while the operator sees no refusal — one class for every status is the named defect, `onShouldRetry` reads the SAME projection so the session and the rail cannot disagree, string-matching an error message is rejected, and a local rank, retry, or taxonomy-status column beside `class` forks the core lattice per folder.
+- Law: the received status stays inbound evidence beside the reason — the reason carries the routing and the status carries what the endpoint said, so a report names `409` rather than the band it fell into; the status never becomes the discriminant a handler switches on.
 - Law: the server owns finalization — content-address folding and object-store writes land server-side on the data folder's tus lane; this session is a protocol driver, and the finished object's identity returns on the wire.
 - Growth: a new transfer policy (chunk size, fingerprint store, signing hook) is one options row on the policy shape — never a second session mechanism.
 
 ```typescript
-import { Data, Effect, Option } from "effect"
+import { FaultClass } from "@rasm/ts/core"
+import { Effect, Option, Schema } from "effect"
 import { DetailedError, Upload, type OnSuccessPayload, type PreviousUpload } from "tus-js-client"
 
 declare namespace Form {
@@ -201,10 +203,35 @@ declare namespace Form {
   type Progress = { readonly sent: number; readonly total: number }
 }
 
-class UploadFault extends Data.TaggedError("UploadFault")<{
-  readonly status: Option.Option<number>
-  readonly detail: string
-}> {}
+// One row per reason carrying the core kind alone: a refused permission is not a transient outage, so the three
+// bands route differently and the core row table decides retryability for each — no local retry column exists.
+const _family = FaultClass.family(["endpoint-denied", "payload-rejected", "transfer-lost"] as const, {
+  "endpoint-denied": { class: "denied" },
+  "payload-rejected": { class: "invalid" },
+  "transfer-lost": { class: "unavailable" },
+})
+
+// the one status projection: the session's onShouldRetry hook and the rail's fault both read it, so the two
+// can never disagree about whether an offset is worth re-driving
+const _refusal = (status: Option.Option<number>): (typeof _family.reasons)[number] =>
+  Option.match(status, {
+    onNone: () => "transfer-lost" as const, // no response at all: transport, never the endpoint's verdict
+    onSome: (code) => (code === 401 || code === 403 ? "endpoint-denied" : code >= 400 && code < 500 ? "payload-rejected" : "transfer-lost"),
+  })
+
+class UploadFault extends Schema.TaggedError<UploadFault>()("UploadFault", {
+  reason: _family.schema,
+  status: Schema.optionalWith(Schema.Int, { as: "Option" }), // the endpoint's own response code: inbound evidence, never the discriminant
+  detail: Schema.String,
+}) {
+  static readonly roster: typeof _family.reasons = _family.reasons
+  get class(): FaultClass.Kind {
+    return _family.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<upload:${this.reason}@${Option.match(this.status, { onNone: () => "no-response", onSome: String })}> ${this.detail}`
+  }
+}
 
 const _upload = (
   file: File,
@@ -219,18 +246,19 @@ const _upload = (
       metadata: { ...policy.metadata },
       onProgress: (sent, total) => progress({ sent, total }),
       onSuccess: (payload) => resume(Effect.succeed(payload)),
-      onError: (fault) =>
-        resume(Effect.fail(
-          fault instanceof DetailedError
-            ? new UploadFault({ status: Option.fromNullable(fault.originalResponse?.getStatus()), detail: fault.message })
-            : new UploadFault({ status: Option.none(), detail: String(fault) }),
-        )),
+      onShouldRetry: (fault) => _refusal(Option.fromNullable(fault.originalResponse?.getStatus())) === "transfer-lost", // the session re-drives exactly the band the rail calls retryable
+      onError: (fault) => {
+        const status = fault instanceof DetailedError ? Option.fromNullable(fault.originalResponse?.getStatus()) : Option.none<number>()
+        return resume(Effect.fail(new UploadFault({ reason: _refusal(status), status, detail: fault.message })))
+      },
     })
-    void session.findPreviousUploads().then((held: ReadonlyArray<PreviousUpload>) => {
-      const prior = held[0]
-      if (prior !== undefined) session.resumeFromPreviousUpload(prior)
-      session.start()
-    })
+    void session.findPreviousUploads()
+      .then((held: ReadonlyArray<PreviousUpload>) => {
+        const prior = held[0]
+        if (prior !== undefined) session.resumeFromPreviousUpload(prior)
+      })
+      .catch(() => undefined) // a fingerprint store that cannot answer costs the resume, never the upload
+      .finally(() => session.start())
     return Effect.promise(() => session.abort())
   })
 
@@ -240,6 +268,7 @@ declare namespace Form {
     readonly errors: typeof _errors
     readonly observed: typeof _observed
     readonly hook: typeof _submitHook
+    readonly refusal: typeof _refusal
     readonly submit: typeof _submit
     readonly upload: typeof _upload
   }
@@ -250,6 +279,7 @@ const Form: Form.Shape = {
   errors: _errors,
   observed: _observed,
   hook: _submitHook,
+  refusal: _refusal,
   submit: _submit,
   upload: _upload,
 }

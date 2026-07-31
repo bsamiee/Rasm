@@ -12,6 +12,7 @@
 
 - Owner: `NetContinuity` and `ParametricAxis` `[SmartEnum<int>]` — native continuity and parametric-direction vocabularies; `NetworkLaw`, `GridFit`, and `CornerSeed` close source arity; `SurfaceFitLaw` closes fit/rebuild modality; `ExtrudeTerminal`, `RollingSeed`, `AnalyticSeed`, `SurfaceForm`, `PlaneFrame`, `RevolveProfile`, and `SumExtent` carry only modality-valid construction payloads.
 - Law: the continuity code never travels bare — `NetContinuity` keys the native integer so a network arm reads `(int)row`, and an out-of-vocabulary code is unconstructible.
+- Law: `ParametricAxis` carries its own `Native` column and every host direction argument reads it — `Surface.CreatePeriodicSurface`, `Surface.RebuildOneDirection`, and the solid rail's `Brep.ChangeSeam` all take the host's declared `0 = U, 1 = V` encoding off the row, so a key renumber can never silently mis-drive a native and the encoding is declared once instead of riding an ordinal cast at three call sites.
 - Law: one analytic vocabulary serves two representations — `AnalyticSeed.Build` dispatches the primitive once, while each `SurfaceForm` row supplies the four constructor delegates through `[UseDelegateFromConstructor]`; neither axis reconstructs the other.
 
 ```csharp
@@ -26,8 +27,10 @@ public sealed partial class NetContinuity {
 
 [SmartEnum<int>]
 public sealed partial class ParametricAxis {
-    public static readonly ParametricAxis U = new(key: 0);
-    public static readonly ParametricAxis V = new(key: 1);
+    public static readonly ParametricAxis U = new(key: 0, native: 0);
+    public static readonly ParametricAxis V = new(key: 1, native: 1);
+
+    internal int Native { get; }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -235,6 +238,7 @@ public abstract partial record SumExtent {
 - Owner: `SurfaceSlot` `[SmartEnum<int>]` — the consequence vocabulary; `SurfaceOp` `[Union]` — the whole verified freeform-construction verb roster; `Surfaces` — the one entry folding any operation spread into one `Built<SurfaceSlot>`.
 - Law: the network error code is evidence — `NetworkLaw.Build` captures both native topologies and refuses a null product or nonzero code before ownership; successful code becomes a `Code` fact beside the surface.
 - Law: `SurfaceOp.Admitted` closes every policy vocabulary and payload before any host lease; point grids use positive degree-preserving dimensions and widened cardinality arithmetic.
+- Law: `Surfaces.Build` is `ModelGate.Entry` — the folder spine owns capture, the non-empty guard, accumulating admission, the fold, and the bench stamp, so `Built<SurfaceSlot>.Bench` carries the same harvest evidence every sibling page emits and this page re-mints no fold of its own.
 - Law: geodesic fitting has two modalities on one vocabulary — `GeodesicCurve` answers the fitted `NurbsCurve` as a product, `GeodesicSamples` answers the intermediate uv rows as a `UvRows` fact with no product; both consume the same surface lease and point rows.
 - Law: fit and rebuild are value-semantic constructions — `SurfaceFitLaw` selects tolerance fit, grid rebuild, or directional rebuild inside one `Fit` arm, and each member owns the returned surface without mutating the input handle.
 - Law: compatibility answers pairs — `MakeCompatible` confirms and crosses both reparameterized surfaces with symmetric disposal on a half-crossed failure.
@@ -457,7 +461,7 @@ public abstract partial record SurfaceOp {
                 Op op = Op.Of(name: nameof(Periodic));
                 return ModelGate.Borrow<Surface, Built<SurfaceSlot>>(handle: edit.Surface, key: op, body: surface =>
                     ModelGate.Single(op, SurfaceSlot.Closed, () => Surface.CreatePeriodicSurface(
-                        surface: surface, direction: (int)edit.Axis, bSmooth: edit.Smooth)));
+                        surface: surface, direction: edit.Axis.Native, bSmooth: edit.Smooth)));
             },
             softEdit: static (model, edit) => {
                 Op op = Op.Of(name: nameof(SoftEdit));
@@ -533,7 +537,7 @@ public abstract partial record SurfaceOp {
                         toGrid: static (ctx, law) => ModelGate.Single(ctx.Op, SurfaceSlot.Refitted, () => ctx.Surface.Rebuild(
                             uDegree: law.UDegree, vDegree: law.VDegree, uPointCount: law.UPoints, vPointCount: law.VPoints)),
                         inDirection: static (ctx, law) => ModelGate.Single(ctx.Op, SurfaceSlot.Refitted, () => ctx.Surface.RebuildOneDirection(
-                            direction: (int)law.Axis, pointCount: law.PointCount, loftType: law.Kind,
+                            direction: law.Axis.Native, pointCount: law.PointCount, loftType: law.Kind,
                             refitTolerance: ctx.Domain.Absolute.Value))));
             },
             variableOffset: static (model, edit) => {
@@ -554,6 +558,9 @@ public abstract partial record SurfaceOp {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Surfaces {
+    // RhinoCommon clamps `uDegree`/`vDegree` to `Math.Min(degree, 11)` inside `NurbsSurface.CreateFromPoints` and
+    // `CreateThroughPoints`, so 11 is the host's own ceiling; admitting at that ceiling refuses what the host
+    // otherwise clamps silently, and the same bound covers `CreateFromPlane`, which clamps nothing.
     internal const int MaximumNurbsDegree = 11;
 
     internal static bool Declared<T>(FrozenSet<T>? values, IReadOnlyList<T> rows) where T : class =>
@@ -565,21 +572,12 @@ public static class Surfaces {
     internal static bool GridShape(int uCount, int vCount, int uDegree, int vDegree) =>
         Degrees(uDegree: uDegree, vDegree: vDegree) && uCount > uDegree && vCount > vDegree;
 
-    public static Fin<Built<SurfaceSlot>> Build(Context context, params ReadOnlySpan<SurfaceOp> operations) {
-        Op op = Op.Of();
-        Seq<SurfaceOp> captured = toSeq(operations.ToArray());
-        return from domain in Optional(context).ToFin(Fail: op.MissingContext())
-               from _ in guard(!captured.IsEmpty, op.InvalidInput())
-               from admitted in captured.TraverseM(operation =>
-                       Optional(operation).ToFin(Fail: op.InvalidInput())
-                           .Bind(active => active.Admitted(key: op)))
-                   .As()
-               from built in ModelGate.Folded(
-                   context: domain,
-                   operations: admitted,
-                   apply: static (operation, model) => operation.Apply(domain: model))
-               select built;
-    }
+    public static Fin<Built<SurfaceSlot>> Build(Context context, params ReadOnlySpan<SurfaceOp> operations) =>
+        ModelGate.Entry(
+            context: context,
+            operations: operations,
+            admit: static (operation, key) => operation.Admitted(key: key),
+            apply: static (operation, model) => operation.Apply(domain: model));
 }
 ```
 

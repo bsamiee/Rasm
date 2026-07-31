@@ -27,7 +27,7 @@ Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in
 - Receipt: every `ProcessBudget` case carries process-specific outputs with `BudgetEvidence`, which records evaluated material state, power, the `BudgetEnergy` closure, the admitted grade, the tool identity, and every `RangeReceipt` with its admitted range, derived value, resolved value, and clamp witnesses.
 - Packages: `ProcessKind`, `PhysicsKind`, `EquipmentEnvelope`, `FabricationFault`, Thinktecture.Runtime.Extensions, `UnitsNet`, `MathNet.Numerics`, LanguageExt.Core, and BCL inbox compose directly.
 - Growth: a production grade is one `MaterialSpec`; a family is one `Material` row; constitutive variation is `ConstitutiveLaw` data; a delivery medium is one `CoolantResponse` table row against the family `CoolantDelivery` vocabulary; a response dimension is one `ResponseAxis` row with one `ConstitutiveState` column; and a new physics family is one `PhysicsKind` row, one input case, one law case, one budget case, and one joint-pattern arm.
-- Boundary: family identity, grade evidence, equipment variant, physics input, and budget remain distinct timing regimes. No union case carries an inapplicable optional field, and every admitted equipment and constitutive column reaches a calculation or a receipt. Equipment, quantity, and grade rejections lower onto `FabricationFault.EquipmentInadmissible`; `GeometryFault` covers degenerate geometry alone.
+- Boundary: family identity, grade evidence, equipment variant, physics input, and budget remain distinct timing regimes. No union case carries an inapplicable optional field, and every admitted equipment and constitutive column reaches a calculation or a receipt. Equipment, quantity, and grade rejections mint through `FabricationFault.Equipment`, so the witness clears its own kind predicate before the fault exists; `GeometryFault` covers degenerate geometry alone.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -233,7 +233,7 @@ public abstract partial record Tool(string Key) {
         double.IsFinite(value) && value >= low && value <= high;
 
     private static Fin<Tool> Invalid(Tool candidate, string axis) =>
-        Fin.Fail<Tool>(FabricationFault.EquipmentInadmissible(new EquipmentWitness.Geometry(candidate, axis)));
+        Fin.Fail<Tool>(FabricationFault.Equipment(new EquipmentWitness.Geometry(candidate, axis)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -748,7 +748,7 @@ public sealed partial class MaterialSpec {
         ThermalDatum thermal,
         Map<PhysicsKind, ModalityPhysics> gradeOverrides) {
         if (family is null || identity is null || mechanical is null || thermal is null)
-            return Fin.Fail<MaterialSpec>(FabricationFault.EquipmentInadmissible(
+            return Fin.Fail<MaterialSpec>(FabricationFault.Equipment(
                 new EquipmentWitness.Grade("material-spec:grade-override")));
 
         bool overridesValid = gradeOverrides.AsIterable().Fold(
@@ -756,13 +756,13 @@ public sealed partial class MaterialSpec {
             (valid, pair) => valid && pair.Value is not null && pair.Key == pair.Value.Kind
                 && family.Physics.ContainsKey(pair.Key));
         if (!overridesValid)
-            return Fin.Fail<MaterialSpec>(FabricationFault.EquipmentInadmissible(
+            return Fin.Fail<MaterialSpec>(FabricationFault.Equipment(
                 new EquipmentWitness.Grade("material-spec:grade-override")));
 
         Map<PhysicsKind, ModalityPhysics> physics = gradeOverrides.AsIterable()
             .Fold(family.Physics, static (state, pair) => state.AddOrUpdate(pair.Key, pair.Value));
         return Validate(family, identity, mechanical, thermal, physics, out MaterialSpec admitted) is { } error
-            ? Fin.Fail<MaterialSpec>(FabricationFault.EquipmentInadmissible(new EquipmentWitness.Grade(error.ToString())))
+            ? Fin.Fail<MaterialSpec>(FabricationFault.Equipment(new EquipmentWitness.Grade(error.ToString())))
             : Fin.Succ(admitted);
     }
 
@@ -864,7 +864,7 @@ public abstract partial record PhysicsRequest(ProcessKind Process, MaterialSpec 
             return Missing("payload");
         if (candidate.Process.Physics != candidate.Kind
             || !candidate.Extents.ForAll(static value => double.IsFinite(value) && value > 0.0))
-            return Fin.Fail<PhysicsRequest>(FabricationFault.InadmissiblePair(
+            return Fin.Fail<PhysicsRequest>(new FabricationFault.InadmissiblePair(
                 new RelationFault.ProcessMaterial(candidate.Process, candidate.Material.Family)));
 
         return candidate.Switch(
@@ -889,19 +889,19 @@ public abstract partial record PhysicsRequest(ProcessKind Process, MaterialSpec 
         if (assembly is null || assembly.Tool is null || assembly.Feed is null || assembly.Spindle is null)
             return Missing("equipment");
         if (assembly.Spent)
-            return Fin.Fail<PhysicsRequest>(FabricationFault.EquipmentInadmissible(
+            return Fin.Fail<PhysicsRequest>(FabricationFault.Equipment(
                 new EquipmentWitness.Spent(assembly.Identity, operation)));
         return Tool.Admit(assembly.Tool).Bind(tool => request.Kind == PhysicsKind.Subtractive
             ? Fin.Succ(request)
             : tool is Tool.Head head && head.Class.Admits(request.Kind)
                 ? Fin.Succ(request)
-                : Fin.Fail<PhysicsRequest>(FabricationFault.EquipmentInadmissible(
+                : Fin.Fail<PhysicsRequest>(FabricationFault.Equipment(
                     new EquipmentWitness.HeadPhysics(
                         request.Kind, Optional(tool as Tool.Head).Map(static mounted => mounted.Class)))));
     }
 
     private static Fin<PhysicsRequest> Missing(string locus) =>
-        Fin.Fail<PhysicsRequest>(FabricationFault.EquipmentInadmissible(
+        Fin.Fail<PhysicsRequest>(FabricationFault.Equipment(
             new EquipmentWitness.Grade($"physics-request:{locus}")));
 }
 
@@ -936,7 +936,7 @@ public abstract partial record BudgetEnergy {
                 && NonNegative(row.SurfaceSpeedMPerMin) && NonNegative(row.FeedPerRevolutionMm),
             perStroke: static row => NonNegative(row.Joules))
             ? Fin.Succ(candidate)
-            : Fin.Fail<BudgetEnergy>(FabricationFault.EquipmentInadmissible(
+            : Fin.Fail<BudgetEnergy>(FabricationFault.Equipment(
                 new EquipmentWitness.Grade("budget-energy")));
 
     private static bool NonNegative(double value) => double.IsFinite(value) && value >= 0.0;
@@ -1043,7 +1043,7 @@ public sealed partial class PhysicsQuantity {
     private static PhysicsQuantity Of<T>(string key, TryQuantity<T> parse, Func<T, double> canonical) =>
         new(key, text => parse(text, CultureInfo.InvariantCulture, out T value)
             ? Fin.Succ(canonical(value))
-            : Fin.Fail<double>(FabricationFault.EquipmentInadmissible(new EquipmentWitness.Quantity(key, text))));
+            : Fin.Fail<double>(FabricationFault.Equipment(new EquipmentWitness.Quantity(key, text))));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1065,7 +1065,7 @@ public static class ProcessPhysics {
     public static Fin<ProcessBudget> Budget(PhysicsRequest request) =>
         from admitted in PhysicsRequest.Admit(request)
         from physics in admitted.Material.Physics.Find(admitted.Kind)
-            .ToFin(FabricationFault.InadmissiblePair(new RelationFault.ProcessMaterial(admitted.Process, admitted.Material.Family)))
+            .ToFin(new FabricationFault.InadmissiblePair(new RelationFault.ProcessMaterial(admitted.Process, admitted.Material.Family)))
         from budget in (admitted, physics) switch {
             (PhysicsRequest.Subtractive row, ModalityPhysics.Subtractive law) => Subtractive(row, law),
             (PhysicsRequest.Thermal row, ModalityPhysics.Thermal law) => Thermal(row, (Tool.Head)row.Head.Tool, law),
@@ -1077,7 +1077,7 @@ public static class ProcessPhysics {
             (PhysicsRequest.Resin row, ModalityPhysics.Resin law) => Fin.Succ(Resin(row, law)),
             (PhysicsRequest.Powder row, ModalityPhysics.Powder law) => Fin.Succ(Powder(row, law)),
             (PhysicsRequest.Forming row, ModalityPhysics.Forming law) => Fin.Succ(Formed(row, law)),
-            var (row, _) => Fin.Fail<ProcessBudget>(FabricationFault.InadmissiblePair(
+            var (row, _) => Fin.Fail<ProcessBudget>(new FabricationFault.InadmissiblePair(
                 new RelationFault.ProcessMaterial(row.Process, row.Material.Family))),
         }
         select budget;
@@ -1334,9 +1334,13 @@ public static class ProcessPhysics {
         double derived) {
         double selected = range.Resolve(derived);
         double capped = Math.Min(selected, ceiling);
-        if (range.Minimum.Exists(minimum => minimum > ceiling))
-            return Fin.Fail<RangeReceipt>(FabricationFault.EquipmentInadmissible(
-                new EquipmentWitness.RangeFloor(bound, capped, range.Minimum.IfNone(capped))).ToError());
+        // A floor above the equipment ceiling is unsatisfiable, and the bound it breaches is the CEILING — naming
+        // `capped` instead reports a floor above a value the floor may legitimately sit below, which the witness's
+        // own `RangeFloor` predicate reads as a contradiction. The minimum binds through the probe, so no absent
+        // floor reaches the witness as a self-equal pair the gate would refuse.
+        if (range.Minimum.Filter(minimum => minimum > ceiling) is { IsSome: true, Case: double floor })
+            return Fin.Fail<RangeReceipt>(FabricationFault.Equipment(
+                new EquipmentWitness.RangeFloor(bound, ceiling, floor)).ToError());
         double floored = range.Minimum.Map(min => Math.Max(min, capped)).IfNone(capped);
         double bounded = range.Maximum.Map(max => Math.Min(max, floored)).IfNone(floored);
         Arr<EquipmentWitness> witnesses =
@@ -1359,7 +1363,7 @@ public static class ProcessPhysics {
         BudgetEvidence.Create(input.State, powerW, energy, input.Material, input.Equipment, ranges);
 
     private static Fin<ProcessBudget> Invalid(Operation operation, Tool equipment) =>
-        Fin.Fail<ProcessBudget>(FabricationFault.InadmissiblePair(new RelationFault.OperationEquipment(operation, equipment)));
+        Fin.Fail<ProcessBudget>(new FabricationFault.InadmissiblePair(new RelationFault.OperationEquipment(operation, equipment)));
 }
 ```
 

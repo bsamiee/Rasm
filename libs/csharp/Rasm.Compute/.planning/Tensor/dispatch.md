@@ -1127,7 +1127,7 @@ public static class EquivalenceLaw {
 - Receipt: a device dispatch emits the `TensorRun` `ComputeReceipt` carrying the op family, the resolved per-pass GPU nanosecond duration from the `QuerySet` timestamp (never a busy-wait fence), the `device-wgpu` SIMD-width tag and the workgroup count as the partition count, the `DeterminismTag` extended with the device identity, and the `Tensor/memory#ALLOCATION_AXIS` `AllocationClass.DeviceWgpu`; the device GEMM is a new `LinearProvider.DeterminismTag` because a device result is bit-divergent from the managed/native CPU GEMM, so the `SolveDedupKey` folds the device identity exactly as it folds the managed/native provider or a cross-substrate cache hit returns bit-divergent numbers.
 - Packages: Silk.NET.WebGPU, Silk.NET.WebGPU.Extensions.WGPU (the `Wgpu` table for `DevicePoll`/`QueueSubmitForIndex` device-tick readback), Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new device operation is one WGSL row; a launch shape is one `DeviceStep.Workgroups` value; a multi-kernel chain is one `DevicePlan` value with roster-indexed intermediates and one submission. Device residency remains `OrtResidency.DeviceResident`, never a parallel tensor type.
-- Boundary: `DeviceKernels.Compile` caches typed compile results by device identity and operation, rejects null native handles, releases partial construction, and exposes device-scoped cache retirement. `DevicePlan` carries ordered kernels, binding slots, and workgroups. `DeviceDispatch.Dispatch` proves non-empty bindings, device residency, binding indexes, workgroup arithmetic, terminal output byte alignment, and one common submission. `WgpuDevice.RecordAndSubmit` admits plan and binding counts against fixed caps before any stack staging, then owns one encoder, timestamped passes, one submit, blocking poll, one mapped readback, and deterministic transient-handle release; shared `Device` and `Queue` remain AppUi-owned. Every submission records inside one `ErrorFilter.Validation` scope drained through `DevicePopErrorScope` before its duration becomes a receipt, so a driver-rejected dispatch rails `device-validation` instead of returning timing for work that never ran. Device-limit negotiation reads `DeviceGetLimits` at admission; WGPU↔ORT pointer interop remains the one research leaf because no verified body claims it.
+- Boundary: `DeviceKernels.Compile` caches typed compile results by device identity and operation, rejects null native handles, releases partial construction, and exposes device-scoped cache retirement. `DevicePlan` carries ordered kernels, binding slots, and workgroups. `DeviceDispatch.Dispatch` proves non-empty bindings, device residency, binding indexes, workgroup arithmetic, terminal output byte alignment, and one common submission. `WgpuDevice.RecordAndSubmit` admits plan and binding counts against fixed caps before any stack staging, then owns one encoder, timestamped passes, one submit, blocking poll, one mapped readback, and deterministic transient-handle release; shared `Device` and `Queue` remain AppUi-owned. Every submission records inside one `ErrorFilter.Validation` scope drained through `DevicePopErrorScope` before its duration becomes a receipt, so a driver-rejected dispatch rails `device-validation` instead of returning timing for work that never ran. Device-limit negotiation reads `DeviceGetLimits` at admission. Model lane and device lane share one physical device but never one allocation: `OrtValue` imports a foreign pointer and exports none, and the WebGPU binding mints through `DeviceCreateBuffer` with no import entrypoint and no buffer-import `NativeSType` chain tag, so every ORT↔WGPU handoff crosses as the host round trip under an `AllocationClass.EdgeCopy` grant — a zero-copy device-to-device claim between the two is unrepresentable at the admitted binding, and asserting one fabricates a residency neither surface reports.
 
 ```csharp signature
 // --- [CONSTANTS] ---------------------------------------------------------------------------
@@ -1252,6 +1252,17 @@ public static class WgslSource {
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
+// Roster entry is a wgpu `Buffer*` the device owns, and the ORT↔WGPU crossing is DIRECTIONAL by member truth:
+// `OrtValue` only IMPORTS foreign memory — `CreateTensorValueWithData` takes a trailing `(nint dataPtr, long
+// sizeBytes)` under an `OrtMemoryInfo` naming the foreign device — and hands no pointer OUT, its egress being the
+// managed views `GetTensorMutableRawData()`/`GetTensorDataAsSpan<T>()` sized by `GetTensorSizeInBytes()`. The
+// WebGPU binding mints buffers through `DeviceCreateBuffer` alone: neither `WebGPU` nor the `Wgpu` native table
+// carries an import, adopt, or shared-handle entrypoint, and none of the ten `NativeSType` `next`-chain extras
+// tags a buffer import, so a wgpu allocation cannot enter ORT and a device-resident `OrtValue` cannot bind here.
+// ONE crossing survives — the host round trip this page already owns: `GetTensorMutableRawData()` into
+// `QueueWriteBuffer` inbound, `CommandEncoderCopyBufferToBuffer` into the `MapRead` staging buffer then
+// `BufferGetMappedRange` outbound — each an `AllocationClass.EdgeCopy` grant carrying its copy reason, never a
+// zero-copy claim the two surfaces cannot honour.
 public readonly record struct DeviceBuffer(nuint Handle, long ByteLength, OrtResidency Residency);
 
 public sealed record DeviceKernel(TensorOpFamily Op, nuint Pipeline, nuint BindGroupLayout, nuint ShaderModule);
@@ -1495,4 +1506,8 @@ public static class DeviceDispatch {
 
 ## [05]-[RESEARCH]
 
-- [WGPU_ORT_BUFFER_INTEROP]-[OPEN]: which `Microsoft.ML.OnnxRuntime` member hands a device-resident `OrtValue`'s buffer pointer to a `WgpuDevice` binding without a host round-trip, and which `Silk.NET.WebGPU` buffer-import path accepts it; `uv run python -m tools.assay api query --key Microsoft.ML.OnnxRuntime --symbol OrtValue`, landing the row in `Rasm.Compute/.api/api-onnxruntime.md`.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

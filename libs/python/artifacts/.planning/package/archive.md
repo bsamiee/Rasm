@@ -126,7 +126,11 @@ class Archive(Struct, frozen=True):
                     "powerpc": py7zr.FILTER_POWERPC,
                     "sparc": py7zr.FILTER_SPARC,
                     "ia64": py7zr.FILTER_IA64,
-                }  # arm-scope row: the lazy py7zr proxy reifies here, never at module load
+                }  # arm-scope row: the lazy py7zr proxy reifies here, never at module load — which is also why this
+                # one table takes NO import-time `_COVERED` witness: proving it against `SevenZFilter` at module
+                # scope would reify the proxy on the parse floor and defeat the deferral. The bundle page's own
+                # codec/preprocessor partition gate already proves every `SevenZFilter` token is admitted somewhere,
+                # so a token reaching `ident[f]` unruled needs a drift in TWO places rather than one.
                 preset = {"default": py7zr.PRESET_DEFAULT, "extreme": py7zr.PRESET_EXTREME}[k.preset]
                 codecs = [{"id": ident[f], "preset": preset} if f in _PRESETABLE else {"id": ident[f]} for f in k.filters]
                 crypto = [{"id": py7zr.FILTER_CRYPTO_AES256_SHA256}] if k.password is not None else []

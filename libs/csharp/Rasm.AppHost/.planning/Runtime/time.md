@@ -232,7 +232,7 @@ public static class SchedulePort {
             every: static (s, e) =>
                 s.LastFired + e.Period <= s.Now ? Some(s.LastFired + e.Period) : None,
             annual: static (s, a) =>
-                AnnualWindow(s.LastFired, s.Now, a.Date, a.At, a.Zone).LastOrNone(),
+                AnnualWindow(s.LastFired, s.Now, a.Date, a.At, a.Zone).Last,
             state: (LastFired: lastFired, Now: now));
 
     public static Seq<Instant> Window(ScheduleEntry entry, Instant from, Instant to) =>
@@ -262,16 +262,15 @@ public static class SchedulePort {
         Period.Between(from.InZone(zone).LocalDateTime, to.InZone(zone).LocalDateTime);
 
     static Option<Instant> AnnualNext(Instant after, AnnualDate date, LocalTime at, DateTimeZone zone) =>
-        Range(0, 2)
+        Range(0, 2).ToSeq()
             .Map(step => date.InYear(after.InZone(zone).Year + step).At(at).InZoneStrictly(zone).ToInstant())
             .Filter(candidate => candidate > after)
-            .HeadOrNone();
+            .Head;
 
     static Seq<Instant> AnnualWindow(Instant from, Instant to, AnnualDate date, LocalTime at, DateTimeZone zone) =>
-        Range(from.InZone(zone).Year, to.InZone(zone).Year - from.InZone(zone).Year + 1)
+        Range(from.InZone(zone).Year, to.InZone(zone).Year - from.InZone(zone).Year + 1).ToSeq()
             .Map(year => date.InYear(year).At(at).InZoneStrictly(zone).ToInstant())
-            .Filter(candidate => candidate >= from && candidate < to)
-            .ToSeq();
+            .Filter(candidate => candidate >= from && candidate < to);
 
     public static Option<SupportTrigger> Heartbeat(CorrelationId correlation, ScheduleEntry entry, DeadlineReceipt receipt) =>
         receipt.Outcome == DeadlineOutcome.Met

@@ -14,8 +14,8 @@ Every `CanonicalBytes` contribution composes this codec, so identity, content ad
 ## [02]-[CONTENT_ADDRESS]
 
 - Owner: `ContentAddress` is the `[ValueObject<UInt128>]` content key over kernel seed-zero `XxHash128`; `ByteOrder` is the shared edge-byte comparer for snapshot and `GraphDelta.ToCanonicalBytes` sorting.
-- Entry: `ContentAddress.Of(ReadOnlySpan<byte>)` hashes canonical bytes; `Of(UInt128)` wraps a precomputed hash; `Of(Node, tolerance)` addresses an id-inclusive node; `OfGraph(ElementGraph)` addresses an order-independent snapshot; `Verify(Node, tolerance, key)` re-derives one identity; `Verify(ElementGraph, key)` accumulates snapshot mismatches.
-- Auto: `Of(Node)` writes the id before `node.ToCanonicalBytes(tolerance)`. `OfGraph` writes `Header.CanonicalBytes`, sorted node addresses, and lexicographically sorted edge bytes with section counts. `Verify` re-mints Types through `NodeId.RootedType`, non-rooted nodes through `NodeId.OfContent`, and admits Occurrences vacuously because their random Guid-v7 has no content preimage.
+- Entry: `ContentAddress.Of(ReadOnlySpan<byte>)` hashes canonical bytes; `Of(UInt128)` wraps a precomputed hash; `Of(Node, tolerance)` addresses an id-inclusive node; `OfGraph(ElementGraph)` addresses an order-independent snapshot and `OfGraph(GraphAddress prior, GraphDelta delta, Header header)` is its incremental arity re-deriving only the members the delta names, both over ONE fold body; `Verify(Node, tolerance, key)` re-derives one identity; `Verify(ElementGraph, key)` accumulates snapshot mismatches.
+- Auto: `Of(Node)` writes the id before `node.ToCanonicalBytes(tolerance)`. `OfGraph` writes `Header.CanonicalBytes`, sorted node addresses, and lexicographically sorted edge bytes with section counts. The incremental arity carries the `GraphMembers` accumulator — the per-node address map and the per-edge canonical-byte set the fold consumes — never a prior digest: a digest is a terminal projection, so the sorted member set the full-state address folds is exactly what a prior address discarded, and only the accumulator can carry it forward. `Advance` re-addresses the delta's added and revised nodes, drops its removed ids, and swaps its edge byte projections through the SAME `Relationship.ToCanonicalBytes` the merge key uses; a moved `Header.Tolerance` rails `ElementFault.AddressUnstable` because every member's canonical bytes quantize through it, so no member survives a tolerance change and the caller re-derives whole. `Verify` re-mints Types through `NodeId.RootedType`, non-rooted nodes through `NodeId.OfContent`, and admits Occurrences vacuously because their random Guid-v7 has no content preimage.
 - Receipt: a `ContentAddress` is the stable cross-runtime content key — a `NodeId.Content` for a non-rooted node, a node's dedup/diff key, a snapshot's identity the `Rasm.Persistence` spine and the `Rasm.Compute` assessment cache key on; the `Verify` `Fin`/`Validation` is the rehydrate integrity verdict a content-keyed store reads before trusting a persisted id.
 - Packages: `Rasm` supplies kernel `Domain.ContentHash` and `Op`; Thinktecture.Runtime.Extensions generates `[ValueObject<UInt128>]` members; LanguageExt.Core supplies `Fin`, `Validation`, `Error`, `Unit`, `Seq.Traverse`, and `.As()`.
 - Growth: a new structural identity adds one input-shaped `Of` or `Verify` overload; a precomputed key composes `Of(UInt128)`; canonical vocabulary grows only on `CanonicalWriter`.
@@ -38,6 +38,42 @@ using static LanguageExt.Prelude;
 namespace Rasm.Element.Projection;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// The composable accumulator the content-address contract owns — the per-node address map and the per-edge
+// canonical-byte set the snapshot fold consumes, held UNSORTED (the fold sorts) and keyed so a delta revises
+// exactly the members it names. This is the value the incremental derivation carries forward, because a digest
+// is terminal: a prior address plus a delta cannot rebuild the sorted member set the fold reads.
+public readonly record struct GraphMembers(Header Header, HashMap<NodeId, UInt128> Nodes, Seq<ReadOnlyMemory<byte>> Edges) {
+ public static GraphMembers Of(ElementGraph graph) =>
+  new(graph.Header,
+      toSeq(graph.Nodes).Fold(HashMap<NodeId, UInt128>(),
+       (acc, pair) => acc.Add(pair.Key, ContentAddress.Of(pair.Value, graph.Header.Tolerance).Value)),
+      graph.Edges.Map(e => e.ToCanonicalBytes(graph.Header.Tolerance)));
+
+ // A delta touches a BOUNDED member set, so the advance re-derives that set alone: added and revised nodes
+ // re-address, removed nodes drop, and the edge set drops the removed byte projections and appends the added
+ // ones — the SAME Relationship.ToCanonicalBytes projection the full fold and the edge merge-key already share,
+ // so a removal matches by exact bytes and never by reference. A tolerance change is the one arm that cannot
+ // reuse anything: tolerance is an input to every member's canonical bytes, so a member quantized at the prior
+ // tolerance would address a graph nobody has, and that arm rails to the caller for a full re-derivation.
+ public static Fin<GraphMembers> Advance(GraphMembers prior, GraphDelta delta, Header header) =>
+  header.Tolerance != prior.Header.Tolerance
+   ? ElementFault.AddressUnstable(Op.Of(nameof(Advance)), $"<address-tolerance-moved:{prior.Header.Tolerance:R}:{header.Tolerance:R}>")
+   : Fin.Succ(new GraphMembers(
+      header,
+      delta.RemovedNodes.Fold(
+       delta.RevisedNodes.Map(static r => r.After).Append(delta.AddedNodes).Fold(prior.Nodes,
+        (acc, node) => acc.AddOrUpdate(node.Id, ContentAddress.Of(node, header.Tolerance).Value)),
+       static (acc, id) => acc.Remove(id)),
+      prior.Edges
+       .Filter(bytes => !delta.RemovedEdges
+        .Exists(e => ContentAddress.ByteOrder.Compare(e.ToCanonicalBytes(header.Tolerance), bytes) == 0))
+       .Append(delta.AddedEdges.Map(e => e.ToCanonicalBytes(header.Tolerance)))));
+}
+
+// The snapshot address BESIDE the accumulator that produced it: a caller holding this between passes can run
+// the incremental derivation, and a caller holding the address alone cannot — which is the whole distinction.
+public readonly record struct GraphAddress(ContentAddress Address, GraphMembers Members);
+
 // KeyMemberName/KeyMemberAccessModifier are EXPLICIT: the UInt128 Value is read publicly across the seam (this OfGraph
 // node sort reads `Of(n, _).Value`, `NodeId.OfContent(address)` formats `address.Value` X32), so the public-key
 // spelling is pinned at declaration rather than left to a generated default the consumers cannot rely on.
@@ -70,21 +106,35 @@ public sealed partial class ContentAddress {
  // then node addresses sorted by UInt128, then edge canonical bytes sorted lexicographically, section counts making the
  // layout self-delimiting — identical content addresses identically regardless of insertion order, while a
  // schema/view/georeference change forks identity.
- public static ContentAddress OfGraph(ElementGraph graph) {
-  CanonicalWriter w = new(graph.Header.Tolerance);
-  graph.Header.CanonicalBytes(w);
-  w.Ordinal(graph.Nodes.Count);
+ public static ContentAddress OfGraph(ElementGraph graph) => OfGraph(GraphMembers.Of(graph)).Address;
+
+ // The INCREMENTAL entry over the SAME fold, arity discriminating on the input: a full snapshot re-derives every
+ // member, a (prior witness, delta) pair re-derives only the members the delta names and reuses the rest. Both
+ // land on one body, so the two derivations cannot diverge.
+ //
+ // The accumulator is the member witness, NEVER the prior digest: a digest is a terminal projection, so a
+ // full-state address cannot be reconstructed from a prior address plus a delta — the sorted member set the fold
+ // consumes is exactly what the digest discarded. Carrying that set forward is what makes the incremental form
+ // sound, which is why the witness and not the address is the value a caller holds between passes; a prior
+ // `UInt128` in this parameter slot is unimplementable, not merely slower.
+ public static Fin<GraphAddress> OfGraph(GraphAddress prior, GraphDelta delta, Header header) =>
+  GraphMembers.Advance(prior.Members, delta, header).Map(OfGraph);
+
+ static GraphAddress OfGraph(GraphMembers members) {
+  CanonicalWriter w = new(members.Header.Tolerance);
+  members.Header.CanonicalBytes(w);
+  w.Ordinal(members.Nodes.Count);
   // Default UInt128 ascending comparison is the canonical cross-runtime node order;
   // node and edge sorts are ONE ordering discipline.
-  foreach (UInt128 nodeAddress in toSeq(graph.Nodes.Values).Map(n => Of(n, graph.Header.Tolerance).Value).OrderBy(static a => a)) { w.U128(nodeAddress); }
+  foreach (UInt128 nodeAddress in members.Nodes.Values.AsIterable().OrderBy(static a => a)) { w.U128(nodeAddress); }
   // SAME `Relationship.ToCanonicalBytes(tolerance)` projection keys merge edges, so graph address
   // and edge merge-key never diverge. Threading Header.Tolerance matters ONLY for the Generic passthrough (its
   // PropertyValue.Measure attributes quantize through w.Measure; the five typed cases carry no Measure and are
   // tolerance-insensitive) — the tolerance-0 hardcode that silently forked a below-tolerance Generic edge is the
   // deleted form.
-  w.Ordinal(graph.Edges.Length);
-  foreach (ReadOnlyMemory<byte> edge in graph.Edges.Map(e => e.ToCanonicalBytes(graph.Header.Tolerance)).OrderBy(static b => b, ByteOrder)) { w.Raw(edge.Span); }
-  return Of(w.ToBytes().Span);
+  w.Ordinal(members.Edges.Count);
+  foreach (ReadOnlyMemory<byte> edge in members.Edges.OrderBy(static b => b, ByteOrder)) { w.Raw(edge.Span); }
+  return new GraphAddress(Of(w.ToBytes().Span), members);
  }
 
  // H7 verification re-derives a node's stored id from current content through the SAME identity
@@ -192,6 +242,15 @@ public sealed class CanonicalWriter(double tolerance) {
   double canon = value == 0.0 ? 0.0 : value;   // -0.0 → +0.0; ±∞ keep their canonical IEEE bits
   long bits = double.IsNaN(canon) ? unchecked((long)0x7FF8_0000_0000_0000) : BitConverter.DoubleToInt64Bits(canon);
   Span<byte> s = stackalloc byte[8]; BinaryPrimitives.WriteInt64LittleEndian(s, bits); buffer.Write(s);
+  return this;
+ }
+
+ // Single-precision payload lanes (raster sample grids) keep their width under the same canon discipline;
+ // widening to `Double` would double a stored grid for no identity gain.
+ public CanonicalWriter Single(float value) {
+  float canon = value == 0.0f ? 0.0f : value;   // -0.0f → +0.0f; ±∞ keep their canonical IEEE bits
+  int bits = float.IsNaN(canon) ? unchecked((int)0x7FC0_0000) : BitConverter.SingleToInt32Bits(canon);
+  Span<byte> s = stackalloc byte[4]; BinaryPrimitives.WriteInt32LittleEndian(s, bits); buffer.Write(s);
   return this;
  }
 

@@ -10,11 +10,11 @@ External-API and structural-parsing evidence ride one tagged-union fact stream t
 
 ## [02]-[EVIDENCE]
 
-- Owner: `Evidence` — the one slot/kind union whose cases carry frozen value objects, never positional tuples read by index; `Locus` the one extent value object both span-shaped facts share, so no `(lang, point, start_byte)` triple re-declares per fact and the extent rides the package-owned `tree_sitter.Point`, never a re-minted pair alias. `MemberFact` carries the distribution `version` and its REAL group — `ep.group`, `_GROUP_MEMBER`, `_GROUP_IMPORT` — never a caller-supplied family constant, the inventory backing the boundary claim that a source cannot name a member absent from the catalogue. Correlation flows through the `EvidenceScan` receipt and the rail's own `assay code` receipt, never a per-case id field.
-- Entry: coverage is registry data on both entries — `scan` pre-filters the corpus to the probe's covered columns, so a `locals` scan over a Python row yields no evidence and no fault, while a direct `run` on an uncovered grammar returns the typed `config` `uncovered-grammar` fault; every bundled source is a first-class producer, `locals` the live partial-coverage column. `drift` flags a canonical name only where it binds in more than one grammar namespace, so a legitimately distinct same-named concept in one namespace never yields a defect. `reflect` mines the FULL surface — entry points and the importable members of every mapped root — because an entry-points-only reflect cannot back the member-absence boundary claim.
+- Owner: `Evidence` — the one slot/kind union whose cases carry frozen value objects, never positional tuples read by index; `Locus` the one extent value object both span-shaped facts share, so no `(lang, point, start_byte)` triple re-declares per fact and the extent rides the package-owned `tree_sitter.Point`, never a re-minted pair alias. `MemberFact` carries the distribution `version` and its REAL group — `ep.group`, `_GROUP_MEMBER`, `_GROUP_NESTED`, `_GROUP_IMPORT` — never a caller-supplied family constant, the inventory backing the boundary claim that a source cannot name a member absent from the catalogue; a `_GROUP_NESTED` row's symbol IS the dotted spelling a citation writes, so a membership question answers by equality rather than by reassembling a module and a leaf. Correlation flows through the `EvidenceScan` receipt and the rail's own `assay code` receipt, never a per-case id field.
+- Entry: coverage is registry data on both entries — `scan` pre-filters the corpus to the probe's covered columns, so a `locals` scan over a Python row yields no evidence and no fault, while a direct `run` on an uncovered grammar returns the typed `config` `uncovered-grammar` fault; every bundled source is a first-class producer, `locals` the live partial-coverage column. `drift` flags a canonical name only where it binds in more than one grammar namespace, so a legitimately distinct same-named concept in one namespace never yields a defect. `reflect` mines the surface to a stated TWO-LEVEL reach — entry points, each mapped root's own members, and every submodule's exported members under the dotted spelling a citation writes — because an entry-points-only or root-only reflect cannot back the member-absence boundary claim against any nested member, which is the only kind a source actually names. The bound is what keeps that claim honest in the other direction: a distribution re-exports its dependencies' surfaces, so a deeper descent would report another project's members as this one's.
 - Auto: the registry build pays everything once per grammar at import — compile, `PROBE_KEEP` prune, capture-name-to-id resolution — and each probe compiles its OWN-language source per grammar, because a cross-grammar alternation mixing Python and TypeScript node kinds in one pattern is a `QueryError` at compile for every grammar. `progress_callback` is the hang-guard cancel hook.
 - Packages: `msgspec` — `gc=False` only on the container-free `MemberFact`; `Point`, the nested `Locus`, and `frozenset[Lang]` keep the span-shaped records GC-tracked. `tree-sitter-python`/`tree-sitter-typescript` ship the bundled `tags`/`highlights`/`locals` sources, and those sources carry only the internally-evaluated `#match?` predicate, so no `QueryPredicate` handler threads through the build.
-- Growth: a new evidence family is one `Evidence` case with its value object; a new language one `Lang` member, one `GRAMMARS` row, and one own-language source column per probe; a new probe one `Probe` literal with one `PROBE_SOURCES` row, partial coverage included; a new capture allowlist one `PROBE_KEEP` row; a new traversal shape one `Disposition` member the faults owner adds; a custom-predicate probe earns the `QueryPredicate` handler as its own row when a non-built-in directive ships; a new member group one `_GROUP_*` constant.
+- Growth: a new evidence family is one `Evidence` case with its value object; a new language one `Lang` member, one `GRAMMARS` row, and one own-language source column per probe; a new probe one `Probe` literal with one `PROBE_SOURCES` row, partial coverage included; a new capture allowlist one `PROBE_KEEP` row; a new traversal shape one `Disposition` member the faults owner adds; a custom-predicate probe earns the `QueryPredicate` handler as its own row when a non-built-in directive ships; a new member group one `_GROUP_*` constant; a widened catalogue reach is one `_DEPTH` value, and every level past the second widens the claim onto surfaces the distribution only re-exports.
 - Boundary: the scan is one-shot by charter — an incremental `Tree.edit`/`changed_ranges` re-scan cache is the ruled-out form for this owner. One tracer spans `code.scan` over the per-file `code.query` legs — never a second tracer per probe — and the trace status and the rail outcome are the same fact on every arm.
 
 ```python signature
@@ -22,6 +22,8 @@ External-API and structural-parsing evidence ride one tagged-union fact stream t
 from collections.abc import Callable, Iterable
 from importlib import import_module, metadata
 from itertools import count
+from pkgutil import walk_packages
+from types import ModuleType
 from typing import Annotated, Final, Literal, overload
 
 from expression import Error, Nothing, Ok, Option, Some, case, identity, tag, tagged_union
@@ -50,6 +52,14 @@ _BUDGET: Final[int] = 1 << 20
 _CAPTURE_NAME: Final[str] = "name"
 _GROUP_IMPORT: Final[str] = "import"
 _GROUP_MEMBER: Final[str] = "member"
+# a nested row's symbol is the DOTTED spelling a citation writes, so its group is distinct from a root member's: a
+# consumer asking whether `msgspec.msgpack.Encoder` exists reads one row rather than joining a module to a leaf.
+_GROUP_NESTED: Final[str] = "nested"
+# submodule-walk ceiling, counted in dot depth from the distribution root: level one is the package's own submodule
+# set, level two the members each exports, which together spell every `pkg.mod.Member` citation this corpus makes.
+# Deeper forfeits the claim it would widen — a distribution re-exports its dependencies' surfaces, so an unbounded
+# descent reports another project's members as this one's and the absence claim stops being about this distribution.
+_DEPTH: Final[int] = 2
 # span names ARE receipt subjects — one symbol keeps the trace leg and the receipt row correlated, never two literals drifting apart.
 _SPAN_QUERY: Final[str] = "code.query"
 _SPAN_SCAN: Final[str] = "code.scan"
@@ -307,16 +317,46 @@ class ApiCatalogue:
         ).append(roots.collect(lambda root: ApiCatalogue._mined(distribution, version, root)))
 
     @staticmethod
-    def _mined(distribution: str, version: str, root: str) -> Block[Evidence]:
-        # reflection's ONE dynamic-import site: a broken root raises inside `reflect`'s trapped fence, the same `import_` row a missing distribution lands.
-        surface = import_module(root)
+    def _exported(surface: ModuleType) -> Block[str]:
+        # the module's own declared surface where it publishes one, its public bindings otherwise — the one roster
+        # every walked module level reads, so the package root and each submodule are mined by identical law.
         return (
             Option.of_optional(getattr(surface, "__all__", None))
             .map(Block.of_seq)
             .default_with(lambda: Block.of_seq(name for name in vars(surface) if not name.startswith("_")))
-            .map(lambda symbol: Evidence(member=MemberFact(distribution, version, root, _GROUP_MEMBER, symbol)))
-            .cons(Evidence(member=MemberFact(distribution, version, root, _GROUP_IMPORT, root)))
         )
+
+    @staticmethod
+    def _mined(distribution: str, version: str, root: str) -> Block[Evidence]:
+        # reflection's ONE dynamic-import site: a broken root or submodule raises inside `reflect`'s trapped fence, the
+        # same `import_` row a missing distribution lands.
+        # DEPTH is the whole point of this walk. A root-only mine sees `msgspec` and not `msgspec.msgpack.Encoder`,
+        # `obstore` and not `obstore.store.from_url`, `opentelemetry` and not `opentelemetry.trace.Status` — every
+        # dotted member this corpus actually cites — so the boundary claim that a source cannot name a member absent
+        # from the catalogue could not be backed against any nested spelling, which is the only kind that gets cited.
+        # The walk is BOUNDED at `_DEPTH` levels for a reason a deeper one forfeits: level one is the package's own
+        # submodule set and level two the members exported from each, which together cover the `pkg.mod.Member`
+        # spelling every citation takes, while an unbounded descent walks the transitive dependency surface a
+        # distribution merely re-exports and reports another project's members as this one's. `walk_packages` is the
+        # metadata-driven enumeration rather than a filesystem scan, and it never imports a module the roster does not
+        # name; a non-package root carries no `__path__` and yields its own level alone.
+        surface = import_module(root)
+        rooted = Evidence(member=MemberFact(distribution, version, root, _GROUP_IMPORT, root))
+        own = ApiCatalogue._exported(surface).map(lambda symbol: Evidence(member=MemberFact(distribution, version, root, _GROUP_MEMBER, symbol)))
+        nested = Block.of_seq(
+            info.name for info in walk_packages(getattr(surface, "__path__", ()), f"{root}.") if info.name.count(".") < _DEPTH
+        ).collect(lambda name: ApiCatalogue._nested(distribution, version, name))
+        return own.cons(rooted).append(nested)
+
+    @staticmethod
+    def _nested(distribution: str, version: str, module: str) -> Block[Evidence]:
+        # one submodule level: its own import fact plus each exported symbol under the dotted spelling a citation
+        # writes, so `symbol` IS what a source names and the catalogue answers a membership question by equality
+        # rather than leaving a consumer to reassemble the qualified name from a root and a leaf.
+        loaded = import_module(module)
+        return ApiCatalogue._exported(loaded).map(
+            lambda symbol: Evidence(member=MemberFact(distribution, version, module, _GROUP_NESTED, f"{module}.{symbol}"))
+        ).cons(Evidence(member=MemberFact(distribution, version, module, _GROUP_IMPORT, module)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

@@ -683,6 +683,23 @@ ENGINES: Final[frozendict[ExportTarget, LayerEngine]] = frozendict({
     ExportTarget.TIFF: LayerEngine(_tiff, trait=KernelTrait.HOSTILE),
 })
 
+# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
+# form, seated after `ENGINES` so every pair the page reads by key is proven in one place. `_emit` indexes `ENGINES`,
+# `_channel` indexes `_CHANNEL_CODEC`, and `_usage` indexes `_USAGE` then `_STATE_KEY` — each an unruled-member
+# `KeyError` inside a worker otherwise. `_USAGE` carves `VIEW` BY DECLARATION (the default-visible intent authors no
+# `/Usage` dict, and `_enriched` skips it before the lookup), so the pair names the carve rather than hiding it, and
+# `_STATE_KEY` proves against the category keys `_USAGE` actually spells rather than a hand-kept twin. `_INTENT` and
+# `_VIPS_UNMAPPED` take no pair — the first is a comprehension over `OcgIntent` and total by construction, the second
+# a membership set `_vips_blend` tests rather than indexes.
+_COVERED: Final[tuple[tuple[frozenset[object], frozenset[object]], ...]] = (
+    (frozenset(ENGINES), frozenset(ExportTarget)),
+    (frozenset(_CHANNEL_CODEC), frozenset(PsdCompression)),
+    (frozenset(_USAGE), frozenset(OcgIntent) - {OcgIntent.VIEW}),
+    (frozenset(_STATE_KEY), frozenset(category for row in _USAGE.values() for category in row)),
+)
+if any(rows != vocabulary for rows, vocabulary in _COVERED):
+    raise RuntimeError("layered-export tables do not cover their vocabularies")
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = [

@@ -116,7 +116,8 @@ public sealed record PortAxes(
 - Entry: `PinPlan.Realize(IParameter)` admits one trim, projects its exact host property types, and assigns only carrier-compatible persistent tree data.
 - Receipt: a refused trim-to-parameter pairing is a `GhFault.Refused` naming both shapes.
 - Growth: a new writable parameter policy is one trim case and one row capability; a new adder shape is one `PortBinding` case.
-- Boundary: policy assignment crosses through `Hosted.Bound`; an incompatible trim fails by exact case and host type before any property is written.
+- Boundary: policy assignment crosses through `Hosted.Bound`; an incompatible trim fails by exact case and host type before any property is written. Every column a trim writes is a `public { get; set; }` auto-property on the concrete parameter, so a trim is a post-declaration write and never a declaration argument.
+- Boundary: `AngleParameter.EnforceKind` is a raw host `int` with NO host enum behind it — the persisted `Integer32("EnforceKind")` and the base's own `== 1`/`== 2`/`== 3` toolbar reads ARE the protocol — so `AngleEnforcement` is the owner that types those four wire constants and its `int Host` column is the host's own value, not a hand-numbered stand-in for an enum ordinal.
 
 ```csharp signature
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -276,7 +277,9 @@ public sealed record PinPlan {
 - Auto: `Accepts` rejects unsupported side, hidden, access, presence, appearance, trim, and persistent carrier policy before any adder call.
 - Packages: `Thinktecture.Runtime.Extensions` generates the row vocabulary; carriers are `Rhino.Geometry` value and geometry types and the `Grasshopper2` data types.
 - Growth: a new host pin kind is one row carrying its exact value type, family, axes, and binding case.
+- Law: row keys are the `[a-z0-9-]` kebab grammar every `[SmartEnum<string>]` in this package holds, and they reach fault detail alone — no host member consumes a `PortRow.Key`, so the grammar is free of host naming.
 - Boundary: `AddTopological` carries identity text only; `Numeric`, `Generic`, `Index`, `TextPattern`, and connection semantics remain distinct families even where their CLR carrier overlaps another row.
+- Boundary: a host `Add*` marked `[Obsolete]` is never suppressed — the row mints its parameter and attaches it through the public `InputAdder.Add(IParameter, Requirement)` seam, which is the same declaration with no diagnostic to silence.
 
 ```csharp signature
 // --- [SERVICES] --------------------------------------------------------------------------
@@ -388,21 +391,28 @@ public sealed partial class PortRow {
         Both(static (a, p) => p.Mint(a.AddBoolean, a.AddHiddenBoolean), static (a, p) => p.Mint(a.AddBoolean, a.AddHiddenBoolean)));
     public static readonly PortRow Text = new("text", typeof(string), PortFamily.Standard, PortAxes.Modular.WithTrim<PinTrim.Text>(),
         Both(static (a, p) => p.Mint(a.AddText, a.AddHiddenText), static (a, p) => p.Mint(a.AddText, a.AddHiddenText)));
-    public static readonly PortRow TextPattern = new("textPattern", typeof(string), PortFamily.Pattern,
+    public static readonly PortRow TextPattern = new("text-pattern", typeof(string), PortFamily.Pattern,
         new PortAxes(PortSides.InputOnly, PortSides.InputOnly, PortSides.InputOnly, PortSides.InputOnly,
             Some((Type: typeof(PinTrim.TextPattern), Sides: PortSides.InputOnly))),
         Input(static (a, p) => p.Mint(a.AddTextPattern, a.AddHiddenTextPattern)));
     public static readonly PortRow Gradient = new("gradient", typeof(Grasshopper2.Types.Colour.Gradient), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddGradient, a.AddHiddenGradient), static (a, p) => p.Mint(a.AddGradient, a.AddHiddenGradient)));
-    public static readonly PortRow DateTime = new("dateTime", typeof(System.DateTime), PortFamily.Standard, PortAxes.Modular,
+    public static readonly PortRow DateTime = new("date-time", typeof(System.DateTime), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddDateTime, a.AddHiddenDateTime), static (a, p) => p.Mint(a.AddDateTime, a.AddHiddenDateTime)));
-    public static readonly PortRow TimeSpan = new("timeSpan", typeof(System.TimeSpan), PortFamily.Standard, PortAxes.Modular,
+    public static readonly PortRow TimeSpan = new("time-span", typeof(System.TimeSpan), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddTimeSpan, a.AddHiddenTimeSpan), static (a, p) => p.Mint(a.AddTimeSpan, a.AddHiddenTimeSpan)));
-#pragma warning disable CS0618
+    // InputAdder.AddLanguage alone carries an advisory [Obsolete]; the public Add(IParameter, Requirement)
+    // seam declares the identical LanguageParameter, so the input leg mints directly and the output leg keeps
+    // its non-obsolete adder. OutputAdder.AddLanguage and LanguageParameter itself carry no obsolescence.
     public static readonly PortRow Language = new("language", typeof(Grasshopper2.Types.Linguistic.Language), PortFamily.Standard, PortAxes.Regular,
-        Both(static (a, p) => p.Mint(a.RegularAdder.AddLanguage), static (a, p) => p.Mint(a.RegularAdder.AddLanguage)));
-#pragma warning restore CS0618
-    public static readonly PortRow MetaName = new("metaName", typeof(Grasshopper2.Data.Meta.MetaName), PortFamily.Standard, PortAxes.Modular,
+        Both(
+            static (a, p) => p.Mint((name, nick, info, access, presence) => {
+                Grasshopper2.Parameters.Standard.LanguageParameter parameter = new(name, nick, info, access);
+                a.RegularAdder.Add(parameter, presence);
+                return parameter;
+            }),
+            static (a, p) => p.Mint(a.RegularAdder.AddLanguage)));
+    public static readonly PortRow MetaName = new("meta-name", typeof(Grasshopper2.Data.Meta.MetaName), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddMetaKey, a.AddHiddenMetaKey), static (a, p) => p.Mint(a.AddMetaKey, a.AddHiddenMetaKey)));
     public static readonly PortRow Meta = new("meta", typeof(MetaData), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddMetaData, a.AddHiddenMetaData), static (a, p) => p.Mint(a.AddMetaData, a.AddHiddenMetaData)));
@@ -418,15 +428,15 @@ public sealed partial class PortRow {
         Both(static (a, p) => p.Mint(a.AddTube, a.AddHiddenTube), static (a, p) => p.Mint(a.AddTube, a.AddHiddenTube)));
     public static readonly PortRow Region = new("region", typeof(Grasshopper2.Types.Shapes.Region), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddRegion, a.AddHiddenRegion), static (a, p) => p.Mint(a.AddRegion, a.AddHiddenRegion)));
-    public static readonly PortRow CurveLocus = new("curveLocus", typeof(Grasshopper2.Types.Shapes.CurveLocus), PortFamily.Standard, PortAxes.Modular,
+    public static readonly PortRow CurveLocus = new("curve-locus", typeof(Grasshopper2.Types.Shapes.CurveLocus), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddCurveLocus, a.AddHiddenCurveLocus), static (a, p) => p.Mint(a.AddCurveLocus, a.AddHiddenCurveLocus)));
-    public static readonly PortRow SurfaceLocus = new("surfaceLocus", typeof(Grasshopper2.Types.Shapes.SurfaceLocus), PortFamily.Standard, PortAxes.Modular,
+    public static readonly PortRow SurfaceLocus = new("surface-locus", typeof(Grasshopper2.Types.Shapes.SurfaceLocus), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddSurfaceLocus, a.AddHiddenSurfaceLocus), static (a, p) => p.Mint(a.AddSurfaceLocus, a.AddHiddenSurfaceLocus)));
-    public static readonly PortRow MeshFacet = new("meshFacet", typeof(Rhino.Geometry.MeshFace), PortFamily.Standard, PortAxes.Modular,
+    public static readonly PortRow MeshFacet = new("mesh-facet", typeof(Rhino.Geometry.MeshFace), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddMeshFacet, a.AddHiddenMeshFacet), static (a, p) => p.Mint(a.AddMeshFacet, a.AddHiddenMeshFacet)));
-    public static readonly PortRow NPoint = new("nPoint", typeof(Grasshopper2.Types.Coordinates.NPoint), PortFamily.Standard, PortAxes.Modular,
+    public static readonly PortRow NPoint = new("n-point", typeof(Grasshopper2.Types.Coordinates.NPoint), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddNPoint, a.AddHiddenNPoint), static (a, p) => p.Mint(a.AddNPoint, a.AddHiddenNPoint)));
-    public static readonly PortRow UvPoint = new("uvPoint", typeof(Rhino.Geometry.Point2d), PortFamily.Standard, PortAxes.Modular,
+    public static readonly PortRow UvPoint = new("uv-point", typeof(Rhino.Geometry.Point2d), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddUvPoint, a.AddHiddenUvPoint), static (a, p) => p.Mint(a.AddUvPoint, a.AddHiddenUvPoint)));
     public static readonly PortRow Deform = new("deform", typeof(Grasshopper2.Types.Shapes.Deform), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddDeform, a.AddHiddenDeform), static (a, p) => p.Mint(a.AddDeform, a.AddHiddenDeform)));

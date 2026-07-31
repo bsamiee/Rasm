@@ -487,7 +487,7 @@ internal static class TileGate {
     // The coarsest level whose longer side still covers the grading edge; a single-level pyramid grades at its
     // own extent, which is the honest answer rather than a refusal.
     internal static TexturePlane Level(TexturePyramid pyramid, int gradeEdge) =>
-        pyramid.Levels.Filter(level => Math.Max(level.Width.Value, level.Height.Value) >= gradeEdge).LastOrNone().IfNone(pyramid.Base);
+        pyramid.Levels.Filter(level => Math.Max(level.Width.Value, level.Height.Value) >= gradeEdge).Last.IfNone(pyramid.Base);
 
     // Wrap energy against interior energy, STREAMED over the base plane's own decoded rail: the last row
     // against the first and the last column against the first, versus every four-neighbour interior pair. A
@@ -546,4 +546,4 @@ internal static class TileGate {
 
 ## [04]-[RESEARCH]
 
-- [TEXTILE_SCORER]-[BLOCKED]: a learned tileability scorer admits as a `neural#PBR_STAGE` registry row grading a candidate plane beside `TileProof.Grade`, with the deterministic floor shipping unchanged; convergence needs a licence-clean ONNX export and a fixed-shape tile contract, and the scorer never becomes the acceptance authority because a retired weight file takes the verdict with it.
+- [TEXTILE_SCORER]-[BLOCKED]: which published tileability scorer ships weights whose OWN card declares a licence the `neural#MODEL_REGISTRY` `LicenseClass` band grants, and what fixed-shape tile contract does its export declare?; the registry's licence column reads the weight card and never the repository, so a scorer whose weights ship from a release or an archive stating nothing enters `Blocked` and grades nothing. It admits as one `PbrStage` row grading a candidate plane beside `TileProof.Grade`, the deterministic floor shipping unchanged, and never becomes the acceptance authority — a retired weight file takes the verdict with it.

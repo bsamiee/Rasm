@@ -6,13 +6,13 @@ Every undo verb is a case of one `HistoryOp` union settled by one `Commit` gate;
 
 ## [01]-[INDEX]
 
-- [02]-[LEDGER]: `LedgerStride` + `HistoryOp` + `LedgerReceipt` + `HistoryLedger` — the command union, the stride/replay row family, the one `Commit` gate, and the cross-page `Seal`/`Bank` seams.
+- [02]-[LEDGER]: `LedgerStride` + `HistoryOp` + `HistoryLedger` — the command union, the stride/replay row family, the one `Commit` gate, and the cross-page `Seal`/`Bank` seams.
 - [03]-[BRANCHES]: `BranchPath` + `BranchCrown` — branch reconciliation and node-topology projection over the undo tree.
 
 ## [02]-[LEDGER]
 
-- Owner: `LedgerStride` `[SmartEnum<int>]` — the direction vocabulary with two delegate columns: `Back` (key 0, `History.Undo` / `Record.Undo(Document)`), `Forward` (key 1, `History.Redo` / `Record.Redo(Document)`) — one row family serves both the live tree stride and the banked-record replay, so direction is data on both surfaces. `HistoryOp` `[Union]` `[GenerateUnionOps]` closes the command family: `SealCase(VerbNoun, ActionList)` (`History.Do` — seal a filled action buffer into the tree), `StrideCase(LedgerStride)` (step the tree), `BranchCase(Node, Node)` (`Node.PromoteChild` — promote a secondary child to the primary line), `ReplayCase(LedgerStride, Record)` (replay a banked record against the document), `AttachCase(IDocumentObject, VerbNoun, UndoAction)` (`IDocumentObject.AddUndoRecord` — object-scoped undo), `AutoSaveCase(IDocumentObject, AutoSaveReason)` (`IDocumentObject.RequestAutoSave`). `LedgerReceipt` is the settlement evidence — the raising `Op`, the settled case name, and ordered entry/settlement stamps with elapsed latency from one `MonotonicTimeline` — implementing `IValidityEvidence`.
-- Entry: `HistoryLedger.Commit(HistoryOp op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<LedgerReceipt>` — the command gate; `HistoryLedger.Seal(History ledger, ActionList actions, VerbNoun label, Op key)` → `Fin<LedgerReceipt>` — the one-expression seal the folder's mutation gates compose inside their own marshal windows; `HistoryLedger.Bank(ActionList actions, VerbNoun label, Op? key = null)` → `Fin<Record>` — `ActionList.ToRecord`, minting a replayable record without touching the tree.
+- Owner: `LedgerStride` `[SmartEnum<int>]` — the direction vocabulary with two delegate columns: `Back` (key 0, `History.Undo` / `Record.Undo(Document)`), `Forward` (key 1, `History.Redo` / `Record.Redo(Document)`) — one row family serves both the live tree stride and the banked-record replay, so direction is data on both surfaces. `HistoryOp` `[Union]` `[GenerateUnionOps]` closes the command family: `SealCase(VerbNoun, ActionList)` (`History.Do` — seal a filled action buffer into the tree), `StrideCase(LedgerStride)` (step the tree), `BranchCase(Node, Node)` (`Node.PromoteChild` — promote a secondary child to the primary line), `ReplayCase(LedgerStride, Record)` (replay a banked record against the document), `AttachCase(IDocumentObject, VerbNoun, UndoAction)` (`IDocumentObject.AddUndoRecord` — object-scoped undo), `AutoSaveCase(IDocumentObject, AutoSaveReason)` (`IDocumentObject.RequestAutoSave`). Settlement evidence is `Document/document.md`'s `GateReceipt`, composed rather than re-declared: `SealCase` and the cross-page `Seal` seam carry `Seal: Some(label)` because they mint the undo record, and every other command settles with `Seal: None` because it strides or replays one already banked.
+- Entry: `HistoryLedger.Commit(HistoryOp op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GateReceipt>` — the command gate; `HistoryLedger.Seal(History ledger, ActionList actions, VerbNoun label, Op key)` → `Fin<GateReceipt>` — the one-expression seal the folder's mutation gates compose inside their own marshal windows; `HistoryLedger.Bank(ActionList actions, VerbNoun label, Op? key = null)` → `Fin<Record>` — `ActionList.ToRecord`, minting a replayable record without touching the tree.
 - Law: `Seal` is the folder's only `History.Do` spelling — `Document/document.md`'s `Transact` arms and `Document/graph.md`'s `Mutate` arms call it with the `ActionList` their host verb filled, so no mutation in the folder exists without its undo record and no second seal path exists to diverge; `Seal` runs on the caller's marshal and never opens its own.
 - Law: a `Record` is banked evidence, not tree state — `Bank` seals an action buffer into a detached `Record` whose `ReplayCase` replays it against any document; the tree stride and the record replay share the `LedgerStride` rows, so a new direction semantics is impossible to add to one surface and forget on the other.
 - Law: object-scoped undo rides the object — `AttachCase` binds a `VerbNoun`-labelled `UndoAction` to one `IDocumentObject`, and autosave intent is a per-object request with its typed `AutoSaveReason`; neither touches the document tree, both settle through the same gate.
@@ -37,11 +37,11 @@ namespace Rasm.Grasshopper.Document;
 public sealed partial class LedgerStride {
     public static readonly LedgerStride Back = new(
         key: 0,
-        stride: static ledger => Op.Side(action: ledger.Undo),
+        stride: static ledger => Op.Side(action: () => ledger.Undo()),
         replay: static (record, document) => Op.Side(action: () => record.Undo(document)));
     public static readonly LedgerStride Forward = new(
         key: 1,
-        stride: static ledger => Op.Side(action: ledger.Redo),
+        stride: static ledger => Op.Side(action: () => ledger.Redo()),
         replay: static (record, document) => Op.Side(action: () => record.Redo(document)));
     [UseDelegateFromConstructor] internal partial Unit Stride(History ledger);
     [UseDelegateFromConstructor] internal partial Unit Replay(Record record, HostDocument document);
@@ -59,21 +59,10 @@ public abstract partial record HistoryOp {
     public sealed record AutoSaveCase(IDocumentObject Subject, AutoSaveReason Reason) : HistoryOp;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct LedgerReceipt(
-    Op Operation, string Verb, MonotonicStamp Entered, MonotonicStamp Settled, TimeSpan Latency) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: Verb)),
-        ValidityClaim.Evidence(evidence: Entered),
-        ValidityClaim.Evidence(evidence: Settled),
-        ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
-}
-
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static partial class HistoryLedger {
-    public static Fin<LedgerReceipt> Seal(History ledger, ActionList actions, VerbNoun label, Op key) =>
+    public static Fin<GateReceipt> Seal(History ledger, ActionList actions, VerbNoun label, Op key) =>
         from live in Optional(ledger).ToFin(key.MissingContext())
         from filled in Optional(actions).ToFin(key.InvalidInput())
         from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: key)
@@ -81,8 +70,9 @@ public static partial class HistoryLedger {
         from _ in key.Catch(body: () => Fin.Succ(Op.Side(action: () => live.Do(label, filled))))
         from settled in timeline.Capture(key: key)
         from latency in timeline.Elapsed(start: entered, end: settled, key: key)
-        select new LedgerReceipt(
-            Operation: key, Verb: nameof(HistoryOp.SealCase), Entered: entered, Settled: settled, Latency: latency);
+        select new GateReceipt(
+            Operation: key, Verb: nameof(HistoryOp.SealCase), Seal: Some(label),
+            Outcome: new GateOutcome.SettledCase(), Entered: entered, Settled: settled, Latency: latency);
 
     public static Fin<Record> Bank(ActionList actions, VerbNoun label, Op? key = null) {
         Op active = key.OrDefault();
@@ -90,30 +80,35 @@ public static partial class HistoryLedger {
             .Bind(filled => active.Catch(body: () => Fin.Succ(filled.ToRecord(label))));
     }
 
-    public static Fin<LedgerReceipt> Commit(HistoryOp op, Option<HostDocument> graph = default, Op? key = null) {
+    public static Fin<GateReceipt> Commit(HistoryOp op, Option<HostDocument> graph = default, Op? key = null) {
         Op active = key.OrDefault();
         return from valid in Optional(op).ToFin(active.InvalidInput())
                from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: active)
                from entered in timeline.Capture(key: active)
-               from verb in DocumentScope.Resolve(graph: graph, key: active, body: document => valid.Switch(
+               from answer in DocumentScope.Resolve(graph: graph, key: active, body: document => valid.Switch(
                 state: (Key: active, Graph: document),
                 sealCase: static (frame, c) =>
-                    Seal(ledger: frame.Graph.Undo, actions: c.Actions, label: c.Label, key: frame.Key).Map(static receipt => receipt.Verb),
-                strideCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((c.Stride.Stride(ledger: frame.Graph.Undo), nameof(HistoryOp.StrideCase)).Item2)),
-                branchCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((Op.Side(action: () => c.Parent.PromoteChild(c.Child)), nameof(HistoryOp.BranchCase)).Item2)),
-                replayCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((c.Stride.Replay(record: c.Record, document: frame.Graph), nameof(HistoryOp.ReplayCase)).Item2)),
-                attachCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((Op.Side(action: () => c.Subject.AddUndoRecord(c.Label, c.Action)), nameof(HistoryOp.AttachCase)).Item2)),
-                autoSaveCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((Op.Side(action: () => c.Subject.RequestAutoSave(c.Reason)), nameof(HistoryOp.AutoSaveCase)).Item2))))
+                    Seal(ledger: frame.Graph.Undo, actions: c.Actions, label: c.Label, key: frame.Key)
+                        .Map(static receipt => (receipt.Verb, receipt.Seal)),
+                strideCase: static (frame, c) => Free(frame.Key, nameof(HistoryOp.StrideCase),
+                    () => c.Stride.Stride(ledger: frame.Graph.Undo)),
+                branchCase: static (frame, c) => Free(frame.Key, nameof(HistoryOp.BranchCase),
+                    () => Op.Side(action: () => c.Parent.PromoteChild(c.Child))),
+                replayCase: static (frame, c) => Free(frame.Key, nameof(HistoryOp.ReplayCase),
+                    () => c.Stride.Replay(record: c.Record, document: frame.Graph)),
+                attachCase: static (frame, c) => Free(frame.Key, nameof(HistoryOp.AttachCase),
+                    () => Op.Side(action: () => c.Subject.AddUndoRecord(c.Label, c.Action))),
+                autoSaveCase: static (frame, c) => Free(frame.Key, nameof(HistoryOp.AutoSaveCase),
+                    () => Op.Side(action: () => c.Subject.RequestAutoSave(c.Reason)))))
                from settled in timeline.Capture(key: active)
                from latency in timeline.Elapsed(start: entered, end: settled, key: active)
-               select new LedgerReceipt(
-                   Operation: active, Verb: verb, Entered: entered, Settled: settled, Latency: latency);
+               select new GateReceipt(
+                   Operation: active, Verb: answer.Verb, Seal: answer.Seal, Outcome: new GateOutcome.SettledCase(),
+                   Entered: entered, Settled: settled, Latency: latency);
     }
+
+    private static Fin<(string Verb, Option<VerbNoun> Seal)> Free(Op key, string verb, Func<Unit> act) =>
+        key.Catch(body: () => Fin.Succ((act(), (Verb: verb, Seal: Option<VerbNoun>.None)).Item2));
 }
 ```
 
@@ -177,21 +172,21 @@ public static partial class HistoryLedger {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]             | [OWNER]                       | [RAIL]                         | [CASES] |
-| :-----: | :-------------------- | :---------------------------- | :----------------------------- | :-----: |
-|  [01]   | stride direction      | `LedgerStride`                | `Stride`/`Replay` (internal)   |    2    |
-|  [02]   | undo commands         | `HistoryOp` + `LedgerReceipt` | `Commit → Fin<LedgerReceipt>`  |    6    |
-|  [03]   | the one seal          | `HistoryLedger.Seal`          | `Seal → Fin<LedgerReceipt>`    |    1    |
-|  [04]   | record banking        | `HistoryLedger.Bank`          | `Bank → Fin<Record>`           |    1    |
-|  [05]   | branch reconciliation | `BranchPath` + `BranchCrown`  | `Reconcile`/`Crown` → `Fin<T>` |  2 + 2  |
+| [INDEX] | [CONCERN]             | [OWNER]                      | [RAIL]                         | [CASES] |
+| :-----: | :-------------------- | :--------------------------- | :----------------------------- | :-----: |
+|  [01]   | stride direction      | `LedgerStride`               | `Stride`/`Replay` (internal)   |    2    |
+|  [02]   | undo commands         | `HistoryOp`                  | `Commit → Fin<GateReceipt>`    |    6    |
+|  [03]   | the one seal          | `HistoryLedger.Seal`         | `Seal → Fin<GateReceipt>`      |    1    |
+|  [04]   | record banking        | `HistoryLedger.Bank`         | `Bank → Fin<Record>`           |    1    |
+|  [05]   | branch reconciliation | `BranchPath` + `BranchCrown` | `Reconcile`/`Crown` → `Fin<T>` |  2 + 2  |
 
 - [01]-[STRIDE_DIRECTION]: `[SmartEnum<int>]` stride + replay columns.
-- [02]-[UNDO_COMMANDS]: `[GenerateUnionOps]` `[Union]` + evidence receipt.
+- [02]-[UNDO_COMMANDS]: `[GenerateUnionOps]` `[Union]` over the folder's one receipt.
 - [03]-[THE_ONE_SEAL]: cross-page composed seam, caller-marshal.
 - [04]-[RECORD_BANKING]: `ActionList.ToRecord` mint.
 - [05]-[BRANCH_RECONCILIATION]: evidence receipts over the live tree.
 
-`DocumentScope.Resolve`, `EtoDispatch`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; every undo capability lands as the cases and rows above, and the folder's mutation gates reach the tree only through `Seal`.
+`DocumentScope.Resolve`, `GateReceipt`, `GateOutcome`, `EtoDispatch`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; every undo capability lands as the cases and rows above, and the folder's mutation gates reach the tree only through `Seal`.
 
 ## [05]-[RESEARCH]
 

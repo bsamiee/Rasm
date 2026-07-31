@@ -878,26 +878,20 @@ public static class Lofts {
         values is not null && values.All(row => row is not null && rows.Contains(row));
 
     public static Eff<LoftRuntime, Built<LoftSlot>> Build(params ReadOnlySpan<LoftOp> operations) {
-        Op op = Op.Of();
-        Seq<LoftOp> captured = toSeq(operations.ToArray());
+        Seq<LoftOp> captured = toSeq(operations.ToArray());   // materialized ahead of the runtime bind: a span cannot cross the effect lambda
         return Eff.runtime<LoftRuntime>().Bind(runtime =>
-            (from _ in guard(!captured.IsEmpty, op.InvalidInput())
-             from admitted in captured.TraverseM(operation =>
-                     Optional(operation).ToFin(Fail: op.InvalidInput())
-                         .Bind(active => active.Admitted(key: op)))
-                 .As()
-             from built in ModelGate.Folded(
-                 context: runtime.Domain,
-                 operations: admitted,
-                 apply: runtime.Apply)
-             select built).ToEff());
+            ModelGate.Entry(
+                context: runtime.Domain,
+                operations: captured,
+                admit: static (operation, key) => operation.Admitted(key: key),
+                apply: runtime.Apply).ToEff());
     }
 }
 ```
 
 ## [05]-[EXECUTION]
 
-`Lofts.Build` captures and admits every operation before entering `Eff<LoftRuntime, Built<LoftSlot>>`. `LoftOp.Admitted` rejects null handles, policy owners, and default-ghost value policies before `LoftRuntime.Apply` reaches a host arm.
+`Lofts.Build` materializes the operation span ahead of the runtime bind — a span cannot cross the `Eff.runtime<LoftRuntime>()` lambda — then runs the folder spine's `ModelGate.Entry` over the sequence, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the spine's and `Built<LoftSlot>.Bench` carries harvest evidence. `LoftOp.Admitted` rejects null handles, policy owners, and default-ghost value policies before `LoftRuntime.Apply` reaches a host arm.
 
 `LoftOp.MakeCompatible` composes `NurbsCurve.MakeCompatible` with context-owned refit and angle tolerances. Consumers feed its owned curve products into `LoftOp.Loft`, `LoftOp.SweepOne`, or `LoftOp.SweepTwo` without a second compatibility surface.
 

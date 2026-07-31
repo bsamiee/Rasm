@@ -21,14 +21,16 @@ One `ResponderSpec` declares a hit-testable input target as data, and one contai
 
 ## [03]-[DISPATCH]
 
-- Owner: `ResponderSpec` sealed evidence record — one declarative input target: optional rectangular and predicate hit regions, coordinate frame, hover notifications, pointer verdicts, key verdicts, and text verdicts. Region admission is finite and nonnegative; an absent slot inherits the host response.
-- Owner: `SpecResponder` internal sealed class — the ONE host adapter. Every region filter, hover notification, pointer handler, key handler, text handler, and inherited relay runs inside the raising `Op.Catch`; faults record on the owning mount and resolve to `Release` while focused or `Ignored` while unfocused, so an extension callback never escapes into the Eto pump or strands capture.
+- Owner: `ResponderSpec` sealed evidence record — one declarative input target: optional rectangular and predicate hit regions, coordinate frame, hover notifications, pointer verdicts, key verdicts, text verdicts, rotation-gesture verdicts, and the transient-effect probe. Region admission is finite and nonnegative; an absent slot inherits the host response.
+- Owner: `SpecResponder` internal sealed class — the ONE host adapter. Every region filter, hover notification, pointer handler, key handler, text handler, rotation handler, effect probe, and inherited relay runs inside the raising `Op.Catch`; faults record on the owning mount and resolve to `Release` while focused or `Ignored` while unfocused, so an extension callback never escapes into the Eto pump or strands capture.
+- Law: this adapter takes the OVERRIDE path because it is the primary responder the boundary constructs, and every arm ends in the base member — `base.MouseDown(e)` and its siblings ARE the host's `Invoke*Relay` over the matching `*Hook` event, so a plug-in subscriber on the same responder still gets its first-non-`Ignored` turn wherever a spec slot is absent or answers `Ignored`. The hover pair is unconditional by host contract, so a supplied `Over` or `Leave` runs the spec callback AND the base relay rather than replacing it. A surface extending a responder it did not construct — a component attribute over a host base — takes the hook path instead (`Components/attributes.md`).
+- Law: `HadEffect` is the transient-gesture contract, not a knob: returning `false` downgrades this responder's `Release` to `Ignored` so a no-drag right click still reaches context-menu population, which is exactly what a pan or zoom responder needs while idle. The spec's absent slot inherits the host's `true`.
 - Owner: `InteractionMount` sealed class — the single idempotent `IDisposable` resource for responder registration, focus capture, drag capture, and menu attachment. `Target` and `PriorFocus` preserve lifecycle evidence; `LastFault` exposes the latest contained callback or release failure; disposal marshals through the release closure and remains retryable after a failed teardown.
 - Entry: `Dispatch.Mount(FlexControl surface, ResponderSpec spec, Op? key = null)` → `Fin<Lease<InteractionMount>>`; `Dispatch.Hold(FlexControl surface, IResponsive target, Op? key = null)` → `Fin<Lease<InteractionMount>>`; `Dispatch.Roster(IFlexControl surface, Op? key = null)` → `Fin<Seq<IResponsive>>`.
 - Law: the flex control arrives resolved — canvas callers acquire it inside `GhSession.Run(ScopeTarget.CanvasHost, …)`, while a chrome flex pane arrives from its own owner. Registration/focus mounts require the concrete `FlexControl` owner because the focus stack is absent from `IFlexControl`; roster projection remains interface-shaped. No mount exposes a live canvas.
 - Law: registration order is dispatch order (`ResponsivesForwards`) and focus preempts it. `Mount` pops its target before unregistering, `Hold` refuses to claim an already focused target, and failed register or push acquisition rolls back before returning its fault. Host focus stack stays unique by target and restores its previous head when the owned frame leaves.
 - Boundary: window-selection lifecycle verbs are `Canvas/canvas.md` marquee cases; `WindowSelection` and `MouseDwell` facts are `Shell/events.md` rows. `ObjectDragInteraction` neither registers nor focuses itself, so `[04]` acquires `Dispatch.Hold` and owns that lease through gesture teardown.
-- Packages: Grasshopper2 (`FlexControl.RegisterIResponsive`/`UnregisterIResponsive`/`PushFocus`/`PopFocus`/`FocusObject`, `IFlexControl.ResponsivesForwards`, `IResponsive`, `Responses` and its virtual handler family, `CoordinateSystem`), Eto.Forms (`KeyEventArgs`, `TextInputEventArgs`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`), `Eto/runtime.md` (`EtoDispatch`).
+- Packages: Grasshopper2 (`FlexControl.RegisterIResponsive`/`UnregisterIResponsive`/`PushFocus`/`PopFocus`/`FocusObject`, `IFlexControl.ResponsivesForwards`, `IResponsive`, `Responses` and its virtual handler family beside `HadEffect`/`RegionBoundary`/`RegionFilter`/`HasFocus`, `ResponseRotationArgs`, `CoordinateSystem`), Eto.Forms (`KeyEventArgs`, `TextInputEventArgs`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`), `Eto/runtime.md` (`EtoDispatch`).
 - Growth: a new host handler virtual is one spec slot with one contained adapter override; every new attachment modality reuses `InteractionMount`.
 
 ```csharp signature
@@ -82,7 +84,8 @@ public sealed record ResponderSpec(
     Option<Func<PointerFact, Verdict>> Up, Option<Func<PointerFact, Verdict>> Wheel,
     Option<Func<PointerFact, Verdict>> SingleClick, Option<Func<PointerFact, Verdict>> DoubleClick,
     Option<Func<KeyEventArgs, Verdict>> KeyDown, Option<Func<KeyEventArgs, Verdict>> KeyUp,
-    Option<Func<TextInputEventArgs, Verdict>> Text) : IValidityEvidence {
+    Option<Func<TextInputEventArgs, Verdict>> Text, Option<Func<ResponseRotationArgs, Verdict>> Rotation,
+    Option<Func<bool>> Effected) : IValidityEvidence {
     public bool IsValid => ValidityClaim.Of(holds: Region.ForAll(static frame =>
         float.IsFinite(frame.X) && float.IsFinite(frame.Y) &&
         float.IsFinite(frame.Width) && frame.Width >= 0f &&
@@ -95,7 +98,8 @@ public sealed record ResponderSpec(
         Up: Option<Func<PointerFact, Verdict>>.None, Wheel: Option<Func<PointerFact, Verdict>>.None,
         SingleClick: Option<Func<PointerFact, Verdict>>.None, DoubleClick: Option<Func<PointerFact, Verdict>>.None,
         KeyDown: Option<Func<KeyEventArgs, Verdict>>.None, KeyUp: Option<Func<KeyEventArgs, Verdict>>.None,
-        Text: Option<Func<TextInputEventArgs, Verdict>>.None);
+        Text: Option<Func<TextInputEventArgs, Verdict>>.None,
+        Rotation: Option<Func<ResponseRotationArgs, Verdict>>.None, Effected: Option<Func<bool>>.None);
 }
 
 public sealed class InteractionMount : IDisposable {
@@ -151,12 +155,23 @@ internal sealed class SpecResponder : Responses, IResponsive {
     }
 
     public Responses Responder => this;
+
+    // HadEffect false downgrades this responder's Release to Ignored, which is how a transient pan or zoom
+    // lets a no-drag right click still populate the context menu; the absent slot inherits the host's true.
+    public override bool HadEffect => _spec.Effected.Match(
+        Some: probe => _operation.Catch(body: () => Fin.Succ(probe())).Match(
+            Succ: static effected => effected,
+            Fail: error => { Record(error: error); return true; }),
+        None: () => base.HadEffect);
+
+    // The hover pair is unconditional by host contract, so the spec callback runs BESIDE the base relay that
+    // fires every MouseOverHook/MouseLeaveHook subscriber, never instead of it.
     public override void MouseOver(ResponseMouseArgs e) => Observe(body: () => _spec.Over.Match(
         Some: over => _operation.AcceptInput(value: PointerFact.Of(e: e))
-            .Map(fact => Op.Side(action: () => over(obj: fact))),
+            .Map(fact => Op.Side(action: () => { over(obj: fact); base.MouseOver(e); })),
         None: () => Fin.Succ(Op.Side(action: () => base.MouseOver(e)))));
     public override void MouseLeave() => Observe(body: () => _spec.Leave.Match(
-        Some: static leave => Fin.Succ(Op.Side(action: leave)),
+        Some: leave => Fin.Succ(Op.Side(action: () => { leave(); base.MouseLeave(); })),
         None: () => Fin.Succ(Op.Side(action: base.MouseLeave))));
     public override Response MouseDown(ResponseMouseArgs e) => Answer(slot: _spec.Down, e: e, inherited: () => base.MouseDown(e));
     public override Response MouseDrag(ResponseMouseArgs e) => Answer(slot: _spec.Drag, e: e, inherited: () => base.MouseDrag(e));
@@ -167,6 +182,7 @@ internal sealed class SpecResponder : Responses, IResponsive {
     public override Response KeyDown(KeyEventArgs e) => Answer(slot: _spec.KeyDown, value: e, inherited: () => base.KeyDown(e));
     public override Response KeyUp(KeyEventArgs e) => Answer(slot: _spec.KeyUp, value: e, inherited: () => base.KeyUp(e));
     public override Response TextInput(TextInputEventArgs e) => Answer(slot: _spec.Text, value: e, inherited: () => base.TextInput(e));
+    public override Response Rotation(ResponseRotationArgs e) => Answer(slot: _spec.Rotation, value: e, inherited: () => base.Rotation(e));
 
     private Response Answer(Option<Func<PointerFact, Verdict>> slot, ResponseMouseArgs e, Func<Response> inherited) => Settle(
         outcome: _operation.Catch(body: () => slot.Match(

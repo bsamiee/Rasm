@@ -2,29 +2,29 @@
 
 `FrameInterop` translates any admitted native dataframe to any backend over `narwhals`, and `ArrowCStream` carries Arrow across the seam pyarrow-free over the Arrow C Data Interface — one owner over the two interchange hops. `FrameInterop` discriminates a single `Backend` axis bound to the live `narwhals.Implementation` vocabulary against one `_BACKEND` behavior table, so a new backend is one `Backend` row plus one `_BACKEND` row, never a parallel adapter family and never an `isinstance` dispatch over native frame types. This is the tier-0 base of the tabular plane: it imports nothing from `rasm.data`, and every folder composition edge points strictly down into it.
 
-Its axis spans the narwhals lazy set — `POLARS`/`PANDAS`/`PYARROW`/`MODIN` eager, `DUCKDB`/`IBIS`/`DASK` lazy — each row's `eager` column selecting both the `from_native` intake level and the lowering head, so a lazy plan survives only into a lazy target and materializes on a lazy→eager hop by contract. `FieldShape` is DECLARED here — the `schema_of` minter's page — and `tabular/contract#ADMISSION` and `tabular/profile#PROFILE` import it strictly downward, never a back-edge. `ArrowCStream.of` is the one carrier construction both `FrameInterop.c_stream` and the sibling `gridded/ragged#RAGGED` `RaggedArray.c_stream` compose; the canonical Arrow IPC serialization is shared with the `gridded/ragged#RAGGED` `arrow`-sink and is the sole content-key byte path. `InteropReceipt` content-keys each hop through runtime `ContentIdentity` and streams through `ReceiptContributor`, carrying the same typed evidence the `columnar`/`contract` owners do.
+Its axis spans the narwhals lazy set — `POLARS`/`PANDAS`/`PYARROW`/`MODIN` eager, `DUCKDB`/`IBIS`/`DASK` lazy — each row's `eager` column selecting both the `from_native` intake level and the lowering head, so a lazy plan survives only into a lazy target and materializes on a lazy→eager hop by contract. `FieldShape` is DECLARED here — the `schema_of` minter's page — and `tabular/contract#ADMISSION` and `tabular/profile#PROFILE` import it strictly downward, never a back-edge. `arrow_bytes` is DECLARED here too: the folder's one canonical whole-table Arrow IPC serialization, imported downward by `tabular/columnar#SCAN`, every `tabular` receipt owner keying a frame, and the `gridded/ragged#RAGGED` `arrow`-sink, so one byte stream addresses every content-keyed frame in the package. `ArrowCStream.of` is the one carrier construction both `FrameInterop.c_stream` and the sibling `gridded/ragged#RAGGED` `RaggedArray.c_stream` compose. `InteropReceipt` content-keys each hop through runtime `ContentIdentity` and streams through `ReceiptContributor`, carrying the same typed evidence the `columnar`/`contract` owners do.
 
 ## [01]-[INDEX]
 
-- [02]-[INTEROP]: the backend-agnostic translation owner over the seven-row eager/lazy `Backend` axis and `_BACKEND` table, the locally-declared `FieldShape`, the null-mask schema fold, and the content-keyed `InteropReceipt`.
+- [02]-[INTEROP]: the backend-agnostic translation owner over the seven-row eager/lazy `Backend` axis and `_BACKEND` table, the locally-declared `FieldShape`, the null-mask schema fold, the folder's `arrow_bytes` serialization, and the content-keyed `InteropReceipt`.
 - [03]-[CARRIER]: the pyarrow-free Arrow C Data Interface carrier — `ArrowCStream.of` construction, `chunks` streaming consumption, `negotiate` schema-only folding, `device_of` the C Device array row.
 
 ## [02]-[INTEROP]
 
-- Owner: `DoeDataset` — the `csharp:Rasm.Compute/Solver/sweep` training-corpus wire admission (`ContentKey`/`Axes`/`Objectives`/`Strategy`/`Points`/row-major `Coordinates`/`Responses`/`At`), its `frame` fold the graduation loop's fit ingress keyed by the wire's own content key. `FrameInterop` — the one translation owner over `narwhals`, discriminating a `Backend` `StrEnum` whose value IS the `narwhals.Implementation` member value, so `Backend.implementation` resolves through `Implementation.from_backend` and the axis carries no `ARROW`-named drift (narwhals names `PYARROW`, value `'pyarrow'`). `narwhals.from_native` is the one intake; the lowering target is one `_BACKEND` row. `FieldShape` is declared here and `resolve` is its structural-breach fold the `tabular/contract#ADMISSION` gate reads. `InteropReceipt` is the typed hop receipt satisfying `ReceiptContributor`.
+- Owner: `DoeDataset` — the `csharp:Rasm.Compute/Solver/sweep` training-corpus wire admission (`ContentKey`/`Axes`/`Objectives`/`Strategy`/`Points`/row-major `Coordinates`/`Responses`/`At`), its `frame` fold the graduation loop's fit ingress keyed by the wire's own content key. `FrameInterop` — the one translation owner over `narwhals`, discriminating a `Backend` `StrEnum` whose value IS the `narwhals.Implementation` member value, so `Backend.implementation` resolves through `Implementation.from_backend` and the axis carries no `ARROW`-named drift (narwhals names `PYARROW`, value `'pyarrow'`). `narwhals.from_native` is the one intake; the lowering target is one `_BACKEND` row. `FieldShape` is declared here and `resolve` is its structural-breach fold the `tabular/contract#ADMISSION` gate reads. `arrow_bytes` is declared here as the folder's one whole-table IPC serialization — a schema message ahead of one combined batch — so every content key over a table payload folds identical bytes wherever it is minted. `InteropReceipt` is the typed hop receipt satisfying `ReceiptContributor`.
 - Cases: `Backend` is the closed axis; `_BACKEND` pairs each row with its `_Lowering` — the `lower` head and the `eager` flag — so admission level and lowering head are two columns on one row, never parallel switch arms.
   - A lazy-scan reader is deliberately NOT a column: a backend admits many formats, so a per-engine reader name is incoherent — `tabular/columnar#SCAN` resolves its reader off `DatasetKind`, a disjoint axis this owner never duplicates.
   - One `eager` column serves BOTH source and target for distinct concerns: the SOURCE flag selects `_admit`'s `from_native(eager_only=)` intake, the TARGET flag selects the frame the lowering head receives.
   - Load-bearing invariant: `to_polars`/`to_pandas`/`to_arrow` are `nw.DataFrame`-only, so a lazy-source→eager-target lowering MUST collect first — `_lowered` hands the row's `lower` head `eager if row.eager else admitted` off the existing column. A lazy plan survives only into a lazy target; a lazy→eager hop materializes by contract, and the receipt counts and content-key bytes read the `_eager` projection so the null-mask always reads a materialized frame while a lazy-target output stays lazy.
   - `_lowered` and `_admit` both key `_BACKEND[...]` through the total `Map.__getitem__` — every `Backend` member carries a row by construction, never an inline per-backend `match` and never a `try_find`/`assert_never(target)` fold lying about totality over a live `StrEnum`.
 - Entry: `translate` lifts through `_admit`, lowers once into one `_Lowered` carry, and binds `ContentIdentity.of` over the lowered frame's canonical Arrow bytes into a `RuntimeRail[FrameTranslation]` — the lowering wrapped in one `boundary(...)` so a terminal raise lifts to `BoundaryFault` exactly once and the key threads through `.bind`/`.map`, never a second fault fence. `schema_of` reads the agnostic `nw.Schema` through `collect_schema()` and the per-column null count through `null_count().item(0, name)` — never a `.to_native()[name][0]` subscript that breaks on a `pyarrow.Table` — so nullability is the observed mask, not a dtype-kind inference. `namespace` resolves through `Implementation.to_native_namespace`. `c_stream` lowers to a `pyarrow.Table` through `_eager(self._admit(frame)).to_arrow()` before `ArrowCStream.of` — the one `__arrow_c_stream__`-exporter every backend reaches — never the raw native frame a `pandas`/`modin` source does not reliably export. No hop carries a `stamina` retry: a `to_*`/`to_native` projection is a pure in-memory transform, not a transient-I/O hop.
-- Receipt: `translate` keys one `InteropReceipt` by `ContentIdentity.of("interop", lowered.ipc)` over the canonical Arrow IPC bytes — the `nanoarrow.ArrayStream(...).read_all().serialize()` path shared with the `CARRIER` owner and the `gridded/ragged#RAGGED` `arrow`-sink — carrying source/target backend and row/column counts, never a path-string key. `ArrowCStream` stays interchange-only and NEVER a key byte source: a consume-once capsule is not a deterministic byte stream, so IPC serialization is the sole canonical byte path.
-- Growth: a new backend is one `Backend` row naming its `Implementation` member plus one `_BACKEND` `(lower, eager)` row (`PYSPARK`/`SQLFRAME` land this way); a new interchange protocol is one method; a new admission level is one `eager` value; a new structural attribute is one `FieldShape` column read once by `schema_of`; a new receipt slot is one `InteropReceipt` field; zero new surface.
-- Boundary: no compute (the numeric and labelled-array ownership stays in `compute`), no durable store, no query rail (`tabular/query#QUERY` owns the relational plane), no lazy-scan execution (`tabular/columnar#SCAN` owns the `register_io_source` pushdown); `narwhals` owns only the frame-translation hop and the schema fold; `DoeDataset` is the WIRE ADMISSION only — the fit itself is the `compute` companion's and the graduated ONNX crosses back over `GraduationEvidence`, never a training loop here. Rejected forms: a per-backend `PolarsAdapter`/`PandasAdapter` trio or `isinstance` dispatch where one `_BACKEND` row owns lowering; a `FieldShape` re-declared on a consumer page where this minter owns it; a second `collect_schema()` path beside `schema_of`; a bare receipt-less lowering entrypoint beside `translate`, whose `FrameTranslation` already carries the lowered frame with its key.
+- Receipt: `translate` keys one `InteropReceipt` by `ContentIdentity.of("interop", lowered.ipc)` over the `arrow_bytes` stream this owner declares, carrying source/target backend and row/column counts, never a path-string key. `ArrowCStream` stays interchange-only and NEVER a key byte source: a consume-once capsule is not a deterministic byte stream, so every key in the folder rides `arrow_bytes` instead.
+- Growth: a new backend is one `Backend` row naming its `Implementation` member plus one `_BACKEND` `(lower, eager)` row (`PYSPARK`/`SQLFRAME` land this way); a new interchange protocol is one method; a new admission level is one `eager` value; a new structural attribute is one `FieldShape` column read once by `schema_of`; a new receipt slot is one `InteropReceipt` field; a new content-keying consumer imports `arrow_bytes` and adds nothing; zero new surface.
+- Boundary: no compute (the numeric and labelled-array ownership stays in `compute`), no durable store, no query rail (`tabular/query#QUERY` owns the relational plane), no lazy-scan execution (`tabular/columnar#SCAN` owns the `register_io_source` pushdown); `narwhals` owns only the frame-translation hop and the schema fold; `DoeDataset` is the WIRE ADMISSION only — the fit itself is the `compute` companion's and the graduated ONNX crosses back over `GraduationEvidence`, never a training loop here. Rejected forms: a per-backend `PolarsAdapter`/`PandasAdapter` trio or `isinstance` dispatch where one `_BACKEND` row owns lowering; a `FieldShape` re-declared on a consumer page where this minter owns it; a second `collect_schema()` path beside `schema_of`; a bare receipt-less lowering entrypoint beside `translate`, whose `FrameTranslation` already carries the lowered frame with its key; a second whole-table serialization beside `arrow_bytes` — `nanoarrow.ArrayStream(table).read_all().serialize()` is the falsified twin, emitting a bare batch message with NO schema, so `pyarrow.ipc.open_stream` refuses those bytes outright and two frames differing in schema alone mint one identical key.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Buffer, Callable, Iterable, Iterator
 from enum import StrEnum
 from typing import Any, Final
 
@@ -34,6 +34,10 @@ import narwhals as nw
 from beartype import beartype
 from expression.collections import Map
 from msgspec import Struct
+
+# the whole-table IPC fold and the DoeDataset build are the two pyarrow legs this page holds; the module-scope
+# `lazy` bind states that deferral as law where a function-local import carrying a suppression states it nowhere.
+lazy import pyarrow as pa
 
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey
@@ -96,10 +100,13 @@ class InteropReceipt(Struct, frozen=True):
         return cls(source=source, target=target, rows=frame.shape[0], columns=len(frame.columns), content_key=key)
 
     def contribute(self) -> Iterable[Receipt]:
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads, and
-        # `domain` is that plane's partition column — a contributor omitting it lands every translation row in one
-        # nameless partition no predicate ever prunes. The TARGET backend keys the row: a translation is named by
-        # where it lands, and the source survives in the subject beside it.
+        # no `Metrics.record` here: a translation hop moves no measured resource — it reads one in-memory frame and
+        # writes another — so this receipt carries evidence alone and the metric spine stays free of a series whose
+        # every value is the calling owner's own span already timing it, the same stated abstention `tabular/cost#COST`
+        # carries. `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence
+        # reads, and `domain` is that plane's partition column — a contributor omitting it lands every translation row
+        # in one nameless partition no predicate ever prunes. The TARGET backend keys the row: a translation is named
+        # by where it lands, and the source survives in the subject beside it.
         yield Receipt.of(
             "frame-interop",
             (
@@ -120,7 +127,7 @@ class FrameTranslation(Struct, frozen=True):
 class _Lowered(Struct, frozen=True):
     frame: Any
     agnostic: nw.DataFrame[Any]
-    ipc: bytes
+    ipc: Buffer
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -157,8 +164,6 @@ class DoeDataset(Struct, frozen=True):
         """One Arrow training table: axis columns then objective columns, rows the design points."""
 
         def build() -> Any:
-            import pyarrow as pa  # ruff:ignore[import-outside-top-level]
-
             if len(self.coordinates) != self.points * len(self.axes) or len(self.responses) != self.points * len(self.objectives):
                 msg = f"<doe-extent:{len(self.coordinates)}x{len(self.responses)}!={self.points}x{len(self.axes)}x{len(self.objectives)}>"
                 raise ValueError(msg)
@@ -200,13 +205,27 @@ class FrameInterop(Struct, frozen=True):
     def _lowered(self, frame: Any, target: Backend) -> "_Lowered":
         admitted = self._admit(frame)
         eager = _eager(admitted)
-        ipc = nanoarrow.ArrayStream(eager.to_arrow()).read_all().serialize()
+        ipc = arrow_bytes(eager.to_arrow())
         # reuse the collected `eager` for an eager target; a lazy target keeps `admitted` to preserve the deferred plan.
         row = _BACKEND[target]
         return _Lowered(frame=row.lower(eager if row.eager else admitted), agnostic=eager, ipc=ipc)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def arrow_bytes(table: "pa.Table") -> Buffer:
+    # canonical whole-table IPC STREAM bytes — the ONE serialization the `ContentIdentity` `whole` arm folds and every
+    # foreign reader opens, declared at the folder floor so the scan plane, the commit plane, the cost ledger, and the
+    # ragged Arrow sink all key one byte stream. `RecordBatch.serialize()` and the `nanoarrow.ArrayStream(...).read_all()
+    # .serialize()` twin are the rejected forms: each emits a bare batch message carrying NO schema message, so
+    # `ipc.open_stream` refuses it outright, only `read_record_batch(obj, schema)` decodes it, and two frames differing
+    # in schema alone key IDENTICALLY. `combine_chunks` coalesces every column first so the stream carries one batch;
+    # an empty table keys off `b""`.
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, table.schema) as writer:
+        writer.write_table(table.combine_chunks())
+    return sink.getvalue()
 
 
 def _eager(frame: nw.DataFrame[Any] | nw.LazyFrame[Any]) -> nw.DataFrame[Any]:
@@ -229,7 +248,7 @@ def _shapes(frame: nw.DataFrame[Any]) -> tuple[FieldShape, ...]:
 - Auto: `chunks` yields the C-level `CArray` chunk holders directly off the `CArrayStream` iterator so back-pressure lives at the chunk grain — the stream owns a C resource and closes on iterator exhaustion. `negotiate` reads `Schema.fields` (each child carrying `name`/`type`/`nullable`) so it is total over the struct-top schema. `device_of` resolves the device kind off the held `CDeviceArray` — `DEVICE_CPU` for a host-resident exporter, a non-CPU device surfacing as the holder's own attribute rather than a silent copy to host. `arro3-core` is the alternate zero-copy PyCapsule reader the consumer side crosses on, both reading the canonical Arrow C-data layout without the Arrow C++ source build.
 - Packages: `nanoarrow` (`ArrayStream`, `c_array_stream` the chunked iterator, `Schema.fields`/`name`/`type`/`nullable`), `nanoarrow.device` (`c_device_array`/`CDeviceArray`/`DeviceType`/`DEVICE_CPU` — the C Device Data Interface submodule, no top-level spellings), `arro3-core` (the alternate PyCapsule reader), `msgspec` (`Struct` the frozen owner).
 - Growth: a new PyCapsule-exporting producer is admitted free by `of`/`chunks`/`negotiate` over its `__arrow_c_stream__`/`__arrow_c_schema__` with zero carrier change; a non-CPU device row is one `DeviceType` the held `CDeviceArray` already reports; a new carried evidence field is one `ArrowCStream` column; zero new surface.
-- Boundary: no Arrow compute, no pyarrow import, no IPC serialization (the `gridded/ragged#RAGGED` `arrow`-sink owns the IPC bytes), no content-key mint (a consume-once capsule is never a key source). Rejected forms: an inline `ArrowCStream(capsule=, schema_repr=)` re-mint where `of` owns construction; a `read_all()` materialization inside `chunks`; a data-moving probe where `negotiate` reads the schema alone; a top-level `nanoarrow.CDeviceArray` spelling where `nanoarrow.device` is the import home; a device-STREAM constructor claim no member backs; a pyarrow round-trip where the capsule crosses directly.
+- Boundary: no Arrow compute, no pyarrow on the carrier path — the capsule crosses through `nanoarrow` alone, so the module's `lazy pyarrow` bind stays the `[02]` owner's and a carrier hop pays none of it — no IPC serialization (the `[02]-[INTEROP]` owner's `arrow_bytes` fold holds the whole-table byte stream), no content-key mint (a consume-once capsule is never a key source). Rejected forms: an inline `ArrowCStream(capsule=, schema_repr=)` re-mint where `of` owns construction; a `read_all()` materialization inside `chunks`; a data-moving probe where `negotiate` reads the schema alone; a top-level `nanoarrow.CDeviceArray` spelling where `nanoarrow.device` is the import home; a device-STREAM constructor claim no member backs; a pyarrow round-trip where the capsule crosses directly.
 
 ```python signature
 class ArrowCStream(Struct, frozen=True):

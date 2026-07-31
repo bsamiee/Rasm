@@ -12,7 +12,7 @@ Native signing and reading cross the caller-threaded `LanePolicy.offload` seam a
 
 - Owner: `Provenance` IS the closed union owning the dispatch, the async entry, and every case body directly — never a one-field wrapper over a separate op union, never a `from_file`/`from_stream`/per-format reader family, never a per-algorithm signer type, never a `sign`/`verify`/`read` method triple. `SignerSpec` reads its tagged case directly through the `@beartype(conf=FAULT_CONF)`-woven `_cose()`/`alg` arms, never parallel nullable cert fields; no private-key material is minted here — the `CallbackSigner` case keeps it in the `cryptography` keyring/HSM, only `C2paSigningAlg` plus the PEM cert chain crossing the seam. `CredentialPolicy` is the trusted frozen policy projected from `CredentialSettings`; each request stores that value instead of a live `Context`. One coupled `(Intent, DigitalSource | None)` field over the full eighteen-member IPTC vocabulary rides `Builder.set_intent`, never two parallel nullable fields that orphan a `DigitalSource` from its `Intent`.
 - Cases: `Provenance` rows — `Sign` (`Manifest._author` → `Builder.sign` into an in-memory `BytesIO`, single-use; a present `remote_url` folds `set_no_embed`/`set_remote_url` so the manifest references a remote store — the embed-vs-sidecar modality the value discriminates, never an `embed: bool` knob) · `Read` (`Reader.try_create` → `Reader.json` STORE decode, `ManifestNotFound`→`None` to `unsigned`) · `ReadFragment` (`Reader.try_create` over the init segment chained through the instance `with_fragment`, the fragmented-BMFF read) · `Embed` (`format_embeddable(fmt, manifest)` rewrapping a captured detached/remote-store manifest into the embeddable JUMBF block, `_SIGNABLE`-gated — this owner produces the block a downstream writer splices, never re-authoring the asset) · `ArchiveIngredient` (`add_ingredient_from_stream` → `write_ingredient_archive` minting the processed-ingredient blob the `Ingredient.Archive` case rehydrates, so a parent processed once is serialized in-system rather than hand-carried from a foreign tool). `SignerSpec` — `cert_key` (`CertKeySigner`) · `callback` (`CallbackSigner`, the `ed25519` factory binding `ed25519_sign` for the no-HSM path). `Ingredient` — `stream` (→ `add_ingredient_from_stream`) · `archive` (a processed-ingredient blob → `add_ingredient_from_archive`), the attach modality the `_author` kernel matches so a parent processed once is reused across a campaign's derived assets; `Manifest.with_parents` derives the plan-lineage `stream` rows from `(ContentKey, fmt, bytes)` parents in one fold.
-- Entry: `emit(lane, parents=...)` returns the `ArtifactWork` node under the PRE-RUN `_key` (the msgpack input canon `keyed` admission elides on); `close(lane)` resolves the `(ContentKey, bytes, CredentialEvidence)` triple — `ContentIdentity.key` over the signed/read bytes plus the rich evidence — never a four-scalar receipt that discards the forensic fields or the signed payload; `_emit` composes `close` and mints `ArtifactReceipt.Credential(key, ev.manifest_id, ev.signer, ev.assertions, ev.validation_state)` exactly as the conformance sibling mints `ArtifactReceipt.Verdict` from its triple. Asset bytes arrive as an in-memory `BytesIO` and leave signed with no intermediate file — `sign_file` is the path convenience only. `c2pa`'s in-process ctypes core needs no process worker, distinct from the `HOSTILE`-crossing `exchange/detect#DETECT`/`exchange/metadata#METADATA` siblings, so the kernel rides `KernelTrait.RELEASING` with no worker-death retry row.
+- Entry: `emit(lane)` returns the `ArtifactWork` node under the PRE-RUN `_key` (the msgpack input canon `keyed` admission elides on) with the plan's DATA edges projected off the sign payload's `lineage` column — lineage seats at `Sign(asset, spec, parents=...)` construction, where the parent triples fold into the manifest's `parentOf` rows and their keys stamp `SignSpec.lineage`, so a parented non-sign operation is unspellable rather than guarded; `close(lane)` resolves the `(ContentKey, bytes, CredentialEvidence)` triple — `ContentIdentity.key` over the signed/read bytes plus the rich evidence — never a four-scalar receipt that discards the forensic fields or the signed payload; `_emit` composes `close` and mints `ArtifactReceipt.Credential(key, ev.manifest_id, ev.signer, ev.assertions, ev.validation_state)` exactly as the conformance sibling mints `ArtifactReceipt.Verdict` from its triple. Asset bytes arrive as an in-memory `BytesIO` and leave signed with no intermediate file — `sign_file` is the path convenience only. `c2pa`'s in-process ctypes core needs no process worker, distinct from the `HOSTILE`-crossing `exchange/detect#DETECT`/`exchange/metadata#METADATA` siblings, so the kernel rides `KernelTrait.RELEASING` with no worker-death retry row.
 - Auto: `Manifest._author` is the foreign mutation kernel — `Builder.from_json`, `set_intent` (the `DigitalSource` through `_DIGITAL_SOURCE`, defaulting `EMPTY`), `set_no_embed`/`set_remote_url` on a sidecar URL, the `add_action` sequence, each `Ingredient` arm, and the `add_resource` attachments mutate one SDK builder because those package methods return `None`. `SignerSpec._cose` builds the signer row while the signer-free `alg` accessor mints no native handle. `Sign` `_SIGNABLE`-preflights `fmt` and raises `C2paError.NotSupported` for a read-only asset, brackets the `Context`/`Builder`/`Signer`, drives `Builder.sign` into a fresh `BytesIO` capturing the detached manifest bytes, and reads evidence back — the sidecar path (a `set_no_embed` asset carrying no embedded manifest) validates the detached bytes through `Reader.try_create(..., manifest_data=...)` so the read never degrades to bogus `unsigned`, the embedded path passing `manifest_data=None`. `Read`/`ReadFragment` admit `Reader.json()` ONCE through `_STORE_DECODER` into the typed `_Store` — the active-manifest LABEL is the store's `active_manifest` KEY and the content is `manifests[active_manifest]` (the manifest dict carries no `label`), so a `.get("label")` is the phantom always-`""` read the decode replaces, and the one decode carries `validation_state`/`validation_results`/`ingredientDeltas`/the whole chain, never per-accessor calls. `CredentialEvidence.measure` folds every fact into one row in a single store walk. `_drawn` writes the claim + ingredient thumbnails through `resource_to_stream` into the evidence `resources` band on the same live-reader borrow, each `catch`-narrowed to `Nothing` so a missing/broken resource skips by omission. `_opened` folds both read-modality absences onto one `Option[Reader]` — `try_create`'s `None` and the raised `ManifestNotFound` — projecting `unsigned`. Each case materializes its verify `Context` from `CredentialPolicy` inside the `_run` lifetime window, `FragmentSpec` included.
 - Receipt: `_emit` mints `core/receipt#RECEIPT` `ArtifactReceipt.Credential(key, ev.manifest_id, ev.signer, ev.assertions, ev.validation_state)` from the `close` triple — the `resources` bytes and every rich field staying on the evidence value object, never reaching the wire — so `receipt.py` imports no `CredentialEvidence` and the flat case is a projection of the triple, never the sole egress. `validation_state` and the valid/invalid evidence are the observable provenance the runtime receipt stream reads off the minted receipt.
 - Packages: `c2pa-python` (native `c2pa-rs` core): `Builder.from_json`/`set_intent`/`set_no_embed`/`set_remote_url`/`add_action`/`add_ingredient_from_stream`/`add_ingredient_from_archive`/`write_ingredient_archive`/`add_resource`/`sign`/`get_supported_mime_types` the authoring+signing surface; `Reader.try_create`/`with_fragment` (an instance method chaining on a constructed reader)/`json`/`is_embedded`/`get_remote_url`/`resource_to_stream` the extraction surface; `Signer.from_info`/`from_callback` the two signer seams; `C2paSignerInfo`/`C2paSigningAlg`/`C2paBuilderIntent`/`C2paDigitalSourceType` the ctypes value + `IntEnum` vocabularies the name-correspondence tables project onto; `C2paError` the typed subclass family the `_TRANSIENT` subset and the `_drawn`/`_opened` traps read; `Context.from_dict` the per-operation verify-policy materialization; `sdk_version` the core-version scalar; the `c2pa.c2pa` inner primitives `format_embeddable` (the `Embed` rewrap) + `ed25519_sign` (the no-HSM signer). Substrate: `msgspec` (`Struct(frozen=True, gc=False)`, `Raw` the opaque assertion `data`, `json.Decoder` the one `_Store`/`_ActionData` decode, `json.encode`/`msgpack.encode` the `_key` canon, `structs.replace` the `Manifest` transitions); `expression` (`tagged_union`, `Option`/`Nothing`/`of_optional`, `extra.result.catch`); `beartype`; `stamina` (the `_TRANSIENT` network-retry weave); `functools.partial` (the `ed25519_sign` key bind and the `emit` work bind); `builtins.frozendict`; `pydantic-settings` (the `CredentialSettings` env owner); `pathlib.Path`; runtime (`identity.ContentIdentity.key`/`ContentKey`, `faults.FAULT_CONF`/`RuntimeRail`, `lanes.LanePolicy`, `workers.Kernel`/`KernelTrait`); core (`plan.ArtifactWork`/`Admission`, `receipt.ArtifactReceipt`).
@@ -506,6 +506,9 @@ class SignSpec(Struct, frozen=True):
     signer: SignerSpec
     remote_url: str | None = None
     policy: CredentialPolicy = _POLICY
+    # the plan DATA-edge keys `Sign(..., parents=)` stamped beside the manifest fold — non-identity (the manifest's
+    # own `parentOf` ingredient rows already ride `_canon`), read only by `emit`'s `ArtifactWork.parents` projection.
+    lineage: tuple[ContentKey, ...] = ()
 
 
 class ReadSpec(Struct, frozen=True):
@@ -545,8 +548,17 @@ class Provenance:
     archive_ingredient: tuple[bytes, ArchiveSpec] = case()
 
     @classmethod
-    def Sign(cls, asset: bytes, spec: SignSpec, /) -> Self:
-        return cls(sign=(asset, spec))
+    def Sign(cls, asset: bytes, spec: SignSpec, /, *, parents: tuple[tuple[ContentKey, str, bytes], ...] = ()) -> Self:
+        # lineage is SIGN-CASE PAYLOAD, seated at construction: the parent triples fold into the manifest's
+        # `parentOf` ingredient rows and their keys stamp `SignSpec.lineage`, so the signed rows and the plan's
+        # DATA edges derive from ONE `(key, fmt, bytes)` source — and a parented non-sign operation is
+        # UNSPELLABLE rather than guarded, since no other constructor admits the parameter.
+        lined = (
+            spec
+            if not parents
+            else structs.replace(spec, manifest=spec.manifest.with_parents(*parents), lineage=tuple(key for key, _, _ in parents))
+        )
+        return cls(sign=(asset, lined))
 
     @classmethod
     def Read(cls, asset: bytes, spec: ReadSpec, /) -> Self:
@@ -564,21 +576,12 @@ class Provenance:
     def ArchiveIngredient(cls, source: bytes, spec: ArchiveSpec, /) -> Self:
         return cls(archive_ingredient=(source, spec))
 
-    def emit(self, lane: LanePolicy, /, *, parents: tuple[tuple[ContentKey, str, bytes], ...] = ()) -> ArtifactWork:
-        # ONE lineage source: the sign arm folds the parent triples through `Manifest.with_parents` so the signed
-        # `parentOf` ingredient rows and the plan's DATA edges derive from the same `(key, fmt, bytes)` values —
-        # never a free-floating key list beside an unrelated manifest; only the sign arm carries lineage, so a
-        # parented non-sign emit refuses before any work item constructs rather than minting orphan DATA edges.
-        if parents and self.tag != "sign":
-            raise ValueError(f"credential.{self.tag} carries no lineage; parent edges ride the sign arm alone")
-        node = self._with_lineage(parents) if parents else self
-        return ArtifactWork(
-            key=node._key, work=partial(node._emit, lane), parents=tuple(key for key, _, _ in parents), admission=Admission(keyed=None), cost=1.0
-        )
-
-    def _with_lineage(self, parents: tuple[tuple[ContentKey, str, bytes], ...], /) -> "Provenance":
-        asset, spec = self.sign
-        return Provenance.Sign(asset, structs.replace(spec, manifest=spec.manifest.with_parents(*parents)))
+    def emit(self, lane: LanePolicy, /) -> ArtifactWork:
+        # the plan's DATA edges project off the sign payload's own `lineage` column — seated by `Sign(parents=)`
+        # beside the manifest fold, so no emit-level knob exists for a case that carries no lineage and the
+        # parented-non-sign refusal the old guard spelled is now unspellable at construction.
+        lineage = self.sign[1].lineage if self.tag == "sign" else ()
+        return ArtifactWork(key=self._key, work=partial(self._emit, lane), parents=lineage, admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
@@ -718,6 +721,35 @@ class Provenance:
             return catch(exception=C2paError)(live.resource_to_stream)(uri, sink).map(lambda _n: sink.getvalue()).to_option()
 
         return frozendict({ref.identifier: got.value for ref in refs if ref.identifier and (got := drawn(ref.identifier)).is_some()})
+
+# --- [EXPORTS] ----------------------------------------------------------------------------
+
+__all__ = (
+    "ActionDefinition",
+    "ActionRef",
+    "ArchiveSpec",
+    "CallbackSigner",
+    "CertKeySigner",
+    "CredentialEvidence",
+    "CredentialPolicy",
+    "CredentialSettings",
+    "DigitalSource",
+    "EmbedSpec",
+    "FragmentSpec",
+    "GeneratorRef",
+    "Ingredient",
+    "IngredientDefinition",
+    "IngredientRef",
+    "Intent",
+    "Manifest",
+    "ManifestDefinition",
+    "Provenance",
+    "ReadSpec",
+    "Resource",
+    "SignSpec",
+    "SignerSpec",
+    "SigningAlg",
+)
 ```
 
 ## [03]-[RESEARCH]

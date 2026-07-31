@@ -17,7 +17,7 @@ Rasm.AppUi sources every icon and bundled asset through one nameof-derived `Asse
 - Auto: the rank walk deletes per-call icon lookup and tint code; `DefaultRank` is the generated `Map` verdict table and `Freeze` orders every key's rows through it, so fallback order has exactly one authority and a new sourcing modality lands as one case plus one rank value; Projektanker-style attached icon registries stay rejected with this fold as the absorber.
 - Packages: FluentIcons.Avalonia, SkiaSharp, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one icon row — key, case payload, tint token — absorbs a new icon or fallback with zero new surface; one case on `IconSource` plus one rank value on the `DefaultRank` map absorbs a new sourcing modality.
-- Boundary: `PathLane`, provider delegates, host delegates, SVG projection, and bitmap decode are exception-trapped through `Try.lift(...).Run()` and mapped to `MaterializeRejected`; a throwing native call cannot escape a successful `Fin`. `Resolve` combines ranked alternatives with LanguageExt first-success `operator |`, `DefaultRank` remains the sole modality correspondence, and stable declaration order breaks same-modality ties. Per-row tint resolves through the theme token key column, while `IconVariant.Color` may carry its own payload color.
+- Boundary: `PathLane`, provider delegates, host delegates, SVG projection, and bitmap decode are exception-trapped through `Try.lift(...).Run()` and mapped to `MaterializeRejected`; a throwing native call cannot escape a successful `Fin`. `Resolve` walks ranked alternatives through `BindFail` so the fold stops at the first materialized image — `operator |` evaluates both operands, decoding every lower rank after the winner already exists, which for native surface allocation and provider render delegates is work done to be discarded; `DefaultRank` remains the sole modality correspondence, and stable declaration order breaks same-modality ties. Per-row tint resolves through the theme token key column, while `IconVariant.Color` may carry its own payload color.
 
 ```csharp signature
 [Union]
@@ -63,7 +63,7 @@ public static class IconSurface {
         from ranked in Ranked(table, key)
         from image in ranked.AsIterable().Fold(
             Fin.Fail<IImage>(new AssetFault.MaterializeRejected(key.ToString())),
-            (acc, row) => acc | Trap(() => tokens(row.TintToken)).Bind(tint => Materialize(row.Source, admitted, admittedScale, svg, tint)))
+            (acc, row) => acc.BindFail(_ => Trap(() => tokens(row.TintToken)).Bind(tint => Materialize(row.Source, admitted, admittedScale, svg, tint))))
         select image;
 
     public static Fin<IImage> Materialize(IconSource source, int size, double scale, SvgPipeline svg, Color tint) =>
@@ -147,7 +147,7 @@ flowchart LR
 - Auto: one composition-owned retained table deletes per-control re-parse, and one `(AssetKey, Color)` image table deletes per-call source reconstruction; capability remains monotone because `Ensure` rechecks the scene graph inside the document lock. `SvgLease.Mutate` returns dirty-region evidence, `Animate` applies pause/seek operations without returning the controller, `Begin` and `End` address SMIL elements under the same lock, and hit testing plus scene access remain lease operations.
 - Packages: Svg.Controls.Skia.Avalonia, SkiaSharp, Avalonia, LanguageExt.Core, BCL inbox
 - Growth: one retained row per asset key; a recolor, scene-build, or animation policy is one `ScenePolicy` row with zero new surface; a new mutation address form is one `Mutate` overload over the catalogued addressed-mutation family.
-- Boundary: `SvgPipeline` is a disposable capability constructed with the resolved `SKFontManager`; its caches, typeface provider, retained documents, retained `SvgSource` instances, and racing duplicate disposal stay internal. `Admit` traps parsing, rejects a null picture, and retains the winning document; `Image` builds each tint source once from the admitted document's catalogued `Model`, and `Dispose` releases every source before every document. `SvgLease` never exports `SKSvg` or `SvgAnimationController`, every document operation locks `document.Sync`, and lease disposal detaches only its animation handler. A process-static cache, `SKFontManager.Default`, caller disposal, URI re-parse, and unlocked scene access are rejected forms.
+- Boundary: `SvgPipeline` is a disposable capability constructed with the resolved `SKFontManager`; its caches, typeface provider, retained documents, retained `SvgSource` instances, and racing duplicate disposal stay internal. `Admit` traps parsing, rejects a null picture, and retains the winning document; `Image` builds each tint source once from the admitted document's catalogued `Model`, and `Dispose` releases every source before every document. `SvgLease` never exports `SKSvg` or `SvgAnimationController`, every document operation locks `document.Sync`, and lease disposal detaches only its animation handler. Hit testing is `Topmost`/`Hits` on the lease ALONE — a pipeline-level dispatcher unwrap reached the retained document outside the lock and outside the lease the capability law grants, so it is the deleted form. A process-static cache, `SKFontManager.Default`, caller disposal, URI re-parse, and unlocked scene access are rejected forms.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -213,9 +213,6 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
     public Fin<IImage> Image(AssetKey asset, Color tint) =>
         Load(asset, ScenePolicy.PictureOnly, None).Bind(_ => Try.lift(() => (IImage)AdmitImage(asset, tint)).Run()
             .MapFail(error => new AssetFault.MaterializeRejected(error.Message)));
-
-    public static Option<SvgElement> Hit(SvgInteractionDispatcher dispatcher, float x, float y) =>
-        Optional(dispatcher.HitTestTopmostElement(new SKPoint(x, y)));
 
     private Fin<SKSvg> Admit(AssetKey key, Stream payload) =>
         Try.lift(() => {
@@ -308,10 +305,17 @@ public sealed class RasterAssets : IDisposable {
 
     public Unit Wire() => (ImageLoader.AsyncImageLoader = durable, unit).Item2;
 
+    // Variant selection reads the carrier's own absence: `Seq.Last` answers `Option`, so an empty admitted
+    // set falls to the base source by the rail rather than through a default-struct tuple whose null
+    // `Source` field stands in for "no variant".
     public static Uri Pick(AssetRow row, double scale) =>
         scale < Policy.HiDpiThreshold
             ? row.Source
-            : Optional(row.Variants.Filter(variant => variant.Scale <= scale).OrderBy(static variant => variant.Scale).LastOrDefault().Source).IfNone(row.Source);
+            : row.Variants.Filter(variant => variant.Scale <= scale)
+                .OrderBy(static variant => variant.Scale)
+                .Last
+                .Map(static variant => variant.Source)
+                .IfNone(row.Source);
 
     public void Dispose() { companion.Dispose(); durable.Dispose(); }
 }
@@ -361,10 +365,14 @@ public static class AssetKeys {
 }
 
 public static class AssetCatalog {
+    // Every minted AssetKey lands its row here: a key the vocabulary publishes with no row resolves
+    // `UnknownKey` at its first read, which is the directional-mirror pair's exact shape before these rows.
     public static readonly ImmutableArray<AssetRow> Rows = [
         new(AssetKeys.GeoWorld, AssetKind.Geo, Avares("geo/world.geojson"), Seq<(double, Uri)>(), true),
         new(AssetKeys.IconPlaceholder, AssetKind.Raster, Avares("raster/placeholder.png"), Seq((2d, Avares("raster/placeholder@2x.png"))), true),
         new(AssetKeys.IconError, AssetKind.Raster, Avares("raster/error.png"), Seq((2d, Avares("raster/error@2x.png"))), true),
+        new(AssetKeys.NavBack, AssetKind.Vector, Avares("vector/nav-back.svg"), Seq<(double, Uri)>(), false),
+        new(AssetKeys.NavForward, AssetKind.Vector, Avares("vector/nav-forward.svg"), Seq<(double, Uri)>(), false),
     ];
 
     static Uri Avares(string path) => new("avares://Rasm.AppUi/Assets/" + path);

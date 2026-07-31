@@ -16,15 +16,17 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 - Law: `ObjectProgram` exposes only callbacks backed by a `RhinoObject` virtual, and each adapter forwards the same algebra; unsupported geometry kinds cannot mint phantom hooks.
 - Law: cloud-log severity is data — `Streamed` takes `LogLevel` as a parameter projected once from `HostUtils.LogMessageType` at the tap seam, so one generated event carries every host severity; the host exception rides `Reported`'s typed `Exception` channel, never a stringified hole.
 - Law: sinks key on plugin identity — `ObjectsTelemetry.Configure` admits one `(PluginKey, ILogger)` row per plugin, `Publish` fans every event over the live rows with a per-sink guard so one faulted sink never starves siblings, an empty roster is the `NullLogger` no-op composition, and teardown removes only the caller's row; a later plugin can never shadow an earlier plugin's sink, and the `rasm.rhino.objects.fault`, `rasm.rhino.host.exception`, and `rasm.rhino.host.log` hook points bind onto this fan as telemetry-as-tap.
-- Law: classification rows mint the suite taxonomy pair — `new DataClassification(nameof(DataClassification), "<row>")` on `Microsoft.Extensions.Compliance.Abstractions`, the contract assembly owning `DataClassification` and `DataClassificationAttribute` — and reuse the app-root values `user-content`, `host-identity`, and `personal`, so every row resolves at the fail-closed redactor map without a second taxonomy; redactor binding stays app-root policy outside the adapters.
+- Law: classification rows mint the suite taxonomy pair — `new DataClassification(nameof(DataClassification), "<row>")` on `Microsoft.Extensions.Compliance.Abstractions`, the contract assembly owning `DataClassification` and `DataClassificationAttribute` — and reuse the app-root values `user-content`, `host-path`, `host-identity`, and `personal`, so every row resolves at the fail-closed redactor map without a second taxonomy; redactor binding stays app-root policy outside the adapters. Each row carries its OWN value: only the producer knows whether a payload embeds user content or a host path, so two rows resolving to one value erase at the redactor exactly the bit the boundary exists to supply.
 - Law: the classification sweep is total over the egress — `Error` and host log messages classify `UserContent` (they embed document names and user text), file and directory payloads classify `HostPath`, process, machine, and version evidence classifies `MachineIdentity`, license and lease facts classify `AccountIdentity`; `FaultSite` keys, host source tokens, and event codes stay unclassified public evidence; exception message and stack admission ride the app-root `LoggerEnrichmentOptions` knobs, never a boundary re-scrub.
 - Law: enrichment splits by cost class — `HostStaticEnricher` captures process constants once and `ObjectsTelemetry` composes that classified fact into every generated event; no publish rereads host statics, and each `MachineIdentity` row reaches the app-root redactor through `LogProperties` before egress.
 - Law: `HostTap.Mount` is seat arbitration — the first plugin attaches both host delegates and holds the seat, later plugins ride the seat as keyed rows, a rider's disposal removes only its row, and the owner's disposal hands the seat to the senior rider with the delegates still attached or detaches both and returns the seat vacant; delegate identity stays exact, disposal is idempotent, and every plugin mounts beside its own `ObjectsTelemetry.Configure`.
-- Law: instrument projection is declared, never executed, in-boundary — `RhinoInstrumentPartition.Rows` maps each receipt kind to `rasm.rhino.<domain>.<measure>` instruments with UCUM units, the source receipt field, and attribution tags, the app root transcribes the kinds into its contributed arm table and merges them into the branch instrument fan, and a row names only a field its receipt already carries — the partition is projection truth, never a second measurement; tenant attribution is app-root baggage promotion, never a boundary field; marshal-seam latency rides the `MarshalLatency` checkpoints on `HostUi/shell.md`, whose `DurationInstrument` constant mirrors the `rasm.rhino.hostui.marshal.duration` label this partition projects.
+- Law: instrument projection is declared, never executed, in-boundary — `RhinoInstrumentPartition.Rows` maps each receipt kind to `rasm.rhino.<domain>.<measure>` instruments with UCUM units, the source receipt field, and attribution tags, the app root transcribes the kinds into its contributed arm table and merges them into the branch instrument fan, and a row names only a field its receipt already carries — the partition is projection truth, never a second measurement. Every in-scope source spells its field through `nameof` against the receipt type, so a renamed or absent field breaks the build instead of stranding a row, and one row projects one field: a tag naming a dimension its source does not carry is a second row over the field that does. tenant attribution is app-root baggage promotion, never a boundary field; marshal-seam latency rides the `MarshalLatency` checkpoints on `HostUi/shell.md`, whose `DurationInstrument` constant mirrors the `rasm.rhino.hostui.marshal.duration` label this partition projects.
 - Law: `ObjectsHooks.Mount` registers this page's six registry points through `MountRegistry.MountAll` — the three veto points admit only a program already carrying the veto hook (`ObjectProgram.Viewable`, `ObjectProgram.Pick`, `GripProgram` regrow) and grant that program back for adapter composition, the fault point binds a caller `ILogger` onto `ObjectsTelemetry.Configure`, and both host-tap points bind the caller's `PluginKey` onto the one `HostTap.Mount` seat — so every point resolves through `MountRegistry.Bind`, and a later refusal releases every earlier seat.
 - Law: the render-mesh surface is the five-virtual cache family — `IsMeshable`, `MeshCount`, `CreateMeshes`, `GetMeshes`, and `DestroyMeshes` refine base-first through one `RenderMeshProgram`; no `OnGetRenderMeshes` virtual exists to forward, the non-virtual RDK accessor trio (`HasCustomRenderMeshes`, `CustomRenderMeshesBoundingBox`, the `RenderMeshes` delegator) stays the Display and Render owners' viewport-and-pipeline context, and the `Rhino.Render.CustomRenderMeshes.RenderMeshProvider` registration adapter belongs to that seam, never an object hook.
 - Law: replacement cache meshes are kernel-built — a `Cached` or `Built` hook supplying geometry composes `Meshes.Build` over the `MeshOp` and `MeshEdit` algebra, never a hand-assembled native `Mesh` or a `Mesh.CreateFromSurface` grid; roster meshes handed back become host-owned at the return, and the live `MeshingParameters` each virtual receives crosses to hooks encoded as `MeshPolicy`, never as the native carrier.
 - Law: a hook fault never escapes and never degrades to transcript text — every `Fin` refusal publishes the `ObjectCallbackFaulted` event with its `FaultSite` and typed `Error` before the host fallback returns; `NullLogger` is the logger-less composition, and provider policy remains outside the adapters.
+- Law: the egress reports its OWN faults — `Publish` answers a `TelemetryFan` carrying the delivered-sink count beside every per-sink failure, and those failures park on the boundary's evidence cell that `DrainFaults` empties, because the callers are host callbacks with no rail to carry them outward; erasing a sink fault to `unit` makes the one surface whose job is reporting faults the one surface that cannot report its own.
+- Law: the grip enabler returns its seat — `GripRig.Register` answers `Fin<IDisposable>` whose disposal re-registers an inert enabler under the same `[Guid]`, matching the three sibling registrations; the host publishes no unregister and re-registration is its only removal, so the asymmetry lives in the seat's implementation rather than in every caller's head.
 - Law: picked objects cross as captures — `PickCandidate` couples a callback-local slot with `PickCapture`; `Pick` returns admitted slots and `OnPicked` stricts the host's picked sequence once before the base call, so a one-shot enumerable feeds base and program alike and neither `ObjRef` nor `PickContext` enters program state.
 - Law: base runs first — every forwarding override invokes the host base before its hook, so standard drawing, transform application, and pick behavior survive an inert program, and a program augments rather than re-implements; suppression of base behavior is a genuinely new adapter, never a program flag.
 - Growth: a new host virtual is one program field with one forwarding line per adapter.
@@ -74,7 +76,7 @@ public static class HostSensitivity {
     public static readonly DataClassification UserContent =
         new(taxonomyName: nameof(DataClassification), value: "user-content");
     public static readonly DataClassification HostPath =
-        new(taxonomyName: nameof(DataClassification), value: "user-content");
+        new(taxonomyName: nameof(DataClassification), value: "host-path");
     public static readonly DataClassification MachineIdentity =
         new(taxonomyName: nameof(DataClassification), value: "host-identity");
     public static readonly DataClassification AccountIdentity =
@@ -133,6 +135,7 @@ public sealed record ObjectProgram(
 public static partial class ObjectsTelemetry {
     private const int Band = 6400;
     private static readonly Atom<HashMap<PluginKey, ILogger>> Sinks = Atom(HashMap<PluginKey, ILogger>());
+    private static readonly Atom<Seq<Error>> EgressFaults = Atom(Seq<Error>());
 
     public static Fin<IDisposable> Configure(PluginKey plugin, ILogger sink, Op? key = null) {
         Op op = key.OrDefault();
@@ -180,7 +183,12 @@ public static partial class ObjectsTelemetry {
         [LogProperties(OmitReferenceName = true, SkipNullProperties = true)] HostLogFact fact,
         [LogProperties(OmitReferenceName = true)] HostStaticFact host);
 
-    internal static Unit Publish(FaultSite site, Error error) =>
+    // The egress cannot carry a sink fault outward — every caller is a host callback returning `void` — so the
+    // fan PARKS it on the boundary's own evidence cell and reports the delivery split; `IfFail`-to-`unit` would
+    // make a broken sink undetectable at the one surface whose whole job is reporting faults.
+    public static Seq<Error> DrainFaults() => EgressFaults.Swap(static _ => Seq<Error>());
+
+    internal static TelemetryFan Publish(FaultSite site, Error error) =>
         Fan(sink => Faulted(
             sink,
             site: site,
@@ -190,7 +198,7 @@ public static partial class ObjectsTelemetry {
                 Exceptional: error.IsExceptional),
             host: HostStaticEnricher.Current));
 
-    internal static Unit Publish(FaultSite site, string source, Exception cause) =>
+    internal static TelemetryFan Publish(FaultSite site, string source, Exception cause) =>
         Fan(sink => Reported(
             sink,
             site: site,
@@ -198,20 +206,33 @@ public static partial class ObjectsTelemetry {
             cause: cause,
             host: HostStaticEnricher.Current));
 
-    internal static Unit Publish(HostLogFact fact, LogLevel level) =>
+    internal static TelemetryFan Publish(HostLogFact fact, LogLevel level) =>
         Fan(sink => Streamed(sink, level: level, fact: fact, host: HostStaticEnricher.Current));
 
     // Per-sink guard: one faulted sink never starves siblings; a logging failure never re-enters host callback flow.
-    private static Unit Fan(Action<ILogger> emit) {
+    private static TelemetryFan Fan(Action<ILogger> emit) {
         Seq<ILogger> sinks = toSeq(Sinks.Value).Map(static row => row.Value);
         Seq<ILogger> live = sinks.IsEmpty ? Seq<ILogger>(NullLogger.Instance) : sinks;
-        return live.Fold(unit, (_, sink) => Try.lift(() => {
+        TelemetryFan settled = live.Fold(
+            TelemetryFan.Empty,
+            (held, sink) => Op.Of(name: nameof(ObjectsTelemetry)).Catch(() => {
                     emit(sink);
-                    return unit;
+                    return Fin.Succ(value: unit);
                 })
-                .Run()
-                .IfFail(static _ => unit));
+                .Match(Succ: _ => held.Delivered(), Fail: held.Refused));
+        return settled.Faults.IsEmpty
+            ? settled
+            : (ignore(EgressFaults.Swap(held => held + settled.Faults)), settled).Item2;
     }
+}
+
+// One delivery split per publish: the count a caller can act on beside the faults the cell parks.
+public readonly record struct TelemetryFan(int Sinks, Seq<Error> Faults) {
+    internal static readonly TelemetryFan Empty = new(Sinks: 0, Faults: Seq<Error>());
+
+    internal TelemetryFan Delivered() => this with { Sinks = Sinks + 1 };
+
+    internal TelemetryFan Refused(Error fault) => this with { Faults = Faults.Add(value: fault) };
 }
 
 public sealed record InstrumentSlice(string Instrument, string Unit, string Source, Seq<string> Tags);
@@ -245,10 +266,31 @@ public static class RhinoInstrumentPartition {
         [MarshalKind] = Seq(
             new InstrumentSlice("rasm.rhino.hostui.marshal.duration", "s", "MarshalLatency", Seq("work", "outcome"))),
         [CensusKind] = Seq(
-            new InstrumentSlice("rasm.rhino.document.census.objects", "{object}", "DocumentCensus.Kinds", Seq("kind", "space", "document")),
-            new InstrumentSlice("rasm.rhino.document.census.layers", "{layer}", "DocumentCensus.Layers", Seq("document")),
-            new InstrumentSlice("rasm.rhino.document.census.placements", "{placement}", "DocumentCensus.Blocks", Seq("document")),
-            new InstrumentSlice("rasm.rhino.document.census.archive.size", "By", "DocumentCensus.Archive", Seq("document"))),
+            new InstrumentSlice(
+                "rasm.rhino.document.census.objects",
+                "{object}",
+                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.Kinds)}",
+                Seq("kind", "document")),
+            new InstrumentSlice(
+                "rasm.rhino.document.census.spaces",
+                "{object}",
+                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.Spaces)}",
+                Seq("space", "document")),
+            new InstrumentSlice(
+                "rasm.rhino.document.census.layers",
+                "{layer}",
+                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.LayerCount)}",
+                Seq("document")),
+            new InstrumentSlice(
+                "rasm.rhino.document.census.placements",
+                "{placement}",
+                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.BlockPlacements)}",
+                Seq("document")),
+            new InstrumentSlice(
+                "rasm.rhino.document.census.archive.size",
+                "By",
+                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.Archive)}",
+                Seq("document"))),
         [BenchKind] = Seq(
             new InstrumentSlice("rasm.rhino.bench.duration", "s", "BenchEvidence.Duration", Seq("operation", "scale")),
             new InstrumentSlice("rasm.rhino.bench.allocated", "By", "BenchEvidence.AllocatedBytes", Seq("operation", "scale"))),
@@ -285,15 +327,14 @@ public sealed class HostTap : IDisposable {
     // Delegates attach before the CAS commit; a lost race detaches its own pair and rides the winner's seat.
     private static Fin<IDisposable> Claim(PluginKey plugin, Op op) =>
         op.Catch(() => {
-            HostUtils.ExceptionReportDelegate reported = static (source, ex) =>
-                ObjectsTelemetry.Publish(
-                    site: FaultSite.HostException,
-                    source: source ?? nameof(HostUtils),
-                    cause: ex);
+            HostUtils.ExceptionReportDelegate reported = static (source, ex) => ignore(ObjectsTelemetry.Publish(
+                site: FaultSite.HostException,
+                source: source ?? nameof(HostUtils),
+                cause: ex));
             HostUtils.SendLogMessageToCloudDelegate streamed = static (kind, sClass, sDesc, sMessage) =>
-                ObjectsTelemetry.Publish(
+                ignore(ObjectsTelemetry.Publish(
                     fact: new HostLogFact(Class: sClass, Description: sDesc, Message: sMessage),
-                    level: Severity(kind: kind));
+                    level: Severity(kind: kind)));
             HostUtils.OnExceptionReport += reported;
             HostUtils.OnSendLogMessageToCloud += streamed;
             Seq<Action> detachers = Seq<Action>(
@@ -403,7 +444,7 @@ public static class ObjectsHooks {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class HostForward {
     internal static Unit Reported(this Fin<Unit> outcome, FaultSite site) =>
-        outcome.IfFail(error => ObjectsTelemetry.Publish(site: site, error: error));
+        outcome.IfFail(error => ignore(ObjectsTelemetry.Publish(site: site, error: error)));
 
     internal static Unit Run<TArgs>(this Option<Func<TArgs, Fin<Unit>>> hook, TArgs args) =>
         hook.Map(run => Op.Of(name: nameof(ObjectProgram)).Catch(() => run(args))
@@ -421,14 +462,14 @@ internal static class HostForward {
         attempted.Match(
             Some: outcome => outcome.Match(
                 Succ: identity,
-                Fail: error => (ObjectsTelemetry.Publish(site: site, error: error), inherited).Item2),
+                Fail: error => (ignore(ObjectsTelemetry.Publish(site: site, error: error)), inherited).Item2),
             None: () => inherited);
 
     internal static T Probe<T>(Option<Fin<Option<T>>> attempted, FaultSite site, Func<T> inherited) =>
         attempted.Match(
             Some: outcome => outcome.Match(
                 Succ: found => found.IfNone(inherited),
-                Fail: error => (ObjectsTelemetry.Publish(site: site, error: error), inherited()).Item2),
+                Fail: error => (ignore(ObjectsTelemetry.Publish(site: site, error: error)), inherited()).Item2),
             None: inherited);
 
     internal static Seq<ObjRef> Sift(this ObjectProgram program, Seq<ObjRef> candidates) =>
@@ -807,27 +848,44 @@ public abstract class RasmGrips : CustomObjectGrips {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class GripRig {
-    public static Fin<Unit> Register<TGrips>(Func<RhinoObject, Option<TGrips>> mint) where TGrips : CustomObjectGrips {
+    // The registration is process-wide and the host publishes no unregister — re-registration on the type's own
+    // `[Guid]` REPLACES the prior enabler and is therefore the only removal it admits. Disposal takes exactly that
+    // route with an inert enabler, so the seat returns to the same shape the three sibling registrations hand back
+    // and no caller has to know the host's asymmetry. The enabler outlives this call, so it mints its OWN key per
+    // delivery: one captured key would stamp every later host callback with one stale provenance.
+    public static Fin<IDisposable> Register<TGrips>(Func<RhinoObject, Option<TGrips>> mint)
+        where TGrips : CustomObjectGrips {
         Op op = Op.Of(name: nameof(GripRig));
         return from factory in op.Need(mint)
-               from __ in guard(
+               from _ in guard(
                    typeof(TGrips).IsDefined(typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false),
                    op.InvalidInput()).ToFin()
-               from _ in op.Catch(() => {
+               from seat in op.Catch(() => {
                    CustomObjectGrips.RegisterGripsEnabler(
-                       enabler: candidate => {
-                           Fin<Unit> enabled = op.Catch(() => factory(candidate).Match(
-                               Some: grips => op.Confirm(success: candidate.EnableCustomGrips(customGrips: grips))
-                                   .MapFail(error => {
-                                       grips.Dispose();
-                                       return error;
-                                   }),
-                               None: () => Fin.Succ(value: unit)));
-                           _ = enabled.Reported(FaultSite.GripRegistration);
-                       },
+                       enabler: candidate => Enable(factory: factory, candidate: candidate),
                        customGripsType: typeof(TGrips));
+                   return Fin.Succ<IDisposable>(value: Subscription.Of(detach: () => ignore(
+                       Op.Of(name: nameof(GripRig)).Catch(() => {
+                           CustomObjectGrips.RegisterGripsEnabler(
+                               enabler: static _ => { },
+                               customGripsType: typeof(TGrips));
+                           return Fin.Succ(value: unit);
+                       }))));
                })
-               select unit;
+               select seat;
+    }
+
+    private static void Enable<TGrips>(Func<RhinoObject, Option<TGrips>> factory, RhinoObject candidate)
+        where TGrips : CustomObjectGrips {
+        Op key = Op.Of(name: nameof(GripRig));
+        _ = key.Catch(() => factory(candidate).Match(
+                Some: grips => key.Confirm(success: candidate.EnableCustomGrips(customGrips: grips))
+                    .MapFail(error => {
+                        grips.Dispose();
+                        return error;
+                    }),
+                None: () => Fin.Succ(value: unit)))
+            .Reported(FaultSite.GripRegistration);
     }
 }
 ```

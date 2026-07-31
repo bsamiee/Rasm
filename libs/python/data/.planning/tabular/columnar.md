@@ -1,13 +1,13 @@
 # [PY_DATA_COLUMNAR]
 
-The dataset-reference identity owner and the folder's scan base: one polymorphic `DatasetRef` discriminating by source shape, the cross-engine lazy/streaming scan, the request-scoped DuckDB session rail, the typed columnar egress, and the content-keyed query receipt. The pure base of the tabular plane — it imports nothing from `rasm.data`, sits above `interop` alone, and holds zero back-edges, so every folder composition edge points strictly down into it.
+The dataset-reference identity owner and the folder's scan base: one polymorphic `DatasetRef` discriminating by source shape, the cross-engine lazy/streaming scan, the request-scoped DuckDB session rail, the typed columnar egress, and the content-keyed query receipt. The folder's scan base above `interop` alone — it imports that one module downward for the `arrow_bytes` serialization and holds zero back-edges, so every other folder composition edge points strictly down into it.
 
-`DuckDbSession` authors the connect-install-attach lifecycle once and is composed downward by `tabular/query`, `tabular/materialize`, `spatial/query`, and `tabular/lakehouse`, each supplying its own `DuckDbExtension` and `Attach` rows rather than a hand-rolled `duckdb.connect()`-plus-install site; `quote_ident`/`quote_literal` are the exported quoting folds every composing owner spells its identifiers and URI literals through, so one escape rule serves the whole DuckDB plane; the same session owns the engine-profiling harvest — DuckDB exposes no scrape surface, so the profiled bracket IS the engine's observability, folded onto the one `QueryReceipt` stream and projected onto the runtime metric spine as `domain="query"` measures. `ScanPlan` sources refs, globs, and wire rows; SQL naming its own sources is `tabular/query#QUERY` `QuerySpec.Sql`'s concern — the standing scan/query boundary. The `predicate_count` fold and its `_PREDICATE_NODES` widening are declared here and imported by `tabular/query#QUERY` `_provenance`, so scan and query receipts count predicates off one source. `arrow_bytes` is the PUBLIC whole-table serialization fold every content key over a table payload rides, and `arrow_columns` its admitting half — the one entry converting a producer's declared column roster and sealed arrays into that table. Three wire seams cross the edge as data endpoints: `tabular ← python:artifacts/documents` (the `Corpus` arm over `to_corpus_record` records), `tabular/columnar ← graph/graph` (the `pyarrow` `Table.join` left-outer enrichment of a `GraphResult.frame` node table), and `tabular/columnar ← python:geometry/graduation` (the `EvidenceFrame` and energy `ResultFrame` carriers through `arrow_columns`). Every receipt wires through runtime `ReceiptContributor` and keys by runtime `ContentIdentity`.
+`DuckDbSession` authors the connect-install-attach lifecycle once and is composed downward by `tabular/query`, `tabular/materialize`, `spatial/query`, and `tabular/lakehouse`, each supplying its own `DuckDbExtension` and `Attach` rows rather than a hand-rolled `duckdb.connect()`-plus-install site; `quote_ident`/`quote_literal` are the exported quoting folds every composing owner spells its identifiers and URI literals through, so one escape rule serves the whole DuckDB plane; the same session owns the engine-profiling harvest — DuckDB exposes no scrape surface, so the profiled bracket IS the engine's observability, folded onto the one `QueryReceipt` stream and projected onto the runtime metric spine as `domain="query"` measures. `ScanPlan` sources refs, globs, and wire rows; SQL naming its own sources is `tabular/query#QUERY` `QuerySpec.Sql`'s concern — the standing scan/query boundary. The `predicate_count` fold and its `_PREDICATE_NODES` widening are declared here and imported by `tabular/query#QUERY` `_provenance`, so scan and query receipts count predicates off one source. `arrow_bytes` is the `tabular/interop#INTEROP` whole-table serialization every content key over a table payload rides, imported downward and never re-spelled; `arrow_columns` stays this owner's own admitting half — the one entry converting a producer's declared column roster and sealed arrays into that table. Three wire seams cross the edge as data endpoints: `tabular ← python:artifacts/documents` (the `Corpus` arm over `to_corpus_record` records), `tabular/columnar ← graph/graph` (the `pyarrow` `Table.join` left-outer enrichment of a `GraphResult.frame` node table), and `tabular/columnar ← python:geometry/graduation` (the `EvidenceFrame` and energy `ResultFrame` carriers through `arrow_columns`). Every receipt wires through runtime `ReceiptContributor` and keys by runtime `ContentIdentity`.
 
 ## [01]-[INDEX]
 
 - [02]-[DATASET]: the `DatasetRef` identity owner discriminating the columnar source shapes.
-- [03]-[SCAN]: the DuckDB session rail, the engine scan plans, the typed egress, the public `arrow_bytes` fold, and the content-keyed query receipt.
+- [03]-[SCAN]: the DuckDB session rail, the engine scan plans, the typed egress, the `arrow_columns` admitting fold, and the content-keyed query receipt.
 
 ## [02]-[DATASET]
 
@@ -72,15 +72,15 @@ class DatasetRef(Struct, frozen=True):
 
 ## [03]-[SCAN]
 
-- Owner: `ScanPlan` — the engine/projection/predicate/partition policy tagged union; `WindowFunction` the analytical window-verb row carrying its OVER-node spelling; `ExcelSpec` the named decode-policy `Struct` the `Excel` case carries; `Attach` the attached-catalog row `DuckDbSession` folds into its own `ATTACH` statement; `ColumnarEgress` the typed export over single-file Arrow/Parquet/IPC targets and the hive-partitioned Parquet tree alike; `QueryReceipt` the one receipt fold over scan plus transform plus egress, carrying the optional column-level `lineage_edges` the `tabular/query#QUERY` `QueryEngine` populates (`sqlglot.lineage` over the qualified SQL, `ibis.to_sql` over the bound expression) and the scan path leaves empty, plus the optional `EngineProfile` the profiled bracket harvests. Every case terminates in the same `RuntimeRail[pa.Table]` over the Arrow C Data Interface.
+- Owner: `ScanPlan` — the engine/projection/predicate/partition policy tagged union; `WindowFunction` the analytical window-verb row carrying its OVER-node spelling; `ExcelSpec` the named decode-policy `Struct` the `Excel` case carries; `Attach` the attached-catalog row `DuckDbSession` folds into its own `ATTACH` statement; `SecretRow` over the closed `SecretType` vocabulary the same session issues once per connection as `CREATE SECRET … PROVIDER credential_chain` DDL, and `remote_store` the one obstore-backed filesystem handle it registers; `ColumnarEgress` the typed export over single-file Arrow/Parquet/IPC targets and the hive-partitioned Parquet tree alike; `QueryReceipt` the one receipt fold over scan plus transform plus egress, carrying the optional column-level `lineage_edges` the `tabular/query#QUERY` `QueryEngine` populates (`sqlglot.lineage` over the qualified SQL, `ibis.to_sql` over the bound expression) and the scan path leaves empty, plus the optional `EngineProfile` the profiled bracket harvests. Every case terminates in the same `RuntimeRail[pa.Table]` over the Arrow C Data Interface.
 - Cases: closed by `assert_never`, each binding the engine or wire that owns it. `ArrowDataset` takes a pre-built `pyarrow.dataset.Expression` predicate the body never re-parses from a string. `IoSource` lifts a `DatasetRef` into a `LazyFrame` through `register_io_source` reading the same `DatasetKind.scan_reader` the `PolarsLazy` arm reads, so the plugin-pushed and direct-lazy scans over one ref fold the byte-identical receipt. The distributed out-of-core runner is the `tabular/query#QUERY` `QuerySpec.Streaming` daft case, never a scan arm; a connection-sourced remote read is `QuerySpec.Remote`, never a scan arm — this owner sources files, globs, and the two wire-ingest rows, never a database connection.
 - Entry: `execute(plan, dataset)` returns `RuntimeRail[pa.Table]` over the Arrow C Data Interface for the egress hop; `scan(plan, dataset)` binds the same materialization into `RuntimeRail[tuple[pa.Table, QueryReceipt]]`, threading `QueryReceipt.railed(..., predicate_count=plan.predicate_count)` so the scan-only path carries the egress path's receipt. `ScanPlan.predicate_count` is the one derived projection over the case axis — the `DuckDb` arm calling the exported `predicate_count(sql)` fold `tabular/query#QUERY` `_provenance` shares, so scan and query count predicates identically, never a hardcoded `0`. `QueryReceipt.railed` derives the content key off the canonical Arrow bytes through the railed `ContentIdentity.of` and `.map`s the resolved key into the receipt; `QueryReceipt.of` is the plain factory taking the already-resolved key.
 - Entry: `ColumnarEgress` splits its write in two — `emit` lands the bytes and answers the `Landed` file-and-byte evidence, `write` composes that half with the scan-plane `QueryReceipt`. An evidence-plane commit takes `emit`, because a `QueryReceipt` minted for it enters the receipt stream as a query-domain row and prices a residence's own storage as a query.
-- Auto: the polars path selects its lazy reader off `dataset.kind` through `DatasetKind.scan_reader`, then runs `.select().filter().collect(engine="streaming")` — `engine="streaming"` the streaming spelling, never the `collect(streaming=True)` flag. `ScanPlan.DuckDb` binds the admitted ref as the one `source` view through the `_DUCK_READER` `DatasetKind`-keyed row — a SQL TABLE FUNCTION beside the extension it needs, because DuckDB exposes only a few readers as connection methods and the analytics residence's own reader is `delta_scan` — so the SQL is source-scoped by construction and the evidence table answers an interactive read. `RemoteGlob` opens `DuckDbSession(extensions=(DuckDbExtension.HTTPFS,), filesystem=dataset.ref.path.fs)` and `register_filesystem` threads the runtime-resolved `fsspec` handle so `s3`/`gcs` globs authenticate through the one runtime `runtime/transport/roots#RESOURCE` filesystem. Cold `polars` and `fastexcel` imports defer at module scope. Every engine harvests its OWN payload through the case that carries it — DuckDB the profiling JSON its connection answers, polars its node-timing frame, Daft its `DataFrame.metrics` rows — and `ProfileHarvest.scalar` stays the portable floor an engine publishing no payload rides; each case answers zero for the facts its engine measures nowhere rather than aliasing latency onto them.
+- Auto: the polars path selects its lazy reader off `dataset.kind` through `DatasetKind.scan_reader`, then runs `.select().filter().collect(engine="streaming")` — `engine="streaming"` the streaming spelling, never the `collect(streaming=True)` flag. `ScanPlan.DuckDb` binds the admitted ref as the one `source` view through the `_DUCK_READER` `DatasetKind`-keyed row — a SQL TABLE FUNCTION beside the extension it needs, because DuckDB exposes only a few readers as connection methods and the analytics residence's own reader is `delta_scan` — so the SQL is source-scoped by construction and the evidence table answers an interactive read. `RemoteGlob` opens `DuckDbSession(extensions=(DuckDbExtension.HTTPFS, …), filesystem=remote_store(dataset.ref))` so `register_filesystem` threads an `obstore.fsspec.FsspecStore` over the SAME Rust core, `STORE_RETRY` envelope, and credential resolution every other remote read in the branch crosses — `UPath.fs` is the deleted form, resolving fsspec's own `s3fs`/`gcsfs`/`adlfs` backend as a second provider stack the estate's pinned retry config never reaches. Cold `polars`, `fastexcel`, and `obstore.fsspec` imports defer at module scope. Every engine harvests its OWN payload through the case that carries it — DuckDB the profiling JSON its connection answers, polars its node-timing frame, Daft its `DataFrame.metrics` rows — and `ProfileHarvest.scalar` stays the portable floor an engine publishing no payload rides; each case answers zero for the facts its engine measures nowhere rather than aliasing latency onto them.
 - Receipt: the scan contributes an emitted-phase `Receipt.of(owner, ("emitted", subject, facts))` row through `ReceiptContributor` (the two-argument owner-plus-evidence factory, the `(Phase, subject, facts)` triple, never a four-positional call) and produces a `QueryReceipt` keyed by `ContentIdentity` over the canonical `arrow_bytes`, never the `engine:source` string a content change cannot move. The `Excel`/`Corpus` wire arms key over their decoded Arrow bytes so a re-ingest of an unchanged workbook or corpus reuses its key, and the `Excel` arm stamps its path-shaped decode evidence as Arrow schema metadata so it rides the uniform `pa.Table` into the receipt rather than vanishing at the bare return. Receipts stay truth and instruments stay projections: a profile-bearing `contribute` records the engine latency and row count onto the runtime `Metrics.record` mapping arm under `domain="query"`, keyed by the engine tag, and an unprofiled receipt records nothing.
-- Packages: `polars`, `duckdb`, `pyarrow`, `sqlglot`, `fastexcel`, `tabular/interop` (the `ArrowCStream`/`FrameInterop` carrier the `Corpus` arm rides zero-copy), `beartype` (`@beartype(conf=FAULT_CONF)` on the `execute`/`scan` entrypoints; the `QueryReceipt`/`ScanPlan`/`ColumnarEgress` staticmethods over already-admitted values carry no decorator), runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`/`FAULT_CONF`/`ResourceRef`, and `Metrics.record` as the one instrument projection port — the DBAPI span train (`PsycopgInstrumentor`/`SQLite3Instrumentor`) activates at the runtime composition root, never at data altitude). The `DuckDbSession` owner authors the connect-install-register lifecycle once with the `DuckDbExtension` rows as seed data. The `pyarrow` `Table.join` left-outer join is the data-side endpoint of the `tabular/columnar ← graph/graph [WIRE]` seam, enriching a `GraphResult.frame` node-index-keyed table by the stable `node` key.
-- Growth: a new engine is one `ScanPlan` case; a new DuckDB extension is one `DuckDbExtension` row (repository and attach type both row properties) every session consumer names for free; a new attachable catalog is one `_ATTACH_TYPE` row its `Attach` value then spells for free; a new object-store scheme is one `_SCHEME_EXTENSION` row every remote scan reads; a new lazy-pushdown source is one `DatasetKind.scan_reader` row the polars arms and the `IoSource` plugin already forward; a new DuckDB-readable ref kind is one `_DUCK_READER` row naming its table function beside the extension that function needs; a new window verb is one `WindowFunction` row; a new decode knob is one `ExcelSpec` field; a new corpus wire field is one column `from_pylist` already folds; a new egress format is one `ColumnarEgress` branch answering its own `Landed` evidence; a new native profile shape is one `ProfileHarvest` case; a new harvested profile fact is one `EngineProfile` field; a new query instrument is one measure name in `contribute` and one `InstrumentSpec` row on the runtime metrics owner.
-- Boundary: no durable query rails, no global DuckDB connection, the `DuckDbSession` bracket request-scoped by law; a hand-written `ATTACH` beside the `Attach` session row and a page-private SQL-quoting twin beside the exported `quote_ident`/`quote_literal` folds are the deleted forms, both drifting the escape and dialect rule the moment one owner meets a name the other never tested; a free-form `con.sql(sql)` scan arm binding no admitted source where the `DuckDb` case binds the ref's `source` view and `QuerySpec.Sql` owns self-sourced SQL; a `scan_remote`/`scan_glob`/`window_rank`/`read_excel`/`ingest_corpus` method family, a generic receipt abstraction, a per-engine egress class family, a second SQL engine or second transport owner are the deleted forms; a `fastexcel` `ScanPlan` backend row where it is a `DatasetKind`-plus-capsule producer; a per-format polars IO plugin where one `register_io_source` reads `dataset.kind`; a local graph node-table owner or a `graph`-named `ScanPlan` arm where the `graph/graph#GRAPH` `GraphResult.frame` node table left-joins through the existing `pyarrow` `Table.join`; a pre-loaded-httpfs assumption; and an undecorated `execute`/`scan` admitting a caller argument without the `@beartype(conf=FAULT_CONF)` public-seam contract.
+- Packages: `polars`, `duckdb`, `pyarrow`, `sqlglot`, `fastexcel`, `obstore` (`fsspec.FsspecStore` — the sanctioned filesystem-interface bridge over the branch object-store core, reached exactly where DuckDB demands a filesystem handle and never as a second IO owner), `tabular/interop` (`arrow_bytes`, the folder's one whole-table IPC serialization this owner keys every receipt through and never re-spells), `beartype` (`@beartype(conf=FAULT_CONF)` on the `execute`/`scan` entrypoints; the `QueryReceipt`/`ScanPlan`/`ColumnarEgress` staticmethods over already-admitted values carry no decorator), runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`/`FAULT_CONF`/`ResourceRef`, and `Metrics.record` as the one instrument projection port — the DBAPI span train (`PsycopgInstrumentor`/`SQLite3Instrumentor`) activates at the runtime composition root, never at data altitude). The `DuckDbSession` owner authors the connect-install-register lifecycle once with the `DuckDbExtension` rows as seed data. The `pyarrow` `Table.join` left-outer join is the data-side endpoint of the `tabular/columnar ← graph/graph [WIRE]` seam, enriching a `GraphResult.frame` node-index-keyed table by the stable `node` key.
+- Growth: a new engine is one `ScanPlan` case; a new DuckDB extension is one `DuckDbExtension` row (repository and attach type both row properties) every session consumer names for free; a new attachable catalog is one `_ATTACH_TYPE` row its `Attach` value then spells for free; a new object-store scheme is one `_SCHEME_EXTENSION` row every remote scan reads; a new in-engine credential type is one `SecretType` member with its `_SECRET_EXTENSION` row, the session's extension union and its DDL both deriving; a bespoke object-store credential provider is the existing `remote_store` argument, never a second store construction; a new lazy-pushdown source is one `DatasetKind.scan_reader` row the polars arms and the `IoSource` plugin already forward; a new DuckDB-readable ref kind is one `_DUCK_READER` row naming its table function beside the extension that function needs; a new window verb is one `WindowFunction` row; a new decode knob is one `ExcelSpec` field; a new corpus wire field is one column `from_pylist` already folds; a new egress format is one `ColumnarEgress` branch answering its own `Landed` evidence; a new native profile shape is one `ProfileHarvest` case; a new harvested profile fact is one `EngineProfile` field; a new query instrument is one measure name in `contribute` and one `InstrumentSpec` row on the runtime metrics owner.
+- Boundary: no durable query rails, no global DuckDB connection, the `DuckDbSession` bracket request-scoped by law; a hand-written `ATTACH` beside the `Attach` session row and a page-private SQL-quoting twin beside the exported `quote_ident`/`quote_literal` folds are the deleted forms, both drifting the escape and dialect rule the moment one owner meets a name the other never tested; a free-form `con.sql(sql)` scan arm binding no admitted source where the `DuckDb` case binds the ref's `source` view and `QuerySpec.Sql` owns self-sourced SQL; a `scan_remote`/`scan_glob`/`window_rank`/`read_excel`/`ingest_corpus` method family, a generic receipt abstraction, a per-engine egress class family, a second SQL engine or second transport owner are the deleted forms; a `fastexcel` `ScanPlan` backend row where it is a `DatasetKind`-plus-capsule producer; a per-format polars IO plugin where one `register_io_source` reads `dataset.kind`; a local graph node-table owner or a `graph`-named `ScanPlan` arm where the `graph/graph#GRAPH` `GraphResult.frame` node table left-joins through the existing `pyarrow` `Table.join`; a pre-loaded-httpfs assumption; a `UPath.fs` handle handed to `register_filesystem` where `remote_store` bridges the one branch store, which second provider stack authenticates, retries, and pools outside every envelope the estate pins; key material spelled into a `CREATE SECRET` statement where `PROVIDER credential_chain` reads the provider's own chain, and a `CREATE OR REPLACE SECRET` whose silent replacement hides a caller's colliding row; a whole-table serialization re-spelled here beside the imported `tabular/interop#INTEROP` `arrow_bytes`, which two spellings of one byte stream fork into two content keys for one frame; and an undecorated `execute`/`scan` admitting a caller argument without the `@beartype(conf=FAULT_CONF)` public-seam contract.
 
 ```python signature
 import duckdb
@@ -90,7 +90,7 @@ import pyarrow.dataset as pads
 import pyarrow.feather as paf
 import pyarrow.parquet as papq
 import sqlglot
-from collections.abc import Buffer, Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from enum import StrEnum
 from itertools import chain
@@ -100,6 +100,7 @@ from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
 lazy import fastexcel
 lazy import polars as pl
+lazy from obstore.fsspec import FsspecStore
 
 from beartype import beartype
 from expression import case, tag, tagged_union
@@ -109,10 +110,12 @@ from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
 
+from rasm.data.tabular.interop import arrow_bytes
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
+from rasm.runtime.roots import STORE_RETRY, ResourceRef
 
 if TYPE_CHECKING:
     from polars import Expr, LazyFrame
@@ -199,6 +202,49 @@ _SCHEME_EXTENSION: Final[Map[str, DuckDbExtension]] = Map.of_seq([
     ("abfs", DuckDbExtension.AZURE),
     ("abfss", DuckDbExtension.AZURE),
 ])
+
+
+class SecretType(StrEnum):
+    # the DuckDB secret TYPES the provider extensions register. The two halves differ: `httpfs` registers `s3`,
+    # `gcs`, and `r2` beside their protocol while `aws` supplies the `credential_chain` PROVIDER over all three,
+    # whereas `azure` registers its own protocol AND its own type — `duckdb_secret_types()` names no azure type
+    # until that extension loads. A row therefore names the extensions it needs rather than a caller listing them.
+    S3 = "s3"
+    GCS = "gcs"
+    R2 = "r2"
+    AZURE = "azure"
+
+    @property
+    def extensions(self) -> tuple[DuckDbExtension, ...]:
+        return _SECRET_EXTENSION[self.value]
+
+
+_SECRET_EXTENSION: Final[Map[str, tuple[DuckDbExtension, ...]]] = Map.of_seq([
+    ("s3", (DuckDbExtension.HTTPFS, DuckDbExtension.AWS)),
+    ("gcs", (DuckDbExtension.HTTPFS, DuckDbExtension.AWS)),
+    ("r2", (DuckDbExtension.HTTPFS, DuckDbExtension.AWS)),
+    ("azure", (DuckDbExtension.AZURE,)),
+])
+
+
+class SecretRow(Struct, frozen=True):
+    # one IN-ENGINE credential as session DATA, the complementary half of the `FsspecStore` handle: that handle
+    # serves every read crossing a Python filesystem object, while DuckDB's own pushdown readers — `delta_scan`,
+    # `iceberg_scan`, `read_parquet` over an `s3://` uri — resolve inside the engine and cross none. `PROVIDER
+    # credential_chain` walks the provider's OWN default chain (environment, config file, instance metadata), so no
+    # key material is ever spelled into SQL, and `scope` binds one secret to one prefix where a session reads two
+    # buckets under different identities. `CREATE SECRET` validates EAGERLY — a chain resolving nothing raises
+    # `Secret Validation Failure` naming the link it stopped on, at session setup as a provisioning fact rather than
+    # at scan time as a read failure — and the bare verb refuses a duplicate name outright, so two rows colliding on
+    # one identifier fail loudly here instead of one silently replacing the other under `OR REPLACE`.
+    kind: SecretType
+    name: str
+    scope: str | None = None
+
+    def statement(self) -> str:
+        scoped = f", SCOPE {quote_literal(self.scope)}" if self.scope is not None else ""
+        return f"CREATE SECRET {quote_ident(self.name)} (TYPE {self.kind.value}, PROVIDER credential_chain{scoped})"
+
 
 class _DuckReader(Struct, frozen=True):
     # DuckDB binds every source shape through a SQL TABLE FUNCTION, and only a few of those additionally hang off the
@@ -366,18 +412,32 @@ class Attach(Struct, frozen=True):
 class DuckDbSession(Struct, frozen=True):
     extensions: tuple[DuckDbExtension, ...] = ()
     attach: tuple[Attach, ...] = ()
+    # `secrets` are the in-engine credential rows the pushdown readers resolve through; `filesystem` is the
+    # `obstore.fsspec.FsspecStore` handle every read crossing a Python filesystem object rides. The two are
+    # complementary halves of ONE object-plane identity, never alternatives: a `delta_scan` over `s3://` never
+    # touches the handle and a polars-plugin read never sees the secret.
+    secrets: tuple[SecretRow, ...] = ()
     filesystem: Any | None = None
     profiling: ProfileMode = ProfileMode.OFF
 
     @contextmanager
     def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
-        # request-scoped by law — one bracket per run; the deduplicated extension union loads once per connection and the runtime `fsspec` handle registers.
-        # Each attach row's own extension joins that union, so an attach never depends on a caller having listed its
-        # provider — the ordering is load, register, attach, select, because an `ATTACH` resolves nothing before its
-        # extension is in the engine and a catalog cannot go current before it is attached.
+        # request-scoped by law — one bracket per run; the deduplicated extension union loads once per connection, the
+        # secret rows create once inside it, and the obstore-backed filesystem handle registers.
+        # Each attach row's own extension AND each secret row's own extensions join that union, so neither an attach
+        # nor a credential depends on a caller having listed its provider — the ordering is load, secret, register,
+        # attach, select, because a `CREATE SECRET` resolves no type before its extension is in the engine, an
+        # `ATTACH` over an object-store data path resolves no credential before its secret exists, and a catalog
+        # cannot go current before it is attached.
         with duckdb.connect() as con:
-            for extension in dict.fromkeys((*self.extensions, *(row.kind for row in self.attach if row.kind is not None))):
+            for extension in dict.fromkeys((
+                *self.extensions,
+                *(row.kind for row in self.attach if row.kind is not None),
+                *(needed for row in self.secrets for needed in row.kind.extensions),
+            )):
                 extension.load(con)
+            for secret in self.secrets:
+                con.execute(secret.statement())
             if self.filesystem is not None:
                 con.register_filesystem(self.filesystem)
             for row in self.attach:
@@ -716,10 +776,11 @@ def _run(plan: ScanPlan, dataset: DatasetRef, profiling: ProfileMode = ProfileMo
         case ScanPlan(tag="remote_glob", remote_glob=(glob, predicate, partition_keys)):
             # the ref's OWN scheme picks its credential-provider extension off `_SCHEME_EXTENSION`, so an `s3://`
             # glob installs `aws` and a `file://` glob installs neither — a fixed cloud-provider set would install
-            # both on every scan and still miss the next scheme.
+            # both on every scan and still miss the next scheme. The filesystem handle is the obstore-backed
+            # `remote_store` bridge, never `UPath.fs`: one store, one credential resolution, one retry envelope.
             providers = _SCHEME_EXTENSION.try_find(dataset.ref.scheme).to_list()
             with DuckDbSession(
-                extensions=(DuckDbExtension.HTTPFS, *providers), filesystem=dataset.ref.path.fs, profiling=profiling
+                extensions=(DuckDbExtension.HTTPFS, *providers), filesystem=remote_store(dataset.ref), profiling=profiling
             ).profiled() as (con, harvest):
                 rel = con.read_parquet(glob, hive_partitioning=bool(partition_keys))
                 return harvest((rel.filter(predicate) if predicate else rel).to_arrow_table())
@@ -805,6 +866,20 @@ def _io_source(dataset: DatasetRef, source: str) -> "Callable[[list[str] | None,
     return generator
 
 
+def remote_store(ref: ResourceRef) -> Any:
+    # DuckDB's `register_filesystem` takes an fsspec `AbstractFileSystem`, and `UPath.fs` resolves FSSPEC's own
+    # backend (`s3fs`/`gcsfs`/`adlfs`) — a SECOND object-store stack beside the `obstore` Rust core every other remote
+    # read in the branch crosses, carrying its own credential resolution, its own retry envelope, and its own
+    # connection pool, none of which the estate-pinned `STORE_RETRY` config reaches. `obstore.fsspec.FsspecStore` is
+    # the sanctioned bridge for exactly this case: one store handle wearing the filesystem interface DuckDB demands,
+    # so a `RemoteGlob` authenticates, retries, and pools identically to the egress and acquisition legs. The
+    # `credential_provider=` is obstore's OWN constructor keyword and stays — but its value is the ref's own column,
+    # never a second parameter beside the ref: a composition holding a bespoke provider
+    # (`obstore.auth.planetary_computer`, an Earthdata token) stamps it on the residence coordinate, so this bridge
+    # authenticates off the same column the egress and acquisition legs read and neither caller fills a field twice.
+    return FsspecStore(ref.scheme, retry_config=STORE_RETRY, credential_provider=ref.credentials)
+
+
 def arrow_columns(columns: tuple[str, ...], table: Mapping[str, np.ndarray]) -> pa.Table:
     # data-side endpoint of the `[BOUNDARY]: arrow_bytes` seams the geometry ARCHITECTURE ledger declares: a producer
     # hands its DECLARED column order beside the name-keyed arrays it already sealed — the geometry `EvidenceFrame`
@@ -813,18 +888,6 @@ def arrow_columns(columns: tuple[str, ...], table: Mapping[str, np.ndarray]) -> 
     # producer declared, and taking the mapping's own order re-schemas the table whenever a producer rebuilds it.
     # Producers catch a width mismatch at their own admission fence; this fold converts an already-rectangular table.
     return pa.table({name: table[name] for name in columns})
-
-
-def arrow_bytes(table: pa.Table) -> Buffer:
-    # canonical whole-table IPC STREAM bytes — the ONE serialization the `ContentIdentity` `whole` arm folds and every
-    # foreign reader opens. `RecordBatch.serialize()` is the rejected form: it emits a bare batch message carrying NO
-    # schema message, so `ipc.open_stream` refuses it outright and only `read_record_batch(obj, schema)` decodes it —
-    # which strands the schema out of band and makes the bytes undecodable to any consumer holding them alone.
-    # `combine_chunks` coalesces every column first so the stream carries one batch; an empty table keys off `b""`.
-    sink = pa.BufferOutputStream()
-    with pa.ipc.new_stream(sink, table.schema) as writer:
-        writer.write_table(table.combine_chunks())
-    return sink.getvalue()
 ```
 
 ## [04]-[RESEARCH]

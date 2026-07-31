@@ -2,7 +2,7 @@
 
 Rasm.Compute solver sweep: one `SweepGrid` design-of-experiments orchestration emitting a queryable `ParetoFront` with a binned global-sensitivity `SensitivityTornado`, beside one `FrameBudget` early-stop governor returning a coarse iterative field within a frame deadline and forking the refinement onto a background lane. Grid construction is the product of two orthogonal axes — a `SweepAxis` `[Union]` per-dimension factor and a `DoeDesign` `[SmartEnum<string>]` whole-grid strategy owning the design matrix — where factorial rows Cartesian-product per-axis levels while space-filling and response-surface rows draw a JOINT design across all dimensions, so a Latin-hypercube or Sobol sweep is one space-filling net, never the per-axis-1-D-then-Cartesian mis-model that defeats the variance reduction it exists to provide.
 
-Per-point evaluation stays contract-uniform with the `Solver/optimizer#OPTIMIZER_LANE` and `Solver/uncertainty#UNCERTAINTY_LANE` lanes over one `DesignPoint`→objective-vector oracle, `IO`-lifted here alone (`IO<Fin<Seq<double>>>`) because the live `ProgressCell` observation and the `FrameBudget` refinement fork compose in `IO` where those synchronous lanes take the bare `Fin<Seq<double>>`. Space-filling rows draw the `Tensor/sampling#OWNED_BUILDS` `LowDiscrepancy` joint d-dimensional sampler under the `Scramble` policy, the sensitivity reductions ride `TensorPrimitives` SIMD folds, and the `ParetoFront` is the optimizer's own artifact crossing to Persistence content-keyed. `SweepLane.Dataset` projects a landed `SweepResult` onto the `DoeDataset` wire shape — the `[GRADUATION]` loop's training leg: C# sweep → `DoeDataset` → Python fit → graduated ONNX over `GraduationEvidence` → `Solver/optimizer` neural-field surrogate — so labeled sweep data feeds the surrogate refresh instead of dying in receipts, over the existing Runtime wire plane with no new transport. `ComputeReceipt`, `WorkLane`, `CorrelationId`, NodaTime `IClock` (the App-owned `ClockPolicy` stays at composition), and the `ComparerAccessors.StringOrdinal` accessor from `Solver/discretization#DISCRETIZATION_MESH` arrive settled.
+Per-point evaluation stays contract-uniform with the `Solver/optimizer#OPTIMIZER_LANE` and `Solver/uncertainty#UNCERTAINTY_LANE` lanes over one `DesignPoint`→objective-vector oracle, `IO`-lifted here alone (`IO<Fin<Seq<double>>>`) because the live `ProgressCell` observation and the `FrameBudget` refinement fork compose in `IO` where those synchronous lanes take the bare `Fin<Seq<double>>`. Space-filling rows draw the `Tensor/sampling#OWNED_BUILDS` `LowDiscrepancy` joint d-dimensional sampler under the `Scramble` policy, the sensitivity reductions ride `TensorPrimitives` SIMD folds, and the `ParetoFront` is the optimizer's own artifact crossing to Persistence content-keyed. `SweepLane.Dataset` projects a landed `SweepResult` onto the `DoeDataset` wire shape — the `[GRADUATION]` loop's training leg: C# sweep → `DoeDataset` → Python fit → graduated ONNX over `GraduationEvidence` → `Solver/optimizer` neural-field surrogate — so labeled sweep data feeds the surrogate refresh instead of dying in receipts, over the existing Runtime wire plane with no new transport. `ComputeReceipt`, `WorkLane`, `CorrelationId`, NodaTime `IClock` (the App-owned `ClockPolicy` stays at composition), and the Thinktecture `ComparerAccessors.StringOrdinal` accessor arrive settled.
 
 ## [01]-[INDEX]
 
@@ -306,10 +306,10 @@ public sealed record SensitivityTornado(Seq<(string Axis, double Low, double Hig
         double[] response = [.. results.Map(p => objective < p.Objectives.Length ? p.Objectives[objective] : 0.0)];
         double globalVariance = Math.Pow(TensorPrimitives.StdDev<double>(response), 2.0);
         int bins = Math.Max(2, grid.Policy.SensitivityBins);
-        return new(grid.Axes.Map((axis, index) => {
+        return new(toSeq(grid.Axes.Map((axis, index) => {
             (double low, double high, double effect) = grid.Sensitivity.Rank(ConditionalMeans(results, index, objective, bins), globalVariance);
             return (axis.AxisName, low, high, effect);
-        }).OrderByDescending(static bar => bar.Item4).ToSeq());
+        }).OrderByDescending(static bar => bar.Item4)));
     }
 
     static Seq<double> ConditionalMeans(Seq<DesignPoint> results, int index, int objective, int bins) {

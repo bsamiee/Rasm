@@ -14,7 +14,7 @@
 - Cases: the `Mux`-versus-`BurnIn` choice derives from `_SOFT_SUB` membership — the muxers whose in-process packet path is verified writable — and a muxer outside the table rails `MediaFault.unregistered` so the caller routes `BurnIn`, the hard-subtitle substitute for every container the packet path cannot reach and for the absent libass filter.
 - Entry: `Subtitle.of_whisper` stores the typed `WhisperPayload` in the `whisper` case; `_whisper` performs `pysubs2.load_from_whisper` inside the process worker, so malformed provider material rails through `_subtitle_fault`. Every worker maps runtime-contract violations through `_worker` to `MediaFault.contract`; `_crossed` maps the lane's outer `BoundaryFault` through `_lapsed` and flattens the worker `Result` after retry settles.
 - Auto: `parse_tags` decomposes each event into override-honoring styled runs (plaintext fallback for a tagless line), so an inline `\i`/`\b`/`\fn`/`\r` burns faithfully rather than flattening; `make_time` owns the frame→ms mapping; `_anchored` maps the ASS numpad `alignment` (column `(a-1) % 3`, row `(a-1) // 3`) plus margins onto the paint origin so a top-left `an7` title and a bottom-center `an2` caption both land where the document says; `_plane` memoizes the rendered run RGBA on the frozen `TextSpec` so identical text re-rasterizes zero times across a frame span; `_composite`'s numpy alpha fold is the burn floor.
-- Receipt: the text arms produce `SubtitleEvidence` directly; `Mux`/`BurnIn` compose `MediaEvidence` and merge the `{events, styles}` band. `SubtitleEvidence` keeps provider handles out of the receipt owner; `_keyed` threads the PRE-RUN node key as the receipt slot — the `core/receipt#RECEIPT` elision law, so an identical op at an identical dialect is a planner cache hit — and lands the produced-bytes content address as the `address` band fact. `_canon` frames the burn-in preimage (text, dialect, profile, sorted faces, raw frame bytes) per the identity framing law; every other case encodes whole through `_CANON`.
+- Receipt: the text arms produce `SubtitleEvidence` directly; `Mux`/`BurnIn` compose `MediaEvidence` and merge the `{events, styles}` band. `SubtitleEvidence` keeps provider handles out of the receipt owner; `_keyed` threads the PRE-RUN node key as the receipt slot — the `core/receipt#RECEIPT` elision law, so an identical op at an identical dialect is a planner cache hit — and lands the produced-bytes content address as the `address` band fact. `_canon` frames the burn-in preimage (text, dialect, profile, sorted faces, raw frame bytes) per the identity framing law; every other case encodes whole through `CANON`.
 - Packages: `pysubs2` owns the timed-text document — the per-dialect parsers, the SubStation override grammar, the ms/frame codec, format autodetection, the shift/framerate retiming, and the style rename/import — so the owner wraps its ingest/egress and track edits, never re-implementing them; `av` owns the mux capsule and the raw-packet subtitle write. Both settled against the folder `.api`.
 - Growth: a writable dialect is one `SubtitleDialect` member; a retime mode is one `RetimeShift` case; a restyle operation is one `RestyleStep` case; a packet-writable muxer is one `_SOFT_SUB` row; a face is one `BurnStyle.faces` row; an evidence fact is one band key; a modality is one `SubtitleOp` case plus one total dispatch arm.
 
@@ -44,7 +44,7 @@ from rasm.runtime.workers import Kernel, KernelTrait
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.media.container import Frames, MediaEvidence, MediaFault, MediaProfile, _CANON, _framed, _lapsed
+from rasm.artifacts.media.container import CANON, Frames, MediaEvidence, MediaFault, MediaProfile, _lapsed, framed
 
 lazy import av
 lazy import av.error
@@ -101,6 +101,13 @@ class StyleConflict(StrEnum):
 # muxer -> subtitle codec whose raw-packet path the in-process muxer verifiably admits (matroska opens `ass` from the
 # extradata header alone; mp4 `mov_text` and webm `webvtt` refuse avcodec_open2 on a template-less stream, so those
 # containers route to BurnIn). A muxer absent here rails `unregistered` and the caller burns.
+#
+# This table takes NO import-time coverage witness, and the carve is by construction rather than by omission: its key
+# space is `av`'s own open muxer-name vocabulary, not a closed member set, and `_mux_subtitle` derives its key as
+# `frozenset(reader.format.name.split(",")) & _SOFT_SUB.keys()` — an INTERSECTION, so every `_SOFT_SUB[muxer]` lookup
+# is provably in-table and the empty intersection is the typed `unregistered` refusal. The page's other closed
+# vocabularies (`SubtitleDialect`, `RetimeShift`, `RestyleStep`, `StyleConflict`) are proven by total `match` with
+# `assert_never`, never by a parallel row a member could miss.
 _SOFT_SUB: frozendict[str, str] = frozendict({"matroska": "ass"})
 
 _ASS_EVENT_FORMAT = "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
@@ -180,9 +187,10 @@ type SubtitleProduct = tuple[bytes, SubtitleEvidence]
 
 class Subtitle(Struct, frozen=True):
     op: SubtitleOp
-    parents: tuple[ContentKey, ...] = ()  # the upstream container/frame producer keys the planner wires
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
+    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner;
+    # it seats above `parents` because msgspec refuses a required field after a defaulted one at class creation.
     lane: LanePolicy
+    parents: tuple[ContentKey, ...] = ()  # the upstream container/frame producer keys the planner wires
 
     @staticmethod
     def of(op: SubtitleOp, parents: tuple[ContentKey, ...] = (), /, *, lane: LanePolicy) -> "Subtitle":
@@ -246,10 +254,10 @@ def _canon(op: SubtitleOp, /) -> tuple[bytes, ...]:
     # preimage length-frames each field raw; every other case is msgpack-encodable whole.
     match op:
         case SubtitleOp(tag="burn_in", burn_in=(text, dialect, frames, profile, burn)):
-            style = _CANON.encode((tuple(sorted(burn.faces.items())), burn.fallback))
-            return _framed(b"burn_in", text.encode(), dialect.value.encode(), _CANON.encode(profile), style, *(np.asarray(plane).tobytes() for plane in frames))
+            style = CANON.encode((tuple(sorted(burn.faces.items())), burn.fallback))
+            return framed(b"burn_in", text.encode(), dialect.value.encode(), CANON.encode(profile), style, *(np.asarray(plane).tobytes() for plane in frames))
         case _:
-            return _framed(op.tag.encode(), _CANON.encode(op))
+            return framed(op.tag.encode(), CANON.encode(op))
 
 
 def _worker[**P](operation: Callable[P, Result[SubtitleProduct, MediaFault]], /) -> Callable[P, Result[SubtitleProduct, MediaFault]]:

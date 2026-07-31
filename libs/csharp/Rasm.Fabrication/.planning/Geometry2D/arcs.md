@@ -11,9 +11,9 @@
 - Owner: generated `ArcForest.Validate` is the sole coplanar, single-context winding admission and preserves its context when a valid set operation produces the empty forest. `ArcOffsetSource` survives on forest-versus-open-path admission and result identity. `LeadShape` and `ArcProbe` survive on variant arity and payload timing. `ArcOp` closes offset, Boolean, compensation, lead, engagement, inspection, and cleanup under one generated case family. `ArcProjection` survives on its projection consumer and makes chord lowering and residual biarc recovery inverse modalities of the frozen `ArcAlgebra.Densify` seam.
 - Cases: `BoolKind` carries `or`, `and`, `not`, and `xor`; `MaterialSide` carries `outside` and `inside`; `CutSense` carries `climb` and `conventional` with the traversal winding each demands; `LeadRole` carries entry and exit; `ArcRelation` carries every provider verdict, including invalid input, and owns the one correspondence both provider enums project through; `LeadShape` carries linear, tangent-arc, and loop forms; `ArcProbe` carries station, point, nearest-point, pair, measure, bounds, and self-intersection queries.
 - Entry: `ArcAlgebra.Apply(ArcOp)` dispatches every manufacturing modality. `ArcAlgebra.Densify(ArcProjection)` alone crosses exact arcs and witnessed chords in either direction. `ArcOp` never wraps `ArcProjection`, so each concern has one entrypoint. Both ingress families carry tolerance, plane, requested error, and policy values in their admitted input.
-- Auto: Boolean execution evaluates every subject-clip pair, preserves positive and negative result slices, classifies the complete boundary candidate set against the requested truth function, and rebuilds one winding forest. Offset and engagement execution retain `OffsetLoop.ParentLoopIdx`, `IndexedPolyline.SpatialIndex`, raw-offset segment counts, and valid-slice counts. Every loop materializes one `Polyline<double>` and one `StaticAABB2DIndex<double>` that every offset, Boolean, containment, and self-intersection query on that loop reuses. `CutSense` decides traversal: a path whose winding disagrees inverts through `InvertDirection` before emission, so climb and conventional differ in the emitted order and not only in the arc-center sense. `LeadRole.Exit` reverses the lead's arc sense and drops the approach rapid. Chord recovery recursively splits at the largest sampled residual until every accepted `BiArcFit2` span satisfies the requested probe policy.
+- Auto: Boolean execution evaluates every subject-clip pair, preserves positive and negative result slices, classifies the complete boundary candidate set against the requested truth function, and rebuilds one winding forest. Offset and engagement execution retain `OffsetLoop.ParentLoopIdx`, `IndexedPolyline.SpatialIndex`, raw-offset segment counts, valid-slice counts, and the per-level reachable-vertex census `PlineOffset.PointValidForOffset` decides against the loop's own index over one pooled traversal stack. Every loop materializes one `Polyline<double>` and one `StaticAABB2DIndex<double>` that every offset, Boolean, containment, and self-intersection query on that loop reuses. `CutSense` decides traversal: a path whose winding disagrees inverts through `InvertDirection` before emission, so climb and conventional differ in the emitted order and not only in the arc-center sense. `LeadRole.Exit` reverses the lead's arc sense and drops the approach rapid. Chord recovery recursively splits at the largest sampled residual until every accepted `BiArcFit2` span satisfies the requested probe policy.
 - Receipt: `ArcReceipt` discriminates offset, Boolean, compensation, and cleanup evidence without empty pair fields or a stage tag. `MotionReceipt` discriminates lead paths from engagement paths without default counters. `DensifyReceipt` retains the provider-enforced error bound, source/output span census, and bounds; `RecoverReceipt` retains requested and sampled achieved error, source/output span census, fit census, and bounds. `ArcInspection` returns exact native measurements without flattening distinct query results: arc-exact area, path length, and winding from the admitted loops, `ClosestPointResult` projection carrying its owning loop, and per-loop self-intersection census beside the total.
-- Packages: `CavalierContours.Polyline` supplies raw offset stages, Boolean result metadata and subslices, containment, self-intersection visitors, exact arc queries, bounds, and error-bounded arc lowering; `CavalierContours.Shape` supplies winding-forest construction, offset, parent lineage, and spatial indexes; `geometry3Sharp.BiArcFit2` supplies residual-driven chord recovery; `Clipper2Lib` supplies bounds; `LanguageExt` supplies `Validation`, `Traverse`, immutable collections, and typed `Fin` rails; `Thinktecture` generates every closed case, policy vocabulary, and admitted value owner.
+- Packages: `CavalierContours.Polyline` supplies raw offset stages, the `PointValidForOffset` collision predicate, Boolean result metadata and subslices, containment, self-intersection visitors, exact arc queries, bounds, and error-bounded arc lowering; `CavalierContours.Shape` supplies winding-forest construction, offset, parent lineage, and spatial indexes; `geometry3Sharp.BiArcFit2` supplies residual-driven chord recovery; `Clipper2Lib` supplies bounds; `LanguageExt` supplies `Validation`, `Traverse`, immutable collections, and typed `Fin` rails; `Thinktecture` generates every closed case, policy vocabulary, and admitted value owner.
 - Growth: a new Boolean posture is one smart-enum row carrying native and truth behavior; a new material posture is one row carrying sign and rotation; a new provider verdict is one `ArcRelation` row carrying its native codes, and both projections derive from it with no arm to add. A new operation, query, lead, or projection modality is one union case and one generated-total dispatch arm. New provider evidence enriches the existing receipts.
 - Boundary: Boolean orientation, raw-offset extraction, and residual biarc subdivision are the statement-bearing native and numeric kernels. Mutable lists and indexed native loops exist only while materializing provider input and output. Every probe re-enters the forest's context — a loop proves tolerance and plane through `Compatible`, a query point proves coplanarity — so no cross-context value answers a forest question. Every provider result re-enters through `Loop.Admit` or `ArcForest.Admit`; no provider enum, shape, index, result, or biarc object crosses the owner.
 
@@ -81,18 +81,18 @@ public sealed partial class LeadRole {
     private bool Departs { get; }
 
     // Entry rapids to the outboard point then cuts inward; exit resumes at the cut point and
-    // sweeps outward, so a reversed arc lead traverses its center the opposite way.
-    internal Seq<Move> Emit(Point3d outboard, Point3d cut, double feed, Option<ArcCenter> arc) => Departs
-        ? Seq(Cut(outboard, feed, arc.Map(static center => center with { Sense = Opposite(center.Sense) })))
-        : Seq<Move>(new Move.Rapid(outboard), Cut(cut, feed, arc));
+    // sweeps outward, so a reversed arc lead traverses its center the opposite way — the sense flips
+    // with the sweep sign, never alone, because `Move.Admit` refuses a sweep whose sign disagrees
+    // with `ArcCenter.Sense` and a lead that flipped only one of the pair would refuse at admission.
+    internal Seq<Move> Emit(Point3d outboard, Point3d cut, double feed, Option<(ArcCenter Centre, double Sweep)> arc) =>
+        Departs
+            ? Seq(Cut(outboard, feed, arc.Map(static row =>
+                (row.Centre with { Sense = row.Centre.Sense.Flipped }, -row.Sweep))))
+            : Seq<Move>(new Move.Rapid(outboard), Cut(cut, feed, arc));
 
-    private static Move Cut(Point3d target, double feed, Option<ArcCenter> arc) => arc.Match(
-        Some: center => new Move.Circular(target, feed, center),
+    private static Move Cut(Point3d target, double feed, Option<(ArcCenter Centre, double Sweep)> arc) => arc.Match(
+        Some: row => new Move.Circular(target, feed, row.Centre, row.Sweep),
         None: () => (Move)new Move.Linear(target, feed));
-
-    private static RotationSense Opposite(RotationSense sense) => sense == RotationSense.Clockwise
-        ? RotationSense.Counterclockwise
-        : RotationSense.Clockwise;
 }
 
 [SmartEnum<string>]
@@ -126,7 +126,7 @@ public sealed partial record ArcForest(Seq<Loop> Loops, Context Tolerance, doubl
         Validate(loops, tolerance, plane, out ArcForest? forest) is null
             ? Validation<Error, ArcForest>.Success(forest!)
             : Validation<Error, ArcForest>.Fail(
-                new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-forest:structure").ToError());
+                new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-forest:structure").ToError());
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -225,6 +225,7 @@ public abstract partial record MotionReceipt {
         int Levels,
         int RawSegments,
         int ValidSlices,
+        int ReachableVertices,
         int EmittedSpans,
         double RadialEngagement) : MotionReceipt;
 
@@ -366,7 +367,7 @@ public static class ArcAlgebra {
                                 ? unique
                                 : unique.Add(candidate));
                     return pairs.Exists(static row => row.Result.ResultInfo == BooleanResultInfo.InvalidInput)
-                        ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1,
+                        ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None,
                             "arc-boolean:invalid-input").ToError())
                         : ForestOf(
                             boundary.IsEmpty
@@ -397,7 +398,7 @@ public static class ArcAlgebra {
                 double length = Math.Sqrt((tangent.X * tangent.X) + (tangent.Y * tangent.Y));
                 if (!double.IsFinite(length) || length <= tolerance.Absolute.Value)
                     return Fin.Fail<Option<Polyline<double>>>(
-                        new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-boolean:boundary").ToError());
+                        new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-boolean:boundary").ToError());
                 Vector2<double> normal = new(-tangent.Y / length, tangent.X / length);
                 double epsilon = tolerance.Absolute.Value * 2.0;
                 Vector2<double> left = new(point.X + (normal.X * epsilon), point.Y + (normal.Y * epsilon));
@@ -427,7 +428,7 @@ public static class ArcAlgebra {
 
     private static Fin<ArcTrace> Adaptive(ArcOp.Adaptive request) =>
         request.Stock.Loops.IsEmpty
-            ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-adaptive:empty-stock").ToError())
+            ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-adaptive:empty-stock").ToError())
             : (from admitted in (
                        AdmitsMagnitude(request.CutterRadius, "arc-adaptive:cutter-radius"),
                        AdmitsMagnitude(request.RadialEngagement, "arc-adaptive:radial-engagement"),
@@ -439,7 +440,7 @@ public static class ArcAlgebra {
                from radial in admitted.Engagement <= admitted.Radius * 2.0
                    && admitted.StepOver <= admitted.Radius * 2.0
                    ? Fin.Succ(double.Min(admitted.StepOver, admitted.Engagement))
-                   : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-adaptive:engagement").ToError())
+                   : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "arc-adaptive:engagement"))
                from _ in request.Guide.ToSeq()
                    .Traverse(guide => Compatible(guide, request.Stock, "arc-adaptive:guide")).As()
                    .Map(static _ => unit)
@@ -449,8 +450,11 @@ public static class ArcAlgebra {
                    .Map(level => (Level: level, Distance: -(admitted.Radius + (level * radial))))
                let native = request.Stock.Loops.Map(NativeOf)
                let shape = Shape<double>.FromPlines(native.Map(static row => row.Pline).ToList())
+               // One traversal stack serves every raw-offset level, so the collision sweep reuses its descent
+               // state instead of renting a fresh list per candidate.
+               let scratch = new List<int>()
                let raw = distances.Bind(row => native.Map(loop =>
-                   Raw(loop, request.Stock.Tolerance, row.Distance)))
+                   Raw(loop, request.Stock.Tolerance, row.Distance, scratch)))
                let offsets = distances.Map(row => shape.ParallelOffset(
                    row.Distance,
                    ShapeOptions(request.Stock.Tolerance)))
@@ -464,27 +468,33 @@ public static class ArcAlgebra {
                from admittedMoves in pathMoves.Bind(static moves => moves).Traverse(Move.Admit).As()
                let emitted = admittedMoves.ToSeq()
                from trace in emitted.IsEmpty
-                   ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-adaptive:no-valid-slices").ToError())
+                   ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-adaptive:no-valid-slices").ToError())
                    : Fin.Succ<ArcTrace>(new ArcTrace.Motion(new MotionReceipt.Engagement(
                        emitted,
                        levels,
                        raw.Fold(0, static (count, level) => count + level.RawSegments),
                        raw.Fold(0, static (count, level) => count + level.ValidSlices),
+                       raw.Fold(0, static (count, level) => count + level.ReachableVertices),
                        emitted.Count,
                        radial)))
                select trace);
 
-    private static RawLevel Raw(Native source, Context tolerance, double distance) {
+    // Morphed-spiral walks consume the untrimmed raw offset, so validity decides per candidate vertex rather than
+    // by trimming the whole polyline: the provider's own arc-space collision test answers it exactly against the
+    // index the loop already carries, where a distance test against the source only approximates it.
+    private static RawLevel Raw(Native source, Context tolerance, double distance, List<int> scratch) {
         double epsilon = tolerance.Absolute.Value;
         Polyline<double> raw = PlineOffset.CreateRawOffsetPolyline<Polyline<double>, double>(
             source.Pline, distance, epsilon);
         List<RawPlineOffsetSeg<double>> segments = PlineOffset.CreateUntrimmedRawOffsetSegs(source.Pline, distance);
         List<PlineViewData<double>> slices = PlineOffset.SlicesFromRawOffset(
             source.Pline, raw, source.Index, distance, OffsetOptions(tolerance, source.Index));
-        return new RawLevel(segments.Count, slices.Count);
+        int reachable = Range(0, raw.Count).Count(index => PlineOffset.PointValidForOffset(
+            source.Pline, distance, source.Index, raw[index].Pos(), scratch, epsilon, epsilon));
+        return new RawLevel(segments.Count, slices.Count, reachable);
     }
 
-    private readonly record struct RawLevel(int RawSegments, int ValidSlices);
+    private readonly record struct RawLevel(int RawSegments, int ValidSlices, int ReachableVertices);
 
     private readonly record struct Native(Polyline<double> Pline, StaticAABB2DIndex<double> Index);
 
@@ -504,7 +514,7 @@ public static class ArcAlgebra {
             .Bind(_ => Pair(request.First, request.Second)),
         measure: () => Fin.Succ<ArcTrace>(new ArcTrace.Inspection(Measured(forest))),
         bounds: () => forest.Loops.IsEmpty
-            ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-inspect:empty-bounds").ToError())
+            ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-inspect:empty-bounds").ToError())
             : Fin.Succ<ArcTrace>(new ArcTrace.Inspection(new ArcInspection.Bounds(Bounds(forest)))),
         self: () => Self(forest));
 
@@ -521,7 +531,7 @@ public static class ArcAlgebra {
                 (true, int index, Vector2<double> point, double accumulated) => Fin.Succ<ArcTrace>(
                     new ArcTrace.Inspection(new ArcInspection.Sample(
                         new Point3d(point.X, point.Y, loop.Plane), value, index, accumulated))),
-                _ => Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-inspect:outside").ToError()),
+                _ => Fin.Fail<ArcTrace>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "arc-inspect:outside")),
             });
 
     private static Fin<ArcTrace> Near(ArcForest forest, Vector2<double> query) =>
@@ -540,7 +550,7 @@ public static class ArcAlgebra {
                     row.Result.SegStartIndex,
                     row.Loop))),
                 None: () => Fin.Fail<ArcTrace>(
-                    new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-inspect:empty-near").ToError()));
+                    new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-inspect:empty-near").ToError()));
 
     private static Fin<ArcTrace> Pair(Loop first, Loop second) {
         Native subject = NativeOf(first);
@@ -551,7 +561,7 @@ public static class ArcAlgebra {
             subject.Pline, clip, IntersectOptions(subject, first.Tolerance));
         ArcRelation projected = ArcRelation.Of(relation);
         return projected == ArcRelation.InvalidInput
-            ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-inspect:invalid-pair").ToError())
+            ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-inspect:invalid-pair").ToError())
             : Fin.Succ<ArcTrace>(new ArcTrace.Inspection(new ArcInspection.Pair(
                 projected,
                 intersects.BasicIntersects.Count,
@@ -590,7 +600,7 @@ public static class ArcAlgebra {
         PlineIntersects.AllSelfIntersectsAsBasic(
             native.Pline, native.Index, true, forest.Tolerance.Absolute.Value).Count == 0
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-clean:self-intersection").ToError());
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-clean:self-intersection").ToError());
 
     private static Fin<DensifyReceipt> Lower(Loop loop, double error) =>
         Positive(error, "arc-densify:error").Bind(bound => {
@@ -603,7 +613,7 @@ public static class ArcAlgebra {
     private static Fin<RecoverReceipt> Recover(Loop chords, double error, int probeFloor) =>
         Positive(error, "arc-recover:error").Bind(bound =>
         probeFloor < 1 || chords.Bulges.Exists(static bulge => bulge != 0.0)
-            ? Fin.Fail<RecoverReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-recover:chords").ToError())
+            ? Fin.Fail<RecoverReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-recover:chords").ToError())
             : FitPath(chords, bound, probeFloor)
                 .Bind(spans => RecoveredLoop(spans, chords)
                 .Map(result => new RecoverReceipt(
@@ -630,7 +640,7 @@ public static class ArcAlgebra {
     }
 
     private static Fin<Loop> RecoveredLoop(Seq<RecoveredSpan> spans, Loop source) =>
-        from last in spans.Last.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-recover:empty-fit").ToError())
+        from last in spans.Last.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-recover:empty-fit").ToError())
         let vertices = source.Closed
             ? spans.Map(static span => span.Start)
             : spans.Map(static span => span.Start).Add(last.End)
@@ -690,7 +700,7 @@ public static class ArcAlgebra {
                 : Arc(fit.Arc2, plane, error, id))
         .Traverse(span => double.IsFinite(span.Bulge) && span.Start.IsValid && span.End.IsValid
             ? Fin.Succ(span)
-            : Fin.Fail<RecoveredSpan>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-recover:fit").ToError()))
+            : Fin.Fail<RecoveredSpan>(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-recover:fit").ToError()))
         .As();
 
     private static RecoveredSpan Arc(Arc2d arc, double plane, double error, int id) => new(
@@ -737,7 +747,7 @@ public static class ArcAlgebra {
                     new Point3d(point.X, point.Y, loop.Plane),
                     new Vector3d(-tangent.Y, tangent.X, 0.0)),
             _ => Fin.Fail<(Point3d, Vector3d)>(
-                new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-lead:station").ToError()),
+                new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "arc-lead:station")),
         };
     }
 
@@ -750,7 +760,7 @@ public static class ArcAlgebra {
             frame.Point + (Unit(frame.Normal) * side.Signed(value)),
             frame.Point,
             feed,
-            Option<ArcCenter>.None));
+            Option<(ArcCenter, double)>.None));
 
     private static Fin<Seq<Move>> TangentLead(
         (Point3d Point, Vector3d Normal) frame,
@@ -763,7 +773,14 @@ public static class ArcAlgebra {
             .Apply(static (value, angle) => (Radius: value, Sweep: angle)).As().ToFin()
         let center = frame.Point + (Unit(frame.Normal) * side.Signed(admitted.Radius))
         let radial = Rotated(frame.Point - center, -side.Signed(admitted.Sweep))
-        select role.Emit(center + radial, frame.Point, feed, Some(new ArcCenter(center, side.Rotation)));
+        // The lead traverses `Sweep` about its own centre, signed by the material side the rotation already
+        // encodes — the same magnitude the radial rotation just consumed, so geometry and receipt agree by
+        // construction rather than by a caller re-deriving the arc from three points.
+        select role.Emit(
+            center + radial,
+            frame.Point,
+            feed,
+            Some((new ArcCenter(center, side.Rotation), side.Signed(admitted.Sweep))));
 
     // A loop lead closes on its own start, so both roles traverse the same two arcs; only entry rapids in.
     private static Fin<Seq<Move>> LoopLead(
@@ -774,9 +791,12 @@ public static class ArcAlgebra {
         LeadRole role) => Positive(radius, "arc-lead:radius").Map(value => {
             Point3d center = frame.Point + (Unit(frame.Normal) * side.Signed(value));
             ArcCenter arc = new(center, side.Rotation);
+            // Each half of the orbit is exactly a half turn about the lead centre, so the sweep is π signed
+            // by the traversal rotation — no sampling and no re-derivation from the emitted endpoints.
+            double half = side.Rotation == RotationSense.Counterclockwise ? Math.PI : -Math.PI;
             Seq<Move> orbit = Seq<Move>(
-                new Move.Circular(center + (center - frame.Point), feed, arc),
-                new Move.Circular(frame.Point, feed, arc));
+                new Move.Circular(center + (center - frame.Point), feed, arc, half),
+                new Move.Circular(frame.Point, feed, arc, half));
             return role == LeadRole.Entry ? orbit.Insert(0, new Move.Rapid(frame.Point)) : orbit;
         });
 
@@ -790,10 +810,18 @@ public static class ArcAlgebra {
                     Point3d target = new(end.X, end.Y, oriented.Plane);
                     if (start.Bulge == 0.0) return (Move)new Move.Linear(target, feed);
                     Vector2<double> center = PlineSeg.SegArcRadiusAndCenter(start, end).Center;
+                    // Bulge IS the exact sweep — `tan(sweep/4)` — so the span states its included angle rather
+                    // than having a consumer re-solve it from three points. Its SIGN is the span's own sense,
+                    // not the loop's: a CCW-wound profile still carries clockwise arcs at every concave corner,
+                    // and reading the traversal rotation here would invert every one of them.
+                    double sweep = 4.0 * Math.Atan(start.Bulge);
                     return new Move.Circular(
                         target,
                         feed,
-                        new ArcCenter(new Point3d(center.X, center.Y, oriented.Plane), sense.Rotation));
+                        new ArcCenter(
+                            new Point3d(center.X, center.Y, oriented.Plane),
+                            sweep > 0.0 ? RotationSense.Counterclockwise : RotationSense.Clockwise),
+                        sweep);
                 }));
         });
 
@@ -821,19 +849,19 @@ public static class ArcAlgebra {
         first.Tolerance == second.Tolerance
         && Math.Abs(first.Plane - second.Plane) <= first.Tolerance.Absolute.Value
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"{field}:mixed-context").ToError());
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, None, $"{field}:mixed-context").ToError());
 
     private static Fin<Unit> Compatible(Loop loop, ArcForest forest, string field) =>
         loop.Tolerance == forest.Tolerance
         && Math.Abs(loop.Plane - forest.Plane) <= forest.Tolerance.Absolute.Value
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"{field}:mixed-context").ToError());
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, None, $"{field}:mixed-context").ToError());
 
     private static Fin<int> LevelCount(double extent, double radius, double step) {
         double count = Math.Ceiling(double.Max(0.0, (extent / 2.0) - radius) / step) + 1.0;
         return double.IsFinite(count) && count is >= 1.0 and <= Array.MaxLength
             ? Fin.Succ((int)count)
-            : Fin.Fail<int>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-adaptive:levels").ToError());
+            : Fin.Fail<int>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "arc-adaptive:levels"));
     }
 
     // K-kinded gates fan independent fields into one tuple Apply and report together;
@@ -841,12 +869,12 @@ public static class ArcAlgebra {
     private static K<Validation<Error>, double> AdmitsMagnitude(double value, string field) =>
         double.IsFinite(value) && value > 0.0
             ? Validation<Error, double>.Success(value)
-            : Validation<Error, double>.Fail(new GeometryFault.DegenerateInput(Kind.Curve, -1, field).ToError());
+            : Validation<Error, double>.Fail(new GeometryFault.DegenerateInput(Kind.Curve, None, field).ToError());
 
     private static K<Validation<Error>, double> AdmitsStation(double value, string field) =>
         double.IsFinite(value) && value >= 0.0
             ? Validation<Error, double>.Success(value)
-            : Validation<Error, double>.Fail(new GeometryFault.DegenerateInput(Kind.Curve, -1, field).ToError());
+            : Validation<Error, double>.Fail(new GeometryFault.DegenerateInput(Kind.Curve, None, field).ToError());
 
     private static Fin<double> Positive(double value, string field) =>
         AdmitsMagnitude(value, field).As().ToFin();
@@ -857,7 +885,7 @@ public static class ArcAlgebra {
     private static Fin<double> Finite(double value, string field) =>
         double.IsFinite(value)
             ? Fin.Succ(value)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, field).ToError());
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, None, field).ToError());
 
     // Every offset threads the once-built index and admits self-intersecting profiles; a kerf or
     // clearing pass over a re-entrant loop is ordinary input, never a rejected one.
@@ -911,7 +939,7 @@ public static class ArcAlgebra {
     private static Fin<Vector2<double>> Coplanar(Point3d point, ArcForest forest, string field) =>
         point.IsValid && Math.Abs(point.Z - forest.Plane) <= forest.Tolerance.Absolute.Value
             ? Fin.Succ(new Vector2<double>(point.X, point.Y))
-            : Fin.Fail<Vector2<double>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"{field}:off-plane").ToError());
+            : Fin.Fail<Vector2<double>>(new GeometryFault.DegenerateInput(Kind.Curve, None, $"{field}:off-plane").ToError());
 
     private static Vector2d ToG3(Point3d point) => new(point.X, point.Y);
 

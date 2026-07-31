@@ -112,6 +112,11 @@
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     </ItemGroup>
 
+    <!-- Contract half only; the activation verbs and name registration are AppHost composition surface. -->
+    <ItemGroup Label="Telemetry Contract">
+        <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
+    </ItemGroup>
+
     <ItemGroup Label="Code Generation">
         <PackageReference Include="Generator.Equals" />
         <PackageReference Include="QuikGraph" />

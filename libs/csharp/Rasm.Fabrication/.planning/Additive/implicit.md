@@ -21,7 +21,6 @@ Wire posture is host-local. `Voxels`, `Lattice`, `Mesh`, `ScalarField`, `VectorF
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using System.Buffers.Binary;
-using System.IO.Hashing;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Text;
@@ -32,6 +31,7 @@ using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using PicoGK;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
@@ -71,8 +71,10 @@ public abstract partial record FieldExpression {
     public FieldSample At(Vector3 phase) => Switch(
         state: phase,
         constant: static (_, expression) => new FieldSample(expression.Value, Vector3.Zero),
+        // The switch operand binds tighter than `+`, so the phase-shifted dot product parenthesizes as ONE angle:
+        // without the parens the governing expression is `Phase` alone and every field goes position-independent.
         wave: static (value, expression) =>
-            Vector3.Dot(expression.Frequency, value) + expression.Phase switch {
+            (Vector3.Dot(expression.Frequency, value) + expression.Phase) switch {
                 var angle => new FieldSample(
                     expression.Amplitude * MathF.Cos(angle),
                     -expression.Amplitude * MathF.Sin(angle) * expression.Frequency),
@@ -187,14 +189,14 @@ public abstract partial record FieldDefinition {
     public static Fin<FieldDefinition> Admit(string key) =>
         FieldKind.TryGet(key, out FieldKind? kind) && kind is not null
             ? Fin.Succ<FieldDefinition>(new Known(kind))
-            : Fin.Fail<FieldDefinition>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"implicit-field:unknown:{key}").ToError());
+            : Fin.Fail<FieldDefinition>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"implicit-field:unknown:{key}"));
 
     public static Fin<FieldDefinition> Admit(FieldKey key, FieldExpression program) =>
         program is not null
         && program.Valid
         && !FieldKind.Items.Exists(item => string.Equals(item.Key, key.Value, StringComparison.Ordinal))
             ? Fin.Succ<FieldDefinition>(new Generated(key, program))
-            : Fin.Fail<FieldDefinition>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit-field:generated-invalid").ToError());
+            : Fin.Fail<FieldDefinition>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-field:generated-invalid"));
 
     public FieldKey Identity => Switch(
         known: static definition => FieldKey.Create(definition.Kind.Key),
@@ -580,7 +582,7 @@ public sealed class VoxelScope {
 
     public Fin<ContentKey> Mesh(Func<PicoGK.Mesh, Fin<ContentKey>> project) {
         if (project is null) {
-            return Fin.Fail<ContentKey>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit-mesh:projection-missing").ToError());
+            return Fin.Fail<ContentKey>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-mesh:projection-missing"));
         }
         using PicoGK.Mesh mesh = Native.mshAsMesh();
         return project(mesh);
@@ -588,7 +590,7 @@ public sealed class VoxelScope {
 
     public Fin<Option<Point3d>> Raycast(Point3d origin, Vector3d direction) =>
         !origin.IsValid || !direction.IsValid || direction.IsZero
-            ? Fin.Fail<Option<Point3d>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit-ray:invalid").ToError())
+            ? Fin.Fail<Option<Point3d>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-ray:invalid").ToError())
             : Fin.Succ(Native.bRayCastToSurface(
                 FieldMath.Vector(origin),
                 new Vector3((float)direction.X, (float)direction.Y, (float)direction.Z),
@@ -597,10 +599,13 @@ public sealed class VoxelScope {
                     : None);
 
     // Export closes the VDB round trip the import lane opens; provenance travels as field metadata so a
-    // re-imported field carries the identity its required-metadata gate compares.
+    // re-imported field carries the identity its required-metadata gate compares. The document container is what
+    // NAMES the field, and the import lane resolves it by that name (`file.voxGet(source.Field.Value)`), so the
+    // direct `Voxels.SaveToVdbFile(path)` — which writes one unnamed, metadata-free field — cannot serve this
+    // egress: the direct write is the form ONLY where nothing between the field and the file is read back.
     public Fin<ContentKey> Vdb(FileInfo target, FieldKey field, HashMap<string, string> provenance) =>
         target?.Directory is not { Exists: true } || string.IsNullOrWhiteSpace(field.Value)
-            ? Fin.Fail<ContentKey>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit-vdb:export-target").ToError())
+            ? Fin.Fail<ContentKey>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-vdb:export-target"))
             : Try.lift(() => {
                     using OpenVdbFile file = new();
                     _ = file.nAdd(Native, field.Value);
@@ -610,7 +615,7 @@ public sealed class VoxelScope {
                     return Metrics.Field;
                 })
                 .Run()
-                .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"implicit-vdb:export:{error.Message}").ToError());
+                .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-vdb:export").ToError() + error);
 }
 
 // --- [RUNTIME] ------------------------------------------------------------------------------------------------------------------------------------
@@ -647,9 +652,9 @@ file static class VoxelRail {
 public static class Implicit {
     public static Fin<T> Voxelize<T>(Seq<ImplicitOp> operations, Func<Arr<VoxelScope>, Fin<T>> consume) =>
         operations.IsEmpty
-            ? Fin.Fail<T>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit:empty-operation-set").ToError())
+            ? Fin.Fail<T>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit:empty-operation-set"))
         : consume is null
-            ? Fin.Fail<T>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit:consumer-missing").ToError())
+            ? Fin.Fail<T>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit:consumer-missing"))
             : from _ in operations.Traverse(operation => Admit(operation).ToValidation()).As().ToFin()
               from __ in Gate(Compatible(operations), "implicit:incompatible-operation-set").ToFin()
               from result in VoxelRuntime.Use(operations, () =>
@@ -687,7 +692,7 @@ public static class Implicit {
         }
     }
 
-    // An empty field rasterizes without fault and posts an empty program; the gate turns that into evidence.
+    // Empty fields rasterize without fault and post an empty program; the gate turns that into evidence.
     private static Fin<Unit> Occupied(Voxels voxels, ImplicitOp operation) =>
         voxels.bIsEmpty()
             ? Fail<Unit>(operation)
@@ -715,7 +720,7 @@ public static class Implicit {
             from inputs in Build(operation.Inputs)
             from combined in Combine(inputs.Map(static row => row.Voxels), operation.Boolean)
             from morphed in Morph(combined, operation.Morphology)
-            select new Rasterized(morphed, inputs.Map(static row => row.Calibration).Somes().HeadOrNone()));
+            select new Rasterized(morphed, inputs.Map(static row => row.Calibration).Somes().Head));
 
     private static Fin<Voxels> Combine(Seq<Voxels> inputs, VoxelBoolean operation) =>
         Try.lift(() => {
@@ -733,7 +738,7 @@ public static class Implicit {
                 }
             })
             .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"implicit-composite:{error.Message}").ToError());
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-composite").ToError() + error);
 
     private static Fin<Rasterized> Field(ImplicitOp.Field operation) =>
         from density in Acquire(operation.Cell.DensityField)
@@ -798,7 +803,7 @@ public static class Implicit {
             var byId => nodes
                 .Bind(node => node.Parents.Map(parent => (Node: node, Parent: parent)))
                 .Map(edge => byId.Find(edge.Parent)
-                    .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"implicit-lattice:missing-parent:{edge.Parent}").ToError())
+                    .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, edge.Parent, $"implicit-lattice:missing-parent:{edge.Parent}").ToError())
                     .Map(parent => (edge.Node, parent)))
                 .Sequence(),
         };
@@ -836,7 +841,7 @@ public static class Implicit {
                 return field.voxDuplicate();
             })
             .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"implicit-vdb:{error.Message}").ToError())
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-vdb").ToError() + error)
         select voxels;
 
     private static Fin<Unit> VdbMetadata(VdbSource source, double voxelSizeMm) =>
@@ -844,7 +849,7 @@ public static class Implicit {
                 using OpenVdbFile file = new(source.Path.FullName);
                 if (!file.bIsPicoGKCompatible()
                     || !file.fPicoGKVoxelSizeMM().Equals((float)voxelSizeMm)) {
-                    return Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit-vdb:voxel-size").ToError());
+                    return Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-vdb:voxel-size"));
                 }
                 using Voxels field = file.voxGet(source.Field.Value);
                 using FieldMetadata metadata = field.oMetaData();
@@ -852,10 +857,10 @@ public static class Implicit {
                     metadata.bGetValueAt(pair.Key, out string actual)
                     && string.Equals(actual, pair.Value, StringComparison.Ordinal))
                         ? Fin.Succ(unit)
-                        : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit-vdb:metadata").ToError());
+                        : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-vdb:metadata"));
             })
             .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"implicit-vdb:{error.Message}").ToError())
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-vdb").ToError() + error)
             .Bind(static result => result));
 
     private static Fin<Unit> VdbIdentity(VdbSource source) =>
@@ -865,28 +870,30 @@ public static class Implicit {
                 if (canonicalLength > int.MaxValue)
                     return false;
 
-                using XxHash128 hash = new();
+                // Kernel `ContentHash` owns the accumulator AND its explicit seed zero, so a digest minted here
+                // lands inside the one federation key space rather than beside it under an implicit default seed.
                 byte[] kind = Encoding.UTF8.GetBytes(source.Key.Kind.Key);
                 byte[] field = Encoding.UTF8.GetBytes(source.Field.Value);
-                AppendInt32(hash, kind.Length);
-                hash.Append(kind);
-                AppendInt32(hash, (int)canonicalLength);
-                AppendInt32(hash, field.Length);
-                hash.Append(field);
-                hash.Append(payload);
-                return hash.GetCurrentHashAsUInt128() == source.Key.Digest;
+                return ContentHash.Of(
+                    state: (Kind: kind, Field: field, Length: (int)canonicalLength, Payload: payload),
+                    chunks: static (state, hash) => {
+                        Span<byte> width = stackalloc byte[sizeof(int)];
+                        BinaryPrimitives.WriteInt32LittleEndian(width, state.Kind.Length);
+                        hash.Append(width);
+                        hash.Append(state.Kind);
+                        BinaryPrimitives.WriteInt32LittleEndian(width, state.Length);
+                        hash.Append(width);
+                        BinaryPrimitives.WriteInt32LittleEndian(width, state.Field.Length);
+                        hash.Append(width);
+                        hash.Append(state.Field);
+                        hash.Append(state.Payload);
+                    }) == source.Key.Digest;
             })
             .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"implicit-vdb:identity:{error.Message}").ToError())
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-vdb:identity").ToError() + error)
             .Bind(matches => matches
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit-vdb:identity").ToError()));
-
-    private static void AppendInt32(XxHash128 hash, int value) {
-        Span<byte> width = stackalloc byte[sizeof(int)];
-        BinaryPrimitives.WriteInt32LittleEndian(width, value);
-        hash.Append(width);
-    }
+                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-vdb:identity")));
 
     private static Fin<Voxels> Morph(Voxels voxels, Seq<VoxelMorphologyStep> steps) =>
         steps.Fold(
@@ -903,7 +910,7 @@ public static class Implicit {
                 None: static () => Fin.Succ(Option<T>.None),
                 Some: static factory => factory().Map(Some)))
             .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"implicit-driver:{error.Message}").ToError())
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-driver").ToError() + error)
             .Bind(static result => result);
 
     private static Fin<Unit> WithinBudget(ImplicitOp operation) =>
@@ -927,6 +934,10 @@ public static class Implicit {
             raster.Calibration);
     }
 
+    // The stack is INSPECTED between the field and the file — `nCount()` is the layer census and the slices are the
+    // canonical identity preimage — so the vectorize-then-write staging earns its place here. Where a lane writes a
+    // single field and reads nothing back, `Voxels.SaveToCliFile` collapses the same pair into one call and the
+    // `PolySliceStack` never materializes; a container staged for a file nothing inspects is the deleted form.
     private static Fin<CliStack> Vector(VoxelScope scope, ImplicitOp operation, CliMode.CliVector mode) =>
         Try.lift(() => {
                 PolySliceStack slices = scope.Native.oVectorize(
@@ -1026,9 +1037,9 @@ public static class Implicit {
 
     private static Fin<Unit> Admit(ImplicitOp? operation) =>
         operation is null
-            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit:operation-null").ToError())
+            ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit:operation-null"))
             : operation.Policy is null
-                ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit:policy").ToError())
+                ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit:policy"))
                 : Gates(
                     Gate(operation.Policy.Cli.Switch(
                         grayscale: static mode => mode.Sampling is not null,
@@ -1060,10 +1071,7 @@ public static class Implicit {
         toSeq(gates.ToArray()).Traverse(static gate => gate).Map(static _ => unit);
 
     private static Validation<Error, Unit> Gate(bool valid, string locus) =>
-        (valid
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError()))
-        .ToValidation();
+        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus)).As();
 
     private static bool Compatible(Seq<ImplicitOp> operations) =>
         operations.Bind(Expand).Map(static operation => operation.Policy.Budget.VoxelSizeMm).Distinct().Count == 1;
@@ -1190,7 +1198,7 @@ file sealed class FieldCalibration : IDisposable {
             if (planes.Height != resolution
                 || !TensorPrimitives.IsFiniteAll(levelSpan)
                 || !TensorPrimitives.IsFiniteAll(distanceSpan)) {
-                return Fin.Fail<FieldCalibration>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "implicit-calibration:non-finite").ToError());
+                return Fin.Fail<FieldCalibration>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-calibration:non-finite").ToError());
             }
 
             float average = TensorPrimitives.Average(distanceSpan);
@@ -1288,45 +1296,36 @@ public static class ImplicitCanonical {
         Seq<ContentKey> fields,
         ImplicitPolicy policy,
         Option<CliMode.CliVector> mode) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Float64(writer, policy.LayerHeight.Millimeters);
+        CanonicalWriter writer = new(0.0);
+        writer.Double(policy.LayerHeight.Millimeters);
         mode.Match(
-            None: () => { Int32(writer, 0); },
+            None: () => { writer.Bool(false); },
             Some: value => {
-                Int32(writer, 1);
-                Int32(writer, (int)value.Format);
-                Float64(writer, value.UnitsInMillimeters);
-                Int32(writer, value.AbsoluteOrigin ? 1 : 0);
+                writer.Bool(true).Ordinal((int)value.Format).Double(value.UnitsInMillimeters).Bool(value.AbsoluteOrigin);
             });
         Keys(writer, fields);
-        Int32(writer, slices.nCount());
+        writer.Ordinal(slices.nCount());
         toSeq(Enumerable.Range(0, slices.nCount())).Iter(layer => {
             PolySlice slice = slices.oSliceAt(layer);
-            Float64(writer, slice.fZPos());
-            Int32(writer, slice.nContours());
+            writer.Double(slice.fZPos()).Ordinal(slice.nContours());
             toSeq(Enumerable.Range(0, slice.nContours())).Iter(contourIndex => {
                 PolyContour contour = slice.oContourAt(contourIndex);
-                Int32(writer, contour.nCount());
-                Int32(writer, (int)contour.eDetectWinding());
+                writer.Ordinal(contour.nCount()).Ordinal((int)contour.eDetectWinding());
                 toSeq(Enumerable.Range(0, contour.nCount())).Iter(vertexIndex => {
                     Vector2 vertex = contour.vecVertex(vertexIndex);
-                    Float64(writer, vertex.X);
-                    Float64(writer, vertex.Y);
+                    writer.Double(vertex.X).Double(vertex.Y);
                 });
             });
         });
-        return writer.WrittenSpan.ToArray();
+        return writer.ToBytes().ToArray();
     }
 
     public static byte[] Image(int layer, Length elevation, ImageGrayScale image, ContentKey field) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Int32(writer, layer);
-        Float64(writer, elevation.Millimeters);
-        UInt128Value(writer, field.Digest);
-        Int32(writer, image.nWidth);
-        Int32(writer, image.nHeight);
-        image.m_afValues.Iter(value => Float32(writer, value));
-        return writer.WrittenSpan.ToArray();
+        CanonicalWriter writer = new(0.0);
+        writer.Ordinal(layer).Double(elevation.Millimeters).U128(field.Digest)
+            .Ordinal(image.nWidth).Ordinal(image.nHeight);
+        image.m_afValues.Iter(value => writer.Single(value));
+        return writer.ToBytes().ToArray();
     }
 
     public static byte[] MaskIndex(
@@ -1334,40 +1333,18 @@ public static class ImplicitCanonical {
         ContentKey field,
         ImplicitPolicy policy,
         CliMode.Grayscale mode) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Float64(writer, policy.LayerHeight.Millimeters);
-        Int32(writer, (int)mode.Mode);
-        Int32(writer, (int)mode.Axis);
-        Int32(writer, mode.Sampling == MaskSampling.VoxelGrid ? 0 : 1);
-        UInt128Value(writer, field.Digest);
+        CanonicalWriter writer = new(0.0);
+        writer.Double(policy.LayerHeight.Millimeters).Ordinal((int)mode.Mode).Ordinal((int)mode.Axis)
+            .Ordinal(mode.Sampling == MaskSampling.VoxelGrid ? 0 : 1).U128(field.Digest);
         Keys(writer, masks);
-        return writer.WrittenSpan.ToArray();
+        return writer.ToBytes().ToArray();
     }
 
-    private static void Keys(ArrayPoolBufferWriter<byte> writer, Seq<ContentKey> keys) {
-        Int32(writer, keys.Count);
-        keys.Iter(key => UInt128Value(writer, key.Digest));
+    private static void Keys(CanonicalWriter writer, Seq<ContentKey> keys) {
+        writer.Ordinal(keys.Count);
+        keys.Iter(key => writer.U128(key.Digest));
     }
 
-    private static void Int32(ArrayPoolBufferWriter<byte> writer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(sizeof(int)), value);
-        writer.Advance(sizeof(int));
-    }
-
-    private static void Float64(ArrayPoolBufferWriter<byte> writer, double value) {
-        BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(sizeof(double)), value);
-        writer.Advance(sizeof(double));
-    }
-
-    private static void Float32(ArrayPoolBufferWriter<byte> writer, float value) {
-        BinaryPrimitives.WriteSingleLittleEndian(writer.GetSpan(sizeof(float)), value);
-        writer.Advance(sizeof(float));
-    }
-
-    private static void UInt128Value(ArrayPoolBufferWriter<byte> writer, UInt128 value) {
-        BinaryPrimitives.WriteUInt128LittleEndian(writer.GetSpan(16), value);
-        writer.Advance(16);
-    }
 }
 ```
 

@@ -15,7 +15,7 @@
 - Entry: `Materialize` accumulates independent identity, gesture, and placement conflicts before construction; command access, refresh, and every chrome projection share the active lifecycle rail.
 - Receipt: every UI or programmatic execution appends one `IntentReceipt` carrying the exact `Fin<Unit>` outcome.
 - Growth: a verb is one `IntentRow`; a surface occurrence is one `PlacementSlot`; a command modality is one `CommandKind` case.
-- Boundary: `Command.Execute` remains inside the table, and host events retain their otherwise-unreturnable result in `Receipts`.
+- Boundary: `Command.Execute` remains inside the table, and host events retain their otherwise-unreturnable result in `Receipts`. Chrome egress states its custody: a menu bar and toolbar leave bare because a window takes them, while a context menu leaves leased because nothing else will.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -141,8 +141,12 @@ public sealed class IntentTable : UiLease {
     public Fin<MenuBar> MenuOf(PlacementKey place, Op? key = null) =>
         Project(place, key.OrDefault(), static placed => Chromed(new MenuBar(), placed));
 
-    public Fin<ContextMenu> PopupOf(PlacementKey place, Op? key = null) =>
-        Project(place, key.OrDefault(), static placed => Chromed(new ContextMenu(), placed));
+    // Popups have no window to attach into, so one leaves under caller custody rather than as a bare host object with
+    // no owner at all; menu bar and toolbar leave bare because `ShellPlan.Realize` hands both to the window it attaches
+    // them to and that receipt drains them.
+    public Fin<Lease<ContextMenu>> PopupOf(PlacementKey place, Op? key = null) =>
+        Project(place, key.OrDefault(), static placed => (Lease<ContextMenu>)new Lease<ContextMenu>.Owned(
+            Value: Chromed(new ContextMenu(), placed)));
 
     public Fin<ToolBar> BarOf(PlacementKey place, Op? key = null) =>
         Project(place, key.OrDefault(), Barred);
@@ -271,7 +275,7 @@ public sealed class IntentTable : UiLease {
 
 - Owner: `ShellPlan` carries window shape, capabilities, content, and placement keys; `ShellReceipt` owns the window and its realized element subtree.
 - Entry: `Realize` requires the injected `ElementRuntime`; `Present` shows the same owned receipt.
-- Receipt: teardown detaches content before disposing the element tree and window, so ownership never doubles through Eto's visual tree.
+- Receipt: teardown detaches content before disposing the element tree and window, then releases the menu and toolbar the window carried, so every host object the realize fold minted has exactly one owner and ownership never doubles through Eto's visual tree.
 - Growth: another window kind is one `ShellKind` row, another capability is one `ShellCapability` bit consumed in `Realize`, and another placement or presentation property is one `Option` field applied in `Realize`.
 
 ```csharp signature
@@ -310,15 +314,20 @@ public sealed record ShellPlan(
     Option<(IntentTable Table, PlacementKey Place)> Menu,
     Option<(IntentTable Table, PlacementKey Place)> Bar) {
 
+    // Menu and toolbar are minted BEFORE the window exists, so a refused mint anywhere after them leaves two host
+    // objects with no owner: the drain releases both on the no-window path and the receipt owns them once the window
+    // has taken them, so neither survives a failure and neither outlives the shell.
     public Fin<ShellReceipt> Realize(ElementRuntime runtime, Op? key = null) {
         Op op = key.OrDefault();
         Form? window = null;
+        MenuBar? chrome = null;
+        ToolBar? strip = null;
         return Content.Realize(runtime, op).Bind(body =>
             Menu.Match(
-                Some: value => value.Table.MenuOf(value.Place, op).Map(static menu => Optional(menu)),
+                Some: value => value.Table.MenuOf(value.Place, op).Map(menu => Optional(chrome = menu)),
                 None: static () => Fin.Succ(Option<MenuBar>.None))
             .Bind(menu => Bar.Match(
-                Some: value => value.Table.BarOf(value.Place, op).Map(static bar => Optional(bar)),
+                Some: value => value.Table.BarOf(value.Place, op).Map(bar => Optional(strip = bar)),
                 None: static () => Fin.Succ(Option<ToolBar>.None))
                 .Bind(bar => op.Catch(() => {
                     Form owned = window = Kind.Mint();
@@ -338,11 +347,18 @@ public sealed record ShellPlan(
                     _ = Owner.Iter(value => owned.Owner = value);
                     _ = menu.Iter(value => owned.Menu = value);
                     _ = bar.Iter(value => owned.ToolBar = value);
-                    return Fin.Succ(new ShellReceipt(owned, body, op));
+                    return Fin.Succ(new ShellReceipt(
+                        owned,
+                        body,
+                        menu.Map(static value => (IDisposable)value).ToSeq() + bar.Map(static value => (IDisposable)value).ToSeq(),
+                        op));
                 })))
             .MapFail(fault => Optional(window)
                 .Map(owned => fault.Also(ShellReceipt.Severed(owned, body, op)))
-                .IfNone(() => fault.Also(body.Release()))));
+                .IfNone(() => fault.Also(Seq<Func<Fin<Unit>>>(
+                    () => op.Catch(() => Fin.Succ(Op.Side(() => Optional(chrome).Iter(static held => held.Dispose())))),
+                    () => op.Catch(() => Fin.Succ(Op.Side(() => Optional(strip).Iter(static held => held.Dispose())))),
+                    body.Release).Drained(op)))));
     }
 
     public Fin<ShellReceipt> Present(ElementRuntime runtime, Op? key = null) {
@@ -356,17 +372,23 @@ public sealed record ShellPlan(
 
 public sealed class ShellReceipt : UiLease {
     private readonly ElementReceipt body;
+    private readonly Seq<IDisposable> chrome;
     private readonly Op key;
 
-    internal ShellReceipt(Form window, ElementReceipt body, Op key) {
+    internal ShellReceipt(Form window, ElementReceipt body, Seq<IDisposable> chrome, Op key) {
         Window = window;
         this.body = body;
+        this.chrome = chrome;
         this.key = key;
     }
 
     public Form Window { get; }
 
-    protected override Fin<Unit> Free() => Severed(Window, body, key);
+    // Content severs first, then the window, then the chrome the window carried — the exact inverse of the order
+    // `Realize` built them in, so a menu or toolbar is never released while the window still references it.
+    protected override Fin<Unit> Free() =>
+        (Seq<Func<Fin<Unit>>>(() => Severed(Window, body, key))
+         + chrome.Rev().Map(held => (Func<Fin<Unit>>)(() => key.Catch(() => Fin.Succ(Op.Side(held.Dispose)))))).Drained(key);
 
     internal static Fin<Unit> Severed(Window window, ElementReceipt body, Op op) =>
         Seq<Func<Fin<Unit>>>(
@@ -528,7 +550,7 @@ internal sealed class PromptLease<TResult>(Dialog<Option<Fin<TResult>>> dialog, 
 ## [05]-[PRINT_FLOW]
 
 - Owner: `PrintPlan` admits and defers one `PrintDocument` run; `PrintPage` replays a mounted `PaintProgram` under one `ScenePolicy` and host, bounded, or `PageSettings.PrintableArea` framing.
-- Entry: `Run` returns `IO<Fin<PrintReceipt>>`; printer interaction and document lifetime begin only when the caller executes the effect.
+- Entry: `Run` returns `IO<Fin<PrintReceipt>>`; printer interaction and document lifetime begin only when the caller executes the effect, and that execution crosses `UiThread` once so job construction, every page callback, both dialog routes, and disposal share one UI-affine scope.
 - Receipt: every attempted page normalizes Eto's selected-range page number to a zero-based source and scope ordinal; `PrintReceipt.Completed` requires one in-range fact per expected page plus host completion and zero failed facts, while `PresenceFailures` preserves taskbar projection faults.
 - Boundary: `PrintReceipt` is this driver's raw run outcome only — printer-evidence vocabulary is the Exchange publish receipt family, and the composing app root folds these facts into it.
 - Growth: a route is one `PrintRoute` case, a frame source is one `PageFrame` case, and a job option is one `PrintSpec` field.
@@ -678,7 +700,14 @@ public sealed record PrintReceipt(
 public sealed record PrintPlan(string Name, Seq<PrintPage> Pages, PrintSpec Spec, PrintRoute Route) {
     public IO<Fin<PrintReceipt>> Run(Op? key = null) => IO.lift(() => RunNow(key.OrDefault()));
 
-    private Fin<PrintReceipt> RunNow(Op op) => Admit(op).Bind(_ => op.Catch(() => {
+    // Jobs are Eto widgets, page callbacks paint into a host `Graphics`, and two routes show host dialogs, so this
+    // deferred run crosses the Eto floor ONCE — construction, every page, presentation, and disposal share one
+    // UI-affine scope. Deferral is what makes marshalling right rather than refusal: callers compose the effect on a
+    // background lane and only execution is thread-bound, where `Element.Realize` runs directly and refuses instead.
+    private Fin<PrintReceipt> RunNow(Op op) =>
+        UiThread.Run(new UiDispatch<PrintReceipt>.Blocking(() => Printed(op)), op).Result;
+
+    private Fin<PrintReceipt> Printed(Op op) => Admit(op).Bind(_ => op.Catch(() => {
             Atom<Seq<PrintPageFact>> facts = Atom(Seq<PrintPageFact>());
             Atom<Seq<Error>> presenceFailures = Atom(Seq<Error>());
             Atom<bool> hostCompleted = Atom(false);

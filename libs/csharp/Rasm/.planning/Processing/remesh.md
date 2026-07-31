@@ -2,7 +2,7 @@
 
 `RemeshOp` owns predicate-gated mesh rewrite toward a target sampling: one `[Union]` folds isotropic edge-length equalization and cross-field quad extraction through a single `MeshEdit` arena under one exact projected-convexity flip gate.
 
-A rebuild composes the `Meshing/edit` arena as the sole position and face carrier, the exact `Kernels.QuadDiagonal` gate, the `Spatial/index` BVH re-projecting every relaxed vertex onto the original surface, and the `segment` Knöppel owners `SegmentKernel.CrossFieldAt`/`StripeAt` over the admitting `VectorField.CrossField` factory.
+Rebuild work composes the `Meshing/edit` arena as the sole position and face carrier, the exact `Kernels.QuadDiagonal` gate, the `Spatial/index` BVH re-projecting every relaxed vertex onto the original surface, and the `segment` Knöppel owners `SegmentKernel.CrossFieldAt`/`StripeAt` over the admitting `VectorField.CrossField` factory.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,7 @@ A rebuild composes the `Meshing/edit` arena as the sole position and face carrie
 - Auto: `Apply` internalizes arena lifetime, the one original-surface BVH build, pass budgeting with its early convergence exit, feature and boundary pinning, and the quad arm's isotropic pre-conditioning, so a caller supplies the op and reads the receipt.
 - Receipt: `RemeshTrace` witnesses every rewrite; `QuadProvenance` rides `RewriteResult.Quads` on the quad arm alone.
 - Packages: `Rasm.Meshing`, `Rasm.Spatial`, `Rasm.Processing`, `Rasm.Numerics`, and `Rasm.Domain` are the composed kernel siblings over Rhino.Geometry at the seam; QuikGraph's `ConnectedComponents` labels the patch decomposition, CommunityToolkit.HighPerformance's `IAction` drives the double-buffered relax sweep, and Thinktecture.Runtime.Extensions with LanguageExt.Core generate the op dispatch and its `Fin` rail.
-- Growth: a new rewrite modality is one `RemeshOp` case over the same pass machinery; a curvature-adaptive sizing field is one policy delegate replacing the constant `ℓ` in the same hysteresis tests; feature-vertex sliding is one relax-arm branch on the feature census; a new pass verb is one arm in the fold.
+- Growth: a new rewrite modality is one `RemeshOp` case over the same pass machinery; a new sizing law is one `RemeshPolicy.Sizing` producer — the hysteresis tests already read the per-position field; feature-vertex sliding is one relax-arm branch on the feature census; a new pass verb is one arm in the fold.
 - Boundary: `RemeshOp` owns the author-kernel rewrite alone, and QuikGraph's adjacency graph never leaves the extraction.
 
 ```csharp signature
@@ -43,12 +43,14 @@ namespace Rasm.Processing;
 
 // --- [CONSTANTS] ------------------------------------------------------------------------------
 // SplitRatio/CollapseRatio are the Botsch-Kobbelt hysteresis band: neither op mints an edge the other immediately reverses.
+// Sizing is the curvature-adaptive target-length field: a positive per-position ℓ the SAME hysteresis tests read at
+// each edge midpoint (`TensorField.Curvature` over the source is the canonical producer); None holds the constant ℓ.
 public sealed record RemeshPolicy(
     int Iterations, double SplitRatio, double CollapseRatio, double FeatureAngle,
-    double ConvergenceBand, int ProjectCandidates, int ParallelFloor) : IValidityEvidence {
+    double ConvergenceBand, int ProjectCandidates, int ParallelFloor, Option<Func<Point3d, double>> Sizing) : IValidityEvidence {
     public static readonly RemeshPolicy Canonical = new(
         Iterations: 8, SplitRatio: 4.0 / 3.0, CollapseRatio: 4.0 / 5.0, FeatureAngle: 0.6981317007977318,
-        ConvergenceBand: 0.2, ProjectCandidates: 8, ParallelFloor: 4_096);
+        ConvergenceBand: 0.2, ProjectCandidates: 8, ParallelFloor: 4_096, Sizing: Option<Func<Point3d, double>>.None);
 
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Positive(value: Iterations),
@@ -86,9 +88,9 @@ public static class Remeshing {
             quadField: q => Admit(q.Mesh, q.TargetLength, q.Policy).Bind(_ => Quadrangulate(q, key)));
 
     static Fin<Unit> Admit(MeshSpace mesh, double target, RemeshPolicy policy) =>
-        mesh.Native.Faces.Count == 0 ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "empty mesh").ToError())
-        : !(target > 0.0) ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "non-positive target length").ToError())
-        : !policy.IsValid ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "invalid remesh policy").ToError())
+        mesh.Native.Faces.Count == 0 ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "empty mesh").ToError())
+        : !(target > 0.0) ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "non-positive target length").ToError())
+        : !policy.IsValid ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "invalid remesh policy").ToError())
         : Fin.Succ(unit);
 
     // --- [ISOTROPIC]
@@ -96,15 +98,21 @@ public static class Remeshing {
     static Fin<(MeshSpace Space, RemeshTrace Trace)> Equalize(MeshSpace source, double target, RemeshPolicy policy, Op? key) {
         using MeshEdit arena = MeshEdit.Of(source, ArenaPolicy.Canonical with { ParallelFloor = policy.ParallelFloor });
         return SourceIndex(source, key).Bind(frozen => {
+            // One resolved field serves every hysteresis read; the constant lane is the None fold, so adaptive
+            // and uniform runs are one body, and a non-positive field sample clamps to the constant ℓ rather than
+            // inverting the band.
+            Func<Point3d, double> targetAt = policy.Sizing.Match(
+                Some: field => (Func<Point3d, double>)(at => field(at) is > 0.0 and var local && double.IsFinite(local) ? local : target),
+                None: () => _ => target);
             (int splits, int collapses, int flips, int features) = (0, 0, 0, 0);
             int round = 0;
             for (; round < policy.Iterations; round++) {
                 Edges edges = Edges.Of(arena, policy.FeatureAngle);
                 features = edges.FeatureCount;
-                int did = Split(arena, edges, target * policy.SplitRatio);
+                int did = Split(arena, edges, targetAt, policy.SplitRatio);
                 splits += did;
                 edges = Edges.Of(arena, policy.FeatureAngle);
-                int killed = Collapse(arena, edges, target * policy.CollapseRatio, target * policy.SplitRatio);
+                int killed = Collapse(arena, edges, targetAt, policy.CollapseRatio, policy.SplitRatio);
                 collapses += killed;
                 edges = Edges.Of(arena, policy.FeatureAngle);
                 int turned = Flip(arena, edges);
@@ -112,9 +120,9 @@ public static class Remeshing {
                 Relax(arena, Edges.Of(arena, policy.FeatureAngle), policy);
                 Fin<Unit> projected = Project(arena, frozen, policy, key);
                 if (projected.Case is LanguageExt.Common.Error fault) { return Fin.Fail<(MeshSpace, RemeshTrace)>(fault); }
-                if (did + killed + turned == 0 && Deviation(arena, target).Mean <= policy.ConvergenceBand) { round++; break; }
+                if (did + killed + turned == 0 && Deviation(arena, targetAt).Mean <= policy.ConvergenceBand) { round++; break; }
             }
-            (double mean, double max) = Deviation(arena, target);
+            (double mean, double max) = Deviation(arena, targetAt);
             return mean > policy.ConvergenceBand
                 ? Fin.Fail<(MeshSpace, RemeshTrace)>(new GeometryFault.RemeshStalled(target, target * (1.0 + mean), round).ToError())
                 : arena.ToSpace(source.Tolerance, key)
@@ -161,10 +169,11 @@ public static class Remeshing {
     }
 
     // Winding-consistent split: the face's own u→v traversal orders the (u,m,w)/(m,v,w) pair, so freeze sees one orientation.
-    static int Split(MeshEdit arena, Edges edges, double ceiling) {
+    static int Split(MeshEdit arena, Edges edges, Func<Point3d, double> targetAt, double splitRatio) {
         int did = 0;
         foreach (((int u, int v), (int f0, int f1)) in edges.Table.ToArray()) {
-            if (arena.Position(u).DistanceTo(arena.Position(v)) <= ceiling) { continue; }
+            Point3d mid = 0.5 * (arena.Position(u) + arena.Position(v));
+            if (arena.Position(u).DistanceTo(arena.Position(v)) <= targetAt(mid) * splitRatio) { continue; }
             int m = arena.AddVertex(0.5 * (arena.Position(u) + arena.Position(v)));
             foreach (int f in (ReadOnlySpan<int>)[f0, f1]) {
                 if (f < 0 || !arena.Alive(f)) { continue; }
@@ -187,7 +196,7 @@ public static class Remeshing {
     static bool Holds((int A, int B, int C) face, int u, int v) =>
         (face.A == u || face.B == u || face.C == u) && (face.A == v || face.B == v || face.C == v);
 
-    static int Collapse(MeshEdit arena, Edges edges, double floor, double ceiling) {
+    static int Collapse(MeshEdit arena, Edges edges, Func<Point3d, double> targetAt, double collapseRatio, double splitRatio) {
         Dictionary<int, List<int>> facesOf = [];
         for (int f = 0; f < arena.FaceCount; f++) {
             if (!arena.Alive(f)) { continue; }
@@ -207,13 +216,14 @@ public static class Remeshing {
             if (dead.Contains(cu) || dead.Contains(cv)) { continue; }
             (int u, int v) = edges.Pinned.Contains(cu) ? (cv, cu) : (cu, cv);  // collapse TOWARD the feature: the pinned end survives
             if (edges.Pinned.Contains(u)) { continue; }  // both ends pinned — a crease segment, held
-            if (arena.Position(u).DistanceTo(arena.Position(v)) >= floor) { continue; }
+            if (arena.Position(u).DistanceTo(arena.Position(v)) >= targetAt(0.5 * (arena.Position(u) + arena.Position(v))) * collapseRatio) { continue; }
             // link condition — the genus gate: a shared one-ring wider than the edge's opposite corners pinches the surface.
             if (neighbors[u].Count(w => neighbors[v].Contains(w)) != (f1 < 0 ? 1 : 2)) { continue; }
             bool minted = facesOf.TryGetValue(u, out List<int>? around) && around.Where(arena.Alive).Any(f => {
                 (int a, int b, int c) = arena.Face(f);
                 foreach (int w in (ReadOnlySpan<int>)[a, b, c]) {
-                    if (w != u && w != v && arena.Position(v).DistanceTo(arena.Position(w)) > ceiling) { return true; }
+                    if (w != u && w != v && arena.Position(v).DistanceTo(arena.Position(w))
+                        > targetAt(0.5 * (arena.Position(v) + arena.Position(w))) * splitRatio) { return true; }
                 }
                 return false;
             });
@@ -355,7 +365,7 @@ public static class Remeshing {
         return Fin.Succ(unit);
     }
 
-    static (double Mean, double Max) Deviation(MeshEdit arena, double target) {
+    static (double Mean, double Max) Deviation(MeshEdit arena, Func<Point3d, double> targetAt) {
         (double sum, double max, int count) = (0.0, 0.0, 0);
         EdgeKeySet seen = [];
         for (int f = 0; f < arena.FaceCount; f++) {
@@ -363,7 +373,8 @@ public static class Remeshing {
             (int a, int b, int c) = arena.Face(f);
             foreach ((int u, int v) in (ReadOnlySpan<(int, int)>)[(a, b), (b, c), (c, a)]) {
                 if (!seen.Add((int.Min(u, v), int.Max(u, v)))) { continue; }
-                double dev = Math.Abs(arena.Position(u).DistanceTo(arena.Position(v)) - target) / target;
+                double local = targetAt(0.5 * (arena.Position(u) + arena.Position(v)));
+                double dev = Math.Abs(arena.Position(u).DistanceTo(arena.Position(v)) - local) / local;
                 (sum, max, count) = (sum + dev, double.Max(max, dev), count + 1);
             }
         }
@@ -533,6 +544,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Remesh dispatch
+    accDescr: Isotropic and quad-field rewrites folding the arena passes onto a typed trace with the stall fault.
     RemeshOp -->|Isotropic: split/collapse/flip/relax/project passes| MeshEdit
     MeshEdit -->|exact flip gate — two QuadDiagonal probes| Kernels
     MeshEdit -->|"Nearest(p, K) candidates → exact foot"| SpatialIndex

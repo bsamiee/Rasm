@@ -1,6 +1,6 @@
 # [UI_TABLE]
 
-The one data-grid owner: TanStack Table models — rows, headers, facets, grouping, aggregation, pinning — TanStack Virtual windows, react-aria supplies the grid semantics, and ONE atom holds the whole `TableState` so every slice persists, derives, and echoes through the store. Columns type against the wire-decoded row Schema through `createColumnHelper`, or fold dynamically from a `Feed.Document` column band so a producer-opaque tabular artifact renders with zero static row Schema and zero producer branching. RAC `Table` remains the owner for interactive accessible collections WITHOUT heavy derivation — the TanStack fold is earned by faceting/grouping/virtual scale, and one collection never runs both engines. The module is `ui/src/view/table.ts`.
+The one data-grid owner: TanStack Table models rows, headers, facets, grouping, aggregation, and pinning, TanStack Virtual windows them, react-aria supplies the grid semantics, and ONE atom holds the whole `TableState`. Columns type against the wire-decoded row Schema through `createColumnHelper`, or fold from a `Feed.Document` column band so a producer-opaque artifact renders with zero static row Schema. RAC `Table` keeps the collections faceting, grouping, and virtual scale never earn. Module: `ui/src/view/table.ts`.
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,7 @@ The one data-grid owner: TanStack Table models — rows, headers, facets, groupi
 - Packages: `@tanstack/react-table` (`useReactTable`, `functionalUpdate`, `makeStateUpdater`, the state types — `SortingState`, `ColumnFiltersState`, `RowSelectionState`, `GroupingState`, `ExpandedState`, `PaginationState`, `ColumnPinningState`, `RowPinningState`, `ColumnOrderState`, `ColumnSizingState`, `VisibilityState`); `@effect-atom/atom-react` (the one store, `system/atom` law); `effect` (`Schema`).
 - Law: persistence is the declared subset — `Grid.Persisted` is the Schema owning exactly the layout slices that survive reload (order, sizing, visibility, column pinning), the `Atom.kvs` row decodes through it, and a malformed stored layout re-decodes to the seed instead of poisoning the fold; persisting the whole slice (selection, pagination) or a raw `localStorage` read beside the store is the named defect.
 - Law: the slice is one product — a second atom holding a parallel copy of any slice, or a component mirroring `sorting` into local state, restates the fold; projections read through `useAtomValue(atom, selector)`.
-- Growth: a new managed slice is one field on the slice product plus one `Grid.apply` row — never a sibling state cell; a bespoke feature subset composes `_features: [RowSelection, ColumnPinning, …]` explicitly and the slice product shrinks to match.
+- Growth: a new managed slice is one field on the slice product with one `Grid.apply` row — never a sibling state cell; a bespoke feature subset composes `_features: [RowSelection, ColumnPinning, …]` explicitly and the slice product shrinks to match.
 
 ```typescript
 import type {
@@ -37,7 +37,7 @@ import type {
 } from "@tanstack/react-table"
 import { createColumnHelper, functionalUpdate } from "@tanstack/react-table"
 import type { Feed } from "@rasm/ts/core"
-import { Array, Option, Schema } from "effect"
+import { Array, Option, Record, Schema } from "effect"
 
 declare namespace Grid {
   type Slice = {
@@ -85,14 +85,16 @@ const _Persisted = Schema.Struct({
 
 const _apply = <K extends keyof Grid.Slice>(key: K) =>
   (state: Grid.Slice, updater: Updater<Grid.Slice[K]>): Grid.Slice =>
-    ({ ...state, [key]: functionalUpdate(updater, state[key]) })
+    // a generic computed key in an object literal widens to a string index and loses the slice's shape, so the
+    // package construction carries the single-key record the checker cannot type from the literal
+    ({ ...state, ...Record.singleton(key, functionalUpdate(updater, state[key])) })
 ```
 
 ## [03]-[COLUMN_PLANE]
 
 [COLUMN_PLANE]:
 - Owner: the column fold riding `Grid` — two ingress modalities on one plane: STATIC columns type against the wire-decoded row Schema via `createColumnHelper<Row>()` (accessor rows carrying `sortingFn`/`filterFn`/`aggregationFn` references by registry name); BANDED columns fold from a `Feed.Document` column band — `name`/`kind`/`dimension`/`nullable` rows become dynamic `accessor((row) => row[column.name], { id: column.name })` definitions, so a self-described result artifact renders with the band — never the payload — as the binding contract.
-- Law: a `dimension`-carrying column formats through `system/intl` `Format.number` rows as a projection over the SI magnitude; a `stamp` column renders through `Format.instant` + `useDateFormatter`; the band `kind` axis selects the cell projection from `_CELL`, contract-checked total over `Feed.Column["kind"]` so a wire vocabulary change breaks this table loudly, and a producer discriminant never appears.
+- Law: the band `kind` axis selects a cell ROW from `_CELL`, contract-checked total over `Feed.Column["kind"]` so a wire vocabulary change breaks this table loudly, and the row carries every decision the cell otherwise re-derives: `measured` gates the `system/intl` `Format.number` projection over the SI magnitude a `dimension`-carrying column declares, `align` fixes the column's layout, `editable` states which kinds the `TableMeta` commit port may write, and `render` keys the roster's presentation. A bare projection name forces a second table to interpret it, and a producer discriminant never appears; a `stamp` column renders through `Format.instant` + `useDateFormatter`.
 - Law: column metadata is the declaration-merged interface, never an untyped bag — `ColumnMeta` carries the cell projection, dimension, nullability, and the `GlobalId` accessor + edit policy where a grid fronts model elements; `TableMeta` carries table-scoped capability (the edit write port); both type end-to-end through `flexRender` contexts.
 - Law: `flexRender` is the only bridge from column definition to markup — header, cell, footer, and aggregated presentations all pass through it; a cell component reading table internals directly is the named defect; a derivation the react-compiler cannot see (an FFI-boundary fold) memoizes through the table's own `memo(deps, fn)` util, never a hand `useMemo`.
 - Growth: a new column is one `columnHelper` row — or, for banded sources, one band row the fold picks up; a new cell presentation is one `kind` arm on the closed projection table.
@@ -112,13 +114,19 @@ declare module "@tanstack/react-table" {
 
 const _helper = createColumnHelper<Grid.Banded>()
 
+// each row carries the cell's BEHAVIOR, never a bare projection name — `render` keys the roster's presentation,
+// `align` and `measured` decide the column's layout and whether Format.number folds its SI magnitude, and
+// `editable` states which kinds a TableMeta commit port may write; a name alone forces a second table to read it
 const _CELL = {
-  bool: "toggle",
-  int: "number",
-  real: "number",
-  text: "text",
-  stamp: "instant",
-} as const satisfies Record<Feed.Column["kind"], string>
+  bool: { render: "toggle", align: "center", measured: false, editable: true },
+  int: { render: "number", align: "end", measured: true, editable: true },
+  real: { render: "number", align: "end", measured: true, editable: true },
+  text: { render: "text", align: "start", measured: false, editable: true },
+  stamp: { render: "instant", align: "start", measured: false, editable: false },
+} as const satisfies Record<
+  Feed.Column["kind"],
+  { readonly render: string; readonly align: "start" | "center" | "end"; readonly measured: boolean; readonly editable: boolean }
+>
 
 const _banded = (document: Feed.Document): ReadonlyArray<ColumnDef<Grid.Banded, unknown>> =>
   Option.match(document.columns, {

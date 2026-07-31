@@ -2,7 +2,7 @@
 
 `Journal` owns the branch's durable evidence plane: one append-only stream of `AuditFact` and `MeterFact` rows draining through a bounded rail into whatever `Ledger` a composition binds, priced by exact-decimal rating and aged under one `Retain` vocabulary. Missing metric points read as dashboard gaps while a missing row is an evidence or billing defect, so appends suspend and retry without bound and every series projected beside them carries zero authority. Erasure destroys key material and never a row, so unreadable IS erased and the append-only plane survives whole.
 
-Receipt emission, redaction, and the `ScopeKey` axis arrive settled from `observability/receipts#RECEIPT`, the `MEASURES` census from `observability/metrics#METRIC`, the point registry and install record from `observability/hooks#HOOKS`, the rail and its fences from `reliability/faults#FAULT`, `Hlc` and `Tenant` from `clock/clock#CLOCK`, and `ContentIdentity` from `evidence/identity#IDENTITY`. `Ledger` binds at the composition root that S0 never satisfies, stays async whole so no landing stalls the loop, and refuses unbound or structurally unmet with typed evidence.
+Receipt emission, redaction, and the `ScopeKey` axis arrive settled from `observability/receipts#RECEIPT`, the `MEASURES` census from `observability/metrics#METRIC`, the point registry and install record from `observability/hooks#HOOKS`, the rail and its fences from `reliability/faults#FAULT`, `Hlc` and `Tenant` from `clock/clock#CLOCK`, `SecretBoundary` from `execution/admission#SETTINGS` as the one KEK reader the vault custody posture composes, and `ContentIdentity` from `evidence/identity#IDENTITY`. `Ledger` binds at the composition root that S0 never satisfies, stays async whole so no landing stalls the loop, and refuses unbound or structurally unmet with typed evidence.
 
 ## [01]-[INDEX]
 
@@ -48,6 +48,7 @@ from msgspec.json import schema_components
 from msgspec.msgpack import Decoder, Encoder
 from msgspec.structs import replace
 
+from rasm.runtime.admission import SecretBoundary, SecretShape
 from rasm.runtime.clock import CausalFrame, Hlc, Tenant
 from rasm.runtime.faults import SCOPES, BoundaryFault, Disposition, RuntimeRail, Scope, async_boundary, boundary, traversed
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
@@ -369,11 +370,12 @@ class SubjectKey(Struct, frozen=True, gc=False):
 
 class Custody(Struct, frozen=True):
     # KEK custody as a policy VALUE rather than a second port, async whole exactly as the ledger is — a remote KMS
-    # arm is a network call no synchronous wrap may run on the loop — so a local arm and a cloud arm are two named
-    # instances of one shape and this ledger stores whatever wrapped form an arm produced. `local` wraps under
-    # deterministic AES-SIV bound to the subject aad over a `KEK_BITS` key the settings-admitted secret boundary
-    # resolves: key-wrap needs no nonce custody and determinism leaks nothing over fresh random keys, where GCM
-    # nonce reuse on the KEK path is catastrophic and RFC 3394 keywrap carries no associated data at all.
+    # arm is a network call no synchronous wrap may run on the loop — so the two shipped instances are two named
+    # values of one shape and this ledger stores whatever wrapped form an arm produced. Both wrap under deterministic
+    # AES-SIV bound to the subject aad over a `KEK_BITS` key: key-wrap needs no nonce custody and determinism leaks
+    # nothing over fresh random keys, where GCM nonce reuse on the KEK path is catastrophic and RFC 3394 keywrap
+    # carries no associated data at all. `local` holds material a root already resolved; `vault` reads the deployment's
+    # own ladder per call, and a third posture is one more instance rather than a field on either.
     wrap: Callable[[bytes, bytes], Awaitable[RuntimeRail[bytes]]]
     unwrap: Callable[[bytes, bytes], Awaitable[RuntimeRail[bytes]]]
 
@@ -384,6 +386,34 @@ class Custody(Struct, frozen=True):
 
         async def unwrapped(held: bytes, aad: bytes) -> RuntimeRail[bytes]:
             return _crypto("journal.unwrap", lambda: AESSIV(kek).decrypt(held, [aad]))
+
+        return cls(wrap=wrapped, unwrap=unwrapped)
+
+    @classmethod
+    def vault(cls, boundary: SecretBoundary, service: str) -> Self:
+        # the deployment-custody posture beside `local`: the KEK reaches this arm through the ONE credential reader
+        # `execution/admission#SETTINGS` owns, so a keystore, a cloud vault, and a mounted secrets directory all serve
+        # it and no arm here learns which tier answered. Resolution runs PER CALL rather than captured at bind, so a
+        # rotated KEK reaches the next wrap with no rebind and no composition holds material past its rotation — the
+        # capability a `local(kek)` bind structurally cannot carry. The resolver already folds each tier through the
+        # `RetryClass.SECRET` row, so no second retry envelope wraps it here, where one would multiply the ladder's
+        # own attempts against a locked keystore.
+        async def material() -> RuntimeRail[bytes]:
+            # absence is a REFUSAL, never a fallback: `Ok(Nothing)` means the deployment named no KEK for this
+            # service, and minting a substitute would render every envelope written under the real key permanently
+            # unopenable while every wrap read clean.
+            resolved = await boundary.resolve(service, shape=SecretShape.TOKEN)
+            return resolved.bind(
+                lambda held: held.map(lambda secret: _kek(secret.get_secret_value())).default_with(
+                    lambda: Error(BoundaryFault(config=("journal.custody", f"no key material bound for {service!r}")))
+                )
+            )
+
+        async def wrapped(payload: bytes, aad: bytes) -> RuntimeRail[bytes]:
+            return (await material()).bind(lambda kek: _crypto("journal.wrap", lambda: AESSIV(kek).encrypt(payload, [aad])))
+
+        async def unwrapped(held: bytes, aad: bytes) -> RuntimeRail[bytes]:
+            return (await material()).bind(lambda kek: _crypto("journal.unwrap", lambda: AESSIV(kek).decrypt(held, [aad])))
 
         return cls(wrap=wrapped, unwrap=unwrapped)
 
@@ -505,6 +535,20 @@ def horizon(now: Hlc) -> Map[Retain, Hlc]:
         (clazz, Hlc(physical_ticks=max(now.physical_ticks - _ticks(window), 0), logical=0))
         for clazz, held in WINDOWS.items()
         for window in held.to_list()
+    )
+
+
+def _kek(text: str) -> RuntimeRail[bytes]:
+    # a secret store holds text, so the KEK travels as its hex render — the one text encoding this estate freezes key
+    # material in — and decodes here rather than at the AEAD call. Width proves in the same expression: `AESSIV`
+    # accepts 256 and 512 bits, so a KEK rotated to the narrower width would wrap cleanly under a primitive this
+    # plane never declared, and the refusal names the coordinate instead of surfacing as a length raise mid-batch.
+    # The fence catches `ValueError` alone and touches no `cryptography` name, so a composition that seals nothing
+    # never reifies the native tier to read a key it will not use.
+    return boundary("journal.kek", lambda: bytes.fromhex(text), catch=ValueError).bind(
+        lambda kek: Ok(kek)
+        if len(kek) * 8 == KEK_BITS
+        else Error(BoundaryFault(config=("journal.custody", f"kek width {len(kek) * 8} != {KEK_BITS}")))
     )
 
 
@@ -741,7 +785,7 @@ class Journal:
 
     @classmethod
     def install(
-        cls, ledger: Ledger, custody: Custody, *, service: str = SCOPES[Scope.SERVICE], scope: ScopeKey = DEFAULT_SCOPE
+        cls, ledger: Ledger, custody: Custody, *, service: str = SCOPES[Scope.JOURNAL], scope: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[JournalReceipt]:
         # order is the whole correctness of this entry: a standing receipt short-circuits before anything runs, the
         # census and the port prove, the points register, and ONLY a clean registration binds. Binding first would
@@ -776,13 +820,12 @@ class Journal:
     def _registered(cls, scope: ScopeKey) -> RuntimeRail[Block[HookPoint[Struct]]]:
         # point ids are composition-unique and the registry ships no retirement, so registration latches per scope
         # while ledger custody re-arms freely: a re-install after `closed` must not re-register ids it already
-        # owns, where an ABORT fold over the duplicate would refuse the whole restart.
+        # owns, where a claim over the duplicate would refuse the whole restart.
+        # ONE roster claim: the registry's whole-set arm swaps its point table only past the last admitted row, so a
+        # refused install leaves custody exactly as it stood and this latch can never mark a scope pointed against a
+        # half-mounted roster — the accumulating diagnosis a per-point traverse bought by surrendering that atomicity.
         return (
-            Ok(Block.empty())
-            if scope in cls._pointed
-            else traversed(POINTS.map(lambda point: Hooks.register(point, scope=scope)), by=Disposition.ABORT).map(
-                lambda points: cls._latched(scope, points)
-            )
+            Ok(Block.empty()) if scope in cls._pointed else Hooks.register(POINTS, scope=scope).map(lambda points: cls._latched(scope, points))
         )
 
     @classmethod
@@ -1103,13 +1146,13 @@ def rated(billed: Billed, rating: Rating) -> RuntimeRail[Map[Priced, Charge]]:
 
 ## [05]-[SHREDDER]
 
-- Owner: `SubjectKey` is the tenant-scoped custody identity, the ledger holds one wrapped data key per identity, and `sealed`/`opened`/`erased` compose the envelope algebra over it. Custody stores the WRAPPED form alone — raw data keys never cross the ledger seam — so a posture changes by swapping a `Custody` value and this page never learns which holder issued the wrap; the custody arms are async whole exactly as the ledger is, so a remote KMS arm binds as an ordinary instance rather than an on-loop stall, and the local arm wraps under deterministic AAD-bound AES-SIV, so the KEK path carries no nonce custody to misuse.
+- Owner: `SubjectKey` is the tenant-scoped custody identity, the ledger holds one wrapped data key per identity, and `sealed`/`opened`/`erased` compose the envelope algebra over it. Custody stores the WRAPPED form alone — raw data keys never cross the ledger seam — so a posture changes by swapping a `Custody` value and this page never learns which holder issued the wrap; the custody arms are async whole exactly as the ledger is, so a remote KMS arm binds as an ordinary instance rather than an on-loop stall, and both wrap under deterministic AAD-bound AES-SIV, so the KEK path carries no nonce custody to misuse. Two instances ship: `local` holds material a root already resolved, and `vault` reads the deployment's own credential ladder through the settings-admitted secret boundary on EVERY call, so a rotated KEK reaches the next wrap with no rebind and an unnamed one refuses instead of minting a substitute that would leave every prior envelope permanently unopenable.
 - Cases: `opened` is TOTAL over erasure — a destroyed or absent key folds to `Nothing`, which every reader renders through the receipts-owned redaction marker, because erasure is a lawful state and never an error to recover from. `InvalidTag` on LIVE key material stays a fault on the rail: tampering and erasure are different facts, and folding a tag failure to absence renders a corrupted payload as a lawfully erased one.
 - Entry: `sealed` claims atomically — a fresh mint inserts, a concurrent or replayed subject keeps the stored wrapped key and the loser seals under the winner by unwrapping the returned row, and a destroyed subject resurrects under a NEW key so every envelope written before the erasure stays unreadable forever. Claiming before sealing is load-bearing: two recorders racing one subject otherwise seal under two data keys, and destroying either leaves half that subject's evidence readable.
 - Entry: `exported` is the portability read — one `Scan.subject` over the same index every append wrote and every erasure keys on, so a data-subject request is an index scan rather than a stream crawl. Sealed fields inside a payload stay sealed: field shapes are application material, so the exporting consumer composes `opened`/`redacted` per field it knows, and an erased subject's fields render the marker rather than failing the export.
 - Auto: every envelope binds to its `SubjectKey` through the associated-data slot, so a ciphertext lifted onto another subject or another tenant fails its authentication tag rather than opening under a key that happens to be live. Every AEAD call crosses one native fence, so an unbuildable `cryptography` classifies `import_` on the rail wherever the process first touches it — a read-only replica that never seals included.
 - Auto: `erased` mints the tombstone under the writer's own stamp — a ledger supplies neither order nor identity, so it only empties the custody slot and echoes the stone it persisted — records it as a regulatory audit fact carrying the erased subject in its own index, and fans the observe point through the async mirror so an async compliance observer is reachable. Destruction is irreversible, so that record's rail BINDS into the erasure verdict: a refused or unlanded tombstone surfaces naming the subject whose key is already gone, where a dropped rail leaves an erasure no export can evidence.
-- Growth: a new custody posture is one `Custody` instance the composition root binds; a new sealed field is a caller-side projection composing `sealed`/`opened`, since field shapes are application material; a new export surface is one projection over the same `Export`, never a second subject read.
+- Growth: a new custody posture is one `Custody` instance the composition root binds beside the shipped `local` and `vault` pair — a hardware holder or a cloud KMS arm lands as one more value, never a field on either; a new secret backend behind `vault` is a `CloudVault` arm at the settings owner with zero edit here; a new sealed field is a caller-side projection composing `sealed`/`opened`, since field shapes are application material; a new export surface is one projection over the same `Export`, never a second subject read.
 - Boundary: erasure destroys key material and touches no row — the append-only invariant survives the right to erasure because unreadable IS erased — and the export and the erasure prove one spine: export reads what remains readable, erasure makes fields unreadable, and the stored bytes stay untouched either way.
 
 ```python signature

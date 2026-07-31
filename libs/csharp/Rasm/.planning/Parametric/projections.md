@@ -17,22 +17,23 @@ Every fallible read stays on the `Op`-keyed `Fin<T>` rail: Rhino-read material a
 - Entry: each selector exposes exactly one `internal Fin<TOut> Project<TOut>(...)` gate — `CurveProjection.Project<TOut>(Curve, double, Context, Op)` admits the curve (non-null, `IsValid`, `Domain.IncludesParameter`), samples the row, and drains `AtomProjection.Raw<TOut>(raw, Some(context), key, owner: typeof(CurveProjection), admitsVectorMagnitude: AdmitsMagnitude)`; `SurfaceProjection.Project<TOut>(Surface, double u, double v, Context, Op)` admits the surface, normalizes `(u,v)` through the `Domain/evaluation` `SurfaceUv`, samples, and drains the same rail; `ConeProjection.Project<TOut>(VectorCone, Op)` drains context-free. No per-row public methods, no output-type overloads — the raw→typed step is the rail's, and the `AdmitsMagnitude` column kills the `ReferenceEquals(this, Curvature)` identity probe: magnitude admission is row data, not a hidden special case.
 - Receipt: none — a selector row is a pure evaluation; the typed value IS the result, and failure evidence rides the `Op` fault (`InvalidInput` for admission refusals, `InvalidResult` for host-evaluation refusals, `Unsupported` for output-type refusals raised inside the rail).
 - Packages: RhinoCommon (`Curve.TangentAt`/`CurvatureAt`/`FrameAt`/`PerpendicularFrameAt`/`GetLength(fractionalTolerance, subdomain)`/`Domain.IncludesParameter`; `Surface.CurvatureAt`/`PointAt`/`Evaluate`; `SurfaceCurvature.Kappa`/`Direction`/`OsculatingCircle`/`MaximumPrincipalCurvature`/`MinimumPrincipalCurvature`/`IsSet` — an `IDisposable` bundle; `Interval`, `Circle.IsValid`, `Vector3d.CrossProduct`/`IsValid`/`IsTiny`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`/`Option`/`guard`/`Optional`), `Domain/rails` (`Op`, `Lease<T>`), `Domain/context` (`Context.Fractional`/`Absolute`), `Domain/evaluation` (`NormalAt`/`FrameAt`/`SurfaceUv`), `Domain/stats` (`ScalarMetric`), `Numerics/atoms` (`AtomProjection.Raw`, `Direction.Of`, `Dimension`, `VectorCone`), `Numerics/matrix` (`SymmetricMatrix.Of`, `Matrix.Of`).
-- Growth: a new curve or surface probe is one row through an existing factory fold (a `Torsion` row is `Vector(...)` over the third-derivative Frenet identity; a `MeanCurvatureVector` row is `WithCurvature` composing `Mean` with `Normal`); a new derivative form is one `Derivatives(...)` row; a new output type for an existing row is a `ProjectionRow` addition in the `Numerics/atoms` rail, never a selector edit. Existing selector gates absorb every row extension.
+- Growth: a new curve or surface probe is one row through an existing factory fold or a direct constructor where the read is scalar-shaped; a new derivative form is one `Derivatives(...)` row; a new output type for an existing row is a `ProjectionRow` addition in the `Numerics/atoms` rail, never a selector edit. Existing selector gates absorb every row extension.
 - Boundary: the selector family is the ONE row vocabulary for parameter-addressed evaluation behind the intent rail — a per-output `CurveEvaluator`/`SurfaceAnalyzer` method family is the named defect collapsed here, and a row exists where evaluation carries ROW SEMANTICS (validity gating, magnitude admission, moving-vs-sweep frame choice, the curvature-bundle lease, the derivative fold); `Domain/evaluation` is the shared derivation floor both these rows and the `Parametric/locate` arms compose — an arm re-implementing row semantics beside the rail is the killed duplicate, while a `Parametric/locate` surface arm reading the floor directly (point/frame/normal, UV pre-normalized) is lawful composition; `SurfaceProjection.ShapeOperator` is the sole second-fundamental-form assembly, `TensorField.Curvature` composes its `Project` and a second `k·d⊗d` assembly is the named double-owner defect; rows sample the LIVE Rhino object under the caller's lease (`Parametric/locate` inside `Lease<Curve>`/`Lease<Surface>`, `VectorIntent.CurveCase` holding the reference) and never duplicate, cache, or outlive their geometry; `SurfaceCurvature` is disposable host memory, so every bundle read runs inside `Lease<SurfaceCurvature>.Owned(...).Use(...)` and an escaping bundle is the named leak defect; the `Domain/evaluation` lattice owns closest-point/normal/frame over ARBITRARY geometry while these selectors own only parameter-addressed evaluation on an already-typed `Curve`/`Surface`, so routing a closest-point through a selector is the altitude violation.
 
 ## [03]-[MOTION]
 
-- Owner: `MotionInterpolation` `[SmartEnum<int>]` — `Linear` (key 0, `Quaternion.Lerp`) and `Slerp` (key 1, `Quaternion.Slerp`) over ONE `[UseDelegateFromConstructor]` `Combine(Quaternion, Quaternion, double)` column; both interpolation surfaces derive from that single column (`DERIVED_LOGIC`): `Interpolate(Plane a, Plane b, UnitInterval t, Op)` — coincidence short-circuit at `RhinoMath.ZeroTolerance`, `Quaternion.Rotation(Plane.WorldXY, …)` rotors combined then `GetRotation(out Plane)`, origin linearly interpolated onto the rotated axes — and `Rotate(Direction a, Direction b, UnitInterval t, Context, Op)` — the antiparallel pair (`IsParallelTo == -1` under `Context.Angle`) takes the π rotor about `VectorFrame.SeedPerpendicular`, every other pair the shortest-arc rotor from `Transform.Rotation(...).GetQuaternion(...)`, combined from `Quaternion.Identity` and applied via `Quaternion.Rotate`. `Slerp` is the geodesic row; `Linear` yields nlerp on directions (renormalized by `Direction.Of` admission) and screw-free frame lerp on poses.
-- Owner: `SurfaceSpace` `[BoundaryAdapter]` `readonly record struct` — the validated `Surface` + `Context` capsule: `Of(Surface, Context, Op?)` admits once (context present, surface non-null and `IsValid`), `Sample<TOut>(SurfaceProjection, double u, double v, Op)` delegates to the selector gate with the captured tolerance. An internal kernel, so the `Domain/rails` threading law requires the key and `Processing/intent` `surfaceCase` supplies it; `Spatial/support` owns `SupportSpace` closest-point over ANY geometry while `SurfaceSpace` owns parameter-addressed evaluation on a typed surface, `VectorIntent.SurfaceCase` the shared wire.
+- Owner: `MotionInterpolation` `[SmartEnum<int>]` — `Linear` (key 0, `Quaternion.Lerp`) and `Slerp` (key 1, `Quaternion.Slerp`) over ONE `[UseDelegateFromConstructor]` `Combine(Quaternion, Quaternion, double)` column; both interpolation surfaces derive from that single column (`DERIVED_LOGIC`): `Interpolate(Plane a, Plane b, UnitInterval t, Op)` — coincidence short-circuit at `EpsilonPolicy.ZeroTolerance`, `Quaternion.Rotation(Plane.WorldXY, …)` rotors combined then `GetRotation(out Plane)`, origin linearly interpolated onto the rotated axes — and `Rotate(Direction a, Direction b, UnitInterval t, Context, Op)` — the antiparallel pair (`IsParallelTo == -1` under `Context.Angle`) takes the π rotor about `VectorFrame.SeedPerpendicular`, every other pair the shortest-arc rotor from `Transform.Rotation(...).GetQuaternion(...)`, combined from `Quaternion.Identity` and applied via `Quaternion.Rotate`. `Slerp` is the geodesic row; `Linear` yields nlerp on directions (renormalized by `Direction.Of` admission) and screw-free frame lerp on poses.
+- Owner: `SurfaceSpace` `[BoundaryAdapter]` `readonly record struct` — the validated `Surface` + `Context` capsule: `Of(Surface, Context, Op?)` admits once (context present, surface non-null and `IsValid`), `Sample<TOut>(SurfaceProjection, double u, double v, Op)` delegates to the selector gate with the captured tolerance. `SurfaceSpace` is internal, so the `Domain/rails` threading law requires the key and `Processing/intent` `surfaceCase` supplies it; `Spatial/support` owns `SupportSpace` closest-point over ANY geometry while `SurfaceSpace` owns parameter-addressed evaluation on a typed surface, `VectorIntent.SurfaceCase` the shared wire.
 - Owner: `Easing` `[SmartEnum<int>]` — a family-and-polarity row product over one `[UseDelegateFromConstructor]` `Curve(double)` column. Each named row composes a family kernel with `In`, `Out`, or `InOut`, so polarity behavior remains fold-owned. `Evaluate(UnitInterval t)` is the one read: input arrives admitted, output is unclamped because overshooting kernels legitimately leave the unit band and the consumer's carrier owns its own range semantics.
 - Owner: `CyclePlan` `[BoundaryAdapter]` readonly record struct — repeat/yoyo phase arithmetic: `Of(Option<int> count, bool yoyo)` admits the plan (`None` count is unbounded, a bounded count is ≥ 1), and `Phase(elapsed, period, key)` folds wall progress onto the `CyclePhase` evidence — iteration index, mirrored-local `UnitInterval` position (odd iterations reverse under yoyo), and the completion flag that clamps a bounded plan onto its terminal pose instead of wrapping past it.
-- Owner: `SpringShape` `[BoundaryAdapter]` readonly record struct — the analytic damped-spring owner: `Of(angularFrequency > 0, dampingRatio ≥ 0)` admits the shape, `Evaluate(SpringState from, target, elapsed, key)` returns the closed-form response with the regime selected by ζ (underdamped through the damped-frequency rotor, critically damped at `|ζ−1| ≤ EpsilonPolicy.SqrtEpsilon`, overdamped through the two real decay rates), and `Step(from, target, h, integrator, key)` runs ONE `FieldIntegrator.Step` over the page-declared `SpringShape.Module` (`IntegrationModule<SpringState, SpringState>` — position/velocity as their own delta algebra, max-norm error) for interactive driven targets where the closed form's fixed target does not hold between frames. `SpringState` carries position and velocity as one evidence value.
+- Owner: `SpringShape` `[BoundaryAdapter]` readonly record struct — the analytic damped-spring owner: `Of(angularFrequency > 0, dampingRatio ≥ 0)` admits the shape and `OfResponse(response, dampingFraction, key)` is the second admission — the (response, damping-fraction) authoring parameterization design tokens spell, mapping ω = `Math.Tau`/response and ζ = dampingFraction onto the same gate; `Evaluate(SpringState origin, target, elapsed, key)` returns the closed-form response with the regime selected by ζ (underdamped through the damped-frequency rotor, critically damped at `|ζ−1| ≤ EpsilonPolicy.SqrtEpsilon`, overdamped through the two real decay rates), and `Step(from, target, h, integrator, key)` runs ONE `FieldIntegrator.Step` over the page-declared `SpringShape.Module` (`IntegrationModule<SpringState, SpringState>` — position/velocity as their own delta algebra, max-norm error) for interactive driven targets where the closed form's fixed target does not hold between frames. `Evaluate(origin: SpringState(0, 0), target: 1.0, elapsed, key).Position` is the unit-progress read a UI easing needs, and a retarget-with-velocity is the same member over the live state — no third read exists. `SpringState` carries position and velocity as one evidence value.
+- Owner: `BezierEase` `[BoundaryAdapter]` readonly record struct — the imported-token easing carrier: `Of(x1, y1, x2, y2, Op?)` admits a CSS-convention cubic Bezier (control abscissae clamped to the unit band so `x(u)` stays monotone and invertible), `Evaluate(UnitInterval t)` inverts `x(u) = t` by bounded Newton-with-bisection fallback and reads `y(u)`. Per-occurrence control points are payload, not vocabulary — an authored design token carries its own curve, so `Easing` stays the closed named-family roster and no approximating row is minted for an imported curve.
 - Owner: `MonotonicTimeline` sealed `[BoundaryAdapter]` service — `Of(TimeProvider, Op?)` admits an injected provider with a positive `TimestampFrequency`. Each timeline instance is its own identity token; serialized `Capture` mints an opaque `MonotonicStamp`, `Elapsed` derives a non-negative interval, `Order` returns negative, zero, or positive for left-before, identical, or left-after ordering, and `Beat` derives ordinal timer evidence from one `BeatSeed`. `Order` breaks equal-provider-tick ties by the stamp's private capture ordinal; every duration still calls the capturing provider's `GetElapsedTime`, and no counter or ordinal leaves `MonotonicStamp`.
 - Owner: `BeatSeed` `[Union<MonotonicStamp, MonotonicBeat>]` — `Origin` starts an independently branded sequence and `Previous` advances only that sequence's current tail. Generated case probes reject the struct's default ghost before the total `Switch` owns both modalities, and the atomic tail gate refuses replayed or concurrently substituted predecessors.
 - Receipt: `MonotonicBeat` exposes immutable `Ordinal`, `Stamp`, `Elapsed`, and `Delta` evidence. Its `ValidityClaim.All` fold requires one timeline, an origin-bound sequence brand, non-negative intervals, monotone elapsed time, and first-beat delta equality; the private origin and sequence brands prevent chain mixing.
 - Entry: `MotionInterpolation.Interpolate`/`Rotate` stay internal to the intent dispatch; `Easing.Evaluate`, `CyclePlan.Phase`, `SpringShape.Evaluate`/`Step`, and `MonotonicTimeline.Of`/`Capture`/`Elapsed`/`Order`/`Beat` form the public motion-time surface, each fallible operation resolving one `Op` key and returning `Fin<T>`.
 - Packages: `TimeProvider` supplies monotonic timestamps and provider-defined elapsed conversion; Thinktecture owns generated `[SmartEnum]` and `[Union]` vocabularies; Foundation analyzer contracts own `[BoundaryAdapter]`; LanguageExt owns `Fin`, `Option`, and guards; RhinoCommon owns rotor and parametric evaluation; `FieldIntegrator` owns driven stepping.
-- Growth: `MonotonicTimeline` serves session latency, UI-event ordering, and timer beats through one branded evidence, so a new clock consumer composes it without a host-local counter; a new easing family is one kernel folded through the existing polarities.
+- Growth: `MonotonicTimeline` serves session latency, UI-event ordering, and timer beats through one branded evidence, so a new clock consumer composes it without a host-local counter; a new easing family is one kernel folded through the existing polarities, and a value-parameterized curve (an imported token) rides the `BezierEase` carrier, never a vocabulary row.
 - Boundary: `MotionInterpolation` starts where rotation requires a quaternion, vector arithmetic staying on the admitted direction algebra; `MonotonicTimeline` admits reference identity with the capturing timeline and provider before any `GetElapsedTime` call, and each beat sequence atomically admits only its current tail, so foreign timestamps and replayed predecessors never enter accepted timing evidence.
 
 ```csharp signature
@@ -61,6 +62,15 @@ public sealed partial class CurveProjection {
     public static readonly CurveProjection FrameBinormal = FrameRow(key: 6, perpendicular: false, project: static frame => frame.ZAxis);
     public static readonly CurveProjection PerpendicularNormal = FrameRow(key: 7, perpendicular: true, project: static frame => frame.YAxis);
     public static readonly CurveProjection PerpendicularBinormal = FrameRow(key: 8, perpendicular: true, project: static frame => frame.ZAxis);
+    // Frenet torsion τ = ((r'×r'')·r''')/|r'×r''|² over one third-order evaluation; a straight run (binormal under the
+    // zero floor) refuses rather than reporting a fabricated zero twist.
+    public static readonly CurveProjection Torsion = new(key: 9, admitsMagnitude: false,
+        sample: static (curve, t, _, key) => curve.DerivativeAt(t: t, derivativeCount: 3) switch {
+            [_, var d1, var d2, var d3] when Vector3d.CrossProduct(a: d1, b: d2) is var binormal
+                && binormal.SquareLength > EpsilonPolicy.ZeroTolerance =>
+                Fin.Succ((object)((binormal * d3) / binormal.SquareLength)),
+            _ => Fin.Fail<object>(key.InvalidResult()),
+        });
 
     public bool AdmitsMagnitude { get; }
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter, Context context, Op key);
@@ -99,6 +109,11 @@ public sealed partial class SurfaceProjection {
     public static readonly SurfaceProjection Jacobian = Derivatives(key: 10, project: static (_, _, d, _, key) => Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [d.Du.X, d.Dv.X, d.Du.Y, d.Dv.Y, d.Du.Z, d.Dv.Z], key: key).Map(static value => (object)value));
     public static readonly SurfaceProjection Metric = Derivatives(key: 11, project: static (_, _, d, _, key) => SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [d.Du * d.Du, d.Du * d.Dv, d.Dv * d.Dv], key: key).Map(static value => (object)value));
     public static readonly SurfaceProjection AreaScale = Derivatives(key: 12, project: static (_, _, d, _, key) => key.AcceptValue(value: Vector3d.CrossProduct(a: d.Du, b: d.Dv).Length).Map(static value => (object)value));
+    // H·n — the mean-curvature flow direction as one composed read; the scalar row and the normal row already own
+    // both halves, so this row is pure composition and mints no second curvature bundle.
+    public static readonly SurfaceProjection MeanCurvatureVector = new(key: 13, sample: static (surface, uv, _, key) =>
+        WithCurvature(surface: surface, uv: uv, key: key, project: sc => ScalarMetric.Mean.Of(value: sc, key: key)
+            .Bind(mean => Evaluation.NormalAt(surface: surface, uv: uv, key: key).Map(normal => (object)(normal * mean)))));
 
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Surface surface, Point2d uv, Context context, Op key);
 
@@ -179,7 +194,7 @@ public sealed partial class MotionInterpolation {
     internal Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t, Op key) =>
         from left in Admit.Plane(basis: a, key: key)
         from right in Admit.Plane(basis: b, key: key)
-        from output in left.EpsilonEquals(other: right, epsilon: RhinoMath.ZeroTolerance)
+        from output in left.EpsilonEquals(other: right, epsilon: EpsilonPolicy.ZeroTolerance)
             ? Fin.Succ(left)
             : Combine(a: Quaternion.Rotation(plane0: Plane.WorldXY, plane1: left), b: Quaternion.Rotation(plane0: Plane.WorldXY, plane1: right), t: t.Value)
                   .GetRotation(plane: out Plane oriented) && oriented.IsValid
@@ -253,6 +268,38 @@ public sealed partial class Easing {
         < 2.5 / 2.75 => (7.5625 * (t - (2.25 / 2.75)) * (t - (2.25 / 2.75))) + 0.9375,
         _ => (7.5625 * (t - (2.625 / 2.75)) * (t - (2.625 / 2.75))) + 0.984375,
     };
+}
+
+// Imported-token easing carrier: per-occurrence control points are payload, never vocabulary rows. CSS
+// convention — P0 = (0,0), P3 = (1,1); the abscissa clamp keeps x(u) monotone, so the inversion is total.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct BezierEase(double X1, double Y1, double X2, double Y2) {
+    public static Fin<BezierEase> Of(double x1, double y1, double x2, double y2, Op? key = null) {
+        Op op = key.OrDefault();
+        return from a in op.Finite(value: x1)
+               from b in op.Finite(value: y1)
+               from c in op.Finite(value: x2)
+               from d in op.Finite(value: y2)
+               select new BezierEase(X1: Math.Clamp(value: a, min: 0.0, max: 1.0), Y1: b,
+                   X2: Math.Clamp(value: c, min: 0.0, max: 1.0), Y2: d);
+    }
+    // Newton on x(u) = t with a bisection bracket fallback: the clamped abscissae keep x' non-negative, so the
+    // bracket never inverts and twelve probes land inside SqrtEpsilon on any authored curve.
+    public double Evaluate(UnitInterval t) {
+        (double target, double u, double lo, double hi) = (t.Value, t.Value, 0.0, 1.0);
+        for (int probe = 0; probe < 12; probe++) {
+            double x = Axis(a: X1, b: X2, u: u) - target;
+            if (Math.Abs(value: x) <= EpsilonPolicy.SqrtEpsilon) break;
+            if (x > 0.0) hi = u; else lo = u;
+            double slope = AxisSlope(a: X1, b: X2, u: u);
+            u = slope > EpsilonPolicy.ZeroTolerance ? Math.Clamp(value: u - (x / slope), min: lo, max: hi) : (lo + hi) / 2.0;
+        }
+        return Axis(a: Y1, b: Y2, u: u);
+    }
+    private static double Axis(double a, double b, double u) =>
+        ((((1.0 - (3.0 * b) + (3.0 * a)) * u) + ((3.0 * b) - (6.0 * a))) * u + (3.0 * a)) * u;
+    private static double AxisSlope(double a, double b, double u) =>
+        (3.0 * (1.0 - (3.0 * b) + (3.0 * a)) * u * u) + (2.0 * ((3.0 * b) - (6.0 * a)) * u) + (3.0 * a);
 }
 
 [BoundaryAdapter]
@@ -426,20 +473,29 @@ public readonly record struct SpringShape(double AngularFrequency, double Dampin
                select new SpringShape(AngularFrequency: omega, DampingRatio: zeta);
     }
 
-    public Fin<SpringState> Evaluate(SpringState from, double target, double elapsed, Op key) {
+    // OfResponse admits the (response, damping-fraction) parameterization design tokens spell: response IS the perceptual
+    // settle period, so a token catalog admits its own vocabulary without re-deriving omega at a call site.
+    public static Fin<SpringShape> OfResponse(double response, double dampingFraction, Op? key = null) {
+        Op op = key.OrDefault();
+        return from period in op.Positive(value: response)
+               from shape in Of(angularFrequency: Math.Tau / period, dampingRatio: dampingFraction, key: op)
+               select shape;
+    }
+
+    public Fin<SpringState> Evaluate(SpringState origin, double target, double elapsed, Op key) {
         (double omega, double zeta) = (AngularFrequency, DampingRatio);
         return from time in key.Finite(value: elapsed).Bind(value => guard(value >= 0.0, key.InvalidInput()).ToFin().Map(_ => value))
                from goal in key.Finite(value: target)
                from settled in key.AcceptValue(value: Math.Abs(value: zeta - 1.0) <= EpsilonPolicy.SqrtEpsilon
-                   ? Critical(from: from, target: goal, omega: omega, t: time)
+                   ? Critical(origin: origin, target: goal, omega: omega, t: time)
                    : zeta < 1.0
-                       ? Underdamped(from: from, target: goal, omega: omega, zeta: zeta, t: time)
-                       : Overdamped(from: from, target: goal, omega: omega, zeta: zeta, t: time))
+                       ? Underdamped(origin: origin, target: goal, omega: omega, zeta: zeta, t: time)
+                       : Overdamped(origin: origin, target: goal, omega: omega, zeta: zeta, t: time))
                from valid in guard(settled.IsValid, key.InvalidResult()).ToFin().Map(_ => settled)
                select valid;
     }
 
-    public Fin<IntegrationStep<SpringState, SpringState>> Step(SpringState from, double target, double h, FieldIntegrator integrator, Op key) {
+    public Fin<IntegrationStep<SpringState, SpringState>> Step(SpringState origin, double target, double h, FieldIntegrator integrator, Op key) {
         (double omega, double zeta) = (AngularFrequency, DampingRatio);
         return from active in FieldIntegrator.Admit(value: integrator, key: key)
                from step in active.Step(
@@ -447,16 +503,16 @@ public readonly record struct SpringShape(double AngularFrequency, double Dampin
                    sample: state => key.AcceptValue(value: new SpringState(
                        Position: state.Velocity,
                        Velocity: -(2.0 * zeta * omega * state.Velocity) - (omega * omega * (state.Position - target)))),
-                   state: from,
+                   state: origin,
                    h: h,
                    key: key)
                select step;
     }
 
-    private static SpringState Underdamped(SpringState from, double target, double omega, double zeta, double t) {
+    private static SpringState Underdamped(SpringState origin, double target, double omega, double zeta, double t) {
         double damped = omega * Math.Sqrt(d: 1.0 - (zeta * zeta));
-        double a = from.Position - target;
-        double b = (from.Velocity + (zeta * omega * a)) / damped;
+        double a = origin.Position - target;
+        double b = (origin.Velocity + (zeta * omega * a)) / damped;
         double decay = Math.Exp(d: -zeta * omega * t);
         double cos = Math.Cos(d: damped * t);
         double sin = Math.Sin(a: damped * t);
@@ -464,20 +520,20 @@ public readonly record struct SpringShape(double AngularFrequency, double Dampin
             Position: target + (decay * ((a * cos) + (b * sin))),
             Velocity: (decay * (((b * damped) - (a * zeta * omega)) * cos - ((a * damped) + (b * zeta * omega)) * sin)));
     }
-    private static SpringState Critical(SpringState from, double target, double omega, double t) {
-        double a = from.Position - target;
-        double b = from.Velocity + (omega * a);
+    private static SpringState Critical(SpringState origin, double target, double omega, double t) {
+        double a = origin.Position - target;
+        double b = origin.Velocity + (omega * a);
         double decay = Math.Exp(d: -omega * t);
         return new SpringState(
             Position: target + (decay * (a + (b * t))),
             Velocity: decay * (b - (omega * (a + (b * t)))));
     }
-    private static SpringState Overdamped(SpringState from, double target, double omega, double zeta, double t) {
+    private static SpringState Overdamped(SpringState origin, double target, double omega, double zeta, double t) {
         double root = omega * Math.Sqrt(d: (zeta * zeta) - 1.0);
         double slow = (-zeta * omega) + root;
         double fast = (-zeta * omega) - root;
-        double a = from.Position - target;
-        double c2 = ((slow * a) - from.Velocity) / (slow - fast);
+        double a = origin.Position - target;
+        double c2 = ((slow * a) - origin.Velocity) / (slow - fast);
         double c1 = a - c2;
         return new SpringState(
             Position: target + (c1 * Math.Exp(d: slow * t)) + (c2 * Math.Exp(d: fast * t)),
@@ -609,4 +665,4 @@ flowchart LR
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [CURVE_DERIVATIVEAT]-[OPEN]: exact `Curve.DerivativeAt` overload set on the RhinoWIP bundle — `(double, int)` arity and the `CurveEvaluationSide` sibling — for the `Torsion` row's third-order evaluation; verify via `tools.assay api` decompile over the bundle RhinoCommon and land the spelling in `libs/csharp/Rasm/.api/api-rhino.md`.

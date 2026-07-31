@@ -272,10 +272,11 @@ class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
 - Owner: `Capability` — `CapabilityDescriptor`, the decoded capability identity with parity admission; `Sdk<T>`, the mapped Effect/Stream projection of `Client<T>`; and `bind`, the method-kind fold that calls the selected lane's typed `Transport.unary`/`Transport.stream` directly from each `DescMethod`, preserving descriptor/input/output correspondence without a dynamic client-member assertion, then applies per-method `Budget` geometry and the plane's observability transformers.
 - Law: content-keyed admission — the key covers the command shape's canonical bytes, branded-key equality is bare `===` under the one mint, `bind(service, source)` admits the descriptor bytes and proves `descriptor.service === service.typeName` before constructing a method, and a diverging key or service refuses through the typed wire-fault rail because a capability whose command shape moved is a different capability.
 - Law: the SDK is a descriptor, never a hand-written client — `Sdk<T>` maps `Client<T>`'s own member types into Effect carriers, the runtime record builds from the descriptor's own `methods` walk, and the two derive from one descriptor; a parallel interface per capability is the second-truth defect.
+- Exemption: `_one` is a marked kernel — connect's streaming open takes an `AsyncIterable` input, so the one-element production is the platform-forced generator seam; the value detaches immutable and the mark rides its first line.
 - Law: the derivation is kind-total over the shipped axis through `Match.discriminatorsExhaustive("methodKind")` — `unary` and `server_streaming` bind; `client_streaming` and `bidi_streaming` refuse at bind time as `drift` evidence because the C# emitter does not mint them; a fifth method kind breaks the fold loudly at compile time, and silence over an unbindable method strands its caller at runtime — the catch-all ternary that absorbs it is the deleted spelling.
 - Law: budget geometry is the rails layering law realized — a method with a budget row composes `Effect.timeoutFail(Budget[kind].attempt)` below `Effect.retry(Budget.schedule(kind))` and `Effect.timeoutFail(Budget[kind].total)` above it, both deadlines minting through `Transport.expired` so the whole-call and per-try budgets live in the row and the transport `timeoutMs` is only the lane-level floor; the schedule is class-gated through the fault's own classification so a terminal reason never re-drives, and a method without a row never retries — the safe default for non-idempotent verbs. A streaming method with a budget row composes `Stream.retry(Budget.schedule(kind))` — re-registration semantics, the resume coordinate living in the source.
-- Law: every bound method runs under the failover plan and inside the plane's telemetry transformers — `Effect.withExecutionPlan` attaches the `Dial` ladder on the unary lane and `Stream.withExecutionPlan` with `preventFallbackOnPartialStream` attaches it on the streaming lane, so a retryable fault walks the ladder mid-stream included, a partially-emitted feed never re-emits from a fresh lane — the budget `Stream.retry` above the plan owns resumption because the resume coordinate lives in the source — and the winning lane stamps the open span as the `invokeLane` row per engaged lane, so lane choice is a span dimension, never a call-site fact; `_observed` stacks the latency timer, the fault-reason frequency, the `Exit`-folded outcome counter, the span, and the log annotation on the unary lane, and `_observedStream` stacks the fault frequency, the same outcome counter over the stream's own scope exit through `Stream.ensuringWith`, and the span on the streaming lane — the tag records type `Convention.Attributes` so a key outside the vocabulary cannot ride a span or log, names and tag keys are `observe/convention` rows, and the outcome dimension is the interrupt-first `Exit` fold — so the branch's hottest invocation surface is traced and measured by construction on both modalities.
-- Law: the descriptor walk seals through `_sdk(service)` — its runtime predicate proves every descriptor method has a constructed function before `.make` returns the mapped `Sdk<T>`; no assertion, non-null pin, or client-member index survives the assembly boundary.
+- Law: every bound method runs under the failover plan and inside the plane's telemetry transformers — `Effect.withExecutionPlan` attaches the `Dial` ladder on the unary lane and `Stream.withExecutionPlan` with `preventFallbackOnPartialStream` attaches it on the streaming lane, so a retryable fault walks the ladder mid-stream included, a partially-emitted feed never re-emits from a fresh lane — the budget `Stream.retry` above the plan owns resumption because the resume coordinate lives in the source — and the winning lane stamps the open span as the `invokeLane` row per engaged lane, so lane choice is a span dimension, never a call-site fact; `_observed` stacks the latency timer, the fault-reason frequency, the convention owner's own `Convention.outcome` aspect — the single emission point and the interrupt-first fold both live there, so this page supplies only the `_rejected` reason projection — the span, and the log annotation on the unary lane, while `_observedStream` stacks the fault frequency, the SAME projection folded at the stream's own scope exit through `Stream.ensuringWith` (Stream carries no `onExit` aspect, so the fold is transcribed, never a second vocabulary), and the span on the streaming lane — the tag records type `Convention.Attributes` so a key outside the vocabulary cannot ride a span or log, names and tag keys are `observe/convention` rows, and the outcome dimension is the interrupt-first `Exit` fold — so the branch's hottest invocation surface is traced and measured by construction on both modalities.
+- Law: the descriptor walk seals through `_sdk(service)` as a DECODE — `Schema.declare` yields a guard schema and nothing else, so the seal is `Schema.decodeUnknown` on the rail whose `ParseError` the bind signature already declares; the predicate proves every descriptor method has a constructed function before the mapped `Sdk<T>` exists, and no assertion, non-null pin, `.make` (which a declared schema does not carry), or client-member index survives the assembly boundary.
 - Growth: a new method appears in the SDK at regeneration with zero edits here; a method gaining idempotency is one budget row at the caller; a new outcome dimension widens the `Exit` fold's anchored union, never an arm.
 - Boundary: the emitted `DescService` consts are build artifacts the app's capability modules import — the composition root hands the same consts to the contract gate and sequences `DescriptorGate.admitted("CapabilityDescriptorWire")` ahead of `bind`, so RPC method drift refuses before any client pins; the `CapabilityDescriptorWire` census row homes here; `Budget` rows are `value/fault.ts` vocabulary; every instrument mounts from its `observe/convention` row, so this plane carries no constructor pick and no bucket ladder — the interchange plane's one import of the vocabulary spine.
 - Packages: `@connectrpc/connect` (`Client`); `@bufbuild/protobuf` (`DescService`); `effect` (`Cause`, `Effect`, `Exit`, `Match`, `Metric`, `Option`, `Schema`, `Stream`, `pipe`); `./codec.ts` (`Parity`, `WireFault`); `./format.ts` (`Proto`); `../observe/convention.ts` (`Convention`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/fault.ts` (`Budget`).
@@ -302,7 +303,7 @@ class CapabilityDescriptor extends Schema.Class<CapabilityDescriptor>("Capabilit
 }
 
 declare namespace Capability {
-  type Outcome = "halted" | "crashed" | "resolved" | `rejected:${FaultDetail["reason"]}` // anchored on the Hops reason axis: a new reason widens it here
+  type Outcome = Convention.Outcome<`rejected:${FaultDetail["reason"]}`> // the convention anchor carries the three cause rows; this page widens only its own reason axis
   type Sdk<T extends DescService> = {
     readonly [K in keyof Client<T>]: Client<T>[K] extends (input: infer I, options?: infer _O) => Promise<infer O>
       ? (input: I) => Effect.Effect<O, FaultDetail>
@@ -315,6 +316,8 @@ declare namespace Capability {
 }
 
 const _one = async function* <A>(value: A): AsyncIterable<A> {
+  // BOUNDARY ADAPTER: connect's streaming open takes an AsyncIterable input, so the one-element production is a
+  // generator seam; the yielded value detaches immutable and nothing else crosses
   yield value
 }
 
@@ -327,27 +330,33 @@ const _sdk = <T extends DescService>(service: T): Schema.Schema<Capability.Sdk<T
   )
 
 // The reason roster preregisters, so a hop nothing has raised yet reports zero rather than leaving the panel a hole
-const _calls = Convention.mount(Convention.metric.invokeCalls)
+const _calls = Convention.mount(Convention.metric.invokeCalls) // module scope: Effect keys an instrument by name and tag set, so a mount inside a fold re-derives one registry entry per call
 const _clock = Convention.mount(Convention.metric.invokeDuration)
 const _faults = Convention.mount(Convention.metric.invokeFault, Hops.reasons)
 
-const _outcome: (exit: Exit.Exit<unknown, FaultDetail>) => Capability.Outcome = Exit.match({
-  onFailure: (cause) =>
-    Cause.isInterruptedOnly(cause)
-      ? ("halted" as const)
-      : Option.match(Cause.failureOption(cause), {
-          onNone: () => "crashed" as const,
-          onSome: (fault) => `rejected:${fault.reason}` as const,
-        }),
-  onSuccess: () => "resolved" as const,
-})
+const _rejected = (fault: FaultDetail): `rejected:${Hops.Reason}` => `rejected:${fault.reason}` as const
+
+// The rail lane composes the convention owner's aspect whole — mount, single emission point, and interrupt-first fold
+// all live there, and this page supplies only its own reason projection.
+const _counted = Convention.outcome(Convention.metric.invokeCalls, Convention.rasm.invokeOutcome, _rejected)
+
+// Stream carries no `onExit` aspect, so the feed lane folds the SAME anchor at its own scope exit; `_rejected` is the
+// one reason projection both lanes read, so the two exits can never disagree on a word.
+const _streamed = (exit: Exit.Exit<unknown, FaultDetail>): Capability.Outcome =>
+  Exit.match(exit, {
+    onFailure: (cause) =>
+      Cause.isInterruptedOnly(cause)
+        ? ("halted" as const)
+        : Option.match(Cause.failureOption(cause), { onNone: () => "crashed" as const, onSome: _rejected }),
+    onSuccess: () => "resolved" as const,
+  })
 
 const _observed = (span: string, tags: Convention.Attributes) =>
   <A, R>(self: Effect.Effect<A, FaultDetail, R>): Effect.Effect<A, FaultDetail, R> =>
     self.pipe(
       Metric.trackDuration(_clock),
       Metric.trackErrorWith(_faults, (fault: FaultDetail) => fault.reason),
-      Effect.onExit((exit) => Metric.increment(Metric.tagged(_calls, Convention.rasm.invokeOutcome, _outcome(exit)))),
+      _counted,
       Effect.withSpan(span, { attributes: tags }),
       Effect.annotateLogs(tags),
     )
@@ -356,7 +365,7 @@ const _observedStream = (span: string, tags: Convention.Attributes) =>
   <A, R>(self: Stream.Stream<A, FaultDetail, R>): Stream.Stream<A, FaultDetail, R> =>
     self.pipe(
       Stream.tapError((fault) => Metric.update(_faults, fault.reason)),
-      Stream.ensuringWith((exit) => Metric.increment(Metric.tagged(_calls, Convention.rasm.invokeOutcome, _outcome(exit)))),
+      Stream.ensuringWith((exit) => Metric.increment(Metric.tagged(_calls, Convention.rasm.invokeOutcome, _streamed(exit)))),
       Stream.withSpan(span, { attributes: tags }),
     )
 
@@ -466,7 +475,7 @@ const Capability: {
             bidi_streaming: (refused) => Effect.fail(_unbindable(refused.methodKind, refused.localName)),
           }),
         ))
-      return _sdk(service).make(Object.fromEntries(rows))
+      return yield* Schema.decodeUnknown(_sdk(service))(Record.fromEntries(rows)) // the guard schema seals on the rail: a missing member lands the ParseError the signature already carries
     }),
 }
 ```
@@ -476,7 +485,7 @@ const Capability: {
 - Owner: `Gateway`, the inbound half of the capability plane — `CommandPayload`, the decoded command class (verb, body carriage, tenant, `Hlc` stamp); `Gateway.Row`, the verb-row contract correlating one verb's body schema, receipt schema, and handler; `Gateway.make`, the one generic fold over the app's verb-row table yielding the built dispatch surface — `submit`, the derived `outbound` receipt-union schema, and `duplex`; `Dispatched<A>`, the Granted/Refused outcome family carrying the typed receipt and the `state` verdict whole; `AvailabilityGate`, the port this page declares and the app root satisfies from `state`-fed evidence; and `SupportCapture` with its receipt and the `SupportIntake` port as the support verb's delivery.
 - Law: the table is the contract — the fold is reverse-mapped over three correlated maps (per-verb body type, receipt type, receipt wire type), so a row's handler receives exactly the body its own schema decoded and returns exactly the receipt its own schema declares, the handler census is total over the verb vocabulary because the table IS the vocabulary, and the body band decodes through the row's schema inside the fold — the second-admission law enforced structurally, never by handler discipline. An unknown verb refuses as `drift` evidence through an explicit `Effect.fail`, because the shell and the app were built against one verb set; the verb string itself stays the contract wire spelling on `CommandPayload`, and the typed verb set lives on the table.
 - Law: the gateway's shape is app-parameterized, so the capability arrives as a constructor, not a Tag — `Gateway.make(rows)` is an Effect requiring `AvailabilityGate`, and the app root wraps the built value in its own Layer against its own Tag; core owns the fold, the contract, and the frame vocabulary, never the serving edge's service identity — one table type per app is a fact no fixed core Tag can carry without erasing the receipt union back to `unknown`.
-- Law: `submit` is an `Effect.fn` definition seam — the span opens per dispatch, the gateway timer and the outcome counter ride the declaration tail, each mounted from its `observe/convention` row, the verb stamps the current span, and the outcome tag is the `Exit`-folded `Gateway.Emission` union: the `Dispatched` tags by derivation, `rejected:` keyed by the `WireFault` reason axis, `invalid` for decode skew on the envelope or the body band, `halted`/`crashed` from the interrupt-first cause fold — so every dispatch lands in the counter exactly once, faulted dispatches included, and inbound telemetry policy is recoverable from the declaration.
+- Law: `submit` is an `Effect.fn` definition seam — the span opens per dispatch, the gateway timer and the outcome counter ride the declaration tail, each mounted from its `observe/convention` row, the verb stamps the current span, and the outcome tag is the `Exit`-folded `Gateway.Emission` union: the `Dispatched` tags by derivation, `rejected:` keyed by the `WireFault` reason axis, `invalid` for decode skew on the envelope or the body band, `halted`/`crashed` from the interrupt-first cause fold — so every dispatch lands in the counter exactly once, faulted dispatches included, and inbound telemetry policy is recoverable from the declaration. This is the one counter the convention owner's `Convention.outcome` aspect cannot serve — the aspect fixes `resolved` as its success word while this family PARTITIONS its success into the `Dispatched` tags — so the fold is transcribed at this seam under the same interrupt-first discipline and the emission point stays one `Effect.onExit`; span names share the slash grammar the duplex span already spells, so one surface reads as one trace family.
 - Law: the gate types against `state` vocabulary, never re-declares it — the port answers `Availability.Verdict`, refusal transports the verdict whole (`Gated` keeps its `until`, `Withheld` its level), and gating is read-then-dispatch: staleness policy belongs to the providing Layer.
 - Law: the support verb is one row on the same plane — the evidence band crosses opaque, interpretation belongs to the intake's consumer, and the port is declared here and satisfied at the root so the observe unit and this plane stay ledger-clean; the receipt travels back to the reporter so a support report is never fire-and-forget, and the delivered capture is the branch's `rasm.core.interchange.support` tap point — the `observe/tap` name row a subscription targets.
 - Law: the duplex channel derives from the same contract — `outbound` is the `Schema.Union` over the table's own receipt schemas, `duplex(socket, frame)` takes no caller-supplied schema, and the frame row is a `_frames` vocabulary lookup over the fused transformers — `MsgPack.duplexSchema`/`Ndjson.duplexSchema`/`Ndjson.duplexSchemaString` collapse the frame codec and the asymmetric schema pair (commands inbound, receipts outbound, backpressure carried) into one channel transformer, and each row owns the socket lift its frame demands — `Socket.toChannelWith` under the byte frames, `Socket.toChannelString` under the text frame, because the string transformer types a `Chunk<string>` channel a byte lift can never satisfy — so the two-stage frame-then-`ChannelSchema` sandwich, the frame ternary, and the free outbound schema are all deleted spellings; refusal delivery over a wire is the serving edge's own outcome spelling over these values.
@@ -632,7 +641,7 @@ const _make = <
           Effect.makeSpanScoped("gateway/duplex", { attributes: { [Convention.rasm.gatewayFrame]: frame } }),
           _frames[frame](outbound)(socket),
         ), // the scoped acquisition: the lifetime span ends with the serving scope, the channel rides beside it
-      submit: Effect.fn("gateway.submit")(
+      submit: Effect.fn("gateway/submit")(
         function* (octets: Uint8Array) {
           const payload = yield* Schema.decodeUnknown(CommandPayload.FromBytes)(octets)
           yield* Effect.annotateCurrentSpan(Convention.rasm.gatewayVerb, payload.verb)

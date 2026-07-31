@@ -278,7 +278,7 @@ public static class Orchestrator {
     // Total settle: an instance with no committed step persists its header row — the ?? throw fallback
     // is the deleted form; absence is a projected header-only row, never an unreachable claim.
     static IO<WorkflowInstance> Settle(OrchestrationRuntime runtime, WorkflowInstance instance) =>
-        runtime.Store.Commit(instance, instance.Steps.LastOrNone()).Match(
+        runtime.Store.Commit(instance, instance.Steps.Last).Match(
             Succ: _ => Fan(runtime, instance),
             Fail: _ => IO.pure(instance with { Status = WorkflowStatus.Faulted }));
 
@@ -306,6 +306,8 @@ public static class Orchestrator {
 
 ```mermaid
 stateDiagram-v2
+    accTitle: Durable workflow execution lifecycle
+    accDescr: A running workflow committing activities in place, suspending on timer and signal waits, completing past its last step, and routing a refused step through compensation onto the faulted terminal.
     [*] --> Running
     Running --> Running: Activity committed
     Running --> Suspended: Timer / Signal wait
@@ -355,10 +357,10 @@ public static class StepStateCodec {
             None: () => Row(instance, -1, instance.Status.Key, kind: null, attempt: 0));
 
     public static Fin<WorkflowInstance> Decode(Seq<StepStateRow> rows) =>
-        rows.HeadOrNone().ToFin(new OrchestrationFault.ResumeBroken("empty-row-set"))
+        rows.Head.ToFin(new OrchestrationFault.ResumeBroken("empty-row-set"))
             .Bind(head => rows.Filter(static row => row.StepIndex >= 0)
                 .TraverseM(DecodeStep).As()
-                .Map(steps => Rebuild(head, steps.OrderBy(static s => s.Index).ToSeq())));
+                .Map(steps => Rebuild(head, toSeq(steps.OrderBy(static s => s.Index)))));
 
     static StepStateRow Row(WorkflowInstance instance, int index, string stepStatus, StepKind? kind, int attempt) =>
         new(instance.InstanceId, instance.WorkflowId, instance.Status.Key, instance.Cursor,
@@ -467,7 +469,4 @@ interface WorkflowInstanceWire {
 
 ## [07]-[RESEARCH]
 
-- [STEP_STATE_RIPPLE]: the `StepStateSeam` is the decode-only `Rasm.Persistence` `ONE_FENCED_LEASE_STORE` PORT — the projected `StepStateRow` of wire-stable primitives crosses down through `StepStateCas`, the READ half rides the coordination op-union's `StepStateLoad`/`StepStateInFlight`/`ExpiredScan` cases (`Store/coordination`), and the store's fenced-token column plus the `TenantId` RLS predicate stay Persistence-owned; the workflow step-state row and the `Wire/outbox.md` transactional-outbox row commit under one tenant-scoped transaction (`SEAM_OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE`), and the workflow-step dispatch registers as one keyed `OutboundHop` consumer of the `ONE_OUTBOX_EGRESS_SPINE` op-log rather than a second egress table — the seam couples to the projected-row + op-union contract, never the store interior.
-- [EXECUTOR_REFERENCE]: the executor is the `Agent/runtime#DISPATCH_FRONT_DOOR` `CommandDispatch.Run` (`Runtime/orchestration ⇄ CommandAlgebra` reference resolved), so the build order is `Agent/runtime.md` -> this page; the saga compensation rolls forward through `Agent/capability#COMMAND_ALGEBRA` `CommandAlgebra.Batch`'s unwind and the `CommandRuntime.CompensationOf` descriptor map, never a phantom undo, and the step chains its `CommandReceipt` into the `Runtime/determinism#EVENT_LOG` chain under the instance's `DeterminismContext` exactly as a reasoning transcript chains, every content digest composing the kernel `ContentHash.Of` entry with `ChainHash` the typed chain-link carrier.
-- [ASSESSMENT_BOUNDARY]: the `AssessmentDisposition` keys decode off the widened `AssessmentWire` receipt (`Rasm.Compute/Runtime/receipts.md` — the Compute `[V1]` failure columns Phase/FailureKind/Transient) because the strata law forbids any `Rasm.Element` reference — the Element-owned lattice never crosses as a CLR type; `JobState` rides the lawful AppHost->Compute compose direction; the Dispatchable wake's fast path is the durable-drain delivery of the assessment-completed event (dedupe by `id`=`ContentKey`, honesty per the hop's `HopDelivery` row) mapped to `Orchestrator.Signal`, the correctness path the `SignalTimeout` re-drive resolving through Compute's lifecycle-aware cache.
-- [CRASH_FACT]: the crash-resume reads the one collapsed `Runtime/lifecycle#FAULT_SPINE` `SupportTrigger.FaultTransition(FaultRecord)` fact — the live fault commits and the `ProbeMarkers` host-crash-marker boot evidence both arm the single fault-transition fact (`COLLAPSE_FAULT_SOURCE_SUPPORT_TRIGGER`), so the recovery reads one fault stream rather than a capture-delegate beside a separate trigger; the timer and persistent-job cadence ride the one `Runtime/time#SCHEDULE_PORT` so a durable wait survives restart as a `ScheduleEntry` row.
+(none)

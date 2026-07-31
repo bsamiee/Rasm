@@ -1,6 +1,6 @@
 # [RASM_REGISTRATION_REGISTER]
 
-Rigid registration closes point-cloud alignment: two `VectorCloud` clusters enter, one gated `Transform` leaves, and every ICP variant rides one policy record and one solver body.
+Registration closes point-cloud alignment: two `VectorCloud` clusters enter, one gated `Transform` leaves, and every ICP variant rides one policy record and one solver body — rigid by default, similarity on the Procrustes lane when the policy asks for scale.
 
 Correspondence rides the one `neighbors` substrate `NeighborKernel.GraphOf` and lands in the `transport` `CloudCorrespondenceSet`; every linear solve routes through the `matrix` owners; the GICP inner optimizer instantiates `Solving/solver.md`'s `ILmModel` over `Lm.Minimize`, composed never re-derived; admission and receipt validity fold through `validation`'s `ValidityClaim.All`.
 
@@ -10,12 +10,12 @@ Correspondence rides the one `neighbors` substrate `NeighborKernel.GraphOf` and 
 
 ## [02]-[REGISTRATION]
 
-- Owner: `AlignKind` mints the one dispatcher — each row's capability columns declare the normals and covariances the fold provisions for it, its delegate owns the inner solve, and one outer fold (correspond → solve step → compose → converge) owns iteration for every row; `AlignmentPolicy` is the one knob record, admitted monadically before any round runs.
+- Owner: `AlignKind` mints the one dispatcher — each row's capability columns declare the normals and covariances the fold provisions for it, its delegate owns the inner solve, and one outer fold (correspond → reject → solve step → compose → converge) owns iteration for every row; `AlignmentPolicy` is the one knob record, admitted monadically before any round runs — `EstimateScale` turns the Procrustes lane Umeyama-similarity, `TrimFraction` trims each round's worst correspondences by quantile, and `CoarseLevels` runs a stride-subsampled coarse-to-fine schedule whose row map keeps every per-row array aligned.
 - Entry: `AlignDetailed` is the one entry, the variant riding the receiver row and an absent policy seating `AlignmentPolicy.Default`; `VectorIntent.Align` composes it, and `AlignmentReceipt.Project<Transform>` gates on convergence, so a stalled run faults rather than yielding a half-aligned transform.
 - Receipt: `AlignmentReceipt` carries the run's transform, stop, iteration evidence, and final correspondence set with the robust and optimizer sub-receipts nested inside it, projecting through the `AtomProjection` typed rows.
 - Packages: TYoshimura.DoubleDouble mints the `ddouble` cost fold, Thinktecture.Runtime.Extensions the smart-enum row vocabulary and its delegate binding, and LanguageExt.Core the `Fin` rail.
-- Growth: a new ICP variant is one `AlignKind` row with its delegate and capability columns; scale estimation, a correspondence rejection rule, and a coarse-to-fine schedule are each one `AlignmentPolicy` column the standing fold reads — zero new surfaces.
-- Boundary: source-normal estimation runs once on the raw cluster and the round rotation transports the result — rigid equivariance leaves the two identical up to sign, and both consumers sign-align. GICP precision follows one spectral route: eigenvalues clamp at the ridge floor, the clamp is the nearest-SPD projection and `Regularized` counts it, so one path carries one correctness argument. Every increment composes as an exact axis-angle rotation and translation. Members stay behind the kernel owners, the statement kernels excepted as measured numeric hot loops under `Fin` admission, and every failure routes the `Op` rail.
+- Growth: a new ICP variant is one `AlignKind` row with its delegate and capability columns; a new rejection rule, robust kernel, or schedule shape is one `AlignmentPolicy` column the standing fold reads — zero new surfaces.
+- Boundary: source-normal estimation runs once on the raw cluster and the round rotation transports the result — rigid equivariance leaves the two identical up to sign, and both consumers sign-align. GICP precision follows one spectral route: eigenvalues clamp at the ridge floor, the clamp is the nearest-SPD projection and `Regularized` counts it, so one path carries one correctness argument. Every increment composes as an exact axis-angle rotation and translation; the Umeyama scale rides the Procrustes lane alone — the small-angle linearized rows and the GICP metric stay rigid, so a scale request never silently changes their model. Members stay behind the kernel owners, the statement kernels excepted as measured numeric hot loops under `Fin` admission, and every failure routes the `Op` rail.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -58,7 +58,7 @@ public sealed partial class AlignmentOptimizerStopKind {
 [SmartEnum<int>]
 public sealed partial class AlignKind {
     public static readonly AlignKind Point = new(key: 0, needsTargetNormals: false, needsSourceNormals: false, needsCovariances: false,
-        solveStep: static (source, match, current, _, key) => AlignKernel.SolvePointToPoint(source: source, target: match.Targets, rowMass: match.RowMass, current: current, key: key));
+        solveStep: static (source, match, current, policy, key) => AlignKernel.SolvePointToPoint(source: source, target: match.Targets, rowMass: match.RowMass, current: current, policy: policy, key: key));
     public static readonly AlignKind Plane = new(key: 1, needsTargetNormals: true, needsSourceNormals: false, needsCovariances: false,
         solveStep: static (source, match, current, _, key) => AlignKernel.SolvePointToPlane(source: source, target: match.Targets, normals: match.Normals, rowMass: match.RowMass, current: current, key: key));
     public static readonly AlignKind Symmetric = new(key: 2, needsTargetNormals: true, needsSourceNormals: true, needsCovariances: false,
@@ -86,12 +86,14 @@ public sealed partial class AlignKind {
 public readonly record struct AlignmentPolicy(
     Dimension MaxIterations, PositiveMagnitude ConvergenceTolerance, PositiveMagnitude ResidualTolerance,
     PositiveMagnitude StepTolerance, PositiveMagnitude RobustScale,
-    PositiveMagnitude CovarianceRidge, PositiveMagnitude MadToSigma, Dimension OptimizerBudget) {
+    PositiveMagnitude CovarianceRidge, PositiveMagnitude MadToSigma, Dimension OptimizerBudget,
+    bool EstimateScale, Option<UnitInterval> TrimFraction, Dimension CoarseLevels) {
     public static readonly AlignmentPolicy Default = new(
         MaxIterations: Dimension.Create(value: 30), ConvergenceTolerance: PositiveMagnitude.Create(value: 1.0e-6),
         ResidualTolerance: PositiveMagnitude.Create(value: 1.0e-6), StepTolerance: PositiveMagnitude.Create(value: 1.0e-6),
         RobustScale: PositiveMagnitude.Create(value: 0.1), CovarianceRidge: PositiveMagnitude.Create(value: 1.0e-9),
-        MadToSigma: PositiveMagnitude.Create(value: 1.4826), OptimizerBudget: Dimension.Create(value: 8));
+        MadToSigma: PositiveMagnitude.Create(value: 1.4826), OptimizerBudget: Dimension.Create(value: 8),
+        EstimateScale: false, TrimFraction: Option<UnitInterval>.None, CoarseLevels: Dimension.Create(value: 1));
     // Default-struct hole: a defaulted value-object field carries 0 and fails its claim row.
     internal Fin<AlignmentPolicy> Admit(Op key) {
         AlignmentPolicy self = this;
@@ -103,7 +105,10 @@ public readonly record struct AlignmentPolicy(
                 ValidityClaim.Positive(value: self.RobustScale.Value),
                 ValidityClaim.Positive(value: self.CovarianceRidge.Value),
                 ValidityClaim.Positive(value: self.MadToSigma.Value),
-                ValidityClaim.CountAtLeast(count: self.OptimizerBudget.Value, floor: 1)), key.InvalidInput())
+                ValidityClaim.CountAtLeast(count: self.OptimizerBudget.Value, floor: 1),
+                // Trimming at 1.0 keeps nothing; the per-solve row minimum re-gates the survivors downstream.
+                ValidityClaim.Of(self.TrimFraction.Map(static f => f.Value < 1.0).IfNone(noneValue: true)),
+                ValidityClaim.CountAtLeast(count: self.CoarseLevels.Value, floor: 1)), key.InvalidInput())
             .ToFin().Map(_ => self);
     }
     // Outer transform convergence stays tunable apart from the inner ladder projected here.
@@ -140,26 +145,30 @@ public readonly record struct AlignmentOptimizerReceipt(
         ValidityClaim.Evidence(TargetPca));
 }
 
+// SourceRows maps each local row to its GLOBAL source index, so a coarse level or a trimmed round keeps every
+// per-row array — masses, normals, PCA samples — aligned without rebuilding the estimation products.
 internal readonly record struct AlignmentMatch(
     CloudCorrespondenceSet Correspondences, Point3d[] Targets, Vector3d[] Normals, Vector3d[] SourceNormals, double[] Distances,
-    double[] RowMass, int[] TargetIndices, Option<NeighborhoodPcaResult> SourcePca = default, Option<NeighborhoodPcaResult> TargetPca = default);
+    double[] RowMass, int[] TargetIndices, int[] SourceRows, Option<NeighborhoodPcaResult> SourcePca = default, Option<NeighborhoodPcaResult> TargetPca = default);
 
 internal readonly record struct AlignmentStep(
     Transform Delta, Option<SolveReceipt> Solve = default, Option<AlignmentRobustReceipt> Robust = default,
-    Option<AlignmentOptimizerReceipt> Optimizer = default, Option<AlignmentStopKind> Stop = default);
+    Option<AlignmentOptimizerReceipt> Optimizer = default, Option<AlignmentStopKind> Stop = default,
+    Option<double> Scale = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct AlignmentReceipt(
     Transform Transform, AlignKind Kind, AlignmentStopKind Stop, int Iterations, double FinalDelta,
     Option<AlignmentRobustReceipt> Robust, CloudCorrespondenceSet Correspondences, Option<SolveReceipt> Solve,
-    Option<AlignmentOptimizerReceipt> Optimizer) : IValidityEvidence {
+    Option<AlignmentOptimizerReceipt> Optimizer, Option<double> SimilarityScale) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(Kind is not null && Stop is not null && Transform.IsValid),
         ValidityClaim.CountAtLeast(count: Iterations, floor: 0),
         ValidityClaim.Nonnegative(value: FinalDelta),
         ValidityClaim.Of(Robust.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)),
         ValidityClaim.Of(Solve.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)),
-        ValidityClaim.Of(Optimizer.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
+        ValidityClaim.Of(Optimizer.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)),
+        ValidityClaim.Of(SimilarityScale.Map(static scale => double.IsFinite(scale) && scale > 0.0).IfNone(noneValue: true)));
     public Fin<TOut> Project<TOut>(Op key) {
         AlignmentReceipt self = this;
         return AtomProjection.Rows<AlignmentReceipt, TOut>(self: self, key: key,
@@ -194,19 +203,61 @@ internal static class AlignKernel {
         from sourceMass in CloudKernel.MassOf(cluster: source, key: key)
         from targetMass in CloudKernel.MassOf(cluster: target, key: key)
         let nearestPolicy = neighborhoodPolicy with { NeighborCount = Dimension.Create(value: 1) }
-        from final in toSeq(Enumerable.Range(start: 0, count: policy.MaxIterations.Value)).Fold(
+        // Coarse-to-fine: level k solves on every 2^(levels-1-k)-th source row and hands its pose onward; the
+        // final level runs the full set — one iteration budget PER level with early convergence — and the finest
+        // level alone owns the receipt evidence.
+        from final in toSeq(Enumerable.Range(start: 0, count: policy.CoarseLevels.Value)).Fold(
             initialState: Fin.Succ(new IcpState(Current: Transform.Identity, FinalDelta: double.PositiveInfinity, Iterations: 0, Step: new AlignmentStep(Delta: Transform.Identity), Stop: Option<AlignmentStopKind>.None)),
-            f: (acc, iter) => acc.Bind(state => state.Stop.IsSome
-                ? Fin.Succ(state)
-                : from match in Correspond(source: source.Vertices, sourceMass: sourceMass, target: target, targetMass: targetMass, normals: targetNormals, sourceNormals: sourceNormals, current: state.Current, nearestPolicy: nearestPolicy, sourcePca: sourcePca, targetPca: targetPca, key: key)
-                  from step in kind.SolveStep(source: source.Vertices, match: match, current: state.Current, policy: policy, key: key)
-                  let current = step.Delta * state.Current
-                  let finalDelta = DeltaMagnitude(delta: step.Delta)
-                  select new IcpState(Current: current, FinalDelta: finalDelta, Iterations: iter + 1, Step: step,
-                      Stop: step.Stop.IsSome ? step.Stop : finalDelta < policy.ConvergenceTolerance.Value ? Some(AlignmentStopKind.Converged) : Option<AlignmentStopKind>.None)))
-        from finalMatch in Correspond(source: source.Vertices, sourceMass: sourceMass, target: target, targetMass: targetMass, normals: targetNormals, sourceNormals: sourceNormals, current: final.Current, nearestPolicy: nearestPolicy, sourcePca: sourcePca, targetPca: targetPca, key: key)
+            f: (levelAcc, level) => levelAcc.Bind(carried => {
+                int stride = 1 << (policy.CoarseLevels.Value - 1 - level);
+                int[] rows = stride == 1 ? [.. Enumerable.Range(start: 0, count: source.Vertices.Count)]
+                    : [.. Enumerable.Range(start: 0, count: source.Vertices.Count).Where(i => i % stride == 0)];
+                return toSeq(Enumerable.Range(start: 0, count: policy.MaxIterations.Value)).Fold(
+                    initialState: Fin.Succ(carried with { Stop = Option<AlignmentStopKind>.None }),
+                    f: (acc, iter) => acc.Bind(state => state.Stop.IsSome
+                        ? Fin.Succ(state)
+                        : from match in Correspond(source: source.Vertices, rows: rows, sourceMass: sourceMass, target: target, targetMass: targetMass, normals: targetNormals, sourceNormals: sourceNormals, current: state.Current, nearestPolicy: nearestPolicy, sourcePca: sourcePca, targetPca: targetPca, key: key)
+                          from active in RejectRows(source: source.Vertices, match: match, policy: policy, targetMass: targetMass, key: key)
+                          from step in kind.SolveStep(source: active.Source, match: active.Match, current: state.Current, policy: policy, key: key)
+                          let current = step.Delta * state.Current
+                          let finalDelta = DeltaMagnitude(delta: step.Delta)
+                          select new IcpState(Current: current, FinalDelta: finalDelta, Iterations: state.Iterations + 1, Step: step,
+                              Stop: step.Stop.IsSome ? step.Stop : finalDelta < policy.ConvergenceTolerance.Value ? Some(AlignmentStopKind.Converged) : Option<AlignmentStopKind>.None)));
+            }))
+        let fullRows = Enumerable.Range(start: 0, count: source.Vertices.Count).ToArray()
+        from finalMatch in Correspond(source: source.Vertices, rows: fullRows, sourceMass: sourceMass, target: target, targetMass: targetMass, normals: targetNormals, sourceNormals: sourceNormals, current: final.Current, nearestPolicy: nearestPolicy, sourcePca: sourcePca, targetPca: targetPca, key: key)
         select new AlignmentReceipt(Transform: final.Current, Kind: kind, Stop: final.Stop.IfNone(AlignmentStopKind.MaxIterationsExhausted), Iterations: final.Iterations, FinalDelta: final.FinalDelta,
-            Robust: final.Step.Robust, Correspondences: finalMatch.Correspondences, Solve: final.Step.Solve, Optimizer: final.Step.Optimizer);
+            Robust: final.Step.Robust, Correspondences: finalMatch.Correspondences, Solve: final.Step.Solve, Optimizer: final.Step.Optimizer,
+            SimilarityScale: final.Step.Scale);
+
+    // Trimmed-ICP rejection: order the round's distances once, keep rows at or under the survivor quantile, and
+    // compose the row map so every per-row array stays aligned. Survivors re-gate at the per-solve row minimum.
+    private static Fin<(Seq<Point3d> Source, AlignmentMatch Match)> RejectRows(Seq<Point3d> source, AlignmentMatch match, AlignmentPolicy policy, Arr<double> targetMass, Op key) =>
+        policy.TrimFraction.Match(
+            None: () => key.AcceptValue(value: (Source: toSeq(match.SourceRows.Select(row => source[index: row])), Match: match)),
+            Some: trim => {
+                int n = match.Distances.Length;
+                int keep = Math.Max(val1: 3, val2: (int)Math.Ceiling(a: (1.0 - trim.Value) * n));
+                if (keep >= n) return key.AcceptValue(value: (Source: toSeq(match.SourceRows.Select(row => source[index: row])), Match: match));
+                double[] sorted = [.. match.Distances.Order()];
+                double threshold = sorted[keep - 1];
+                int[] kept = [.. Enumerable.Range(start: 0, count: n).Where(i => match.Distances[i] <= threshold)];
+                List<CloudCorrespondence> items = new(capacity: kept.Length);
+                foreach (int i in kept) items.Add(item: match.Correspondences.Items[index: i]);
+                Point3d[] targets = [.. kept.Select(i => match.Targets[i])];
+                double[] distances = [.. kept.Select(i => match.Distances[i])];
+                double[] rowMass = [.. kept.Select(i => match.RowMass[i])];
+                int[] targetIndices = [.. kept.Select(i => match.TargetIndices[i])];
+                int[] sourceRows = [.. kept.Select(i => match.SourceRows[i])];
+                Vector3d[] normals = match.Normals.Length == 0 ? [] : [.. kept.Select(i => match.Normals[i])];
+                Vector3d[] rowSourceNormals = match.SourceNormals.Length == 0 ? [] : [.. kept.Select(i => match.SourceNormals[i])];
+                AlignmentMatch trimmed = match with {
+                    Correspondences = CorrespondenceSetOf(items: items, distances: distances, rowMass: rowMass, targetIndices: targetIndices, targetMass: targetMass, sourceCount: kept.Length, targetCount: match.Correspondences.TargetCount),
+                    Targets = targets, Normals = normals, SourceNormals = rowSourceNormals, Distances = distances,
+                    RowMass = rowMass, TargetIndices = targetIndices, SourceRows = sourceRows,
+                };
+                return key.AcceptValue(value: (Source: toSeq(sourceRows.Select(row => source[index: row])), Match: trimmed));
+            });
 
     private static double DeltaMagnitude(Transform delta) {
         double diff = 0.0;
@@ -214,34 +265,38 @@ internal static class AlignKernel {
         return diff;
     }
 
-    private static Fin<AlignmentMatch> Correspond(Seq<Point3d> source, Arr<double> sourceMass, VectorCloud.ClusterCase target, Arr<double> targetMass, Vector3d[] normals, Vector3d[] sourceNormals, Transform current, NeighborhoodPolicy nearestPolicy, Option<NeighborhoodPcaResult> sourcePca, Option<NeighborhoodPcaResult> targetPca, Op key) {
-        int n = source.Count;
-        Fin<Unit> admitted = from sourceCount in Admit.SameCount(expected: n, key: key, counts: [sourceMass.Count])
+    private static Fin<AlignmentMatch> Correspond(Seq<Point3d> source, int[] rows, Arr<double> sourceMass, VectorCloud.ClusterCase target, Arr<double> targetMass, Vector3d[] normals, Vector3d[] sourceNormals, Transform current, NeighborhoodPolicy nearestPolicy, Option<NeighborhoodPcaResult> sourcePca, Option<NeighborhoodPcaResult> targetPca, Op key) {
+        int n = rows.Length;
+        Fin<Unit> admitted = from rowCount in Admit.CountAtLeast(count: n, minimum: 1, key: key)
+                             from sourceCount in Admit.SameCount(expected: source.Count, key: key, counts: [sourceMass.Count])
                              from targetCount in Admit.SameCount(expected: target.Vertices.Count, key: key, counts: [targetMass.Count])
                              from normalCount in normals.Length == 0 ? Fin.Succ(unit) : Admit.SameCount(expected: target.Vertices.Count, key: key, counts: [normals.Length])
-                             from sourceNormalCount in sourceNormals.Length == 0 ? Fin.Succ(unit) : Admit.SameCount(expected: n, key: key, counts: [sourceNormals.Length])
-                             from transform in guard(current.IsValid, key.InvalidInput()).ToFin()
+                             from sourceNormalCount in sourceNormals.Length == 0 ? Fin.Succ(unit) : Admit.SameCount(expected: source.Count, key: key, counts: [sourceNormals.Length])
+                             from transform in guard(current.IsValid && rows.All(row => row >= 0 && row < source.Count), key.InvalidInput()).ToFin()
                              select unit;
         return admitted.Bind(_ => {
-            Point3d[] transformed = [.. source.AsIterable().Select(point => current * point)];
+            Point3d[] transformed = [.. rows.Select(row => current * source[index: row])];
             return NeighborKernel.GraphOf(index: new NeighborIndex.CloudCase(Source: target), needles: transformed, policy: nearestPolicy, key: key).Bind(graph => target.UseIndex(key: key, project: indexed => key.Catch(() => {
                 Point3d[] targets = new Point3d[n]; Vector3d[] rowNormals = normals.Length == 0 ? [] : new Vector3d[n];
+                Vector3d[] rowSourceNormals = sourceNormals.Length == 0 ? [] : new Vector3d[n];
                 double[] distances = new double[n]; double[] rowMass = new double[n]; int[] targetIndices = new int[n];
                 List<CloudCorrespondence> items = new(capacity: n);
                 for (int i = 0; i < n; i++) {
+                    int row = rows[i];
                     int nearest = graph.Ids.Length > i && graph.Ids[i].Length > 0 ? graph.Ids[i][0] : -1;
                     if (nearest < 0 || nearest >= target.Vertices.Count || (normals.Length > 0 && nearest >= normals.Length)) return Fin.Fail<AlignmentMatch>(key.InvalidResult());
                     Point3d targetPoint = indexed.PointAt(index: nearest);
                     Vector3d residual = targetPoint - transformed[i];
                     double squared = residual.SquareLength;
-                    targets[i] = targetPoint; distances[i] = Math.Sqrt(d: squared); rowMass[i] = sourceMass[index: i]; targetIndices[i] = nearest;
+                    targets[i] = targetPoint; distances[i] = Math.Sqrt(d: squared); rowMass[i] = sourceMass[index: row]; targetIndices[i] = nearest;
                     if (normals.Length > 0) rowNormals[i] = normals[nearest];
-                    items.Add(item: new CloudCorrespondence(SourceIndex: i, TargetIndex: nearest, SourcePoint: transformed[i], TargetPoint: targetPoint, Residual: residual,
-                        Distance: distances[i], SquaredDistance: squared, SourceMass: Some(sourceMass[index: i]), TargetMass: Some(targetMass[index: nearest]),
-                        CouplingMass: Some(sourceMass[index: i]), Confidence: Option<double>.None));
+                    if (sourceNormals.Length > 0) rowSourceNormals[i] = sourceNormals[row];
+                    items.Add(item: new CloudCorrespondence(SourceIndex: row, TargetIndex: nearest, SourcePoint: transformed[i], TargetPoint: targetPoint, Residual: residual,
+                        Distance: distances[i], SquaredDistance: squared, SourceMass: Some(sourceMass[index: row]), TargetMass: Some(targetMass[index: nearest]),
+                        CouplingMass: Some(sourceMass[index: row]), Confidence: Option<double>.None));
                 }
                 return Fin.Succ(new AlignmentMatch(Correspondences: CorrespondenceSetOf(items: items, distances: distances, rowMass: rowMass, targetIndices: targetIndices, targetMass: targetMass, sourceCount: n, targetCount: target.Vertices.Count),
-                    Targets: targets, Normals: rowNormals, SourceNormals: sourceNormals, Distances: distances, RowMass: rowMass, TargetIndices: targetIndices, SourcePca: sourcePca, TargetPca: targetPca));
+                    Targets: targets, Normals: rowNormals, SourceNormals: rowSourceNormals, Distances: distances, RowMass: rowMass, TargetIndices: targetIndices, SourceRows: rows, SourcePca: sourcePca, TargetPca: targetPca));
             })));
         });
     }
@@ -250,7 +305,7 @@ internal static class AlignKernel {
     private static CloudCorrespondenceSet CorrespondenceSetOf(List<CloudCorrespondence> items, double[] distances, double[] rowMass, int[] targetIndices, Arr<double> targetMass, int sourceCount, int targetCount) {
         double totalMass = 0.0, weightedSquares = 0.0;
         for (int i = 0; i < distances.Length; i++) { totalMass += rowMass[i]; weightedSquares += rowMass[i] * distances[i] * distances[i]; }
-        double rmse = totalMass > RhinoMath.ZeroTolerance ? Math.Sqrt(d: weightedSquares / totalMass) : 0.0;
+        double rmse = totalMass > EpsilonPolicy.ZeroTolerance ? Math.Sqrt(d: weightedSquares / totalMass) : 0.0;
         double[] sorted = [.. distances.Order()];
         double Quantile(double q) => sorted.Length == 0 ? 0.0 : sorted[Math.Min(val1: sorted.Length - 1, val2: (int)Math.Floor(d: q * (sorted.Length - 1)))];
         int[] covered = [.. targetIndices.Distinct().Order()];
@@ -263,8 +318,9 @@ internal static class AlignKernel {
     }
 
     // --- [INNER_SOLVES]
-    internal static Fin<AlignmentStep> SolvePointToPoint(Seq<Point3d> source, Point3d[] target, double[] rowMass, Transform current, Op key) =>
-        SolveProcrustes(source: source, target: target, weights: rowMass, current: current, key: key).Map(static delta => new AlignmentStep(Delta: delta));
+    internal static Fin<AlignmentStep> SolvePointToPoint(Seq<Point3d> source, Point3d[] target, double[] rowMass, Transform current, AlignmentPolicy policy, Op key) =>
+        SolveProcrustes(source: source, target: target, weights: rowMass, current: current, estimateScale: policy.EstimateScale, key: key)
+            .Map(static aligned => new AlignmentStep(Delta: aligned.Delta, Scale: aligned.Scale));
 
     // Chen-Medioni small-angle linearization: rows [p x n | n] . [omega; t] = (q - p) . n.
     internal static Fin<AlignmentStep> SolvePointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] rowMass, Transform current, Op key) =>
@@ -292,26 +348,27 @@ internal static class AlignKernel {
             double[] weights = new double[n];
             double[] sortedResiduals = [.. residuals.Select(static residual => Math.Abs(value: residual)).Order()];
             double median = sortedResiduals.Length == 0 ? 1.0 : sortedResiduals[sortedResiduals.Length / 2];
-            double nu = Math.Max(val1: policy.MadToSigma.Value * median * policy.RobustScale.Value, val2: RhinoMath.SqrtEpsilon);
+            double nu = Math.Max(val1: policy.MadToSigma.Value * median * policy.RobustScale.Value, val2: EpsilonPolicy.SqrtEpsilon);
             double[] logs = [.. residuals.Select(residual => -(residual * residual) / (2.0 * nu * nu))];
             double offset = logs.Max();
-            // An outlier down-weights to numeric dust, never to the exact zero the strictly-positive Procrustes admission rejects.
+            // Outliers down-weight to numeric dust, never to the exact zero the strictly-positive Procrustes admission rejects.
             for (int i = 0; i < n; i++) weights[i] = rowMass[i] * Math.Exp(d: Math.Max(val1: logs[i] - offset, val2: WelschLogFloor));
-            return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, key: key)
-                   select new AlignmentStep(Delta: aligned, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())));
+            return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, estimateScale: policy.EstimateScale, key: key)
+                   select new AlignmentStep(Delta: aligned.Delta, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())), Scale: aligned.Scale);
         });
     }
 
     internal static Fin<AlignmentStep> SolveNormalWeightedPointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] targetNormals, Vector3d[] sourceNormals, double[] rowMass, Transform current, Op key) =>
         Admit.SameCount(expected: source.Count, key: key, counts: [sourceNormals.Length]).Bind(_ => SolveLinearizedRows(
             source: source, target: target, normals: targetNormals, rowMass: rowMass, current: current, key: key,
-            rowNormal: (i, normal) => (Normal: normal, Weight: Math.Sqrt(d: Math.Max(val1: Math.Abs(value: (current * sourceNormals[i]) * normal), val2: RhinoMath.SqrtEpsilon)))));
+            rowNormal: (i, normal) => (Normal: normal, Weight: Math.Sqrt(d: Math.Max(val1: Math.Abs(value: (current * sourceNormals[i]) * normal), val2: EpsilonPolicy.SqrtEpsilon)))));
 
     internal static Fin<AlignmentStep> SolveGeneralizedIcp(Seq<Point3d> source, AlignmentMatch match, Transform current, AlignmentPolicy policy, Op key) =>
         from sourcePca in match.SourcePca.ToFin(key.InvalidInput())
         from targetPca in match.TargetPca.ToFin(key.InvalidInput())
         from rows in AdmitAlignmentRows(source: source, target: match.Targets, weights: match.RowMass, minimum: 3, key: key)
-        from sourcePcaCount in Admit.SameCount(expected: rows, key: key, counts: [sourcePca.Samples.Count])
+        from sourceRowCount in Admit.SameCount(expected: rows, key: key, counts: [match.SourceRows.Length])
+        from sourceRows in guard(match.SourceRows.All(row => row >= 0 && row < sourcePca.Samples.Count), key.InvalidInput())
         from targetIndexCount in Admit.SameCount(expected: rows, key: key, counts: [match.TargetIndices.Length])
         from targetIndices in guard(match.TargetIndices.All(index => index >= 0 && index < targetPca.Samples.Count), key.InvalidInput())
         from seedField in PrecisionFieldOf(source: source, match: match, sourcePca: sourcePca, targetPca: targetPca, current: current, covarianceRidge: policy.CovarianceRidge.Value, key: key)
@@ -320,7 +377,7 @@ internal static class AlignKernel {
         from result in Lm.Minimize(model: model, policy: policy.Ladder, key: key)
         select GicpStep(model: model, result: result, initial: initial, sourcePca: sourcePca, targetPca: targetPca);
 
-    // A zero-iteration convergence holds the pose; a budget stall applies its best increment and stops the outer fold, so the receipt gate refuses the transform projection.
+    // Zero-iteration convergence holds the pose; a budget stall applies its best increment and stops the outer fold, so the receipt gate refuses the transform projection.
     private static AlignmentStep GicpStep(GicpModel model, LmResult result, GicpObjective initial, NeighborhoodPcaResult sourcePca, NeighborhoodPcaResult targetPca) {
         double stepNorm = Math.Sqrt(d: result.Parameters.Sum(static value => value * value));
         GicpObjective at = result.Iterations == 0 ? initial : model.Objective;
@@ -352,34 +409,38 @@ internal static class AlignKernel {
         select count;
 
     // --- [PROCRUSTES]
-    private static Fin<Transform> SolveProcrustes(Seq<Point3d> source, Point3d[] target, double[] weights, Transform current, Op key) {
+    private static Fin<(Transform Delta, Option<double> Scale)> SolveProcrustes(Seq<Point3d> source, Point3d[] target, double[] weights, Transform current, bool estimateScale, Op key) {
         Seq<Point3d> transformedSource = toSeq(source.AsIterable().Select(p => current * p));
         Seq<Point3d> targetSeq = toSeq(target);
         return from rows in AdmitAlignmentRows(source: transformedSource, target: target, weights: weights, minimum: 3, key: key)
                from srcCentroid in WeightedCentroidOf(points: transformedSource, weights: weights, key: key)
                from tgtCentroid in WeightedCentroidOf(points: targetSeq, weights: weights, key: key)
-               from aligned in AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, key: key)
+               from aligned in AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, estimateScale: estimateScale, key: key)
                select aligned;
     }
 
     private static Fin<Point3d> WeightedCentroidOf(Seq<Point3d> points, double[] weights, Op key) {
         Vector3d sum = Vector3d.Zero; double totalW = 0.0;
         for (int i = 0; i < points.Count; i++) { sum += weights[i] * (Vector3d)points[index: i]; totalW += weights[i]; }
-        return totalW > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: totalW)
+        return totalW > EpsilonPolicy.ZeroTolerance && RhinoMath.IsValidDouble(x: totalW)
             ? key.AcceptValue(value: Point3d.Origin + (sum / totalW))
             : Fin.Fail<Point3d>(key.InvalidResult());
     }
 
     // H = sum w_i (s_i - s̄)(t_i - t̄)^T -> SVD -> R = V diag(1,1,det(VU^T)) U^T; translation = t̄ - R s̄.
-    private static Fin<Transform> AlignViaCrossCovariance(Seq<Point3d> source, Seq<Point3d> target, Point3d srcCentroid, Point3d tgtCentroid, double[]? weights, Op key) {
+    // Umeyama similarity under EstimateScale: s = Σ w t̃·(R s̃) / Σ w |s̃|², linear part s·R, translation t̄ - s·R s̄
+    // — one policy column unlocks scan-to-model similarity registration; a degenerate source spread refuses typed.
+    private static Fin<(Transform Delta, Option<double> Scale)> AlignViaCrossCovariance(Seq<Point3d> source, Seq<Point3d> target, Point3d srcCentroid, Point3d tgtCentroid, double[]? weights, bool estimateScale, Op key) {
         Dimension dim3 = Dimension.Create(value: 3);
         double[] cross = new double[9];
+        double sourceSpread = 0.0;
         for (int i = 0; i < source.Count; i++) {
             double w = weights is null ? 1.0 : weights[i];
             Vector3d sv = source[index: i] - srcCentroid; Vector3d tv = target[index: i] - tgtCentroid;
             cross[0] += w * sv.X * tv.X; cross[1] += w * sv.X * tv.Y; cross[2] += w * sv.X * tv.Z;
             cross[3] += w * sv.Y * tv.X; cross[4] += w * sv.Y * tv.Y; cross[5] += w * sv.Y * tv.Z;
             cross[6] += w * sv.Z * tv.X; cross[7] += w * sv.Z * tv.Y; cross[8] += w * sv.Z * tv.Z;
+            sourceSpread += w * sv.SquareLength;
         }
         return from h in Matrix.Of(rows: dim3, cols: dim3, entries: new Arr<double>(cross), key: key)
                from svd in h.DecomposeSvd(key: key)
@@ -390,7 +451,24 @@ internal static class AlignKernel {
                from vd in svd.V.Multiply(other: d, key: key)
                from rot in vd.Multiply(other: svd.U.Transpose(), key: key)
                let rotation = RotationTransformOf(rotation: rot)
-               select WithTranslation(rotation: rotation, translation: tgtCentroid - (rotation * srcCentroid));
+               from scaled in estimateScale
+                   ? ScaleOf(source: source, target: target, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, rotation: rotation, sourceSpread: sourceSpread, key: key)
+                   : key.AcceptValue(value: (Delta: WithTranslation(rotation: rotation, translation: tgtCentroid - (rotation * srcCentroid)), Scale: Option<double>.None))
+               select scaled;
+    }
+
+    private static Fin<(Transform Delta, Option<double> Scale)> ScaleOf(Seq<Point3d> source, Seq<Point3d> target, Point3d srcCentroid, Point3d tgtCentroid, double[]? weights, Transform rotation, double sourceSpread, Op key) {
+        if (sourceSpread <= EpsilonPolicy.ZeroTolerance) return Fin.Fail<(Transform, Option<double>)>(key.InvalidResult());
+        double projected = 0.0;
+        for (int i = 0; i < source.Count; i++) {
+            double w = weights is null ? 1.0 : weights[i];
+            projected += w * ((target[index: i] - tgtCentroid) * (rotation * (source[index: i] - srcCentroid)));
+        }
+        double scale = projected / sourceSpread;
+        if (!RhinoMath.IsValidDouble(x: scale) || scale <= EpsilonPolicy.ZeroTolerance) return Fin.Fail<(Transform, Option<double>)>(key.InvalidResult());
+        Transform similarity = rotation;
+        for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) similarity[i, j] *= scale;
+        return key.AcceptValue(value: (Delta: WithTranslation(rotation: similarity, translation: tgtCentroid - (similarity * srcCentroid)), Scale: Some(scale)));
     }
 
     private static Fin<AlignmentStep> SolveLinearizedRows(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] rowMass, Transform current, Op key, Func<int, Vector3d, (Vector3d Normal, double Weight)> rowNormal) {
@@ -404,7 +482,7 @@ internal static class AlignKernel {
             for (int i = 0; i < n; i++) {
                 (Vector3d rawNormal, double weight) = rowNormal(i, normals[i]);
                 double massWeight = Math.Sqrt(d: rowMass[i]);
-                if (!rawNormal.IsValid || rawNormal.SquareLength <= RhinoMath.SqrtEpsilon * RhinoMath.SqrtEpsilon || !RhinoMath.IsValidDouble(x: weight) || weight <= 0.0)
+                if (!rawNormal.IsValid || rawNormal.SquareLength <= EpsilonPolicy.SqrtEpsilon * EpsilonPolicy.SqrtEpsilon || !RhinoMath.IsValidDouble(x: weight) || weight <= 0.0)
                     return Fin.Fail<AlignmentStep>(key.InvalidResult());
                 Point3d p = current * source[index: i]; Point3d q = target[i]; Vector3d nrm = weight * massWeight * rawNormal;
                 Vector3d cross = Vector3d.CrossProduct(a: (Vector3d)p, b: nrm);
@@ -432,7 +510,7 @@ internal static class AlignKernel {
         toSeq(Enumerable.Range(start: 0, count: source.Count)).Fold(
             initialState: Fin.Succ((Inverses: new SymmetricMatrix[source.Count], Regularized: 0, Ridge: 0.0)),
             f: (acc, i) => acc.Bind(state =>
-                PrecisionOf(current: current, source: sourcePca.Samples[index: i].Covariance, target: targetPca.Samples[index: match.TargetIndices[i]].Covariance, covarianceRidge: covarianceRidge, key: key)
+                PrecisionOf(current: current, source: sourcePca.Samples[index: match.SourceRows[i]].Covariance, target: targetPca.Samples[index: match.TargetIndices[i]].Covariance, covarianceRidge: covarianceRidge, key: key)
                     .Map(precision => { state.Inverses[i] = precision.Inverse; return (state.Inverses, state.Regularized + (precision.Regularized ? 1 : 0), Math.Max(val1: state.Ridge, val2: precision.Ridge)); })))
             .Map(state => new GicpPrecisionField(Inverses: state.Inverses, RegularizedCount: state.Regularized, Ridge: state.Ridge));
 
@@ -450,7 +528,7 @@ internal static class AlignKernel {
             if (i == j) trace += value;
             upper[slot++] = value;
         }
-        double floor = Math.Max(val1: RhinoMath.SqrtEpsilon, val2: covarianceRidge * Math.Max(val1: Math.Abs(value: trace / 3.0), val2: 1.0));
+        double floor = Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: covarianceRidge * Math.Max(val1: Math.Abs(value: trace / 3.0), val2: 1.0));
         return from fused in SymmetricMatrix.Of(dim: Dimension.Create(value: 3), upper: new Arr<double>(upper), key: key)
                from eigen in fused.DecomposeEigenDetailed(key: key)
                from inverse in SpectralInverseOf(pairs: eigen.Pairs, floor: floor, key: key)
@@ -488,7 +566,7 @@ internal static class AlignKernel {
                 massTotal += mass;
                 max = Math.Max(val1: max, val2: mahalanobis);
             }
-            double mean = massTotal > (ddouble)RhinoMath.ZeroTolerance ? (double)(total / massTotal) : (double)total;
+            double mean = massTotal > (ddouble)EpsilonPolicy.ZeroTolerance ? (double)(total / massTotal) : (double)total;
             return RhinoMath.IsValidDouble(x: (double)total) && RhinoMath.IsValidDouble(x: mean)
                 ? Fin.Succ(new GicpObjective(Cost: total, MeanMahalanobis: mean, MaxMahalanobis: max, RegularizedCount: precision.RegularizedCount, Ridge: precision.Ridge))
                 : Fin.Fail<GicpObjective>(key.InvalidResult());
@@ -568,7 +646,7 @@ internal static class AlignKernel {
 
     private static Transform ComposeRigidTransform(Vector3d omega, Vector3d translation) {
         double theta = omega.Length;
-        Transform rot = theta < RhinoMath.SqrtEpsilon
+        Transform rot = theta < EpsilonPolicy.SqrtEpsilon
             ? Transform.Identity
             : Transform.Rotation(angleRadians: theta, rotationAxis: omega / theta, rotationCenter: Point3d.Origin);
         return WithTranslation(rotation: rot, translation: translation);

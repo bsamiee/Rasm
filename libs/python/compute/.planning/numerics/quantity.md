@@ -13,26 +13,28 @@ One read-only frozen application registry owns the unit vocabulary, shared throu
 - Owner: `UncertainQuantity` — the `Magnitude` structural tag IS the propagation mode, so no parallel mode field shadows it, and no parallel uncertain type stands beside the unit-bearing one.
 - Cases: `Magnitude.join` subsumes the unary map — a scalar with no peers stays scalar — so unary and n-ary propagation are one fold rather than two near-identical rebuild branches; `Umath` members carry their own `arity`, and `propagate` gates the supplied operand count BEFORE the lifted call, so an arity mismatch is a typed reject instead of the opaque `wrap`-call `TypeError`; cohort admission is symmetric with the `CORRELATION` view — a cohort built from a correlation matrix reads back as one.
 - Entry: each cohort member re-keys over the cohort key and its own unique tag, so two siblings never share a `content_key` — a shared key collides them as cache keys and as propagation-operand bytes, returning a stale propagation for a different operand; a converted or propagated value re-keys because it is a new value, never a source-key cache collision.
-- Growth: a new elementary function is one `Umath` member carrying its `(value, arity)` the arity gate consumes for free; a new propagation algebra is one `Propagation` case with its `lifted`/`label` arms; a new cohort construction is one `Covariance` case with its `reconstruct` AND `canonical` arms — the second so the payload participates in the content key; a new provenance view is one `CohortView` row with its fold arm.
+- Evidence: the hub `evidence_run` weave rides the two OPERAND-SCALED entries — the cohort reconstruction and the `CohortView` read, whose inverse arms run a cubic uncertainty-propagating solve — so the branch's universal evidence floor holds at this owner and the folder's most expensive numerics kernel reports its own resource band. The scalar mint, convert, and propagate entries stay bare: banding a single `ufloat` construction prices the instrument rather than the kernel. Composition custody is the caller's on the weave and on the graduation projection alike, defaulted so the root call shape stays scope-free.
+- Growth: a new elementary function is one `Umath` member carrying its `(value, arity)` the arity gate consumes for free; a new propagation algebra is one `Propagation` case with its `lifted`/`label` arms; a new cohort construction is one `Covariance` case with its `reconstruct` AND `canonical` arms — the second so the payload participates in the content key; a new provenance view is one `CohortView` row with its fold arm; a stricter unit bar is one tighter `_UNIT_CEILING` row or the caller's override.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
 from math import isqrt
-from typing import Literal, assert_never
+from typing import Final, Literal, assert_never
 
 import numpy as np
 import pint
 from expression import Block, Error, case, tag, tagged_union
+from expression.collections import Map
 from msgspec import Struct
 from uncertainties import UFloat, correlated_values, correlated_values_norm, correlation_matrix, covariance_matrix, ufloat, umath, unumpy, wrap
 from uncertainties.unumpy import ulinalg
 
-from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis
+from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, railed, traversed
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
 # read-once handle on the shared application registry; the composition root alone binds a custom registry,
 # so this module runs no import-time `set_application_registry` mutation.
@@ -234,6 +236,14 @@ class CohortView(StrEnum):
     PSEUDOINVERSE = "pseudoinverse"
 
 
+# --- [CONSTANTS] ---------------------------------------------------------------------------
+
+# `unit_law` family's DEFAULT graduation ceiling, governed as a row beside the owner rather than spelled at the
+# `graduates()` call site: a dimensional-consistency claim admits zero inconsistency, and a caller's tighter row
+# overrides at the projection.
+_UNIT_CEILING: Final[Map[str, float]] = Map.of_seq([("consistency", 0.0)])
+
+
 # --- [MODELS] ------------------------------------------------------------------------------
 
 
@@ -249,12 +259,20 @@ class QuantityReceipt(Struct, frozen=True, gc=False):
     components: tuple[tuple[str, float], ...]
     content_key: ContentKey
 
-    def graduates(self) -> "RuntimeRail[GraduationReceipt]":
-        # verdict is a `consistency` residual rejected against a `0.0` ceiling, so an inconsistent quantity is the
-        # `Error(BoundaryFault)` the gate returns; the axis case IS the subject, never a parallel `subject: str` field.
+    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[GraduationReceipt]":
+        # verdict is a `consistency` residual rejected against the governed `_UNIT_CEILING` family row, so an inconsistent
+        # quantity is the `Error(BoundaryFault)` the gate returns; the axis case IS the subject, never a parallel
+        # `subject: str` field, and `composition` is the caller's custody key threaded onto the hub so an embedded
+        # composition's admission and refusal facts key to it rather than firing into the root scope.
         measured = {"consistency": 0.0 if self.consistent else 1.0}
-        ceiling = {"consistency": 0.0}
-        return GraduationReceipt.graduates(EvidenceScope.QUANTITY.value, HandoffAxis(unit_law=self.unit_expr), self.content_key, measured, ceiling)
+        return GraduationReceipt.graduates(
+            EvidenceScope.QUANTITY.value,
+            HandoffAxis(unit_law=self.unit_expr),
+            self.content_key,
+            measured,
+            ceiling or dict(_UNIT_CEILING.items()),
+            composition=composition,
+        )
 
     def contribute(self) -> Iterable[Receipt]:
         facts: dict[str, object] = {
@@ -287,10 +305,12 @@ class UncertainQuantity(Struct, frozen=True):
 
     @classmethod
     def correlated(
-        cls, nominals: Sequence[float], covariance: Covariance, unit: str, tags: tuple[str, ...], /
+        cls, nominals: Sequence[float], covariance: Covariance, unit: str, tags: tuple[str, ...], /, *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[tuple[UncertainQuantity, ...]]":
         # a repeated cohort on identical data is a cache hit by reference; the per-member rails fold through `traversed` under the
-        # default `Disposition.ABORT`, the fold `railed` does not subsume.
+        # default `Disposition.ABORT`, the fold `railed` does not subsume. The hub weave wraps the whole build: a cohort
+        # reconstruction is quadratic in the member count and every member re-keys, so this is one of the two entries whose
+        # spend scales with the operand and therefore the two the branch evidence floor prices.
         @railed
         def _build() -> "tuple[UncertainQuantity, ...]":
             cells = covariance.reconstruct(nominals, tags)
@@ -311,7 +331,11 @@ class UncertainQuantity(Struct, frozen=True):
             )
             return tuple(members)
 
-        return boundary("quantity.correlated", _build).bind(lambda outcome: outcome)
+        facts = {"members": len(tags), "covariance": covariance.tag, "unit": unit}
+        return evidence_run(
+            EvidenceScope.QUANTITY, "quantity.correlated", lambda: boundary("quantity.correlated", _build).bind(lambda outcome: outcome),
+            facts=facts, composition=composition,
+        )
 
     def convert(self, target_unit: str, /) -> "RuntimeRail[UncertainQuantity]":
         # pint owns the unit algebra (affine offset units included) and the correlation graph through `Measurement.to`; a zero-nominal
@@ -363,7 +387,10 @@ class UncertainQuantity(Struct, frozen=True):
 # --- [OPERATIONS] --------------------------------------------------------------------------
 
 
-def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /) -> "RuntimeRail[np.ndarray]":
+def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[np.ndarray]":
+    # second weave-priced entry: the covariance and correlation views are quadratic in the cohort and the two inverse
+    # views run a CUBIC uncertainty-propagating solve over an n-by-n matrix, so this is the folder's most expensive
+    # numerics kernel and the one whose resource band a reader most needs.
     def _read() -> np.ndarray:
         cells = [q.magnitude.cell for q in quantities]
         match view:
@@ -386,7 +413,11 @@ def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /) -> "Run
             case _ as unreachable:
                 assert_never(unreachable)
 
-    return boundary(f"quantity.cohort.{view.value}", _read)
+    facts = {"view": view.value, "members": len(quantities)}
+    return evidence_run(
+        EvidenceScope.QUANTITY, f"quantity.cohort.{view.value}", lambda: boundary(f"quantity.cohort.{view.value}", _read),
+        facts=facts, composition=composition,
+    )
 
 
 def _scalar_key(nominal: float, std_dev: float, unit: str, /) -> "RuntimeRail[ContentKey]":

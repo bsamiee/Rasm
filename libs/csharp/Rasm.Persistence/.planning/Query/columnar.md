@@ -10,6 +10,7 @@ This package is the branch's single columnar custodian: producers hand typed rec
 - [03]-[ARTIFACT_EGRESS]: `ArtifactEgress` runs one engine-mediated `COPY (SELECT) TO` rail over the closed `EgressFormat`/`Codec`/`Collision`/`ArtifactClass` vocabularies, stamps and reads footer metadata, and scans a generation through `read_parquet`.
 - [04]-[FLAT_TABLE_EGRESS]: `BimOpenSchemaProjection` writes the columnar BIM facts co-transactionally, and `FlatTableEgress` owns the in-corpus eleven-table `.duckdb` write, the daemon materialization, the `ParquetSharp.Arrow` read and PME-encrypted write, the metadata-only Delta publication versioning each generation to its AS-OF cut, the hive-partitioned lake scan, the Arrow IPC decode arm, and the `LandingArm` producer spine.
 - [05]-[ANALYTICS_RESIDENCE]: `AnalyticsSchema` admits a producer seam in SQL and Arrow, `Residence` rows carry dialect and honest degradation, `ResidenceDdl` provisions, `ResidencePlan` lowers one plan under one `ResidenceScope`, `ResidenceRead` serves every `ResidenceReach`, `SeriesKind` roots the hypertable roster under one `SeriesSelector`, and the op-log and receipt-evidence planes close both seams.
+- [06]-[RESEARCH]: open verification debts and their routes.
 
 ## [02]-[COLUMNAR_LANE]
 
@@ -24,9 +25,11 @@ This package is the branch's single columnar custodian: producers hand typed rec
 
 ```csharp signature
 using System.Buffers;
+using System.Buffers.Binary;                      // BinaryPrimitives — the xxh128 UDF's big-endian key pack
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
+using System.IO.Hashing;                          // XxHash128 — the engine-parity content-key UDF
 using System.Linq;
 using Apache.Arrow;
 using Apache.Arrow.Adbc;
@@ -243,6 +246,9 @@ public sealed class ColumnarSession : IDisposable {
     readonly DuckDBConnection anchor;
     public ColumnarProfile Profile { get; }
     public Seq<string> Loaded { get; }
+    // UDF registration binds the anchor because the anchor's lifetime IS the session's — a registration on a
+    // short-lived duplicate lane would gamble the function's catalog lifetime on connection close semantics.
+    internal DuckDBConnection Anchor => anchor;
 
     internal ColumnarSession(DuckDBConnection anchor, ColumnarProfile profile, Seq<string> loaded) =>
         (this.anchor, Profile, Loaded) = (anchor, profile, loaded);
@@ -296,6 +302,21 @@ public static class ColumnarLane {
         session.Dispose();
         return IO.fail<ColumnarSession>(new ColumnarFault.ExtensionGap(string.Join(",", missing)));
     }
+
+    // Engine-parity UDF registration: the embedded floor's identity capabilities answer on BOTH embedded engines,
+    // so a rollup joining on xxh128(content) runs unchanged over SQLite or DuckDB. Only the two genuinely portable
+    // functions register — ISO-8601 ordinal text ordering is native icu collation here and span_fold is the native
+    // max aggregate, so re-registering either would shadow a stronger built-in.
+    public static IO<Unit> Register(ColumnarSession session) =>
+        IO.lift(() => {
+            session.Anchor.RegisterScalarFunction<string>("uuid7", static () => Guid.CreateVersion7().ToString("N"));
+            session.Anchor.RegisterScalarFunction<byte[], byte[]>("xxh128", static bytes => {
+                byte[] key = new byte[16];
+                BinaryPrimitives.WriteUInt128BigEndian(key, XxHash128.HashToUInt128(bytes));
+                return key;
+            });
+            return unit;
+        });
 
     // Streaming queries run on `Duplicate()` lanes and bind interpolation holes as named `$pN` parameters.
     // One seam-local list accumulates rows once before `toSeq`, avoiding persistent-sequence forcing per row.
@@ -603,7 +624,7 @@ public static class ArtifactEgress {
 - Auto: the `ElementGraph → BimOpenSchema` egress is a CO-TRANSACTIONAL `FlatTableProjection` (`Project<T>(StatementMap)`) written in the same transaction as the events, NOT daemon-lagged (`M4`), because a flat analytical view a live QTO reads must be read-your-writes consistent — the structural map maps the `GraphEvent.GraphCreated`'s `Header.Schema.Key`/`Header.View.Key` (the `ReleaseVersion`/`ModelView` smart-enum keys, since `StatementMap.Map` writes a primitive column, never a smart-enum object) and the `GraphRevised`'s `GraphDelta.NodeCount`/`EdgeCount` change magnitude through the single-column primary key `FlatTableProjection` requires; the eleven suffixed BIM tables (`Points_0`/`Strings_1`/`Descriptors_2`/`Documents_3`/`Entities_4`/`Relations_5`/`DoubleParameters_6`/`IntegerParameters_7`/`StringParameters_8`/`EntityParameters_9`/`PointParameters_10`) are written IN-CORPUS: `frames.ToDataSet()` projects the fixed-ordinal `IDataSet` (`Tables` in the order that IS the DuckDB ordinal suffix), and `WriteFrames` folds each `IDataTable` (`Name`/`Columns`/`Rows`, `IDataDescriptor.Name`/`Type` typing the DDL, the `[column, row]` indexer supplying cells) through a `CREATE OR REPLACE TABLE` + raw `DuckDBAppender` `CreateRow`/`AppendValue`/`EndRow` stream on THIS lane's session — the DEBUG-IL `DuckDbUtils.WriteToDuckDB` writer is data-model-only, never the hot write loop — and a Persistence analytical query opens that `.duckdb` over the same pinned runtime and SQL-joins the suffixed entity/parameter/relation tables by their exact suffixed names; the async daemon `Materialize` blocks on `WaitForNonStaleData` so the generation is current before the heavy aggregation lanes read it carrying the `StalenessWatermark`; the native `ParquetSharp.Arrow.FileReader.GetRecordBatchReader` reads the same standard-format `.parquet` files the managed `Parquet.Net` writer produced into `IArrowArrayStream` `RecordBatch`es for the columnar query rail (managed writer / native libparquet-cpp reader interoperate at the file format, never the assembly).
 - Receipt: a flat-table projection rides `store.columnar.flattable` carrying the change magnitude; a daemon materialization rides `store.columnar.materialize` carrying the watermark; a frame write rides `store.columnar.frames` carrying the table count; a Parquet read rides `store.columnar.parquet` carrying the record-batch count.
 - Packages: Marten (`FlatTableProjection`/`StatementMap`/`SchemaNameSource`/`ProjectionLifecycle`/`IDocumentStore`/`BuildProjectionDaemonAsync`/`WaitForNonStaleData`), Ara3D.BimOpenSchema (`BimData`/`BimDataBuilder`/`ToDataSet` — DATA MODEL only post-absorption), Ara3D.SDK (`IDataSet.Tables`/`IDataTable.Name`/`Rows`/`Columns`/`this[column,row]`/`IDataColumn.ColumnIndex`/`Descriptor`/`IDataDescriptor.Name`/`Type` — decompile-verified), DuckDB.NET.Data.Full (`DuckDBAppender.CreateRow`/`IDuckDBAppenderRow.AppendValue`/`AppendNullValue`/`EndRow`/`Close` — the in-corpus write loop), ParquetSharp (`Arrow.FileReader`/`Arrow.FileWriter`/`WriterPropertiesBuilder`; the read-tuning pair `ReaderProperties.GetDefaultReaderProperties`/`SetFooterReadSize`/`SetThriftStringSizeLimit`/`SetThriftContainerSizeLimit`/`FileDecryptionProperties` beside `Arrow.ArrowReaderProperties.GetDefault`/`BatchSize`/`UseThreads`/`PreBuffer`/`CacheOptions` and the `CacheOptions(hole_size_limit, range_size_limit, lazy, prefetch_limit)` struct — both property types mutate in place and dispose; and the in-package `ParquetSharp.Encryption` namespace `CryptoFactory`/`KmsConnectionConfig`/`EncryptionConfiguration`/`DecryptionConfiguration` — PME over the admitted KMS trio ships inside this one distribution, so a manifest row named for it is a phantom package), DeltaLake.Net (`DeltaEngine`/`EngineOptions`/`TableOptions`/`AddAction`/`CommitOptions`/`CreateWriteTransactionAsync`/`GetLatestTransactionVersionAsync`/`DeltaLakeException` — the metadata-only Delta commit rail; assembly `DeltaLake`), ParquetSharp.Dataset (`DatasetReader(string, IPartitioningFactory?, Schema?, ReaderProperties?, ArrowReaderProperties?, DatasetOptions?)`/`ToBatches(IFilter?, IReadOnlyCollection<string>?, IReadOnlyCollection<string>?)`/`HivePartitioning.Factory`/`Col`/`FilterExtensions` — the partitioned lake scan), Apache.Arrow (`RecordBatch`/`IArrowArrayStream`/`ArrowStreamReader(Stream, ICompressionCodecFactory)`), Apache.Arrow.Compression (`CompressionCodecFactory` — the `Lz4Frame`/`Zstd` ingest decode factory), Rasm.Element (`GraphDelta`/`Header`), Rasm.Persistence (`Element/graph#STREAM_GRAIN` `GraphEvent`/`GraphCreated`/`GraphRevised` the Marten event body), LanguageExt.Core, BCL inbox.
-- Growth: a new flat-table column is one `map.Map` statement on the `StatementMap`; a new analytical generation is one async daemon view; a new frame codec is the existing `ParquetSharp.Arrow` lane reading a new format; an encryption stance is one `PmeCustody` value the write and the read both take, never a sibling encrypted writer or a read that cannot open what the write sealed; a new lakehouse publication is one `PublishDelta` commit over `AddAction` rows the codec write already computed, never a second write of the bytes; a new producer landing is one `LandingArm` row carrying its slot and hive key — schema handoff only, zero new storage code, the `Receipt` row landing the evidence plane's cold tail under its capability domain and the `MaterialsTexture` row landing per-channel texture-plane generations beside the catalogue arm because the arm is the DATASET SHAPE and one producer package may hold several; a new scan predicate is one `Col`-rooted `IFilter` composition at the call, never a reader fork; a read-side retune for a slower store is one `ScanTuning` value both Parquet legs take, never a knob on one leg; zero new surface — a daemon-lagged BimOpenSchema egress, a hand-rolled columnar map, a second Parquet runtime beside `ParquetSharp`, or a hollow writer that opens a row group and writes no column is the deleted form because the BimOpenSchema egress is co-transactional, the managed `Parquet.Net` writer and the native `ParquetSharp` reader meet at the file format, and the Arrow record-batch model is `api-arrow`'s.
+- Growth: a new flat-table column is one `map.Map` statement on the `StatementMap`; a new analytical generation is one async daemon view; a new frame codec is the existing `ParquetSharp.Arrow` lane reading a new format; an encryption stance is one `PmeCustody` value the write and the read both take, never a sibling encrypted writer or a read that cannot open what the write sealed; a new lakehouse publication is one `PublishDelta` commit over `AddAction` rows the codec write already computed, never a second write of the bytes; a new producer landing is one `LandingArm` row carrying its slot, hive key, and write order — schema handoff only, zero new storage code, the `Receipt` row landing the evidence plane's cold tail under its capability domain and the `MaterialsTexture` row landing per-channel texture-plane generations beside the catalogue arm because the arm is the DATASET SHAPE and one producer package may hold several; a new scan predicate is one `Col`-rooted `IFilter` composition at the call, never a reader fork; a read-side retune for a slower store is one `ScanTuning` value both Parquet legs take, never a knob on one leg; zero new surface — a daemon-lagged BimOpenSchema egress, a hand-rolled columnar map, a second Parquet runtime beside `ParquetSharp`, or a hollow writer that opens a row group and writes no column is the deleted form because the BimOpenSchema egress is co-transactional, the managed `Parquet.Net` writer and the native `ParquetSharp` reader meet at the file format, and the Arrow record-batch model is `api-arrow`'s.
 - Boundary: the `ElementGraph → Ara3D.BimOpenSchema` egress is a co-transactional `FlatTableProjection` (`M4`) so a live-QTO analytical read is read-your-writes consistent rather than daemon-lagged — `FlatTableProjection` requires a single-column primary key and writes a primitive per `StatementMap.Map`, so a `ReleaseVersion`/`ModelView` smart-enum maps as its `.Key` and a `GraphDelta` maps as its `NodeCount`/`EdgeCount`, never as the smart-enum or delta object itself; if BimOpenSchema is EAV-generic Persistence owns the structural map, if BIM-typed it is a Bim-implemented seam projection (the wire seam, never a sibling reference); a Bim-lowered `StorePlan` (the `Rasm.Bim` `Model/query#PREDICATE_PUSHDOWN` predicate push-down — one parameterized statement over the suffixed fact tables and an in-process residue) executes on this lane's `ColumnarSession` as DATA crossing the same seam, so the estate-scale element query runs where the data rests with no Persistence-side predicate vocabulary; the eleven suffixed BIM tables are read with the built-in `parquet`/`json` surface and `spatial`/`vss`/`fts` extend them for geometry/ANN/text analytics over the same `.duckdb`, all on the one pinned runtime, and a direct SQL consumer references the `<Name>_<n>` projection-ordinal suffix that IS the real table identity (`api-ara3d-bimopenschema#IMPLEMENTATION_LAW`), never a bare table name; the Parquet file codec is `ParquetSharp.Arrow` (the native libparquet-cpp read/write the managed Arrow stack lacks, exposing the `Apache.Arrow` `RecordBatch` directly so Parquet↔Arrow is a first-class managed call), distinct from the DuckDB SQL `read_parquet`/`COPY` path, the three meeting at the Parquet file format and the `Apache.Arrow` model owned by `api-arrow` not re-declared here; the `Ara3D.BimOpenSchema[.IO]` assemblies are DEBUG-built at the HELD `1.0.1` pin (JIT optimizations disabled in the shipped IL; the feed-newest `.IO` `1.6.1` regressed to `net8.0-windows7.0`, `NU1202` on net10.0 osx-arm64, so the bump is restore-inadmissible) — the ruled escalation is EXECUTED here: the consumed write surface is absorbed in-corpus (`WriteFrames` streams the eleven tables through this lane's appender; `ReadParquetFrames`/`WriteParquetFrames` ride the native `ParquetSharp` codec), so the DEBUG-IL assemblies serve only the in-memory schema model and `ToDataSet()` projection, never a hot IO loop, and the pin bump is never the fix.
 
 ```csharp signature
@@ -652,9 +673,9 @@ public sealed class BimOpenSchemaProjection : FlatTableProjection {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class FlatTableEgress {
-    // Daemon materialization waits for non-stale state before heavy analytical scans.
-    // Inline projection remains the same-commit correctness owner.
-    public static IO<Unit> Materialize(IDocumentStore store) =>
+    // Daemon materialization waits for non-stale state before heavy analytical scans and returns the MEASURED
+    // wait for the store.query.wait seal. Inline projection remains the same-commit correctness owner.
+    public static IO<Duration> Materialize(IDocumentStore store) =>
         IO.liftAsync(async () => {
             await using IProjectionDaemon daemon = await store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
@@ -769,15 +790,25 @@ public static class FlatTableEgress {
 
     // ParquetSharp.Arrow `FileWriter` owns plain and PME-encrypted record-batch writes.
     // Read, write, and encryption metadata share one admitted `StorePath`.
-    public static IO<long> WriteParquetFrames(Seq<RecordBatch> batches, StorePath path, Schema schema, Option<PmeCustody> custody) =>
+    // The pushdown the scan side already CONTRACTS for: `ScanDataset` states its own grain as "partition,
+    // row-group-statistics, and row", and only the page index plus declared sorting columns make the row-grain skip
+    // real — without them the finest reachable grain is column-chunk min/max over unsorted row groups, so a
+    // content-key predicate touches every row group in every generation it scans. The size-statistics level and the
+    // page index ARM TOGETHER by the codec's own coupling — a `PageAndColumnChunk` level with the index disabled
+    // writes no page-level statistics at all and degrades silently to column-chunk grain — so the two ride one fold
+    // and neither appears without the other. `Sorted` is the arm's own column, not a call-site literal: the arm IS
+    // the dataset shape, so a generation whose arm declares no order passes an empty set and writes the index alone.
+    public static IO<long> WriteParquetFrames(Seq<RecordBatch> batches, StorePath path, Schema schema, Seq<Identifier> sorted, Option<PmeCustody> custody) =>
         IO.lift(() => {
             string published = (string)path;
             string directory = Path.GetDirectoryName(published) ?? throw new InvalidOperationException("<parquet-generation-directory>");
             Directory.CreateDirectory(directory);
             string staging = Path.Combine(directory, $".{Path.GetFileName(published)}.{Guid.CreateVersion7():N}.tmp");
+            WriterProperties.SortingColumn[] order = [.. sorted.Map(column =>
+                new WriterProperties.SortingColumn { ColumnIndex = schema.GetFieldIndex((string)column), IsDescending = false, NullsFirst = false })];
             using WriterProperties properties = custody.Match(
-                Some: pme => new WriterPropertiesBuilder().Encryption(pme.Crypto.GetFileEncryptionProperties(pme.Kms, pme.Encrypt, published)).Build(),
-                None: static () => new WriterPropertiesBuilder().Build());
+                Some: pme => Tuned(new WriterPropertiesBuilder().Encryption(pme.Crypto.GetFileEncryptionProperties(pme.Kms, pme.Encrypt, published)), order).Build(),
+                None: () => Tuned(new WriterPropertiesBuilder(), order).Build());
             try {
                 using (FileWriter writer = new(File.Open(staging, FileMode.CreateNew, FileAccess.Write, FileShare.None), schema, properties, null, leaveOpen: false))
                     foreach (RecordBatch batch in batches) writer.WriteRecordBatch(batch);
@@ -787,6 +818,17 @@ public static class FlatTableEgress {
                 if (File.Exists(staging)) File.Delete(staging);
             }
         });
+
+    // ONE tuning fold both custody arms take, so an encrypted generation and a plain one carry identical read
+    // geometry — the arm difference is the encryption row alone. `EnableStatistics` is the column-chunk floor the
+    // page index refines; `DefaultWriterProperties` is process-global ambient policy no per-file builder can scope,
+    // so every knob this generation needs is stated on its own builder rather than inherited from a static field
+    // another composition may have set.
+    static WriterPropertiesBuilder Tuned(WriterPropertiesBuilder builder, WriterProperties.SortingColumn[] order) =>
+        builder.EnableStatistics()
+            .EnableWritePageIndex()
+            .SetSizeStatisticsLevel(SizeStatisticsLevel.PageAndColumnChunk)
+            .SortingColumns(order);
 
     // `PublishDelta` registers existing Parquet files through a metadata-only Delta transaction.
     // App and transaction versions enforce exactly-once publication after the latest-version pre-check.
@@ -849,7 +891,7 @@ public static class FlatTableEgress {
     public static IO<Fin<long>> Land(LakeGeneration generation, Seq<RecordBatch> batches, Schema schema, StorePath root,
         Option<PmeCustody> pme, Func<UInt128, StorePath, IO<Unit>> custody) {
         StorePath published = generation.Path(root);
-        return WriteParquetFrames(batches, published, schema, pme)
+        return WriteParquetFrames(batches, published, schema, generation.Arm.Sorted, pme)
             .Bind(written => (custody(generation.GenerationKey, published).Map(_ => Fin.Succ(written))
                 | @catch<IO, Fin<long>>(static _ => true,
                     error => Unpublish(published).Map(_ => Fin.Fail<long>(
@@ -879,10 +921,10 @@ public static class FlatTableEgress {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LandingArm {
-    public static readonly LandingArm Geometry  = new("geometry", "store.geometry.land", "model");
-    public static readonly LandingArm Doe       = new("doe", "store.doe.land", "study");
-    public static readonly LandingArm Tabulate  = new("tabulate", "store.tabulate.land", "model");
-    public static readonly LandingArm Materials = new("materials", "store.materials.land", "catalogue");
+    public static readonly LandingArm Geometry  = new("geometry", "store.geometry.land", "model", ["node"]);
+    public static readonly LandingArm Doe       = new("doe", "store.doe.land", "study", ["run"]);
+    public static readonly LandingArm Tabulate  = new("tabulate", "store.tabulate.land", "model", ["entity"]);
+    public static readonly LandingArm Materials = new("materials", "store.materials.land", "catalogue", ["material"]);
     // Texture-plane analytics land on their OWN arm partitioned by `channel`, never folded under the materials
     // catalogue arm: a catalogue generation is one row per material row while a texture generation is one row
     // per CHANNEL of a set, so sharing the arm splits the catalogue tree at a segment a catalogue scan cannot
@@ -891,20 +933,25 @@ public sealed partial class LandingArm {
     // alias (`basecolor`, `albedo`), because the segment is a directory a scan predicates on and two spellings
     // of one channel split its tree into halves no board joins; a per-channel cold-tail sweep then prunes whole
     // directories exactly as the catalogue arm prunes per catalogue.
-    public static readonly LandingArm MaterialsTexture = new("materials-texture", "store.materials.texture.land", "channel");
+    public static readonly LandingArm MaterialsTexture = new("materials-texture", "store.materials.texture.land", "channel", ["set"]);
     // Receipt evidence lands under its capability domain, so a cold-tail scan prunes whole directories on the
     // same segment a metric name and a residence sort key carry — one vocabulary across all three planes.
-    public static readonly LandingArm Receipt   = new("receipt", "store.receipt.land", "domain");
+    public static readonly LandingArm Receipt   = new("receipt", "store.receipt.land", "domain", ["at"]);
     // Billing generations partition by their accrual WINDOW, never by a receipt domain: the chargeback batch
     // carries its own dataset shape, so folding it under the receipt arm splits that arm's tree at `schema=`
     // and a cold-tail sweep loses the one readable segment a whole billing period prunes on. `Segment` is an
     // `Identifier`, which refuses a digit lead, so the month token carries its own leading letter.
-    public static readonly LandingArm Cost      = new("cost", "store.cost.land", "month");
+    public static readonly LandingArm Cost      = new("cost", "store.cost.land", "month", ["kind"]);
 
     public StoreSlot Slot { get; }
     public Identifier Partition { get; }
-    private LandingArm(string key, string slot, string partition) : this(key) =>
-        (Slot, Partition) = (StoreSlot.Create(slot), Identifier.Create(partition));
+    // The order the arm's generations are WRITTEN in, declared on the dataset shape because the row IS that shape:
+    // the Parquet writer stamps it as sorting-column metadata and the scan side's row-grain skip reads it, so an
+    // arm whose scans predicate on a content key sorts on that key and one whose scans walk time sorts on the
+    // instant. A call-site literal here would let two generations of one arm claim different orders in one tree.
+    public Seq<Identifier> Sorted { get; }
+    private LandingArm(string key, string slot, string partition, Seq<string> sorted) : this(key) =>
+        (Slot, Partition, Sorted) = (StoreSlot.Create(slot), Identifier.Create(partition), sorted.Map(Identifier.Create));
 }
 
 // ONE landed generation coordinate, and the only owner of a cold-tail directory spelling. Four segments carry
@@ -2715,5 +2762,10 @@ public static class ReceiptResidence {
 |  [27]   | total column read   | `Fin` readers over both row arms              | absence is a refusal; never an empty string, a zero, or 1970      |
 
 ## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
 
 (none)

@@ -342,7 +342,7 @@ public sealed partial class FaultBand {
         toSeq(Items).Find(band => code >= band.Key && code < band.Key + band.Span);
     // Span-overlap proof: base uniqueness is the generated key lookup; range disjointness is this fold.
     public static readonly Unit Disjoint = ignore(
-        toSeq(Items).OrderBy(static band => band.Key).ToSeq()
+        toSeq(toSeq(Items).OrderBy(static band => band.Key))
             .Fold(0, static (ceiling, band) => band.Key >= ceiling
                 ? band.Key + band.Span
                 : throw new InvalidOperationException($"{band.Owner}:{band.Key}")));

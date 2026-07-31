@@ -1,6 +1,6 @@
 # [MATERIALS_ANALYTICS]
 
-MATERIALS declares its analytics datasets as WIRE and projects catalogue, appearance, and texture-plane truth onto flat row streams; `Rasm.Persistence` admits both across the `[WIRE]: AnalyticsSchema` seam as the branch's one columnar custodian. Column types, residences, dialects, DDL, slots, and the serving plane all home at that custodian, so this page names no provider, no residence, and no admitted schema type.
+MATERIALS declares its analytics datasets as WIRE and projects catalogue, appearance, texture-plane, and environment-product truth onto flat row streams; `Rasm.Persistence` admits both across the `[WIRE]: AnalyticsSchema` seam as the branch's one columnar custodian. Column types, residences, dialects, DDL, slots, and the serving plane all home at that custodian, so this page names no provider, no residence, and no admitted schema type.
 
 Settled composition: Component, Properties, Appearance, and observability owners supply already-admitted rows and receipts, and `ProjectionContext` carries the projection instant, operation key, and tenancy every stream stamps. Every dataset is EVENT-TIME and declares `observed` filled from the frame, so the Series, Fleet, and Lake residences provision one declaration and no dataset resolves against a single residence shape. Every row stream is a parameterized pure fold reaching no ambient registry.
 
@@ -8,7 +8,7 @@ Settled composition: Component, Properties, Appearance, and observability owners
 
 - [02]-[DATASET_WIRE]: `ColumnToken` transcribes the custodian's physical types and `DatasetWire` carries each dataset's spine and admission projection.
 - [03]-[DATASET_ROSTER]: `MaterialsDatasets` declares the `materials.<source>` datasets over one shared event-time spine.
-- [04]-[ROW_PROJECTION]: `PropertyColumn` tables every selector and `AnalyticsProjection` folds each registered input — catalogue rows, property carriers, lifecycle stages, appearance summaries, capacity facts, and texture-set wires — onto flat rows.
+- [04]-[ROW_PROJECTION]: `PropertyColumn` tables every selector, `EnvironmentProduct` closes the stored-product axis, and `AnalyticsProjection` folds each registered input — catalogue rows, property carriers, lifecycle stages, appearance summaries, capacity facts, texture-set wires at both grains, and environment-light wires — onto flat rows.
 
 ## [02]-[DATASET_WIRE]
 
@@ -20,6 +20,13 @@ Settled composition: Component, Properties, Appearance, and observability owners
 - Boundary: `ColumnToken` and `SpineToken` keys transcribe the custodian's vocabularies structurally because peers at one stratum never reference each other and no compiler spans the seam — a token this roster spells and the custodian never admits refuses at that gate rather than provisioning a column no dialect can render. Naming disambiguates at the source: the custodian owns `ColumnType`, `ColumnRow`, and `AnalyticsSchema`, and this page's declarations never wear those names.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------------------
+using LanguageExt;
+using Thinktecture;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Materials.Projection;
+
 // --- [TYPES] ------------------------------------------------------------------------------------------
 // Structural transcription of the custodian's physical-type vocabulary — the keys are the wire, and a row
 // added there lands here in the same change or its datasets refuse at the admission gate.
@@ -65,14 +72,21 @@ public sealed record DatasetWire(
 
 ## [03]-[DATASET_ROSTER]
 
-- Owner: `MaterialsDatasets` — the dataset registry: `materials.component-rows` (catalogue identity, family and class discriminants, section pin, substance and appearance keys, IFC binding), `materials.property-rows` (admitted scalar and dimensioned property columns with their UCUM unit, evidence source, and expiry), `materials.sustainability` (per-stage GWP, resource fractions, classification, evidence source and expiry), `materials.library-summary` (the seam appearance scalars behind the content key), `materials.capacity-checks` (per-check verdict evidence off the fact stream), `materials.texture` (one row per baked or ingested set CHANNEL — its container, payload class, pyramid depth, stored blob and byte length, the set extent and tile verdict it belongs to, and the press evidence a baked set carries and an ingested one leaves absent).
+- Owner: `MaterialsDatasets` — the dataset registry: `materials.component-rows` (catalogue identity, family and class discriminants, section pin, substance and appearance keys, IFC binding), `materials.property-rows` (admitted scalar and dimensioned property columns with their UCUM unit, evidence source, and expiry), `materials.sustainability` (per-stage GWP, resource fractions, classification, evidence source and expiry), `materials.library-summary` (the seam appearance scalars behind the content key), `materials.capacity-checks` (per-check verdict evidence off the fact stream, its optional ratio and its optional deferred member check), `materials.texture` (one row per baked or ingested set CHANNEL — its container, payload class, pyramid depth, stored blob and byte length, the set extent and tile verdict it belongs to, and the press evidence a baked set carries and an ingested one leaves absent), `materials.texture-set` (one row per SET — the grain every set-grained fact the evidence plane produces lands on: the tile verdict and its two component signals, the press backend, texel census, duration, downgrade count, and faulted-texel tally), `materials.environment` (one row per resolved light and stored PRODUCT — the equirect, specular chain, BRDF lookup, and optional luminance guide behind each dome, with the sky model and coefficient digest that keyed it).
 - Entry: `MaterialsDatasets.All` is the roster the composing root enumerates; each declaration pairs one `[04]` row record and fold.
 - Auto: identity and provenance ride as columns — classification system and code with evidence source and calendar expiry on the property and sustainability rows, the content-derived appearance key on library rows — so audit queries filter and expiry-screen without joining back into object graphs; `observed` trails every column list, so every declaration reads identity, then payload, then spine; the residence derives its own sort key from `Key` and `Time`, never from declaration order.
 - Packages: LanguageExt.Core.
 - Growth: a new dataset is one declaration, one row record, and one fold; a new column is one `DatasetColumn` with its field on the owning row record.
-- Boundary: declaration truth and row truth stay co-located, so each dataset edit carries its matching row field and projection expression. `gwp`, `elapsed_s`, and `byte_length` are the three measures the family declares, because summing a mixed-unit long-form property column or a colour channel states a magnitude neither carries, while stored plane bytes sum to exactly the estate-wide texture footprint a storage question asks for. `materials.texture` deliberately excludes a set's OWN press duration from its measure: that duration repeats on every channel row of one press, so summing it multiplies one bake by its channel count.
+- Boundary: declaration truth and row truth stay co-located, so each dataset edit carries its matching row field and projection expression. `gwp`, `elapsed_s`, and `byte_length` are the measure names the family declares, because summing a mixed-unit long-form property column or a colour channel states a magnitude neither carries, while stored plane bytes sum to exactly the estate-wide texture footprint a storage question asks for. GRAIN decides whether a duration is summable: `materials.texture` excludes a set's OWN press duration because that duration repeats on every channel row of one press and summing it multiplies one bake by its channel count, while `materials.texture-set` declares it — one row IS one bake there, so the same column that lies at channel grain is the honest measure at set grain, which is exactly why the set-grained half is its own declaration rather than more columns on the channel one. `materials.environment` takes stored bytes and never the prefilter duration, under the same rule: a light's four products repeat one sweep's wall time.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------------------
+using LanguageExt;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Materials.Projection;
+
+// --- [TABLES] -----------------------------------------------------------------------------------------
 public static class MaterialsDatasets {
     public static readonly DatasetWire ComponentRows = new("materials.component-rows", Key: Seq("component"), Seq(
         new DatasetColumn("component", ColumnToken.Utf8, Nullable: false),
@@ -125,6 +139,9 @@ public static class MaterialsDatasets {
         new DatasetColumn("governing", ColumnToken.Utf8, Nullable: false),
         new DatasetColumn("adequate", ColumnToken.Bool, Nullable: false),
         new DatasetColumn("utilisation", ColumnToken.Float64, Nullable: true),
+        // Deferral names the member-level check a section pass still owes, so a query separates a clean pass from
+        // a pass-with-deferral — two verdicts a bare adequacy bit renders identical.
+        new DatasetColumn("deferral", ColumnToken.Utf8, Nullable: true),
         new DatasetColumn("elapsed_s", ColumnToken.Float64, Nullable: false),
         new DatasetColumn("observed", ColumnToken.Timestamp, Nullable: false)), Spine: SpineToken.Event, Time: "observed", Measure: "elapsed_s");
 
@@ -156,21 +173,76 @@ public static class MaterialsDatasets {
         new DatasetColumn("observed", ColumnToken.Timestamp, Nullable: false)),
         Spine: SpineToken.Event, Time: "observed", Measure: "byte_length");
 
-    public static readonly Seq<DatasetWire> All =
-        Seq(ComponentRows, PropertyRows, Sustainability, LibrarySummary, CapacityChecks, TextureChannels);
+    // ONE ROW PER SET, the grain every set-grained texture fact lands on. Every tile and press column is NULLABLE
+    // exactly as the channel twin's press columns are: an ingested set was never pressed and an ungraded set was
+    // never tiled, so a zero strategy, a zero score, a zero backend, or a zero texel count reads to a cost or
+    // quality query as a real bake and a real grading that measured nothing. The two component signals ride BESIDE the product
+    // because the product alone tells an operator a tiling failed and never which half failed.
+    public static readonly DatasetWire TextureSets = new("materials.texture-set", Key: Seq("set"), Seq(
+        new DatasetColumn("set", ColumnToken.KeyHex, Nullable: false),
+        new DatasetColumn("appearance", ColumnToken.KeyHex, Nullable: false),
+        new DatasetColumn("material", ColumnToken.Utf8, Nullable: true),
+        new DatasetColumn("channels", ColumnToken.Int64, Nullable: false),
+        new DatasetColumn("packs", ColumnToken.Int64, Nullable: false),
+        new DatasetColumn("tiled", ColumnToken.Bool, Nullable: false),
+        new DatasetColumn("tile_strategy", ColumnToken.Utf8, Nullable: true),
+        new DatasetColumn("tile_score", ColumnToken.Float64, Nullable: true),
+        new DatasetColumn("tile_seam_ratio", ColumnToken.Float64, Nullable: true),
+        new DatasetColumn("tile_lattice_leak", ColumnToken.Float64, Nullable: true),
+        new DatasetColumn("backend", ColumnToken.Utf8, Nullable: true),
+        new DatasetColumn("texels", ColumnToken.Int64, Nullable: true),
+        new DatasetColumn("elapsed_s", ColumnToken.Float64, Nullable: true),
+        new DatasetColumn("downgraded", ColumnToken.Int64, Nullable: true),
+        new DatasetColumn("faulted_texels", ColumnToken.Int64, Nullable: true),
+        new DatasetColumn("observed", ColumnToken.Timestamp, Nullable: false)),
+        Spine: SpineToken.Event, Time: "observed", Measure: "elapsed_s");
+
+    // ONE ROW PER LIGHT AND PRODUCT — the environment half of the estate-wide texture footprint, keyed the way the
+    // channel dataset is so one storage question sums both. `sky_model` is EMPTY for an ingested HDRI, the spelling the
+    // environment row itself publishes rather than a synthesized "none" this page would keep aligned; the coefficient
+    // digest is the fit asset that keyed a synthesized dome, so a revised fit reads as new rows rather than as drift.
+    public static readonly DatasetWire EnvironmentProducts = new("materials.environment", Key: Seq("light", "product"), Seq(
+        new DatasetColumn("light", ColumnToken.Utf8, Nullable: false),
+        new DatasetColumn("product", ColumnToken.Utf8, Nullable: false),
+        new DatasetColumn("sky_model", ColumnToken.Utf8, Nullable: false),
+        new DatasetColumn("coefficient_key", ColumnToken.Utf8, Nullable: false),
+        new DatasetColumn("blob", ColumnToken.KeyHex, Nullable: false),
+        new DatasetColumn("byte_length", ColumnToken.Int64, Nullable: false),
+        new DatasetColumn("specular_mips", ColumnToken.Int64, Nullable: false),
+        new DatasetColumn("observed", ColumnToken.Timestamp, Nullable: false)),
+        Spine: SpineToken.Event, Time: "observed", Measure: "byte_length");
+
+    public static readonly Seq<DatasetWire> All = Seq(
+        ComponentRows, PropertyRows, Sustainability, LibrarySummary, CapacityChecks,
+        TextureChannels, TextureSets, EnvironmentProducts);
 }
 ```
 
 ## [04]-[ROW_PROJECTION]
 
-- Owner: `AnalyticsProjection` — the typed row records and the total folds from registered rows and typed receipts onto flat row streams; `PropertyColumn` — the selector table one scalar or dimensioned property occupies per row.
-- Entry: `Components` folds catalogue rows; `Properties` folds per-material property rows through the admitted `PropertyColumn` table; `Sustainability` folds one row per lifecycle stage; `Library` traverses material keys through an injected admitted appearance lookup; `Capacity` chooses capacity facts off the observability stream; `Textures` folds each `interchange#TEXTURE_EGRESS` `TextureSetWire`'s channel and pack rows into one row apiece. Every fold takes `ProjectionContext` and stamps `frame.At` onto its rows.
+- Owner: `AnalyticsProjection` — the typed row records and the total folds from registered rows and typed receipts onto flat row streams; `PropertyColumn` — the selector table one scalar or dimensioned property occupies per row; `EnvironmentProduct` — the closed product axis one resolved light's stored blobs occupy, each row projecting its own wire key.
+- Cases: `EnvironmentProduct` rows — `equirect` the authored dome, `specular` the prefiltered level chain, `brdfLut` the split-sum lookup, `luminanceCdf` the optional importance guide whose absent key emits no row at all.
+- Entry: `Components` folds catalogue rows; `Properties` folds per-material property rows through the admitted `PropertyColumn` table; `Sustainability` folds one row per lifecycle stage; `Library` traverses material keys through an injected admitted appearance lookup; `Capacity` chooses capacity facts off the observability stream; `Textures` folds each `interchange#TEXTURE_EGRESS` `TextureSetWire`'s channel and pack rows into one row apiece; `TextureSets` folds the same wires at SET grain beside the tile evidence its caller pairs in; `Environments` fans each `EnvironmentLightWire` across the product axis against the store's own byte census. Every fold takes `ProjectionContext` and stamps `frame.At` onto its rows.
 - Auto: a dimensioned selector reads its SI accessor off the quantity the `Published` carrier holds, so the magnitude and the UCUM unit it is stated in derive from one owner and no fold re-scales; folds are total over their registered inputs — an unregistered library key aborts the library fold typed rather than emitting a partial dataset.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, UnitsNet, BCL inbox.
-- Growth: a new scalar or dimensioned property is one `PropertyColumn` row carrying its unit and its selector; a new dataset fold is one row record and one member beside its declaration.
-- Boundary: ingress is parameterized — every fold takes its registered input and its frame as arguments and reads no ambient registry; egress is a row `Seq` the custodian batches, so buffer custody, batch sizing, and dataset writes never enter this page.
+- Growth: a new scalar or dimensioned property is one `PropertyColumn` row carrying its unit and its selector; a new environment product is one `EnvironmentProduct` row carrying its wire-key projection; a new dataset fold is one row record and one member beside its declaration.
+- Boundary: ingress is parameterized — every fold takes its registered input and its frame as arguments and reads no ambient registry; egress is a row `Seq` the custodian batches, so buffer custody, batch sizing, and dataset writes never enter this page. Folds read the already-projected WIRE wherever one exists, so a warehouse column and the document a consumer decoded agree byte for byte; evidence no wire carries — a `TileReceipt`, a blob's stored length — enters as a SECOND ARGUMENT rather than as a re-derivation or a widened wire, and a row whose measured column has no producer is not emitted, because the alternative is a zero the measure sums.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------------------
+using LanguageExt;
+using NodaTime;                                  // Instant, LocalDate — the frame instant and the evidence expiry
+using Rasm.Element.Composition;                  // MaterialId
+using Rasm.Materials.Appearance;                 // Published, AppearanceSummary
+using Rasm.Materials.Appearance.Interchange;     // TextureSetWire, EnvironmentLightWire — the already-projected wires
+using Rasm.Materials.Component;                  // ComponentRow, Utilisation
+using Rasm.Materials.Properties;                 // MaterialPropertyRow, SustainabilityRow
+using Rasm.Materials.Raster;                     // TileReceipt, TileScore, PlaneTransfer, BlockFormat
+using Thinktecture;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Materials.Projection;
+
 // --- [MODELS] -----------------------------------------------------------------------------------------
 public readonly record struct ComponentAnalyticsRow(
     string Component, string Family, string Class, bool Sectioned, string Substance, string Appearance,
@@ -189,8 +261,11 @@ public readonly record struct LibrarySummaryRow(
     string Material, string AppearanceKey, double BaseR, double BaseG, double BaseB,
     double Metallic, double Roughness, double Opacity, bool Transmissive, Instant Observed);
 
+// Utilisation reads the verdict's OWN optional ratio, so the unbounded case contributes absence rather than a
+// zero and no reader re-enumerates which cases happen to hold a value. Deferral names the member-level check a
+// section pass still owes.
 public readonly record struct CapacityCheckRow(
-    string Op, string Kind, string Governing, bool Adequate, Option<double> Utilisation,
+    string Op, string Kind, string Governing, bool Adequate, Option<double> Utilisation, Option<string> Deferral,
     double ElapsedSeconds, Instant Observed);
 
 // One channel of one set. Press columns are Option-typed: an ingested set was never pressed, and a zero backend,
@@ -200,6 +275,21 @@ public readonly record struct TextureChannelAnalyticsRow(
     Option<string> KtxPayload, Option<string> BlockFormat, int Mips, int Width, int Height, int Layers, bool Tiled,
     string Blob, long ByteLength, Option<string> Backend, Option<long> Texels, Option<double> ElapsedSeconds,
     Instant Observed);
+
+// One SET. The tile columns are Option-typed for the reason the press columns are: an ungraded set carries no
+// strategy and no score, and a zero product would read to a quality query as the worst tiling in the estate
+// rather than as one nobody graded.
+public readonly record struct TextureSetAnalyticsRow(
+    string Set, string Appearance, Option<string> Material, int Channels, int Packs, bool Tiled,
+    Option<string> TileStrategy, Option<double> TileScore, Option<double> TileSeamRatio, Option<double> TileLatticeLeak,
+    Option<string> Backend, Option<long> Texels, Option<double> ElapsedSeconds,
+    Option<long> Downgraded, Option<long> FaultedTexels, Instant Observed);
+
+// One STORED PRODUCT of one resolved light. Every column is present by construction: a product whose blob the
+// store census cannot price emits no row, so `byte_length` is always a measured length.
+public readonly record struct EnvironmentProductRow(
+    string Light, string Product, string SkyModel, string CoefficientKey, string Blob, long ByteLength,
+    int SpecularMips, Instant Observed);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------------------
 // One selector table over both carriers: the scalar rows read the raw central and the dimensioned rows read
@@ -214,6 +304,21 @@ public sealed record PropertyColumn(string Property, string Unit, Func<MaterialP
         new PropertyColumn("conductivity", "W/(m.K)", static row => row.Conductivity.Central.WattsPerMeterKelvin),
         new PropertyColumn("specific_heat", "J/(kg.K)", static row => row.SpecificHeat.Central.JoulesPerKilogramKelvin),
         new PropertyColumn("u_value", "W/(m2.K)", static row => row.UValue.Central.WattsPerSquareMeterKelvin));
+}
+
+// Rows close the product axis one resolved light's stored blobs occupy, each projecting its own wire key off the
+// already-projected light, so the environment fan is one Items sweep and a fifth product lands as one row rather
+// than a fifth arm. Wire spells an ABSENT blob as the empty key (the luminance guide a dome may not carry), so
+// absence is the key's own emptiness and no row carries a synthesized sentinel.
+[SmartEnum<string>]
+public sealed partial class EnvironmentProduct {
+    public static readonly EnvironmentProduct Equirect = new("equirect", static light => light.EquirectKey);
+    public static readonly EnvironmentProduct Specular = new("specular", static light => light.SpecularKey);
+    public static readonly EnvironmentProduct BrdfLut = new("brdfLut", static light => light.BrdfLutKey);
+    public static readonly EnvironmentProduct LuminanceCdf = new("luminanceCdf", static light => light.LuminanceCdfKey);
+
+    [UseDelegateFromConstructor]
+    public partial string Blob(EnvironmentLightWire light);
 }
 
 public static class AnalyticsProjection {
@@ -231,7 +336,7 @@ public static class AnalyticsProjection {
 
     public static Seq<SustainabilityAnalyticsRow> Sustainability(
         Seq<(MaterialId Id, SustainabilityRow Row)> rows, ProjectionContext frame) =>
-        rows.Bind(entry => toSeq(Published.Centrals(entry.Row.StageGwp).ToArray())
+        rows.Bind(entry => toSeq(entry.Row.StageGwp.ToArray())
             .Map((gwp, stage) => new SustainabilityAnalyticsRow(
                 entry.Id.Value, entry.Row.EnvironmentalBasis, stage, gwp,
                 entry.Row.Recycled.Central, entry.Row.Recovery.Central,
@@ -290,9 +395,60 @@ public static class AnalyticsProjection {
             ? Some(new CapacityCheckRow(
                 check.Key.ToString(), check.Receipt.Kind, check.Verdict.Governing.Key,
                 check.Verdict.Adequate,
-                check.Verdict is Utilisation.Bounded bounded ? Some(bounded.Value) : Option<double>.None,
+                // Verdict projects its OWN optional ratio: two cases carry one demand-over-capacity number while
+                // an unbounded verdict carries none, so a reader re-enumerating which cases hold a value strands
+                // whatever ratio a deferring verdict carries and re-forks whenever the owner mints a fourth case.
+                check.Verdict.Ratio,
+                check.Verdict is Utilisation.RequiresMemberCheck deferred
+                    ? Some(deferred.Requirement.Key)
+                    : Option<string>.None,
                 check.Elapsed.TotalSeconds, frame.At))
             : Option<CapacityCheckRow>.None);
+
+    // Set grain takes the tile evidence as a SECOND ARGUMENT because a TileProof is not a wire column — the wire
+    // carries the boolean projection of the proof's presence and never the score behind it — so pairing the
+    // receipt in keeps the two component signals honest without widening the document.
+    public static Seq<TextureSetAnalyticsRow> TextureSets(
+        Seq<(TextureSetWire Set, Option<TileReceipt> Tile)> sets, ProjectionContext frame) =>
+        sets.Map(entry => (entry.Set, Strategy: entry.Tile.Map(static receipt => receipt.Strategy.Key), Score: Scored(entry.Tile)))
+            .Map(row => new TextureSetAnalyticsRow(
+                Set: row.Set.SetKey, Appearance: row.Set.AppearanceKey,
+                Material: string.IsNullOrEmpty(row.Set.MaterialId) ? None : Some(row.Set.MaterialId),
+                Channels: row.Set.Channels.Length, Packs: row.Set.Packs.Length, Tiled: row.Set.Tiled,
+                TileStrategy: row.Strategy,
+                TileScore: row.Score.Map(static score => score.Value),
+                TileSeamRatio: row.Score.Map(static score => score.SeamRatio),
+                TileLatticeLeak: row.Score.Map(static score => score.LatticeLeak),
+                Backend: row.Set.Press is { } press ? Some(press.Backend) : None,
+                Texels: row.Set.Press is { } counted ? Some((long)counted.Texels) : None,
+                ElapsedSeconds: row.Set.Press is { } timed ? Some(timed.ElapsedMs / 1000.0) : None,
+                // Quality tallies ride the press receipt's own wire columns, so a set-grained quality query and the
+                // channel-keyed press counters at `observability#INSTRUMENT_TAP` answer the same numbers on two
+                // grains rather than one number re-derived twice.
+                Downgraded: row.Set.Press is { } fell ? Some((long)fell.Downgraded) : None,
+                FaultedTexels: row.Set.Press is { } faulted ? Some((long)faulted.FaultedTexels) : None,
+                Observed: frame.At));
+
+    // Refusal carries the +Inf seam ratio TileScore.Refused alone spells, so the whole score triple filters out
+    // ONCE here rather than per column — its three columns stay absent together rather than publishing a 0.0
+    // product a quality query reads as a measured worst case.
+    static Option<TileScore> Scored(Option<TileReceipt> tile) =>
+        tile.Filter(static receipt => double.IsFinite(receipt.Score.SeamRatio)).Map(static receipt => receipt.Score);
+
+    // Environments fans the CLOSED product axis against the store's own byte census keyed by the same X32 blob
+    // spelling the wire carries, so the join a footprint query runs is the join the fold already ran. A product
+    // whose key is empty (an absent luminance guide) or whose blob the census cannot price emits NO ROW — a zero
+    // length would sum into the estate footprint as a stored object nobody stored.
+    public static Seq<EnvironmentProductRow> Environments(
+        Seq<(EnvironmentLightWire Light, HashMap<string, long> Stored)> lights, ProjectionContext frame) =>
+        lights.Bind(entry => toSeq(EnvironmentProduct.Items).Choose(product =>
+            product.Blob(entry.Light) is { Length: > 0 } blob
+            && entry.Stored.Find(blob) is { IsSome: true, Case: long bytes }
+                ? Some(new EnvironmentProductRow(
+                    Light: entry.Light.Key, Product: product.Key, SkyModel: entry.Light.SkyModel,
+                    CoefficientKey: entry.Light.CoefficientKey, Blob: blob, ByteLength: bytes,
+                    SpecularMips: entry.Light.SpecularMips, Observed: frame.At))
+                : Option<EnvironmentProductRow>.None));
 }
 ```
 

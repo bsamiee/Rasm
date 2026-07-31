@@ -2,7 +2,7 @@
 
 `BimIo` owns foreign-bytes ingest: one import fold lowers every `format#FORMAT_AXIS` `InterchangeFormat` row to a canonical carrier — managed mesh to the pooled `ImportedGeometry`, IFC/IFC5 to the live `DatabaseIfc`, STEP to `StepSemanticModel`, the Speckle `Base` seam to both. Byte->carrier decode is the rail's only concern; the entity walk — `IfcRel*` roster, property/quantity projection, `OwnerHistory`, `StepHeader` — is the `Rasm.Element` seam projector's off the live graph, never a lossy `IfcSemanticModel` flat-row re-projection. No BRep/NURBS evaluates in-process — a non-mesh geometry request routes to `tessellation#TESSELLATION_BRIDGE`.
 
-`ImportedGeometry` is the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` mesh POOL this rail produces: `Blocks` ranges hold each decoded source mesh once, `Instances` place them by rigid transform — so an instanced source round-trips its sharing to `export#EXPORT_RAIL` instead of N baked copies and `Bake()` flattens on demand — and the glTF arm fills the carrier's `Uvs` column from TEXCOORD_0, so the Compute tile partition and residency meshlet arm read a REAL unwrap off the one decode with no re-import edge. This page composes kernel `Rasm` geometry and consumes the `format#FORMAT_AXIS` codec/frame rows as settled vocabulary. Posture stays HOST-LOCAL: the Speckle seam composes `Speckle.Sdk`/`Speckle.Objects` only in the host-neutral exchange assembly, never inside the in-Rhino plugin ALC.
+`ImportedGeometry` is the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` mesh POOL this rail produces: `Blocks` ranges hold each decoded source mesh once, `Instances` place them by rigid transform — so an instanced source round-trips its sharing to `export#EXPORT_RAIL` instead of N baked copies and `Bake()` flattens on demand — and every arm contributes the attribute LANES its own format declares at the ONE `Encode.Of` mint per decode: parameterization from glTF `TEXCOORD_0`, Assimp `TextureCoordinateChannels[0]` under the `GenerateUVCoords` normalization, USD's `st` primvar, and PLY's `s`/`t` pair, and radiometry from Assimp `VertexColorChannels[0]` and PLY's `red`/`green`/`blue` triple — so the Compute tile partition, the residency meshlet arm, and the `export#EXPORT_RAIL` texture binding read a REAL unwrap and a REAL vertex colour off the one decode with no re-import edge. Arms whose source declares neither leave the lane ABSENT — a missing descriptor, the arena's own typed absence — because a zero-filled lane is a forged unwrap no consumer can tell from an authored one. This page composes kernel `Rasm` geometry and consumes the `format#FORMAT_AXIS` codec/frame rows as settled vocabulary. Posture stays HOST-LOCAL: the Speckle seam composes `Speckle.Sdk`/`Speckle.Objects` only in the host-neutral exchange assembly, never inside the in-Rhino plugin ALC.
 
 ## [01]-[INDEX]
 
@@ -12,13 +12,13 @@
 
 ## [02]-[IMPORT_RAIL]
 
-- Owner: `BimIo` — the import fold over `InterchangeFormat`, one `InterchangeCodec`-keyed arm per managed decode. Three canonical carriers: the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` `ImportedGeometry` mesh-POOL this rail produces (`Vertices`/`Normals`/`Uvs`/`Indices` hold each source mesh once as a `MeshBlock` range, `MeshInstance` rows place blocks by rigid transform, the seam `Bake()` flattens on demand), the live `DatabaseIfc` the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` captures and lowers to a seam `GraphDelta`, and `StepSemanticModel` the ISO 10303 product-structure projection.
+- Owner: `BimIo` — the import fold over `InterchangeFormat`, one `InterchangeCodec`-keyed arm per managed decode. Three canonical carriers: the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` `ImportedGeometry` mesh-POOL this rail produces (one kernel `EncodedGeometry` arena beside `Indices` holds each source mesh once as a `MeshBlock` range, `MeshInstance` rows place blocks by rigid transform, the seam `Bake()` flattens on demand), the live `DatabaseIfc` the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` captures and lowers to a seam `GraphDelta`, and `StepSemanticModel` the ISO 10303 product-structure projection.
 - Entry: `ImportGeometry` (managed mesh-and-scene → `ImportedGeometry`), `ImportIfc` (in-process IFC/IFC5 → live `DatabaseIfc`), and `ImportStep` (ISO 10303-21 Part-21 → `StepSemanticModel`), each dispatching by `InterchangeCodec` so a path lands one decode without a call-site type branch. `Fin<T>` aborts on `Model/faults#FAULT_BAND` `BimFault.CodecReject` or the companion-required `BimFault.CapabilityMiss`, each `Op`-keyed case lifting BARE (band 2600 IS the `Expected` `Code`, no `.ToError()` hop).
 - Auto: glTF decode routes binary GLB (`ModelRoot.ParseGLB`) and text `.gltf` (`ReadContext.ReadTextSchema2`) by format with zero intermediate file, a `Decompress` pre-decode branch reading each primitive's `KHR_draco_mesh_compression` and each bufferView's `EXT_meshopt_compression` extension before the `LogicalMeshes.Decode()` fold. IFC decode constructs the live `DatabaseIfc` by the row's STEP/XML/JSON serialization at the schema `SemanticProjector.Sniff` reads off the bytes, never a hardcoded default; the entity walk off that live graph is the projector's, never a lossy `IfcSemanticModel` flat-row re-projection.
 - Receipt: `ModelLoad` carries the format key, codec key, source byte count, and elapsed for a managed mesh import, an instanced source also reading the carrier's `Blocks.Count`/`Instances.Count` sharing evidence; an IFC decode stamps the schema version (`db.Release`) and model-view (`db.ModelView`) off the live `DatabaseIfc` (the entity-count receipt rides the `SemanticProjector` delta, not the import rail); a STEP ingest stamps the `StepProtocol`, `FILE_SCHEMA` name, and product/definition/assembly/geometry-ref counts; emission rides the sink port at the composition edge.
 - Packages: SharpGLTF.Core, SharpGLTF.Toolkit, SharpGLTF.Runtime, GeometryGymIFC_Core, Openize.Drako, Alimer.Bindings.MeshOptimizer, CommunityToolkit.HighPerformance, geometry3Sharp, Ply.Net, AssimpNetter, UniversalSceneDescription, ACadSharp, dotbim, NodaTime, LanguageExt.Core, Rasm
-- Growth: a new managed import is one codec arm on the import fold keyed by the `InterchangeFormat.Codec` row; a new instancing-bearing source is `Append`/`Place` calls inside its one arm — the `Blocks`/`Instances` overlay is format-agnostic, so no carrier edit and no second soup; a new extracted IFC entity family is one `Extract<T>` arm on the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector`, never on the import rail (which owns only the byte->`DatabaseIfc` decode); a new extracted STEP entity family is one `Keyword`-filtered projection on `StepSemanticModel` over the resolved instance graph; a new STEP application protocol is one `InterchangeFormat` row carrying its `StepProtocol` discriminant — the single `StepReader` reads the protocol off `format.StepProtocol` and the entity-instance grammar is protocol-agnostic, so AP203/AP214/AP242 share one reader and one codec without a per-protocol reader; a new glTF compression codec is one `KhrEncoder`-keyed arm on the `Decompress` pre-decode branch symmetric to the `export#EXPORT_RAIL` `GlbBytes` compression switch, never a second importer.
-- Boundary: `BimIo` is the page boundary capsule — leaked package types (`Ply.Net.*`, `Assimp.*`, `pxr.*`, the `SWIGTYPE_p_*`/`*PINVOKE` USD interop) never cross past `Exchange/import`, internal code holding the canonical carriers per the boundary-mapping law. Each decode arm materializes ONE contiguous `ImportedGeometry` allocation — the accessor contracts (`IMeshPrimitiveDecoder`, `DMesh3`, `Ply.Net`, Assimp `Scene`, the USD typed-array bridge) admit no zero-copy span into package buffers, so the one boundary materialization is the allocation point, never a per-primitive proliferation. Codec ownership is fixed: `mesh-text` is `geometry3Sharp` ONLY (OBJ/STL/OFF), PLY the dedicated `ply-net`, FBX/Collada/3MF the `scene-exchange` `AssimpNetter` (the one owner, shipping its own osx-arm64 `libassimp.dylib` — `lib3mf` native C++ and `Aspose.3D` closed/commercial are the rejected readers), USD the `usd-stage`. IFC decodes ONLY the live `DatabaseIfc`; the entity walk and seam projection are the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector`'s (it captures `DatabaseIfc` internally, so GeometryGym never crosses `IElementProjection.Project`), the lossy `IfcSemanticModel` flat-row re-projection is the deleted form, and GeometryGym carries no tessellation kernel so an IFC geometry request routes to `tessellation#TESSELLATION_BRIDGE`, never a BRep evaluated in-process. STEP splits two legs: the managed semantic-graph leg in-process through the BCL-only `StepReader`, the B-rep/NURBS geometry leg companion-routed so `TessellationRequiresCompanion` stays `true` — no managed Part-21 reader admits (`IxMilia.Step`/`StepFileParser` absent from NuGet, `STPLoader` RID-unsafe, `DevelApp.StepParser` a grammar engine without the entity-instance graph), and GeometryGym is IFC-schema-bound so it grounds no STEP semantic leg.
+- Growth: a new managed import is one codec arm on the import fold keyed by the `InterchangeFormat.Codec` row; a new instancing-bearing source is `Append`/`Place` calls inside its one arm and a new material-splitting source one `MeshChunk` per partition carrying its own `Material` key — the `Blocks`/`Instances` overlay is format-agnostic, so no carrier edit and no second soup; a new per-vertex attribute is one `EncodingChannel` row and one `MeshChunk.Attributes` entry in whichever arms read it — the pool fold strides on the channel's own arity, so the builder, the mint, and every other arm stay untouched; a new extracted IFC entity family is one `Extract<T>` arm on the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector`, never on the import rail (which owns only the byte->`DatabaseIfc` decode); a new extracted STEP entity family is one `Keyword`-filtered projection on `StepSemanticModel` over the resolved instance graph; a new STEP application protocol is one `InterchangeFormat` row carrying its `StepProtocol` discriminant — the single `StepReader` reads the protocol off `format.StepProtocol` and the entity-instance grammar is protocol-agnostic, so AP203/AP214/AP242 share one reader and one codec without a per-protocol reader; a new glTF compression codec is one `KhrEncoder`-keyed arm on the `Decompress` pre-decode branch symmetric to the `export#EXPORT_RAIL` `GlbBytes` compression switch, never a second importer.
+- Boundary: `BimIo` is the page boundary capsule — leaked package types (`Ply.Net.*`, `Assimp.*`, `pxr.*`, the `SWIGTYPE_p_*`/`*PINVOKE` USD interop) never cross past `Exchange/import`, internal code holding the canonical carriers per the boundary-mapping law. Each decode arm materializes ONE contiguous `ImportedGeometry` allocation — the accessor contracts (`IMeshPrimitiveDecoder`, `DMesh3`, `Ply.Net`, Assimp `Scene`, the USD typed-array bridge) admit no zero-copy span into package buffers, so the one boundary materialization is the allocation point, never a per-primitive proliferation. Decoded attributes land on the unit-valued domain their seam channel stores — a PLY colour column divides by the full scale its DECLARED width names, never by a scale inferred from the values, because a dark scan and a float writer's output are indistinguishable by inspection and guessing there blackens every such delivery. Codec ownership is fixed: `mesh-text` is `geometry3Sharp` ONLY (OBJ/STL/OFF), PLY the dedicated `ply-net`, FBX/Collada/3MF the `scene-exchange` `AssimpNetter` (the one owner, shipping its own osx-arm64 `libassimp.dylib` — `lib3mf` native C++ and `Aspose.3D` closed/commercial are the rejected readers), USD the `usd-stage`. The USD arm admits `Mesh` AND `PointInstancer` prims, because USD expresses repetition natively and a Mesh-only filter imports a point-instanced site or facade delivery EMPTY; the instancer's own `ComputeInstanceTransformsAtTime` composes each instance matrix (positions, orientations, scales, the prototype's own xform, the `invisibleIds` mask), so a hand-multiplied transform triple is the deleted re-derivation, and prototype subtrees are excluded from the mesh pass so a stage authoring them as ordinary prims does not bake the scene twice. USD carries a multi-material mesh as material-bound `UsdGeomSubset` children over face ordinals, so the mesh decode partitions on the AUTHORED subsets: one block per subset stamping the seam `MeshBlock.Material` key off that subset's own direct binding, with one further block over the remainder `GetUnassignedIndices` names — reading the subsets alone drops every uncovered face and reading the whole mesh strands the split, and each partition compacts to the points its own faces reference so two subsets of one mesh land as disjoint blocks rather than two copies of the point array. IFC decodes ONLY the live `DatabaseIfc`; the entity walk and seam projection are the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector`'s (it captures `DatabaseIfc` internally, so GeometryGym never crosses `IElementProjection.Project`), the lossy `IfcSemanticModel` flat-row re-projection is the deleted form, and GeometryGym carries no tessellation kernel so an IFC geometry request routes to `tessellation#TESSELLATION_BRIDGE`, never a BRep evaluated in-process. STEP splits two legs: the managed semantic-graph leg in-process through the BCL-only `StepReader`, the B-rep/NURBS geometry leg companion-routed so `TessellationRequiresCompanion` stays `true` — no managed Part-21 reader admits (`IxMilia.Step`/`StepFileParser` absent from NuGet, `STPLoader` RID-unsafe, `DevelApp.StepParser` a grammar engine without the entity-instance graph), and GeometryGym is IFC-schema-bound so it grounds no STEP semantic leg.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -40,6 +40,7 @@ using NodaTime;
 using Ply.Net;
 using pxr;
 using Rasm;
+using Rasm.Drawing;                               // EncodingChannel — the kernel lane vocabulary the pool fold strides on
 using Rasm.Bim.Model;
 using Rasm.Domain;
 using Rasm.Element.Classification;
@@ -218,7 +219,7 @@ public static partial class BimIo {
         return soup.ToGeometry(format, at);
     }
 
-    static (float[] Vertices, float[] Normals, float[] Uvs, long[] Corners) Block(IMeshDecoder<Material> mesh, bool mapped) {
+    static MeshChunk Block(IMeshDecoder<Material> mesh, bool mapped) {
         var triangles = mesh.Primitives
             .SelectMany(static prim => prim.TriangleIndices.Select(tri => (prim, tri)))
             .ToSeq();
@@ -245,26 +246,37 @@ public static partial class BimIo {
                 slot++;
             }
         }
-        return (vertices, normals, uvs, corners);
+        return new MeshChunk(vertices, normals, corners,
+            mapped ? Seq((EncodingChannel.Uv, uvs)) : Seq<(EncodingChannel, float[])>());
     }
 
     // Canonicalize the POOL onto the kernel frame: positions AND normals each ride their own strided call (the one
     // orthogonal signed permutation carries both per format#FORMAT_AXIS — the position-only form left normals in the
     // source frame, the deleted defect), and every instance transform conjugates by the basis (row-vector convention:
-    // M' = Bᵀ·M·B) so a placed block lands where its baked copy would have.
+    // M' = Bᵀ·M·B) so a placed block lands where its baked copy would have. Canonicalize takes each lane's own arity
+    // as its stride, so a two-ordinate lane can never be walked at a three-ordinate step.
     static ImportedGeometry Framed(InterchangeFormat format, ImportedGeometry geometry) {
         if (format.IsCanonicalFrame) {
             return geometry;
         }
-        var vertices = MemoryMarshal.AsMemory(geometry.Vertices);
-        var normals = MemoryMarshal.AsMemory(geometry.Normals);
-        FrameNormalization.Canonicalize(format, vertices.Span, stride: 3);
-        FrameNormalization.Canonicalize(format, normals.Span, stride: 3);
         Matrix4x4 basis = Basis(format);
         Matrix4x4 inverse = Matrix4x4.Transpose(basis);
+        // The arena is immutable, so a frame change RE-MINTS it rather than writing back into a column. Each lane
+        // lifts to floats through its OWN dtype and returns through the one Encode.Of mint, which re-measures the
+        // witness instead of carrying a stale one. Only Position and Normal move: the frame change is a rigid
+        // signed permutation, so every other lane — parameterization, vertex colour, and whatever the roster grows
+        // next — is rigid-invariant and copies unchanged. Dispatching on the DESCRIPTOR is what keeps a new
+        // EncodingChannel row free here; the per-column rewrite the parallel-buffer form used grew a branch per lane.
+        Seq<(EncodingChannel Channel, float[] Raw)> lanes = geometry.Lanes.Descriptors.Map(descriptor => {
+            var raw = new float[descriptor.Count * descriptor.Channel.Arity];
+            descriptor.Dtype.Unpack(geometry.Lanes.Channel(descriptor.Channel).Span, raw);
+            if (descriptor.Channel == EncodingChannel.Position || descriptor.Channel == EncodingChannel.Normal) {
+                FrameNormalization.Canonicalize(format, raw.AsSpan(), stride: descriptor.Channel.Arity);
+            }
+            return (descriptor.Channel, raw);
+        });
         return geometry with {
-            Vertices = vertices,
-            Normals = normals,
+            Lanes = Encode.Of(geometry.VertexCount, lanes).ThrowIfFail(),
             Instances = geometry.Instances.Map(i => i with { Transform = inverse * i.Transform * basis }),
         };
     }
@@ -440,12 +452,36 @@ public static partial class BimIo {
         var face = elements.FirstOrDefault(static d => d.Element.Type == ElementType.Face);
         float[] xs = Column(vertex, "x"), ys = Column(vertex, "y"), zs = Column(vertex, "z");
         var (nx, ny, nz) = (OptionalColumn(vertex, "nx"), OptionalColumn(vertex, "ny"), OptionalColumn(vertex, "nz"));
+        // Scan-derived and photogrammetry PLY — the format's dominant real-world source — carries its
+        // parameterization as s/t and its radiometry as red/green/blue vertex columns, so an as-built delivery
+        // that reads geometry alone discards exactly the two facts it exists to preserve. The pair name is not
+        // canonical across writers: s/t is the PLY convention and texture_u/texture_v the widespread alias, so
+        // the lane resolves through the alias fallback the name-keyed indexer already makes free.
+        var (s, t) = (OptionalColumn(vertex, "s") ?? OptionalColumn(vertex, "texture_u"),
+                      OptionalColumn(vertex, "t") ?? OptionalColumn(vertex, "texture_v"));
+        // Radiometry rides the red/green/blue triple with an OPTIONAL alpha, each column normalized against ITS OWN
+        // declared width: the seam colour lane is Unorm8, whose stored value is a unit fraction, while PLY writes a
+        // uchar 0..255 far more often than a float 0..1 — reading the declared DataType is what keeps a class-7
+        // scan colour from landing as 7.0 and a float writer's 0.5 from landing as 127.5. An absent alpha fills
+        // opaque, because a colour lane's arity is fixed at four and a source that declared RGB declared opacity 1.
+        var (red, green, blue) = (UnitColumn(vertex, "red"), UnitColumn(vertex, "green"), UnitColumn(vertex, "blue"));
+        float[]? alpha = UnitColumn(vertex, "alpha");
         int vertexCount = xs.Length;
         var vertices = new float[vertexCount * 3];
         var normals = new float[vertexCount * 3];
+        // A UV lane materializes only when BOTH ordinates are present: a half-declared pair is a malformed
+        // header, and a zero-filled partner would forge a parameterization the file never carried. The colour lane
+        // takes the same law over its three mandatory channels.
+        float[] uvs = s is not null && t is not null ? new float[vertexCount * 2] : [];
+        float[] colours = red is not null && green is not null && blue is not null ? new float[vertexCount * 4] : [];
         for (int v = 0; v < vertexCount; v++) {
             (vertices[v * 3], vertices[v * 3 + 1], vertices[v * 3 + 2]) = (xs[v], ys[v], zs[v]);
             (normals[v * 3], normals[v * 3 + 1], normals[v * 3 + 2]) = (nx?[v] ?? 0f, ny?[v] ?? 0f, nz?[v] ?? 1f);
+            if (uvs.Length > 0) { (uvs[v * 2], uvs[(v * 2) + 1]) = (s![v], t![v]); }
+            if (colours.Length > 0) {
+                (colours[v * 4], colours[(v * 4) + 1], colours[(v * 4) + 2], colours[(v * 4) + 3]) =
+                    (red![v], green![v], blue![v], alpha?[v] ?? 1f);
+            }
         }
         var indices = face is null
             ? Array.Empty<long>()
@@ -453,7 +489,10 @@ public static partial class BimIo {
                 .SelectMany(static corners => Enumerable.Range(1, corners.Length - 2)
                     .SelectMany(k => new long[] { corners[0], corners[k], corners[k + 1] }))
                 .ToArray();
-        return new MeshSoup().Baked(vertices, normals, indices).ToGeometry(format, at);
+        Seq<(EncodingChannel Channel, float[] Raw)> attributes =
+            (uvs.Length > 0 ? Seq((EncodingChannel.Uv, uvs)) : Seq<(EncodingChannel, float[])>())
+            + (colours.Length > 0 ? Seq((EncodingChannel.ColorRgba, colours)) : Seq<(EncodingChannel, float[])>());
+        return new MeshSoup().Baked(vertices, normals, indices, attributes).ToGeometry(format, at);
     }
 
     // PLY column materialized as float[] regardless of on-disk scalar width — Ply.Net types each column as its
@@ -469,6 +508,24 @@ public static partial class BimIo {
     static float[]? OptionalColumn(ElementData element, string name) =>
         element.Element.Properties.Exists(p => p.Name == name) ? Column(element, name) : null;
 
+    // UnitColumn reads a colour column onto the UNIT interval its seam lane stores: an integer-width column divides
+    // by its own full scale and a float-width column is already unit. That divisor comes from the column's DECLARED
+    // DataType, never from probing the values — a dark scan whose channels all sit under 1.0 is indistinguishable
+    // from a float writer's output by inspection, and guessing there silently blackens every such delivery.
+    static float[]? UnitColumn(ElementData element, string name) =>
+        OptionalColumn(element, name) is not { } column
+            ? null
+            : ColourScale.Find(element[name].Property.DataType).Match(
+                Some: scale => Array.ConvertAll(column, value => value / scale),
+                None: () => column);
+
+    // Full scale per integer PLY width; a float or double column carries no row because it is already unit-valued.
+    static readonly Map<PlyParser.DataType, float> ColourScale = Map(
+        (PlyParser.DataType.Int8, 127f), (PlyParser.DataType.UInt8, 255f),
+        (PlyParser.DataType.Int16, 32767f), (PlyParser.DataType.UInt16, 65535f),
+        (PlyParser.DataType.Int32, 2147483647f), (PlyParser.DataType.UInt32, 4294967295f),
+        (PlyParser.DataType.Int64, 9223372036854775807f), (PlyParser.DataType.UInt64, 18446744073709551615f));
+
     // FBX/Collada/3MF decode through AssimpNetter — the `scene-exchange` codec retiring the hand-rolled
     // ThreeMfReader. One disposable AssimpContext imports with the canonical Bim post-process (Triangulate |
     // JoinIdenticalVertices | GenerateSmoothNormals); each scene mesh lands ONE pool block, and the RootNode walk
@@ -481,8 +538,15 @@ public static partial class BimIo {
         // READ hint is the row's file EXTENSION (assimp importer selection keys on extension: "dae", not the
         // row key "collada"); the row KEY stays the EXPORT formatId ExportToBlob dispatches on — two foreign
         // contracts, never conflated on one value.
+        // The post-process set is the catalogue's own declared normalization, complete: Triangulate |
+        // JoinIdenticalVertices | GenerateSmoothNormals | CalculateTangentSpace | GenerateUVCoords. The last two
+        // are the texture half — GenerateUVCoords projects the parametric mappings an FBX/Collada authoring tool
+        // stores as generators into real per-vertex coordinates, and CalculateTangentSpace derives the basis a
+        // normal map samples in; without either, an FBX carrying a full unwrap and a normal-map material lands
+        // with its parameterization thrown away and the export side has nothing to bind.
         var scene = context.ImportFileFromStream(stream,
-            PostProcessSteps.Triangulate | PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.GenerateSmoothNormals,
+            PostProcessSteps.Triangulate | PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.GenerateSmoothNormals
+                | PostProcessSteps.CalculateTangentSpace | PostProcessSteps.GenerateUVCoords,
             format.Extensions.Head.Map(static ext => ext.TrimStart('.')).IfNone(format.Key));
         var soup = new MeshSoup();
         var blocks = new int[scene.MeshCount];
@@ -502,9 +566,21 @@ public static partial class BimIo {
         }
     }
 
-    static (float[] Vertices, float[] Normals, long[] Corners) AssimpBlock(Assimp.Mesh mesh) {
+    // TextureCoordinateChannels is a per-SET array behind TextureCoordinateChannelCount, and each set declares
+    // its own component width in UVComponentCount — assimp stores every set as Vector3 regardless, so a 2-component
+    // set carries its third ordinate as a zero the seam lane must not transcribe. Set 0 is TEXCOORD_0, the one set
+    // the seam carrier declares; a further set is one more carrier lane, never a second decode.
+    // VertexColorChannels mirrors that shape exactly — a per-SET array behind VertexColorChannelCount whose entries
+    // are System.Numerics.Vector4 already on the unit interval, so set 0 lands the ColorRgba lane with no rescale.
+    // FBX and Collada carry per-vertex colour as their standard channel for baked lighting, mesh-paint authoring,
+    // and analysis-result surfaces, and reading geometry alone discarded exactly the signal those files exist for.
+    static MeshChunk AssimpBlock(Assimp.Mesh mesh) {
         var vertices = new float[mesh.VertexCount * 3];
         var normals = new float[mesh.VertexCount * 3];
+        bool mapped = mesh.TextureCoordinateChannelCount > 0 && mesh.UVComponentCount[0] >= 2;
+        bool painted = mesh.VertexColorChannelCount > 0 && mesh.HasVertexColors(0);
+        var uvs = mapped ? new float[mesh.VertexCount * 2] : [];
+        var colours = painted ? new float[mesh.VertexCount * 4] : [];
         for (int i = 0; i < mesh.VertexCount; i++) {
             var p = mesh.Vertices[i];
             int v = i * 3;
@@ -512,12 +588,23 @@ public static partial class BimIo {
             (normals[v], normals[v + 1], normals[v + 2]) = mesh.HasNormals
                 ? (mesh.Normals[i].X, mesh.Normals[i].Y, mesh.Normals[i].Z)
                 : (0f, 0f, 1f);
+            if (mapped) {
+                var uv = mesh.TextureCoordinateChannels[0][i];
+                (uvs[i * 2], uvs[(i * 2) + 1]) = (uv.X, uv.Y);
+            }
+            if (painted) {
+                var colour = mesh.VertexColorChannels[0][i];
+                (colours[i * 4], colours[(i * 4) + 1], colours[(i * 4) + 2], colours[(i * 4) + 3]) =
+                    (colour.X, colour.Y, colour.Z, colour.W);
+            }
         }
         var corners = mesh.Faces
             .SelectMany(static face => Enumerable.Range(1, face.IndexCount - 2)
                 .SelectMany(k => new long[] { face.Indices[0], face.Indices[k], face.Indices[k + 1] }))
             .ToArray();
-        return (vertices, normals, corners);
+        return new MeshChunk(vertices, normals, corners,
+            (mapped ? Seq((EncodingChannel.Uv, uvs)) : Seq<(EncodingChannel, float[])>())
+            + (painted ? Seq((EncodingChannel.ColorRgba, colours)) : Seq<(EncodingChannel, float[])>()));
     }
 
     // Assimp matrices are column-vector convention; the numerics row-vector equivalent is the transpose.
@@ -527,10 +614,16 @@ public static partial class BimIo {
     // USD decode through UniversalSceneDescription — the `usd-stage` codec. One UsdStage opens the layer
     // stack (the native plugin tree reads the temp path), Traverse walks the namespace, each UsdGeomMesh
     // prim's points/normals (VtVec3fArray of GfVec3f) and face-vertex counts/indices (VtIntArray) cross the
-    // typed-array mesh-bridge seam onto ONE pool block, and the prim PLACES its block by the composed
+    // typed-array mesh-bridge seam onto its pool blocks, and the prim PLACES every one of them by the composed
     // local-to-world transform off ONE UsdGeomXformCache — the identity-placed decode that baked every prim
-    // and erased USD's native instancing/placement is the deleted form. USD is a scene-graph peer — the BIM
-    // semantics stay the GeometryGym IFC graph's, never re-derived from USD prim type names.
+    // and erased USD's native instancing/placement is the deleted form. A UsdGeomPointInstancer decodes on the
+    // SAME overlay: its prototypes are pool blocks and its instances are placements, so a site or facade-panel
+    // scene authored as one instancer — the shape a large USD delivery actually takes — lands its geometry
+    // instead of importing EMPTY off a Mesh-only filter. A mesh carrying material-bound UsdGeomSubset children
+    // lands ONE block per subset, each stamping the seam MeshBlock.Material shading key off that subset's own
+    // bound material path, so a multi-material USD mesh reaches a consumer as the partition its author wrote.
+    // USD is a scene-graph peer — the BIM semantics stay the GeometryGym IFC graph's, never re-derived from USD
+    // prim type names.
     // Frame is PER-STAGE: upAxis is stage metadata (UsdGeomGetStageUpAxis, decompile-verified — TfToken
     // "Y" the USD default, "Z" the common CAD/BIM export), so a Z-up stage is ALREADY canonical and skips the
     // row's Y-up Frame; the format row keeps the static Y-up default every metadata-less stage falls to.
@@ -542,15 +635,80 @@ public static partial class BimIo {
             bool zUp = UsdGeom.UsdGeomGetStageUpAxis(stage).ToString() == "Z";
             var soup = new MeshSoup();
             var xform = new UsdGeomXformCache();
+            // Prototype subtrees hold the instancer's OWN geometry, placed by its per-instance transforms alone.
+            // Stages authoring them as ordinary defined prims rather than under a class or deactivated scope would
+            // otherwise bake every prototype a SECOND time at its authoring place, doubling the scene.
+            Seq<string> prototypes = stage.Traverse().AsIterable()
+                .Filter(static prim => prim.GetTypeName().ToString() == PointInstancerType)
+                .Bind(prim => new UsdGeomPointInstancer(prim).GetPrototypesRel().GetTargets().AsIterable())
+                .Map(static target => target.GetAsString())
+                .ToSeq().Distinct();
+            // Blocks key on prim PATH and hold that prim's whole PARTITION SET: a prototype referenced by ten
+            // thousand instances appends its blocks once and places them ten thousand times, which IS the
+            // carrier's Blocks/Instances overlay, and a multi-material prototype shares every one of its splits.
+            var blocks = new Dictionary<string, Seq<int>>(StringComparer.Ordinal);
             stage.Traverse().AsIterable()
-                .Filter(static prim => prim.GetTypeName().ToString() == "Mesh")
-                .Iter(prim => {
-                    int block = soup.Append(UsdMesh(new UsdGeomMesh(prim)));
-                    soup.Place(block, Numeric(xform.GetLocalToWorldTransform(prim)));
-                });
+                .Filter(prim => !Prototyped(prim, prototypes))
+                .Iter(prim => ignore(prim.GetTypeName().ToString() switch {
+                    MeshType           => Place(soup, Blocks(soup, prim, blocks), Numeric(xform.GetLocalToWorldTransform(prim))),
+                    PointInstancerType => Scatter(stage, prim, Numeric(xform.GetLocalToWorldTransform(prim)), soup, blocks),
+                    _                  => soup,
+                }));
             var geometry = soup.ToGeometry(format, at);
             return zUp ? geometry : Framed(format, geometry);
         } finally { File.Delete(path); }
+    }
+
+    // Decode admits these two USD schema type names, spelled once — foreign open vocabulary the traversal
+    // discriminates on, never a closed owner and never re-spelled per call site. Face-subset element type and
+    // material-binding family name ride the package's OWN interned tokens (UsdGeomTokens/UsdShadeTokens), so
+    // neither is spelled as a literal here.
+    const string MeshType = "Mesh";
+    const string PointInstancerType = "PointInstancer";
+
+    // Prims belong to an instancer when their path IS a prototype target or descends from one; a trailing
+    // separator keeps `/World/ProtoHouse` from swallowing its sibling `/World/ProtoHouseAnnex`.
+    static bool Prototyped(UsdPrim prim, Seq<string> prototypes) =>
+        prim.GetPath().GetAsString() is var path
+        && prototypes.Exists(root => path == root || path.StartsWith($"{root}/", StringComparison.Ordinal));
+
+    // One prim's whole partition set, pooled by path. Append is an EFFECT, so the mapped Seq FORCES through
+    // Strict before it is pooled — a deferred Seq re-enumerated at the second placement would append the same
+    // partitions again and fan duplicate blocks through the rest of the traversal.
+    static Seq<int> Blocks(MeshSoup soup, UsdPrim prim, Dictionary<string, Seq<int>> pool) =>
+        prim.GetPath().GetAsString() is var path && pool.TryGetValue(path, out Seq<int> held)
+            ? held
+            : pool[path] = UsdMesh(new UsdGeomMesh(prim)).Map(chunk => soup.Append(chunk)).Strict();
+
+    // Place lands EVERY block of a partition set at the ONE world transform its prim carries — placement stays the
+    // prim's fact and partition the material's, so both overlays compose without either re-deriving the other.
+    static MeshSoup Place(MeshSoup soup, Seq<int> blocks, Matrix4x4 world) =>
+        blocks.Fold(soup, (pool, block) => pool.Place(block, world));
+
+    // Point instancers ARE the carrier's block-and-instance overlay authored in USD: a prototypes relationship
+    // names the geometry, protoIndices says which prototype each instance wears, and ComputeInstanceTransformsAtTime
+    // composes positions, orientations, scales AND each prototype's own xform into one per-instance matrix while
+    // applying the invisibleIds mask — the package's own composition, so a hand-multiplied position/orientation/
+    // scale triple beside it is the deleted re-derivation dropping mask and prototype xform together. Each
+    // instancer's own local-to-world then carries its whole scatter into the stage frame (row-vector convention, so
+    // each instance matrix precedes it). Prototypes that are not Meshes contribute no block, so a curve, light, or
+    // nested-instancer prototype scatters nothing rather than a fabricated triangle.
+    static MeshSoup Scatter(UsdStage stage, UsdPrim prim, Matrix4x4 instancerWorld, MeshSoup soup, Dictionary<string, Seq<int>> blocks) {
+        var instancer = new UsdGeomPointInstancer(prim);
+        SdfPathVector protoPaths = instancer.GetPrototypesRel().GetTargets();
+        var indexValue = new VtValue();
+        instancer.GetProtoIndicesAttr().Get(indexValue, UsdTimeCode.Default());
+        var protoIndices = (VtIntArray)indexValue;
+        var transforms = new VtMatrix4dArray(protoIndices.size());
+        if (!instancer.ComputeInstanceTransformsAtTime(transforms, UsdTimeCode.Default(), UsdTimeCode.Default())) { return soup; }
+        for (int i = 0; i < (int)protoIndices.size(); i++) {
+            int slot = protoIndices[i];
+            if (slot < 0 || slot >= protoPaths.Count) { continue; }
+            UsdPrim proto = stage.GetPrimAtPath(protoPaths[slot]);
+            if (proto.GetTypeName().ToString() != MeshType) { continue; }
+            Place(soup, Blocks(soup, proto, blocks), Matrix4x4.Multiply(Numeric(transforms[i]), instancerWorld));
+        }
+        return soup;
     }
 
     // GfMatrix4d is row-major double over ROW vectors — the numerics convention — so the narrow is
@@ -565,9 +723,14 @@ public static partial class BimIo {
     // Typed-array mesh-bridge: GetPointsAttr/GetNormalsAttr/GetFaceVertexCountsAttr/GetFaceVertexIndicesAttr
     // each fill a VtValue the typed Vt*Array reads (size()/indexer), per the api-usd mesh-bridge seam; authored
     // normals ride when their count matches the points (faceVarying/uniform normals re-index at the admission
-    // gate, the up-normal the absent-case fill); faces fan-triangulate into PRE-SIZED buffers (the fan size is
-    // Σ(n-2) over the counts array, computed in one first pass).
-    static (float[] Points, float[] Normals, long[] Indices) UsdMesh(UsdGeomMesh mesh) {
+    // gate, the up-normal the absent-case fill); faces fan-triangulate into PRE-SIZED buffers, each group folding
+    // its own Σ(n-2) fan size before its buffer allocates.
+    // One prim yields one chunk per SHADING PARTITION: USD carries a multi-material mesh as material-bound
+    // UsdGeomSubset children over face ordinals, so the partition is the authored fact and each chunk stamps the
+    // seam MeshBlock.Material key off its subset's own bound material path. GetUnassignedIndices names the
+    // remainder an `unrestricted` family leaves, which is what keeps every face landing exactly once — a
+    // subsets-only read silently drops the uncovered run and a whole-mesh read strands the split.
+    static Seq<MeshChunk> UsdMesh(UsdGeomMesh mesh) {
         var (points, authored, counts, corners) = (new VtValue(), new VtValue(), new VtValue(), new VtValue());
         mesh.GetPointsAttr().Get(points, UsdTimeCode.Default());
         bool hasNormals = mesh.GetNormalsAttr().Get(authored, UsdTimeCode.Default());
@@ -575,59 +738,130 @@ public static partial class BimIo {
         mesh.GetFaceVertexIndicesAttr().Get(corners, UsdTimeCode.Default());
         var (xyz, faceCounts, faceIndices) = ((VtVec3fArray)points, (VtIntArray)counts, (VtIntArray)corners);
         var perVertex = hasNormals && (VtVec3fArray)authored is { } nrm && (int)nrm.size() == (int)xyz.size() ? nrm : null;
-        var verts = new float[(int)xyz.size() * 3];
-        var normals = new float[verts.Length];
-        for (int i = 0; i < (int)xyz.size(); i++) {
-            var p = xyz[i];
-            (verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]) = (p[0], p[1], p[2]);
-            (normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2]) = perVertex is { } n
-                ? (n[i][0], n[i][1], n[i][2])
-                : (0f, 0f, 1f);
-        }
-        int fans = 0;
-        for (int f = 0; f < (int)faceCounts.size(); f++) { fans += Math.Max(0, faceCounts[f] - 2); }
-        var tris = new long[fans * 3];
-        var (cursor, slot) = (0, 0);
-        for (int f = 0; f < (int)faceCounts.size(); f++) {
-            int n = faceCounts[f];
-            for (int k = 1; k < n - 1; k++) {
-                (tris[slot], tris[slot + 1], tris[slot + 2]) = (faceIndices[cursor], faceIndices[cursor + k], faceIndices[cursor + k + 1]);
-                slot += 3;
+        // `st` is USD's canonical UV primvar and it reaches the prim through the primvars API, never the typed
+        // schema — GetPrimvar resolves it and ComputeFlattened expands the INDEXED form (a primvar may store one
+        // value per unique corner plus an index array, and reading the raw values there mislabels every vertex).
+        // Only the per-vertex interpolation lands on the seam lane: a faceVarying or uniform `st` re-indexes on
+        // the same admission gate the authored-normals branch takes, and until that gate runs the honest lane is
+        // the seam's typed absence rather than a mis-indexed unwrap.
+        var stValue = new VtValue();
+        var st = new UsdGeomPrimvarsAPI(mesh.GetPrim()).GetPrimvar(new TfToken("st"));
+        bool mapped = st.HasAuthoredValue() && st.ComputeFlattened(stValue)
+            && st.GetInterpolation().ToString() == "vertex"
+            && (VtVec2fArray)stValue is { } uvArray && (int)uvArray.size() == (int)xyz.size();
+        // Corner cursor per face, so a partition walks its own faces without re-scanning the counts prefix.
+        int faces = (int)faceCounts.size();
+        var cursors = new int[faces];
+        for (int f = 1; f < faces; f++) { cursors[f] = cursors[f - 1] + faceCounts[f - 1]; }
+        UsdGeomSubsetVector subsets = UsdGeomSubset.GetGeomSubsets(mesh, UsdGeomTokens.face, UsdShadeTokens.materialBind);
+        Option<string> own = BoundMaterial(mesh.GetPrim());
+        Seq<(Seq<int> Faces, Option<string> Material)> subsetGroups =
+            toSeq(subsets).Map(static subset => (FaceOrdinals(subset), BoundMaterial(subset.GetPrim())));
+        // Remainder group closes the partition — GetUnassignedIndices names the faces no subset claims, and an
+        // unpartitioned mesh takes every face under its own direct binding, so ONE Chunk fold serves both readings
+        // and neither is a special case. Enumerating the face run for the subset-free mesh rather than trusting the
+        // remainder call over an empty vector is what keeps an ordinary single-material mesh from importing empty.
+        Seq<int> remainder = subsets.Count == 0
+            ? toSeq(Enumerable.Range(0, faces))
+            : Ordinals(UsdGeomSubset.GetUnassignedIndices(subsets, (uint)faces));
+        // Strict FORCES every chunk inside the decode: each lane reads live pxr typed arrays, so a deferred Seq
+        // would materialize them after this frame let the native handles go and hand a consumer a torn read.
+        return subsetGroups.Add((remainder, own))
+            .Filter(static group => !group.Faces.IsEmpty)
+            .Map(group => Chunk(group.Faces, group.Material))
+            .Strict();
+
+        // Compacted per-partition chunk: only the points this face group references cross, remapped 0-based, so two
+        // subsets of one mesh land as DISJOINT pool blocks instead of two copies of the whole point array.
+        // Exemption: the corner walk and the lane fill are the boundary decode kernel; the rail resumes at the mint.
+        MeshChunk Chunk(Seq<int> group, Option<string> material) {
+            var ordinal = new Dictionary<int, int>();
+            var tris = new long[group.Fold(0, (sum, f) => sum + Math.Max(0, faceCounts[f] - 2)) * 3];
+            int slot = 0;
+            foreach (int f in group) {
+                int n = faceCounts[f], cursor = cursors[f];
+                for (int k = 1; k < n - 1; k++) {
+                    (tris[slot], tris[slot + 1], tris[slot + 2]) =
+                        (Local(faceIndices[cursor]), Local(faceIndices[cursor + k]), Local(faceIndices[cursor + k + 1]));
+                    slot += 3;
+                }
             }
-            cursor += n;
+            var verts = new float[ordinal.Count * 3];
+            var normals = new float[verts.Length];
+            var uvs = mapped ? new float[ordinal.Count * 2] : [];
+            foreach (var (point, local) in ordinal) {
+                var p = xyz[point];
+                (verts[local * 3], verts[local * 3 + 1], verts[local * 3 + 2]) = (p[0], p[1], p[2]);
+                (normals[local * 3], normals[local * 3 + 1], normals[local * 3 + 2]) = perVertex is { } n
+                    ? (n[point][0], n[point][1], n[point][2])
+                    : (0f, 0f, 1f);
+                if (mapped) {
+                    var uv = ((VtVec2fArray)stValue)[point];
+                    (uvs[local * 2], uvs[(local * 2) + 1]) = (uv[0], uv[1]);
+                }
+            }
+            return new MeshChunk(verts, normals, tris,
+                mapped ? Seq((EncodingChannel.Uv, uvs)) : Seq<(EncodingChannel, float[])>(), material);
+
+            // First reference of a point mints its 0-based local slot; the indexer reads Count BEFORE the insert.
+            long Local(int point) => ordinal.TryGetValue(point, out int held) ? held : ordinal[point] = ordinal.Count;
         }
-        return (verts, normals, tris);
     }
+
+    // FaceOrdinals reads a subset's own authored face set — its one authored surface, never a reverse lookup off
+    // whichever material it binds.
+    static Seq<int> FaceOrdinals(UsdGeomSubset subset) {
+        var indices = new VtValue();
+        subset.GetIndicesAttr().Get(indices, UsdTimeCode.Default());
+        return Ordinals((VtIntArray)indices);
+    }
+
+    // Both ordinal reads share one narrowing: a subset's authored indices and the package's own remainder
+    // computation are the same VtIntArray shape.
+    static Seq<int> Ordinals(VtIntArray array) =>
+        toSeq(Enumerable.Range(0, (int)array.size()).Select(i => array[i]));
+
+    // BoundMaterial narrows a prim's DIRECT binding to its own scene path — a subset's binding for a partitioned
+    // face range, its mesh's own otherwise. An unbound prim yields None, so a block carries a shading key only
+    // where its source authored one and the appearance projection never re-hydrates a fabricated path.
+    static Option<string> BoundMaterial(UsdPrim prim) =>
+        new UsdShadeMaterialBindingAPI(prim).GetDirectBinding().GetMaterialPath() is { } path && !path.IsEmpty()
+            ? Some(path.GetAsString())
+            : None;
 
     // Shared mesh-pool builder every non-glTF decode arm folds into — a SINGLE-USE pooled boundary kernel: three
     // growth buffers rent through ArrayPoolBufferWriter<T> (BCL IBufferWriter GetSpan/Advance staging, pooled doubling,
     // admitted CommunityToolkit.HighPerformance owner) replacing both the rejected per-block Seq concatenation
     // (O(blocks·total)) and the List<T> LOH churn. Append lands one block (vertices/normals as flat triples, 0-based
-    // corners offset into the pool, an OPTIONAL uv-pair span for a TEXCOORD_0-bearing block) and returns its ordinal;
-    // Place records one rigid placement; Baked is the identity-placed block the non-instanced arms use. ToGeometry
-    // materializes the ONE contiguous seam ImportedGeometry allocation carrying the Blocks/Instances overlay AND
-    // returns the rents — the builder is dead after it. The pool Uvs column materializes only when a block carried
-    // UVs (an unmapped pool stays EMPTY — the typed absence the residency arm reads); a partially-mapped pool
-    // zero-fills the unmapped blocks so the per-vertex lockstep holds.
+    // corners offset into the pool, the OPTIONAL attribute lanes that block declared, and the OPTIONAL shading key
+    // its face range binds) and returns its ordinal; Place records one rigid placement; Baked is the identity-placed
+    // block the non-instanced arms use. ToGeometry
+    // mints the seam carrier's ONE kernel EncodedGeometry arena through the raw-lane Encode.Of entry over the lanes
+    // this decode ACTUALLY declared, carries the Blocks/Instances overlay, AND returns the rents — the builder is
+    // dead after it. Parameterization contributes a lane only when some block carried one, so an unmapped source
+    // yields a MISSING DESCRIPTOR rather than an empty column every reader would length-probe.
     sealed class MeshSoup {
         readonly ArrayPoolBufferWriter<float> vertices = new();
         readonly ArrayPoolBufferWriter<float> normals = new();
         readonly ArrayPoolBufferWriter<long> indices = new();
-        readonly List<float[]?> blockUvs = [];
+        // Per-block OPTIONAL lanes keyed by their kernel channel: parameterization, vertex colour, and whatever the
+        // EncodingChannel roster grows next all ride ONE list of lane sets rather than a field, a buffer, and a
+        // per-lane pool fold each. The prior form carried a `blockUvs` field beside a `PoolUvs` member, so the
+        // second attribute the roster opened would have doubled both — the exact per-channel proliferation the
+        // carrier's own arena deleted one stratum down, re-grown here.
+        readonly List<Seq<(EncodingChannel Channel, float[] Raw)>> blockLanes = [];
         readonly List<MeshBlock> blocks = [];
         readonly List<MeshInstance> instances = [];
 
         public int VertexCount { get; private set; }
 
-        public int Append((float[] Vertices, float[] Normals, float[] Uvs, long[] Corners) block) =>
-            Append(block.Vertices, block.Normals, block.Corners, block.Uvs);
+        public int Append(MeshChunk block) =>
+            Append(block.Vertices, block.Normals, block.Corners, block.Attributes, block.Material);
 
-        public int Append((float[] Vertices, float[] Normals, long[] Corners) block) =>
-            Append(block.Vertices, block.Normals, block.Corners);
-
-        public int Append(ReadOnlySpan<float> v, ReadOnlySpan<float> n, ReadOnlySpan<long> corners, ReadOnlySpan<float> uv = default) {
-            blocks.Add(new MeshBlock(VertexCount, v.Length / 3, indices.WrittenCount, corners.Length));
-            blockUvs.Add(uv.IsEmpty ? null : uv.ToArray());
+        public int Append(ReadOnlySpan<float> v, ReadOnlySpan<float> n, ReadOnlySpan<long> corners,
+            Seq<(EncodingChannel Channel, float[] Raw)> attributes = default, Option<string> material = default) {
+            blocks.Add(new MeshBlock(VertexCount, v.Length / 3, indices.WrittenCount, corners.Length, material));
+            blockLanes.Add(attributes);
             v.CopyTo(vertices.GetSpan(v.Length));
             vertices.Advance(v.Length);
             n.CopyTo(normals.GetSpan(n.Length));
@@ -644,12 +878,27 @@ public static partial class BimIo {
             return this;
         }
 
-        public MeshSoup Baked(ReadOnlySpan<float> v, ReadOnlySpan<float> n, ReadOnlySpan<long> corners, ReadOnlySpan<float> uv = default) =>
-            Place(Append(v, n, corners, uv), Matrix4x4.Identity);
+        public MeshSoup Baked(MeshChunk block) => Place(Append(block), Matrix4x4.Identity);
 
+        public MeshSoup Baked(ReadOnlySpan<float> v, ReadOnlySpan<float> n, ReadOnlySpan<long> corners,
+            Seq<(EncodingChannel Channel, float[] Raw)> attributes = default, Option<string> material = default) =>
+            Place(Append(v, n, corners, attributes, material), Matrix4x4.Identity);
+
+        // Materialization mints the seam carrier's ONE kernel arena through the raw-lane entry: Position and Normal
+        // every source declares, plus one lane per attribute channel some block carried. Absence is a MISSING
+        // DESCRIPTOR, never a zero-length column a consumer length-probes — so the per-lane `if (!uvs.IsEmpty)`
+        // guard the parallel-column form needed at every reader deletes with the columns themselves, and a new
+        // EncodingChannel row costs this builder NOTHING: the pool fold is channel-generic and strides on the
+        // channel's own declared arity.
+        // Refusal from the mint (a lane whose length disagrees with the vertex count, a payload past Array.MaxLength,
+        // a round-trip error past the channel dtype's tolerance) throws INSIDE this boundary capsule, so the arm's
+        // own funnel lifts it as a typed BimFault rather than a half-built arena leaving the decode.
         public ImportedGeometry ToGeometry(InterchangeFormat format, Instant at) {
+            Seq<(EncodingChannel Channel, float[] Raw)> lanes =
+                Seq((EncodingChannel.Position, vertices.WrittenSpan.ToArray()), (EncodingChannel.Normal, normals.WrittenSpan.ToArray()))
+                + Declared().Map(Pooled);
             var geometry = new ImportedGeometry(format.Key,
-                vertices.WrittenSpan.ToArray(), normals.WrittenSpan.ToArray(), PoolUvs(), indices.WrittenSpan.ToArray(),
+                Encode.Of(VertexCount, lanes).ThrowIfFail(), indices.WrittenSpan.ToArray(),
                 VertexCount, indices.WrittenCount / 3, blocks.ToSeq(), instances.ToSeq(), at);
             vertices.Dispose();
             normals.Dispose();
@@ -657,15 +906,35 @@ public static partial class BimIo {
             return geometry;
         }
 
-        float[] PoolUvs() {
-            if (blockUvs.TrueForAll(static uv => uv is null)) { return []; }
-            float[] uvs = new float[VertexCount * 2];
+        // Every attribute channel at least one block declared, in the roster's own declaration order so two decodes
+        // of one file mint byte-identical arenas and their content keys agree.
+        Seq<EncodingChannel> Declared() {
+            var seen = toSeq(blockLanes).Bind(static lanes => lanes.Map(static lane => lane.Channel)).ToSeq();
+            return EncodingChannel.Items.AsIterable().Filter(seen.Contains).ToSeq();
+        }
+
+        // One pooled lane, channel-generic: a partially-declaring pool zero-fills the ranges whose block carried no
+        // value for that channel, so per-vertex lockstep holds across the whole lane and the arena's descriptor
+        // stride stays exact. Striding on the channel's own Arity is what keeps this body free of a per-lane case.
+        (EncodingChannel Channel, float[] Raw) Pooled(EncodingChannel channel) {
+            float[] raw = new float[VertexCount * channel.Arity];
             for (int b = 0; b < blocks.Count; b++) {
-                blockUvs[b]?.CopyTo(uvs.AsSpan(blocks[b].VertexOffset * 2));
+                blockLanes[b].Find(lane => lane.Channel == channel)
+                    .Iter(lane => lane.Raw.CopyTo(raw.AsSpan(blocks[b].VertexOffset * channel.Arity)));
             }
-            return uvs;
+            return (channel, raw);
         }
     }
+
+    // One decoded block: the two lanes every source carries as flat triples, its 0-based corner run, the OPTIONAL
+    // attribute lanes that source actually declared, and the OPTIONAL shading key its face range binds. Every
+    // per-format block helper returns this ONE shape, so a format that starts carrying vertex colour, a second UV
+    // set, an intensity channel, or a per-material split grows one entry in its own arm and touches no builder, no
+    // pool fold, and no other arm. Material rides straight through onto the seam MeshBlock, so an arm whose source
+    // declares no partition leaves it absent and no consumer reads a fabricated key.
+    readonly record struct MeshChunk(
+        float[] Vertices, float[] Normals, long[] Corners, Seq<(EncodingChannel Channel, float[] Raw)> Attributes,
+        Option<string> Material = default);
 
     // Managed `.bim` decode through dotbim — the `dotbim` codec: the wire is pure System.Text.Json (every member
     // carries a snake_case [JsonPropertyName]), so the byte admission deserializes dotbim.File directly (File.Read
@@ -1041,6 +1310,7 @@ public sealed class DotbimProjector(dotbim.File file) : IElementProjection {
                     ExternalId:      Some(External(element)),
                     Classification:  Classification.Create("dotbim", element.Type, "", None, None, None),
                     PredefinedType:  PredefinedType.NotDefined,
+                    ObjectType:      Option<string>.None,   // dotBIM carries no predefined discriminant, so no label
                     Name:            element.Type,
                     Tag:             element.MeshId.ToString(CultureInfo.InvariantCulture),
                     Representations: RepresentationContentHash.Empty,
@@ -1188,6 +1458,7 @@ public sealed class SpeckleProjector(Base root) : IElementProjection {
         ExternalId:      Optional(data.applicationId),
         Classification:  Classification.Create("speckle", data.speckle_type, "", None, None, None),
         PredefinedType:  PredefinedType.NotDefined,
+        ObjectType:      Option<string>.None,   // a Speckle host object carries no predefined discriminant
         Name:            data.name ?? "",
         Tag:             "",
         Representations: RepresentationContentHash.Empty,

@@ -2,7 +2,7 @@
 
 `GraphForge` owns deterministic synthetic models and the graded roster shared by benchmarks, property specifications, and cross-runtime parity. `CorpusProfile` closes occurrence count, edge density, bag width, discipline mix, composition depth, and seed. `GraphForge.Mint` admits every forged node and edge through `GraphDelta.AdmitOnto` over `Genesis`, exercising `LegalLink`, freeze, and incidence construction.
 
-Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and carry the Guid-v7 layout. Type ids use `NodeId.RootedType`; non-rooted ids use `NodeId.Content`. Each grade therefore reproduces one snapshot fingerprint on every runtime sharing the seed-zero content rail.
+Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and carry the Guid-v7 layout. Type ids use `NodeId.RootedType`; non-rooted ids use `NodeId.Content`. Magnitudes and index draws derive from the kernel `Deterministic` splitmix stream, never from a digest, so identity and derivation stay two rails. Each grade therefore reproduces one snapshot fingerprint on every runtime sharing the seed-zero content rail.
 
 `GraphForge` composes the existing `ElementGraph`, `GraphDelta`, `ContentAddress`, `CanonicalWriter`, and `ElementWire` owners. Forged payloads re-enter `Classification.Of`, `PropertyValue.Of`, `MeasureValue.OfSi`, `AssessmentPayload.Computed`, and `AnalysisRoute.Of`; every refusal carries `ElementFault`.
 
@@ -17,9 +17,9 @@ Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and
 - Entry: `CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, key)` admits positive counts, a unit-interval density, a non-empty discipline mix, and a depth of at least one, railing `ElementFault.ValueRejected` otherwise; `GraphForge.Mint(profile, key)` realizes the profile into `Fin<(ElementGraph Graph, GraphDelta Delta)>` — the frozen snapshot a benchmark folds and the normal-form event body the delta legs decode.
 - Auto: `Mint` builds one shared corpus header (`Header.Default` over the fixed corpus instant, so header bytes never fork a grade), one `Node.Material` per type slot, one deterministic Type `Object` per slot (id through the production `NodeId.RootedType` over `ToTypeSeedBytes`), then per occurrence one seeded Guid-v7 `Object`, one property bag of `BagWidth` seed-derived `Number` rows, one quantity bag row through `MeasureValue.OfSi`, one `Computed` assessment cycling the discipline mix, and — every `ObservationStride`-th occurrence — one `ObservationSeries` opened at the corpus instant and grown by one `Encode`-minted chunk under a `From`-derived summary; edges land as the `Aggregate` fanout spine (depth-derived fanout), the `PropertyDefinition`/`Assessment`/`TypeDefinition`/`Observation` assigns, the material `Associate`, and `⌊density·nodes⌋` seeded `Connect` adjacencies; the assembled normal-form delta admits through `AdmitOnto(Genesis(header))` so `LegalLink` runs per forged edge.
 - Receipt: the mint result carries the frozen graph and normal-form delta; `ContentAddress.OfGraph` supplies its reproducibility fingerprint.
-- Packages: LanguageExt.Core (`Fin`/`Seq`/`Map`/`TraverseM`), Thinktecture.Runtime.Extensions (generated owners), NodaTime (`Instant.FromUnixTimeTicks`/`Duration.Zero` fixed provenance), `Rasm` (`ContentHash`/`Op`), and System.Buffers.Binary (`BinaryPrimitives` Guid shaping).
-- Growth: a new payload family in the forge is one kernel arm beside the existing node kernels; a new generation axis is one `CorpusProfile` column threaded into the kernels — never a sibling forge, and never a parameter whose value the seed cannot replay.
-- Boundary: the forge composes ONLY the seam's own admissions — a raw case constructor bypassing `Classification.Of`, `MeasureValue.OfSi`, or `AssessmentPayload.Computed` forges models no production projector can produce, so every railed admission the graph demands runs inside `Mint`; the delta is constructed wholesale in normal form (ids unique by the seeded stream) and still crosses `AdmitOnto` — `ReplayOnto` trusts only seam-produced deltas and the forge counts as foreign to the structural law; determinism is hash-derived, never PRNG-derived — a `Random(seed)` stream couples the corpus to a runtime PRNG implementation, where the kernel `ContentHash` over `(seed, ordinal)` replays identically on every runtime sharing the seed-zero rail; the generation loops are the named measured-kernel statement seam, confined to the forge kernels.
+- Packages: LanguageExt.Core (`Fin`/`Seq`/`Map`/`TraverseM`), Thinktecture.Runtime.Extensions (generated owners), NodaTime (`Instant.FromUnixTimeTicks`/`Duration.Zero` fixed provenance), `Rasm` (`ContentHash` the id rail, `Deterministic.Stream`/`Unit`/`NextBelow` the draw rail, `Op`), and System.Buffers.Binary (`BinaryPrimitives` Guid shaping).
+- Growth: a new payload family in the forge is one kernel arm beside the existing node kernels; a new generation axis is one `CorpusProfile` column threaded into the kernels, and a new random axis is one draw lane on `Deterministic` — never a sibling forge, never a parameter whose value the seed cannot replay, and never a magnitude projected off an id digest.
+- Boundary: the forge composes ONLY the seam's own admissions — a raw case constructor bypassing `Classification.Of`, `MeasureValue.OfSi`, or `AssessmentPayload.Computed` forges models no production projector can produce, so every railed admission the graph demands runs inside `Mint`; the delta is constructed wholesale in normal form (ids unique by the seeded stream) and still crosses `AdmitOnto` — `ReplayOnto` trusts only seam-produced deltas and the forge counts as foreign to the structural law; determinism never rides a runtime PRNG — a `Random(seed)` stream couples the corpus to a BCL implementation — and it splits by AXIS across the two kernel owners: an ID replays through `ContentHash` over `(seed, lane, ordinal)` and a MAGNITUDE or index draw through `Deterministic`, so neither a hash-seeded sampler (which the kernel rejects by design) nor a modulo-biased projection off a digest survives here; the generation loops are the named measured-kernel statement seam, confined to the forge kernels.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -64,8 +64,13 @@ public sealed record CorpusProfile {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// Deterministic realization fold: every id derives from the kernel ContentHash over (Seed, lane, ordinal),
-// every payload value from the same stream, and the assembled normal-form delta crosses AdmitOnto over Genesis
+// Deterministic realization fold on TWO kernel rails that never cross: every ID derives from the ContentHash over
+// (Seed, lane, ordinal) — a content key, replayable across runtimes — while every MAGNITUDE and every index draw
+// derives from Deterministic, the kernel's one draw owner. The kernel rules a sampler seeded from a ContentHash a
+// design defect, and the concrete cost the split repays is bias: a hash modulo a non-power-of-two ceiling weights
+// its low residues, so a `% 1000` magnitude and a `% Nodes` index each skewed the corpus in the exact direction a
+// parity gate cannot see. Deterministic.Unit takes the top 53 bits and NextBelow rejects the biased tail, so the
+// forged distribution is flat by construction. The assembled normal-form delta still crosses AdmitOnto over Genesis
 // so LegalLink runs per forged edge — the forge is FOREIGN to the structural law, exactly like a wire payload.
 // Generation loops are the named measured-kernel statement seam.
 public static class GraphForge {
@@ -75,6 +80,10 @@ public static class GraphForge {
  // blob codec all cross every parity gate instead of riding untested behind arms no witness reaches.
  const int ObservationStride = 4;
  const int ObservationSamples = 16;
+ // The two DRAW lanes, distinct from the id lanes the Seed fold owns: identity and derivation never share a stream,
+ // so a lane number here can never collide with one there even though both are keyed off the same profile seed.
+ const long ObservationLane = 6L;
+ const long AdjacencyLane = 4L;
  static readonly Instant CorpusInstant = Instant.FromUnixTimeTicks(CorpusUnixTicks);
  static readonly Duration CorpusCadence = Duration.FromMinutes(15);
 
@@ -121,7 +130,7 @@ public static class GraphForge {
   Seq<(Instant At, double Si, ObservationGrade Grade)> run =
    toSeq(Enumerable.Range(0, ObservationSamples)).Map(s => (
     CorpusInstant + (CorpusCadence * s),
-    290.0 + ((double)(ulong)(Seed(profile.Seed, lane: 6, (index * ObservationSamples) + s) % 1000) / 100.0),
+    290.0 + (Deterministic.Unit(lanes: [ObservationLane, index, s], seed: profile.Seed) * 10.0),
     s % 8 == 7 ? ObservationGrade.Suspect : ObservationGrade.Measured));
   return ObservationChunk.Encode(run, key).Map(block => (block.Chunk, run));
  }
@@ -164,7 +173,7 @@ public static class GraphForge {
    toSeq(Enumerable.Range(0, profile.BagWidth)).TraverseM(j =>
      PropertyValue.Of(new PropertyValue.Number((profile.Seed % 97) + i + j * 0.25), key)
       .Map(value => (PropertyName.Create($"corpus-p{j}"), value))).As()
-    .Bind(rows => MeasureValue.OfSi(QuantityType.Create("Volume"), Dimension.Create(3, 0, 0, 0, 0, 0, 0), 1.0 + i * 0.5, key)
+    .Bind(rows => MeasureValue.OfSi(QuantityType.Create("Volume"), Dimension.Create(3, 0, 0, 0, 0, 0, 0), 1.0 + i * 0.5)
      .Map(volume => (
       new PropertyBag("corpus-pset", rows.Fold(Map<PropertyName, PropertyValue>(), static (m, r) => m.Add(r.Item1, r.Item2)), InheritanceMode.OccurrenceWins, PropertySource.Derived),
       new QuantityBag("corpus-qset", Map((PropertyName.Create("corpus-q0"), volume)), InheritanceMode.OccurrenceWins, PropertySource.Derived))))).As();
@@ -183,13 +192,13 @@ public static class GraphForge {
   Seq<Node.Object> types = toSeq(Enumerable.Range(0, typeCount)).Map(t => {
    Node.Object draft = new(
     Id: Seeded(profile.Seed, lane: 1, t), Kind: ObjectKind.Type, ExternalId: None, Classification: typeClass,
-    PredefinedType: PredefinedType.NotDefined, Name: $"corpus-type-{t}", Tag: "",
+    PredefinedType: PredefinedType.NotDefined, ObjectType: None, Name: $"corpus-type-{t}", Tag: "",
     Representations: RepresentationContentHash.Empty, History: None, Span: SchemaSpan.From(header.Schema));
    return (Node.Object)draft.Relabel(NodeId.RootedType(draft.ToTypeSeedBytes(tol).Span));
   });
   Seq<Node.Object> occurrences = toSeq(Enumerable.Range(0, profile.Nodes)).Map(i => new Node.Object(
    Id: Seeded(profile.Seed, lane: 2, i), Kind: ObjectKind.Occurrence, ExternalId: None, Classification: occClass,
-   PredefinedType: PredefinedType.NotDefined, Name: $"corpus-occ-{i}", Tag: $"{i}",
+   PredefinedType: PredefinedType.NotDefined, ObjectType: None, Name: $"corpus-occ-{i}", Tag: $"{i}",
    Representations: RepresentationContentHash.Empty, History: None, Span: SchemaSpan.From(header.Schema)));
   Seq<Node> propertySets = bags.Map(pair => Contented(new Node.PropertySet(Seeded(0, 0, 0), pair.Props), tol));
   Seq<Node> quantitySets = bags.Map(pair => Contented(new Node.QuantitySet(Seeded(0, 0, 0), pair.Qty), tol));
@@ -216,8 +225,9 @@ public static class GraphForge {
    (Relationship)new Relationship.Assign(occurrences[row.Index].Id, row.Node.Id, AssignKind.Observation));
   Seq<Relationship> adjacencies = toSeq(Enumerable.Range(0, (int)(profile.Density * profile.Nodes)))
    .Choose(c => {
-    int from = (int)(Seed(profile.Seed, lane: 4, c) % (ulong)profile.Nodes);
-    int to = (int)(Seed(profile.Seed, lane: 5, c) % (ulong)profile.Nodes);
+    ulong state = Deterministic.Stream(lanes: [AdjacencyLane, c], seed: profile.Seed);
+    int from = Deterministic.NextBelow(state: ref state, exclusiveCeiling: profile.Nodes);
+    int to = Deterministic.NextBelow(state: ref state, exclusiveCeiling: profile.Nodes);
     return from == to ? None : Some((Relationship)new Relationship.Connect(occurrences[from].Id, occurrences[to].Id, ConnectKind.Element, None, None));
    })
    .Distinct();
@@ -253,19 +263,19 @@ public sealed record CorpusWitness(
 [SmartEnum<string>]
 public sealed partial class CorpusGrade {
  public static readonly CorpusGrade S = new("s",
-  Profile(64, 0.10, 4, Seq(Discipline.Structural, Discipline.Thermal), 2, 1001));
+  Row(64, 0.10, 4, Seq(Discipline.Structural, Discipline.Thermal), 2, 1001));
  public static readonly CorpusGrade M = new("m",
-  Profile(1_024, 0.15, 8, Seq(Discipline.Structural, Discipline.Thermal, Discipline.Energy), 3, 1002));
+  Row(1_024, 0.15, 8, Seq(Discipline.Structural, Discipline.Thermal, Discipline.Energy), 3, 1002));
  public static readonly CorpusGrade L = new("l",
-  Profile(16_384, 0.20, 12, Seq(Discipline.Structural, Discipline.Thermal, Discipline.Energy, Discipline.Acoustic), 4, 1003));
+  Row(16_384, 0.20, 12, Seq(Discipline.Structural, Discipline.Thermal, Discipline.Energy, Discipline.Acoustic), 4, 1003));
  public static readonly CorpusGrade XL = new("xl",
-  Profile(262_144, 0.25, 16, Seq(Discipline.Structural, Discipline.Thermal, Discipline.Energy, Discipline.Acoustic, Discipline.Fire), 5, 1004));
+  Row(262_144, 0.25, 16, Seq(Discipline.Structural, Discipline.Thermal, Discipline.Energy, Discipline.Acoustic, Discipline.Fire), 5, 1004));
 
  public CorpusProfile Profile { get; }
 
  // Roster rows are declaration-total: a failed profile literal is a construction defect, so the throwing unwrap
  // stays at roster materialization and never reaches call sites.
- static CorpusProfile Profile(int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed) =>
+ static CorpusProfile Row(int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed) =>
   CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, Op.Of(name: nameof(CorpusGrade))).ThrowIfFail();
 }
 

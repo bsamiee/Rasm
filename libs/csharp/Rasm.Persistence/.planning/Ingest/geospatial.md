@@ -457,7 +457,7 @@ public static class GeoContainer {
                 if (!spec.Crs.Admits(header.SrsId)) { throw new GeoRefusal(new GeoIngestFault.CrsUnsupported(header.SrsId)); }
                 if (header.SrsId != layer.Srid) { throw new GeoRefusal(new GeoIngestFault.CrsMismatch(layer.Srid, header.SrsId)); }
                 Geometry shape = spec.Admission.GpkgIn.Read(payload);
-                HashMap<string, object?> bag = toHashMap(Enumerable.Range(0, reader.FieldCount)
+                HashMap<string, object?> bag = toHashMap(toSeq(Enumerable.Range(0, reader.FieldCount))
                     .Filter(i => i != geometryAt)
                     .Map(i => (reader.GetName(i), reader.IsDBNull(i) ? null : reader.GetValue(i))));
                 rows.Add((shape, new GeoProperties.Columns(bag)));
@@ -620,4 +620,4 @@ public static class GeoContainer {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-(none)
+[RASTER_CLUSTER_AVAILABILITY]-[OPEN]: does the operator cluster serve `postgis_raster` and `postgis_sfcgal` (the two provisioned `Degradable` rows the `Query/lane` `SetPredicate.Raster` leaf and any exact-3D `CG_*` lowering fold out on absence); `uv run python -m tools.assay provision` against the live cluster, then the `Store/provisioning` verify batch's own extension probe.

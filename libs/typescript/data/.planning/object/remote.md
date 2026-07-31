@@ -11,19 +11,22 @@ The remote-origin filesystem plane: ONE origin-addressed surface owning every no
 - [06]-[SYNC_ENGINE]: persisted listings, comparator rows, the diff-apply-recover fold.
 - [07]-[WATCH_ROWS]: the watch strategy rows — ssh exec-push, universal poll; local intake stays owned.
 - [08]-[EXEC]: remote command execution — typed channels, exit disposition, the local `Command` twin.
+- [09]-[INSTRUMENT_ROWS]: the Convention projections — the one `_measured` fold at the entry record and the bounded census taps.
 
 ## [02]-[ORIGIN_ROWS]
 
-- Owner: `Origin` — one `Schema.Class` whose `scheme` field selects the backend row, with `Origin.parse` decoding a URI string through one fused codec; the `_SCHEMES` capability-flag table (the rclone backend model: server-side copy/move, streaming put, change notify, exec, offset resume, parallel transfer, locks); `RemoteFault` — the one reason-discriminated fault of the plane.
-- Packages: `effect` (`Schema`, `Data`, `Either`, `ParseResult`).
+- Owner: `Origin` — one `Schema.Class` whose `scheme` field selects the backend row, with `Origin.parse` decoding a URI string through one fused codec; the `_SCHEMES` capability-flag table (the rclone backend model: server-side copy/move, streaming put, change notify, exec, offset resume, parallel transfer, locks); `RemoteFault` — the one reason-discriminated fault of the plane, its rows closed through the core `FaultClass.family` seam.
+- Packages: `effect` (`Schema`, `Data`, `Either`, `ParseResult`); `@rasm/ts/core` (`FaultClass`).
 - Entry: every consumer addresses the plane by `Origin` value — `Origin.parse("sftp://deploy@vps.example:22/srv/artifacts")` at a config seam, never scheme-forked code; `origin.flags` is the dispatch datum every operation reads.
 - Growth: a new protocol is one scheme key, one flag row, one session arm, and the op arms it earns — every consumer inherits it through the flags; a flag a server refuses at runtime narrows by row override, never by fork.
 - Law: capability flags are decision data — `serverCopy: false` makes `copy` degrade to read-then-write, `serverMove: false` makes `move` degrade to copy-then-remove, `changeNotify: false` routes `watch` to the poll row, `exec: false` refuses `exec` typed; the degrade paths live in the op arms once, so no caller ever probes a protocol.
 - Law: the `s3:` row is a bridge, not a re-implementation — its ops delegate to `object/store.md` and `object/stream.md` owners (`head`/`rekey`/`Rail.range`, the intake fold for ingress), so the object plane's conditional-put and grant law hold unchanged behind the origin address.
-- Law: `RemoteFault` reasons route recovery as a fold — `connect` and `auth` invalidate the pooled session, `op` and `transfer` retry under the engine's policy row, `watch` re-arms the strategy, `exec` carries the exit disposition; a free-string-only fault is the named unroutable defect.
+- Law: `RemoteFault` reasons route recovery as a fold — `connect` and `auth` invalidate the pooled session, `op` and `transfer` re-drive, `watch` re-arms the strategy, `exec` carries the exit disposition; a free-string-only fault is the named unroutable defect.
+- Law: recovery policy reads the core lattice off `class` — `connect`, `op`, `transfer`, and `watch` classify `unavailable` (system-blamed, retryable: a re-dial, a re-issued operation, and a re-armed notify all heal them), while `auth` and `exec` classify `denied` (caller-blamed, never re-driven: refused credentials and a refused or non-idempotent remote invocation) — so retryability, blame, and quarantine derive from the core `FaultClass` row table and no rank or retry column rides beside `class`.
 
 ```typescript signature
 import { Data, Either, ParseResult, Schema } from "effect"
+import { FaultClass } from "@rasm/ts/core"
 
 const _SCHEME_KEYS = ["file", "sftp", "ssh", "ftp", "ftps", "webdav", "s3"] as const
 
@@ -39,18 +42,36 @@ const _SCHEMES = {
 
 const _PORTS = { file: 0, sftp: 22, ssh: 22, ftp: 21, ftps: 990, webdav: 443, s3: 443 } as const
 
+// One row per reason: the core kind alone. Retryability, blame, and quarantine are the core FaultClass row
+// table's — a rank or retry column here would fork that taxonomy into this folder.
+const _family = FaultClass.family(["connect", "auth", "op", "transfer", "watch", "exec"] as const, {
+  connect: { class: "unavailable" },
+  auth: { class: "denied" },
+  op: { class: "unavailable" },
+  transfer: { class: "unavailable" },
+  watch: { class: "unavailable" },
+  exec: { class: "denied" },
+})
+
 declare namespace Remote {
   type Scheme = (typeof _SCHEME_KEYS)[number]
   type Flags = (typeof _SCHEMES)[Scheme]
-  type Reason = "connect" | "auth" | "op" | "transfer" | "watch" | "exec"
+  type Reason = (typeof _family.reasons)[number]
   type _Rows<T extends { readonly [S in Scheme]: { readonly [F in keyof Flags]: boolean } } = typeof _SCHEMES> = T
 }
 
-class RemoteFault extends Data.TaggedError("RemoteFault")<{
-  readonly reason: Remote.Reason
-  readonly origin: string
-  readonly detail: string
-}> {}
+class RemoteFault extends Schema.TaggedError<RemoteFault>()("RemoteFault", {
+  reason: _family.schema,
+  origin: Schema.String,
+  detail: Schema.String,
+}) {
+  get class(): FaultClass.Kind {
+    return _family.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<remote:${this.reason}> ${this.origin}: ${this.detail}`
+  }
+}
 
 class Origin extends Schema.Class<Origin>("Origin")({
   scheme: Schema.Literal(..._SCHEME_KEYS),
@@ -225,10 +246,13 @@ const _sessions = (auth: (key: OriginKey) => Remote.Auth): Effect.Effect<Remote.
         (origin) => _session(origin, auth(key)),
       )),
     (pool) => ({
+      // The lease level rides the POOL arm alone: a connectionless origin mints a free value and holds no session, so
+      // gauging it would report a lease the plane never took. The bracket owns both edges, so an interrupted acquire
+      // cannot leave the level raised.
       get: (origin) =>
         origin.scheme === "file" || origin.scheme === "s3"
           ? _session(origin, {})
-          : KeyedPool.get(pool, origin.key),
+          : _leased(origin.scheme, KeyedPool.get(pool, origin.key)),
     }),
   )
 
@@ -657,33 +681,78 @@ const _unlock = (origin: Origin, session: Remote.Session, token: string): Effect
 
 ## [05]-[TRANSFER_ENGINES]
 
-- Owner: the `_ENGINES` policy rows — `rsyncDelta` (the primary resumable/delta lane over the external binary), `sftpOffset` (byte-offset resume from the target's `stat` size into a positioned write), `chunkedParallel` (`fastGet`/`fastPut` with the mined tuning defaults), `ftpOffset` (`startAt`/`appendFrom` arithmetic riding the same offset arm), `davRange` (ranged read resume, the same arm) — and `Remote.transfer(from, to, policy?)`, the one end-to-end move whose engine selection is flag-derived data and whose `step` hook feeds the fact stream's meter row.
+- Owner: the `_ENGINES` policy rows — `rsyncDelta` (the primary resumable/delta lane over the external binary), `chunkedParallel` (`fastGet`/`fastPut` with the mined tuning defaults), `ftpOffset` (`startAt`/`appendFrom` arithmetic), `davRange` (the ranged-PATCH resume), `sftpOffset` (byte-offset resume from the target's `stat` size into a positioned write) — the `_ENDS` admission arms and the `_RESUMES` execution record over them, and `Remote.transfer(from, to, policy?)`, the one end-to-end move whose engine selection is row-derived data and whose `step` hook feeds the fact stream's meter row.
 - Packages: `@effect/platform` (`Command.make`, `Command.exitCode` — the external `rsync`/`scp`/`ssh` engine; `stdin: Sink`/`stdout: Stream` process shape); `ssh2` (SFTP `fastGet`/`fastPut` — `concurrency`/`chunkSize`/`step`; `stat`, `open`, `read`, `write`, `close`); `basic-ftp` (`downloadTo(destination, path, startAt)`, `appendFrom`, `uploadFrom` slice options).
-- Entry: `Remote.transfer(from, to)` derives the engine through `_engineOf` — rsync where both ends speak ssh and carry the binary, chunked-parallel where a local file lands on a parallel-capable row, the target scheme's own offset row elsewhere (`ftpOffset`, `davRange`, `sftpOffset`) — an explicit `policy.engine` pins a row, execution dispatches on the row's `resumes` column so every declared row is reachable, and `policy.step(progress)` observes transferred bytes per chunk (the ftp arm bridges it through a bracketed `trackProgress`).
-- Growth: an engine tuning posture is a `_TUNE` override on the call; a new engine (a provider's accelerated transfer) is one row with its selection predicate and `resumes` column — the dispatch inherits it.
+- Entry: `Remote.transfer(from, to)` walks `_ENGINES` in DECLARATION ORDER and takes the first row both origins admit; `policy.engine` pins a row that still answers the same admission, and `policy.step(progress)` observes transferred bytes per chunk (the ftp arm bridges it through a bracketed `trackProgress`).
+- Growth: an engine tuning posture is a `_TUNE` override on the call; a new engine (a provider's accelerated transfer) is one row carrying its capability column, its end arm, its served target schemes, and its `resumes` value — selection, admission, and execution all inherit it.
+- Law: every engine column is DECISION DATA the dispatch reads — `needs` names the capability flag, `ends` names which origin must carry it, `schemes` names the target schemes the row serves, and `resumes` selects the execution arm; a pinned engine answers the same three admission columns as a derived one, so `policy.engine` narrows the choice and can never spawn a binary against an address its row does not serve. A column no arm reads is the flag that lets a pin reach a lane the origins cannot run.
+- Law: the `resumes` dispatch is TOTAL over its vocabulary — `_RESUMES` is a record keyed by the resume kind, so a declared engine is reachable by construction rather than by a predicate ladder whose tail silently absorbed every unmatched row; `range` and `offset` share the same probe-then-position arithmetic and differ at `_write`'s own DAV arm, which lands the bounded tail as one ranged PATCH.
+- Law: no origin pair admitting no engine transfers — the selection answers `Option` and its absence refuses with the `transfer` reason naming the pinned or derived row, never a silent fall-through to a fallback engine the ends cannot run.
 - Law: rsync flags are the sealed resume contract — `--partial --append-verify --inplace --checksum` gives delta transfer, interrupt resume, and integrity in one engine; the command is a `Command` value whose `exitCode` folds into the typed rail and whose cancellation rides the `Scope`.
 - Law: resume is arithmetic where rsync is absent — `resume: true` probes the target, propagates a missing or unreadable-target fault unchanged, opens the positioned write (`flags: "r+"`, `appendFrom` on ftp), and streams the source from the verified byte; the default restart writes from byte zero without manufacturing absence through `Effect.option`.
+- Law: the resume tap fires where the engine is IN HAND — `remoteResumed` is the only evidence the resume flags ever resumed, and the row that ran is known at the selection, so the counter tags the settled engine rather than a re-derivation at the entry record that would answer a second, unrelated walk.
 - Law: the mined tuning defaults are policy values — `concurrency: 64`, `chunkSize: 32768` arrived from the wrapper ecosystem's measured defaults and live in `_TUNE`, never inline literals.
 
 ```typescript signature
+import { Array, Struct } from "effect"
 import { Command } from "@effect/platform"
 
 const _TUNE = { concurrency: 64, chunkSize: 32_768 } as const
 
 const _RSYNC = ["--partial", "--append-verify", "--inplace", "--checksum"] as const
 
+const _RESUME_KEYS = ["delta", "offset", "chunk", "range"] as const
+
 declare namespace Remote {
   type Engine = keyof typeof _ENGINES
+  type Resume = (typeof _RESUME_KEYS)[number]
+  type Ends = keyof typeof _ENDS
   type Progress = { readonly total: number; readonly transferred: number }
+  type Policy = {
+    readonly engine?: Engine
+    readonly resume?: boolean
+    readonly step?: (progress: Progress) => void
+  }
 }
 
-const _ENGINES = {
-  rsyncDelta: { needs: "exec", resumes: "delta" },
-  sftpOffset: { needs: "offsetResume", resumes: "offset" },
-  chunkedParallel: { needs: "parallel", resumes: "chunk" },
-  ftpOffset: { needs: "offsetResume", resumes: "offset" },
-  davRange: { needs: "offsetResume", resumes: "range" },
+// Which END must carry the row's capability flag: the delta lane runs its binary on both sides, the parallel lane
+// hands a LOCAL path to the target's own uploader, and the offset family resumes into the receiving row alone.
+const _ENDS = {
+  both: (flag: keyof Remote.Flags, from: Remote.End, to: Remote.End) => from.origin.flags[flag] && to.origin.flags[flag],
+  target: (flag: keyof Remote.Flags, _from: Remote.End, to: Remote.End) => to.origin.flags[flag],
+  localSource: (flag: keyof Remote.Flags, from: Remote.End, to: Remote.End) =>
+    from.origin.scheme === "file" && to.origin.flags[flag],
 } as const
+
+// DECLARATION ORDER is the preference and every column is read: `needs` names the capability flag, `ends` the origin
+// that must carry it, `schemes` the target schemes the row serves, `resumes` the execution arm. A pinned engine
+// answers the same three admission columns, so `policy.engine` narrows the walk and never bypasses capability.
+const _ENGINES = {
+  rsyncDelta: { needs: "exec", ends: "both", schemes: _SCHEME_KEYS, resumes: "delta" },
+  chunkedParallel: { needs: "parallel", ends: "localSource", schemes: ["sftp", "ssh"], resumes: "chunk" },
+  ftpOffset: { needs: "offsetResume", ends: "target", schemes: ["ftp", "ftps"], resumes: "offset" },
+  davRange: { needs: "offsetResume", ends: "target", schemes: ["webdav"], resumes: "range" },
+  sftpOffset: { needs: "offsetResume", ends: "target", schemes: ["file", "sftp", "ssh", "s3"], resumes: "offset" },
+} as const satisfies {
+  readonly [key: string]: {
+    readonly needs: keyof Remote.Flags
+    readonly ends: Remote.Ends
+    readonly schemes: ReadonlyArray<Remote.Scheme>
+    readonly resumes: Remote.Resume
+  }
+}
+
+// A row admits when the target scheme is one it serves AND the end its `ends` column names carries its flag; the
+// same predicate serves the ordered derivation and the pin, so neither road can reach a lane the origins cannot run.
+const _admits = (engine: Remote.Engine, from: Remote.End, to: Remote.End): boolean => {
+  const row = _ENGINES[engine]
+  return Array.contains(row.schemes, to.origin.scheme) && _ENDS[row.ends](row.needs, from, to)
+}
+
+const _selected = (from: Remote.End, to: Remote.End, pinned: Remote.Engine | undefined): Option.Option<Remote.Engine> =>
+  pinned === undefined
+    ? Array.findFirst(Struct.keys(_ENGINES), (engine) => _admits(engine, from, to))
+    : Option.filter(Option.some(pinned), (engine) => _admits(engine, from, to))
 
 const _rsync = (from: Origin, to: Origin) =>
   Command.make(
@@ -738,33 +807,49 @@ const _metered = (session: Remote.Session, step: ((progress: Remote.Progress) =>
           Local: () => work,
         })
 
-const _engineOf = (from: Remote.End, to: Remote.End): Remote.Engine =>
-  from.origin.flags.exec && to.origin.flags.exec
-    ? "rsyncDelta"
-    : from.origin.scheme === "file" && to.origin.flags.parallel
-      ? "chunkedParallel"
-      : to.origin.scheme === "ftp" || to.origin.scheme === "ftps"
-        ? "ftpOffset"
-        : to.origin.scheme === "webdav"
-          ? "davRange"
-          : "sftpOffset"
+// The offset family's whole arithmetic: probe ONLY under the resume policy so a missing or unreadable target stays
+// typed instead of being rewritten to byte zero, then position the write and stream the source from the verified byte.
+const _offset = (from: Remote.End, to: Remote.End, policy: Remote.Policy | undefined) =>
+  Effect.flatMap(
+    policy?.resume === true ? Effect.map(_stat(to.origin, to.session), (held) => held.bytes) : Effect.succeed(0),
+    (at) => _metered(to.session, policy?.step)(_piped(from, to, at > 0 ? at : undefined)),
+  )
 
-const _transfer = (
-  from: Remote.End,
-  to: Remote.End,
-  policy?: { readonly engine?: Remote.Engine; readonly resume?: boolean; readonly step?: (progress: Remote.Progress) => void },
-) => {
-  const selected = policy?.engine ?? _engineOf(from, to)
-  const resumes = _ENGINES[selected].resumes
-  return resumes === "delta"
-    ? Effect.asVoid(_rsync(from.origin, to.origin))
-    : resumes === "chunk"
-      ? _fastPut(to, from.origin.path, policy?.step)
-      : Effect.flatMap(policy?.resume === true ? Effect.map(_stat(to.origin, to.session), (stat) => stat.bytes) : Effect.succeed(0), (offset) => {
-          // the offset family probes only under the resume policy; a missing or unreadable target remains typed instead of being rewritten to byte zero
-          return _metered(to.session, policy?.step)(_piped(from, to, offset > 0 ? offset : undefined))
-        })
+// Total over the resume vocabulary, so every declared engine is reachable by construction: `range` shares the offset
+// arithmetic and diverges at `_write`'s own DAV arm, which lands the bounded tail as one ranged PATCH.
+const _RESUMES: {
+  readonly [R in Remote.Resume]: (
+    from: Remote.End,
+    to: Remote.End,
+    policy: Remote.Policy | undefined,
+  ) => Effect.Effect<void, RemoteFault, ObjectStore | FileSystem.FileSystem | CommandExecutor.CommandExecutor>
+} = {
+  delta: (from, to) => Effect.asVoid(_rsync(from.origin, to.origin)),
+  chunk: (from, to, policy) => _fastPut(to, from.origin.path, policy?.step),
+  offset: _offset,
+  range: _offset,
 }
+
+const _transfer = (from: Remote.End, to: Remote.End, policy?: Remote.Policy) =>
+  Option.match(_selected(from, to, policy?.engine), {
+    // no admitting row is a typed refusal naming the pinned or derived choice: a fall-through to a fallback engine
+    // would spawn against an address the row does not serve and report the failure as the binary's own
+    onNone: () =>
+      Effect.fail(new RemoteFault({
+        reason: "transfer",
+        origin: to.origin.host,
+        detail: `<engine:${policy?.engine ?? "derived"}:${to.origin.scheme}>`,
+      })),
+    onSome: (engine) =>
+      // the resume tap fires where the engine is IN HAND: the rsync contract and the offset arms both claim
+      // resumability and neither leaves a trace, so the counter tags the row that actually ran
+      policy?.resume === true
+        ? Effect.tap(
+            _RESUMES[_ENGINES[engine].resumes](from, to, policy),
+            () => Metric.increment(Metric.tagged(_resumed, Convention.rasm.remoteEngine, engine)),
+          )
+        : _RESUMES[_ENGINES[engine].resumes](from, to, policy),
+  })
 ```
 
 ## [06]-[SYNC_ENGINE]
@@ -956,22 +1041,58 @@ const _sync = (pair: string, left: Remote.End, right: Remote.End, comparator: Re
 
 ## [07]-[WATCH_ROWS]
 
-- Owner: the watch strategy rows — `execPush` (`inotifywait -m -r` over an ssh exec channel, the lowest-latency remote arm) and `poll` (`Schedule`-driven census diff, the universal default) — and `Remote.watch(origin, session, strategy?)` dispatching on `origin.flags.exec`; intake-grade LOCAL watching is `object/file.md`'s `Disk.watch` and is not a row here — a `file:` origin on this surface polls its census like any push-less row, the non-intake observation posture.
-- Packages: `ssh2` (`exec` — the push channel); `@effect/platform-node` (`NodeStream.fromReadable`); `effect` (`Stream.splitLines`, `Schedule`, `HashMap`).
-- Entry: a mirrored drop tree on a VPS rides `execPush` where the host carries a notify tool; a DAV or FTP origin rides `poll` diffing `etag`/`size`/`modified` snapshots; each emission is a `Remote.Change` the consumer routes into `Remote.intake` or the sync fold.
-- Growth: a new strategy is one row with its selection predicate; the poll cadence and the push-tool roster are policy values.
-- Law: strategy is capability-derived — `exec` rows push through the notify tool, everything else polls; the consumer subscribes ONE change stream regardless, so strategy is invisible past the dispatch.
+- Owner: the `_WATCHERS` strategy rows — `nativeWatch` (the platform watcher over a row whose protocol pushes changes natively), `execPush` (`inotifywait -m -r` over an ssh exec channel, the lowest-latency remote arm), `poll` (`Schedule`-driven census diff, the universal floor) — the `_FEEDS` record over them, `_strategyOf`, the ONE derivation both the dispatch and the census tap read, and `Remote.watch(origin, session, strategy?)`; intake-grade LOCAL watching stays `object/file.md`'s `Disk.watch` with its settle guard, so the `file:` row here is the non-intake observation posture a raw event answers.
+- Packages: `ssh2` (`exec` — the push channel); `@effect/platform` (`FileSystem.watch` — `Stream<WatchEvent, PlatformError>` over the `Create`/`Update`/`Remove` tags); `@effect/platform-node` (`NodeStream.fromReadable`); `effect` (`Stream.splitLines`, `Schedule`, `HashMap`).
+- Entry: a mirrored drop tree on a VPS rides `execPush` where the host carries a notify tool; a mounted local tree rides `nativeWatch`; a DAV or FTP origin rides `poll` diffing `etag`/`size`/`modified` snapshots; each emission is a `Remote.Change` the consumer routes into `Remote.intake` or the sync fold.
+- Growth: a new strategy is one `_WATCHERS` row naming the capability column it reads plus one `_FEEDS` arm; the poll cadence and the push-tool roster are policy values.
+- Law: strategy is capability-derived from the flag row itself — `changeNotify` selects the native watcher, `exec` the notify-tool push, and the terminal row needs no column so the walk is total over every scheme; `_strategyOf` is the ONE derivation, so the dispatch and the census tag can never answer different strategies for one origin, and a capability column the selection never reads is the decorative flag this walk forecloses.
+- Law: the consumer subscribes ONE change stream regardless — `_FEEDS` is total over the strategy vocabulary, so a strategy with no arm fails at the declaration and strategy stays invisible past the dispatch.
+- Law: the native arm reports EVENTS, never census — the platform watcher's three tags map onto the change vocabulary through one frozen row, so a rename-swap arrives as its own pair rather than a diffed absence, and the settle guard an intake needs stays `Disk.watch`'s because this surface promises observation, not admission.
 - Law: the poll arm is diff-exact — each cycle's census diffs against the held snapshot by the same comparator rows the sync engine reads, emitting `add`/`change`/`remove` with no phantom events on unchanged trees; a lost push connection re-arms through `Stream.retry` and one full poll cycle reconciles anything missed.
 
 ```typescript signature
 import { HashMap, Schedule } from "effect"
 
+const _WATCH_ORDER = ["nativeWatch", "execPush", "poll"] as const
+
 declare namespace Remote {
   type Change = { readonly path: string; readonly kind: "add" | "change" | "remove" }
-  type WatchStrategy = "execPush" | "poll"
+  type WatchStrategy = (typeof _WATCH_ORDER)[number]
 }
 
 const _POLL = { cadence: "30 seconds" } as const
+
+// Preference order IS the tuple and the capability column IS the predicate: the terminal row needs none, so the walk
+// is total and `changeNotify` becomes the decision datum the flag row declared it to be.
+const _WATCHERS = {
+  nativeWatch: { needs: Option.some("changeNotify" as const) },
+  execPush: { needs: Option.some("exec" as const) },
+  poll: { needs: Option.none<keyof Remote.Flags>() },
+} as const satisfies { readonly [S in Remote.WatchStrategy]: { readonly needs: Option.Option<keyof Remote.Flags> } }
+
+const _strategyOf = (origin: Origin): Remote.WatchStrategy =>
+  Option.getOrElse(
+    Array.findFirst(_WATCH_ORDER, (strategy) =>
+      Option.match(_WATCHERS[strategy].needs, { onNone: () => true, onSome: (flag) => origin.flags[flag] })),
+    () => "poll" as const, // unreachable: the terminal row's absent column admits every origin
+  )
+
+// The platform watcher's own tags ARE the change vocabulary: one frozen row, so a widened event family fails here
+// rather than folding an unknown tag into `change`.
+const _WATCH_EVENTS = {
+  Create: "add",
+  Update: "change",
+  Remove: "remove",
+} as const satisfies { readonly [K in FileSystem.WatchEvent["_tag"]]: Remote.Change["kind"] }
+
+const _native = (origin: Origin): Stream.Stream<Remote.Change, RemoteFault, FileSystem.FileSystem> =>
+  Stream.unwrap(
+    Effect.map(FileSystem.FileSystem, (fs) =>
+      fs.watch(origin.path, { recursive: true }).pipe(
+        Stream.mapError(_fault(origin, "watch")),
+        Stream.map((event): Remote.Change => ({ path: event.path, kind: _WATCH_EVENTS[event._tag] })),
+      )),
+  )
 
 const _execPush = (origin: Origin, session: Remote.Session): Stream.Stream<Remote.Change, RemoteFault, CommandExecutor.CommandExecutor | Scope.Scope> =>
   Stream.unwrap(
@@ -1015,16 +1136,21 @@ const _poll = <R>(
     Stream.flattenIterables,
   )
 
-const _watch = (
-  origin: Origin,
-  session: Remote.Session,
-  strategy?: Remote.WatchStrategy,
-): Stream.Stream<Remote.Change, RemoteFault, CommandExecutor.CommandExecutor | Scope.Scope | ObjectStore | FileSystem.FileSystem> => {
-  const selected = strategy ?? (origin.scheme !== "file" && origin.flags.exec ? "execPush" : "poll")
-  return selected === "execPush"
-    ? _execPush(origin, session).pipe(Stream.retry(Schedule.spaced(_POLL.cadence)))
-    : _poll(_list(origin, session))
+type _Feed = Stream.Stream<
+  Remote.Change,
+  RemoteFault,
+  CommandExecutor.CommandExecutor | Scope.Scope | ObjectStore | FileSystem.FileSystem
+>
+
+// Total over the strategy vocabulary: a row with no arm fails at the declaration, so the dispatch never widens.
+const _FEEDS: { readonly [S in Remote.WatchStrategy]: (origin: Origin, session: Remote.Session) => _Feed } = {
+  nativeWatch: (origin) => _native(origin),
+  execPush: (origin, session) => _execPush(origin, session).pipe(Stream.retry(Schedule.spaced(_POLL.cadence))),
+  poll: (origin, session) => _poll(_list(origin, session)),
 }
+
+const _watch = (origin: Origin, session: Remote.Session, strategy?: Remote.WatchStrategy): _Feed =>
+  _FEEDS[strategy ?? _strategyOf(origin)](origin, session)
 ```
 
 ## [08]-[EXEC]
@@ -1098,6 +1224,17 @@ const _exec = (
     Bucket: () => Effect.fail(new RemoteFault({ reason: "exec", origin: origin.host, detail: "<exec:unsupported>" })),
   })
 
+// The verb roster the measurement fold covers, closed against the entry record below: a key outside this tuple is
+// data the record publishes rather than a measured verb, and a verb the record does not publish fails the guard.
+const _OPS = [
+  "probe", "stat", "list", "read", "write", "mkdir", "remove", "copy", "move", "lock", "unlock", "intake",
+  "transfer", "sync", "watch", "exec",
+] as const
+
+// Every verb crosses ONE combinator at the record, so measurement is a property of the surface rather than of each
+// implementation: an origin-addressed verb names its own origin, a pair-addressed one measures at the destination it
+// writes, and the two stream verbs measure their SETUP (the dial and the registration) because a stream's own span is
+// its consumer's lifetime, never the call that opened it. A new verb is a row that arrives already measured.
 const Remote = {
   schemes: _SCHEMES,
   engines: _ENGINES,
@@ -1107,22 +1244,65 @@ const Remote = {
   ddl: [_listingDdl],
   session: _session,
   sessions: _sessions,
-  probe: _probe,
-  stat: _stat,
-  list: _list,
-  read: _read,
-  write: _write,
-  mkdir: _mkdir,
-  remove: _remove,
-  copy: _copy,
-  move: _move,
-  lock: _lock,
-  unlock: _unlock,
-  intake: _intake,
-  transfer: _transfer,
-  sync: _sync,
-  watch: _watch,
-  exec: _exec,
+  probe: (origin: Origin, session: Remote.Session) => _measured("probe", origin, _probe(origin, session)),
+  stat: (origin: Origin, session: Remote.Session) => _measured("stat", origin, _stat(origin, session)),
+  list: (origin: Origin, session: Remote.Session) => _measured("list", origin, _list(origin, session)),
+  // The octet census taps per chunk, where the count already exists; the span belongs to the consumer that drains it.
+  read: (origin: Origin, session: Remote.Session, offset?: number) =>
+    Stream.tap(_read(origin, session, offset), (chunk) => _moved(chunk.byteLength)),
+  write: (origin: Origin, session: Remote.Session, at?: number) => _measured("write", origin, _write(origin, session, at)),
+  mkdir: (origin: Origin, session: Remote.Session) => _measured("mkdir", origin, _mkdir(origin, session)),
+  remove: (origin: Origin, session: Remote.Session) => _measured("remove", origin, _remove(origin, session)),
+  copy: (from: Remote.End, to: Remote.End) => _measured("copy", to.origin, _copy(from, to)),
+  move: (from: Remote.End, to: Remote.End) => _measured("move", to.origin, _move(from, to)),
+  lock: (origin: Origin, session: Remote.Session) => _measured("lock", origin, _lock(origin, session)),
+  unlock: (origin: Origin, session: Remote.Session, token: string) => _measured("unlock", origin, _unlock(origin, session, token)),
+  // The remote hop alone: the octets crossing into `putKeyed` are already `objectSize`'s census on the object plane.
+  intake: (origin: Origin, session: Remote.Session, retention: Retain.Class) =>
+    _measured("intake", origin, Effect.tap(_intake(origin, session, retention), (landed) => _moved(landed.bytes))),
+  // The resume census rides `_transfer`, where the settled engine is in hand: a re-derivation here would answer a
+  // second walk over origins the selection already adjudicated.
+  transfer: (from: Remote.End, to: Remote.End, policy?: Remote.Policy) =>
+    _measured("transfer", to.origin, _transfer(from, to, policy)),
+  sync: (pair: string, left: Remote.End, right: Remote.End, comparator: Remote.Comparator = "sizeModtime") =>
+    _measured(
+      "sync",
+      right.origin,
+      Effect.tap(_sync(pair, left, right, comparator), (settled) =>
+        Effect.forEach(settled.actions, (action) =>
+          Metric.increment(Metric.tagged(_syncActions, Convention.rasm.remoteAction, action._tag)), {
+          concurrency: "inherit",
+          discard: true,
+        })),
+    ),
+  // The change census taps per emission inside the feed, reading the SAME `_strategyOf` derivation the dispatch took,
+  // so the tag can never name a strategy other than the one arming the stream.
+  watch: (origin: Origin, session: Remote.Session, strategy?: Remote.WatchStrategy) =>
+    Stream.tap(_watch(origin, session, strategy), () =>
+      Metric.increment(
+        Metric.tagged(
+          Metric.tagged(_watched, Convention.rasm.remoteScheme, origin.scheme),
+          Convention.rasm.remoteWatch,
+          strategy ?? _strategyOf(origin),
+        ),
+      )),
+  // A non-zero exit is DATA, so the exit census fans on the disposition rather than on a fault the channel never raised.
+  exec: (origin: Origin, session: Remote.Session, invocation: Remote.Invocation) =>
+    _measured(
+      "exec",
+      origin,
+      Effect.map(_exec(origin, session, invocation), (executed): Remote.Executed => ({
+        ...executed,
+        exit: Effect.tap(executed.exit, (code) =>
+          Metric.increment(
+            Metric.tagged(
+              Metric.tagged(_exits, Convention.rasm.remoteScheme, origin.scheme),
+              Convention.attr.errorType,
+              code === 0 ? "resolved" : `exit:${code}`,
+            ),
+          )),
+      })),
+    ),
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
@@ -1130,7 +1310,69 @@ const Remote = {
 export { Origin, Remote, RemoteFault }
 ```
 
-## [09]-[RESEARCH]
+## [09]-[INSTRUMENT_ROWS]
+
+- Owner: the remote plane's Convention projections — the mounted instrument rows, `_measured`, the ONE combinator the `Remote` entry record folds every verb through, and the bounded taps the legs that own their own census carry (`_read`/`_write` octets, `_sessions` lease level, `_transfer` resume, `_sync`/`_watch`/`_exec` rows).
+- Packages: `effect` (`Metric`, `Effect`, `Duration`); `@rasm/ts/core` (`Convention` — the instrument, axis, outcome, and duration projections).
+- Entry: the `Remote` record folds each verb through `_measured(op, origin, self)` at ONE site, so the surface is instrumented by the record rather than by a tap per member and a new verb inherits measurement by construction; the census taps ride inside the legs that already hold the number.
+- Growth: a new verb is one entry-record row the fold already covers; a new axis is one `Convention` row with its tap on the owning leg.
+- Law: the operation counter is the core outcome aspect, never a hand-rolled fold — `Convention.outcome(Convention.metric.remoteOps, Convention.attr.errorType, …)` owns the single emission point, the interrupt-first discrimination, and the `halted`/`crashed`/reason vocabulary, so this page supplies only its own reason projection (`RemoteFault.class`, the core kind the family already derives) and spells no `Effect.onExit`; a page-local exit fold would double-count every retried attempt and never see a defect.
+- Law: the region axes ride the FIBER, not the handle — `Effect.tagMetrics` stamps `remoteOp` and `remoteScheme` across every metric the governed effect updates, so the outcome aspect keeps its own mounted handle while the two dimensions the row declares still land; pre-tagging the aspect's handle is unspellable because the aspect mounts internally, and re-mounting the row beside it would fork one series into two registry entries.
+- Law: `remoteDuration` is a SUMMARY, so its update takes the scaled NUMBER — the row names a sliding quantile window because a local `stat` and a multi-gigabyte rsync ride one instrument and no frozen ladder answers both, and Effect constrains a summary's carrier to a bare number, so the site passes `Convention.duration(...)` where a bucketed row would take the `Duration` itself; handing this row a `Duration` is the one mount-shape error the kind's carrier makes unspellable.
+- Law: octets count where the count already EXISTS — `remoteBytes` taps the transfer legs that hold a byte number, never a stream the page would have to measure by adding a fold; bytes crossing into `putKeyed` are already `objectSize`'s, so `Remote.intake` taps the remote hop alone and the object plane keeps its own census with no double count.
+- Law: the session gauge is a LEVEL both ways — `remoteSessionsHeld` is the `updown` row, incremented on acquire and decremented on release inside the pool's own bracket, so a pooled reuse that never dials shows as a level that never rose and the lease census stays true under interruption.
+- Law: identifier-grade context rides the SPAN — `Effect.withSpan("data.remote", { attributes: { op, scheme, host } })` carries the host, while the metric axes stay the bounded scheme, verb, action, engine, and strategy vocabularies each closed by its own roster; a host interpolated into a tag mints one series per origin.
+
+```typescript signature
+import { Duration, Effect, Metric } from "effect"
+import { Convention } from "@rasm/ts/core"
+
+const _bytes = Convention.mount(Convention.metric.remoteBytes)
+const _exits = Convention.mount(Convention.metric.remoteExecExits)
+const _held = Convention.mount(Convention.metric.remoteSessionsHeld)
+const _resumed = Convention.mount(Convention.metric.remoteResumed)
+const _spanned = Convention.mount(Convention.metric.remoteDuration)
+const _syncActions = Convention.mount(Convention.metric.remoteSyncActions)
+const _watched = Convention.mount(Convention.metric.remoteWatchChanges)
+
+// The core aspect owns the emission point and the outcome vocabulary; this page supplies only the reason projection,
+// and the reason IS the fault's own core kind, so the refusal fan and the landed half partition one series.
+const _counted = Convention.outcome(
+  Convention.metric.remoteOps,
+  Convention.attr.errorType,
+  (fault: RemoteFault) => fault.class,
+)
+
+declare namespace Remote {
+  type Op = (typeof _OPS)[number] // the verb roster closes the axis; the record derives from it, never the reverse
+  type _Verbs<K extends keyof typeof Remote = Op> = K // a measured verb the entry record does not publish fails here
+}
+
+// ONE fold at the entry record instruments every verb. The two region axes ride the fiber through `tagMetrics`
+// because the outcome aspect mounts its own handle internally and admits no pre-tag, and the summary takes the
+// scaled number its carrier declares rather than the `Duration` a bucketed row would accept.
+const _measured = <A, R>(op: Remote.Op, origin: Origin, self: Effect.Effect<A, RemoteFault, R>): Effect.Effect<A, RemoteFault, R> =>
+  Effect.timed(self).pipe(
+    Effect.tap(([elapsed]) => Metric.update(_spanned, Convention.duration(Convention.metric.remoteDuration, elapsed))),
+    Effect.map(([, value]) => value),
+    _counted,
+    Effect.tagMetrics({ [Convention.rasm.remoteOp]: op, [Convention.rasm.remoteScheme]: origin.scheme }),
+    Effect.withSpan("data.remote", { attributes: { op, scheme: origin.scheme, host: origin.host } }),
+  )
+
+// Octets tap where the leg already holds the number, so no fold is added to measure what a transfer already counted.
+const _moved = (octets: number): Effect.Effect<void> => Metric.incrementBy(_bytes, octets)
+
+// A level, not a total: the pool bracket owns both edges, so an interrupted acquire cannot leave the gauge raised.
+const _leased = <A, E, R>(scheme: Remote.Scheme, self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+  Effect.acquireUseRelease(
+    Metric.incrementBy(Metric.tagged(_held, Convention.rasm.remoteScheme, scheme), 1),
+    () => self,
+    () => Metric.incrementBy(Metric.tagged(_held, Convention.rasm.remoteScheme, scheme), -1),
+  )
+```
+
+## [10]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

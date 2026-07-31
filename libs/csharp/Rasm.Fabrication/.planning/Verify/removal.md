@@ -30,23 +30,21 @@
 
 ## [04]-[SURFACE_TRUTH]
 
-- Owner: `DeviationField` selects positive-area target triangles against a cumulative-area prefix so coverage is uniform over surface rather than tessellation, then samples each face along both normal directions through `Voxels.bRayCastToSurface`, retaining the nearest signed distance and unresolved rays.
+- Owner: `DeviationField` selects positive-area target triangles against a cumulative-area prefix so coverage is uniform over surface rather than tessellation, then projects each sampled face point onto the actual field through `Voxels.bClosestPointOnSurface`, signing it by `bIsInside` and orienting it by the gradient `vecSurfaceNormal`; the query is total over a non-empty field, so the unresolved census counts only the genuinely empty one.
 - Auto: barycentric draws come from `Deterministic.UnitInterval` on the face centroid, so the field reproduces bit-identically; Boolean volume deltas remain the independent conservation check, and neither scalar path substitutes for the other.
-- Receipt: every setup snapshot key length-frames stock lineage, motion, setup and tool frames, tool assembly identity, cutter and tolerance policy, machined loops, metrics, and signed field samples.
+- Receipt: every setup snapshot key composes the `Rasm.Element` `CanonicalWriter` — the one byte codec here — over stock lineage, motion, setup and tool frames, tool assembly identity, cutter and tolerance policy, machined loops, metrics, and signed field samples, so a `-0.0`, a NaN payload, or a string boundary cannot fork one snapshot into two.
 - Boundary: `ResidualLoops` reuses one Rhino vertex index for each extracted native vertex before plane intersection; `FabricationResult.VerificationResult` carries the verdict, so a program that missed its volume band returns the receipt with `Clean` false.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Text;
-using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
 using PicoGK;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Additive;
 using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Tooling;
@@ -106,7 +104,7 @@ public sealed partial class SweepSampling {
         return start > 0.0
             && Math.Abs(start - finish) <= Math.Sqrt(double.Epsilon) * Math.Max(start, finish)
             ? Fin.Succ(start)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:arc-radius").ToError());
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Arc, None, "removal:arc-radius").ToError());
     }
 
     private static double Sweep(double start, double finish, bool clockwise) {
@@ -241,7 +239,7 @@ public abstract partial record RemovalFinding {
             .Find(sample => sample.SignedMm < -state.Tolerance.SurfaceMm)
             .Map<Error>(sample => FabricationFault.Gouge(sample.Nominal, row.Field.Cutter).ToError()),
         unresolved: static (state, row) => row.Ratio > state.Tolerance.UnresolvedRatio
-            ? Some<Error>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:surface-coverage").ToError())
+            ? Some<Error>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:surface-coverage"))
             : None);
 
     public Option<GougeWitness> Witness => Switch(
@@ -293,25 +291,28 @@ public static class Removal {
             ImplicitPolicy.Validate(
                 budget,
                 Length.FromMillimeters(policy.VoxelSizeMm),
-                new CliMode.Grayscale(ESliceMode.SignedDistance, MaskSampling.Interpolated),
+                new CliMode.Grayscale(ESliceMode.SignedDistance, MaskSampling.Interpolated, ESliceAxis.Z),
                 policy.Calibration,
                 policy.Stock.FromVoxels,
                 out ImplicitPolicy composed),
             composed,
             "removal:implicit-policy")
         from obstructions in Obstructions(policy)
+        // One admitted grid serves the whole verification: residual-loop admission, every canonical preimage, and
+        // the section walk read the same `Context`, so no per-window re-admission can fork the tolerance.
+        from context in Context.Millimeters().ToFin()
         from result in Capture(() => {
             ImplicitOp.Source stock = new(policy.Stock, Seq<VoxelMorphologyStep>(), runtime);
             ImplicitOp.Source target = new(policy.Target, Seq<VoxelMorphologyStep>(), runtime);
             return Implicit.Voxelize(
                 Seq<ImplicitOp>(stock, target),
-                scopes => Execute(policy, input.Snapshots, scopes[0].Native, scopes[1].Native, obstructions));
+                scopes => Execute(policy, input.Snapshots, scopes[0].Native, scopes[1].Native, obstructions, context));
         })
         select result;
 
     private static Fin<T> Admitted<T>(ValidationError? error, T value, string locus) =>
         error is { } rejection
-            ? Fin.Fail<T>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"{locus}:{rejection.Message}").ToError())
+            ? Fin.Fail<T>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, $"{locus}:{rejection.Message}"))
             : Fin.Succ(value);
 
     // Holder envelope and shank silhouette are program invariants; sampling them once keeps the
@@ -360,7 +361,7 @@ public static class Removal {
         .ToFin();
 
     private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
-        guard(valid, new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError()).ToFin().ToValidation();
+        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Verify, locus));
 
     private static bool Partitioned(VerifyPolicy policy) {
         Seq<SetupWindow> windows = Windows(policy);
@@ -390,11 +391,11 @@ public static class Removal {
             Math.Ceiling((policy.Bounds.Max.Y - policy.Bounds.Min.Y) / policy.VoxelSizeMm),
             Math.Ceiling((policy.Bounds.Max.Z - policy.Bounds.Min.Z) / policy.VoxelSizeMm));
         if (!axes.ForAll(static count => double.IsFinite(count) && count >= 1.0 && count <= long.MaxValue))
-            return Fin.Fail<long>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:voxel-grid").ToError());
+            return Fin.Fail<long>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:voxel-grid"));
         BigInteger required = axes.Map(static count => new BigInteger(count)).Fold(BigInteger.One, static (product, count) => product * count);
         return required <= long.MaxValue
             ? Fin.Succ((long)required)
-            : Fin.Fail<long>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:voxel-grid").ToError());
+            : Fin.Fail<long>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:voxel-grid"));
     }
 
     private static Fin<FabricationResult> Execute(
@@ -402,12 +403,13 @@ public static class Removal {
         Seq<StockSnapshot> prior,
         Voxels actual,
         Voxels target,
-        Seq<Obstruction> obstructions) =>
+        Seq<Obstruction> obstructions,
+        Context tolerance) =>
         Windows(policy).FoldM<Fin, RemovalState>(
                 new RemovalState(policy.Origin, prior, Seq<RemovalFinding>(), Field: None, AirMoves: 0, FeedMoves: 0),
-                (state, window) => RemoveWindow(policy, actual, target, obstructions, state, window))
+                (state, window) => RemoveWindow(policy, actual, target, obstructions, state, window, tolerance))
             .As()
-            .Bind(run => Project(policy, actual, target, run));
+            .Bind(run => Project(policy, actual, target, run, tolerance));
 
     private static Fin<RemovalState> RemoveWindow(
         VerifyPolicy policy,
@@ -415,7 +417,8 @@ public static class Removal {
         Voxels target,
         Seq<Obstruction> obstructions,
         RemovalState state,
-        SetupWindow window) {
+        SetupWindow window,
+        Context tolerance) {
         using Voxels shadow = actual.voxDuplicate();
         List<Voxels> cuts = [];
         try {
@@ -424,7 +427,7 @@ public static class Removal {
             return moves.FoldM<Fin, RemovalState>(state with { Cursor = window.Frame.Origin },
                     (current, row) => Advance(policy, shadow, obstructions, cuts, window, current, row.Move, row.Index))
                 .As()
-                .Bind(removed => CommitWindow(policy, actual, target, cuts, window, removed));
+                .Bind(removed => CommitWindow(policy, actual, target, cuts, window, removed, tolerance));
         }
         finally { cuts.ForEach(static cut => cut.Dispose()); }
     }
@@ -473,12 +476,13 @@ public static class Removal {
         Voxels target,
         List<Voxels> cuts,
         SetupWindow window,
-        RemovalState state) {
+        RemovalState state,
+        Context tolerance) {
         actual.BoolSubtractAll(cuts);
         RemovalMetrics metrics = Metrics(actual, target, state);
         return from fieldKey in policy.Stock.FromVoxels(actual)
-               from loops in ResidualLoops(actual, window.Frame)
-               from field in Surface(policy, actual, target, window, fieldKey, loops, metrics)
+               from loops in ResidualLoops(actual, window.Frame, tolerance)
+               from field in Surface(policy, actual, target, window, fieldKey, loops, metrics, tolerance)
                from snapshot in StockSnapshot.Admit(window.Setup, field.Key, loops)
                select state with {
                    Snapshots = state.Snapshots.Add(snapshot),
@@ -595,13 +599,13 @@ public static class Removal {
         from result in envelope.Apply(new ProfileOp.Measure())
         from path in result is ProfileResult.Measure measured
             ? Fin.Succ(measured.Path.Millimeters)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:holder-measure").ToError())
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:holder-measure"))
         let count = Math.Max(envelope.Vertices.Count, (int)Math.Ceiling(path / resolutionMm))
         from ring in toSeq(Enumerable.Range(0, count)).TraverseM(index =>
             envelope.Apply(new ProfileOp.Sample(Length.FromMillimeters(path * index / count))).Bind(sample =>
                 sample is ProfileResult.Sampled point
                     ? Fin.Succ((point.Point.X, point.Point.Y))
-                    : Fin.Fail<(double X, double Y)>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:holder-sample").ToError()))).As()
+                    : Fin.Fail<(double X, double Y)>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:holder-sample")))).As()
         select ring;
 
     private static bool Touches(Voxels actual, Obstruction row, Plane frame, Point3d station) {
@@ -621,11 +625,12 @@ public static class Removal {
         SetupWindow window,
         ContentKey fieldKey,
         Arr<Loop> loops,
-        RemovalMetrics metrics) {
+        RemovalMetrics metrics,
+        Context tolerance) {
         using PicoGK.Mesh mesh = target.mshAsMesh();
         int triangles = mesh.nTriangleCount();
         if (triangles == 0)
-            return Fin.Fail<DeviationField>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:target-surface").ToError());
+            return Fin.Fail<DeviationField>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "removal:target-surface").ToError());
         // Index-uniform triangle selection samples a finely tessellated region far denser than a coarse
         // one, so the deviation field would under-cover exactly the large flat faces a gouge escapes on;
         // Cumulative-area prefixing makes selection area-uniform over the target surface instead.
@@ -635,7 +640,7 @@ public static class Removal {
             return double.IsFinite(area) && area > 0.0 ? Some((index, area)) : None;
         });
         if (surface.IsEmpty)
-            return Fin.Fail<DeviationField>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:target-area").ToError());
+            return Fin.Fail<DeviationField>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "removal:target-area").ToError());
         double[] cumulative = new double[surface.Count];
         _ = toSeq(Enumerable.Range(0, surface.Count)).Fold(0.0, (running, index) => {
             cumulative[index] = running + surface[index].Area;
@@ -652,22 +657,16 @@ public static class Removal {
             Vector3 cross = Vector3.Cross(b - a, c - a);
             if (!float.IsFinite(cross.LengthSquared()) || cross.LengthSquared() <= float.Epsilon)
                 return (Option<DeviationSample>.None, 1);
-            Vector3 normal = Vector3.Normalize(cross);
             Point3d centroid = ToPoint((a + b + c) / 3.0f);
             double root = Math.Sqrt(Deterministic.UnitInterval(centroid, salt: index));
             double sweep = Deterministic.UnitInterval(centroid, salt: index, seed: 1);
             Vector3 nominal = (float)(1.0 - root) * a + (float)(root * (1.0 - sweep)) * b + (float)(root * sweep) * c;
-            Option<DeviationSample> positive = Ray(actual, nominal, normal, 1.0);
-            Option<DeviationSample> negative = Ray(actual, nominal, -normal, -1.0);
-            Option<DeviationSample> nearest = (positive, negative).Apply((outside, inside) =>
-                Math.Abs(outside.SignedMm) <= Math.Abs(inside.SignedMm) ? outside : inside)
-                | positive
-                | negative;
+            Option<DeviationSample> nearest = Projected(actual, target, nominal);
             return (nearest, nearest.IsNone ? 1 : 0);
         });
         Seq<DeviationSample> samples = rows.Bind(static row => row.Sample.ToSeq());
         int unresolved = rows.Map(static row => row.Unresolved).Sum();
-        ContentKey key = SnapshotKey(policy, window, fieldKey, loops, metrics, samples, unresolved);
+        ContentKey key = SnapshotKey(policy, window, fieldKey, loops, metrics, samples, unresolved, tolerance);
         return Fin.Succ(new DeviationField(
             window.Setup,
             fieldKey,
@@ -679,11 +678,24 @@ public static class Removal {
             samples.Map(static row => row.SignedMm).Fold(double.NegativeInfinity, double.Max) is var maximum && double.IsFinite(maximum) ? maximum : 0.0));
     }
 
-    private static Option<DeviationSample> Ray(Voxels actual, Vector3 nominal, Vector3 direction, double sign) =>
-        actual.bRayCastToSurface(nominal, direction, out Vector3 hit)
-            ? Some(new DeviationSample(ToPoint(nominal), new Vector3d(direction.X, direction.Y, direction.Z), sign * Vector3.Distance(nominal, hit)))
+    // Nearest-surface projection is TOTAL over a non-empty field, so deviation is exact rather than axis-biased, and
+    // miss-rate bookkeeping collapses to the genuine empty-field case. Sign reads the target's own membership,
+    // while the gradient normal frees the sampler from the tessellation density this owner fights.
+    private static Option<DeviationSample> Projected(Voxels actual, Voxels target, Vector3 nominal) =>
+        actual.bClosestPointOnSurface(nominal, out Vector3 hit)
+            ? Some(new DeviationSample(
+                ToPoint(nominal),
+                ToVector(actual.vecSurfaceNormal(hit)),
+                (target.bIsInside(nominal) ? -1.0 : 1.0) * Vector3.Distance(nominal, hit)))
             : None;
 
+    private static Vector3d ToVector(Vector3 value) => new(value.X, value.Y, value.Z);
+
+    // The ONE canonical byte codec on this page is the `Rasm.Element` `CanonicalWriter`: `Double` folds `-0.0` to
+    // `+0.0` and every NaN payload to one quiet pattern, `String` frames by its UTF-8 byte count, and every
+    // collection writes `Ordinal(count)` before its rows. A page-local `Write` family forks byte identity the first
+    // time two pages frame a double or a `UInt128` differently. Field ORDER is this page's and stays; the grid is
+    // the op's admitted `Context`.
     private static ContentKey SnapshotKey(
         VerifyPolicy policy,
         SetupWindow window,
@@ -691,135 +703,94 @@ public static class Removal {
         Arr<Loop> loops,
         RemovalMetrics metrics,
         Seq<DeviationSample> samples,
-        int unresolved) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Write(writer, fieldKey.Digest);
-        Write(writer, policy.Stock.Key.Digest);
-        Write(writer, policy.Target.Key.Digest);
-        Write(writer, policy.Origin);
-        Write(writer, window.Setup);
-        Write(writer, window.FirstMove);
-        Write(writer, window.Count);
-        Write(writer, window.Frame);
-        Write(writer, policy.Bounds);
-        Write(writer, policy.Cutter.Family.Key);
-        Write(writer, policy.Cutter.Diameter);
-        Write(writer, policy.Cutter.CornerRadius);
-        Write(writer, policy.Cutter.TaperAngle);
-        Write(writer, policy.Cutter.FluteLength);
-        Write(writer, policy.Cutter.UsableLengthMm);
-        Write(writer, policy.Cutter.FunctionalLengthMm);
-        Write(writer, policy.Cutter.OverallLengthMm);
-        Write(writer, policy.Cutter.BodyDiameterMm);
-        Write(writer, policy.Cutter.ShankDiameterMm);
-        Write(writer, policy.Cutter.MaxDepthMm);
-        Write(writer, policy.Cutter.LeadAngleDeg);
-        Write(writer, policy.Cutter.PointAngleDeg);
-        Write(writer, policy.Cutter.OrientationDeg);
-        Write(writer, policy.Cutter.Evidence.Map(static evidence => evidence.StructuralDigest));
-        Write(writer, policy.Holder.Map(static assembly => assembly.Identity));
-        Write(writer, policy.VoxelSizeMm);
-        Write(writer, policy.VoxelCap);
-        Write(writer, policy.StationMm);
-        Write(writer, policy.SurfaceSamples);
-        Write(writer, policy.Sampling.Key);
-        Write(writer, policy.Calibration.MinimumSamples);
-        Write(writer, policy.Calibration.MaximumSamples);
-        Write(writer, policy.Calibration.QuantileError.DecimalFractions);
-        Write(writer, policy.Calibration.DensityFloor.DecimalFractions);
-        Write(writer, policy.Calibration.GradientFloorPerMillimeter);
-        Write(writer, policy.Tolerance.GougeMm);
-        Write(writer, policy.Tolerance.UncutMm3);
-        Write(writer, policy.Tolerance.OvercutMm3);
-        Write(writer, policy.Tolerance.AirCutRatio);
-        Write(writer, policy.Tolerance.SurfaceMm);
-        Write(writer, policy.Tolerance.UnresolvedRatio);
-        Write(writer, metrics.UncutVolume);
-        Write(writer, metrics.OvercutVolume);
-        Write(writer, metrics.AirCutRatio);
-        Write(writer, unresolved);
-        Write(writer, policy.Motion.Moves.Count);
+        int unresolved,
+        Context tolerance) {
+        CanonicalWriter writer = new(tolerance.Absolute.Value);
+        Coords(writer.U128(fieldKey.Digest).U128(policy.Stock.Key.Digest).U128(policy.Target.Key.Digest), policy.Origin)
+            .Ordinal(window.Setup).Ordinal(window.FirstMove).Ordinal(window.Count);
+        Extent(Frame(writer, window.Frame), policy.Bounds)
+            .String(policy.Cutter.Family.Key)
+            .Double(policy.Cutter.Diameter).Double(policy.Cutter.CornerRadius)
+            .Double(policy.Cutter.TaperAngle).Double(policy.Cutter.FluteLength);
+        Seq(policy.Cutter.UsableLengthMm, policy.Cutter.FunctionalLengthMm, policy.Cutter.OverallLengthMm,
+                policy.Cutter.BodyDiameterMm, policy.Cutter.ShankDiameterMm, policy.Cutter.MaxDepthMm,
+                policy.Cutter.LeadAngleDeg, policy.Cutter.PointAngleDeg, policy.Cutter.OrientationDeg)
+            .Fold(writer, static (sink, value) => Maybe(sink, value));
+        Maybe(Maybe(writer, policy.Cutter.Evidence.Map(static evidence => evidence.StructuralDigest)),
+                policy.Holder.Map(static assembly => assembly.Identity))
+            .Double(policy.VoxelSizeMm).I64(policy.VoxelCap).Double(policy.StationMm)
+            .Ordinal(policy.SurfaceSamples).String(policy.Sampling.Key)
+            .Ordinal(policy.Calibration.MinimumSamples).Ordinal(policy.Calibration.MaximumSamples)
+            .Double(policy.Calibration.QuantileError.DecimalFractions)
+            .Double(policy.Calibration.DensityFloor.DecimalFractions)
+            .Double(policy.Calibration.GradientFloorPerMillimeter)
+            .Double(policy.Tolerance.GougeMm).Double(policy.Tolerance.UncutMm3).Double(policy.Tolerance.OvercutMm3)
+            .Double(policy.Tolerance.AirCutRatio).Double(policy.Tolerance.SurfaceMm)
+            .Double(policy.Tolerance.UnresolvedRatio)
+            .Double(metrics.UncutVolume).Double(metrics.OvercutVolume).Double(metrics.AirCutRatio)
+            .Ordinal(unresolved).Ordinal(policy.Motion.Moves.Count);
+        // The arc carries `SweepRadians` as identity: target, centre, and sense leave a full-turn arc and its
+        // zero-sweep twin sharing one preimage, so the snapshot key would not separate two distinct programs.
         _ = policy.Motion.Moves.Iter(move => move.Switch(
             state: writer,
-            rapid: static (held, value) => {
-                Write(held, 0);
-                Write(held, value.Target);
-                return unit;
-            },
-            linear: static (held, value) => {
-                Write(held, 1);
-                Write(held, value.Target);
-                Write(held, value.Feed);
-                return unit;
-            },
-            circular: static (held, value) => {
-                Write(held, 2);
-                Write(held, value.Target);
-                Write(held, value.Feed);
-                Write(held, value.Arc.Center);
-                Write(held, value.Arc.Sense.Key);
-                return unit;
-            }));
-        Write(writer, policy.ToolFrames.Count);
-        _ = toSeq(policy.ToolFrames).OrderBy(static row => row.Key).Iter(row => {
-            Write(writer, row.Key);
-            Write(writer, row.Value);
-        });
+            rapid: static (held, value) => Coords(held.Ordinal(0), value.Target),
+            linear: static (held, value) => Coords(held.Ordinal(1), value.Target).Double(value.Feed),
+            circular: static (held, value) => Coords(
+                    Coords(held.Ordinal(2), value.Target).Double(value.Feed), value.Arc.Center)
+                .String(value.Arc.Sense.Key).Double(value.SweepRadians)));
+        writer.Ordinal(policy.ToolFrames.Count);
+        _ = toSeq(policy.ToolFrames).OrderBy(static row => row.Key)
+            .Iter(row => Frame(writer.Ordinal(row.Key), row.Value));
         Seq<SetupWindow> windows = Windows(policy);
-        Write(writer, windows.Count);
-        _ = windows.Iter(setup => {
-            Write(writer, setup.Setup);
-            Write(writer, setup.FirstMove);
-            Write(writer, setup.Count);
-            Write(writer, setup.Frame);
-        });
-        Write(writer, loops.Count);
-        _ = loops.Map(Canonical).OrderBy(static payload => Convert.ToHexString(payload)).Iter(payload => {
-            Write(writer, payload.Length);
-            Write(writer, payload);
-        });
-        Write(writer, samples.Count);
-        _ = samples.Iter(sample => {
-            Write(writer, sample.Nominal);
-            Write(writer, sample.Normal);
-            Write(writer, sample.SignedMm);
-        });
-        return ContentKey.Of(EgressKind.StockSnapshot, writer.WrittenSpan);
+        writer.Ordinal(windows.Count);
+        _ = windows.Iter(setup => Frame(
+            writer.Ordinal(setup.Setup).Ordinal(setup.FirstMove).Ordinal(setup.Count), setup.Frame));
+        writer.Ordinal(loops.Count);
+        _ = loops.Map(Canonical).OrderBy(static payload => Convert.ToHexString(payload))
+            .Iter(payload => writer.Ordinal(payload.Length).Raw(payload));
+        writer.Ordinal(samples.Count);
+        _ = samples.Iter(sample => Coords(Coords(writer, sample.Nominal), sample.Normal).Double(sample.SignedMm));
+        return ContentKey.Of(EgressKind.StockSnapshot, writer.ToBytes().Span);
     }
 
-    private static ContentKey ResidualKey(ContentKey field) {
-        using ArrayPoolBufferWriter<byte> writer = new();
-        Write(writer, field.Digest);
-        return ContentKey.Of(EgressKind.Remnant, writer.WrittenSpan);
-    }
+    private static ContentKey ResidualKey(ContentKey field, Context tolerance) =>
+        ContentKey.Of(
+            EgressKind.Remnant,
+            new CanonicalWriter(tolerance.Absolute.Value).U128(field.Digest).ToBytes().Span);
 
+    // Rotation-invariant preimage over the loop's OWN admitted grid: the walk starts at the lexicographically
+    // least vertex, so a re-rooted residual section cannot fork one snapshot key.
     private static byte[] Canonical(Loop loop) {
-        using ArrayPoolBufferWriter<byte> writer = new();
+        CanonicalWriter writer = new(loop.Tolerance.Absolute.Value);
         int start = toSeq(Enumerable.Range(1, loop.Vertices.Count - 1)).Fold(0, (best, index) =>
             (loop.Vertices[index].X, loop.Vertices[index].Y, loop.Vertices[index].Z)
                 .CompareTo((loop.Vertices[best].X, loop.Vertices[best].Y, loop.Vertices[best].Z)) < 0
                 ? index
                 : best);
-        Write(writer, loop.Vertices.Count);
+        writer.Ordinal(loop.Vertices.Count);
         _ = toSeq(Enumerable.Range(0, loop.Vertices.Count)).Iter(offset => {
             int index = (start + offset) % loop.Vertices.Count;
-            Write(writer, loop.Vertices[index]);
-            Write(writer, loop.Bulges[index]);
+            Coords(writer, loop.Vertices[index]).Double(loop.Bulges[index]);
         });
-        return writer.WrittenSpan.ToArray();
+        return writer.ToBytes().ToArray();
     }
 
     // A verified program that missed its band is a receipt with `Clean` false, not a failed rail: the atom
     // carries the volumes, the ratio, and the gouge witnesses precisely so the consumer reads the verdict.
     // Only a physical strike, an out-of-band gouge, or surface evidence too sparse to support any claim
     // invalidates the run, and the volume tolerance floors at the one voxel the field can resolve.
-    private static Fin<FabricationResult> Project(VerifyPolicy policy, Voxels actual, Voxels target, RemovalState run) {
+    private static Fin<FabricationResult> Project(
+        VerifyPolicy policy,
+        Voxels actual,
+        Voxels target,
+        RemovalState run,
+        Context tolerance) {
         RemovalMetrics metrics = Metrics(actual, target, run);
         Seq<RemovalFinding> findings = run.Findings + Findings(policy, metrics);
         double quantum = Math.Max(policy.Tolerance.OvercutMm3, Math.Pow(policy.VoxelSizeMm, 3.0));
-        return from final in run.Snapshots.Last.ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:no-snapshot").ToError())
-               from field in run.Field.ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:no-field").ToError())
-               from residual in ResidualStock.Admit(ResidualKey(field), final.Machined)
+        return from final in run.Snapshots.Last.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:no-snapshot"))
+               from field in run.Field.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:no-field"))
+               from residual in ResidualStock.Admit(ResidualKey(field, tolerance), final.Machined)
                from zone in Admitted(
                    CollisionZone.Validate(policy.Stock.Key, policy.Bounds, out CollisionZone extent),
                    extent,
@@ -888,7 +859,7 @@ public static class Removal {
         return point.DistanceTo(from + (direction * t));
     }
 
-    private static Fin<Arr<Loop>> ResidualLoops(Voxels actual, Plane frame) {
+    private static Fin<Arr<Loop>> ResidualLoops(Voxels actual, Plane frame, Context context) {
         using PicoGK.Mesh extracted = actual.mshAsMesh();
         using Rhino.Geometry.Mesh native = new();
         Dictionary<Vector3, int> vertices = [];
@@ -902,14 +873,13 @@ public static class Removal {
             extracted.GetTriangle(index, out Vector3 a, out Vector3 b, out Vector3 c);
             native.Faces.AddFace(Vertex(a), Vertex(b), Vertex(c));
         });
-        return from context in Context.Millimeters().ToFin()
-               from space in MeshSpace.Of(native, context)
+        return from space in MeshSpace.Of(native, context)
                from result in Intersection.Apply(new IntersectOp.PlaneMesh(frame, space, IntersectPolicy.Canonical))
                from loops in result is IntersectResult.Chains chains
                    ? chains.Walked.Filter(static chain => chain.Closed)
                        .TraverseM(chain => Loop.Admit(toSeq(chain.Points).ToArr(), closed: true, bulges: Arr<double>(), tolerance: context).Map(static loop => loop.AsCcw()))
                        .As()
-                   : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:residual-section").ToError())
+                   : Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:residual-section"))
                select loops.ToArr();
     }
 
@@ -933,7 +903,7 @@ public static class Removal {
             firstMove: 0,
             count: policy.Motion.Moves.Count,
             frame: new Plane(policy.Origin, Vector3d.XAxis, Vector3d.YAxis)))
-        : policy.Setups.OrderBy(static row => row.FirstMove).ToSeq();
+        : toSeq(policy.Setups.OrderBy(static row => row.FirstMove));
 
     private static Point3d Target(Move move) => move.Switch(
         rapid: static row => row.Target,
@@ -946,84 +916,34 @@ public static class Removal {
         ArgumentNullException.ThrowIfNull(native);
         return Try.lift<Fin<T>>(native)
             .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"removal:native:{error.Message}").ToError())
+            // The locus stays the bounded token; the trapped native text rides beside it as its own accumulated error.
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "removal:native").ToError() + error)
             .Bind(static result => result);
     }
 
     private static Vector3 ToVector(Point3d point) => new((float)point.X, (float)point.Y, (float)point.Z);
     private static Point3d ToPoint(Vector3 point) => new(point.X, point.Y, point.Z);
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(sizeof(int)), value);
-        writer.Advance(sizeof(int));
-    }
+    // Composite seam values contribute to the one codec as fluent `Double` chains, so a point, a direction, a box,
+    // and a frame can never fork on framing, and absence is a presence BIT — a `double.NaN` sentinel and a measured
+    // NaN would address identically under the codec's canonical-NaN fold.
+    private static CanonicalWriter Coords(CanonicalWriter writer, Point3d value) =>
+        writer.Double(value.X).Double(value.Y).Double(value.Z);
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, long value) {
-        BinaryPrimitives.WriteInt64LittleEndian(writer.GetSpan(sizeof(long)), value);
-        writer.Advance(sizeof(long));
-    }
+    private static CanonicalWriter Coords(CanonicalWriter writer, Vector3d value) =>
+        writer.Double(value.X).Double(value.Y).Double(value.Z);
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, double value) {
-        BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(sizeof(double)), value);
-        writer.Advance(sizeof(double));
-    }
+    private static CanonicalWriter Extent(CanonicalWriter writer, BoundingBox value) =>
+        Coords(Coords(writer, value.Min), value.Max);
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, UInt128 value) {
-        BinaryPrimitives.WriteUInt64LittleEndian(writer.GetSpan(sizeof(ulong)), (ulong)value);
-        writer.Advance(sizeof(ulong));
-        BinaryPrimitives.WriteUInt64LittleEndian(writer.GetSpan(sizeof(ulong)), (ulong)(value >> 64));
-        writer.Advance(sizeof(ulong));
-    }
+    private static CanonicalWriter Frame(CanonicalWriter writer, Plane value) =>
+        Coords(Coords(Coords(Coords(writer, value.Origin), value.XAxis), value.YAxis), value.ZAxis);
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, string value) {
-        byte[] payload = Encoding.UTF8.GetBytes(value);
-        Write(writer, payload.Length);
-        Write(writer, payload);
-    }
+    private static CanonicalWriter Maybe(CanonicalWriter writer, Option<double> value) =>
+        value.Match(Some: amount => writer.Bool(true).Double(amount), None: () => writer.Bool(false));
 
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Option<double> value) {
-        Write(writer, value.IsSome ? 1 : 0);
-        _ = value.Iter(amount => Write(writer, amount));
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Option<string> value) {
-        Write(writer, value.IsSome ? 1 : 0);
-        _ = value.Iter(text => Write(writer, text));
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Option<UInt128> value) {
-        Write(writer, value.IsSome ? 1 : 0);
-        _ = value.Iter(identity => Write(writer, identity));
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Point3d value) {
-        Write(writer, value.X);
-        Write(writer, value.Y);
-        Write(writer, value.Z);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Vector3d value) {
-        Write(writer, value.X);
-        Write(writer, value.Y);
-        Write(writer, value.Z);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, BoundingBox value) {
-        Write(writer, value.Min);
-        Write(writer, value.Max);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, Plane value) {
-        Write(writer, value.Origin);
-        Write(writer, value.XAxis);
-        Write(writer, value.YAxis);
-        Write(writer, value.ZAxis);
-    }
-
-    private static void Write(ArrayPoolBufferWriter<byte> writer, byte[] value) {
-        value.CopyTo(writer.GetSpan(value.Length));
-        writer.Advance(value.Length);
-    }
+    private static CanonicalWriter Maybe(CanonicalWriter writer, Option<UInt128> value) =>
+        value.Match(Some: identity => writer.Bool(true).U128(identity), None: () => writer.Bool(false));
 
     private sealed class ProfilePrism(Seq<(double X, double Y)> ring, Plane frame, Point3d station, double start, double length) : IImplicit {
         public float fSignedDistance(in Vector3 at) {

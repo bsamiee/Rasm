@@ -1,24 +1,24 @@
 # [RASM_MESHING_EDIT]
 
-`MeshEdit` owns the mutable-arena tier of the mesh substrate — the single-writer SoA build arena every mesh-rewriting owner constructs into, and `Kernels`, the weld/diagonal primitive family over it. `MeshSpace` and `MeshEdit` are the kernel's only two mesh carriers: the immutable admission snapshot `mesh.md` owns and this page's predicate-gated build arena. An algorithm admits a `MeshSpace`, mutates one arena in place under the single-writer contract, and publishes by freeze — `ToSpace` re-enters admission through `MeshSpace.Of`, the only path from build state to composable truth.
+`MeshEdit` owns the mutable-arena tier of the mesh substrate — the single-writer SoA build arena every mesh-rewriting owner constructs into, and `Kernels`, the weld/diagonal primitive family over it. `MeshSpace` and `MeshEdit` are the kernel's only two mesh carriers: the immutable admission snapshot `mesh.md` owns and this page's predicate-gated build arena. Algorithms admit a `MeshSpace`, mutate one arena in place under the single-writer contract, and publish by freeze — `ToSpace` re-enters admission through `MeshSpace.Of`, the only path from build state to composable truth.
 
 `MeshEdit`'s arena namespace is total — `Of`, every mutation verb, and every `Kernels` member mint no fault union; a defective build surfaces once, at the freeze seam, through `MeshSpace.Of`'s `Fin` rail behind one bulk finiteness pre-gate. Storage is pooled struct-of-arrays: per-column arrays rented from `ArrayPool<T>.Shared` and grown by amortized doubling, so a million-vertex rewrite leases a handful of pooled columns, not a persistent-collection copy per operation. `CommunityToolkit.HighPerformance` composes the span planes, pooled staging, struct-action folds, and packed bitsets.
 
 ## [01]-[INDEX]
 
-- [02]-[ARENA]: `ArenaPolicy` the policy row; `MeshEdit` the single-writer SoA build arena over one polymorphic `Of`, span reads, dirty-bitset mutation verbs, partition-disjoint folds, and the `ToSpace` freeze; `Kernels` the weld/diagonal primitive family over the arena columns.
+- [02]-[ARENA]: `ArenaPolicy` the policy row; `MeshEdit` the single-writer SoA build arena over one polymorphic `Of`, span reads, dirty-bitset mutation verbs, partition-disjoint folds, and the `ToSpace` freeze; `Kernels` the weld/transform/diagonal primitive family over the arena columns.
 - [03]-[ARENA_LAW]: store-mutability and arena-concurrency contract sibling stores compose by name.
 
 ## [02]-[ARENA]
 
-- Owner: `ArenaPolicy` the arena policy row — capacity seed, the weld-tolerance knob, and the parallel floor every arena fold derives from; `MeshEdit` the `sealed class` single-writer arena over pooled SoA columns rented from `ArrayPool<T>.Shared` and grown by amortized doubling; `Kernels` the static primitive family operating on the arena — union-find tolerance-grid weld and the exact quad-diagonal split gate the mesh-ingress triangulation rides, its projection plane read off the Numerics `Axis.DominantOf` admission.
+- Owner: `ArenaPolicy` the arena policy row — capacity seed, the weld-tolerance knob, and the parallel floor every arena fold derives from; `MeshEdit` the `sealed class` single-writer arena over pooled SoA columns rented from `ArrayPool<T>.Shared` and grown by amortized doubling; `Kernels` the static primitive family operating on the arena — union-find tolerance-grid weld, the determinant-derived affine transform pass carrying the orientation repair a reversing map owes, and the exact quad-diagonal split gate the mesh-ingress triangulation rides, its projection plane read off the Numerics `Axis.DominantOf` admission.
 - Cases: `Of` discriminates on argument type — a `MeshSpace` or a raw triangle soup — one owner, not a name pair; the soup modality is the kernel's one triangle-soup adapter, folding per-page `Soup(MeshSpace)` copies into a single `DuplicateNative` with quad faces split through the exact diagonal gate. Mutation verbs dirty-mark their slots — `SetFace` is the corner rewrite the decimate edge-collapse and remesh edge-flip land on, face indices stable under mutation; read projections return frozen span views, never copies.
 - Entry: arena admission is total, no rail — a `MeshSpace` is already-admitted truth and a raw soup's validity is decided at freeze. `ToSpace(Context, Op?)` is the one publish seam: a one-pass `TensorPrimitives.IsFiniteAll<double>` bulk gate per coordinate column, live faces rebuilt into a native `Mesh`, orphaned vertices compacted, then re-admission through `MeshSpace.Of`; the finiteness gate routes `GeometryFault.DegenerateInput` with the offending column, every other failure `MeshSpace.Of`'s own rail. `Kernels.WeldDuplicates` welds in place at the arena's `WeldTolerance`, total.
-- Auto: `Of(MeshSpace)` calls `DuplicateNative` once, triangulates quads through the exact diagonal gate, and bulk-fills the columns; capacity grows by doubling every column together, so the offset-page under-allocation class — a store sized `2n` where the algorithm writes past it — is structurally impossible. `KillFace` tombstones a row and `ToSpace` compacts, the sentinel arena-internal and never observable past the freeze; dirty tracking is two packed bitsets replacing persistent `Set<int>` accumulation, enumerated for incremental consumers; `Parallel` runs a caller struct action over a caller-named index extent via `ParallelHelper`, allocation-free with the floor a policy row.
+- Auto: `Of(MeshSpace)` calls `DuplicateNative` once, triangulates quads through the exact diagonal gate, and bulk-fills the columns; capacity grows by doubling every column together, so the offset-page under-allocation class — a store sized `2n` where the algorithm writes past it — is structurally impossible. `KillFace` tombstones a row and `ToSpace` compacts, the sentinel arena-internal and never observable past the freeze; dirty tracking is two packed bitsets replacing persistent `Set<int>` accumulation, enumerated for incremental consumers; `Parallel` runs a caller struct action over a caller-named index extent via `ParallelHelper`, allocation-free with the floor a policy row; the per-corner UV pair rents lazily on first `SetCornerUv`, rides faces so a weld never disturbs it, ingests per-vertex native texture coordinates at `Of(MeshSpace)`, and publishes wedge-faithfully at the freeze — a seam vertex whose corners disagree splits once per distinct UV, so no island's UV overwrites another's.
 - Receipt: none — the arena is build state, not evidence; the `MeshSpace` the freeze publishes is the receipt-bearing artifact, and dirty bitsets are working state a consumer projects.
-- Packages: CommunityToolkit.HighPerformance (span planes, `ArrayPool` rent-resize, pooled kernel staging, `ParallelHelper` struct-action folds, packed bitsets), System.Numerics.Tensors (`TensorPrimitives.IsFiniteAll<double>` the freeze gate), `Rasm.Meshing` (`MeshSpace`/`MeshSpace.Of` freeze re-admission and native `Mesh` rebuild), `Rasm.Numerics` (`Predicate.Orient2D` + `Axis` the exact quad-diagonal gate), Rasm.Domain (`Context`, `Op`, `Kind`), LanguageExt.Core (`Fin` the freeze rail), Rhino.Geometry (`Mesh`/`MeshFace`/`Point3d` native seam), BCL inbox (`ArrayPool<T>`).
-- Growth: a new bulk mutation — an edge-split pass, a tangential-relax sweep, a vertex-attribute column — is one arena verb or one further SoA column on the same rent/resize/dirty machinery; a new build primitive is one `Kernels` member over the same columns; a new parallel fold is one struct action; zero new carriers.
-- Boundary: `MeshEdit.Of` owns the kernel's one triangle-soup adapter, every consumer composing it rather than a per-page `Soup(MeshSpace)` copy; the weld kernel and its `WeldTolerance` knob live here — dedup-on-arena is an arena op, reached through no healing policy; in-place span kernels inside `MeshEdit`/`Kernels` are the arena tier's statement exemption, never leaking past the freeze, so every public egress is a span view, a value, or the `Fin<MeshSpace>` rail.
+- Packages: CommunityToolkit.HighPerformance (span planes, `ArrayPool` rent-resize, pooled kernel staging, `ParallelHelper` struct-action folds, packed bitsets), System.Numerics.Tensors (`TensorPrimitives.IsFiniteAll<double>` the freeze gate), `Rasm.Meshing` (`MeshSpace`/`MeshSpace.Of` freeze re-admission and native `Mesh` rebuild), `Rasm.Numerics` (`Predicate.Orient2D` + `Axis` the exact quad-diagonal gate), Rasm.Domain (`Context`, `Op`, `Kind`), LanguageExt.Core (`Fin` the freeze rail), Rhino.Geometry (`Mesh`/`MeshFace`/`Point3d` native seam, `Transform`/`Transform.Determinant` the transform pass's map and its orientation discriminant), BCL inbox (`ArrayPool<T>`).
+- Growth: a new bulk mutation — an edge-split pass, a tangential-relax sweep, a further per-vertex or per-corner attribute column — is one arena verb or one further SoA column on the same rent/resize/dirty machinery the UV pair already rides; a new build primitive is one `Kernels` member over the same columns; a new parallel fold is one struct action; zero new carriers.
+- Boundary: `MeshEdit.Of` owns the kernel's one triangle-soup adapter, every consumer composing it rather than a per-page `Soup(MeshSpace)` copy; the weld kernel and its `WeldTolerance` knob live here — dedup-on-arena is an arena op, reached through no healing policy; the transform pass owns MIRRORED geometry estate-wide, so a consumer needing a reflected part builds it as an admitted mesh through `Kernels.Apply(MeshEdit.Of(space), Transform.Mirror(plane))` and never places an admitted mesh under a reversing transform, which silently inverts the orientation its admission just proved; in-place span kernels inside `MeshEdit`/`Kernels` are the arena tier's statement exemption, never leaking past the freeze, so every public egress is a span view, a value, or the `Fin<MeshSpace>` rail.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -47,6 +47,9 @@ public sealed class MeshEdit : IDisposable {
     // Single-writer pooled SoA; columns rent from ArrayPool<T>.Shared and grow together by doubling. Statement bodies are the arena-tier exemption.
     double[] x, y, z;
     int[] tri;
+    // Per-corner (wedge) UV — rides the FACE corner, never the vertex, so a seam vertex carries one UV per island.
+    // Rented on first write; a UV-free arena allocates neither column.
+    double[]? uvU, uvV;
     ulong[] dirtyVertex, dirtyFace;
     int vertexCount, faceCount;
     readonly ArenaPolicy policy;
@@ -83,8 +86,16 @@ public sealed class MeshEdit : IDisposable {
                 edit.AddFace(face.B, face.C, face.D);
             }
         }
+        if (native.TextureCoordinates.Count == native.Vertices.Count) {
+            for (int f = 0; f < edit.faceCount; f++) {
+                (int a, int b, int c) = edit.Face(f);
+                edit.SetCornerUv(f, UvAt(native, a), UvAt(native, b), UvAt(native, c));
+            }
+        }
         return edit;
     }
+
+    static Point2d UvAt(Mesh mesh, int v) => new(mesh.TextureCoordinates[v].X, mesh.TextureCoordinates[v].Y);
 
     public static MeshEdit Of(ReadOnlySpan<Point3d> vertices, ReadOnlySpan<(int A, int B, int C)> faces, ArenaPolicy? policy = null) {
         MeshEdit edit = new(policy ?? ArenaPolicy.Canonical);
@@ -104,6 +115,10 @@ public sealed class MeshEdit : IDisposable {
     public Point3d Position(int v) => new(x[v], y[v], z[v]);
     public (int A, int B, int C) Face(int f) => (tri[3 * f], tri[3 * f + 1], tri[3 * f + 2]);
     public bool Alive(int f) => tri[3 * f] >= 0;
+    public bool HasUv => uvU is not null;
+    // Meaningful only under HasUv — the read projection mirrors Face, one triple per live face.
+    public (Point2d A, Point2d B, Point2d C) CornerUv(int f) =>
+        (new Point2d(uvU![3 * f], uvV![3 * f]), new Point2d(uvU[3 * f + 1], uvV[3 * f + 1]), new Point2d(uvU[3 * f + 2], uvV[3 * f + 2]));
     public BoundingBox Bounds(int f) =>
         new([Position(tri[3 * f]), Position(tri[3 * f + 1]), Position(tri[3 * f + 2])]);
 
@@ -135,6 +150,18 @@ public sealed class MeshEdit : IDisposable {
         BitHelper.SetFlag(ref dirtyFace[f >> 6], f & 63, true);
     }
 
+    // Wedge attribute write — the whole corner triple in one verb so a face never holds a partial UV row; columns
+    // rent lazily and grow with tri on the same doubling machinery.
+    public void SetCornerUv(int f, Point2d a, Point2d b, Point2d c) {
+        uvU ??= ArrayPool<double>.Shared.Rent(tri.Length);
+        uvV ??= ArrayPool<double>.Shared.Rent(tri.Length);
+        Grow(ref uvU, 3 * (f + 1)); Grow(ref uvV, 3 * (f + 1));
+        (uvU[3 * f], uvV[3 * f]) = (a.X, a.Y);
+        (uvU[3 * f + 1], uvV[3 * f + 1]) = (b.X, b.Y);
+        (uvU[3 * f + 2], uvV[3 * f + 2]) = (c.X, c.Y);
+        BitHelper.SetFlag(ref dirtyFace[f >> 6], f & 63, true);
+    }
+
     public void KillFace(int f) {
         (tri[3 * f], tri[3 * f + 1], tri[3 * f + 2]) = (-1, -1, -1);  // arena-internal tombstone; compacted at freeze
         BitHelper.SetFlag(ref dirtyFace[f >> 6], f & 63, true);
@@ -162,18 +189,30 @@ public sealed class MeshEdit : IDisposable {
                 Kind.Mesh, FirstNonFinite(), "non-finite arena coordinate").ToError());
         }
         Mesh mesh = new();
-        for (int v = 0; v < vertexCount; v++) mesh.Vertices.Add(x[v], y[v], z[v]);
-        for (int f = 0; f < faceCount; f++) {
-            if (Alive(f)) mesh.Faces.AddFace(tri[3 * f], tri[3 * f + 1], tri[3 * f + 2]);
+        if (uvU is null) {
+            for (int v = 0; v < vertexCount; v++) mesh.Vertices.Add(x[v], y[v], z[v]);
+            for (int f = 0; f < faceCount; f++) {
+                if (Alive(f)) mesh.Faces.AddFace(tri[3 * f], tri[3 * f + 1], tri[3 * f + 2]);
+            }
+        }
+        else {
+            SplitWedges(mesh, context);
         }
         mesh.Compact();  // culls orphaned vertices (tombstoned-face residue) before re-admission
         mesh.RebuildNormals();
         return MeshSpace.Of(mesh, context, key: key);
     }
 
+    // Wedge-faithful publish: native texture coordinates are per-vertex, so a vertex whose incident live corners
+    // disagree past Context.Absolute splits at the freeze — one duplicate per distinct corner UV, faces re-pointed,
+    // TextureCoordinates filled per published vertex. The last-island-wins seam loss is unrepresentable past this
+    // gate; a vertex whose corners agree publishes once.
+    void SplitWedges(Mesh mesh, Context context);
+
     public void Dispose() {
         ArrayPool<double>.Shared.Return(x); ArrayPool<double>.Shared.Return(y); ArrayPool<double>.Shared.Return(z);
         ArrayPool<int>.Shared.Return(tri);
+        if (uvU is not null) { ArrayPool<double>.Shared.Return(uvU); ArrayPool<double>.Shared.Return(uvV!); }
         ArrayPool<ulong>.Shared.Return(dirtyVertex); ArrayPool<ulong>.Shared.Return(dirtyFace);
     }
 
@@ -268,9 +307,31 @@ public static class Kernels {
         }
     }
 
+    // --- [TRANSFORM]
+    // One affine pass over the coordinate columns whose ORIENTATION repair is DERIVED, never requested: an
+    // orientation-reversing map is exactly a negative determinant, so every live face's corner order — and its
+    // wedge UV triple with it — reverses in the same sweep and the published winding still faces outward. A plane
+    // mirror, a handedness swap, and a negative-axis scale are all `Transform` values, so the mirror capability is
+    // this one primitive rather than a plane-shaped sibling, and no arm carries a mirror flag beside the map. A
+    // non-finite map needs no verdict here: the arena is total and the freeze's finiteness gate owns it. Normals
+    // re-derive at the freeze, so no consumer re-winds downstream.
+    public static MeshEdit Apply(MeshEdit edit, Transform xform) {
+        for (int v = 0; v < edit.VertexCount; v++) edit.SetPosition(v, xform * edit.Position(v));
+        if (xform.Determinant >= 0.0) return edit;
+        for (int f = 0; f < edit.FaceCount; f++) {
+            if (!edit.Alive(f)) continue;
+            (int a, int b, int c) = edit.Face(f);
+            edit.SetFace(f, c, b, a);
+            if (!edit.HasUv) continue;
+            (Point2d ua, Point2d ub, Point2d uc) = edit.CornerUv(f);
+            edit.SetCornerUv(f, uc, ub, ua);
+        }
+        return edit;
+    }
+
     // --- [QUAD_DIAGONAL]
     // Exact quad-split gate the mesh-ingress triangulation rides: true selects the A-C diagonal, false the B-D.
-    // A diagonal is interior when it separates the other two corners on the quad's dominant-axis projection
+    // One diagonal is interior when it separates the other two corners on the quad's dominant-axis projection
     // (Axis.DominantOf); the axis choice is float, the separation signs exact. A degenerate quad has no dominant
     // axis and collapses to the canonical B-D false. The bool verdict is frozen — cross-tier consumers bind it,
     // so the refusal resolves here rather than widening the ingress rail to Fin<bool>.
@@ -285,7 +346,7 @@ public static class Kernels {
 One contract carries store mutability and arena concurrency; a sibling store composes it by name.
 
 - Single-writer: an arena has exactly one mutating owner for its lifetime — no lock, no CAS, no interior synchronization. Concurrency enters only through the two sanctioned read modes: a frozen post-freeze projection, or partition-disjoint spans each parallel worker owns through `ParallelHelper` struct actions at the policy floor.
-- Publish-by-freeze: build state becomes composable truth only through the freeze seam — `ToSpace` → `MeshSpace.Of` here, the analogous emission projection on every sibling arena. A consumer holds the frozen artifact, never a live arena across an ownership boundary.
+- Publish-by-freeze: build state becomes composable truth only through the freeze seam — `ToSpace` → `MeshSpace.Of` here, the analogous emission projection on every sibling arena. Consumers hold the frozen artifact, never a live arena across an ownership boundary.
 - Hash-eligibility: content addressing — the reconciliation `Encode` chain over `XxHash128` — binds only frozen projections; a mid-build arena is never hashed, cached by content, or interned, and no arena mints a span-combine hash of its own.
 - Derived-state caching: derived solver state keys on the frozen snapshot reference and dies with it; `mesh.md`'s `LaplacianCache` owns that pattern, and an arena mints no second derived-state cache.
 - Capacity: every arena column grows by amortized doubling — `MeshEdit` through the pooled `ArrayPoolExtensions.Resize` verb, the heap-array sibling stores through `Array.Resize` at the same doubling law; the law is the doubling, the verb follows the store's storage class, and a store sized once from an input-derived `2n` guess is the rejected under-allocation.
@@ -299,11 +360,11 @@ One arena, one policy row, one kernel family; capability is a row, case, or fold
 | :-----: | :------------- | :------------ | :------------------------------------------------------ | :-----: |
 |  [01]   | Arena policy   | `ArenaPolicy` | value (composed by healing/arrangement policies)        |    —    |
 |  [02]   | Build arena    | `MeshEdit`    | `ToSpace(Context, Op?) → Fin<MeshSpace>` (the ONE rail) |    2    |
-|  [03]   | Arena kernels  | `Kernels`     | total (mutates the arena; no rail)                      |    2    |
+|  [03]   | Arena kernels  | `Kernels`     | total (mutates the arena; no rail)                      |    3    |
 
 - [01]-[ARENA_POLICY]: `record` policy row — capacity seed, weld-tolerance knob, parallel floor.
 - [02]-[BUILD_ARENA]: `sealed class` single-writer pooled SoA — one polymorphic `Of` (space | soup), mutation verbs, dirty bitsets, partition-disjoint `Parallel`, freeze.
-- [03]-[ARENA_KERNELS]: static primitive family — union-find tolerance-grid weld (idempotent, in-place), exact quad-diagonal gate over the `Axis.DominantOf` plane admission.
+- [03]-[ARENA_KERNELS]: static primitive family — union-find tolerance-grid weld (idempotent, in-place), determinant-derived affine transform with its orientation repair, exact quad-diagonal gate over the `Axis.DominantOf` plane admission.
 
 ## [05]-[RESEARCH]
 

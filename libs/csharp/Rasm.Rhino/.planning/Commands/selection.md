@@ -4,37 +4,50 @@
 
 ## [01]-[EVIDENCE]
 
-`PickCapture` carries durable object identity, view identity, detail identity, and an evidence-shaped `PickOrigin`. Its outer admission re-validates every public nested case and rebuilds canonical evidence before storage. `PickOrigin` replaces the raw host `SelectionMethod` wire with the total point/curve/surface evidence product; its positive native code remains diagnostic data, never a branch vocabulary.
+`PickCapture` carries durable object identity, view identity, detail identity, and an evidence-shaped `PickOrigin`. Its outer admission re-validates every public nested case and rebuilds canonical evidence before storage. `PickMethod` re-closes the host `SelectionMethod` wire as a keyed row — `Other` is the ordinal `0` every non-mouse selection (`SelAll`, a script, a saved set) reports, so admission is a roster lookup and never a positivity bound, which would refuse exactly those picks. `PickOrigin` carries that row beside the total point/curve/surface evidence product.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class PickMethod {
+    public static readonly PickMethod Other = new(key: (int)SelectionMethod.Other);
+    public static readonly PickMethod MousePick = new(key: (int)SelectionMethod.MousePick);
+    public static readonly PickMethod WindowBox = new(key: (int)SelectionMethod.WindowBox);
+    public static readonly PickMethod CrossingBox = new(key: (int)SelectionMethod.CrossingBox);
+
+    internal SelectionMethod Native => (SelectionMethod)Key;
+
+    internal static Fin<PickMethod> Of(SelectionMethod native, Op key) =>
+        TryGet((int)native, out PickMethod? row) ? Fin.Succ(value: row) : Fin.Fail<PickMethod>(error: key.InvalidResult());
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PickOrigin {
     private PickOrigin() { }
-    public sealed record Point(int NativeCode, Point3d Value) : PickOrigin;
-    public sealed record Curve(int NativeCode, Point3d Point, double Parameter) : PickOrigin;
-    public sealed record Surface(int NativeCode, Point3d Point, Point2d Uv) : PickOrigin;
+    public sealed record Point(PickMethod Method, Point3d Value) : PickOrigin;
+    public sealed record Curve(PickMethod Method, Point3d Point, double Parameter) : PickOrigin;
+    public sealed record Surface(PickMethod Method, Point3d Point, Point2d Uv) : PickOrigin;
     public sealed record CurveOnSurface(
-        int NativeCode,
+        PickMethod Method,
         Point3d Point,
         double Parameter,
         Point2d Uv) : PickOrigin;
 
     internal Fin<PickOrigin> Admit(Op key) => this switch {
-        Point row => Admit(row.NativeCode, row.Value, None, None, key),
-        Curve row => Admit(row.NativeCode, row.Point, Some(row.Parameter), None, key),
-        Surface row => Admit(row.NativeCode, row.Point, None, Some(row.Uv), key),
-        CurveOnSurface row => Admit(row.NativeCode, row.Point, Some(row.Parameter), Some(row.Uv), key),
+        Point row => Admit(row.Method, row.Value, None, None, key),
+        Curve row => Admit(row.Method, row.Point, Some(row.Parameter), None, key),
+        Surface row => Admit(row.Method, row.Point, None, Some(row.Uv), key),
+        CurveOnSurface row => Admit(row.Method, row.Point, Some(row.Parameter), Some(row.Uv), key),
     };
 
     internal static Fin<PickOrigin> Admit(
-        int nativeCode,
+        PickMethod method,
         Point3d point,
         Option<double> curve,
         Option<Point2d> surface,
         Op key) =>
         from _ in guard(
-                flag: nativeCode > 0
+                flag: method is not null
                     && point.IsValid
                     && curve.ForAll(double.IsFinite)
                     && surface.ForAll(static uv => uv.IsValid),
@@ -42,10 +55,10 @@ public abstract partial record PickOrigin {
             .ToFin()
         select (curve.Case, surface.Case) switch {
             (double parameter, Point2d uv) => (PickOrigin)new CurveOnSurface(
-                NativeCode: nativeCode, Point: point, Parameter: parameter, Uv: uv),
-            (double parameter, _) => new Curve(NativeCode: nativeCode, Point: point, Parameter: parameter),
-            (_, Point2d uv) => new Surface(NativeCode: nativeCode, Point: point, Uv: uv),
-            _ => new Point(NativeCode: nativeCode, Value: point),
+                Method: method, Point: point, Parameter: parameter, Uv: uv),
+            (double parameter, _) => new Curve(Method: method, Point: point, Parameter: parameter),
+            (_, Point2d uv) => new Surface(Method: method, Point: point, Uv: uv),
+            _ => new Point(Method: method, Value: point),
         };
 }
 
@@ -73,6 +86,12 @@ public abstract partial record PickView {
             None: () => detailSerial is 0
                 ? Fin.Succ(Option<PickView>.None)
                 : Fin.Fail<Option<PickView>>(error: key.InvalidResult()));
+
+    internal Fin<RhinoView> Live(Op key) =>
+        key.Catch(() => Optional(RhinoView.FromRuntimeSerialNumber(serialNumber: Switch(
+                main: static row => row.RuntimeSerial,
+                detail: static row => row.RuntimeSerial)))
+            .ToFin(Fail: key.MissingContext()));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -175,17 +194,35 @@ public sealed partial class PartKind {
 
 ## [03]-[POLICY]
 
-`PickPolicy` is generated from `PickRule` data. One row owns each independent `PickContext` dimension, and duplicate dimensions fail admission; adding a host dimension extends the case family instead of widening a constructor bag.
+`PickPolicy` is generated from `PickRule` data. One row owns each independent `PickContext` dimension, and duplicate dimensions fail admission; adding a host dimension extends the case family instead of widening a constructor bag. Every host discriminant re-closes as a keyed row — `PickGesture` over `PickStyle`, `PickRender` over `PickMode`, each keyed on the host ordinal so the roster cannot silently outgrow a hand-numbered literal — and the view dimension carries the durable `PickView` serial, resolved to a live `RhinoView` at `Apply`. A stored policy therefore holds no host handle and no raw host enum, so it survives a view closing between authoring and execution as a typed refusal rather than a dangling reference.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class PickGesture {
+    public static readonly PickGesture None = new(key: (int)PickStyle.None);
+    public static readonly PickGesture Point = new(key: (int)PickStyle.PointPick);
+    public static readonly PickGesture Window = new(key: (int)PickStyle.WindowPick);
+    public static readonly PickGesture Crossing = new(key: (int)PickStyle.CrossingPick);
+
+    internal PickStyle Native => (PickStyle)Key;
+}
+
+[SmartEnum<int>]
+public sealed partial class PickRender {
+    public static readonly PickRender Wireframe = new(key: (int)PickMode.Wireframe);
+    public static readonly PickRender Shaded = new(key: (int)PickMode.Shaded);
+
+    internal PickMode Native => (PickMode)Key;
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PickRule : ISlotted {
     private PickRule() { }
-    public sealed record InView(RhinoView Value) : PickRule;
+    public sealed record InView(PickView Value) : PickRule;
     public sealed record Along(Line Value) : PickRule;
-    public sealed record Styled(PickStyle Value) : PickRule;
-    public sealed record Rendered(PickMode Value) : PickRule;
+    public sealed record Styled(PickGesture Value) : PickRule;
+    public sealed record Rendered(PickRender Value) : PickRule;
     public sealed record Grouped(bool Enabled) : PickRule;
     public sealed record SubObjected(bool Enabled) : PickRule;
     public sealed record Transformed(Transform Value) : PickRule;
@@ -193,28 +230,33 @@ public abstract partial record PickRule : ISlotted {
 
     public virtual object SlotKey => GetType();
 
-    internal Fin<Unit> Admit(Op key) => guard(this switch {
-        InView row => row.Value is not null,
-        Along row => row.Value.IsValid,
-        Styled row => Enum.IsDefined(row.Value),
-        Rendered row => Enum.IsDefined(row.Value),
-        Transformed row => row.Value.IsValid,
-        _ => true,
-    }, key.InvalidInput()).ToFin();
+    internal Fin<Unit> Admit(Op key) => this switch {
+        InView row => Optional(row.Value).ToFin(Fail: key.InvalidInput()).Bind(view => view.Admit(key)).Map(static _ => unit),
+        Along row => guard(row.Value.IsValid, key.InvalidInput()).ToFin(),
+        Styled row => guard(row.Value is not null, key.InvalidInput()).ToFin(),
+        Rendered row => guard(row.Value is not null, key.InvalidInput()).ToFin(),
+        Transformed row => guard(row.Value.IsValid, key.InvalidInput()).ToFin(),
+        _ => Fin.Succ(value: unit),
+    };
 
-    internal Fin<Unit> Apply(PickContext context, Op key) => key.Catch(() => {
+    internal Fin<Unit> Apply(PickContext context, Op key) =>
         Switch(
-            state: context,
-            inView: static (target, rule) => { target.View = rule.Value; return unit; },
-            along: static (target, rule) => { target.PickLine = rule.Value; return unit; },
-            styled: static (target, rule) => { target.PickStyle = rule.Value; return unit; },
-            rendered: static (target, rule) => { target.PickMode = rule.Value; return unit; },
-            grouped: static (target, rule) => { target.PickGroupsEnabled = rule.Enabled; return unit; },
-            subObjected: static (target, rule) => { target.SubObjectSelectionEnabled = rule.Enabled; return unit; },
-            transformed: static (target, rule) => { target.SetPickTransform(rule.Value); return unit; },
-            refreshClipping: static (target, _) => { target.UpdateClippingPlanes(); return unit; });
-        return Fin.Succ(unit);
-    });
+            state: (Target: context, Op: key),
+            inView: static (state, rule) => rule.Value.Live(state.Op)
+                .Bind(view => Write(state.Op, () => state.Target.View = view)),
+            along: static (state, rule) => Write(state.Op, () => state.Target.PickLine = rule.Value),
+            styled: static (state, rule) => Write(state.Op, () => state.Target.PickStyle = rule.Value.Native),
+            rendered: static (state, rule) => Write(state.Op, () => state.Target.PickMode = rule.Value.Native),
+            grouped: static (state, rule) => Write(state.Op, () => state.Target.PickGroupsEnabled = rule.Enabled),
+            subObjected: static (state, rule) => Write(state.Op, () => state.Target.SubObjectSelectionEnabled = rule.Enabled),
+            transformed: static (state, rule) => Write(state.Op, () => state.Target.SetPickTransform(rule.Value)),
+            refreshClipping: static (state, _) => Write(state.Op, state.Target.UpdateClippingPlanes));
+
+    private static Fin<Unit> Write(Op key, Action write) =>
+        key.Catch(() => {
+            write();
+            return Fin.Succ(value: unit);
+        });
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -224,8 +266,8 @@ public sealed record PickPolicy {
     public Seq<PickRule> Rules { get; }
 
     public static PickPolicy PointAt { get; } = new(rules: [
-        new PickRule.Styled(Value: PickStyle.PointPick),
-        new PickRule.Rendered(Value: PickMode.Shaded),
+        new PickRule.Styled(Value: PickGesture.Point),
+        new PickRule.Rendered(Value: PickRender.Shaded),
         new PickRule.Grouped(Enabled: false),
         new PickRule.SubObjected(Enabled: true),
         new PickRule.RefreshClipping(),
@@ -248,7 +290,7 @@ public sealed record PickReceipt(
 
 ## [04]-[PROJECTION]
 
-`Picks.Capture` projects borrowed references without taking custody. `CaptureOwned` consumes a returned reference sequence, accumulates every independent projection failure, and releases every entry. `Execute` derives and disposes one `PickContext`, captures `GetObjectUsed`, and returns only detached evidence.
+`Picks.Capture` projects borrowed references without taking custody. `CaptureOwned` consumes a returned reference sequence, accumulates every independent projection failure, and releases every entry. `Execute` derives and disposes one `PickContext`, captures `GetObjectUsed`, and returns only detached evidence. `Part` is a SCOPED projector, never an accessor: it mints the `Picked` view, hands it to the caller's projection, and lets it die with the call — the live `RhinoObject`, `GripObject`, `SubDComponent`, and `GeometryBase` it wraps carry no lease and no scope of their own, so returning the `Picked` itself is the deleted form and `Retain` is the one crossing that converts a part into owned custody.
 
 ```csharp signature
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -258,15 +300,16 @@ public static class Picks {
         from active in Optional(reference).ToFin(Fail: key.InvalidInput())
         from capture in key.Catch(() => {
             Point3d point = active.SelectionPoint();
-            int methodCode = Convert.ToInt32(active.SelectionMethod(), CultureInfo.InvariantCulture);
+            Fin<PickMethod> method = PickMethod.Of(native: active.SelectionMethod(), key: key);
             Option<double> curve = active.CurveParameter(parameter: out double t) is null ? None : Some(t);
             Option<Point2d> surface = active.SurfaceParameter(u: out double u, v: out double v) is null
                 ? None
                 : Some(new Point2d(x: u, y: v));
             uint detailSerial = active.SelectionViewDetailSerialNumber();
             return
+                from admittedMethod in method
                 from origin in PickOrigin.Admit(
-                    nativeCode: methodCode,
+                    method: admittedMethod,
                     point: point,
                     curve: curve,
                     surface: surface,
@@ -300,20 +343,25 @@ public static class Picks {
         }));
     }
 
-    public static Fin<Picked> Part(ObjRef reference, PartKind ask, Op key) =>
+    public static Fin<TOut> Part<TOut>(ObjRef reference, PartKind ask, Func<Picked, Fin<TOut>> project, Op key)
+        where TOut : notnull =>
         from _ in guard(RhinoApp.IsOnMainThread, key.InvalidContext())
         from active in Optional(reference).ToFin(Fail: key.InvalidInput())
         from kind in Optional(ask).ToFin(Fail: key.InvalidInput())
+        from body in Optional(project).ToFin(Fail: key.InvalidInput())
         from part in key.Catch(() => kind.Project(reference: active)
             .ToFin(key.Unsupported(geometryType: typeof(ObjRef), outputType: typeof(Picked))))
-        select part;
+        from result in key.Catch(() => body(arg: part))
+        select result;
 
-    public static Fin<GeometryHandle> Retain(Picked part, Op key) =>
-        from active in Optional(part).ToFin(Fail: key.InvalidInput())
-        from geometry in active.Geometry
-            .ToFin(key.Unsupported(geometryType: typeof(Picked), outputType: typeof(GeometryBase)))
-        from handle in GeometryCrossing.Cross(source: geometry, mode: CrossingMode.Detach, key: key)
-        select handle;
+    public static Fin<GeometryHandle> Retain(ObjRef reference, PartKind ask, Op key) =>
+        Part(
+            reference: reference,
+            ask: ask,
+            project: part => part.Geometry
+                .ToFin(key.Unsupported(geometryType: typeof(Picked), outputType: typeof(GeometryBase)))
+                .Bind(geometry => GeometryCrossing.Cross(source: geometry, mode: CrossingMode.Detach, key: key)),
+            key: key);
 
     public static Fin<PickReceipt> Execute(DocumentSession session, PickPolicy policy) {
         Op op = Op.Of();
@@ -343,23 +391,26 @@ public static class Picks {
                select receipt;
     }
 
-    public static Validation<Error, Seq<TOut>> Measured<TOut>(
+    public static Fin<Seq<TOut>> Measured<TOut>(
         DocumentSession session,
         AnalysisQuery ask,
         Seq<GeometryBase> subjects)
         where TOut : notnull {
         Op op = Op.Of();
-        return Optional(session).ToFin(Fail: op.InvalidInput()).Bind(active => active.Context(key: op)).Match(
-            Succ: domain => Analyze.In(context: domain)
-                .Run(operation: Analyze.Query<GeometryBase, TOut>(query: ask, key: op), input: [.. subjects]),
-            Fail: static Validation<Error, Seq<TOut>> (error) => error);
+        return Optional(session).ToFin(Fail: op.InvalidInput())
+            .Bind(active => active.Context(key: op))
+            .Bind(domain => Analyze.In(context: domain)
+                .Run(operation: Analyze.Query<GeometryBase, TOut>(query: ask, key: op), input: [.. subjects])
+                .ToFin());
     }
 }
 ```
 
 ## [05]-[BOUNDARY]
 
-`PickCapture` crosses into `Objects` as detached identity and selection evidence. `GeometryHandle` crosses into document geometry custody. `Picked` and `PickPolicy` remain call-window values, and no `ObjRef`, `RhinoView`, `PickContext`, or live geometry payload becomes durable state.
+`PickCapture` crosses into `Objects` as detached identity and selection evidence, and `GeometryHandle` crosses into document geometry custody. `PickPolicy` is durable by design and holds only detached rows — `PickView` serials, keyed `PickGesture`/`PickRender`, admitted value structs — so no `ObjRef`, `RhinoView`, `PickContext`, or live geometry payload becomes durable state. `Picked` is call-window-bounded structurally rather than by convention: `Part` scopes it into one projection and no entry on the page returns it.
+
+`Commands/**` is S1 and the marshal seam `HostThread` is S2, so an affinity guard here reads `RhinoApp.IsOnMainThread` directly — composing the seam downward is the forbidden upward edge, and the cost of that carve is that command-lane crossings stay off the marshal-latency ledger.
 
 ## [06]-[RESEARCH]
 

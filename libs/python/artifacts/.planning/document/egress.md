@@ -13,7 +13,7 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 - Owner: `DocumentEgress` — one `Finisher.arm` per step resolved off `FINISHERS`, never an `if step ==` cascade or a worker-side `match`; `LicenseLane` is read once at the value in `_stepped`, never a per-call knob. `Finishing` bundles every trusted policy value object while `Extras` carries the untrusted material (stamp bytes, attachment payload, Office credentials) — the admission split is trust, not concern, so passwords never ride the untrusted payload and stamp bytes never ride a trusted default.
 - Entry: `of` admits untrusted material exactly once through the `EgressPayload` `TypedDict`, its `extra_items=str` band folding the format-discriminated Office credential axis into `Extras.credentials`, and rejects an under-supplied step through `_PREREQ` into `EgressFault.incomplete` before the fold runs — the interior is total over admitted owners and never re-validates; material the selected footing's arm cannot express (a needle-bearing REDACT, an active-content SANITIZE demand, an ENCRYPT request at all under `PERMISSIVE`) refuses through the `_LANE_GAPS` predicate table as `EgressFault.lane`, never a silent drop or a weakened seal. One polymorphic entry owns both the singular step and the chain: the `EgressStep | tuple[EgressStep, ...]` discriminant threads finished bytes step-to-step through one `reduce`, never a caller-orchestrated re-entry or a `mode` knob.
 - Auto: each arm returns a `FinishFact` merged onto the running owner through the `FinishFact.combined` monoid (`rails-and-effects.md` STATE_RECEIPTS) — terminal bytes and page count ride the newest fact, single-owner scalars (`encryption_r`, `outline_depth`) survive by right-or-left, additive counters sum — so a chain's earlier evidence never vanishes under a later step's default zeros and `contribute` reads the whole chain's facts without a second parse. `pypdf` is reserved for the structural OUTLINE/IMPOSE/NAVIGATE/FORMS arms and the gated SANITIZE/OPTIMIZE second passes it owns, never a parallel encryptor — qpdf authors every encryption strength through one `pikepdf.Encryption` leg, and ENCRYPT carries NO permissive alternate because the `pdf_oxide` seal omits the `/Perms` entry its own R6/V5 dictionary requires. Native packages bind as module-scope `lazy import` reified on first arm use; no native import lands on the core owner.
-- Receipt: the node key mints PRE-RUN over the canonical input (steps, source, node, finishing, extras, footing) so keyed admission probes the warm seed before the fold runs, and `receipt.slot == node.key`. REWRITE's OCG-strip count and FORMS' baked-widget count ride the `overlays` slot — content-composition operations of the watermark-overlay family.
+- Receipt: `of` mints the node key ONCE over the canonical pre-fold input (steps, source, node, finishing, extras, footing) and STAMPS it as `key` on the owner, so keyed admission probes the warm seed before the fold runs and `receipt.slot == node.key` holds on both the async and the synchronous port. The mint is carried state rather than a derivation because the finishing fold `structs.replace`s `source` with each arm's output and `step` with the arm that ran: a key re-derived from a finished owner addresses the OUTPUT under the LAST step's name, so it can only answer a key no plan node minted. REWRITE's OCG-strip count and FORMS' baked-widget count ride the `overlays` slot — content-composition operations of the watermark-overlay family.
 - Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms and the `ObjectDeletionFlag` object pruner; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive REDACT/SANITIZE arms and the STRIP running-content removal no other step owns, never an ENCRYPT arm; `msoffcrypto` the bidirectional Office confidentiality rail.
 - Growth: a new finishing step is one `EgressStep` row, one `Finisher` row, and one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm, never a parallel license-keyed table; a new policy concern is one `Finishing` field carrying its own value object; a new receipt fact is one `FinishFact` field with its `combined` column, never a re-derivation off the bytes; an encryption strength is one `Strength` row with its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member with one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
 
@@ -21,7 +21,7 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Iterator
 from enum import StrEnum
-from functools import reduce
+from functools import partial, reduce
 from io import BytesIO
 from itertools import batched
 from math import isfinite
@@ -486,9 +486,15 @@ class Finisher(Struct, frozen=True):
 
 class DocumentEgress(Struct, frozen=True):
     # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
+    # `key` is the PRE-RUN mint, taken ONCE at `of` over the pre-fold spec and CARRIED as state: the finishing fold
+    # `structs.replace`s `source` with each arm's output bytes and `step` with the arm that ran, so re-deriving the
+    # key from a finished owner addresses the OUTPUT under the LAST step's name and answers a key no plan node ever
+    # minted. A closure capture cannot serve here — `contribute()` is the synchronous `ReceiptContributor` port and
+    # reaches no closure — so the mint rides the value every `structs.replace` preserves for free.
     step: EgressStep | tuple[EgressStep, ...]
     source: bytes
     lane: LanePolicy
+    key: ContentKey
     node: DocumentNode | None = None
     finishing: Finishing = field(default_factory=Finishing)
     extras: Extras = field(default_factory=Extras)
@@ -512,16 +518,7 @@ class DocumentEgress(Struct, frozen=True):
         return reduce(lambda live, step: live._stepped(step), self.steps, self)
 
     def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self._key, work=self._emit, parents=self.parents, admission=Admission(keyed=None), cost=float(len(self.source)))
-
-    @property
-    def _key(self) -> ContentKey:
-        # `node` joins the preimage as its `node_digest` content key through the runtime merkle fold (OUTLINE/REDACT
-        # derive bytes from the tree, and msgpack cannot integer-encode the live u128 `ContentKey` leaves a tree
-        # carries), so two egresses differing only by tree never alias. `ContentIdentity.key` mints the bare
-        # `ContentKey`; `.of` is the railed form and never keys a plan.
-        spec = ContentIdentity.key(f"egress-{self.steps[-1]}", _KEY_ENCODER.encode((self.steps, self.source, self.finishing, self.extras, self.footing)))
-        return spec if self.node is None else ContentIdentity.key(f"egress-{self.steps[-1]}", (spec, node_digest(self.node)))
+        return ArtifactWork(key=self.key, work=partial(self._emit, self.key), parents=self.parents, admission=Admission(keyed=None), cost=float(len(self.source)))
 
     @receipted(OPEN)  # egress facts carry no classified field, so the runtime keep-all `OPEN` policy rides directly, never a re-minted per-file `Redaction`
     async def _finished(self) -> Self:
@@ -529,9 +526,9 @@ class DocumentEgress(Struct, frozen=True):
         crossed = await self.lane.offload(Kernel.of(self.finished, KernelTrait.RELEASING))
         return crossed.default_with(lambda fault: _egress_raise(fault))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # Terminal receipt threads the PRE-RUN input key so receipt.slot == node.key.
-        return (await async_boundary(f"egress.{'+'.join(self.steps)}", self._finished)).map(lambda live: live._receipt(self._key))
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
+        return (await async_boundary(f"egress.{'+'.join(self.steps)}", self._finished)).map(lambda live: live._receipt(key))
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
         fact = self.fact if self.fact is not None else FinishFact(data=self.source)
@@ -561,9 +558,12 @@ class DocumentEgress(Struct, frozen=True):
         )
 
     def contribute(self) -> Iterable[Receipt]:
-        if self.fact is None:  # contribute rides the finished owner the fold returned, never the pre-fold seed
+        # contribute rides the FINISHED owner the fold returned, whose `source` is the output bytes and whose `step`
+        # is the last arm that ran — so the carried `key` is the only honest slot here; deriving one from this state
+        # would address the output under the last step's name and answer a key no plan node ever minted.
+        if self.fact is None:
             return
-        yield from self._receipt(self._key).contribute()
+        yield from self._receipt(self.key).contribute()
 
     @classmethod
     def of(
@@ -589,8 +589,18 @@ class DocumentEgress(Struct, frozen=True):
             return Error(EgressFault(payload=tuple(str(error["loc"]) for error in fault.errors())))
         credentials = frozendict({name: value for name, value in payload.items() if name not in _DECLARED})
         known = {name: value for name, value in payload.items() if name in _DECLARED}
+        extras = Extras(credentials=credentials, **known)
+        # ONE mint, here, over the PRE-FOLD spec — every field it reads is final at this point and the finishing
+        # fold's `structs.replace` carries the stamped value untouched.
         candidate = cls(
-            step=step, source=source, lane=lane, node=node, finishing=finishing, extras=Extras(credentials=credentials, **known), footing=footing
+            step=step,
+            source=source,
+            lane=lane,
+            key=_minted(steps, source, node, finishing, extras, footing),
+            node=node,
+            finishing=finishing,
+            extras=extras,
+            footing=footing,
         )
         # each permissive arm expresses a strict subset of its rich sibling's policy axes, so admission refuses any
         # step whose `_LANE_GAPS` predicate proves the material inexpressible rather than silently weakening policy.
@@ -620,6 +630,17 @@ class DocumentEgress(Struct, frozen=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+def _minted(
+    steps: tuple[EgressStep, ...], source: bytes, node: DocumentNode | None, finishing: Finishing, extras: Extras, footing: LicenseLane, /
+) -> ContentKey:
+    # `node` joins the preimage as its `node_digest` content key through the runtime merkle fold (OUTLINE/REDACT
+    # derive bytes from the tree, and msgpack cannot integer-encode the live u128 `ContentKey` leaves a tree
+    # carries), so two egresses differing only by tree never alias. `ContentIdentity.key` mints the bare
+    # `ContentKey`; `.of` is the railed form and never keys a plan. Called exactly once per owner, at admission.
+    spec = ContentIdentity.key(f"egress-{steps[-1]}", _KEY_ENCODER.encode((steps, source, finishing, extras, footing)))
+    return spec if node is None else ContentIdentity.key(f"egress-{steps[-1]}", (spec, node_digest(node)))
+
+
 def _egress_raise(fault: object) -> "DocumentEgress":
     # terminal collapse at the finishing boundary: an offload fault reconstructs the raise the node's rail folds.
     raise ValueError(str(fault))

@@ -59,7 +59,7 @@ from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, Ha
 from rasm.compute.numerics.jit import JitBackend, LoweredSpec
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
 if TYPE_CHECKING:
     from sympy import Expr
@@ -718,7 +718,7 @@ def _as_fmpq(sym: object, cell: object) -> object:
 
 class SymbolicDerivation:
     @staticmethod
-    def derive(form: ExprForm, spec: SymbolSpec, *ops: SymbolicOp) -> "RuntimeRail[SymbolicReceipt]":
+    def derive(form: ExprForm, spec: SymbolSpec, *ops: SymbolicOp, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SymbolicReceipt]":
         # admit-then-bind: the canonical key resolves before the `boundary` fence, so a canonical-encode fault rails first; the
         # whole derivation runs under the `compute.symbolic` span, the weave harvest emitting the receipt on the clean exit.
         terminal = ops[-1].tag if ops else "noop"
@@ -729,18 +729,22 @@ class SymbolicDerivation:
             )
 
         facts = {"terminal": terminal, "op_count": len(ops), "symbols": ",".join(spec.names)}
-        return evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=facts)
+        return evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=facts, composition=composition)
 
 
 # symbolic family's DEFAULT graduation ceiling — the stability law as data, caller-overridable.
 _CEILING: Final[Map[str, float]] = Map.of_seq([("radius", 1e-12), ("unstable", 0.0)])
 
 
-def graduates(receipt: SymbolicReceipt, *, certified: bool, radius: float = 0.0) -> "RuntimeRail[GraduationReceipt]":
-    # either the ledger clears the `_CEILING` family row or the hub rejects the crossing.
+def graduates(
+    receipt: SymbolicReceipt, *, certified: bool, radius: float = 0.0, composition: ScopeKey = DEFAULT_SCOPE
+) -> "RuntimeRail[GraduationReceipt]":
+    # either the ledger clears the `_CEILING` family row or the hub rejects the crossing; `composition` is the caller's
+    # custody key threaded onto the hub, the same key `derive` already threads onto the weave, so a derivation and the
+    # crossing it graduates report into ONE composition rather than splitting across the root scope.
     ledger = {"radius": radius, "unstable": 0.0 if certified else 1.0}
     return GraduationReceipt.graduates(
-        EvidenceScope.SYMBOLIC.value, HandoffAxis(symbolic=receipt.op), receipt.content_key, ledger, dict(_CEILING.items())
+        EvidenceScope.SYMBOLIC.value, HandoffAxis(symbolic=receipt.op), receipt.content_key, ledger, dict(_CEILING.items()), composition=composition
     )
 
 

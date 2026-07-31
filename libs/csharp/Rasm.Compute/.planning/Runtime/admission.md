@@ -334,6 +334,7 @@ public abstract partial record ComputeFault : Expected, IValidationError<Compute
     public sealed record AllocationOverClass : ComputeFault { public AllocationOverClass(string detail) : base(detail, 2210) { } }
     public sealed record EquivalenceMiss : ComputeFault { public EquivalenceMiss(string detail) : base(detail, 2211) { } }
     public sealed record CacheCorrupt : ComputeFault { public CacheCorrupt(string detail) : base(detail, 2212) { } }
+    public sealed record LaneSaturated : ComputeFault { public LaneSaturated(string detail) : base(detail, 2213) { } }
 }
 
 public readonly record struct SelectionHop(Substrate Row, Option<string> Rejection);

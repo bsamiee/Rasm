@@ -2,7 +2,7 @@
 
 `Rasm.Parametric` subdivision refines a mesh through one fold over stencil-row schemes: each `SubdivisionScheme` carries its stencil data as delegate columns, and every level emits the subdivision operator as a sparse matrix, so refinement is SpMV sweeps over the level positions and the next scheme is one row, never a sibling subdivider. Limit-surface evaluation through the Stam eigen lane is mandatory: an owner emitting refined positions with no limit lane is a discrete-refinement half-concept.
 
-Refinement is the only Parametric surface that outputs a mesh, published through the `MeshEdit` arena and the `MeshSpace` quad seam. Quads stay quads for `panelize.md` — pre-triangulating corrupts every level-≥2 re-subdivision, so triangulation is the consumer's arena-admission choice. Region subdivision rides `SubdividePolicy.Region` as a policy column sealing T-junctions at the region boundary, serving the Generation gate with no new surface.
+Refinement is the only Parametric surface that outputs a mesh, published through the `MeshEdit` arena and the `MeshSpace` quad seam; a `Uv` channel rides the same operator as two more SpMV planes, so a refined `UvTessellation` hand-off keeps its parameterization. Quads stay quads for `panelize.md` — pre-triangulating corrupts every level-≥2 re-subdivision, so triangulation is the consumer's arena-admission choice. Region subdivision rides `SubdividePolicy.Region` as a policy column sealing T-junctions at the region boundary, serving the Generation gate with no new surface.
 
 ## [01]-[INDEX]
 
@@ -10,12 +10,12 @@ Refinement is the only Parametric surface that outputs a mesh, published through
 
 ## [02]-[SUBDIVISION]
 
-- Owner: `SubdivisionScheme` `[SmartEnum<string>]` mints the scheme vocabulary as delegate-column data the fold never branches on; `SubdividePolicy` binds the crease and region rows as `IValidityEvidence`.
+- Owner: `SubdivisionScheme` `[SmartEnum<string>]` mints the scheme vocabulary as delegate-column data the fold never branches on; `SubdividePolicy` binds the edge-crease, vertex-corner, and region rows as `IValidityEvidence`.
 - Entry: `Apply` is the one polymorphic entry, discriminating on the op case.
 - Auto: `Refine` folds levels through the per-level sparse operator, the terminal level emitting the limit operator; `Limit` routes `(face, u, v)` samples through the Stam eigen lane.
 - Receipt: `SubdivisionReceipt` is the typed refinement census.
 - Packages: `Rasm.Numerics` for the sparse operators and the Stam EVD, `Rasm.Meshing` for the `MeshSpace` quad publish and `MeshEdit` tri arena, `Rasm.Domain` for `Op`/`Context`/validity, Rhino.Geometry for the native quad seam, Thinktecture.Runtime.Extensions for `[SmartEnum]` delegate columns, LanguageExt.Core for the `Fin` rail and the `Atom` cache cell, and BCL `ArrayPool<double>` for level staging.
-- Growth: a new primal scheme is one `SubdivisionScheme` row with its delegate columns; a dual (Doo-Sabin) or √3 scheme adds one refinement-topology delegate the same fold reads, the `Arity ∈ {3,4}` gate keeping a topology-less row loud. A new boundary behavior is one mask variant, adaptive sharpness a `Creases` widening, a new limit quantity one mask column and one SpMV — zero new entry surfaces.
+- Growth: a new primal scheme is one `SubdivisionScheme` row with its delegate columns; a dual (Doo-Sabin) or √3 scheme adds one refinement-topology delegate the same fold reads, the `Arity ∈ {3,4}` gate keeping a topology-less row loud. New boundary behavior is one mask variant, adaptive sharpness a `Creases`/`Corners` widening, a new per-vertex channel one more SpMV plane beside the UV pair, a new limit quantity one mask column and one SpMV — zero new entry surfaces.
 - Boundary: the scheme is data and the fold is one, so a per-scheme subdivider class, a hand-rolled half-edge beside the flat SoA incidence, or a per-vertex weight loop re-deriving the SpMV is the density defect; the operator is a `matrix.md` sparse value and its eigenstructure the landed complex-general EVD, never a local eigensolver.
 
 ```csharp signature
@@ -78,14 +78,17 @@ public static class BoundaryMask {
 }
 
 // Semi-sharp creases: Sharpness decrements per level, so s runs ⌈s⌉ crease rounds then relaxes. Region empty = whole mesh.
-public sealed record SubdividePolicy(Arr<(int A, int B, double Sharpness)> Creases, Arr<int> Region) : IValidityEvidence {
-    public static readonly SubdividePolicy Canonical = new(Arr<(int, int, double)>.Empty, Arr<int>.Empty);
+// Corners are the per-VERTEX sharpness column — a corner vertex holds its position through ⌈s⌉ rounds (the corner
+// stencil row) then relaxes, the same decrement law the edge creases ride.
+public sealed record SubdividePolicy(Arr<(int A, int B, double Sharpness)> Creases, Arr<(int Vertex, double Sharpness)> Corners, Arr<int> Region) : IValidityEvidence {
+    public static readonly SubdividePolicy Canonical = new(Arr<(int, int, double)>.Empty, Arr<(int, double)>.Empty, Arr<int>.Empty);
 
-    public bool IsValid => Creases.All(static edge => edge.A != edge.B && ValidityClaim.Positive(value: edge.Sharpness));
+    public bool IsValid => Creases.All(static edge => edge.A != edge.B && ValidityClaim.Positive(value: edge.Sharpness))
+        && Corners.All(static corner => corner.Vertex >= 0 && ValidityClaim.Positive(value: corner.Sharpness));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------------
-public sealed record SubdivisionReceipt(int Levels, int Vertices, int Faces, int Extraordinary, int CreasedEdges, int RegionClosures);
+public sealed record SubdivisionReceipt(int Levels, int Vertices, int Faces, int Extraordinary, int CreasedEdges, int SharpCorners, int RegionClosures);
 
 // Non-symmetric subdivision matrix decomposed once via complex-general EVD; the imaginary-residual gate rejects a defective basis.
 public sealed record StamBasis(int Valence, Arr<double> Eigenvalues, Matrix Basis, Matrix InverseBasis);
@@ -110,7 +113,9 @@ internal static class StamCache {
 public abstract partial record SubdivideOp {
     private SubdivideOp() { }
 
-    public sealed record Refine(MeshSpace Space, SubdivisionScheme Scheme, int Levels, SubdividePolicy Policy, Context Tolerance) : SubdivideOp;
+    // Uv is the face-varying channel handoff — the SAME per-level sparse operator runs two more SpMV sweeps
+    // over the (u, v) planes, so a refined UvTessellation keeps its parameterization instead of dropping it.
+    public sealed record Refine(MeshSpace Space, SubdivisionScheme Scheme, int Levels, SubdividePolicy Policy, Context Tolerance, Option<Arr<Point2d>> Uv = default) : SubdivideOp;
     public sealed record Limit(MeshSpace Space, SubdivisionScheme Scheme, Arr<(int Face, double U, double V)> Samples, SubdividePolicy Policy) : SubdivideOp;
 }
 
@@ -119,7 +124,7 @@ public abstract partial record SubdivisionResult {
     private SubdivisionResult() { }
 
     // Limit is one more SpMV over scheme-owned masks, never a knob.
-    public sealed record Refined(MeshSpace Mesh, Arr<Point3d> LimitPositions, Arr<Vector3d> LimitNormals, SubdivisionReceipt Receipt) : SubdivisionResult;
+    public sealed record Refined(MeshSpace Mesh, Arr<Point3d> LimitPositions, Arr<Vector3d> LimitNormals, Option<Arr<Point2d>> Uv, SubdivisionReceipt Receipt) : SubdivisionResult;
     public sealed record LimitField(Arr<Point3d> Points, Arr<Vector3d> Normals) : SubdivisionResult;
 }
 
@@ -135,22 +140,23 @@ public static class Subdivision {
         !op.Policy.IsValid || op.Levels < 1
             ? Fault<SubdivisionResult>(unit: 0, level: op.Levels)
             : AdmitBase(op).Bind(baseLevel => Range(0, op.Levels).Fold(
-                    Fin.Succ((Level: baseLevel, Creases: op.Policy.Creases, Closures: 0)),
-                    (state, level) => state.Bind(s => Advance(op.Scheme, s.Level, s.Creases, op.Policy.Region, level)
-                        .Map(next => (next.Level, next.Creases, s.Closures + next.Closures)))))
+                    Fin.Succ((Level: baseLevel, Creases: op.Policy.Creases, Corners: op.Policy.Corners, Closures: 0)),
+                    (state, level) => state.Bind(s => Advance(op.Scheme, s.Level, s.Creases, s.Corners, op.Policy.Region, level)
+                        .Map(next => (next.Level, next.Creases, next.Corners, s.Closures + next.Closures)))))
                 .Bind(terminal => Publish(op, terminal.Level, terminal.Closures, key));
 
-    internal sealed record SubdivisionLevel(double[] X, double[] Y, double[] Z, int[] Corners, int[] FaceOffsets, EdgeTable Edges);
+    internal sealed record SubdivisionLevel(double[] X, double[] Y, double[] Z, int[] Corners, int[] FaceOffsets, EdgeTable Edges, Option<(double[] U, double[] V)> Uv);
     internal sealed record EdgeTable(int[] A, int[] B, int[] LeftFace, int[] RightFace, double[] Sharpness);
 
-    static Fin<SubdivisionLevel> AdmitBase(SubdivideOp.Refine op);   // Loop: MeshEdit.Of(space) exact-diagonal tri base; CatmullClark: space.Native polygons direct
-    static Fin<(SubdivisionLevel Level, Arr<(int A, int B, double Sharpness)> Creases, int Closures)> Advance(
-        SubdivisionScheme scheme, SubdivisionLevel level, Arr<(int A, int B, double Sharpness)> creases, Arr<int> region, int at);
+    static Fin<SubdivisionLevel> AdmitBase(SubdivideOp.Refine op);   // Loop: MeshEdit.Of(space) exact-diagonal tri base; CatmullClark: space.Native polygons direct; op.Uv seeds the level's UV planes (count == vertex count gated)
+    static Fin<(SubdivisionLevel Level, Arr<(int A, int B, double Sharpness)> Creases, Arr<(int Vertex, double Sharpness)> Corners, int Closures)> Advance(
+        SubdivisionScheme scheme, SubdivisionLevel level, Arr<(int A, int B, double Sharpness)> creases, Arr<(int Vertex, double Sharpness)> corners, Arr<int> region, int at);
     // Advance = ONE sorted-edge-key incidence pass (3+ incident faces → fault) → stencil triplets (interior off scheme columns,
-    // boundary/crease/corner off BoundaryMask, region + ring closure counted) → FromTriplets → Multiply ×3 → Arity rebuild
-    // (one quad/corner at 4, four tris at 3; Arity ∉ {3,4} → fault); child creases carry Sharpness − 1.
+    // boundary/crease/corner off BoundaryMask, a Corners row pinning its vertex stencil to identity, region + ring closure
+    // counted) → FromTriplets → Multiply ×3 (+×2 over the UV planes when the level carries them) → Arity rebuild
+    // (one quad/corner at 4, four tris at 3; Arity ∉ {3,4} → fault); child creases and corners carry Sharpness − 1.
 
-    static Fin<SubdivisionResult> Publish(SubdivideOp.Refine op, SubdivisionLevel terminal, int closures, Op? key);
+    static Fin<SubdivisionResult> Publish(SubdivideOp.Refine op, SubdivisionLevel terminal, int closures, Op? key);  // terminal.Uv projects onto Refined.Uv, absent stays None
     // Limit SpMV (LimitStencil rows) + tangent-mask pair → normals; Loop publishes MeshEdit.Of(vertices, tris).ToSpace,
     // CatmullClark the native quad Mesh → MeshSpace.Of.
 

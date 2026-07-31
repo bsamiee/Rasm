@@ -420,6 +420,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Hatch pattern lowering to consumer surfaces
+    accDescr: A pattern spec resolving through admission into a total operation match lowering onto DXF definition rows, an SVG tile, and boolean geometry over one stroke generator and one dash fold, each lowering consumed by the standard, layered-export, and schedule-legend surfaces.
     Spec["PatternSpec (StrokeFamily angle/origin/delta/Motif + spacing + DensityLaw)"] --> Op["PatternOp dxf|svg|geometry"]
     Op --> Admit["_admitted(op) -> accumulated faults | resolved spacing"]
     Presets["PRESETS frozendict[SectionPattern, PatternSpec]"] -.->|DATA rows| Spec

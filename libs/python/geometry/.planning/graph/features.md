@@ -10,11 +10,11 @@ Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) im
 
 ## [02]-[FEATURES]
 
-- Owner: `Features` holds the conditioned `trimesh.Trimesh`. `GraphMode` resolves `create_using` over the full `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family, so directedness and multiplicity form one bounded vocabulary, never a `directed`/`multi` knob pair; `GraphBackend` threads once as `backend=` into every reducer, never forked per call site nor mutating a global `nx.config`; `MarkSpace` keys `MARK_PROJECT` dispatch, so a detector's mark space and its projection cannot cross-index — the kinds reuse two edge arms and one facet arm. Every threshold, cap, solver bound, and analytic toggle is a `FeaturePolicy` field; `power_iter` caps power iteration, threaded as `max_iter` into the eigenvector/pagerank reducers.
+- Owner: `Features` holds the conditioned `trimesh.Trimesh` beside its lane and its composition `ScopeKey`, so every weave call this owner makes stamps the key the app root bound rather than a default. `GraphMode` resolves `create_using` over the full `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family, so directedness and multiplicity form one bounded vocabulary, never a `directed`/`multi` knob pair; `GraphBackend` threads once as `backend=` into every reducer, never forked per call site nor mutating a global `nx.config`; `MarkSpace` keys `MARK_PROJECT` dispatch, so a detector's mark space and its projection cannot cross-index — the kinds reuse two edge arms and one facet arm. Every threshold, cap, solver bound, and analytic toggle is a `FeaturePolicy` field; `power_iter` caps power iteration, threaded as `max_iter` into the eigenvector/pagerank reducers.
 - Entry: `run` discriminates a single request or a batch, each returning through its own weave rail; the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence`) and trimesh cache faults convert exactly once at the weave's fence. `bridged` never collapses an offload fault into a synthetic empty result — a failure stays an `Error(BoundaryFault)` on the returned rail.
-- Receipt: phase is data-driven — `emitted` for a graph with nodes, `admitted` for a vacuous feature set; `_HEAD_OPS` centrality rows read `peak` so the load-bearing centrality signal survives onto the flat facts map, count/partition rows read `as_scalar`, and leaderboards/partitions stay OFF the flat map on the typed `Census.values`; every kind gates `empty_graph_fraction` against the zero ceiling, so a no-node projection does not graduate; node-link evidence is real JSON bytes, never a Python `repr`; `frame` projects one held analytic board through the graduation `EvidenceFrame` port off the substrate's `tabled` columns, so a centrality leaderboard crosses the geometry-to-data seam with zero receipt re-parsing.
+- Receipt: phase is data-driven — `emitted` for a graph with nodes, `admitted` for a vacuous feature set; `_HEAD_OPS` centrality rows read `peak` so the load-bearing centrality signal survives onto the flat facts map, count/partition rows read `as_scalar`, and leaderboards/partitions stay OFF the flat map on the typed `Census.values`; every kind gates `empty_graph_fraction` against the zero ceiling, so a no-node projection does not graduate; node-link evidence is real JSON bytes, never a Python `repr`; `frame` projects one held analytic board through the graduation `EvidenceFrame` port off the substrate's `tabled` columns, so a centrality leaderboard crosses the geometry-to-data seam with zero receipt re-parsing. Both egress ports fold the receipt's own `spec` — the node-link document beside the detector kind — through the spine's `evidence_key` mint, so `graduates()` and `frame()` key one evidence identically and neither takes a key from its caller.
 - Packages: `trimesh`, `numpy`, and `networkx` per the fence imports; the analytic vocabulary and the graduation spine import downward from their geometry owners.
-- Growth: a new feature kind is one `FeatureKind` row and one `FEATURE_OPS` row and one `CASE` row; a new mark space is one `MarkSpace` member and one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row and one `ANALYTICS` row — and `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
+- Growth: a new feature kind is one `FeatureKind` row and one `FEATURE_OPS` row, the graduation axes riding the one `_FEATURE_CASE` value unchanged; a new mark space is one `MarkSpace` member and one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row and one `ANALYTICS` row — and `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
 - Boundary: mesh repair/winding/boolean is the `mesh/repair` sibling's over `trimesh`/`manifold3d`; non-manifold cell/aperture topology is the `nonmanifold` sibling's; compas numerical/form-finding is the `algebra` sibling's; raw mesh-file decode/encode and columnar edge-list reframing stay at the data seam. Both `network-graph` producers cross on the one geometry `HandoffAxis` case — mesh-feature projection here, compas adjacency there.
 
 ```python signature
@@ -23,23 +23,21 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from enum import StrEnum
 from functools import partial
 from types import MappingProxyType
-from typing import Final, Literal, assert_never
+from typing import Final, assert_never
 
 import msgspec
 import networkx as nx
 import numpy as np
 import trimesh
-from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 from numpy.typing import NDArray
 
-from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
+from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometryHandoff, GeometrySubject, evidence_key, evidence_run
 from rasm.geometry.graph.analytic import AnalyticValue, peak_of, ranked, scalar_of
 from rasm.runtime.faults import Disposition, RuntimeRail, traversed
-from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Phase, Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -190,16 +188,27 @@ class FeatureResult(Struct, frozen=True):
         phase: Phase = "emitted" if self.census.nodes else "admitted"
         return (Receipt.of("rasm.geometry.graph.features", (phase, self.graduation_subject, self.census.facts())),)
 
-    def graduates(self, evidence_key: ContentKey) -> GeometryHandoff:
-        spec = CASE[self.kind]
-        return GeometryHandoff.of(self.graduation_subject, evidence_key, spec.ledger(self.census), spec.ceiling)
+    @property
+    def spec(self) -> bytes:
+        # the bytes that DEFINE this evidence: the projected node-link document beside the detector kind that
+        # produced it, so two kinds over one mesh key distinctly and a re-run over identical input keys identically.
+        return b"|".join((self.kind.value.encode(), self.node_link))
 
-    def frame(self, evidence_key: ContentKey, op: AnalyticOp) -> "RuntimeRail[EvidenceFrame]":
+    def graduates(self) -> GeometryHandoff:
+        # the producer derives its own key off its own spec — the graduation spine's `evidence_key` is the one TOTAL
+        # mint, so no caller hands this receipt an identity it never computed and no rail wraps an infallible fold.
+        return GeometryHandoff.of(
+            self.graduation_subject, evidence_key(self.graduation_subject, self.spec), _FEATURE_CASE.ledger(self.census), _FEATURE_CASE.ceiling
+        )
+
+    def frame(self, op: AnalyticOp) -> "RuntimeRail[EvidenceFrame]":
         # analytic-board columnar egress through the graduation frame port: the substrate's `tabled` projection keys
         # columns, this producing page keys the subject — an unheld op frames the empty board, never a fault, while a
-        # ragged `tabled` projection rails at the port instead of raising past this producer.
+        # ragged `tabled` projection rails at the port instead of raising past this producer. The frame projects the
+        # SAME evidence `graduates()` crosses, so it folds the same `spec` through the same mint rather than taking a
+        # second identity from its caller.
         board = self.census.values.try_find(op).default_value(AnalyticValue.Leaderboard(())).tabled()
-        return EvidenceFrame.of(self.graduation_subject, evidence_key, board)
+        return EvidenceFrame.of(self.graduation_subject, evidence_key(self.graduation_subject, self.spec), board)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -362,15 +371,13 @@ ANALYTICS: Final[tuple[AnalyticSpec, ...]] = (
     ),
 )
 
-CASE: Final[Mapping[FeatureKind, CaseSpec]] = MappingProxyType({
-    kind: CaseSpec(subject, lambda c: {"empty_graph_fraction": 0.0 if c.nodes else 1.0}, _EMPTY_CEILING)
-    for kind, subject in (
-        (FeatureKind.SHARP_EDGE, GeometrySubject.NETWORK_GRAPH),
-        (FeatureKind.PLANAR, GeometrySubject.NETWORK_GRAPH),
-        (FeatureKind.CURVATURE, GeometrySubject.NETWORK_GRAPH),
-        (FeatureKind.BOUNDARY, GeometrySubject.NETWORK_GRAPH),
-    )
-})
+# Every feature kind graduates one subject under one empty-graph ledger against one ceiling, so the graduation axes
+# carry no per-kind discriminant and the value IS the row — a `FeatureKind`-keyed table would store four copies of it
+# and oblige a fifth on the next detector. `CaseSpec` stays the shape because `graph/algebra` keys four genuinely
+# distinct rows on it; a feature kind earning its own subject or ceiling restores the table with discriminating rows.
+_FEATURE_CASE: Final[CaseSpec] = CaseSpec(
+    GeometrySubject.NETWORK_GRAPH, lambda c: {"empty_graph_fraction": 0.0 if c.nodes else 1.0}, _EMPTY_CEILING
+)
 
 
 def _analyse(graph: nx.Graph, policy: FeaturePolicy, *, ops: frozenset[AnalyticOp]) -> Map[AnalyticOp, AnalyticValue]:
@@ -395,7 +402,10 @@ def _assemble(graph: nx.Graph, marks: Marks, kind: FeatureKind, policy: FeatureP
         values=values,
     )
     return FeatureResult(
-        kind=kind, census=census, graduation_subject=CASE[kind].subject, node_link=msgspec.json.encode(nx.node_link_data(graph, edges="edges"))
+        kind=kind,
+        census=census,
+        graduation_subject=_FEATURE_CASE.subject,
+        node_link=msgspec.json.encode(nx.node_link_data(graph, edges="edges")),
     )
 
 
@@ -413,6 +423,11 @@ def _extracted(mesh: trimesh.Trimesh, request: FeatureRequest) -> FeatureResult:
 class Features(Struct, frozen=True):
     mesh: trimesh.Trimesh
     lane: LanePolicy
+    # the owner CARRIES its composition beside its lane rather than each weave call re-reading a default: the app root
+    # binds one `ScopeKey` into `LanePolicy.of` and into this field, so every span, cost record, and charter series
+    # this owner emits partitions with the registered pulse points instead of silently unioning an embedded
+    # composition's evidence into the root's.
+    composition: ScopeKey = DEFAULT_SCOPE
 
     def run(self, request: FeatureRequest | Sequence[FeatureRequest]) -> RuntimeRail[FeatureResult] | RuntimeRail[Block[FeatureResult]]:
         # each request returns through its own GRAPH_FEATURES weave; a batch folds the weave rails through
@@ -421,12 +436,17 @@ class Features(Struct, frozen=True):
             case Sequence() as batch:
                 return traversed(
                     Block.of_seq([
-                        evidence_run(EvidenceScope.GRAPH_FEATURES, f"run.{item.kind}", lambda i=item: _extracted(self.mesh, i)) for item in batch
+                        evidence_run(
+                            EvidenceScope.GRAPH_FEATURES, f"run.{item.kind}", lambda i=item: _extracted(self.mesh, i), composition=self.composition
+                        )
+                        for item in batch
                     ]),
                     by=Disposition.ACCUMULATE,
                 )
             case FeatureRequest() as single:
-                return evidence_run(EvidenceScope.GRAPH_FEATURES, f"run.{single.kind}", lambda: _extracted(self.mesh, single))
+                return evidence_run(
+                    EvidenceScope.GRAPH_FEATURES, f"run.{single.kind}", lambda: _extracted(self.mesh, single), composition=self.composition
+                )
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -438,6 +458,7 @@ class Features(Struct, frozen=True):
             EvidenceScope.GRAPH_FEATURES,
             f"bridged.{request.kind}",
             partial(self.lane.offload, Kernel.of(_extracted, KernelTrait.HOSTILE), self.mesh, request),
+            composition=self.composition,
         )
 ```
 

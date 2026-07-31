@@ -370,11 +370,11 @@ public sealed record ReceiptSinkPort(
 
 - Owner: `Buckets` is the one advice holder — every stratum reads a named bound row and binds it through `Advised<T>`, so a folder-local bound array is the forked-policy defect; `InstrumentSpec` is the ONE declaration row every sink composes, its `Kind` naming the instrument family and its `MeasureForm` the measurement type, so the bind body is derived and a folder re-spelling a counter, gauge, or histogram create re-mints it. `InstrumentTally` is the backend-free read plane over a mounted set — `ReadingCell` the one measured shape and `InstrumentReading` the per-row projection — so a support archive, a doctor verb, and an in-host panel each answer what this process measured with no exporter, collector, or store reachable.
 - Cases: eight kinds span the whole instrument space — `Count` and `Delta` the synchronous monotone and signed writes, `Distribution` the advised histogram, `Reading` the call-site last value, `Total` and `Balance` the pulled monotone and signed totals, `Level` the pulled scalar, `Levels` the pulled keyed family; two forms close the measurement type, so one generic bind body spells each create exactly once.
-- Entry: `InstrumentSpec`'s static factories are the only construction path, each taking exactly the payload its kind requires, so an under-specified row has no spelling and no runtime guard exists to check for one; `InstrumentSet.Of` mounts any number of `(meter, rows)` pairs against one cell store, so a one-meter root is its one-element call; `Write` and `Level` are the pushed and pulled measurement entries, `Write` discriminating the instrument family off the bound handle and `Level` scalar versus keyed by call shape; `Bind` is `Level`'s registered peer, taking an owner's own read beside the tags it reports under and returning the scope that retires it, so a bounded owner reports live occupancy without a call site pushing one; `ReceiptFan.Of` merges contributed arm tables and a duplicate kind throws at the frozen merge; `TelemetryContributorPort.Roster` freezes the port's whole declaration by name and `Admit` proves its pack against that roster, so a mounting root folds every contributor before it mints a meter; `TelemetryIdentity.Metered` and `Mint` stamp the semconv coordinate as `MeterOptions.TelemetrySchemaUrl`, the pair form adding the `ActivitySource` a root admits into its band; `InstrumentTally.Of(set, ceiling)` opens the read plane under its distinct-series bound and `Read()` is its one entry, driving the observables then projecting every declared row.
+- Entry: `InstrumentSpec`'s static factories are the only construction path, each taking exactly the payload its kind requires, so an under-specified row has no spelling and no runtime guard exists to check for one; `InstrumentSet.Of` mounts any number of `(meter, rows)` pairs against one cell store, so a one-meter root is its one-element call; `Write` and `Level` are the pushed and pulled measurement entries, `Write` discriminating the instrument family off the bound handle and `Level` scalar versus keyed by call shape; `Bind` is `Level`'s registered peer, taking an owner's own read beside the tags it reports under and returning the scope that retires it, so a bounded owner reports live occupancy without a call site pushing one; `ReceiptFan.Of` merges contributed arm tables and a duplicate kind throws at the frozen merge; `TelemetryContributorPort.Roster` freezes the port's whole declaration by name and `Admit` proves its pack against that roster, so a mounting root folds every contributor before it mints a meter; `TelemetryIdentity.Metered` and `Mint` stamp the semconv coordinate as `MeterOptions.TelemetrySchemaUrl`, the pair form adding the `ActivitySource` a root admits into its band; `InstrumentTally.Of(set, ceiling)` opens the read plane under its distinct-series bound and `Read()` is its one entry, driving the observables then projecting every declared row; `Tags` mints the ONE stack-allocated `TagList` projection every write arm consumes and `Write`/`Bind` take it `in`, so a measurement write allocates no heap array and a folder re-spelling the fold re-mints the one materialization owner.
 - Auto: a `Distribution` row with no bounds binds the plain histogram, so base2-exponential aggregation stays the wire default and an explicit-bucket row is the per-instrument fallback the declaration re-arms; instrument identity de-duplicates by name inside a meter, so a row carries name, unit, and state-reader once and an inline create with a drifted unit is the forked-stream defect; a keyed level family projects each map entry as one tagged `Measurement<T>`, so per-key cardinality rides ONE instrument and a per-key instrument mint is the deleted form; an unmapped kind projects nothing and stays receipt-only. Pulled rows fill from two sources under one reader — cells a producer PUSHES and probes a bounded owner REGISTERS — and a name carries every live probe rather than a slot the newest registration overwrites, so a lane limiter, a worker pool, and a durable intake each publish under their own tags instead of the last one bound deleting the readings before it; each probe reads inside its own fence, so one raising owner subtracts itself and its siblings still report; a probe's scope is what ENDS its reading, because a level whose owner retired and whose value freezes at that owner's last write is indistinguishable at every collection from a live level nothing is moving. Tallies admit by HANDLE identity against the mounted set, so a foreign instrument sharing a declared name never enters the read; a pushed measurement accumulates and an observable REPLACES, because an observable republishes its whole value each collection and accumulating one compounds a level into a total no producer measured; a declared row the process never measured projects an empty cell seq, so a doctor read distinguishes a quiet producer from a dead one instead of reporting a zero nothing recorded — which is why every pulled reader answers a MEASUREMENT SEQUENCE and yields none over an unwritten cell, a scalar reader having no spelling for absence and publishing a level no producer ever set; a distinct series past the tally's ceiling folds onto the specification's own overflow key, so the clipping reads as SDK-limited rather than as a measurement that never happened.
 - Receipt: both measurement entries return the typed rail — an unmounted name, a pushed-versus-pulled polarity breach, and a family mismatch each land a refusal carrying the offending name, and `InstrumentArm` returns that rail so a refusal survives the fan instead of dying at the delegate boundary; a measurement therefore never disappears into a silent no-op and never throws a lookup exception into an emitting fold. `InstrumentKind.Pulled` is the enforced column: `LevelCells`'s own writes are assembly-internal, so the cell store has no reachable spelling outside this capsule and an ungated level write cannot be composed.
 - Packages: LanguageExt.Core, BCL inbox (`System.Diagnostics.Metrics`, `System.Diagnostics.DiagnosticSource`, `System.Numerics`, `System.Text.Json`).
-- Growth: a new bucket policy is one `Buckets` row, a new instrument family one `InstrumentKind` row breaking the one generic bind at compile time, a new measurement type one `MeasureForm` row carrying BOTH its mint and its listen column so a tally can never drop a type a mint admits, a new read moment one `ReadingCell` column, a tightened diagnostic memory bar one `ceiling` value at the arming composition, a new projected kind one arm-table row in the contributing folder, a new level family one `Level` write site and one `Levels` declaration, a new bounded owner reporting its own saturation one `Bind` scope over that owner's lifetime under its own tags, its probe joining the declared row's series and leaving with it, a contributor's whole board and reliability policy one `Board` value on its own port, and its whole span custody one `Planes` roster on that same port.
+- Growth: a new bucket policy is one `Buckets` row, a new instrument family one `InstrumentKind` row breaking the one generic bind at compile time, a new measurement type one `MeasureForm` row carrying BOTH its mint and its listen column so a tally can never drop a type a mint admits, a new read moment one `ReadingCell` column, a tightened diagnostic memory bar one `ceiling` value at the arming composition, a per-row cardinality bound one `Series` value on the declaring row — the kernel-side cap a geometry-keyed producer states because only the declaring row knows its own key space, tightening and never widening the tally ceiling — a new projected kind one arm-table row in the contributing folder, a new level family one `Level` write site and one `Levels` declaration, a new bounded owner reporting its own saturation one `Bind` scope over that owner's lifetime under its own tags, its probe joining the declared row's series and leaving with it, a contributor's whole board and reliability policy one `Board` value on its own port, and its whole span custody one `Planes` roster on that same port.
 - Boundary: `TelemetryContributorPort` self-identifies by plain `string` scope — the app platform maps it into its own meter and source admission, so a contributor never names a platform type and crosses every stratum legally; `Instruments` and `Published` split by WHO MOUNTS — the root binds handles for the first and a contributor owning its own meter lifetime declares the second, `Declared` is the union every naming gate, view predicate, and pack admission reads, and a self-minted row seated in `Instruments` binds a second handle for one name while a row on neither roster exports a stream no gate can refuse; the port carries the contributor's board pack beside the rows that pack names and proves it against its OWN declaration, so a per-load-context contributor's pack is provable at all and a package-specific pack field reached by name from a composition root is the deleted form; `Planes` carries span custody on that same seam, so a platform referencing no emitting package still admits every plane; `SchemaUrl` defaults to the one pinned semconv coordinate so tracer, meter, and logger bump together and no branch hand-spells the value; the mounted `Rows` travel with the bound handles so the governance leg reads each row's declared `Dimensions` as its view tag-key set rather than re-deriving one; a keyed family's tag heads its own `Dimensions` from the factory, so a panel break key, a partition indicator, and a view tag key all resolve against one roster and a caller restating the tag beside its own rows cannot fork the two; scalar and keyed cells both hold `double`, so the whole (kind x form) product carries its declared measurement type and a keyed real-valued level never truncates; meter and instrument lifetime ride the minting factory, so no capsule retains a meter handle or disposes one, and a `new Meter(...)` construction is the rejected form everywhere; the tally is a DIAGNOSTIC composition an operating profile arms and disposes, never a standing emission leg — it holds one accumulator per (name, tag set) for the life of the listener, bounded by a distinct-series ceiling the arming composition supplies, so the memory an armed plane costs is a policy value rather than the process's whole tag space, and the arming seat stays a policy row at the app platform and never a default here; the read plane accumulates, it never emits, so a tally reading a stream is not a second truth beside the receipt fan and a projection written back onto an instrument from a reading is the deleted form.
 
 ```csharp signature
@@ -541,6 +541,17 @@ public sealed record InstrumentSpec {
     public Option<string> Tag { get; }
     public Seq<string> Dimensions { get; }
 
+    // Declared per-row series bound — the kernel-side cardinality cap a per-face or per-texel producer states at
+    // declaration, read by the tally's seating fold and the governance view caps. A kernel emitting geometry-keyed
+    // facts through SignalRail can mint unbounded series; this column is the bound the AppHost lacing cannot
+    // retrofit, because only the declaring row knows its own key space. None defers to the arming composition.
+    public Option<int> SeriesCeiling { get; private init; } = None;
+
+    public InstrumentSpec Series(int ceiling) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(ceiling);
+        return this with { SeriesCeiling = Some(ceiling) };
+    }
+
     // Bound name, unit, and text stay delegate parameters so one row binds against any meter and any cells.
     public Func<Meter, LevelCells, string, string, string, Instrument> Bind =>
         (meter, cells, name, unit, text) => Form.Mint(this, meter, cells, name, unit, text);
@@ -624,8 +635,9 @@ public sealed record TelemetryContributorPort(
 // --- [SERVICES] -----------------------------------------------------------------------------
 // `LevelProbe` pairs one registered read with the tag set that read reports under, and identity is the VALUE, so
 // two owners handing in one delegate still register twice and each retire drops exactly the entry it added — the
-// reference-keyed detach a name-keyed slot cannot express. Tags materialize once at registration in the array
-// shape `InstrumentSet.Tags` already mints, so a collection binds the params-span ctor with no conversion.
+// reference-keyed detach a name-keyed slot cannot express. Tags materialize once at registration — the one
+// `TagList` projection spilled to its array at the `Bind` seam — so a collection binds the params-span
+// `Measurement<T>` ctor with no per-collection conversion.
 public sealed record LevelProbe(KeyValuePair<string, object?>[] Tags, Delegate Read);
 
 // Raw cell store: every write and registration member is assembly-internal, so `InstrumentSet` is the only
@@ -741,9 +753,11 @@ public sealed record InstrumentSet(
     // an untagged probe answers a scalar pulled row, a tagged one answers a key of a `Levels` family — so one entry
     // covers both pulled shapes and a saturation series carries every live bound rather than the last one bound.
     // Tags materialize ahead of the rail because a span cannot cross a lambda, matching `Write`'s own seam.
-    public Fin<IDisposable> Bind<T>(string name, Func<T> read, params ReadOnlySpan<(string Slot, object? Value)> tags)
+    // The pulled path stays array-shaped past this seam — a probe registration is one-time, so the TagList
+    // projection materializes its array here and the per-collection Measurement construction reads it untouched.
+    public Fin<IDisposable> Bind<T>(string name, Func<T> read, in TagList tags)
         where T : struct, INumberBase<T> {
-        KeyValuePair<string, object?>[] row = Tags(tags);
+        KeyValuePair<string, object?>[] row = [.. tags];
         return Pulled(name, keyed: row.Length > 0).Bind(_ => Cells.Bind(name, read, row));
     }
 
@@ -756,22 +770,34 @@ public sealed record InstrumentSet(
     public Fin<Unit> Level<T>(string family, string key, T value) where T : struct, INumberBase<T> =>
         Pulled(family, keyed: true).Map(_ => Cells.Level(family, key, double.CreateSaturating(value)));
 
-    // One tag-array projection for every emitting fold: `Write` takes the BCL measurement shape, and a folder
+    // One stack-allocated tag projection for every emitting fold: `Tags` mints the `TagList` the instrument's own
+    // `in TagList` write overload consumes, so a measurement write allocates NO heap array per branch, and a folder
     // re-spelling this fold mints a per-package copy of the one materialization every arm already needs when a
     // tag set spans two writes. Tenanted calls append the frame's own partition, empty for the root row, so a
     // single-tenant process mints no tenant dimension and a page-local baggage read has no reason to exist;
-    // tenancy arrives explicitly rather than read ambiently inside the projection.
-    public static KeyValuePair<string, object?>[] Tags(params ReadOnlySpan<(string Slot, object? Value)> facts) =>
-        [.. Iterable<(string Slot, object? Value)>.FromSpan(facts).Map(static fact => new KeyValuePair<string, object?>(fact.Slot, fact.Value))];
+    // tenancy arrives explicitly rather than read ambiently inside the projection. The mutable-struct Add loop is
+    // the named statement seam — TagList inlines eight tags before its own spill.
+    public static TagList Tags(params ReadOnlySpan<(string Slot, object? Value)> facts) {
+        TagList row = default;
+        foreach ((string slot, object? value) in facts) {
+            row.Add(slot, value);
+        }
+        return row;
+    }
 
-    public static KeyValuePair<string, object?>[] Tags(TenantContext tenant, params ReadOnlySpan<(string Slot, object? Value)> facts) =>
-        [.. Tags(facts), .. tenant.Tags];
+    public static TagList Tags(TenantContext tenant, params ReadOnlySpan<(string Slot, object? Value)> facts) {
+        TagList row = Tags(facts);
+        foreach (KeyValuePair<string, object?> tag in tenant.Tags) {
+            row.Add(tag.Key, tag.Value);
+        }
+        return row;
+    }
 
-    // Statement seam: the params span cannot cross a lambda, so each family branches in place. Admission reads the
+    // Statement seam: each family branches in place onto its handle's `in TagList` overload. Admission reads the
     // DECLARED row exactly as `Pulled` does, so the three breaches stay distinguishable — an unmounted name, an
     // observable row reached at a call site, and a row bound at the other measurement type each carry their own
     // verdict; inferring polarity from the handle's shape instead files every observable under the type mismatch.
-    public Fin<Unit> Write<T>(string name, T value, params ReadOnlySpan<KeyValuePair<string, object?>> tags) where T : struct {
+    public Fin<Unit> Write<T>(string name, T value, in TagList tags = default) where T : struct {
         if (!Rows.TryGetValue(name, out InstrumentSpec? row)) {
             return Fin.Fail<Unit>(new Fault.InvalidValue(Label: name, Requirement: "a mounted instrument row"));
         }
@@ -779,10 +805,10 @@ public sealed record InstrumentSet(
             return Fin.Fail<Unit>(new Fault.InvalidValue(Label: name, Requirement: "a pushed instrument row"));
         }
         switch (ByName[name]) {
-            case Counter<T> counter: counter.Add(value, tags); break;
-            case UpDownCounter<T> updown: updown.Add(value, tags); break;
-            case Histogram<T> histogram: histogram.Record(value, tags); break;
-            case Gauge<T> gauge: gauge.Record(value, tags); break;
+            case Counter<T> counter: counter.Add(value, in tags); break;
+            case UpDownCounter<T> updown: updown.Add(value, in tags); break;
+            case Histogram<T> histogram: histogram.Record(value, in tags); break;
+            case Gauge<T> gauge: gauge.Record(value, in tags); break;
             default:
                 return Fin.Fail<Unit>(new Fault.InvalidValue(
                     Label: name, Requirement: $"a {row.Kind.Key} row bound at measurement type {typeof(T).Name}"));
@@ -878,17 +904,23 @@ public sealed class InstrumentTally : IDisposable {
 
     // Admission and fold in ONE swap step, so the ceiling test reads the map the fold is about to write and two
     // racing measurements cannot both seat the cell that crosses it. A standing series folds in place, a new one
-    // seats while the map is under the ceiling, and every further series folds onto its instrument's own overflow
-    // cell — bounded past the ceiling by the declared row count alone, never by the tag space.
+    // seats while the map is under the tally ceiling AND the row's own declared SeriesCeiling, and every further
+    // series folds onto its instrument's own overflow cell — bounded past either ceiling by the declared row
+    // count alone, never by the tag space. The per-name census runs only on the new-series branch.
     private HashMap<(string Name, string Tags), ReadingCell> Seated(
         HashMap<(string Name, string Tags), ReadingCell> held, (string Name, string Tags) key,
         Seq<KeyValuePair<string, object?>> row, double measurement, bool pulled) =>
-        held.ContainsKey(key) || held.Count < ceiling
+        held.ContainsKey(key) || (held.Count < ceiling && held.Keys.Count(pair => pair.Name == key.Name) < RowCeiling(key.Name))
             ? held.AddOrUpdate(key, cell => Folded(cell, measurement, pulled), () => Folded(new(row, 0L, 0d, 0d, 0d, 0d), measurement, pulled))
             : held.AddOrUpdate(
                 (key.Name, OverflowSlot),
                 cell => Folded(cell, measurement, pulled),
                 () => Folded(new(Overflow, 0L, 0d, 0d, 0d, 0d), measurement, pulled));
+
+    // The declared per-row bound tightens the tally ceiling and never widens it; an undeclared row inherits the
+    // arming composition's policy value whole.
+    private int RowCeiling(string name) =>
+        set.Rows.TryGetValue(name, out InstrumentSpec? row) ? row.SeriesCeiling.IfNone(ceiling) : ceiling;
 
     private static ReadingCell Folded(ReadingCell cell, double measurement, bool pulled) =>
         pulled ? cell.Pull(measurement) : cell.Push(measurement);
@@ -1145,26 +1177,26 @@ public sealed class KernelInstruments {
         new(Scope: TelemetrySource.Kernel.Key, Version: version, Instruments: Rows, SchemaUrl: schemaUrl);
 
     public Fin<Unit> Cost(OpCost cost) {
-        KeyValuePair<string, object?>[] tags = [
-            new(OpSlot, cost.Key.ToString()),
-            new(DomainSlot, cost.Domain.Key),
-            new(OutcomeSlot, cost.Succeeded ? Succeeded : Failed)];
-        return set.Write(OpDuration, cost.Elapsed.TotalSeconds, tags)
-            .Bind(_ => set.Write(OpAllocated, cost.AllocatedBytes, tags))
-            .Bind(_ => set.Write(OpItems, (long)cost.Items, tags));
+        TagList tags = InstrumentSet.Tags(
+            (OpSlot, cost.Key.ToString()),
+            (DomainSlot, cost.Domain.Key),
+            (OutcomeSlot, cost.Succeeded ? Succeeded : Failed));
+        return set.Write(OpDuration, cost.Elapsed.TotalSeconds, in tags)
+            .Bind(_ => set.Write(OpAllocated, cost.AllocatedBytes, in tags))
+            .Bind(_ => set.Write(OpItems, (long)cost.Items, in tags));
     }
 
     public Fin<Unit> Receipt(Op key, IValidityEvidence receipt) =>
-        set.Write(OpReceipts, 1L,
-            new KeyValuePair<string, object?>(OpSlot, key.ToString()),
-            new KeyValuePair<string, object?>(OutcomeSlot, receipt.IsValid ? Succeeded : Failed));
+        set.Write(OpReceipts, 1L, InstrumentSet.Tags(
+            (OpSlot, key.ToString()),
+            (OutcomeSlot, receipt.IsValid ? Succeeded : Failed)));
 
     public Fin<Unit> Fault(Op key, Error fault) =>
-        set.Write(FaultCount, 1L,
-            new KeyValuePair<string, object?>(OpSlot, key.ToString()),
-            new KeyValuePair<string, object?>(CategorySlot, fault.Category),
-            new KeyValuePair<string, object?>(CaseSlot, fault.GetType().Name),
-            new KeyValuePair<string, object?>(CodeSlot, fault.Code));
+        set.Write(FaultCount, 1L, InstrumentSet.Tags(
+            (OpSlot, key.ToString()),
+            (CategorySlot, fault.Category),
+            (CaseSlot, fault.GetType().Name),
+            (CodeSlot, fault.Code)));
 }
 
 public sealed class TelemetrySink {
@@ -1624,8 +1656,9 @@ public readonly record struct CostMark(long Timestamp, long Allocated) {
 
 ## [08]-[BENCH_LEDGER]
 
-- Owner: `BenchClaim` is the typed speed-claim row — the `Op` key naming the gated lane, the exact vectorized and reference member spellings under measurement, and the `SpeedupFloor` the corpus gate enforces. `BenchLedger` is the enumerable fold: `Of` refuses an invalid row and a duplicate claim key on the typed rail, `Rows` is the enumeration the corpus gate ingests, and `Unproven` returns every claim lacking a proven receipt, so an unproven speed claim is a visible ledger defect, never a prose hunt.
-- Law: claim rows live BESIDE the lanes they gate as `static readonly` rows on their owning pages, and the app composition root composes them into the ledger — the substrate floor never references an upper stratum, so the ledger cannot mint the rows itself.
+- Owner: `BenchClaim` is the typed speed-claim row — the `Op` key naming the gated lane, the exact vectorized and reference member spellings under measurement, the `SpeedupFloor` the corpus gate enforces, and the `Corpus` slug naming the compile-time corpus a corpus-bound claim measures against (`None` for an algorithmic claim). `BenchLedger` is the enumerable fold: `Of` refuses an invalid row and a duplicate claim key on the typed rail, `Rows` is the enumeration the corpus gate ingests, and `Unproven` returns every claim lacking a proven receipt, so an unproven speed claim is a visible ledger defect, never a prose hunt.
+- Law: claim rows live BESIDE the lanes they gate as `static readonly` rows on their owning pages, and the app composition root composes them into the ledger — the substrate floor never references an upper stratum, so the ledger cannot mint the rows itself. A folder-local claim SmartEnum re-spelling this row shape is the deleted form: Bim's observability roster and Fabrication's guard roster are `static readonly BenchClaim` rows, corpus-bound rows carrying their slug and algorithmic rows `Corpus: None`.
+- Law: proof is corpus-aware — a claim carrying a `Corpus` slug is proven only by a receipt whose corpus fingerprint is present, and a claim with `Corpus: None` is proven by the key alone; `Unproven` reads `(Op, Option<UInt128>)` proof pairs so a proof that measured no corpus never discharges a corpus-bound claim.
 - Law: a claim is correctness-independent — the vectorized lane's result never depends on it; the claim gates only admission to the hot path, and a lane whose claim fails reverts to its reference row with zero behavior change.
 - Boundary: `Rasm.AppHost`'s corpus gate reads `Rows` and resolves each claim to its `BenchmarkReceipt` verdict; judging, regression budgets, and host-evidence binding are the gate's — this ledger owns only the typed enumeration and the duplicate-refusal fold.
 
@@ -1636,11 +1669,14 @@ using Rasm.Csp;
 namespace Rasm.Domain;
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record BenchClaim(Op Claim, string VectorizedLane, string ReferenceLane, double SpeedupFloor) : IValidityEvidence {
+// Corpus is the compile-time corpus slug a corpus-bound claim measures against; None marks an algorithmic claim
+// whose proof is corpus-free. The slug names the corpus, the proof-side fingerprint witnesses the measured bytes.
+public sealed record BenchClaim(Op Claim, string VectorizedLane, string ReferenceLane, double SpeedupFloor, Option<string> Corpus = default) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Positive(value: SpeedupFloor),
         ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: VectorizedLane)),
-        ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: ReferenceLane)));
+        ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: ReferenceLane)),
+        ValidityClaim.Of(holds: Corpus.Map(static slug => !string.IsNullOrWhiteSpace(value: slug)).IfNone(noneValue: true)));
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
@@ -1659,8 +1695,11 @@ public sealed class BenchLedger {
     }
 
     // Seq carries no `Contains`, so the membership probe is the carrier's own `Exists` rather than a
-    // `System.Linq` fall-through an implicit global using would have to keep supplying.
-    public Seq<BenchClaim> Unproven(Seq<Op> proven) => Rows.Filter(row => !proven.Exists(claim => claim.Equals(row.Claim)));
+    // `System.Linq` fall-through an implicit global using would have to keep supplying. Proof is corpus-aware:
+    // a corpus-bound claim discharges only on a proof whose fingerprint is present, so a receipt that measured
+    // no corpus never proves a claim that names one; an algorithmic claim (Corpus: None) proves by key alone.
+    public Seq<BenchClaim> Unproven(Seq<(Op Claim, Option<UInt128> Corpus)> proven) =>
+        Rows.Filter(row => !proven.Exists(proof => proof.Claim.Equals(row.Claim) && (row.Corpus.IsNone || proof.Corpus.IsSome)));
 }
 ```
 

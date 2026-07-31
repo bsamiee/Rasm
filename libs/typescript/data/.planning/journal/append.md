@@ -18,17 +18,19 @@ ONE write owner of the record of truth: journal, outbox, and idempotency ledger 
 
 - Owner: `StreamKey` — one `Schema.Class` whose fields are the core identity brands with the aggregate brand-in-field; the interior `_Row` model typing the persisted event row, its `sequence` column decoding through the bigint-safe `_Sequence` codec so the model authority and the `BIGINT` DDL agree; the journal ensure rows the provisioning plane applies and `lane/capability.md` proves.
 - Packages: `effect` (`Schema`); `@effect/sql` (`Model`); `@rasm/ts/core` (`AppIdentity`, `TenantContext`).
-- Growth: a new stream dimension is a `StreamKey` field with a column pair in the ensure rows — every keyed surface in the folder re-keys with it because the class is the one spelling of stream identity.
+- Growth: a new stream dimension is a `StreamKey` field with a column pair in the ensure rows and one operand on the identity fragment — every keyed surface in the folder re-keys with it because the class is the one spelling of stream identity.
+- Law: the COMPOSED identity is one owned fragment with two composition shapes — `StreamKey.identity` joins a held key's bound values and `StreamKey.identityColumn` joins the relation's own escaped identifiers, both through one separator and one order — so the advisory lock's hash input and the head resolver's grouping key are provably the same string; a hand-repeated `|| ':' ||` at either site desyncs the lock from the resolver on the first separator or column-order edit, and nothing about that divergence is visible until two callers disagree over which stream they hold.
 - Law: events are app-authored closed `Schema.TaggedClass` families — the journal stores their encoded form with the `(tag, eventVersion)` coordinate and never interprets payloads, so a family evolves without touching this page.
 - Law: the payload column is `Model.JsonFromString` — TEXT in the database variants, native object in the JSON variants — so the object-versus-text dialect difference is the model's, and no page hand-parses a payload column.
 - Law: `sequence` is the global total order (identity column), `version` the per-stream order (the OCC coordinate); both are engine-generated or engine-checked, never computed in process.
-- Law: `sequence` is bigint-safe end to end — the persisted model, every process-side read, and the receipt decode through `Journal.Sequence` (bigint, string, or number driver posture folds to `bigint`), because the global identity column grows unbounded across every stream and a `Number()` coercion past 2^53 silently corrupts checkpoints and joins; per-stream `version` stays number-valued because aggregate cardinality is provably bounded, and it decodes through `Journal.Version` — the number-or-string codec — because a BIGINT column crosses the wire as text on the spine driver and as number on the sqlite profiles.
+- Law: `sequence` is bigint-safe end to end — the persisted model and every process-side read decode through `Journal.Sequence` (bigint, string, or number driver posture folds to `bigint`), because the global identity column grows unbounded across every stream and a `Number()` coercion past 2^53 silently corrupts checkpoints and joins; the STORED receipt rides `Schema.BigInt` alone, because that receipt round-trips through `Schema.parseJson` and the driver-posture union's identity member encodes `bigint` back out, which `JSON.stringify` refuses — one codec crosses a driver row, the other crosses a text column, and conflating them wedges the ledger settle on its first write.
+- Law: per-stream `version` stays number-valued because aggregate cardinality is provably bounded, and it decodes through `Journal.Version` — the number-or-string codec — because a BIGINT column crosses the wire as text on the spine driver and as number on the sqlite profiles.
 - Law: `recordedAt` is write time minted by `Model.DateTimeInsert` — domain time lives inside event payloads, and conflating the two is the named defect.
 - Boundary: the tenant column is what `Tenancy.rls("journal_event")` predicates over; `Model.makeRepository` is banned on this table — the journal issues neither `UPDATE` nor `DELETE` against events, and erasure is `journal/retain.md`'s key destruction.
 
 ```typescript signature
 import { Schema } from "effect"
-import { Model } from "@effect/sql"
+import { Model, type SqlClient, type Statement } from "@effect/sql"
 import { AppIdentity, Carrier, TenantContext } from "@rasm/ts/core"
 import type { Capability } from "../lane/capability.ts"
 import { Tenant, Tenancy } from "../lane/tenant.ts"
@@ -42,6 +44,18 @@ const _Version = Schema.Union(
   Schema.NumberFromString.pipe(Schema.int(), Schema.between(0, Number.MAX_SAFE_INTEGER)),
 )
 
+// The composed identity has ONE spelling and two composition shapes, because two SQL sites need the same string from
+// different operands: the advisory lock hashes it from a held `StreamKey`'s bound values, the head resolver groups it
+// from the relation's own columns. Separator and join order live here alone, so neither site can desync the lock key
+// from the resolver key — which is exactly the failure a hand-repeated `|| ':' ||` makes invisible until two callers
+// disagree about which stream they hold.
+const _SEPARATOR = ":"
+
+const _joined = (
+  sql: SqlClient.SqlClient,
+  parts: readonly [Statement.Fragment, Statement.Fragment, Statement.Fragment],
+): Statement.Fragment => sql`${parts[0]} || ${_SEPARATOR} || ${parts[1]} || ${_SEPARATOR} || ${parts[2]}`
+
 class StreamKey extends Schema.Class<StreamKey>("StreamKey")({
   app: AppIdentity.fields.app,
   tenant: TenantContext.fields.tenant,
@@ -49,7 +63,14 @@ class StreamKey extends Schema.Class<StreamKey>("StreamKey")({
     Schema.pattern(/^[a-z][a-z0-9-]*\/[A-Za-z0-9._:-]+$/),
     Schema.brand("Aggregate"),
   ),
-}) {}
+}) {
+  // Values: the three brands bind as parameters, so a held key composes with nothing interpolated into statement text.
+  static readonly identity = (sql: SqlClient.SqlClient, stream: StreamKey): Statement.Fragment =>
+    _joined(sql, [sql`${stream.app}`, sql`${stream.tenant}`, sql`${stream.aggregate}`])
+  // Columns: the same join over the relation's own identifiers, escaped by the compiler rather than spliced as text.
+  static readonly identityColumn = (sql: SqlClient.SqlClient): Statement.Fragment =>
+    _joined(sql, [sql`${sql("app")}`, sql`${sql("tenant")}`, sql`${sql("aggregate")}`])
+}
 
 class _Row extends Model.Class<_Row>("JournalEvent")({
   sequence: Model.Generated(_Sequence),
@@ -87,13 +108,14 @@ const _journalDdl: Capability.Ensure = {
 
 ## [03]-[APPEND_SURFACE]
 
-- Owner: `Occ` — the tagged concurrency expectation; `VersionConflict` — the concurrency fault; `JournalFault` — the reason-discriminated malformed-plan, landing, and replay-integrity fault; `_append` — the locked OCC insert every write funnels through, whose `RETURNING` carries the landed global sequences into the receipt.
-- Packages: `effect` (`Effect`, `Array`, `Data`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema`, `sql.insert`, `sql.onDialectOrElse`, `SqlError`).
+- Owner: `Occ` — the tagged concurrency expectation; `VersionConflict` — the single-shape concurrency fault; `JournalFault` — the reason-discriminated malformed-plan, landing, and replay-integrity fault whose rows close through the core `FaultClass.family` seam; `_append` — the locked OCC insert every write funnels through, whose `RETURNING` carries the landed global sequences into the receipt.
+- Packages: `effect` (`Effect`, `Array`, `Data`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema`, `sql.insert`, `sql.onDialectOrElse`, `SqlError`); `@rasm/ts/core` (`FaultClass`).
 - Entry: `bound.append(stream, events, occ)` — ONE entry whose plural modality is the input shape (`A | NonEmptyReadonlyArray<A>`), never an `appendMany` sibling; standalone it owns its commit, inside `publish` it folds to a savepoint.
 - Receipt: `Journal.Receipt` — `{ stream, version, count, first, rows }` — the new head, the appended count, the first written version, and the encoded rows the outbox re-projects, each carrying its landed global `sequence`; the ledger stores it for replay and the publish wake announces the last sequence so drains skip empty cycles.
 - Growth: a new write-side invariant is a guard inside `_append`, never a second append; a new event tag costs this page nothing — the plan stamps its `eventVersion` and the union admits it.
 - Law: concurrency is `Occ` — `Exact` fails as `VersionConflict` when the locked head disagrees, `None` demands version zero, `Any` serializes under the lock and appends at head; the advisory lock is `pg_advisory_xact_lock(hashtextextended(...))` on the spine and degrades to the single writer through `onDialectOrElse` — the unique constraint remains the structural backstop on every profile.
 - Law: the conflict carries evidence — `expected` and `actual` — so recovery is reload-fold-retry as data, and retrying rides a `Schedule` gated on the tag, never a loop.
+- Law: recovery policy reads the core lattice off `class` — `VersionConflict` classifies `conflicted` (caller-blamed, retryable: the reload-fold-retry arm), `unknownTag` classifies `invalid` and `envelope` `malformed` (both quarantined, never retried), `landing` and `replay` classify `breached` (a torn `RETURNING` roster and a claim without its settled receipt are invariant breaks no re-drive heals) — so retryability, blame, and quarantine derive from the core `FaultClass` row table and no rank or retry column rides beside `class`.
 - Law: `eventVersion` is stamped from `plan.latest(tag)` at write — the write coordinate and the read lift share one anchor; a tag the plan does not know fails typed as `JournalFault.reason = "unknownTag"` before any row is written, never as a defect exit.
 - Law: the `RETURNING` roster is total over the encoded batch — every written version must carry its global sequence; a missing row fails `JournalFault.reason = "landing"` and rolls back the transaction, so no receipt fabricates an identity sentinel.
 - Law: `Journal.now(sql)` is the one dialect-now fragment — every sibling statement that stamps a timestamp splices it, so the dialect pair exists in exactly one spelling folder-wide.
@@ -102,19 +124,43 @@ const _journalDdl: Capability.Ensure = {
 ```typescript signature
 import { Array, Data, Effect, HashMap, Option, type ParseResult } from "effect"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
+import { FaultClass } from "@rasm/ts/core"
 import { Upcast } from "./evolve.ts"
 
-class VersionConflict extends Data.TaggedError("VersionConflict")<{
-  readonly stream: StreamKey
-  readonly expected: number
-  readonly actual: number
-}> {}
+// One row per reason: the core kind alone. Severity, retryability, blame, and quarantine are the core
+// FaultClass row table's — a rank or retry literal here would fork the taxonomy into this folder.
+const _family = FaultClass.family(["unknownTag", "landing", "replay", "envelope"] as const, {
+  unknownTag: { class: "invalid" },
+  landing: { class: "breached" },
+  replay: { class: "breached" },
+  envelope: { class: "malformed" },
+})
 
-class JournalFault extends Data.TaggedError("JournalFault")<{
-  readonly reason: "unknownTag" | "landing" | "replay" | "envelope"
-  readonly stream: StreamKey
-  readonly detail: string
-}> {}
+class VersionConflict extends Schema.TaggedError<VersionConflict>()("VersionConflict", {
+  stream: StreamKey,
+  expected: _VersionNumber,
+  actual: _VersionNumber,
+}) {
+  get class(): FaultClass.Kind {
+    return "conflicted" // the one honest kind: contention a reload-fold-retry resolves
+  }
+  override get message(): string {
+    return `<journal:conflict> ${this.stream.aggregate} expected ${this.expected} actual ${this.actual}`
+  }
+}
+
+class JournalFault extends Schema.TaggedError<JournalFault>()("JournalFault", {
+  reason: _family.schema,
+  stream: StreamKey,
+  detail: Schema.String,
+}) {
+  get class(): FaultClass.Kind {
+    return _family.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<journal:${this.reason}> ${this.stream.aggregate}: ${this.detail}`
+  }
+}
 
 declare namespace Journal {
   type Occ = Data.TaggedEnum<{
@@ -149,11 +195,16 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
     Effect.flatMap(SqlClient.SqlClient, (sql) =>
       sql.withTransaction(
         Effect.gen(function* () {
-          const batch = Array.ensure(events)
+          // `Array.ensure` erases the arity the entry's own input union already proves, and the receipt's `rows`
+          // roster is NonEmpty — so the erasure would demand a re-proof no value on this path can supply, and the
+          // publish wake's own last-row read would need a fallback for a batch the signature forbids. `isArray`
+          // narrows the union instead and `Array.of` lifts the singular arm, so arity is proven once at the split
+          // and every downstream roster — landed rows, receipt, deliverables, slot projection — stays total.
+          const batch: Array.NonEmptyReadonlyArray<A> = Array.isArray(events) ? events : Array.of(events)
           yield* sql.onDialectOrElse({
             orElse: () => sql`SELECT 1`,
             pg: () =>
-              sql`SELECT pg_advisory_xact_lock(hashtextextended(${stream.app} || ':' || ${stream.tenant} || ':' || ${stream.aggregate}, 0))`,
+              sql`SELECT pg_advisory_xact_lock(hashtextextended(${StreamKey.identity(sql, stream)}, 0))`,
           })
           const held = yield* _head(sql, stream)
           yield* _Occ.$match(occ, {
@@ -337,7 +388,9 @@ import { Live } from "../read/live.ts"
 declare namespace Journal {
   type Slot<A> = {
     readonly keys: (stream: StreamKey) => Live.Keys
-    readonly project: (stream: StreamKey, events: ReadonlyArray<A>, receipt: Journal.Receipt) => Effect.Effect<
+    // Arity is proven at the append split and travels: a slot receives the same NonEmpty batch the receipt's rows
+    // align against positionally, so no slot re-proves inhabitance and no slot carries a dead empty-batch arm.
+    readonly project: (stream: StreamKey, events: Array.NonEmptyReadonlyArray<A>, receipt: Journal.Receipt) => Effect.Effect<
       void,
       SqlError.SqlError | ParseResult.ParseError,
       SqlClient.SqlClient
@@ -406,7 +459,9 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
               Effect.succeed<Journal.Published>({ journal: held, key: intent.key, replay: true }),
             onNone: () =>
               Effect.gen(function* () {
-                const batch = Array.ensure(intent.events)
+                const batch: Array.NonEmptyReadonlyArray<A> = Array.isArray(intent.events)
+                  ? intent.events
+                  : Array.of(intent.events) // the same split the append runs: one arity proof serves the veto fact, the slots, and the receipt
                 yield* Hook.gated("journalPublish", {
                   stream: intent.stream,
                   count: batch.length,
@@ -678,8 +733,8 @@ const Journal = {
 
 ## [08]-[HOOK_POINTS]
 
-- Owner: the core-brand data hook vocabulary and its publisher port — `_facts`, the per-point fact schemas this page's own payloads anchor; `_points`, the four `Tap.PointRow` rows whose names spell the `rasm.data.<domain>.<point>` brand and whose modality sets carry veto legality as data; `_POINTS`, the minted `Tap.Point` values pairing each row with its fact schema through the core `Tap.point` mint; `Hook`, the publisher port — one `Context.Tag` whose `publish` member the app root satisfies from the runtime dispatch engine scoped to the owning app; `HookVeto`, the typed admission refusal carrying the core `Tap.Veto` evidence; and the two optional-service combinators `Hook.gated`/`Hook.tapped` every tap seam composes, so an app that mounts no engine pays nothing and refuses nothing.
-- Packages: `effect` (`Context`, `Data`, `Effect`, `Option`, `Schema`); `@rasm/ts/core` (`Tap` — the point brand, mint, and registry vocabulary).
+- Owner: the core-brand data hook vocabulary and its publisher port — `_facts`, the per-point fact schemas this page's own payloads anchor; `_points`, the four `Tap.PointRow` rows whose names spell the `rasm.data.<domain>.<point>` brand and whose modality sets carry veto legality as data; `_POINTS`, the minted `Tap.Point` values pairing each row with its fact schema through the core `Tap.point` mint; `Hook`, the publisher port — one `Context.Tag` whose `publish` member the app root satisfies from the runtime dispatch engine scoped to the owning app; `HookVeto`, the typed admission refusal carrying the core `Tap.Veto` evidence and projecting the `denied` core class; and the two optional-service combinators `Hook.gated`/`Hook.tapped` every tap seam composes, so an app that mounts no engine pays nothing and refuses nothing.
+- Packages: `effect` (`Context`, `Data`, `Effect`, `Option`, `Schema`); `@rasm/ts/core` (`Tap` — the point brand, mint, and registry vocabulary; `FaultClass`).
 - Entry: the app root satisfies `Hook` by adapting the runtime dispatch engine's `publish` over `_POINTS` under its own `AppIdentity.Key`, and arms policy as core `Tap.subscription` rows in one `Tap.registry` value mounted on that engine; the seams dispatch: this page's publish transaction (`journalPublish` veto pre-append, observe post-commit), `object/stream.md`'s tus admission and finalize (`objectAdmit`), `object/file.md`'s gated intake (`objectAdmit`), `journal/retain.md`'s erase tombstone (`retainErase` observe), and `lane/olap.md`'s probe evidence fanning `laneEscalate` at the maintenance composition.
 - Growth: a new domain seam is one `_facts` schema, one `_points` row, and the `Hook.gated`/`tapped` line at the owning seam — the mapped fact contract breaks every consumer until the row exists.
 - Law: the vocabulary is core's, the execution is runtime's, the facts are this page's — the point names re-prove the core `TapPoint` brand at module init, veto legality derives from the row's modality set (`Hook.VetoPoint` remaps on `"veto"` membership, so gating an observe-only point is a compile error), and this page stores no taps, runs no fan, and isolates no breach: the engine owns column-driven dispatch, forked deliveries, and the `Tap.isolated` breach fold, so data's seams stay publisher-only.
@@ -687,7 +742,7 @@ const Journal = {
 - Law: telemetry and policy subscribe to domain facts, never instrument domain code — a compliance observer, an admission quota, or an audit mirror is a `Tap.subscription` row over `Hook.points`, and forking an owner page to intercept its seam is the defect this vocabulary deletes.
 
 ```typescript signature
-import { Tap } from "@rasm/ts/core"
+import { FaultClass, Tap } from "@rasm/ts/core"
 
 const _facts = {
   journalPublish: Schema.Struct({ stream: StreamKey, count: Schema.Int, tags: Schema.Array(Schema.String) }),
@@ -722,7 +777,11 @@ declare namespace Hook {
 class HookVeto extends Data.TaggedError("HookVeto")<{
   readonly point: Hook.Key
   readonly veto: InstanceType<typeof Tap.Veto>
-}> {}
+}> {
+  get class(): FaultClass.Kind {
+    return "denied" // an armed app policy refused admission: caller-blamed, never re-driven
+  }
+}
 
 class Hook extends Context.Tag("data/Hook")<Hook, {
   readonly publish: <P extends Hook.Point>(point: P, fact: Hook.Payload[P]) => Effect.Effect<Hook.Verdict>

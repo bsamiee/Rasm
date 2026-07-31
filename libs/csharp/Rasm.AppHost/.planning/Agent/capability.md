@@ -520,13 +520,13 @@ public sealed record GrantBroker(
     static Option<(string Unit, long Over)> Ceiling(GrantScope scope, CostVector next) =>
         scope.Ceiling.Units.AsIterable()
             .Filter(cap => next.Of(cap.Key) > cap.Value)
-            .HeadOrNone()
+            .Head
             .Map(cap => (cap.Key.Key, next.Of(cap.Key) - cap.Value));
 
     static Option<(string Unit, long Over)> CeilingWire(GrantScope scope, HashMap<string, long> spent, CostVector cost) =>
         scope.Ceiling.Units.AsIterable()
             .Filter(cap => spent.Find(cap.Key.Key).IfNone(0L) + cost.Of(cap.Key) > cap.Value)
-            .HeadOrNone()
+            .Head
             .Map(cap => (cap.Key.Key, spent.Find(cap.Key.Key).IfNone(0L) + cost.Of(cap.Key) - cap.Value));
 }
 ```

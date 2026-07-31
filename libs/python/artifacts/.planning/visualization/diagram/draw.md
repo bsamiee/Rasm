@@ -21,7 +21,7 @@ Glyph fold is one total dispatch over the closed `DiagramGlyph` case. SVG lowers
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from enum import StrEnum
-from functools import lru_cache
+from functools import lru_cache, partial
 from itertools import chain
 from typing import Final, Literal, assert_never
 
@@ -54,7 +54,7 @@ from rasm.artifacts.visualization.diagram.glyphset import (
     TextRun,
 )
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -169,29 +169,38 @@ class DiagramDraw(Struct, frozen=True):
     font_family: str | None = None  # None -> the bundled DejaVuSans outline fallback
 
     def emit(self, /) -> "Iterable[ArtifactWork]":
-        # ONE node per DiagramKind render; suite construction is core/issue's Diagrams arm.
-        return (ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.glyphs) or 1)),)
+        # ONE node per DiagramKind render; suite construction is core/issue's Diagrams arm. ONE mint too, captured
+        # into the closure and threaded into the render arms: `_seed` canonically re-encodes every glyph plus the
+        # palette bytes, and both arms read the key again to stamp their receipt — inside the worker.
+        key = self._key
+        return (
+            ArtifactWork(
+                key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=float(len(self.glyphs) or 1)
+            ),
+        )
 
     @property
     def _seed(self) -> tuple[bytes, ...]:
-        # length-framed canonical preimage chunks (patterns rows [05]/[06]); the lane is execution policy, outside the preimage.
-        framed = lambda chunk: len(chunk).to_bytes(8, "little") + chunk
+        # RAW semantic fields; `IdentitySource.parts` owns the framing. The lane is execution policy, outside the preimage.
         rows = _CANON.encode(tuple((glyph.tag, glyph.mark) for glyph in self.glyphs))
         bundle = _CANON.encode((self.width, self.height, self.target.value, self.font_family))
-        return (framed(rows), framed(self.palette.tobytes()), framed(bundle))
+        return (rows, self.palette.tobytes(), bundle)
 
     @property
     def _key(self) -> ContentKey:
         # PRE-RUN key over the canonical input; receipt.slot == node.key, render determinism pinned by _PRECISION/svg2.
-        return ContentIdentity.key(f"diagram-{self.target}", self._seed)
+        # `parts`, never a bare tuple: an `Iterable[bytes]` lifts to `stream`, which concatenates chunk bytes with
+        # no delimiter — right for buffer chunks of ONE payload, wrong for N semantic fields whose boundary IS meaning.
+        return ContentIdentity.key(f"diagram-{self.target}", IdentitySource(parts=self._seed))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        crossed = await self.lane.offload(Kernel.of(self._rendered, KernelTrait.RELEASING))
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+        crossed = await self.lane.offload(Kernel.of(partial(self._rendered, key), KernelTrait.RELEASING))
         return crossed.bind(lambda inner: inner.map(lambda pair: pair[1]).map_error(self._fault))
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
-        # named diagram layers as one LayerPlan tree the exporters compose; SVG-arm projection.
-        crossed = await self.lane.offload(Kernel.of(self._rendered, KernelTrait.RELEASING))
+        # named diagram layers as one LayerPlan tree the exporters compose; SVG-arm projection. This is no plan node,
+        # so it mints its own key for the receipt the projection then discards.
+        crossed = await self.lane.offload(Kernel.of(partial(self._rendered, self._key), KernelTrait.RELEASING))
         return crossed.bind(
             lambda inner: inner.bind(
                 lambda pair: Ok(LayerPlan(schema=EDITORIAL, roots=pair[0].layered))
@@ -203,14 +212,14 @@ class DiagramDraw(Struct, frozen=True):
     def _fault(self, fault: DrawFault, /) -> BoundaryFault:
         return BoundaryFault(boundary=(f"diagram.draw.{self.target}", fault.tag))
 
-    def _rendered(self) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
-        # one synchronous render kernel; crosses the runtime thread lane.
+    def _rendered(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
+        # one synchronous render kernel; crosses the runtime thread lane carrying the pre-run key its arms stamp.
         try:
             match self.target:
                 case DrawTarget.SVG:
-                    return self._render_svg()
+                    return self._render_svg(key)
                 case DrawTarget.DRAWIO:
-                    return self._render_drawio()
+                    return self._render_drawio(key)
                 case _ as unreachable:
                     assert_never(unreachable)
         except (AttributeError, KeyError, OSError, TypeError, ValueError) as bad:
@@ -219,7 +228,7 @@ class DiagramDraw(Struct, frozen=True):
     def _tally(self) -> tuple[int, int]:
         return (sum(1 for g in self.glyphs if g.tag == "node"), sum(1 for g in self.glyphs if g.tag == "edge"))
 
-    def _render_svg(self) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
+    def _render_svg(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
         ziafont.config.precision = _PRECISION  # idempotent global render policy; every render writes the same value
         ziafont.config.svg2 = True  # inline <path> egress (no <symbol>/<use>)
         ramp = hex_ramp(self.palette)
@@ -230,7 +239,7 @@ class DiagramDraw(Struct, frozen=True):
             rendered = tuple((name, intent, self._layer_svg(group)) for name, (intent, group) in sorted(groups.items()))
             leaves = tuple(LayerNode.Leaf(LayerMeta(name=name, intent=intent), LayerContent.Fragment(svg)) for name, intent, svg in rendered)
             volume = sum(len(svg) for _, _, svg in rendered)
-            return (DrawArtifact(layered=leaves), ArtifactReceipt.Diagram(self._key, "diagram-svg", nodes, edges, "drawsvg", volume))
+            return (DrawArtifact(layered=leaves), ArtifactReceipt.Diagram(key, "diagram-svg", nodes, edges, "drawsvg", volume))
 
         return self._groups(ramp, face, _cap_defs()).map(_artifact)
 
@@ -269,7 +278,7 @@ class DiagramDraw(Struct, frozen=True):
                 cyclic.append(origin)
         return tuple(cyclic)
 
-    def _render_drawio(self) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
+    def _render_drawio(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
         # target admission first: a payload the object vocabulary cannot spell refuses, never degrades.
         if refused := tuple(sorted({glyph.tag for glyph in self.glyphs if glyph.tag in _DRAWIO_UNSPELLABLE})):
             return Error(DrawFault(unrepresentable=refused))
@@ -316,10 +325,12 @@ class DiagramDraw(Struct, frozen=True):
             _lower_drawio(glyph, page, ramp, placed, seats)
         nodes, edges = self._tally()
         data = doc.xml.encode()
-        return Ok((DrawArtifact(drawio=data), ArtifactReceipt.Diagram(self._key, "diagram-drawio", nodes, edges, "drawpyo", len(data))))
+        return Ok((DrawArtifact(drawio=data), ArtifactReceipt.Diagram(key, "diagram-drawio", nodes, edges, "drawpyo", len(data))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
 def _cap_defs() -> CapDefs:
     # one shared <defs> Marker per EndCap; drawsvg auto-collects and dedupes by id. `context-stroke` inherits the edge stroke, so one def serves every
     # index; `refX=2` anchors the terminal tip ON the vertex and `auto-start-reverse` points a start cap outward — the CAD cap-block insert parity

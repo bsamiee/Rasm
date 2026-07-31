@@ -2,7 +2,7 @@
 
 One implicit-field algebra over three closed field unions — `ScalarField`, `VectorField`, `TensorField` — each sampled anywhere in space through one per-union dispatch, composed through flattening operators, and constructed so a case's payload types are its admission structure. Raw ingress is one-expression admitting factories and multi-knob ingress rides a policy record; everything else constructs from already-admitted material, so no re-validation switch stands beside the case list. This page samples and never meshes: iso-surface extraction is `reconstruct.md`'s.
 
-`calculus.md` owns the sample-anywhere math this page composes — the `Nabla` stencil, the `Falloff`/`KernelKind` weight vocabularies, and the `FieldNoise` lattices the `NoiseKind` rows point at. `reconstruct.md` owns the reconstruction kernels and mesh-SDF policy; its solvers mint the fitted payloads, and `SignedDistanceFromMesh` delegates to its `MeshSdf` with no second SDF evaluator here. Mesh-aware cases delegate through the `mesh.md` `MeshSpace` seam. `SampleDetailed` and `SampleSdfDetailed` are the public tagged sampling seam reporting how a value was produced, and `pack.md` binds `SampleDetailed` for its scalar facet.
+`calculus.md` owns the sample-anywhere math this page composes — the `Nabla` stencil, the `Falloff`/`KernelKind` weight vocabularies, and the `FieldNoise` lattices the `NoiseKind` rows point at. `reconstruct.md` owns the reconstruction kernels and mesh-SDF policy; its solvers mint the fitted payloads and `SignedDistanceFromMesh` delegates to its `MeshSdf`. Mesh-aware cases delegate through the `mesh.md` `MeshSpace` seam. `SampleDetailed` and `SampleSdfDetailed` are the public tagged sampling seam reporting how a value was produced, and `pack.md` binds `SampleDetailed` for its scalar facet.
 
 ## [01]-[INDEX]
 
@@ -200,7 +200,9 @@ public abstract partial record SdfKind {
         }
     }
     public sealed record OctahedronCase(PositiveMagnitude S) : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) => ExactOctahedron(p: p, s: S.Value); }
-    public sealed record EllipsoidCase(PositiveMagnitude X, PositiveMagnitude Y, PositiveMagnitude Z) : SdfKind { public override double Lipschitz => 2.0; internal override double Distance(Point3d p) { /* k0*(k0-1)/k1 first-order normalized estimate */ return default; } }
+    // First-order normalized estimate k0·(k0−1)/k1 — exact on the surface and center, Lipschitz-bounded by 2 off
+    // it; degenerate k1 (sample at the origin) answers the deepest interior distance, never a fabricated zero.
+    public sealed record EllipsoidCase(PositiveMagnitude X, PositiveMagnitude Y, PositiveMagnitude Z) : SdfKind { public override double Lipschitz => 2.0; internal override double Distance(Point3d p) { double k0 = new Vector3d(x: p.X / X.Value, y: p.Y / Y.Value, z: p.Z / Z.Value).Length; double k1 = new Vector3d(x: p.X / (X.Value * X.Value), y: p.Y / (Y.Value * Y.Value), z: p.Z / (Z.Value * Z.Value)).Length; return k1 > EpsilonPolicy.ZeroTolerance ? k0 * (k0 - 1.0) / k1 : -Math.Min(val1: X.Value, val2: Math.Min(val1: Y.Value, val2: Z.Value)); } }
     public sealed record SlabCase(PositiveMagnitude HalfHeight) : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) => Math.Abs(p.Z) - HalfHeight.Value; }
 
     public abstract double Lipschitz { get; }
@@ -225,8 +227,8 @@ public abstract partial record SdfKind {
 
 ## [04]-[SCALAR_FIELD]
 
-- Owner: `ScalarField` `[Union]` — the scalar algebra in case families spanning analytic sources, combinators, domain warps, differential operators, mesh-aware solvers, and reconstruction. Mesh-aware and reconstruction cases construct only through their admitting factories, never `new`, so the factory proves sources against the `MeshSpace` range or the fitted payload against its `reconstruct.md` minter. `Noise` takes the `NoisePolicy` record.
-- Auto: `SampleScalar` is the one total generated `Switch` over the union — analytic sources evaluate closed forms, combinators recurse, warps pre-transform the sample and recurse, differential arms delegate to the `calculus.md` `Nabla` stencil with sampler closures the stencil never learns the union from, mesh-aware arms delegate through the `MeshSpace` seam, and reconstruction arms evaluate the fitted payload through `reconstruct.md`. One shared `SampleMapped` body collapses the map-only warps. `LipschitzBound` folds only the analytically bounded species; an over-claimed bound overshoots ray-march steps into silently missed surfaces, so `Twist`, `Bend`, and `Periodic` return `None` by decision.
+- Owner: `ScalarField` `[Union]` — the scalar algebra in case families spanning analytic sources, combinators, domain warps, differential operators, mesh-aware solvers, reconstruction, and the lattice-backed `LatticeCase` that makes a baked or imported plane a first-class field. Mesh-aware and reconstruction cases construct only through their admitting factories, never `new`, so the factory proves sources against the `MeshSpace` range, the fitted payload against its `reconstruct.md` minter, or the value census against the admitting `CellLattice`. `Noise` takes the `NoisePolicy` record.
+- Auto: `SampleScalar` is the one total generated `Switch` over the union — analytic sources evaluate closed forms, combinators recurse, warps pre-transform the sample and recurse, differential arms delegate to the `calculus.md` `Nabla` stencil with sampler closures the stencil never learns the union from, mesh-aware arms delegate through the `MeshSpace` seam, and reconstruction arms evaluate the fitted payload through `reconstruct.md`. One shared `SampleMapped` body collapses the map-only warps, and one `ReconstructLattice` body is the sample reconstruction every lattice-backed arm (`LatticeCase`, `PoissonCase`) reads through its `LatticeInterpolation` row. `SampleLattice` is the one batch sweep — every cell centre through the same rail, the first failure carrying its cell coordinate. `LipschitzBound` folds only the analytically bounded species; an over-claimed bound overshoots ray-march steps into silently missed surfaces, so `Twist`, `Bend`, `Periodic`, and the sampled `LatticeCase` answer `None` by decision.
 - Receipt: `SampleDetailed → Fin<FieldSample>` is the public tagged rail carrying value, `SdfStatus` provenance, and nested evidence for mesh, reconstruction, and tet species. `SampleSdfDetailed → Fin<SdfSample>` refuses a species with no distance semantics, faulting `Unsupported` rather than mislabeling a value as a distance; its `SdfSample` carries the profile-extrusion `ProfileFeature` and `ProfileContainment` columns only on the `NativeProfile` species.
 - Packages: `RhinoCommon`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`.
 - Growth: a new scalar species is one case and one `Switch` arm, a factory only when raw material enters; a new blend or CSG mode is a vocabulary row; a new provenance species is one `SdfStatus` row.
@@ -293,8 +295,14 @@ public abstract partial record ScalarField {
     public sealed record ApssCase(Seq<MlsSample> Samples, ApssPolicy Policy, ReconstructionReceipt Receipt) : ScalarField;
     public sealed record TetSignedHeatCase(TetMeshDomain Domain, TetSignedHeatPolicy Policy, Arr<double> Values, TetSignedHeatReceipt Receipt) : ScalarField;
     public sealed record PoissonCase(PoissonGrid Grid, double Gamma, PoissonReceipt Receipt) : ScalarField;
+    // Baked or imported planes/volumes become FIRST-CLASS fields: a clearance raster, a DEM band, a pressed height
+    // field, or an IsoContour input composes into CsgCase/DisplaceCase/BlendCase/PeriodicCase like any analytic case.
+    public sealed record LatticeCase(CellLattice Grid, Arr<double> Values, LatticeInterpolation Interp) : ScalarField;
 
     public static ScalarField Constant(double value) => new ConstantCase(Value: value);
+    public static Fin<ScalarField> Lattice(CellLattice grid, Arr<double> values, LatticeInterpolation? interp = null, Op? key = null) =>
+        from _ in guard(values.Count == grid.CellCount && values.ForAll(double.IsFinite), key.OrDefault().InvalidInput()).ToFin()
+        select (ScalarField)new LatticeCase(Grid: grid, Values: values, Interp: interp ?? LatticeInterpolation.Linear);
     public static Fin<ScalarField> Density(Point3d center, double spread, double strength, Op? key = null) =>
         from s in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: spread)
         from _ in guard(double.IsFinite(strength) && center.IsValid, key.OrDefault().InvalidInput())
@@ -365,7 +373,48 @@ public abstract partial record ScalarField {
                meanCurvatureFlow -> GeodesicKernel.MeanCurvatureMagnitudeAt, spectralDistance ->
                SegmentKernel.SpectralDistanceAt, stripe -> SegmentKernel.StripeAt, rbf/mls/levinMls/apss/tet/poisson
                reconstruct.md evaluators — every arm total, every scalar exits through key.AcceptValue. */
-            poissonCase: static (s, c) => s.Key.AcceptValue(value: c.Grid.SampleTrilinear(point: s.Sample) - c.Gamma)));
+            latticeCase: static (s, c) => s.Key.AcceptValue(value: ReconstructLattice(grid: c.Grid, values: c.Values, interp: c.Interp, local: c.Grid.Locate(sample: s.Sample))),
+            poissonCase: static (s, c) => s.Key.AcceptValue(value: ReconstructLattice(grid: c.Grid.Grid, values: c.Grid.Chi, interp: LatticeInterpolation.Linear, local: c.Grid.Grid.Locate(sample: s.Sample)) - c.Gamma)));
+
+    // Lattice reconstruction at a fractional cell coordinate — the ONE sample-reconstruction body every
+    // lattice-backed case reads. Cell-CENTRE convention (Center writes the half-offset), separable per axis:
+    // Nearest reads the clamped floor cell, Linear lerps the two-tap window, Cubic runs the four-tap Catmull-Rom;
+    // clamped border reads make every window total on an admitted lattice.
+    private static double ReconstructLattice(CellLattice grid, Arr<double> values, LatticeInterpolation interp, Point3d local) {
+        (int columns, int rows, int layers) = (grid.Columns.Value, grid.Rows.Value, grid.Layers.Value);
+        static int Clamp(int index, int count) => Math.Clamp(value: index, min: 0, max: count - 1);
+        double At(int c, int r, int l) => values[(int)grid.Linear(column: Clamp(index: c, count: columns), row: Clamp(index: r, count: rows), layer: Clamp(index: l, count: layers))];
+        if (interp == LatticeInterpolation.Nearest) {
+            return At(c: (int)Math.Floor(d: local.X), r: (int)Math.Floor(d: local.Y), l: (int)Math.Floor(d: local.Z));
+        }
+        (double x, double y, double z) = (local.X - 0.5, local.Y - 0.5, grid.Rank is 3 ? local.Z - 0.5 : 0.0);
+        (int cx, int cy, int cz) = ((int)Math.Floor(d: x), (int)Math.Floor(d: y), (int)Math.Floor(d: z));
+        (double fx, double fy, double fz) = (x - cx, y - cy, z - cz);
+        static double CatmullRom(double p0, double p1, double p2, double p3, double t) =>
+            p1 + (0.5 * t * (p2 - p0 + (t * ((2.0 * p0) - (5.0 * p1) + (4.0 * p2) - p3 + (t * ((3.0 * (p1 - p2)) + p3 - p0))))));
+        double Axis(Func<int, double> tap, double t) => interp == LatticeInterpolation.Linear
+            ? double.Lerp(tap(arg: 0), tap(arg: 1), t)
+            : CatmullRom(p0: tap(arg: -1), p1: tap(arg: 0), p2: tap(arg: 1), p3: tap(arg: 2), t: t);
+        double Plane(int dz) => Axis(tap: dy => Axis(tap: dx => At(c: cx + dx, r: cy + dy, l: cz + dz), t: fx), t: fy);
+        return grid.Rank is 3 ? Axis(tap: Plane, t: fz) : Plane(dz: 0);
+    }
+
+    // ONE sweep entry — the batch counterpart to SampleDetailed: every cell centre samples through the same rail,
+    // and the first failed cell faults with its coordinate on the Op, so a million-cell sweep reports WHERE.
+    public Fin<Arr<double>> SampleLattice(CellLattice grid, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        double[] plane = new double[grid.CellCount];
+        for (long index = 0; index < plane.LongLength; index++) {
+            (int column, int row, int layer) = grid.Coordinate(linear: index);
+            Fin<double> cell = SampleScalar(sample: grid.Center(column: column, row: row, layer: layer), context: context, key: op);
+            if (cell.IsFail) {
+                return Fin.Fail<Arr<double>>(error: cell.Match(Succ: static _ => Errors.None, Fail: identity)
+                    + op.InvalidResult(detail: $"lattice-cell:{column},{row},{layer}"));
+            }
+            plane[index] = cell.IfFail(defaultValue: 0.0);
+        }
+        return op.AcceptValue(value: toArr(plane));
+    }
 
     public Fin<FieldSample> SampleDetailed(Point3d sample, Context context, Op? key = null) { /* status-tagged rail:
         Primitive -> Analytic; Lipschitz-bounded composite -> ComposedAnalytic; ProfileExtrusion -> NativeProfile;
@@ -513,7 +562,7 @@ public abstract partial record TensorField {
     public Fin<Seq<(double Eigenvalue, Direction Axis)>> PrincipalDirections(Point3d sample, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return SampleTensor(sample: sample, context: context, key: op)
-            .Bind(tensor => tensor.DecomposeEigen(key: op))
+            .Bind(tensor => tensor.DecomposeEigenDetailed(key: op)).Bind(receipt => receipt.PairsIn(expected: EigenOrder.DescendingMagnitude, key: op))
             .Bind(pairs => pairs.TraverseM(pair =>
                 Direction.Of(value: new Vector3d(x: pair.Eigenvector[0], y: pair.Eigenvector[1], z: pair.Eigenvector[2]), context: context, key: op)
                     .Map(axis => (pair.Eigenvalue, Axis: axis))).As());

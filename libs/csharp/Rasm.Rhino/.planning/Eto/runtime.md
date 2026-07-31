@@ -76,12 +76,15 @@ public static class UiThread {
 
 ## [03]-[AMBIENT]
 
-- Owner: `Pulse` leases `UITimer` and advances one kernel `MonotonicTimeline` beat chain per lease; `Displays`, `PointerState`, and `ModifierState` snapshot ambient facts; `CursorRow` applies one cursor vocabulary.
+- Owner: `Pulse` leases `UITimer` and advances one kernel `MonotonicTimeline` beat chain per lease; `Displays`, `PointerState`, and `ModifierState` snapshot ambient facts; `ModifierWatch` leases the push edge; `CursorRow` applies one cursor vocabulary. Every `Displays` read is pure topology, so `Capture` alone crosses `UiThread` and alone returns a lease — it is the only member that mints a host resource.
+- Law: ambient input answers both modalities — `PointerState.Read`/`ModifierState.Read` poll "now" and `ModifierWatch` over `Keyboard.ModifiersChanged` delivers the EDGE, because a drag gesture and a modifier-sensitive tool both change behaviour the instant a modifier moves and a poll-only owner cannot see a chord pressed mid-drag until the next unrelated read; the watch is a `UiLease` with the same interlocked one-shot inverse every Eto capsule carries.
+- Law: `PointerState.Held(MouseButtons)` folds the host `Mouse.IsAnyButtonPressed` multi-button predicate rather than masking the snapshot, so a chord test reads live provider state where the instance `Holds` reads the captured frame — the snapshot answers what a gesture began with and the predicate what the device holds now.
+- Law: the pointer twin gates and rails because `Mouse.IsSupported` exists; `Keyboard` publishes no such flag, so `ModifierState.Read` is bare and total by host contract while `Locked` composes the `SupportedLockKeys` membership set the host DOES declare and answers `Option<bool>`. Host surface owns that asymmetry, stated here so it never reads as an ungated twin.
 - Entry: `Pulse.Start` accepts cadence and clock explicitly — the clock admits through `MonotonicTimeline.Of`, `Capture` seeds the origin, and each tick advances the chain through `Beat`, so no tick reads or subtracts raw provider timestamps.
-- Receipt: `PulseBeat` carries ordinal, elapsed time, requested interval, drift, and missed-beat evidence; `Pulse.Failures` retains primary callback faults plus reporter faults.
+- Receipt: `PulseBeat` COMPOSES the kernel `MonotonicBeat` and adds the cadence-only columns — requested interval, drift, missed beats — projecting ordinal, elapsed, and delta off the composed evidence; a flat re-spelling of ordinal and elapsed beside the cadence columns re-mints temporal identity and forks drift semantics against the sibling host boundary, and is the deleted form. `Pulse.Failures` retains primary callback faults plus reporter faults.
 - Auto: display topology is re-read rather than cached; pointer reads reject unsupported backends before touching provider state.
 - Growth: another beat metric extends `PulseBeat`; another cursor is one `CursorRow` row.
-- Boundary: `Pulse` paces UI housekeeping; viewport motion owns frame pacing.
+- Boundary: `Pulse` paces UI housekeeping and is the ONE portable cadence in the boundary — viewport motion owns frame pacing and composes this lease for its timer row rather than reaching `UITimer` itself, so one beat chain and one disposal serve both; `Pause`/`Resume` suspend the host timer without breaking the chain, so a resumed drive continues its ordinal.
 - Exemption: `UITimer` construction, start, and release form the callback-boundary statement seam; a failed start disposes the unleased timer.
 
 ```csharp signature
@@ -107,7 +110,13 @@ public sealed partial class CursorRow {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct PulseBeat(long Ordinal, TimeSpan Elapsed, TimeSpan Interval, TimeSpan Drift, long Missed);
+// Temporal identity is the kernel's: the beat COMPOSES `MonotonicBeat` and adds cadence-only columns, so ordinal and elapsed
+// have one spelling across both host boundaries and a timeline change cannot fork drift semantics between them.
+public readonly record struct PulseBeat(MonotonicBeat Evidence, TimeSpan Interval, TimeSpan Drift, long Missed) {
+    public long Ordinal => Evidence.Ordinal;
+    public TimeSpan Elapsed => Evidence.Elapsed;
+    public TimeSpan Delta => Evidence.Delta;
+}
 
 public sealed record DisplayFacts(
     RectangleF Bounds,
@@ -122,15 +131,59 @@ public readonly record struct PointerState(PointF Position, MouseButtons Pressed
         ? Fin.Succ(new PointerState(Mouse.Position, Mouse.Buttons))
         : Fin.Fail<PointerState>(new UiFault.Unavailable(Key: key.OrDefault(), Capability: nameof(Mouse)));
 
+    public static Fin<bool> Held(MouseButtons buttons, Op? key = null) => Mouse.IsSupported
+        ? Fin.Succ(Mouse.IsAnyButtonPressed(buttons))
+        : Fin.Fail<bool>(new UiFault.Unavailable(Key: key.OrDefault(), Capability: nameof(Mouse)));
+
     public bool Holds(MouseButtons buttons) => (Pressed & buttons) != MouseButtons.None;
 }
 
 public readonly record struct ModifierState(Keys Held) {
+    // `Keyboard` publishes no capability flag — there is no keyboard twin of `Mouse.IsSupported` — so `Modifiers` is
+    // total by host contract and this read is bare rather than railed on a probe that does not exist.
     public static ModifierState Read() => new(Keyboard.Modifiers);
-    public static bool Locked(Keys key) => Keyboard.IsKeyLocked(key);
+
+    // Lock state DOES carry a declaration: `SupportedLockKeys` is the backend's own membership set, so a key the
+    // platform never tracks answers absent instead of returning whatever the unsupported read happens to produce.
+    public static Option<bool> Locked(Keys key) =>
+        toSeq(Keyboard.SupportedLockKeys).Exists(row => row == key) ? Some(Keyboard.IsKeyLocked(key)) : None;
+
+    public static Fin<ModifierWatch> Observe(Action<ModifierState> publish, Action<Error> report, Op? key = null) =>
+        ModifierWatch.Open(publish: publish, report: report, key: key.OrDefault());
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
+public sealed class ModifierWatch : UiLease {
+    private readonly EventHandler<EventArgs> changed;
+    private readonly Atom<Seq<Error>> failures;
+    private readonly Op key;
+
+    private ModifierWatch(EventHandler<EventArgs> changed, Atom<Seq<Error>> failures, Op key) {
+        this.changed = changed;
+        this.failures = failures;
+        this.key = key;
+    }
+
+    public Seq<Error> Failures => failures.Value;
+
+    public static Fin<ModifierWatch> Open(Action<ModifierState> publish, Action<Error> report, Op key) =>
+        from sink in key.Need(publish)
+        from sentinel in key.Need(report)
+        from watch in UiThread.Run(new UiDispatch<Fin<ModifierWatch>>.Blocking(() => key.Catch(body: () => {
+            Atom<Seq<Error>> failures = Atom(Seq<Error>());
+            EventHandler<EventArgs> changed = (_, _) => key.Catch(body: () => Fin.Succ(Op.Side(
+                action: () => sink(obj: ModifierState.Read())))).Match(
+                Succ: static observed => observed,
+                Fail: fault => ignore(failures.Swap(rows => rows.Add(fault.Reported(sentinel, key)))));
+            Keyboard.ModifiersChanged += changed;
+            return Fin.Succ(new ModifierWatch(changed: changed, failures: failures, key: key));
+        })), key).Result
+        select watch;
+
+    protected override Fin<Unit> Free() => UiThread.Run(
+        new UiDispatch<Unit>.Blocking(() => Seq<Action>(() => Keyboard.ModifiersChanged -= changed).Drained(key)), key).Result;
+}
+
 public sealed class Pulse : UiLease {
     private readonly UITimer timer;
     private readonly MonotonicTimeline timeline;
@@ -193,6 +246,10 @@ public sealed class Pulse : UiLease {
         });
     }
 
+    // Suspension is not release: a paused pulse keeps its beat chain, so a resumed drive continues its ordinal rather than restarting it.
+    public Unit Pause() => Op.Side(timer.Stop);
+    public Unit Resume() => Op.Side(timer.Start);
+
     protected override Fin<Unit> Free() => Seq<Action>(timer.Stop, timer.Dispose).Drained(key);
 
     private void Tick() => _ = chain.Swap(prior => prior
@@ -201,8 +258,7 @@ public sealed class Pulse : UiLease {
             Succ: beat => {
                 _ = key.Catch(() => {
                     publish(new PulseBeat(
-                        Ordinal: beat.Ordinal,
-                        Elapsed: beat.Elapsed,
+                        Evidence: beat,
                         Interval: interval,
                         Drift: beat.Elapsed - TimeSpan.FromTicks(interval.Ticks * beat.Ordinal),
                         Missed: Math.Max(0L, (beat.Elapsed.Ticks / interval.Ticks) - beat.Ordinal)));
@@ -221,8 +277,13 @@ public static class Displays {
     public static DisplayFacts Primary() => Snapshot(Screen.PrimaryScreen);
     public static DisplayFacts At(PointF point) => Snapshot(Screen.FromPoint(point));
     public static DisplayFacts Covering(RectangleF bounds) => Snapshot(Screen.FromRectangle(bounds));
-    public static Fin<Image> Capture(RectangleF bounds, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ<Image>(Screen.FromRectangle(bounds).GetImage(bounds)));
+    // One display member has a side effect and it is the one minting a host resource, so it is also the one that
+    // crosses: a grab returns leased under caller custody and runs UI-affine like every other host-touching owner here.
+    public static Fin<Lease<Image>> Capture(RectangleF bounds, Op? key = null) {
+        Op op = key.OrDefault();
+        return UiThread.Run(new UiDispatch<Lease<Image>>.Blocking(() => op.Catch(() => Fin.Succ(
+            value: (Lease<Image>)new Lease<Image>.Owned(Value: Screen.FromRectangle(bounds).GetImage(bounds))))), op).Result;
+    }
 
     private static DisplayFacts Snapshot(Screen screen) =>
         new(screen.Bounds, screen.WorkingArea, screen.DPI, screen.Scale, screen.LogicalPixelSize, screen.IsPrimary);
@@ -236,7 +297,7 @@ public static class Displays {
 - Entry: `Transfer.Apply` is the one bidirectional transfer entry; awaited `Transfer.Begin` marshals the complete drag lifetime through `UiThread`, and `Drop.Of` admits drop ingress.
 - Receipt: optional reads preserve absence in `TransferReceipt.Read`; required absence returns `UiFault.AbsentPayload`; writes expose every slot fact, and detached drag bundles publish only after every fact succeeds.
 - Growth: another payload shape adds one `PayloadSlot` case, one `TransferQuery` case, and compiler-forced fold arms.
-- Boundary: `DragEventArgs` remains private inside `Drop`; byte slots detach into immutable storage before egress, and `Transfer.Begin` owns streamed slots through drag completion and releases every stream on either outcome.
+- Boundary: `DragEventArgs` remains private inside `Drop`; byte slots detach into immutable storage before egress, and `Transfer.Begin` takes custody of every DISPOSABLE slot — streamed and picture alike — through drag completion and releases each on either outcome, so a slot's host resource is drained by its conformance rather than by a per-case filter.
 - Exemption: provider effect and drop-description assignment form the drag/drop statement seam.
 
 ```csharp signature
@@ -266,7 +327,15 @@ public abstract partial record PayloadSlot {
     private PayloadSlot() { }
     public sealed record Text(string Value) : PayloadSlot;
     public sealed record Html(string Value) : PayloadSlot;
-    public sealed record Picture(Image Value) : PayloadSlot;
+    // Picture slots carry a host `Image` on exactly the ownership terms a stream does, so this case joins the
+    // disposable family rather than relying on a drag cleanup that filters for one case name.
+    public sealed record Picture(Image Value) : PayloadSlot, IDisposable {
+        private int released;
+        public void Dispose() {
+            if (Interlocked.Exchange(ref released, 1) == 0)
+                Value.Dispose();
+        }
+    }
     public sealed record Linked(Seq<Uri> Value) : PayloadSlot;
     public sealed record Bytes(Mime Key, Arr<byte> Value) : PayloadSlot;
     public sealed record Streamed(Mime Key, Stream Value) : PayloadSlot, IDisposable {
@@ -453,8 +522,10 @@ public static class Transfer {
                         }))
                     : Fin.Fail<DragReceipt>(new UiFault.Rejected(Key: op, Field: nameof(plan.Slots), Reason: "drag payload was not written")));
         });
+        // Draining keys on the DISPOSABLE conformance, not on a case name, so a slot joining the family needs no edit
+        // here and no disposable case can be forgotten by a filter that enumerates cases.
         Fin<Unit> cleanup = plan.Slots
-            .Choose(static slot => slot is PayloadSlot.Streamed streamed ? Some<Action>(streamed.Dispose) : None)
+            .Choose(static slot => slot is IDisposable owned ? Some<Action>(owned.Dispose) : None)
             .Drained(op);
         return outcome.Sealed(cleanup);
     }

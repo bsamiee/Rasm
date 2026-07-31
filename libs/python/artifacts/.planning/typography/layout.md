@@ -14,8 +14,8 @@ Break boundaries and HarfBuzz clusters normalize onto code-point indices. `_icu_
 - Cases: `breaks` resolves grapheme-safe UAX #14 opportunities; `hyphenate` returns absolute `HyphenBreak` rows with realized standard or orthographic splits; `paragraph` fits one shaped run under `FitPolicy`; `measure` returns the east-asian cell-width prefix; `collate` returns sort keys and locale buckets under `CollationPolicy`.
 - Entry: `emit()` mints one request key, captures it into `_emit`, and returns one `ArtifactWork`; every arm crosses `self.lane.offload` as a `Kernel` on its `_trait` row, the trait row's worker-death retry the only re-run — the fold is deterministic, so a raise is a defect the lane converts once.
 - Auto: `_dictionary` raises `LookupError` for an unbundled locale; `_clusters` groups every equal HarfBuzz cluster before RTL reversal; `_stream` lowers each group once; `_trace` derives glyph and source spans from `_Cluster`; `broken` retains the minimum-demerit node per fitness class.
-- Receipt: every arm contributes `ArtifactReceipt.Document` with the content key and encoded byte count. `_data_versions` adds only the provider data releases the selected arm reads: bundled uniseg segmentation data, interpreter width data, pyphen dictionaries, or linked ICU/Unicode data.
-- Packages: `pyphen` (`Pyphen`/`positions`/`iterate`/`language_fallback`/`VERSION`), `uniseg` (`line_break_units`/`line_break`/`words`/`grapheme_cluster_boundaries`/`tt_text_extents`/`east_asian_width`/`unidata_version`), `PyICU` (`BreakIterator`/`Collator`/the full `UCollAttribute` matrix/`AlphabeticIndex`/`ICU_VERSION`/`UNICODE_VERSION`), and `core/receipt#RECEIPT` (`ArtifactReceipt.Document`).
+- Receipt: every arm contributes `ArtifactReceipt.Document` with the content key, encoded byte count, and the arm tag as the `product` band's `step` fact, so five arms folding onto one case stay distinguishable in the `_facts` stream. `_data_versions` adds only the provider data releases the selected arm reads: bundled uniseg segmentation data, interpreter width data, pyphen dictionaries, or linked ICU/Unicode data.
+- Packages: `pyphen` (`Pyphen`/`positions`/`iterate`/`language_fallback`/`VERSION`), `uniseg` (`line_break_units`/`line_break`/`words`/`grapheme_cluster_boundaries`/`tt_text_extents`/`east_asian_width`/`unidata_version`), `PyICU` (`BreakIterator`/`Collator`/the full `UCollAttribute` matrix/`AlphabeticIndex`/`ICU_VERSION`/`UNICODE_VERSION`), `core/receipt#RECEIPT` (`ArtifactReceipt.Document`), and runtime `faults` (`scoped` the versioned tracer triple, `faulted` the charter's span-error fold composed rather than re-spelled, so this page owns no logger).
 - Growth: break engines extend `SegmentEngine`; locale tailors extend `_TAILOR_TABLE`; item kinds extend `Item`; fit decisions extend `FitPolicy`; UCA decisions extend `CollationPolicy`; line evidence extends `LayoutLine`.
 - Boundary: shaping and bidi resolution stay in `typography/shape#SHAPE`; font engineering stays in `typography/font#FONT`; authoring stays in `document/emit#DOCUMENT`. Greedy first fit, `tt_wrap` for proportional text, `Pyphen.inserted`, `Pyphen.wrap`, local Unicode or UCA tables, scalar-glyph breaking, and `text.split()` tokenization are rejected forms.
 
@@ -30,16 +30,14 @@ from math import inf
 from typing import Final, Literal, assert_never
 
 import msgspec
-import structlog
 from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, scoped
+from rasm.runtime.faults import RuntimeRail, faulted, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -70,7 +68,6 @@ _MANDATORY: Final[frozenset[str]] = frozenset({"BK", "CR", "LF", "NL"})
 _WIDE: Final[frozenset[str]] = frozenset({"W", "F"})
 _CANON: Final = msgspec.msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
 _RUN_ENCODER: Final = msgspec.msgpack.Encoder()
-_LOG: Final = structlog.get_logger()
 _TRACER: Final = scoped(trace.get_tracer, "rasm.artifacts.typography.layout")
 _TAILOR_TABLE: Final[Map[str, TailorFunction]] = Map.empty()
 
@@ -113,6 +110,8 @@ class CaseFirst(StrEnum):
 
 # CollationStrength/AlternateHandling member names equal their UCollAttributeValue spellings; only the case-first axis renames.
 _UCA_CASE: Final[Map[CaseFirst, str]] = Map.of_seq([(CaseFirst.OFF, "OFF"), (CaseFirst.LOWER, "LOWER_FIRST"), (CaseFirst.UPPER, "UPPER_FIRST")])
+# the two boolean UCA axes name their `UCollAttributeValue` member directly, so the row reads as the spelling it resolves.
+_TOGGLE: Final[frozendict[bool, str]] = frozendict({True: "ON", False: "OFF"})
 
 
 class AlternateHandling(StrEnum):
@@ -279,8 +278,12 @@ class LineLayout(Struct, frozen=True):
         with _TRACER.start_as_current_span(f"layout.{self.request.tag}") as span:
             span.set_attributes({"step": self.request.tag, "trait": trait.value})
             crossed = await self.lane.offload(Kernel.of(acceptor, trait), self.request)
+            # five arms fold onto ONE receipt case, so the arm rides the `product` band: a break opportunity set, a
+            # hyphenation roster, a broken paragraph, a width prefix, and a collation bucketing are one
+            # indistinguishable `document` row without it, and the `_facts` stream can fan none of them.
+            facts: frozendict[str, float | str] = frozendict({"step": self.request.tag})
             # egress fold closes inside the span scope: the Error arm marks ERROR and logs correlated, the Ok path stays silent.
-            return crossed.map(lambda data: ArtifactReceipt.Document(key, len(data))).map_error(partial(_faulted, span, self.request.tag))
+            return crossed.map(lambda data: ArtifactReceipt.Document(key, len(data), facts)).map_error(partial(faulted, span, "layout.emit", step=self.request.tag))
 
     @property
     def _trait(self) -> KernelTrait:
@@ -321,12 +324,6 @@ class _Cluster(Struct, frozen=True):
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
-
-
-def _faulted(span: trace.Span, step: str, fault: BoundaryFault, /) -> BoundaryFault:
-    span.set_status(Status(StatusCode.ERROR, fault.tag))
-    _LOG.error("layout.emit", step=step, **fault.facts())
-    return fault
 
 
 def _uniseg_breaks(text: str, language: str, /) -> tuple[Opportunity, ...]:
@@ -639,13 +636,12 @@ def _collate(request: LayoutRequest) -> bytes:
     spec = request.collate
     locale, policy = Locale(spec.language), spec.policy
     collator = Collator.createInstance(locale)
-    toggled = lambda live: "ON" if live else "OFF"
     rows = (
         (UCollAttribute.STRENGTH, policy.strength.name),
         (UCollAttribute.CASE_FIRST, _UCA_CASE[policy.case_first]),
         (UCollAttribute.ALTERNATE_HANDLING, policy.alternate.name),
-        (UCollAttribute.NORMALIZATION_MODE, toggled(policy.normalization)),
-        (UCollAttribute.NUMERIC_COLLATION, toggled(policy.numeric)),
+        (UCollAttribute.NORMALIZATION_MODE, _TOGGLE[policy.normalization]),
+        (UCollAttribute.NUMERIC_COLLATION, _TOGGLE[policy.numeric]),
     )
     for attribute, name in rows:  # Exemption: the ICU collator is a stateful native object configured in place
         collator.setAttribute(attribute, getattr(UCollAttributeValue, name))

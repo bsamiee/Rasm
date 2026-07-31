@@ -2,30 +2,30 @@
 
 `Rasm.Parametric` owns the host-neutral NURBS engine — the whole rational curve and surface algorithm set in-kernel over `Rhino.Geometry` `Point3d`/`Vector3d`/`Plane` native carriers, control nets held in homogeneous form. `Nurbs.Of` is the ONE polymorphic admission for every wire ingress; evaluation members live on the `NurbsForm` carriers, and the op rails compose this engine from `curve.md`/`surface.md`.
 
-Fitting solves compose the `matrix.md` sparse owners, and arc-length composes `MathNet` for quadrature, length inversion, and Newton projection while the Bezier decomposition and `|C′(t)|` speed integrand stay local. `ToEncodeForm()` projects into the reconciliation `EncodeForm` chain for one content key per curve across every ingress spelling, and a degeneracy-sensitive verdict escalates to the `Numerics/predicates` exact ladder at the consumer seam — evaluation is `double`-only geometry, never the adjudication.
+Fitting solves compose the `matrix.md` sparse owners; arc-length routes its per-Bezier speed integrals through the kernel `Numerics/integrate` `Quadrature.Integrate` owner and composes `MathNet` for length inversion and Newton projection while the Bezier decomposition and `|C′(t)|` speed integrand stay local. `ToEncodeForm()` projects into the reconciliation `EncodeForm` chain for one content key per curve across every ingress spelling, and a degeneracy-sensitive verdict escalates to the `Numerics/predicates` exact ladder at the consumer seam — evaluation is `double`-only geometry, never the adjudication.
 
 ## [01]-[INDEX]
 
-- [02]-[NURBS_ENGINE]: `KnotVector` the normalized-clamped knot algebra with `KnotForm`/`ParametricDirection` vocabularies; `NurbsWire` the admission `[Union]` with `FitKind`/`FitPolicy` fitting rows; `NurbsForm` the curve/surface carrier `[Union]` holding the full evaluation surface; `NurbsPolicy` the engine knob row; `Nurbs.Of` the ONE admission.
+- [02]-[NURBS_ENGINE]: `KnotVector` the normalized clamped-or-periodic knot algebra with `KnotForm`/`ParametricDirection` vocabularies; `NurbsWire` the admission `[Union]` with `FitKind`/`FitPolicy` fitting rows; `NurbsForm` the curve/surface carrier `[Union]` holding the full evaluation surface; `NurbsPolicy` the engine knob row; `Nurbs.Of` the ONE admission.
 
 ## [02]-[NURBS_ENGINE]
 
-- Owner: `Nurbs` mints the static admission surface folding the `NurbsWire` admission `[Union]` into the `NurbsForm` carrier `[Union]`; `KnotVector` owns the knot algebra proving monotone/finite/clamped and admitting both the full and Rhino-trimmed spellings at one seam; `NurbsPolicy` registers `IValidityEvidence`; `ParametricDirection`/`KnotForm` are the `[SmartEnum]` axis and closure-origin discriminants; `FitKind`/`FitPolicy` the fitting generator rows.
-- Cases: `NurbsWire` cases `Curve`, `Surface`, `CurveThrough`, `SurfaceThrough` — fitting modality is `FitPolicy` data, so interpolate-versus-approximate mints no case; the surface grid flattens V-inner (`index = u·CountV + v`), the one flattening law the identity projection shares. `NurbsForm` cases `Curve`, `Surface`.
+- Owner: `Nurbs` mints the static admission surface folding the `NurbsWire` admission `[Union]` into the `NurbsForm` carrier `[Union]`; `KnotVector` owns the knot algebra proving monotone/finite and clamped-or-wrap-periodic, admitting the full, Rhino-trimmed, and periodic spellings at one seam; `NurbsPolicy` registers `IValidityEvidence`; `ParametricDirection`/`KnotForm` are the `[SmartEnum]` axis and closure-origin discriminants; `FitKind`/`FitPolicy` the fitting generator rows.
+- Cases: `NurbsWire` cases `Curve`, `Surface`, `CurveThrough`, `SurfaceThrough`, `Ruled`, `Revolved` — fitting modality is `FitPolicy` data, so interpolate-versus-approximate mints no case, and the constructive cases fold admitted curve carriers through the same `Of` (the loft unifies degree and knots then lofts degree-1, the revolution mints exact rational arcs); the surface grid flattens V-inner (`index = u·CountV + v`), the one flattening law the identity projection shares. `NurbsForm` cases `Curve`, `Surface`.
 - Entry: `Of` folds every wire shape through one generated `Switch` — explicit wires validate and freeze into the homogeneous columns, fitting wires parameterize, average knots, and solve. No `OfCurve`/`Interpolate` sibling factory — the wire shape discriminates (`MODAL_ARITY`).
 - Auto: evaluation is the internalized NURBS-Book kernel set over the columns — point/derivative, arc-length, closest-parameter projection, double-reflection frame, fundamental-form, iso-curve, and Boehm/Oslo refinement machinery re-emitting normalized clamped forms; the fence pins each member to its algorithm number.
 - Receipt: none on a dedicated rail — the `NurbsForm` carrier IS the admitted artifact, and `ToEncodeForm()` is its identity seam into the reconciliation `EncodeForm` chain.
-- Packages: `MathNet.Numerics` (`Integrate.GaussLegendre` quadrature, `Brent.TryFindRoot` length inversion, `RobustNewtonRaphson.FindRoot` guarded Newton projection); `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane` native carriers); `Rasm.Numerics` (`SparseMatrix`/`CholeskySparse` fitting solves, `Predicate`/`Sign` exact escalation, `GeometryFault.ParametricFault`/`ParametricStage`, `Dimension` atoms); `Rasm.Spatial` (`EncodeForm`/`EncodeForm.Direction` identity target); `Rasm.Domain` (`Op`, `ValidityClaim`/`IValidityEvidence`); `Thinktecture.Runtime.Extensions`; `LanguageExt.Core` (`Fin`/`Try`/`Arr`/`Seq`/`Option`); BCL inbox.
-- Growth: a new evaluation member is one projection over the existing derivative kernels; a new fitting scheme is one `FitKind` row and one solve arm on the same wire cases; a constructive wire (ruled, revolved) is one further `NurbsWire` case folded by the same `Of`; a true unclamped-periodic storage form is one `KnotForm` row and a periodic-aware span/basis arm; degree reduction is one member beside `ElevateDegree` — zero new entry surfaces, zero new carriers.
-- Boundary: evaluation members live on `NurbsForm` and the op rails live in `curve.md`/`surface.md`, so an op union here or an evaluation re-derivation there is the altitude violation; the engine speaks `Point3d`/`Vector3d`/`Plane` natively with no private point vocabulary or marshal layer; parameters are the normalized `[0,1]`/`[0,1]²` domain and knots store clamped-normalized with `KnotForm` recording the admitted origin; weights are strictly positive at admission and a zero-or-negative weight is a `Construction` fault, never a NaN downstream; every failure wraps `Fin` + 2448 naming the failing stage and no exception crosses the public surface; RhinoCommon owns the Rhino-host parametric surface and this engine the host-neutral one — a runtime split, never capability — with the Rhino-trimmed knot spelling extending at the wire under one admission law.
+- Packages: `MathNet.Numerics` (`Brent.TryFindRoot` length inversion, `RobustNewtonRaphson.FindRoot` guarded Newton projection); `TYoshimura.DoubleDouble` (`ddouble` + `DoubleDoubleEnumerableExpand.Sum` — the 106-bit arc-length table, narrowed only at public signatures); `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane` native carriers); `Rasm.Numerics` (`Quadrature.Integrate`/`IntegrationDomain.Line`/`QuadratureRoute.GaussLegendre`/`QuadratureControl` arc-length quadrature, `SparseMatrix`/`CholeskySparse` fitting solves, `Predicate`/`Sign` exact escalation, `GeometryFault.ParametricFault`/`ParametricStage`, `Dimension` atoms); `Rasm.Spatial` (`EncodeForm`/`EncodeForm.Direction` identity target); `Rasm.Domain` (`Op`, `ValidityClaim`/`IValidityEvidence`); `Thinktecture.Runtime.Extensions`; `LanguageExt.Core` (`Fin`/`Try`/`Arr`/`Seq`/`Option`); BCL inbox.
+- Growth: a new evaluation member is one projection over the existing derivative kernels; a new fitting scheme is one `FitKind` row and one solve arm on the same wire cases; a further constructive wire (swept, lofted-through-N) is one `NurbsWire` case folded by the same `Of` — `Ruled`/`Revolved` are the executed precedent — zero new entry surfaces, zero new carriers.
+- Boundary: evaluation members live on `NurbsForm` and the op rails live in `curve.md`/`surface.md`, so an op union here or an evaluation re-derivation there is the altitude violation; the engine speaks `Point3d`/`Vector3d`/`Plane` natively with no private point vocabulary or marshal layer; parameters are the normalized `[0,1]`/`[0,1]²` domain and knots store clamped-normalized — or wrap-periodic UNCLAMPED under `KnotForm.Periodic`, where the span arm wraps the parameter and closure holds at `C^{p−1}`; weights are strictly positive at admission and a zero-or-negative weight is a `Construction` fault, never a NaN downstream; every failure wraps `Fin` + 2448 naming the failing stage and no exception crosses the public surface; RhinoCommon owns the Rhino-host parametric surface and this engine the host-neutral one — a runtime split, never capability — with the Rhino-trimmed knot spelling extending at the wire under one admission law.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DoubleDouble;
 using LanguageExt;
-using MathNet.Numerics;
 using MathNet.Numerics.RootFinding;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -45,8 +45,8 @@ public sealed partial class ParametricDirection {
     public static readonly ParametricDirection V = new(1);
 }
 
-// Closure-origin vocabulary: storage is always clamped-normalized; a periodic wire admits through
-// end-clamping and keeps its origin row. True periodic storage is the recorded growth row here.
+// Closure-origin vocabulary AND storage form: Clamped stores the normalized clamped vector; Periodic
+// stores the true unclamped wrap vector, and the span arm dispatches on the row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -88,10 +88,13 @@ public sealed record FitPolicy(
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------------
-// Knot algebra normalized to [0,1] and proven clamped at construction, so one curve yields one content
-// key. Of admits both wire spellings — full clamped (n+p+1) and Rhino-trimmed (n+p−1, end knots
-// duplicated at the seam) — so host ingress meets one law.
-public readonly record struct KnotVector(int Degree, Arr<double> Knots) {
+// Knot algebra normalized to [0,1] and proven clamped OR wrap-periodic at construction, so one curve
+// yields one content key. Of admits three wire spellings — full clamped (n+p+1), Rhino-trimmed
+// (n+p−1, end knots duplicated at the seam), and true unclamped-periodic (the degree-window wrap
+// knots[i+n] = knots[i] + 1 within EpsilonPolicy.SqrtEpsilon, stored UNCLAMPED under Form.Periodic so
+// a closed curve keeps C^{p−1} continuity across the seam instead of a clamped seam kink) — so host
+// ingress meets one law and the periodic-aware span/basis arm dispatches on Form, never a caller flag.
+public readonly record struct KnotVector(int Degree, Arr<double> Knots, KnotForm Form) {
     public int Count => Knots.Count;
     public int ControlCount => Knots.Count - Degree - 1;
 
@@ -116,24 +119,44 @@ public readonly record struct KnotVector(int Degree, Arr<double> Knots) {
             (int h, int t) when h == degree && t == degree => [0.0, .. knots, 1.0],
             _ => [],
         };
-        return full.Length == 0 ? Fail("unclamped knot vector — neither the full nor the trimmed spelling")
+        return full.Length == 0
+            ? PeriodicWrap(knots, degree)
+                ? knots.Length - degree - 1 < degree + 1 ? Fail("control extent under degree + 1")
+                    : Fin.Succ(new KnotVector(degree, new Arr<double>(knots), KnotForm.Periodic))
+                : Fail("unclamped knot vector — neither clamped, trimmed, nor wrap-periodic")
             : full.Length - degree - 1 < degree + 1 ? Fail("control extent under degree + 1")
-            : Fin.Succ(new KnotVector(degree, new Arr<double>(full)));
+            : Fin.Succ(new KnotVector(degree, new Arr<double>(full), KnotForm.Clamped));
 
         static Fin<KnotVector> Fail(string witness) =>
             Fin.Fail<KnotVector>(new GeometryFault.ParametricFault(ParametricStage.Construction, nameof(KnotVector), witness).ToError());
     }
 
-    // A2.1 span search over the normalized domain; t == 1 lands on the last non-degenerate span.
+    // PeriodicWrap proves the degree-window law of the periodic spelling: each of the leading degree spans repeats the
+    // trailing one shifted by the unit period, so an unclamped vector proves its own closure.
+    static bool PeriodicWrap(ReadOnlySpan<double> knots, int degree) {
+        int n = knots.Length - degree - 1;
+        for (int i = 0; i < degree; i++) {
+            if (Math.Abs(knots[i + n] - (knots[i] + 1.0)) > EpsilonPolicy.SqrtEpsilon) { return false; }
+        }
+        return true;
+    }
+
+    // A2.1 span search over the normalized domain; t == 1 lands on the last non-degenerate span. The
+    // periodic form first wraps t into [Knots[Degree], Knots[ControlCount]) — the one periodic-aware
+    // arm; basis evaluation is then form-blind because the wrapped span's local knots are ordinary.
     public int SpanAt(double t) {
+        if (Form == KnotForm.Periodic) {
+            (double lo, double hi) = (Knots[Degree], Knots[ControlCount]);
+            t = lo + ((((t - lo) % (hi - lo)) + (hi - lo)) % (hi - lo));
+        }
         int n = ControlCount - 1;
         if (t >= Knots[n + 1]) { return n; }
-        (int lo, int hi) = (Degree, n + 1);
-        while (hi - lo > 1) {
-            int mid = (lo + hi) >> 1;
-            if (t < Knots[mid]) { hi = mid; } else { lo = mid; }
+        (int lo2, int hi2) = (Degree, n + 1);
+        while (hi2 - lo2 > 1) {
+            int mid = (lo2 + hi2) >> 1;
+            if (t < Knots[mid]) { hi2 = mid; } else { lo2 = mid; }
         }
-        return lo;
+        return lo2;
     }
 
     public Arr<double> Merged(ReadOnlySpan<double> inserts) =>
@@ -150,6 +173,10 @@ public abstract partial record NurbsWire {
     public sealed record Surface(int DegreeU, int DegreeV, Arr<double> KnotsU, Arr<double> KnotsV, int CountU, Arr<Point3d> Grid, Arr<double> Weights, KnotForm Origin) : NurbsWire;
     public sealed record CurveThrough(Arr<Point3d> Samples, FitPolicy Policy) : NurbsWire;
     public sealed record SurfaceThrough(int CountU, Arr<Point3d> Samples, FitPolicy Policy) : NurbsWire;
+    // Constructive wires over already-admitted curve carriers — the same Of folds them, so a loft or a
+    // revolution is an admission case, never a sibling factory.
+    public sealed record Ruled(NurbsForm.Curve Rail, NurbsForm.Curve Opposite) : NurbsWire;
+    public sealed record Revolved(NurbsForm.Curve Profile, Line Axis, double AngleRadians) : NurbsWire;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -175,7 +202,7 @@ public abstract partial record NurbsForm {
         public int ControlCount => W.Length;
         public Arr<Point3d> ControlPoints => new([.. Enumerable.Range(0, W.Length).Select(i => new Point3d(WX[i] / W[i], WY[i] / W[i], WZ[i] / W[i]))]);
         public Arr<double> Weights => new((double[])W.Clone());
-        public bool IsClosed => PointAt(0.0).DistanceTo(PointAt(1.0)) <= RhinoMath.ZeroTolerance;
+        public bool IsClosed => PointAt(0.0).DistanceTo(PointAt(1.0)) <= EpsilonPolicy.ZeroTolerance;
 
         // A3.1/A4.1 homogeneous De Boor combination, dehomogenized at the return.
         public Point3d PointAt(double t);
@@ -186,10 +213,11 @@ public abstract partial record NurbsForm {
         public Vector3d TangentAt(double t);
         public Vector3d CurvatureAt(double t);
 
-        // Bezier-decomposed Gauss-Legendre arc-length: DecomposeIntoBeziers once (cached), then
-        // Integrate.GaussLegendre(|C'|, a, b, policy.GaussOrder) per segment into a cumulative table.
-        public double Length(NurbsPolicy? policy = null);
-        public double LengthAt(double t, NurbsPolicy? policy = null);
+        // Bezier-decomposed Gauss-Legendre arc-length: DecomposeIntoBeziers once (cached), then the kernel
+        // Quadrature.Integrate Line domain at QuadratureRoute.GaussLegendre with LegendreOrder =
+        // policy.GaussOrder per segment into a cumulative table — the rail carries the route's finite guard.
+        public Fin<double> Length(NurbsPolicy? policy = null);
+        public Fin<double> LengthAt(double t, NurbsPolicy? policy = null);
 
         // Monotone inversion: bracket the containing Bezier segment off the cumulative table, then
         // Brent.TryFindRoot(s(t) − target, ...) — the no-throw bool maps straight to the rail.
@@ -213,6 +241,9 @@ public abstract partial record NurbsForm {
         public Fin<Curve> SubCurve(double t0, double t1);
         public Fin<Curve> Refine(ReadOnlySpan<double> insertions);   // Boehm/Oslo insertion (A5.4)
         public Fin<Curve> ElevateDegree(int target);                 // A5.9
+        // A5.11 Bezier-segment degree reduction with the exact max-deviation bound per segment; a bound
+        // breaching policy.LengthTolerance routes the Construction fault, never a silently lossy carrier.
+        public Fin<Curve> ReduceDegree(int target, NurbsPolicy? policy = null);
         public Fin<Curve[]> DecomposeIntoBeziers();                  // A5.6 — the length engine's substrate
         public Curve Reverse();
     }
@@ -262,6 +293,17 @@ public abstract partial record NurbsForm {
 
         public Fin<(Surface Head, Surface Tail)> SplitAt(double parameter, ParametricDirection direction);
         public Fin<Surface> Refine(ReadOnlySpan<double> insertions, ParametricDirection direction);
+
+        // Surface counterparts of the shipped curve members — same kernels run per direction, so
+        // none re-derives an algorithm the curve members do not already pin.
+        public Fin<Surface> SubSurface(double u0, double u1, double v0, double v1);                 // two SplitAt pairs, one region
+        public Fin<Surface> ElevateDegree(int target, ParametricDirection direction);              // A5.10 per-direction
+        public Fin<Surface[]> DecomposeIntoBeziers();                                              // A5.7 patch decomposition
+        // Exact U/V exchange: the net transposes (index = v·CountU + u), knots swap, orientation flips.
+        public Surface Transpose();
+        // GL cubature of |Su×Sv| per Bezier patch at policy.GaussOrder per axis, 106-bit accumulated
+        // through the same DoubleDoubleEnumerableExpand.Sum lane the arc-length table rides.
+        public Fin<double> Area(NurbsPolicy? policy = null);
     }
 
     // --- [IDENTITY_PROJECTION]
@@ -288,7 +330,9 @@ public static class Nurbs {
             curve:          static (k, c) => AdmitCurve(c, k),
             surface:        static (k, s) => AdmitSurface(s, k),
             curveThrough:   static (k, f) => FitCurve(f.Samples, f.Policy, k),
-            surfaceThrough: static (k, f) => FitSurface(f.CountU, f.Samples, f.Policy, k));
+            surfaceThrough: static (k, f) => FitSurface(f.CountU, f.Samples, f.Policy, k),
+            ruled:          static (k, r) => AdmitRuled(r.Rail, r.Opposite, k),
+            revolved:       static (k, r) => AdmitRevolved(r.Profile, r.Axis, r.AngleRadians, k));
 
     static Fin<NurbsForm> AdmitCurve(NurbsWire.Curve wire, Op? key) =>
         KnotVector.Of(wire.Degree, [.. wire.Knots], key).Bind(knots =>
@@ -336,6 +380,15 @@ public static class Nurbs {
     static Fin<NurbsForm> FitCurve(Arr<Point3d> samples, FitPolicy policy, Op? key);
     static Fin<NurbsForm> FitSurface(int countU, Arr<Point3d> samples, FitPolicy policy, Op? key);
 
+    // --- [CONSTRUCTIVE]
+    // Ruled (A10.1): degrees unify through ElevateDegree, knot vectors merge through Refine on both
+    // rails, then the loft is the degree-1 V-direction net over the paired control rows. Revolved
+    // (A8.1): exact rational arcs per profile control point — full turn is the nine-point double-knot
+    // circle, a partial sweep the minimal arc set — so the revolution is algebraically exact, never
+    // sampled. Both freeze through FreezeSurface under the same weight/validity gates.
+    static Fin<NurbsForm> AdmitRuled(NurbsForm.Curve rail, NurbsForm.Curve opposite, Op? key);
+    static Fin<NurbsForm> AdmitRevolved(NurbsForm.Curve profile, Line axis, double angleRadians, Op? key);
+
     internal static Fin<double[]> ParameterizeSamples(Arr<Point3d> samples, bool centripetal, Op? key);  // A9.3 chord/centripetal
     internal static Fin<KnotVector> AveragedKnots(double[] parameters, int degree, int controlCount, Op? key);  // A9.1 averaging
 
@@ -357,21 +410,37 @@ internal static class NurbsKernel {
     internal static NurbsForm.Curve[] BezierSegments(NurbsForm.Curve curve);                                                 // A5.6 full-multiplicity decomposition
     internal static NurbsForm.Curve Elevate(NurbsForm.Curve curve, int target);                                              // A5.9
 
-    // Composed numeric seam: per-Bezier GL speed integrals into the cumulative table, Brent inversion
-    // off the bracketing segment.
-    internal static double[] CumulativeLengths(NurbsForm.Curve curve, NurbsPolicy policy) {
-        NurbsForm.Curve[] segments = BezierSegments(curve);
-        double[] cumulative = new double[segments.Length + 1];
-        for (int s = 0; s < segments.Length; s++) {
-            NurbsForm.Curve segment = segments[s];
-            cumulative[s + 1] = cumulative[s] + Integrate.GaussLegendre(
-                t => CurveRationalDerivatives(segment, t, 1).Ders[0].Length, 0.0, 1.0, policy.GaussOrder);
-        }
-        return cumulative;
+    // Composed numeric seam: per-Bezier GL speed integrals through the kernel `Quadrature.Integrate` owner —
+    // the finite guard, skip budget, and typed `QuadratureEvidence` ride the route row, never a raw MathNet
+    // call — with Brent inversion off the bracketing segment. The table accumulates at 106 bits — sequential
+    // double prefix sums of n same-sign terms lose ~log2(n) bits, so a 500-span curve cannot hold
+    // LengthTolerance 1e-9 in double and InvertLength would invert against a table whose error grows
+    // monotonically toward the curve end; ddouble running sums hold the table exact to the integrand,
+    // DoubleDoubleEnumerableExpand.Sum folds the one-shot total, and the value narrows to double only where a
+    // public signature crosses.
+    internal static Fin<ddouble[]> CumulativeLengths(NurbsForm.Curve curve, NurbsPolicy policy, Op key) {
+        QuadratureControl control = QuadratureControl.Default with { LegendreOrder = policy.GaussOrder };
+        return toSeq(BezierSegments(curve))
+            .TraverseM(segment => Quadrature.Integrate(
+                new IntegrationDomain.Line(
+                    F: t => CurveRationalDerivatives(segment, t, 1).Ders[0].Length,
+                    Bounds: new IntervalSpec(Lower: 0.0, Upper: 1.0),
+                    Route: QuadratureRoute.GaussLegendre),
+                control: control, key: key)).As()
+            .Map(static evidence => {
+                ddouble[] cumulative = new ddouble[evidence.Count + 1];
+                int s = 0;
+                foreach (QuadratureEvidence leg in evidence) { cumulative[s + 1] = cumulative[s] + (ddouble)leg.Value; s++; }
+                return cumulative;
+            });
     }
 
-    internal static Fin<double> InvertLength(NurbsForm.Curve curve, double[] cumulative, double target, NurbsPolicy policy) {
-        int at = Array.BinarySearch(cumulative, target);
+    internal static double TotalLength(ReadOnlySpan<ddouble> cumulative) =>
+        (double)DoubleDoubleEnumerableExpand.Sum(
+            Enumerable.Range(1, cumulative.Length - 1).Select(s => cumulative[s] - cumulative[s - 1]));
+
+    internal static Fin<double> InvertLength(NurbsForm.Curve curve, ddouble[] cumulative, double target, NurbsPolicy policy) {
+        int at = Array.BinarySearch(cumulative, (ddouble)target);
         (double lo, double hi) = SegmentDomain(curve, int.Clamp(at >= 0 ? at : ~at - 1, 0, cumulative.Length - 2));
         return Brent.TryFindRoot(
                 t => LengthTo(curve, cumulative, t, policy) - target, lo, hi,
@@ -389,7 +458,7 @@ internal static class NurbsKernel {
             .MapFail(static error => new GeometryFault.ParametricFault(ParametricStage.Evaluation, nameof(NurbsForm.Curve), error.Message).ToError());
 
     internal static double Distance(NurbsForm.Curve curve, Point3d probe, double t, int form);  // g / g' bodies over CurveRationalDerivatives
-    internal static double LengthTo(NurbsForm.Curve curve, double[] cumulative, double t, NurbsPolicy policy);
+    internal static double LengthTo(NurbsForm.Curve curve, ddouble[] cumulative, double t, NurbsPolicy policy);
     internal static (double Lo, double Hi) SegmentDomain(NurbsForm.Curve curve, int segment);
 
     // Wang-2008 double reflection with the coincident-sample guard and the closed-curve closure correction.
@@ -406,10 +475,12 @@ config:
     padding: 25
 ---
 flowchart LR
-    Wire["NurbsWire — curve · surface · curve-through · surface-through"] -->|"Nurbs.Of — ONE Switch"| NurbsForm
+    accTitle: NURBS engine admission and evaluation flow
+    accDescr: NurbsWire shapes fold through Nurbs.Of into NurbsForm carriers; De Boor kernels serve evaluation, quadrature rides the kernel Quadrature owner, inversion rides MathNet, and identity leaves through EncodeForm.
+    Wire["NurbsWire — curve · surface · curve-through · surface-through · ruled · revolved"] -->|"Nurbs.Of — ONE Switch"| NurbsForm
     Wire -->|"fitting: banded N·P=Q / SPD NᵀN"| Matrix["matrix.md SparseMatrix · CholeskySparse"]
     NurbsForm -->|"De Boor SoA kernels A2–A5"| NurbsKernel
-    NurbsKernel -->|"per-Bezier speed integrand"| GaussLegendre["Integrate.GaussLegendre"]
+    NurbsKernel -->|"per-Bezier speed integrand"| Quadrature["Quadrature.Integrate — Line · GaussLegendre route"]
     NurbsKernel -->|"monotone length inversion"| Brent["Brent.TryFindRoot"]
     NurbsKernel -->|"Newton projection, Try-trapped"| Newton["RobustNewtonRaphson.FindRoot"]
     NurbsForm -->|"RationalDerivatives #234-fixed"| Forms["fundamental forms · curvature"]
@@ -424,7 +495,7 @@ One owner per axis; capability is a case, row, or member on the owning carrier, 
 
 | [INDEX] | [AXIS_CONCERN] | [OWNER]                          | [RAIL]                      | [CASES] |
 | :-----: | :------------- | :------------------------------- | :-------------------------- | :-----: |
-|  [01]   | Admission      | `NurbsWire` + `Nurbs`            | `Nurbs.Of → Fin<NurbsForm>` |    4    |
+|  [01]   | Admission      | `NurbsWire` + `Nurbs`            | `Nurbs.Of → Fin<NurbsForm>` |    6    |
 |  [02]   | Carrier        | `NurbsForm`                      | member `Fin` rails          |    2    |
 |  [03]   | Knot algebra   | `KnotVector`                     | `Of → Fin<KnotVector>`      |    —    |
 |  [04]   | Engine knobs   | `NurbsPolicy`                    | `IValidityEvidence`         |    —    |
@@ -433,7 +504,7 @@ One owner per axis; capability is a case, row, or member on the owning carrier, 
 
 - [01]-[ADMISSION]: `[Union]` wire shapes folded by ONE `Of` (`MODAL_ARITY` — fitting is policy data).
 - [02]-[CARRIER]: `[Union]` `Curve`/`Surface` over homogeneous SoA columns, evaluation members ON the cases.
-- [03]-[KNOT_ALGEBRA]: normalized-clamped vector, span search, and merge, both wire spellings admitted at one seam.
+- [03]-[KNOT_ALGEBRA]: normalized clamped-or-periodic vector, form-dispatched span search, and merge, three wire spellings admitted at one seam.
 - [04]-[ENGINE_KNOBS]: policy row — Gauss order, inversion tolerance, projection knobs, frame-closure row.
 - [05]-[FITTING_ROWS]: generator rows — interpolate/approximate, degree, parameterization, tangents, budget.
 - [06]-[VOCABULARIES]: `[SmartEnum]` U/V axis rows, clamped/periodic origin rows.

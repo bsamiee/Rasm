@@ -1,6 +1,6 @@
 # [SECURITY_AUDIT]
 
-Security fact rail: breach evidence is receipt-truth on one typed `SecurityFact` plane, and metrics stay the lossy dashboard channel beside it. Every loud arm the folder fires — refresh reuse, webauthn clone, ceremony refusal, secret rotation, policy deny, key-admission quarantine, shred-open reject — publishes one tagged fact through `Witness`, a `Context.Reference` whose default is silent: security state correction precedes the receipt tap where an arm mutates state, the publish error channel stays empty, and a library composition without the rail pays zero requirement pressure. Registry state is app-scoped data — the closed `_points` table brands every fact with its `rasm.security.<domain>.<point>` key and its observe/veto modality, `Audit.live(identity)` binds the live rail per app root so two apps in one process never share a mutable registry, and subscribers consume their own scoped `PubSub` streams on their own fibers, so a subscriber fault degrades one observer and can never reach a publisher or a verdict. Durability is class-routed lane policy: `breached`-class facts (reuse, clone, shred-open) ride the bounded suspend lane — backpressure is the deliberate coupling after state correction, because dropped breach evidence costs more than publish latency — while `notice`-class facts ride the sliding lane, and both drain into the append-only `AuditJournal` port under a jittered retry gated on `FaultClass.retryable`; the app root supplies that port, and the data plane satisfies it at its fact rail — `data:journal/fact#RAIL` projects every record onto the one `record` entrypoint, so breach evidence takes the drain, retention window, subject index, and DSAR fold every other fact takes. Analytics egress is pseudonymized by construction: `Audit.egress` folds each record through the `Pseudonym` port — the app root satisfies it with `Crypto.sign` under a dedicated egress pepper, a KEYED mac, because an unkeyed digest over low-entropy subject identifiers is dictionary-reversible and therefore never a pseudonymizer — and the `AuditTrace` wire carries masked subjects and schema-checked projection facets, so no subject identifier leaves to an analytics store. Board and alert planes stay with their one owners, and this page only feeds them: `Audit.board` composes the core `DashboardModel` security pack, `Audit.objectives` declares the folder's latency objectives over the `Convention.instrument.security*` histogram rows, `Alert.of` alone derives their burn specs, and zero-tolerance paging on breached facts is a fact-rail subscriber at the app root — never a hand alert rule and never a parallel dashboard family. `Audit.snapshot` is the exporter-free support bundle: the core `Metric.snapshot` read twin filtered to the folder instrument set and sealed into a typed receipt.
+Security fact rail: breach evidence is receipt-truth on one typed `SecurityFact` plane, and metrics stay the lossy dashboard channel beside it. Every loud arm the folder fires — refresh reuse, webauthn clone, ceremony refusal, secret rotation, policy deny, key-admission quarantine, shred-open reject — publishes one tagged fact through `Witness`, a `Context.Reference` whose default is silent: security state correction precedes the receipt tap where an arm mutates state, the publish error channel stays empty, and a library composition without the rail pays zero requirement pressure. Registry state is app-scoped data — the closed `_points` table brands every fact with its `rasm.security.<domain>.<point>` key and its observe/veto modality, `Audit.live(identity)` binds the live rail per app root so two apps in one process never share a mutable registry, and subscribers consume their own scoped `PubSub` streams on their own fibers, so a subscriber fault degrades one observer and can never reach a publisher or a verdict. Durability is class-routed lane policy: `breached`-class facts (reuse, clone, shred-open) ride the bounded suspend lane — backpressure is the deliberate coupling after state correction, because dropped breach evidence costs more than publish latency — on a `Mailbox` whose lossless `end` still drains the held buffer at teardown, while `notice`-class facts ride the sliding queue, and both drain into the append-only `AuditJournal` port under the branch retry budget's own class gate; the app root supplies that port, and the data plane satisfies it at its fact rail — `data:journal/fact#RAIL` projects every record onto the one `record` entrypoint, so breach evidence takes the drain, retention window, subject index, and DSAR fold every other fact takes. Analytics egress is pseudonymized by construction: `Audit.egress` folds each record through the `Pseudonym` port — the app root satisfies it with `Crypto.sign` under a dedicated egress pepper, a KEYED mac, because an unkeyed digest over low-entropy subject identifiers is dictionary-reversible and therefore never a pseudonymizer — and the `AuditTrace` wire carries masked subjects and schema-checked projection facets, so no subject identifier leaves to an analytics store. Board and alert planes stay with their one owners, and this page only feeds them: `Audit.board` composes the core `DashboardModel` security pack, `Audit.objectives` declares the folder's latency objectives over the `Convention.instrument.security*` histogram rows, `Alert.of` alone derives their burn specs, and zero-tolerance paging on breached facts is a fact-rail subscriber at the app root — never a hand alert rule and never a parallel dashboard family. `Audit.snapshot` is the exporter-free support bundle: the core `Metric.snapshot` read twin filtered to the folder instrument set and sealed into a typed receipt.
 
 ## [01]-[INDEX]
 
@@ -14,16 +14,16 @@ Security fact rail: breach evidence is receipt-truth on one typed `SecurityFact`
 [FACT_FAMILY]:
 - Owner: `SecurityFact` — one closed `Schema.Union` of tagged cases mirroring the folder's loud arms: `Reuse` (a replayed rotated refresh), `Clone` (a webauthn counter regression), `Ceremony` (a challenge replay, intent mismatch, or stale phase), `Rotation` (an observed secret-set change), `Deny` (a policy denial), `Admission` (a quarantined JWKS entry), `ShredOpen` (an open refused on a shredded or tampered key). Its `_points` table is the registry brand: one row per case carrying the full `rasm.security.<domain>.<point>` key under the dotted-brand guard, the `breached`/`notice` class that routes lane policy and paging, and the observe/veto modality — every current row is observe, so publication is evidence and no fact can alter a verdict. `AuditFault` instantiates the folder fault shape at the rail's two failure sites.
 - Law: facts are wire-carried by construction — they cross to the journal and the analytics egress, so every case is a `Schema.TaggedStruct` and the union decodes; a process-local `Data.taggedEnum` here forbids the port crossing the cards exist for.
-- Law: fields carry evidence as data at the owning page's grain — `Deny.action`/`Deny.reason` hold the claim page's closed permission and denial vocabularies, `Ceremony.intent` the ceremony intent pair, `Rotation.coordinate` the `(project, config)` custody coordinate — and an identifier-grade field (`sid`, `passkey`, `subject`) is journal material the egress projection masks or drops, never a metric facet.
+- Law: fields carry evidence as data, and how tightly a field closes is decided by the stratum that owns the vocabulary — this plane is the folder floor, so a vocabulary it can own closes here (`Ceremony.intent` is the literal pair) while one whose anchor lives above it crosses as a string the emitting arm fills from its own closed union (`Deny.action` and `Deny.reason` from the claim page's permission and denial vocabularies, `Rotation.coordinate` as the operational `(project, config)` custody string). Re-declaring an upper vocabulary here would fork its anchor, which the acyclicity forbids and the emitter's own type already prevents; an identifier-grade field (`sid`, `passkey`, `subject`) is journal material the egress projection masks or drops, never a metric facet.
 - Law: the guard pair closes the plane in both directions — `_Points` proves every union tag has a registry row with a branded key, `_Keys` proves every row has a case — so a fact without a point or a point without a fact fails at this declaration.
 - Law: a veto row runs pre-commit inside the owning arm's rail and joins its `E` channel; the security plane's current rows are all observe, and the modality axis exists so an admission-gating point lands as one row flip with its arm's typed fault, never a second registry.
 - Growth: a new loud arm is one case, one `_points` row, and one publish line at its arm; a new fact field is a case field the journal inherits.
 - Packages: `effect` (`Schema`, `Option`); `@rasm/ts/core` (`FaultClass`, `TenantContext`).
 
 ```typescript signature
-import { Alert, AppIdentity, Convention, DashboardModel, FaultClass, Objective, Query, Sli, TenantContext } from "@rasm/ts/core"
+import { Alert, AppIdentity, Budget, Convention, DashboardModel, FaultClass, Objective, Query, Sli, TenantContext } from "@rasm/ts/core"
 import {
-  Array, Context, DateTime, Duration, Effect, Layer, Match, Number, Option, PubSub, Queue, Record, Schedule, Schema, Stream, pipe,
+  Array, Context, DateTime, Duration, Effect, Fiber, Layer, Mailbox, Match, Number, Option, Predicate, PubSub, Queue, Record, Schema, Stream, pipe,
 } from "effect"
 
 const _kinds = ["Admission", "Ceremony", "Clone", "Deny", "Reuse", "Rotation", "ShredOpen"] as const
@@ -107,25 +107,21 @@ const SecurityFact: {
   wire: _Fact,
 }
 
-const _reasons = ["append", "mask"] as const
-
-const _faults = {
+const _family = FaultClass.family(["append", "mask"] as const, {
   append: { class: "unavailable" },
   mask: { class: "defect" },
-} as const
+})
 
 declare namespace AuditFault {
-  type Reason = (typeof _reasons)[number]
-  type _Rows<T extends Record<Reason, { readonly class: FaultClass.Kind }> = typeof _faults> = T
-  type _Closed<K extends Reason = keyof typeof _faults> = K
+  type Reason = (typeof _family.reasons)[number]
 }
 
 class AuditFault extends Schema.TaggedError<AuditFault>()("AuditFault", {
-  reason: Schema.Literal(..._reasons),
+  reason: _family.schema,
   detail: Schema.String,
 }) {
   get class(): FaultClass.Kind {
-    return _faults[this.reason].class
+    return _family.classOf(this.reason)
   }
   override get message(): string {
     return `<audit:${this.reason}> ${this.detail}`
@@ -136,14 +132,15 @@ class AuditFault extends Schema.TaggedError<AuditFault>()("AuditFault", {
 ## [03]-[FACT_RAIL]
 
 [FACT_RAIL]:
-- Owner: `AuditRecord` — the journal row sealing a fact with its occurrence instant, its owning app key, and its registry point, stamped once at publish so an arm never constructs a timestamp; `AuditJournal` — the append-only `Context.Tag` port the data wave satisfies on its journal spine, `append` on the `E`-channel fault law with no update or delete verb, because erasure is subject-key destruction on the data plane, never row mutation; `Witness` — the publish seam every arm composes: a `Context.Reference` whose default swallows, so a publish line is total, requirement-free, and inert until `Audit.live` binds the rail at an app root. `_LANES` is the class-routed capacity policy and `_APPEND_RETRY` the drain's recurrence value.
+- Owner: `AuditRecord` — the journal row sealing a fact with its occurrence instant, its owning app key, and its registry point, stamped once at publish so an arm never constructs a timestamp; `AuditJournal` — the append-only `Context.Tag` port the data wave satisfies on its journal spine, `append` on the `E`-channel fault law with no update or delete verb, because erasure is subject-key destruction on the data plane, never row mutation; `Witness` — the publish seam every arm composes: a `Context.Reference` whose default swallows, so a publish line is total, requirement-free, and inert until `Audit.live` binds the rail at an app root. `_LANES` is the class-routed capacity policy and the drain's recurrence is the branch `Budget` compile.
 - Law: publication is evidence, never verdict logic — every current point is observe modality and `Witness.publish` returns `Effect<void>` with an empty error channel. Breached-lane backpressure may delay completion by design, so an arm with a security mutation lands that mutation first; publication cannot replace its typed verdict or undo corrected state.
-- Law: durability is class-routed — a `breached` record offers into the bounded suspend lane, where a saturated journal deliberately backpressures the publisher because dropping breach evidence is the worse failure; a `notice` record offers into the sliding lane and sheds oldest under pressure, because notice-grade facts also project onto metrics; both lanes drain through `AuditJournal.append` under the jittered `_APPEND_RETRY` gated on `FaultClass.retryable`, and an exhausted append logs at error — the dashboard gap law, inverted: a journal gap is loud, a metric gap is not.
+- Law: durability is class-routed and the breach lane is lossless end to end — a `breached` record offers into a bounded suspend `Mailbox`, where a saturated journal deliberately backpressures the publisher because dropping breach evidence is the worse failure, and whose `end` closes the lane so the held buffer still drains at teardown; a `notice` record offers into the sliding `Queue` and sheds oldest under pressure, because notice-grade facts also project onto metrics. Both lanes drain through one fold over `AuditJournal.append` under `Budget.schedule("lease")` — the branch compile's jitter, attempt bound, quiet-reset, and elapsed ceiling with its own `FaultClass.retryable` gate — and an exhausted append logs at error: the dashboard gap law, inverted, a journal gap is loud where a metric gap is not.
+- Law: shutdown flushes what the lane's law promised — the breach drain's teardown is `end` followed by a join on the drain fiber, registered after the fork so it runs nearer the scope's close than the fiber's own interruption; a queue shutdown in that slot cancels pending takes and discards the buffer, which is exactly the evidence the suspend posture was chosen to keep, and the notice lane needs no such flush because its law already admits loss.
 - Law: the observe fan is decoupled by construction — `Audit.live` publishes each record to a sliding `PubSub` beside the lanes, a subscriber consumes its own subscription stream on its own fiber, and unsubscription is the subscriber's scope closing, so a slow or faulted subscriber costs its own lag, never publish latency and never a sibling's delivery.
 - Law: the registry is app-scoped — `Audit.live(identity)` stamps `identity.app` on every record and each app root binds its own `Witness`, so two apps composing this library in one process hold disjoint rails and disjoint subscriber sets with no shared mutable registry.
-- Growth: a new lane class is one `_LANES` row with its `_points` class value; a new delivery guarantee is a drain policy edit, never a second rail.
+- Growth: a new lane class is one `_LANES` row with its `_points` class value and its channel posture; a new delivery guarantee is a `Budget` row selection, never a second rail.
 - Boundary: `data:journal/fact#RAIL` satisfies this port by projecting every record onto its one fact entrypoint, so the audit retention class and per-subject crypto-shred wiring ride the rail every other fact rides; sealing subject-bearing fields under `SealedEnvelope`/`WrappedKey` is the data plane's, and this page never composes a store.
-- Packages: `effect` (`Context`, `PubSub`, `Queue`, `Schedule`, `Stream`, `DateTime`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `effect` (`Context`, `PubSub`, `Queue`, `Mailbox`, `Fiber`, `Stream`, `DateTime`); `@rasm/ts/core` (`Budget`, `FaultClass`).
 
 ```typescript signature
 class AuditRecord extends Schema.Class<AuditRecord>("AuditRecord")({
@@ -169,7 +166,12 @@ class Witness extends Context.Reference<Witness>()("security/access/Witness", {
 
 const _LANES = { breached: 512, fan: 1024, notice: 2048 } as const
 
-const _APPEND_RETRY = Schedule.exponential(Duration.millis(50)).pipe(Schedule.jittered, Schedule.intersect(Schedule.recurs(5)))
+// The selection's own shape answers which axis it names — the class rows and the dotted point keys are disjoint
+// literal spaces — so the modality discriminates on the value and each arm is terminal.
+const _selects = (selection: SecurityFact.Class | SecurityFact.Point): Predicate.Predicate<AuditRecord> =>
+  selection === "breached" || selection === "notice"
+    ? (record) => SecurityFact.classOf(record.fact) === selection
+    : (record) => record.point === selection
 ```
 
 ## [04]-[EGRESS]
@@ -238,8 +240,8 @@ const _egress = (record: AuditRecord): Effect.Effect<AuditTrace, AuditFault, Pse
 [BOARD]:
 - Owner: `Audit` — the assembled rail owner: the scoped service holds the app-stamped publish fold, the class-routed lanes, the drain fibers, and the polymorphic `subscribe`; the statics carry every projection — `live` (the rail with its `Witness` binding), `egress`, `snapshot`, `objectives`, `alerts`, and `board` — so one import serves arms, subscribers, the support bundle, and the deploy plane. `Snapshot` is the typed support-bundle receipt over `SnapshotRow` rows.
 - Law: `subscribe` is one entrypoint over every consumption modality — no selection streams the whole rail, a class literal (`"breached"`) streams a severity band, a point key streams one arm — discriminated on the input value, never a `subscribeByPoint` sibling; zero-tolerance paging is exactly `subscribe("breached")` routed to the app's notifier at the root, so breach alerting reads receipt-truth, not a lossy rate.
-- Law: the board and alert owners are composed, never re-minted — `board` takes the app root's whole `DashboardModel.Board` context (emitter identity, log datasource, metrics target, analytics residence) and calls the core `DashboardModel` security pack, so a panel-set change is a core pack row and a plane swap is one root value this page never spells; `objectives` declares the folder's two latency objectives over the `securityKdf` and `securityJwksResolve` histogram rows with ceilings that land on declared bucket bounds; `alerts` is `Alert.of` folded over them, so burn thresholds, windows, and severities stay the core burn table's and the iac observe leg compiles the same specs the board annotates — a hand-authored security alert rule or a security-local dashboard family is the forked-discipline defect.
-- Law: the pack payload derives from the objectives, never from a literal — the core security pack renders its JWKS and key-derivation quantile panels over exactly the two metrics `_OBJECTIVES` grades, so the roster folds off those rows and dedups, and an objective moving a quantile moves its panel in the same edit; a quantile spelled at the `pack` call forks the board away from the alert it illustrates on the first tuning.
+- Law: the board and alert owners are composed, never re-minted — `board` takes the app root's whole `DashboardModel.Board` context (emitter identity, log datasource, metrics target, analytics residence) and calls the core `DashboardModel` security pack, so a panel-set change is a core pack row and a plane swap is one root value this page never spells; `objectives` declares the folder's three latency objectives over the `securityCeremony`, `securityKdf`, and `securityJwksResolve` histogram rows with ceilings that land on declared bucket bounds; `alerts` is `Alert.of` folded over them, so burn thresholds, windows, and severities stay the core burn table's and the iac observe leg compiles the same specs the board annotates — a hand-authored security alert rule or a security-local dashboard family is the forked-discipline defect.
+- Law: the pack payload derives from the objectives, never from a literal — the core security pack renders one quantile panel per graded metric, and the metrics it grades are exactly the `_OBJECTIVES` rows, so the roster folds off those rows and dedups and an objective moving a quantile moves its panel in the same edit; a quantile spelled at the `pack` call forks the board away from the alert it illustrates on the first tuning, and an objective row landing here without its panel at the core owner is a half-landed indicator.
 - Law: tenant grouping stays governed at the core pack owner — a security panel groups only through `Convention.rasm.tenant` and its pack-owned variable; this page neither mints a local query nor forks a variable family.
 - Law: `snapshot` is exporter-free — it reads the core `Metric.snapshot` twin (`DashboardModel.snapshot`), keeps exactly the `Convention.instrument.security*` rows, and seals them with the app key and instant into one encodable receipt, so a doctor probe, a test, or a support bundle dumps the folder's live counters with no telemetry backend and no second registry walk; each row names the signal's own declared wire form and carries no reading where the state answered none, so an unmeasured instrument and a zero one both survive the seal as themselves.
 - Law: `pack` is the folder's whole deploy-plane surface — one encoded value carrying `wire` beside the boards and burn specs `board` and `alerts` already decided, so the deploy tuple admits this producer by its own minted key and the compile leg tags what arrived rather than decoding a security-specific census; `wire` lives here because a provenance key spelled at the consuming tier alone forks the moment either end edits it.
@@ -297,6 +299,14 @@ const _rowOf = (signal: DashboardModel.Signal): SnapshotRow =>
   })
 
 const _OBJECTIVES = {
+  // The ceremony row is the plane's user-facing indicator: the two crypto rows grade a dependency (a JWKS fetch, a KDF
+  // pass) while this one grades what a caller actually waits for — a session establish, a refresh rotation, a passkey
+  // assertion, an oauth callback, an api-key resolve — under the SAME kind key its refusals and admissions carry.
+  ceremony: new Objective({
+    name: "security-ceremony",
+    sli: Sli.Latency({ ceiling: Duration.millis(1000), metric: Convention.metric.securityCeremony, quantile: 0.99 }),
+    target: 0.99,
+  }),
   jwks: new Objective({
     name: "security-jwks",
     sli: Sli.Latency({ ceiling: Duration.millis(1000), metric: Convention.metric.securityJwksResolve, quantile: 0.99 }),
@@ -333,33 +343,34 @@ class Audit extends Effect.Service<Audit>()("security/access/Audit", {
     Effect.gen(function* () {
       const journal = yield* AuditJournal
       const fan = yield* PubSub.sliding<AuditRecord>(_LANES.fan)
-      const evidence = yield* Queue.bounded<AuditRecord>(_LANES.breached)
+      const evidence = yield* Mailbox.make<AuditRecord>(_LANES.breached)
       const notice = yield* Queue.sliding<AuditRecord>(_LANES.notice)
-      const _drained = (intake: Queue.Dequeue<AuditRecord>): Effect.Effect<void> =>
-        Stream.fromQueue(intake).pipe(
+      const _drained = (intake: Stream.Stream<AuditRecord>): Effect.Effect<void> =>
+        intake.pipe(
           Stream.runForEach((record) =>
             journal.append(record).pipe(
-              Effect.retry({ schedule: _APPEND_RETRY, while: (fault) => FaultClass.retryable(fault.class) }),
+              Effect.retry(Budget.schedule("lease")),
               Effect.catchAll((fault) => Effect.logError("audit append exhausted", fault)),
             )),
         )
-      yield* Effect.forkScoped(_drained(evidence))
-      yield* Effect.forkScoped(_drained(notice))
+      // The breach lane's held records outlive shutdown by construction: `end` closes the mailbox LOSSLESSLY and the
+      // join holds teardown until the drain empties it, where a queue shutdown would cancel pending takes and discard
+      // the buffer — the exact evidence this lane exists to keep. Registration order is the mechanism: this finalizer
+      // is nearer the scope's close than the fork's own interruption, so the flush runs first.
+      const breached = yield* Effect.forkScoped(_drained(Mailbox.toStream(evidence)))
+      yield* Effect.addFinalizer(() => Effect.zipRight(evidence.end, Fiber.join(breached)))
+      yield* Effect.forkScoped(_drained(Stream.fromQueue(notice)))
       const publish = (fact: SecurityFact): Effect.Effect<void> =>
         Effect.gen(function* () {
           const record = new AuditRecord({ app: identity.app, at: yield* DateTime.now, point: SecurityFact.pointOf(fact), fact })
           yield* PubSub.publish(fan, record)
-          yield* Queue.offer(SecurityFact.classOf(fact) === "breached" ? evidence : notice, record)
+          yield* SecurityFact.classOf(fact) === "breached" ? evidence.offer(record) : Queue.offer(notice, record)
         })
       const subscribe = (selection?: SecurityFact.Class | SecurityFact.Point): Stream.Stream<AuditRecord> =>
-        Stream.fromPubSub(fan).pipe(
-          Stream.filter((record) =>
-            selection === undefined
-              ? true
-              : selection === "breached" || selection === "notice"
-                ? SecurityFact.classOf(record.fact) === selection
-                : record.point === selection),
-        )
+        Option.match(Option.fromNullable(selection), {
+          onNone: () => Stream.fromPubSub(fan),
+          onSome: (held) => Stream.filter(Stream.fromPubSub(fan), _selects(held)),
+        })
       return { publish, subscribe } as const
     }),
   accessors: true,

@@ -25,7 +25,7 @@ import { Sse } from '@effect/experimental';
 import { type HttpClient, HttpClientRequest, MsgPack, Ndjson, Socket } from '@effect/platform';
 import { type Channel, type Chunk, Context, Data, Duration, Effect, Layer, Option, type ParseResult, Record, Ref, Schema, type Scope, Stream, pipe } from 'effect';
 import { connectAsync, type IPublishPacket, type MqttClient, type QoS } from 'mqtt';
-import { Budget, Carrier, type FaultClass } from '@rasm/ts/core';
+import { Budget, Carrier, FaultClass } from '@rasm/ts/core';
 import { Propagation } from '../otel/emit.ts';
 import { Client } from './client.ts';
 
@@ -73,14 +73,22 @@ const Duplex = { framed: _framed } as const;
 - Packages: `@effect/experimental` (`Sse`), `@effect/platform` (`HttpClientRequest`), `effect` (`Context`, `Data`, `Duration`, `Option`, `Ref`, `Stream`), `./client.ts` (`Client`), `@rasm/ts/core` (`Budget`).
 
 ```typescript signature
+const _feedFamily = FaultClass.family(['transport', 'media'] as const, {
+    transport: { class: 'unavailable' },
+    media: { class: 'unavailable' },
+});
+
 class FeedFault extends Data.TaggedError('FeedFault')<{
     readonly origin: string;
-    readonly reason: 'transport' | 'media';
+    readonly reason: (typeof _feedFamily.reasons)[number];
     readonly status: Option.Option<number>;
     readonly cursor: Option.Option<string>;
 }> {
     get class(): FaultClass.Kind {
-        return 'unavailable';
+        return _feedFamily.classOf(this.reason);
+    }
+    override get message(): string {
+        return `<feed:${this.reason}> ${this.origin}`;
     }
 }
 
@@ -166,12 +174,21 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
 - Packages: `mqtt` (`connectAsync`, `MqttClient.subscribeAsync`, `publishAsync`, `endAsync`, `IPublishPacket`); `effect` (`Context`, `Effect`, `Layer`, `Stream`).
 
 ```typescript signature
+const _mqttFamily = FaultClass.family(['dial', 'grant', 'publish'] as const, {
+    dial: { class: 'unavailable' },
+    grant: { class: 'malformed' },
+    publish: { class: 'unavailable' },
+});
+
 class MqttFault extends Data.TaggedError('MqttFault')<{
     readonly origin: string;
-    readonly reason: 'dial' | 'grant' | 'publish';
+    readonly reason: (typeof _mqttFamily.reasons)[number];
 }> {
     get class(): FaultClass.Kind {
-        return this.reason === 'grant' ? 'malformed' : 'unavailable';
+        return _mqttFamily.classOf(this.reason);
+    }
+    override get message(): string {
+        return `<mqtt:${this.reason}> ${this.origin}`;
     }
 }
 

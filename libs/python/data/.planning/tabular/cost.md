@@ -18,7 +18,7 @@ Tenant attribution splits by source and the split is load-bearing. Live receipts
 - Auto: the lakehouse arm reads the receipt's own `residence` slot to price an evidence commit on `TELEMETRY` and a caller's table on `LAKEHOUSE` — the SAME split the durable row already records through its residence domain, so a window harvested live and one reconstructed from the residence land on one plane rather than two.
 - Auto: the materialize arm keys `kind="cdc"` and never the partition id — unbounded partition cardinality stays receipt-only, the standing metric-dimension law applied to the cost grain; the query arm reads `bytes_moved` and `seconds` off the optional `EngineProfile` band and harvests zero when unprofiled; a keyless fact groups at its coarse slot with `content_key=""` in the frame, never a dropped row.
 - Receipt: `CostReceipt.contribute` emits one emitted-phase `Receipt.of("cost-ledger", ("emitted", subject, facts))` row carrying slot count, tenant count, priced total, currency, and the frame `ContentKey`; it records no `Metrics.record` measure because every harvested quantity already projected at its source receipt's own `contribute` — a second recording does double-count the spine.
-- Packages: `pyarrow` (the priced frame constructor) with `pyarrow.compute` (`map_lookup`/`fill_null`/`match_substring_regex`/`if_else`/`cast` — the residence fold's whole vectorized half, and `Table.group_by`/`aggregate` for the slot sum), `msgspec` (`Struct` the frozen owners), `expression` (`Block`/`Map`/`Some` the slot fold beside `extra.result.traverse`, the substrate's own fail-fast threader every railed stream here rides), `opentelemetry-api` (`baggage.get_baggage` over the current context — the one tenant read), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `RatePolicy.of`/`CostLedger.of` factories), `tabular/columnar#SCAN` (`QueryReceipt`/`arrow_bytes`), `tabular/lakehouse#LAKEHOUSE` (`LakeReceipt` beside the `ReceiptFact` durable row whose schema the residence owns), `tabular/materialize#MATERIALIZE` (`PartitionBundle`), `tabular/egress#EGRESS` (`EgressReceipt`), runtime (`RuntimeRail`/`FAULT_CONF`/`ContentIdentity`/`ContentKey`/`Receipt`/`TENANT_BAGGAGE`).
+- Packages: `pyarrow` (the priced frame constructor) with `pyarrow.compute` (`map_lookup`/`fill_null`/`match_substring_regex`/`if_else`/`cast` — the residence fold's whole vectorized half, and `Table.group_by`/`aggregate` for the slot sum), `msgspec` (`Struct` the frozen owners), `expression` (`Block`/`Map`/`Some` the slot fold beside `extra.result.traverse`, the substrate's own fail-fast threader every railed stream here rides), `opentelemetry-api` (`baggage.get_baggage` over the current context — the one tenant read), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `RatePolicy.of`/`CostLedger.of` factories), `tabular/columnar#SCAN` (`QueryReceipt`), `tabular/interop#INTEROP` (`arrow_bytes`, the folder's one whole-table serialization the priced frame keys through), `tabular/lakehouse#LAKEHOUSE` (`LakeReceipt` beside the `ReceiptFact` durable row whose schema the residence owns), `tabular/materialize#MATERIALIZE` (`PartitionBundle`), `tabular/egress#EGRESS` (`EgressReceipt`), runtime (`RuntimeRail`/`FAULT_CONF`/`ContentIdentity`/`ContentKey`/`Receipt`/`TENANT_BAGGAGE`).
 - Growth: a new harvested receipt family is one `CostFact.of` arm; a new cost axis is one `CostFact` field, one `CostUnit` member, one `combined` term, and one `CostFact.priced` slot both readers inherit; a new priced plane is one `CostDomain` member with its `_DOMAIN` spelling, its `_EVIDENCE_AXIS` row, and its rate rows, the columnar fold picking it up with zero edits; a new query engine over the residence is zero edits, the frame shape being the whole contract; a new frame column derives inside `frame`; zero new surface.
 - Boundary: a projection over receipts, never a second metering pipeline — no `Metrics.record`, no span, no durable store, no currency conversion, and no scan of its own: the residence frame arrives from the caller that ran it, so this owner never picks an engine or opens a lakehouse; rates arrive as policy rows, never module constants; the gridded `PlanReceipt` crosses as wire data (its `to_builtins` lowering), never an upward `rasm.data.gridded` import; a tenant field on any source receipt, a per-plane fact type, a partition-id cost dimension, and a hand-rolled hash over the priced frame where `arrow_bytes` with `ContentIdentity` own identity are the deleted forms.
 - Boundary: the priced frame is the TERMINAL egress and advertises no reader: `python:artifacts/visualization/table#TABLE` `TablePlan.of` admits it as the settled Arrow-capsule frame it is, so naming a renderer here claims a seam neither end carries.
@@ -41,8 +41,9 @@ from msgspec import Struct
 from opentelemetry import baggage
 from opentelemetry import context as otel_context
 
-from rasm.data.tabular.columnar import QueryReceipt, arrow_bytes
+from rasm.data.tabular.columnar import QueryReceipt
 from rasm.data.tabular.egress import EgressReceipt
+from rasm.data.tabular.interop import arrow_bytes
 from rasm.data.tabular.lakehouse import LakeReceipt, ReceiptFact
 from rasm.data.tabular.materialize import PartitionBundle
 from rasm.runtime.faults import BoundaryFault, FAULT_CONF, RuntimeRail, boundary
@@ -315,13 +316,17 @@ class RatePolicy(Struct, frozen=True):
 
     def price(self, fact: CostFact) -> "RuntimeRail[float]":
         def priced(quantities: tuple[tuple[CostUnit, float], ...]) -> "RuntimeRail[float]":
-            rates = dict(self.rates.items())
+            # the rate table IS an `expression.collections.Map` carrying `contains_key`/`get`, so both reads go
+            # straight to it: a `dict(self.rates.items())` materialization rebuilt the WHOLE table once per priced
+            # slot, inside the very fold whose sibling comment names per-element respread as the quadratic cost to
+            # avoid. A `get` miss answers `None`, so the unpriced-unit gate above is what makes the `or 0.0` tail
+            # reachable only on a zero quantity.
             if any(not isfinite(amount) or amount < 0.0 for _unit, amount in quantities):
                 return Error(BoundaryFault(boundary=("cost.rate", f"invalid quantity for {fact.domain}")))
-            missing = tuple(unit for unit, amount in quantities if amount != 0.0 and (fact.domain, unit) not in rates)
+            missing = tuple(unit for unit, amount in quantities if amount != 0.0 and not self.rates.contains_key((fact.domain, unit)))
             if missing:
                 return Error(BoundaryFault(boundary=("cost.rate", f"unpriced {fact.domain}: {','.join(unit.value for unit in missing)}")))
-            total = sum(rates.get((fact.domain, unit), 0.0) * amount for unit, amount in quantities)
+            total = sum((self.rates.get((fact.domain, unit)) or 0.0) * amount for unit, amount in quantities)
             return Ok(total) if isfinite(total) else Error(BoundaryFault(boundary=("cost.rate", f"non-finite total for {fact.domain}")))
 
         return boundary(

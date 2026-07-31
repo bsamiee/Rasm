@@ -2,23 +2,24 @@
 
 `FabricationFault` is the sole fabrication failure rail. Its closed `[Union]` derives `Rasm.Domain.Expected`, preserves `FaultBand.Fabrication + Offset` identity, and carries S0 evidence without importing a generator, posting, fixturing, specification, or additive owner.
 
-Each witness family pairs a case-shaped payload with a `[SmartEnum<string>]` predicate vocabulary and admits through `Witness.Admit<TSelf, TKind>` over the `IWitness<TSelf, TKind>` contract. Contradictory payload-kind pairs cannot pass admission.
+Each witness family pairs a case-shaped payload with a `[SmartEnum<string>]` predicate vocabulary and admits through `Witness.Admit<TSelf, TKind>` over the `IWitness<TSelf, TKind>` contract. Every fault carrying a witness mints through `Witness.Carried`, so the predicate runs on the raising path and a payload contradicting its own kind lands as `WitnessMalformed` rather than as a fault whose evidence refutes it.
 
 `FaultSubject` preserves higher-plane identity as S0 keys and content identities, while `RelationFault` retains native Process axes. Consumers inspect concrete cases through `Error.IsType<T>()`; no identity conversion or message parser exists.
 
-`FabConcern` is the folder census: every case declares the sub-domain that owns its code and the stratum that plane occupies, so a receipt partitions faults by owning plane without a second table, and `OpenLoop` threads its caller's plane into the same slot. Degenerate geometry remains `GeometryFault.DegenerateInput`; every fabrication contract failure — equipment admission, witness malformation, derivation rejection included — uses the most specific `FabricationFault` case. Offsets `1` through `53` remain frozen and offset `54` is the next allocation.
+`FabConcern` is the folder census: every case declares the sub-domain that owns its code and the stratum that plane occupies, so a receipt partitions faults by owning plane without a second table, and `OpenLoop` threads its caller's plane into the same slot. Degenerate geometry remains `GeometryFault.DegenerateInput` — a geometric primitive that is itself degenerate, named by its real `Kind` with the real element ordinal where one exists and `None` where the whole input is the subject; a POLICY, request, or parameter tuple failing its own admission gate is a contract failure and takes `PolicyInadmissible`, never a kernel-band borrow under a fabricated `Kind` and a sentinel index. Every fabrication contract failure — equipment admission, witness malformation, derivation rejection, policy admission included — uses the most specific `FabricationFault` case. Offsets `1` through `55` remain frozen — `55` is `fixture-inadmissible`, the one case declared at its folder extension (`Fixturing/workholding#FabricationFault.FixtureInadmissible`, `FixturingWitness` payload) because its witness vocabulary is folder-domain; `56` is the next allocation.
 
 Wire posture: HOST-LOCAL. `FabricationFault` rides `Fin<T>`, while frozen integer codes alone cross persistence receipts.
 
 ## [01]-[INDEX]
 
 - [02]-[FAULT_BAND]: `FabConcern`, `EquipmentFault`, `DeriveFault`, `SubjectKind`, `JointFault`, `CollisionContact`, `NestFault`, `SourceKind`, `AxisKind`, `MachineAxis`, `IWitnessKind`, `IWitness`, `Witness`, `FaultSubject`, `EquipmentWitness`, `DeriveWitness`, `CollisionZone`, `JointDiagnostic`, `NestWitness`, `VoxelBudget`, `SourceLocus`, `RelationFault`, `KerfWitness`, and `FabricationFault`.
+- [03]-[ADMISSION_SLOTS]: `AdmissionSlots`, the refusal-agnostic `Gate` lift and `Accumulate` fold every accumulating policy admission across the folders composes.
 
 ## [02]-[FAULT_BAND]
 
-- Owner: `FabricationFault` owns the closed band and its per-case `FabConcern` allocation, `MachineAxis` owns the machine-axis vocabulary every motion and posting plane addresses, `Witness` owns case-predicate lifting and the one admission fold, and each witness union owns its plane evidence — `JointDiagnostic` robot and machine, `NestWitness` nesting, `SourceLocus` ingress, `EquipmentWitness` tool and quantity admission, `DeriveWitness` plan derivation, `FaultSubject` S0 references to upper-plane subjects, `RelationFault` inadmissible Process-axis pairs.
-- Cases: `JointDiagnostic` distinguishes joint bounds, singularity, reach, collision, rate limits, torque, self-collision, configuration, and disconnected chains. `NestWitness` distinguishes demand, fit, mass, material, thickness, grain, quantity, remnant, admission, search-budget, provider-proof, inventory-row, and lineage failures. `EquipmentWitness` distinguishes equipment geometry, spent life, head-physics refusal, range floor and ceiling, quantity text, and grade admission. `DeriveWitness` distinguishes component, topology, lot, setup, assembly, and identifier rejections. `MachineAxis` carries `AxisKind`, word `Address`, block `Order`, rotary `Wraps`, and the gantry `Companion` a duplicated axis pairs with.
-- Entry: `Witness.Admit<TSelf, TKind>` is the one admission over every witness family; each union exposes it as its own `Admit` and supplies `WitnessKey` symbolically through `nameof`. `VoxelBudget.Create` admits nonnegative required cells within a finite cap. Concrete `FabricationFault` cases lift directly into `Fin.Fail<T>`.
+- Owner: `FabricationFault` owns the closed band, its per-case `FabConcern` allocation, and the five witness-carrying mints every raise site reaches, `MachineAxis` owns the machine-axis vocabulary every motion and posting plane addresses, `Witness` owns case-predicate lifting, the one admission fold, and the gated carrier, and each witness union owns its plane evidence — `JointDiagnostic` robot and machine, `NestWitness` nesting, `SourceLocus` ingress, `EquipmentWitness` tool and quantity admission, `DeriveWitness` plan derivation, `FaultSubject` S0 references to upper-plane subjects, `RelationFault` inadmissible Process-axis pairs.
+- Cases: `JointDiagnostic` distinguishes joint bounds, singularity, reach, collision, rate limits, torque, self-collision, configuration, and disconnected chains. `NestWitness` distinguishes demand, fit, mass, material, thickness, grain, quantity, remnant, admission, search-budget, provider-proof, inventory-row, and lineage failures. `EquipmentWitness` distinguishes equipment geometry, spent life, head-physics refusal, range floor and ceiling, quantity text, and grade admission. `DeriveWitness` distinguishes component, topology, lot, setup, assembly, and identifier rejections. `MachineAxis` carries `AxisKind`, word `Address`, block `Order`, rotary `Wraps`, and the gantry `Companion` a duplicated axis pairs with. `PolicyInadmissible` is the witness-free cross-plane arm every folder's own policy/parameter admission gate raises, threading its raising `FabConcern` the way `OpenLoop` does.
+- Entry: `Witness.Admit<TSelf, TKind>` is the one admission over every witness family; each union exposes it as its own `Admit` and supplies `WitnessKey` symbolically through `nameof`. `FabricationFault.Equipment`, `.Derivation`, `.Joint`, `.Nested`, `.Sourced`, and `.Unavailable` are the witness-carrying mints — each folds its payload through `Witness.Carried` and returns a `FabricationFault`, so a raise site pays no rail change to gate its own evidence and `new FabricationFault.EquipmentInadmissible(...)` beside the mint is the deleted form. `VoxelBudget.Create` admits nonnegative required cells within a finite cap. Witness-free `FabricationFault` cases lift directly into `Fin.Fail<T>`.
 - Auto: `Code` is `FaultBand.Fabrication + Offset`, `Message` is the invariant key, and `Category` is `Fabrication`. No second case-to-code or case-to-message sweep exists.
 - Receipt: the concrete case and its evidence remain recoverable without parsing. Native write rejection and ingress unavailability retain provider text because each provider owns that taxonomy.
 - Packages: `Rasm.Domain.Expected`, `FaultBand.Fabrication`, RhinoCommon value geometry, `NodaTime.Instant` on lot evidence, Thinktecture.Runtime.Extensions, LanguageExt.Core, and BCL inbox compose directly.
@@ -29,6 +30,7 @@ Wire posture: HOST-LOCAL. `FabricationFault` rides `Fin<T>`, while frozen intege
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
+using LanguageExt.Traits;
 using NodaTime;
 using Rhino.Geometry;
 using Thinktecture;
@@ -131,6 +133,10 @@ public sealed partial class DeriveFault : IWitnessKind<DeriveWitness> {
         new(key, Witness.Case<DeriveWitness, TWitness>(admits));
 }
 
+// Subject kind is fixed by each fault's own slot TYPE (`FaultSubject.Strategy Strategy`, `FaultSubject.Specification
+// Frame`), so these rows carry the key floor alone and no fault mints through them. `FaultSubject.Admit` is the
+// boundary gate a page admitting runtime subject text — a media type, a stage name off a provider — calls before it
+// seats the subject on a fault; a subject built from a generated owner's own `Key` is already keyed by construction.
 [SmartEnum<string>]
 public sealed partial class SubjectKind : IWitnessKind<FaultSubject> {
     public static readonly SubjectKind Strategy = Of<FaultSubject.Strategy>("strategy", static row => Keyed(row.Key));
@@ -364,10 +370,26 @@ public static class Witness {
     public static Fin<TSelf> Admit<TSelf, TKind>(TSelf candidate)
         where TSelf : class, IWitness<TSelf, TKind>
         where TKind : IWitnessKind<TSelf> => Optional(candidate)
-        .ToFin(FabricationFault.WitnessMalformed(TSelf.WitnessKey, typeof(TKind).Name))
+        .ToFin(new FabricationFault.WitnessMalformed(TSelf.WitnessKey, typeof(TKind).Name))
         .Bind(admitted => admitted.Kind.Admits(admitted)
             ? Fin.Succ(admitted)
-            : Fin.Fail<TSelf>(FabricationFault.WitnessMalformed(TSelf.WitnessKey, admitted.Kind.Key)));
+            : Fin.Fail<TSelf>(new FabricationFault.WitnessMalformed(TSelf.WitnessKey, admitted.Kind.Key)));
+
+    // The gated carrier is what puts the predicate on the raising path. A witness whose payload contradicts its own
+    // kind cannot describe the condition it names, so the mint substitutes `WitnessMalformed` naming the family and
+    // the kind that refused: a fault is still raised, the cause stays addressable, and the raise site keeps its
+    // `FabricationFault`-shaped return with no rail widening. State threads so every carrier arm stays closure-free.
+    public static FabricationFault Carried<TSelf, TKind, TState>(
+        TSelf candidate,
+        TState state,
+        Func<TState, TSelf, FabricationFault> carrier)
+        where TSelf : class, IWitness<TSelf, TKind>
+        where TKind : IWitnessKind<TSelf> =>
+        Admit<TSelf, TKind>(candidate).Match(
+            Succ: admitted => carrier(state, admitted),
+            Fail: _ => new FabricationFault.WitnessMalformed(
+                TSelf.WitnessKey,
+                Optional(candidate).Map(static row => row.Kind.Key).IfNone(TSelf.WitnessKey)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -640,6 +662,37 @@ public abstract partial record FabricationFault(int Offset, string MessageKey, F
     public sealed record DerivationRejected(DeriveWitness Witness, FaultSubject.Stage Stage) : FabricationFault(52, "fabrication:derivation-rejected", FabConcern.Process);
     public sealed record BendSearchBudgetExceeded(int ExpandedStates, int PendingStates)
         : FabricationFault(53, "fabrication:bend-search-budget-exceeded", FabConcern.Forming);
+    // The policy/parameter admission refusal every folder's own admission gate raises: a declared policy, request, or
+    // parameter tuple that fails its own gate is a CONTRACT failure, so it answers on this band rather than borrowing
+    // the kernel geometry band. Raised is threaded (the OpenLoop shape) because every plane raises it, and Locus is the
+    // raising gate's own angle-free discriminant (`guard-policy:clearance-plane`) the producing page owns verbatim.
+    public sealed record PolicyInadmissible(FabConcern Raised, string Locus)
+        : FabricationFault(54, "fabrication:policy-inadmissible", Raised);
+
+    // Every witness-carrying case mints here, so the payload's own kind predicate runs before the fault exists.
+    // A raise site names the concern and hands its payload; the carrier arm stays static because the case-specific
+    // remainder — the stage, the target ordinal, the provider detail — threads through the state slot.
+    public static FabricationFault Equipment(EquipmentWitness witness) =>
+        Witness.Carried<EquipmentWitness, EquipmentFault, Unit>(
+            witness, unit, static (_, row) => new EquipmentInadmissible(row));
+
+    public static FabricationFault Derivation(DeriveWitness witness, FaultSubject.Stage stage) =>
+        Witness.Carried<DeriveWitness, DeriveFault, FaultSubject.Stage>(
+            witness, stage, static (at, row) => new DerivationRejected(row, at));
+
+    public static FabricationFault Joint(JointDiagnostic diagnostic, int target) =>
+        Witness.Carried<JointDiagnostic, JointFault, int>(
+            diagnostic, target, static (at, row) => new Unreachable(row, at));
+
+    public static FabricationFault Nested(NestWitness witness) =>
+        Witness.Carried<NestWitness, NestFault, Unit>(witness, unit, static (_, row) => new Nest(row));
+
+    public static FabricationFault Sourced(SourceLocus locus) =>
+        Witness.Carried<SourceLocus, SourceKind, Unit>(locus, unit, static (_, row) => new IngressTranslation(row));
+
+    public static FabricationFault Unavailable(SourceLocus locus, string detail) =>
+        Witness.Carried<SourceLocus, SourceKind, string>(
+            locus, detail, static (text, row) => new IngressProviderUnavailable(row, text));
 
     public override int Code => FaultBand.Fabrication + Offset;
     public override string Message => MessageKey;
@@ -647,7 +700,33 @@ public abstract partial record FabricationFault(int Offset, string MessageKey, F
 }
 ```
 
-## [03]-[RESEARCH]
+## [03]-[ADMISSION_SLOTS]
+
+- Owner: `AdmissionSlots` owns the two refusal-agnostic combinators every accumulating policy admission in the package composes — `Gate` lifting one boolean invariant and its already-minted `Error` into a `K<Validation<Error>, Unit>` slot, and `Accumulate` folding a slot run where the arity outruns the tuple `.Apply`. It sits on this page because the raise sites span every folder plane and `FabConcern` puts `Process` at stratum `0` beneath all of them, so each consumption edge points down.
+- Entry: `Gate(holds, refusal)` is the one lift; `Accumulate(slots)` is the one fold, its identity `Validation<Error, Unit>.Success(unit)` and its step the `(rail, slot).Apply` union. A closed admission joins its slots through the tuple `.Apply` directly and reaches `Accumulate` only past that arity.
+- Auto: the slot return is K-kinded, because the shipped tuple `.Apply` binds only on `(K<F,A>, …)` receivers and `.As()` re-anchors after each join; the fail arm target-types the bare `Error` through the `Validation` lift, so `Fin.Succ(unit).ToValidation()`, `guard(…).ToFin().ToValidation()`, and `Validation<Error, Unit>.Success`/`.Fail` spelled at a raise site are all the deleted ceremony for one expression.
+- Receipt: an accumulated refusal is the `ManyErrors` union of every violated invariant, each recoverable through `Error.IsType<T>()` exactly as a single refusal is — accumulation changes the arity of the evidence, never its taxonomy.
+- Packages: LanguageExt.Core (`Validation<Error,_>`, `K<F,A>`, `Seq`, the `Apply` join and `Fold` thread).
+- Growth: a new invariant is one `Gate` at its raise site; a new refusal FAMILY needs no owner edit, because the slot takes the minted `Error` rather than a fault vocabulary.
+- Boundary: `AdmissionSlots` mints NO fault — the raise site owns which band answers for its refusal, so the combinator carries no `Kind`, no locus prefix, and no `FabricationFault` case, and a per-folder re-declaration of the lift or the fold is the named defect. `Accumulate` folds a slot RUN while the tuple `.Apply` joins a fixed product — a raise site picks by the shape it already holds, and a hand-spelled `Seq(…).Fold((K<Validation<Error>, Unit>)…)` beside either is the fold re-minted at the call site.
+
+```csharp signature
+// --- [OPERATIONS] -----------------------------------------------------------------------------------------------------------------------------------
+public static class AdmissionSlots {
+    // The one lift. The raise site supplies the minted Error, so the slot stays blind to which band answers — the bare
+    // fault target-types the Validation lift behind the K upcast, which is what lets a (K, K) tuple Apply bind.
+    public static K<Validation<Error>, Unit> Gate(bool holds, Error refusal) => holds ? unit : refusal;
+
+    // The fold for a slot run past the tuple Apply arity: independence rides ACROSS slots, so one admission reports
+    // every violated invariant rather than first-fault-wins.
+    public static K<Validation<Error>, Unit> Accumulate(Seq<K<Validation<Error>, Unit>> slots) =>
+        slots.Fold(
+            (K<Validation<Error>, Unit>)Validation<Error, Unit>.Success(unit),
+            static (rail, slot) => (rail, slot).Apply(static (_, _) => unit).As());
+}
+```
+
+## [04]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

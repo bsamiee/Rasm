@@ -10,13 +10,13 @@ A rich-content-and-media owner renders markdown to live Avalonia inlines and pla
 
 ## [02]-[MARKDOWN_INLINES]
 
-- Owner: `MarkdownInlineRenderer` the `MarkdownRow`/`InlineRun`-to-Avalonia-inline materialization; `MarkdownRendered` the inline collection plus the span-keyed link-hit table; `ContentFault` the typed fault family on the `AppUiFaultBand.Content` registry row (6410).
-- Cases: `ContentFault` = Text | UnresolvedRole | CodecAbsent | DecodeFailed.
-- Entry: `public static MarkdownRendered Render(MarkdownDocumentRows rows, FontChain chain)` — materializes the inline-bearing `Theme/typography` rows into one `InlineCollection` plus the span-keyed `LinkHit` table. Block rows retain their typed payload for the code, mathematics, and retained-control consumers; this owner does not advertise a block entrypoint it does not implement.
-- Auto: the markdown AST projection is owned by `Theme/typography` (`MarkdownProjection`, the closed eleven-arm fold to `MarkdownRow`/`InlineRun`) — this renderer consumes those rows and never re-parses. Each `InlineRun` materializes the landed content vocabulary: `InlineContent` = Text | Code | Math | Break | Task | Opaque dispatches through the generated total `Switch`, the `FrozenSet<InlineStyle>` rows (`Strong`, `Emphasis`, `Strike`) fold to decorations and wrappers, and `LinkTarget` discriminates the hit-table hyperlink from the inline image — an image link materializes through the SAME shared `ImageLoader.AsyncImageLoader` cache the `[03]` image codec row rides, never a second loader. Code and inline mathematics resolve through the mono typography role until the math-layout consumer replaces the retained run; the round-trip `SourceSpan` maps each retained run to its source range.
-- Packages: Markdig, Avalonia, AsyncImageLoader.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new `InlineContent` case is one content arm the generated dispatch breaks at compile time; a new `InlineStyle` row is one decoration fold arm; a new `MarkdownRow` case breaks the row dispatch and requires an explicit routing verdict.
-- Boundary: the renderer dispatches all eleven current `MarkdownRow` cases — `Heading`, `Paragraph`, `Quote`, `Callout`, `ListRows`, `Definitions`, `Grid`, `CodeFence`, `Math`, `Rule`, and `Opaque`. Inline-bearing rows materialize here; block rows return an explicit empty inline projection and retain their typed payload for their owning consumer. A `Markdig` re-parse, silent catch-all, a retired flat-column `InlineRun` read, or a claim that an empty inline projection rendered a block is rejected.
+- Owner: `MarkdownInlineRenderer` the `MarkdownRow`/`InlineRun`-to-Avalonia-inline materialization; `MarkdownStyling` the font-and-ink context it threads; `MarkdownRendered` the inline collection plus the span-keyed link-hit table; `MathStyle`/`MathBox`/`MathTypeset`/`MathRun`/`MathInlineVisual` the TeX-subset typesetting owner; `ContentFault` the typed fault family on the `AppUiFaultBand.Content` registry row (6410).
+- Cases: `ContentFault` = Text | UnresolvedRole | CodecAbsent | DecodeFailed; `MathStyle` = Inline | Display — the two script-sizing rows, a third modality being one row.
+- Entry: `public static MarkdownRendered Render(MarkdownDocumentRows rows, MarkdownStyling styling)` — materializes the inline-bearing `Theme/typography` rows into one `InlineCollection` plus the span-keyed `LinkHit` table; the math block arm materializes too, because its typeset box IS the retained content. `MathTypeset.Measure`/`Draw` return `Fin<MathBox>` and `Encoded` returns `Fin<Stream>` — one typesetting surface over one admitted painter, discriminating measure, in-canvas draw, and headless encode by its product.
+- Auto: the markdown AST projection is owned by `Theme/typography` (`MarkdownProjection`, the closed eleven-arm fold to `MarkdownRow`/`InlineRun`) — this renderer consumes those rows and never re-parses. Each `InlineRun` materializes the landed content vocabulary: `InlineContent` = Text | Code | Math | Break | Task | Opaque dispatches through the generated total `Switch`, the `FrozenSet<InlineStyle>` rows (`Strong`, `Emphasis`, `Strike`) fold to decorations and wrappers, and `LinkTarget` discriminates the hit-table hyperlink from the inline image — an image link materializes through the SAME shared `ImageLoader.AsyncImageLoader` cache the `[03]` image codec row rides, never a second loader. Code resolves through the mono typography role; mathematics typesets through `MathTypeset` — one painter serves the measure and the draw, so a run typesets once, `MathStyle` selects script sizing and box anchor, and the engine's `Result`-shaped parse rail lands a malformed source as `ContentFault.DecodeFailed` carrying the engine's own message instead of a throw or a blank inline. The round-trip `SourceSpan` maps each retained run to its source range.
+- Packages: Markdig, Avalonia, Avalonia.Skia, AsyncImageLoader.Avalonia, CSharpMath.SkiaSharp, SkiaSharp, Rasm (project — `PerceptualColor` the admitted ink and its gamut egress), Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new `InlineContent` case is one content arm the generated dispatch breaks at compile time; a new `InlineStyle` row is one decoration fold arm; a new `MarkdownRow` case breaks the row dispatch and requires an explicit routing verdict; a new math modality is one `MathStyle` row and no typesetting surface.
+- Boundary: the renderer dispatches all eleven current `MarkdownRow` cases — `Heading`, `Paragraph`, `Quote`, `Callout`, `ListRows`, `Definitions`, `Grid`, `CodeFence`, `Math`, `Rule`, and `Opaque`. Inline-bearing rows and the math block materialize here; every other block row returns an explicit empty inline projection and retains its typed payload for its owning consumer. Math draws through the settled in-tree vehicle — one `ICustomDrawOperation` folding `ISkiaSharpApiLeaseFeature.Lease()` to `DrawSource.Borrowed` — so an equation composites into the host's in-flight frame and mints no `SKSurface`; a per-equation offscreen surface, a private `SKPaint`/`SKFont` math path bypassing the engine's canvas adapter, a hand-rolled TeX box model, a `try`/`catch` around the source assignment, and a literal font size are the deleted forms. A `Markdig` re-parse, silent catch-all, a retired flat-column `InlineRun` read, or a claim that an empty inline projection rendered a block is rejected.
 
 ```csharp signature
 [Union]
@@ -35,11 +35,113 @@ public readonly record struct LinkHit(SourceSpan Span, string Url);
 
 public sealed record MarkdownRendered(InlineCollection Inlines, Seq<LinkHit> Links);
 
+// Inline and display math differ by ONE row, never by a second typesetter: the line style selects the
+// engine's script sizing, the alignment selects the box anchor, and the role selects the size the painter
+// anchors on, so a third modality (a numbered equation, a margin note) is one row.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class MathStyle {
+    public static readonly MathStyle Inline = new("inline", line: LineStyle.Text, role: TypographyRole.Body, alignment: TextAlignment.Left);
+    public static readonly MathStyle Display = new("display", line: LineStyle.Display, role: TypographyRole.Body, alignment: TextAlignment.Center);
+
+    public LineStyle Line { get; }
+
+    public TypographyRole Role { get; }
+
+    public TextAlignment Alignment { get; }
+}
+
+// The measured box a math run occupies in inline layout: the engine measures BEFORE any surface exists, so
+// a math run participates in line breaking at its true extent rather than a reserved rectangle.
+public readonly record struct MathBox(float Width, float Height, float Ascent);
+
+// The ONE math typesetter. A TeX-subset source admits through the engine's own typed parse rail — assigning
+// `LaTeX` routes a malformed source into `ErrorMessage` under `ErrorColor`/`ErrorFontSize`, never a throw —
+// and the admitted painter serves BOTH the measure pass and the draw pass, so a run typesets once. Drawing
+// composites into the leased `SKCanvas` through the engine's `SkiaCanvas` adapter; a hand-rolled TeX box
+// model, a private `SKPaint`/`SKFont` math path, a `try`/`catch` around the source assignment, and a literal
+// font size are the deleted forms.
+public static class MathTypeset {
+    public static Fin<MathBox> Measure(string source, MathStyle style, TextStyleRow row, PerceptualColor ink, float width) =>
+        Admit(source, style, row, ink).Map(painter => Boxed(painter, width));
+
+    public static Fin<MathBox> Draw(SKCanvas canvas, string source, MathStyle style, TextStyleRow row, PerceptualColor ink, SKPoint at, float width) =>
+        Admit(source, style, row, ink).Map(painter => {
+            painter.Draw(canvas, at);
+            return Boxed(painter, width);
+        });
+
+    // The headless proof leg: the same painter encodes to an image stream with no live host, so a math
+    // golden crosses the render-hash lane on the one `SKEncodedImageFormat` surface the capture owner shares.
+    public static Fin<Stream> Encoded(string source, MathStyle style, TextStyleRow row, PerceptualColor ink, float width) =>
+        Admit(source, style, row, ink).Bind(painter =>
+            Optional(painter.DrawAsStream(width, SKEncodedImageFormat.Png, quality: 100, style.Alignment))
+                .ToFin(new ContentFault.DecodeFailed($"math/encode: {source} produced no stream")));
+
+    // Exemption: the painter's property-set-then-probe sequence is the engine's own admission contract —
+    // the parse runs inside the `LaTeX` setter and publishes its verdict on `ErrorMessage`, so the seam is
+    // property assignment followed by one probe, and `Display` null beside a non-null message is the failure
+    // signal the fault carries forward. Ink arrives as the admitted kernel colour and quantizes through the
+    // one gamut egress, so no host-edge colour conversion happens at the engine boundary.
+    static Fin<MathPainter> Admit(string source, MathStyle style, TextStyleRow row, PerceptualColor ink) {
+        MathPainter painter = new() {
+            FontSize = (float)row.Size,
+            LineStyle = style.Line,
+            TextColor = ink.ToRgb() switch { var (red, green, blue, alpha) => new SKColor(red, green, blue, alpha) },
+            AntiAlias = true,
+            LaTeX = source,
+        };
+        return painter.ErrorMessage is { } message
+            ? Fin.Fail<MathPainter>(new ContentFault.DecodeFailed($"math/latex: {message}"))
+            : Fin.Succ(painter);
+    }
+
+    static MathBox Boxed(MathPainter painter, float width) =>
+        painter.Measure(width) switch { var bounds => new MathBox(bounds.Width, bounds.Height, -bounds.Top) };
+}
+
+// The retained math run rides the settled in-tree vehicle — one `ICustomDrawOperation` whose render folds
+// the `ISkiaSharpApiLeaseFeature.Lease()` to `DrawSource.Borrowed`, so math composites into the host's
+// in-flight frame exactly as every other in-tree draw does. A side bitmap per equation, a second offscreen
+// surface beside the capture capsule, and a per-equation `SKSurface` are the deleted forms; measurement runs
+// through the same typeset the draw consumes, so an inline equation line-breaks at its true box.
+public sealed record MathRun(string Source, MathStyle Style, TextStyleRow Row, PerceptualColor Ink, Rect Bounds) : ICustomDrawOperation {
+    public bool Equals(ICustomDrawOperation? other) => Equals(other as MathRun);
+
+    public bool HitTest(Point point) => Bounds.Contains(point);
+
+    public void Render(ImmediateDrawingContext context) =>
+        Optional(context.TryGetFeature<ISkiaSharpApiLeaseFeature>())
+            .Map(static feature => new DrawSource.Borrowed(feature.Lease()))
+            .Iter(borrowed => {
+                using ISkiaSharpApiLease lease = borrowed.Lease;   // Exemption: the lease is the platform-forced disposal seam
+                ignore(MathTypeset.Draw(lease.SkCanvas, Source, Style, Row, Ink, new SKPoint((float)Bounds.X, (float)Bounds.Y), (float)Bounds.Width));
+            });
+
+    public void Dispose() { }
+}
+
+public sealed class MathInlineVisual(string source, MathStyle style, TextStyleRow row, PerceptualColor ink) : Control {
+    public override void Render(DrawingContext context) =>
+        context.Custom(new MathRun(source, style, row, ink, new Rect(Bounds.Size)));
+
+    // A parse fault measures to zero and the draw arm renders the engine's own inline error box, so a broken
+    // source is visible in the document rather than silently absent.
+    protected override Size MeasureOverride(Size available) =>
+        MathTypeset.Measure(source, style, row, ink, (float)available.Width)
+            .Match(Succ: box => new Size(box.Width, box.Height), Fail: static _ => default);
+}
+
+// The retained-materialization context: the font chain and the theme's resolved body ink travel as one
+// value, so a math run reaches its admitted colour without a second parameter tail on every fold arm.
+public readonly record struct MarkdownStyling(FontChain Chain, PerceptualColor Ink);
+
 public static class MarkdownInlineRenderer {
-    public static MarkdownRendered Render(MarkdownDocumentRows rows, FontChain chain) {
+    public static MarkdownRendered Render(MarkdownDocumentRows rows, MarkdownStyling styling) {
         InlineCollection collection = [];
         Seq<LinkHit> links = rows.Body.Fold(Seq<LinkHit>(), (acc, row) => {
-            (Seq<Inline> inlines, Seq<LinkHit> hits) = Inlines(row, chain);
+            (Seq<Inline> inlines, Seq<LinkHit> hits) = Inlines(row, styling);
             inlines.Iter(collection.Add);
             return acc + hits;
         });
@@ -48,33 +150,35 @@ public static class MarkdownInlineRenderer {
 
     // Inline-bearing arms project runs; block rows retain their typed payload. The generated switch is
     // exhaustive over the closed eleven-arm family, so a new row case breaks this dispatch.
-    static (Seq<Inline> Inlines, Seq<LinkHit> Links) Inlines(MarkdownRow row, FontChain chain) => row.Switch(
-        state: chain,
-        heading: static (c, heading) => Styled(heading.Runs, heading.Role, c),
-        paragraph: static (c, paragraph) => Styled(paragraph.Runs, TypographyRole.Body, c),
+    static (Seq<Inline> Inlines, Seq<LinkHit> Links) Inlines(MarkdownRow row, MarkdownStyling styling) => row.Switch(
+        state: styling,
+        heading: static (s, heading) => Styled(heading.Runs, heading.Role, s),
+        paragraph: static (s, paragraph) => Styled(paragraph.Runs, TypographyRole.Body, s),
         quote: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
         callout: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
         listRows: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
         definitions: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
         grid: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
         codeFence: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
-        math: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
+        // A math BLOCK typesets at display sizing and centres in its own inline container — the only block
+        // arm that materializes, because the typeset box IS the retained content.
+        math: static (s, block) => (Seq<Inline>(Typeset(block.Source, MathStyle.Display, s)), Seq<LinkHit>()),
         rule: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
         opaque: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()));
 
     // Content dispatch is the generated total Switch over the landed six-case InlineContent family;
     // styles fold from the FrozenSet rows, and the link target discriminates hit-table hyperlink from
     // inline image — the image rides the ONE shared AsyncImageLoader cache the media codec row uses.
-    static (Seq<Inline>, Seq<LinkHit>) Styled(Seq<InlineRun> runs, TypographyRole role, FontChain chain) =>
+    static (Seq<Inline>, Seq<LinkHit>) Styled(Seq<InlineRun> runs, TypographyRole role, MarkdownStyling styling) =>
         runs.Fold((Inlines: Seq<Inline>(), Links: Seq<LinkHit>()), (acc, run) => {
-            TextStyleRow style = TextStyleRow.Resolve(run.Content is InlineContent.Code or InlineContent.Math ? TypographyRole.Code : role, chain);
+            TextStyleRow style = TextStyleRow.Resolve(run.Content is InlineContent.Code ? TypographyRole.Code : role, styling.Chain);
             bool strike = run.Styles.Contains(InlineStyle.Strike);
             bool linked = run.Link.Exists(static target => target is LinkTarget.Hyperlink);
-            Inline inline = run.Content.Switch<(TextStyleRow Style, bool Strike, bool Linked), Inline>(
-                state: (style, strike, linked),
+            Inline inline = run.Content.Switch<(TextStyleRow Style, bool Strike, bool Linked, MarkdownStyling Styling), Inline>(
+                state: (style, strike, linked, styling),
                 text: static (s, t) => Dressed(t.Value, s.Style, s.Strike, s.Linked),
                 code: static (s, c) => Dressed(c.Value, s.Style, s.Strike, s.Linked),
-                math: static (s, m) => Dressed(m.Value, s.Style, s.Strike, s.Linked),
+                math: static (s, m) => Typeset(m.Value, MathStyle.Inline, s.Styling),
                 @break: static (_, _) => new LineBreak(),
                 task: static (s, t) => Dressed(t.Checked ? "☑ " : "☐ ", s.Style, s.Strike, s.Linked),
                 opaque: static (s, _) => Dressed(string.Empty, s.Style, s.Strike, s.Linked));
@@ -87,6 +191,12 @@ public static class MarkdownInlineRenderer {
                     image: static (s, image) => (s.Acc.Inlines.Add(InlineImage(image.Destination)), s.Acc.Links)),
                 None: () => (acc.Inlines.Add(inline), acc.Links));
         });
+
+    // The ONE math materialization both the inline arm and the block arm reach: the run's ink resolves off
+    // the theme's body paint through the kernel colour egress, so a math glyph carries the same admitted
+    // colour every other glyph does and no host-edge colour conversion happens here.
+    static Inline Typeset(string source, MathStyle style, MarkdownStyling styling) =>
+        new InlineUIContainer(new MathInlineVisual(source, style, TextStyleRow.Resolve(style.Role, styling.Chain), styling.Ink));
 
     static Inline Dressed(string text, TextStyleRow style, bool strike, bool linked) =>
         new Run(text) {
@@ -250,7 +360,7 @@ public static class MediaSurfaces {
 
 - Owner: `PlaybackTransport` the one playback transport over the libmpv `MpvContext`; `TransportVerb` the payload-bearing verb `[Union]`; `TrackKind` `[SmartEnum<string>]` the track-selection axis; `TransportState` the observed position-and-state snapshot.
 - Entry: `public IO<Unit> Load(MpvContext context, string source)` — opens media through `LoadFile`; `public IO<Unit> Command(MpvContext context, TransportVerb verb)` — the ONE total dispatch folding every verb case onto its `MpvContext` member, never a per-control playback handler; `public IObservable<TransportState> Observe(MpvContext context)` — the observed state projection off `ObserveProperty` registrations and the `PropertyChanged` event.
-- Auto: the verb family is a `[Union]` because seek, speed, volume, mute, track selection, and section loops carry per-occurrence payloads — play/pause fold onto the `Pause` option, seek onto the `TimePos` property write, speed/volume/mute onto their options, frame step onto `FrameStep`/`FrameBackStep`, stop onto `Stop`, the scrub revert onto `RevertSeek`, active-track selection onto the `AudioId`/`SubId`/`VideoId` option rows keyed by the `TrackKind` axis, an external subtitle onto the `SubAdd` command, and the A-B section loop onto the `AbLoopA`/`AbLoopB` option pair (`.api/api-libmpv.md` transport commands, track members, and properties); a new verb is one case that breaks the total `Switch` at compile time; position and state surface through the observed `MpvPropertyRead` members (`TimePos`, `Duration`, `TimeRemaining`, `Pause`, `Seeking`, `EofReached`) registered once through `ObserveProperty` and folded from `PropertyChanged`, so the surface never polls libmpv on a timer; each verb derives its `Intent` key symbolically from its case so the media-control toolbar rows derive from the one command table with zero literal drift.
+- Auto: the verb family is a `[Union]` because seek, speed, volume, mute, track selection, and section loops carry per-occurrence payloads — play/pause fold onto the `Pause` option, seek onto the `TimePos` property write, speed/volume/mute onto their options, frame step onto `FrameStep`/`FrameBackStep`, stop onto `Stop`, the scrub revert onto `RevertSeek`, active-track selection onto the `AudioId`/`SubId`/`VideoId` option rows keyed by the `TrackKind` axis, an external subtitle onto the `SubAdd` command, and the A-B section loop onto the `AbLoopA`/`AbLoopB` option pair (`.api/api-libmpv.md` transport commands, track members, and properties); a new verb is one case that breaks the total `Switch` at compile time; position and state surface through the observed `MpvPropertyRead` members (`TimePos`, `Duration`, `TimeRemaining`, `Pause`, `Seeking`, `EofReached`) registered once through `ObserveProperty` and folded from `PropertyChanged`, so the surface never polls libmpv on a timer, and every `TransportState` column stays optional because libmpv answers absent until the core holds the fact — a pre-intake read is absence, never frame zero at rest; each verb derives its `Intent` key symbolically from its case so the media-control toolbar rows derive from the one command table with zero literal drift.
 - Packages: HanumanInstitute.LibMpv, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new transport verb is one `TransportVerb` case folding onto its `MpvContext` member; a new selectable track lane is one `TrackKind` row; zero new surface.
 - Boundary: playback transport is the one rail over the typed `MpvContext` — a hand-rolled mpv command/property marshaller is the rejected form (`.api/api-libmpv.md` reject), so transport verbs fold onto the named `MpvContext` members and command intake rides the catalogued `MpvCommand` `InvokeAsync` deferred invocation; position surfaces through observed `MpvPropertyRead`/`PropertyChanged`, never a polling timer; transport verbs derive as `CommandIntent` rows executed through the command deck, so playback evidence rides the deck's `CommandReceipt` stream and a transport-local receipt or command registry is the deleted form; a transient scrub seeks the live position and `RevertSeek` returns to the pre-scrub mark, so scrub-and-revert rides the libmpv transport rather than a snapshot; the `AudioId`/`SubId`/`VideoId` rows are `MpvOptionWithAutoNo<int>` sentinel wrappers — the typed id write rides the option base and the `auto`/`no` sentinel members ride the catalogued wrapper, never a raw property string.
@@ -288,7 +398,17 @@ public abstract partial record TransportVerb {
     public string Intent => $"media.{Kind}";
 }
 
-public readonly record struct TransportState(double Position, double Duration, double Remaining, bool Playing, bool Seeking, bool Ended);
+// Every column is an OBSERVED property, and libmpv answers absent until the core has the fact: before
+// intake completes there is no position, no duration, and no pause state. Each slot is therefore optional
+// — a zero position, a zero duration, and a "not playing" read fabricated from `?? 0d`/`?? true` are
+// measurements no property took, and a scrub bar cannot tell a genuine frame-zero from an unloaded core.
+public readonly record struct TransportState(
+    Option<double> Position,
+    Option<double> Duration,
+    Option<double> Remaining,
+    Option<bool> Playing,
+    Option<bool> Seeking,
+    Option<bool> Ended);
 
 public static class PlaybackTransport {
     public static IO<Unit> Load(MpvContext context, string source) =>
@@ -326,12 +446,12 @@ public static class PlaybackTransport {
                 handler => context.PropertyChanged += handler,
                 handler => context.PropertyChanged -= handler)
             .Select(_ => new TransportState(
-                context.TimePos.Get() ?? 0d,
-                context.Duration.Get() ?? 0d,
-                context.TimeRemaining.Get() ?? 0d,
-                !(context.Pause.Get() ?? true),
-                context.Seeking.Get() ?? false,
-                context.EofReached.Get() ?? false));
+                Optional(context.TimePos.Get()),
+                Optional(context.Duration.Get()),
+                Optional(context.TimeRemaining.Get()),
+                Optional(context.Pause.Get()).Map(static paused => !paused),
+                Optional(context.Seeking.Get()),
+                Optional(context.EofReached.Get())));
 
     static IO<Unit> Write<T>(MpvOption<T> option, T value) where T : struct =>
         IO.liftAsync(async () => { await option.SetAsync(value).ConfigureAwait(false); return unit; });
@@ -350,6 +470,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Markdown and media surface materialization
+    accDescr: Markdown document rows rendering inline into styled text beside a media surface materializing one control per image, vector, and audiovisual case, mounting a surface session, and sealing a media receipt onto the sink port.
     MarkdownDocumentRows --> MarkdownInlineRenderer
     MarkdownInlineRenderer --> MarkdownRendered
     MarkdownRendered --> TextStyleRow
@@ -364,4 +486,5 @@ flowchart LR
 
 ## [05]-[RESEARCH]
 
-(none)
+- [MATH_LOCAL_TYPEFACES]-[OPEN]: the `FontChain`-to-`Painter.LocalTypefaces` admission — the engine's fallback chain is `IEnumerable<Typography.OpenFont.Typeface>` over its vendored glyph engine while `FontChain` resolves `SKTypeface` through `SKFontManager`, so the bridge from a registered family name to an `OpenFont` face is unspelled and math currently renders on the engine's own default face rather than the app's registered set. Route: `uv run python -m tools.assay api --key CSharpMath.Rendering --member LocalTypefaces` for the property's element type and any shipped loader, then the `Typography.OpenFont.Typeface` construction path over a font stream; the verdict lands as an `Admit` column and a `.api/api-csharpmath-skia.md` `[FRONTEND_BASE_TYPES]` row.
+- [MATH_ALIGNED_DRAW_ARITY]-[OPEN]: the parameter semantics of `MathPainter.Draw(SKCanvas, TextAlignment, Thickness, float, float)` — the catalog names the arity and its `Center` default but not which float is offset and which is extent, so the display arm draws through the absolute-origin `Draw(SKCanvas, SKPoint)` and centres at the call site. Route: `uv run python -m tools.assay api --key CSharpMath.SkiaSharp --member Draw` for the parameter names; a confirmed padding-plus-width reading collapses the call-site centring onto `MathStyle.Alignment`.

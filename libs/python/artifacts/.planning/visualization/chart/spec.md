@@ -89,12 +89,16 @@ def _merged(base: dict[str, JsonValue], override: dict[str, object]) -> dict[str
 
 
 class ChartTheme(Struct, frozen=True):
+    # every altair-typed block is a STRING annotation: msgspec resolves a `Struct`'s annotations at class creation,
+    # so a bare `alt.theme.*Kwds` field reifies the `lazy` altair proxy at module import and every downstream
+    # importer (`chart/export`, `visualization/dashboard`) pays the whole altair chain before it names a Vega case.
+    # `@tagged_union` defers its own annotations, so the `ChartSpec` cases below need no such quoting.
     palette: Palette
-    axis: alt.theme.AxisConfigKwds | None = None
-    legend: alt.theme.LegendConfigKwds | None = None
-    view: alt.theme.ViewConfigKwds | None = None
-    title: alt.theme.TitleConfigKwds | None = None
-    mark: alt.theme.MarkConfigKwds | None = None
+    axis: "alt.theme.AxisConfigKwds | None" = None
+    legend: "alt.theme.LegendConfigKwds | None" = None
+    view: "alt.theme.ViewConfigKwds | None" = None
+    title: "alt.theme.TitleConfigKwds | None" = None
+    mark: "alt.theme.MarkConfigKwds | None" = None
     background: str | None = None
     font: str | None = None
 

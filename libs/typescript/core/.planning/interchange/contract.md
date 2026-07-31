@@ -1,12 +1,12 @@
 # [CORE_CONTRACT]
 
-The schema-drift authority of the interchange plane: pure reflection over two `FileDescriptorSet` generations — the build-pinned generation embedded in the generated proto suite and the live generation the C# runtime ships — folded into one graded `ContractDrift` verdict per proto census family at boot, so schema drift is a value the operator reads and a decode gate consumes, never a runtime decode failure. The diff walk pairs fields by number, gates on leaf identity, then folds the ordered lane table — wire facts, oneof membership, serialized field options, enum rosters, and recursive nested-message descent — while the RPC walk pairs the pinned `DescService` roster's methods by name and compares `methodKind`, `idempotency`, and the input/output signature; every disagreement is a typed `DriftChange` row. The verdict is derived, never asserted: `ContractDrift.of` is the one mint computing the dominant verdict from the change set, and the class declaration filter-proves `verdict === dominant(changes)` on every decode, so a serialized receipt that claims `identical` over a breaking change set refuses at admission and `admitted`/`alarm` can never disagree with the change lattice they project. The gate is proto-altitude only — the msgpack, cbor, and jsonpatch arms drift-check through their own vocabulary closures, an out-of-vocabulary RFC 6902 op and the msgpack `Alien` ext land through this same verdict vocabulary at their registry rows, and live-message unknown-field residue is `codec`'s `Wire.residue` read, the runtime complement of this boot-time grade. The module is `core/src/interchange/contract.ts`; a new detectable drift axis is one change case plus one grade row plus one lane row, and a new verdict policy axis is one severity column.
+The schema-drift authority of the interchange plane: pure reflection over two `FileDescriptorSet` generations — the build-pinned generation embedded in the generated proto suite and the live generation the C# runtime ships — folded into one graded `ContractDrift` verdict per proto census family, settled at construction and re-settled on a compiled cadence, so schema drift is a value the operator reads and a decode gate consumes, never a runtime decode failure and never a boot grade the wire has since outgrown. The diff walk pairs fields by number, gates on leaf identity, then folds the ordered lane table — wire facts, oneof membership, serialized field options, enum rosters, and recursive nested-message descent — while the RPC walk pairs the pinned `DescService` roster's methods by name and compares `methodKind`, `idempotency`, and the input/output signature; every disagreement is a typed `DriftChange` row. The verdict is derived, never asserted: `ContractDrift.of` is the one mint computing the dominant verdict from the change set, and the class declaration filter-proves `verdict === dominant(changes)` on every decode, so a serialized receipt that claims `identical` over a breaking change set refuses at admission and `admitted`/`alarm` can never disagree with the change lattice they project. The gate is proto-altitude only — the msgpack, cbor, and jsonpatch arms drift-check through their own vocabulary closures, an out-of-vocabulary RFC 6902 op and the msgpack `Alien` ext land through this same verdict vocabulary at their registry rows, and live-message unknown-field residue is `codec`'s `Wire.residue` read, the runtime complement of this boot-time grade. The module is `core/src/interchange/contract.ts`; a new detectable drift axis is one change case plus one grade row plus one lane row, and a new verdict policy axis is one severity column.
 
 ## [01]-[INDEX]
 
 - [02]-[DRIFT_VERDICT]: the change union, severity and grade tables, the verdict receipt and fold; `ContractDrift`.
 - [03]-[GENERATION_DIFF]: the field-signature walk, the wire-fact compare, the enum-roster walk; interior.
-- [04]-[GATE_SERVICE]: the boot verdict census, per-family admission, the coverage law; `DescriptorGate`.
+- [04]-[GATE_SERVICE]: the verdict census, its re-grade cadence, per-family admission, the coverage law; `DescriptorGate`.
 
 ## [02]-[DRIFT_VERDICT]
 
@@ -36,7 +36,8 @@ import {
   ScalarType,
 } from "@bufbuild/protobuf"
 import { FeatureSet_FieldPresence, FieldOptionsSchema, FileDescriptorSetSchema } from "@bufbuild/protobuf/wkt"
-import { Array, Effect, HashMap, HashSet, Match, Option, Order, type ParseResult, Schema } from "effect"
+import { Array, Effect, Function, HashMap, HashSet, Layer, Match, Option, Order, type ParseResult, Reloadable, Schema } from "effect"
+import { Budget } from "../value/fault.ts"
 import { Wire, WireFault } from "./codec.ts"
 import { Proto } from "./format.ts"
 
@@ -342,15 +343,16 @@ const _serviced = (pinned: DescService, live: DescService | undefined): Readonly
 
 ## [04]-[GATE_SERVICE]
 
-- Owner: `DescriptorGate`, the boot-time gate — one `Effect.Service` whose `Source` carrier binds live descriptor-set octets, pinned and live generation coordinates, and the pinned `DescService` roster; construction decodes through the proto engine, builds the `FileRegistry`, and settles one immutable verdict per suite family, while `verdict`/`census`/`admitted` are reads over that census.
+- Owner: `DescriptorGate`, the drift gate — one `Effect.Service` whose `Source` carrier binds the pinned generation coordinate, the pinned `DescService` roster, and `shipped`, the EFFECT yielding the live descriptor-set octets beside their generation; construction runs that read, decodes through the proto engine, builds the `FileRegistry`, and settles one immutable verdict per suite family, while `verdict`/`census`/`admitted` are reads over that census and `reloading` is the sibling Layer factory that re-runs the whole construction on a compiled cadence.
 - Law: coverage is the suite key tuple plus the supplied RPC roster — `Proto.names` is census-guarded at `format#PROTO_ENGINE`, so iterating it IS iterating every gated proto family; a suite family unresolved by `qualifiedName` in the live registry folds to a `FamilyMissing` breaking verdict, so silence cannot pass for compatibility. `FileDescriptorSetWire` never enters the verdict census — it is the gate's own transport. A family outside the proto census (`OpLogWire`, the cbor and jsonpatch arms) answers `admitted` with `Effect.void` by construction: the gate is proto-altitude only, and those arms drift-check through their own vocabulary closures.
 - Law: the RPC census is the pinned roster the composition root supplies — the same emitted `DescService` consts it hands the invoke `Dial`; `registry.getService` resolves each live counterpart, `_serviced` mints the method rows, and they fold into the `CapabilityDescriptorWire` verdict — the capability plane's one family — so the composition root sequences `admitted("CapabilityDescriptorWire")` ahead of the invoke `Capability.bind` with zero new gate surface, and an empty roster degrades the RPC axis to no coverage, never a false `identical` claim about services it was not given.
 - Law: the pinned side is the generated suite itself — each `GenMessage` is a `DescMessage`, so the build artifact is the baseline and no second pinned descriptor file exists to drift from the code that decodes with it.
 - Law: the gate decodes its own ingress through the one admission rail — `Proto.frame(FileDescriptorSetSchema)` with the message identity narrowed by `isMessage`; a non-set payload at this seam is a wiring defect and dies, never a typed fault.
 - Law: `admitted(family)` is the decode gate the registry's gated rows yield before decoding — a `breaking` family refuses with reason `drift` carrying the change count; the boot log, the CI artifact, and the refusal detail are projections of one verdict value, and `census` is that value's plain array read — the verdicts settled at construction, so no read re-enters the rail.
-- Growth: a second gated consumer composes `admitted` in its decode pipeline — one yield, zero gate edits; a new generation source (a registry endpoint over shipped bytes) is a new Layer factory shape at the app root, never a second gate.
-- Boundary: the `codec` registry's `admittedGraph` entry takes this gate's `admitted` as its gate argument; the invoke page's `Capability.bind` composes `admitted("CapabilityDescriptorWire")` before binding; the runtime wave's boot sequence constructs the Layer from the runtime-shipped set and the pinned service consts.
-- Packages: `@bufbuild/protobuf` (`createFileRegistry`, `isMessage`, `qualifiedName`, `DescService`, `MessageShape`), `@bufbuild/protobuf/wkt` (`FileDescriptorSetSchema`); `effect` (`Effect`, `Array`, `HashMap`, `Option`, `Schema`, `ParseResult`); `./format.ts` (`Proto`); `./codec.ts` (`Wire`, `WireFault`).
+- Law: the verdict census RE-GRADES on a cadence, because a peer redeploy moves the wire while the process lives — `reloading` is `Reloadable.auto` over the same service constructor under a compiled `Budget` schedule with the gate stood down, so each cycle re-runs `source.shipped` and settles a fresh census from the octets the runtime is actually serving. A verdict settled once at boot keeps decoding under an `admitted` grade the live descriptors no longer earn, which is the drift the whole gate exists to refuse. Under the reloading Layer a gated read resolves the CURRENT gate through `Reloadable.get(DescriptorGate)` and an operator forces a cycle through `Reloadable.reload(DescriptorGate)`; the generated accessors resolve the pinned instance and are the boot-only posture.
+- Growth: a second gated consumer composes `admitted` in its decode pipeline — one yield, zero gate edits; a new generation source (a registry endpoint, a file read, a control-plane subscription) is one `shipped` effect at the app root, never a second gate and never a second factory.
+- Boundary: the `codec` registry's `admittedGraph` entry takes this gate's `admitted` as its gate argument; the invoke page's `Capability.bind` composes `admitted("CapabilityDescriptorWire")` before binding; the runtime wave's boot sequence supplies the `shipped` read and the pinned service consts, and chooses the boot-only or the reloading Layer.
+- Packages: `@bufbuild/protobuf` (`createFileRegistry`, `isMessage`, `qualifiedName`, `DescService`, `MessageShape`), `@bufbuild/protobuf/wkt` (`FileDescriptorSetSchema`); `effect` (`Effect`, `Array`, `Function`, `HashMap`, `Layer`, `Option`, `Reloadable`, `Schedule`, `Schema`, `ParseResult`); `./format.ts` (`Proto`); `./codec.ts` (`Wire`, `WireFault`); `../value/fault.ts` (`Budget`).
 
 ```typescript signature
 const _decodeSet = (octets: Uint8Array): Effect.Effect<MessageShape<typeof FileDescriptorSetSchema>, ParseResult.ParseError> =>
@@ -364,7 +366,8 @@ const _decodeSet = (octets: Uint8Array): Effect.Effect<MessageShape<typeof FileD
 class DescriptorGate extends Effect.Service<DescriptorGate>()("@rasm/ts/core/DescriptorGate", {
   effect: (source: DescriptorGate.Source) =>
     Effect.gen(function* () {
-      const registry = createFileRegistry(yield* _decodeSet(source.live))
+      const shipped = yield* source.shipped // the read runs per construction, so a reload grades the octets the runtime serves NOW
+      const registry = createFileRegistry(yield* _decodeSet(shipped.octets))
       const methodRows = Array.flatMap(source.rpc, (service) => _serviced(service, registry.getService(qualifiedName(service))))
       const verdicts = Array.reduce(
         Proto.names,
@@ -376,7 +379,7 @@ class DescriptorGate extends Effect.Service<DescriptorGate>()("@rasm/ts/core/Des
             onSome: (current) => _diffed(pinned, current),
           })
           const changes = family === "CapabilityDescriptorWire" ? [...diffed, ...methodRows] : diffed
-          return HashMap.set(acc, family, ContractDrift.of(family, source.pinnedGeneration, source.liveGeneration, changes))
+          return HashMap.set(acc, family, ContractDrift.of(family, source.pinnedGeneration, shipped.generation, changes))
         },
       )
       return {
@@ -400,12 +403,20 @@ class DescriptorGate extends Effect.Service<DescriptorGate>()("@rasm/ts/core/Des
       }
     }),
   accessors: true,
-}) {}
+}) {
+  // The re-grade cadence is a compiled budget with its class gate stood down — a reload is a scheduled read, not a
+  // fault recovery, so the transience predicate the retry compile defaults to has nothing to grade here.
+  static readonly reloading = (source: DescriptorGate.Source): Layer.Layer<Reloadable.Reloadable<DescriptorGate>> =>
+    Reloadable.auto(DescriptorGate, {
+      layer: DescriptorGate.Default(source),
+      schedule: Budget.schedule("bulk", Function.constTrue),
+    })
+}
 
 declare namespace DescriptorGate {
+  type Shipment = { readonly octets: Uint8Array; readonly generation: string }
   type Source = {
-    readonly live: Uint8Array
-    readonly liveGeneration: string
+    readonly shipped: Effect.Effect<Shipment>
     readonly pinnedGeneration: string
     readonly rpc: ReadonlyArray<DescService>
   }

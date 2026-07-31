@@ -22,6 +22,7 @@ Taxonomy, evidence, retry, and degradation remain clusters of one recovery-polic
 - Law: `dominant` discriminates on input shape — a non-empty kind set folds to its representative through `severity` (the fold `Effect.validateAll`-shaped reports feed), and a `Cause` tree folds every failure and defect node through the same lattice to `Option` of the representative, `none` exactly when the tree carries no fault (interruption-only) — so parallel-failure dominance reads the lattice, never a squash ordering.
 - Law: `schema` is the wire-facing literal union derived from the tuple spread — the non-empty overload keeps the exact literal tuple — so a class crossing a wire or a config row decodes against the same anchor the type plane derives from.
 - Law: `family(reasons, rows)` closes a folder fault family once — frozen snapshots of the non-empty reason tuple and every exact-key family row derive the literal schema and `classOf` projection, so caller mutation cannot drift the published reasons, schema, rows, or classification and a tagged fault class carries no local `_Rows`/`_Closed` guard pair or repeated reason switch.
+- Exemption: the snapshot-and-seal body is a marked kernel — `structuredClone` and `Object.freeze` are the platform's own statement-shaped seal calls, the drafts never escape unfrozen, only the sealed record leaves, and the mark rides its first line.
 - Growth: a new class is one tuple entry with its row — every guard, schema, fold, budget gate, and the serving edge's governed `Record<FaultClass.Kind, _>` status record inherit it at compile time; a new axis is one `Row` field with its column on each row; a new folder fault family is one `family` call with its reason tuple and rows.
 - Boundary: the class-to-status outbound mapping is the serving edge's governed record; the floor table stays transport-free.
 - Packages: `effect` (`Schema`, `Order`, `Array`, `Cause`, `Chunk`, `Option`, `Predicate`); `@effect/typeclass` (`Bounded`, `Semigroup`).
@@ -103,6 +104,8 @@ const _family = <
   reasons: Reasons,
   rows: Rows & { readonly [Key in Exclude<keyof Rows, Reasons[number]>]: never },
 ) => {
+  // BOUNDARY ADAPTER: deep-freeze kernel — the platform's own snapshot and seal calls are statement-shaped, the drafts
+  // never escape unfrozen, and only the sealed record leaves
   const heldReasons = Object.freeze(structuredClone(reasons))
   const heldRows = structuredClone(rows)
   Object.values(heldRows).forEach((row) => Object.freeze(row))

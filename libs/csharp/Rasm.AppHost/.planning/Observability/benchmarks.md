@@ -17,9 +17,9 @@ Settled composition: `ReceiptSinkPort`, `ReceiptEnvelope`, and the `AppHostWireC
 - Owner: `BenchmarkReceipt` — the typed run evidence; `BenchMeasurement` the harness-edge column carrier; `BenchmarkVerdict` `[SmartEnum<string>]` the gate-disposition vocabulary; `BenchmarkFault` `[Union]` deriving through `FaultBand.Benchmark`; `GatePolicy` the admitted threshold row; `BenchmarkGate` — the corpus pass-or-regress fold.
 - Cases: `BenchmarkVerdict` = Unjudged | Pass | Regressed | HostMismatch; `BenchmarkFault` = Text | GateRegressed | HostMismatch | PolicyRejected.
 - Entry: `BenchmarkReceipt.Of(suite, case, corpus, measured, correlation, reference, artifact)` is the one fresh mint every folder claim family reaches, stamping host evidence and holding the judging columns at their floor; `GatePolicy.Of(...)` admits finite positive budgets and a finite nonnegative optional speedup floor; `BenchmarkGate.Gate(ReceiptSinkPort sink, BenchmarkReceipt fresh, Option<BenchmarkReceipt> claim, GatePolicy policy)` judges the fresh run against the held claim, stamps the verdict row, fans the judged receipt through the sink under `InstrumentFan.BenchmarkKind`, and returns the gate rail; `BenchmarkGate.Judge(...)` is the pure verdict fold the entry composes.
-- Auto: `HostEvidence.Current()` stamps runtime, OS, and processor identity with one digest, so a claim binds only against a matching host and a cross-host comparison faults as `HostMismatch` rather than a phantom regression; a corpus-bound family stamps its input fingerprint on `Corpus`, so a corpus revision re-baselines structurally — a held claim over a different corpus never judges the fresh run; `ReferenceEvidence` carries a same-run scalar reference when a family claims relative speed, and `GatePolicy.SpeedupFloor` makes that ratio part of the same verdict fold; the receipt rides the HLC envelope like every spine fact, so benchmark history orders causally with the command log; a regressed run still fans, so the Observability/instruments#RECEIPT_PROJECTION benchmark arm projects duration and regression counts off every verdict, never the passing subset alone.
-- Receipt: `BenchmarkReceipt` — suite, case, host evidence, corpus identity, median and p95 wall duration, allocated bytes, operation count, optional same-run reference evidence, gate verdict, optional artifact key, correlation.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox.
+- Auto: the three duration columns are three order statistics over ONE ascending sample — median, the p95 quantile, and the interquartile range `SortedArrayStatistics.InterquartileRange(sorted)` reads as `UpperQuartile - LowerQuartile` — so the spread costs one additional O(1) read on the array the two central columns already sorted, never a second pass or a second sketch; the spread is EVIDENCE rather than a gate input, because a widening distribution under a held median is a stability signal a reviewer reads, not a budget a run fails, and folding it into `Within` fails every legitimately noisier lane; `HostEvidence.Current()` stamps runtime, OS, and processor identity with one digest, so a claim binds only against a matching host and a cross-host comparison faults as `HostMismatch` rather than a phantom regression; a corpus-bound family stamps its input fingerprint on `Corpus`, so a corpus revision re-baselines structurally — a held claim over a different corpus never judges the fresh run; `ReferenceEvidence` carries a same-run scalar reference when a family claims relative speed, and `GatePolicy.SpeedupFloor` makes that ratio part of the same verdict fold; the receipt rides the HLC envelope like every spine fact, so benchmark history orders causally with the command log; a regressed run still fans, so the Observability/instruments#RECEIPT_PROJECTION benchmark arm projects duration and regression counts off every verdict, never the passing subset alone.
+- Receipt: `BenchmarkReceipt` — suite, case, host evidence, corpus identity, median, p95, and interquartile wall duration, allocated bytes, operation count, optional same-run reference evidence, gate verdict, optional artifact key, correlation.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox (the producing edge reads its order statistics through MathNet `SortedArrayStatistics` at its own harness boundary; no MathNet type crosses onto this receipt).
 - Growth: a new measured axis is one `BenchMeasurement` field threaded through `Of` and breaking the gate fold at compile time; a new verdict class is one `BenchmarkVerdict` row paired with its `BenchmarkFault` case; a new claim family is one `[05]-[CLAIM_FIELD_MAP]` row with its own `Of` call, never a positional receipt construction.
 - Boundary: this rail is the corpus benchmark gate's owner — a kernel or compute page citing the BenchmarkDotNet gate cites this fold, and a hand-rolled kernel is admitted only after its receipt defeats the library route under `Judge`; the bench project folds raw harness results to receipts at its edge, resolving `ArtifactKey` there off `ExporterBase.GetArtifactFullName(Summary)` — the public path member every shipped exporter inherits, the same path `IExporter.ExportToFiles(Summary, ILogger)` returns after writing — and hands it across as a plain `string`, so the key rides the receipt while no BenchmarkDotNet type crosses into the spine and no libs-tier catalog carries a package no libs project references; the durable claim the gate compares against is the Persistence reuse-index row resolved by content fingerprint — measured facts mint here, the claim store persists them, and neither re-derives the other.
 
@@ -45,8 +45,13 @@ public sealed partial class BenchmarkVerdict {
     public static readonly BenchmarkVerdict HostMismatch = new("host-mismatch");
 }
 
-// Harness edge shape: the four measured columns a run produces, carrying no identity and no verdict.
-public readonly record struct BenchMeasurement(Duration Median, Duration P95, long AllocatedBytes, long Operations);
+// Harness edge shape: the five measured columns a run produces, carrying no identity and no verdict. Iqr
+// carries SPREAD beside the two central reads — an interquartile range off the same ascending sample median
+// and p95 already read, one extra O(1) order-statistic pair rather than a second pass. Median and p95 alone
+// cannot state stability: a run whose median holds while its spread doubles reads as unchanged on both, which
+// is exactly the regression a shared-machine or thermal-throttle lane produces, so the column is what makes
+// that class visible on the receipt every claim resolves to.
+public readonly record struct BenchMeasurement(Duration Median, Duration P95, Duration Iqr, long AllocatedBytes, long Operations);
 
 public sealed record BenchmarkReceipt(
     string Suite,
@@ -55,6 +60,7 @@ public sealed record BenchmarkReceipt(
     Option<UInt128> Corpus,
     Duration Median,
     Duration P95,
+    Duration Iqr,
     long AllocatedBytes,
     long Operations,
     Option<ReferenceEvidence> Reference,
@@ -72,7 +78,7 @@ public sealed record BenchmarkReceipt(
         CorrelationId correlation, Option<ReferenceEvidence> reference = default,
         Option<string> artifact = default) =>
         new(Suite: suite, Case: @case, Host: HostEvidence.Current(), Corpus: corpus,
-            Median: measured.Median, P95: measured.P95, AllocatedBytes: measured.AllocatedBytes,
+            Median: measured.Median, P95: measured.P95, Iqr: measured.Iqr, AllocatedBytes: measured.AllocatedBytes,
             Operations: measured.Operations, Reference: reference, Verdict: BenchmarkVerdict.Unjudged,
             ArtifactKey: artifact, Correlation: correlation);
 }
@@ -153,7 +159,7 @@ public static class BenchmarkGate {
                     && reference.Median.TotalNanoseconds / fresh.Median.TotalNanoseconds >= floor));
 
     static string Detail(BenchmarkReceipt fresh, BenchmarkReceipt held, GatePolicy policy) =>
-        $"median {fresh.Median}/{held.Median} p95 {fresh.P95}/{held.P95} allocated {fresh.AllocatedBytes}/{held.AllocatedBytes} speedup {Speedup(fresh)}/{Floor(policy)}";
+        $"median {fresh.Median}/{held.Median} p95 {fresh.P95}/{held.P95} iqr {fresh.Iqr}/{held.Iqr} allocated {fresh.AllocatedBytes}/{held.AllocatedBytes} speedup {Speedup(fresh)}/{Floor(policy)}";
 
     static string SpeedupDetail(BenchmarkReceipt fresh, GatePolicy policy) =>
         $"speedup {Speedup(fresh)}/{Floor(policy)}";
@@ -435,24 +441,24 @@ file sealed record ProfileDetacher(Guid Token, Action<Guid> Release) : IDisposab
 ## [05]-[CLAIM_FIELD_MAP]
 
 - Owner: the claim-family field map — one admission table mapping every task-named folder claim family onto the `BenchmarkReceipt` fields; a family admits by one registered row and never mints a sibling verdict grammar.
-- Cases: admitted kernel `BenchClaim`, Bim `BimBenchReceipt`, Fabrication `FabricationBench`, Rhino `BenchEvidence`, Persistence `BenchmarkRow`, Materials `BenchWorkload`, Compute `BenchmarkClaim`, and the two Grasshopper breach families `BudgetBreach` and `CaptureBreach`.
+- Cases: admitted kernel `BenchClaim`, Bim `BimBenchReceipt`, Fabrication `FabricationBenchClaims` rows, Rhino `BenchEvidence`, Persistence `BenchmarkRow`, Materials `BenchWorkload`, Compute `BenchmarkClaim`, and the two Grasshopper breach families `BudgetBreach` and `CaptureBreach`.
 - Law: `HostEvidence` binds whole — runtime, OS, processors, digest — never a bare host name; a custody column holding host identity as a string carries either the Compute `HostFingerprint.ToString` render or the `HostEvidence` digest hex, one host-identity string per claim, and the two renders never mix inside one row.
 - Law: `Verdict` and `Correlation` never persist — judging is the gate fold's per run and correlation is the run envelope's, so custody rows carry measurement and identity columns only and a persisted verdict is a stale-truth defect.
 - Law: a relative claim carries `ReferenceEvidence` on the fresh receipt and its threshold through `GatePolicy.SpeedupFloor`; missing reference evidence is a regression, never an implicit pass.
-- Law: a single-sample family fills median and p95 from its one measured cost and its bound as `ReferenceEvidence.Median`, so a breach grades as a relative claim under `GatePolicy.SpeedupFloor` and no adapter fabricates a distribution one judgment never produced.
+- Law: a single-sample family fills median and p95 from its one measured cost and its bound as `ReferenceEvidence.Median`, so a breach grades as a relative claim under `GatePolicy.SpeedupFloor` and no adapter fabricates a distribution one judgment never produced; its `Iqr` is `Duration.Zero` because a one-sample distribution HAS zero spread — a measured fact of that sample, not an absent measurement wearing a zero.
 - Law: a divergent family field re-cuts at its family root instead of surviving as a sibling grammar — `Corpus` entered the receipt because the Bim family binds claims to input identity, and `ReferenceEvidence` entered because `BenchClaim` binds vectorized and reference lanes.
 
-| [INDEX] | [FAMILY]           | [RECEIPT_PROJECTION]                                                                               |
-| :-----: | :----------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `BenchClaim`       | `Claim` → case; lanes → fresh/reference cases; `SpeedupFloor` → policy                             |
-|  [02]   | `BimBenchReceipt`  | claim → case; corpus fingerprint → corpus; all four measurements map directly                      |
-|  [03]   | `FabricationBench` | `Suite` + `Key`; harness result supplies measurements; corpus is absent                            |
-|  [04]   | `BenchEvidence`    | operation → case; batch duration → median/p95; allocation and host map directly                    |
-|  [05]   | `BenchmarkRow`     | key splits suite/case; custody keeps measures, corpus, artifact, host, and route                   |
-|  [06]   | `BenchWorkload`    | `BenchKernel.Suite` → suite; `MaterialsBench.CaseOf` → case; `ContentKey` → corpus                 |
-|  [07]   | `BenchmarkClaim`   | `Key` → suite/case; band rungs → median/p95; corpus, artifact, route → custody; host render → host |
-|  [08]   | `BudgetBreach`     | `Row.Key` → case; `Cost` → median and p95; `Bound` → reference median; corpus is absent            |
-|  [09]   | `CaptureBreach`    | `Operation` → case; `Lag` → median and p95; `Bound` → reference median; `Drawn` → operations       |
+| [INDEX] | [FAMILY]                 | [RECEIPT_PROJECTION]                                                                               |
+| :-----: | :----------------------- | :------------------------------------------------------------------------------------------------- |
+|  [01]   | `BenchClaim`             | `Claim` → case; lanes → fresh/reference cases; `SpeedupFloor` → policy                             |
+|  [02]   | `BimBenchReceipt`        | claim → case; corpus fingerprint → corpus; all four measurements map directly                      |
+|  [03]   | `FabricationBenchClaims` | `BenchClaim.Claim` keys `{Suite}/{Case}`; harness result supplies measurements; corpus is absent   |
+|  [04]   | `BenchEvidence`          | operation → case; batch duration → median/p95; allocation and host map directly                    |
+|  [05]   | `BenchmarkRow`           | key splits suite/case; custody keeps measures, corpus, artifact, host, and route                   |
+|  [06]   | `BenchWorkload`          | `BenchKernel.Suite` → suite; `MaterialsBench.CaseOf` → case; `ContentKey` → corpus                 |
+|  [07]   | `BenchmarkClaim`         | `Key` → suite/case; band rungs → median/p95; corpus, artifact, route → custody; host render → host |
+|  [08]   | `BudgetBreach`           | `Row.Key` → case; `Cost` → median and p95; `Bound` → reference median; corpus is absent            |
+|  [09]   | `CaptureBreach`          | `Operation` → case; `Lag` → median and p95; `Bound` → reference median; `Drawn` → operations       |
 
 Grasshopper feeds two claim families and both carry their producing bound — `BudgetBreach` its `BudgetRow` bound, `CaptureBreach` the two-period capture window — so each adapter grades overrun off the row it holds and re-derives no threshold from a policy it never sees.
 

@@ -1,4 +1,4 @@
-# [USER_TEXT]
+# [RASM_RHINO_PERSISTENCE_USERTEXT]
 
 `TextOperation` closes document text, attribute text, geometry text, detached reads, and wildcard search as one concern. `Texts.Commit` resolves one document session, derives undo and table needs from the active case, and returns a case-matched detached answer.
 
@@ -7,32 +7,32 @@
 `TextAddress` makes document and object stores disjoint. `TextSearchPolicy` crosses a non-empty store set with one comparison row and projects Rhino booleans only at the host call, so search growth adds an axis value instead of another named product case.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rhino.DocObjects;
+
 namespace Rasm.Rhino.Persistence;
 
-using LanguageExt;
-using Rhino.DocObjects;
-using Thinktecture;
-using static LanguageExt.Prelude;
-
 [ValueObject<string>]
-public readonly partial struct TextKey
-{
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
+public readonly partial struct TextKey {
+    // Host truth: the backslash IS the store discriminant — `DocumentDataCount` counts keys containing one and
+    // `DocumentUserTextCount` counts keys without one, and `ReadDocument` splits on that same character. A flat key carrying
+    // a backslash therefore writes as a SECTION entry and reads back as one, so the section form goes through `TextSection`
+    // and never through this key.
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        if (string.IsNullOrWhiteSpace(value)) {
             validationError = new ValidationError("Text key is empty.");
             return;
         }
 
         value = value.Trim();
-        validationError = null;
+        validationError = value.Contains('\\', StringComparison.Ordinal)
+            ? new ValidationError("Text key carries the section discriminant; use TextSection.")
+            : null;
     }
 }
 
 [ValueObject<string>]
-public readonly partial struct TextValue
-{
+public readonly partial struct TextValue {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = value is null
             ? new ValidationError("Text value is null.")
@@ -40,15 +40,12 @@ public readonly partial struct TextValue
 }
 
 [ComplexValueObject]
-public sealed partial record TextSection(string Section, string Entry)
-{
+public sealed partial record TextSection(string Section, string Entry) {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string section,
-        ref string entry)
-    {
-        if (string.IsNullOrWhiteSpace(section) || string.IsNullOrWhiteSpace(entry))
-        {
+        ref string entry) {
+        if (string.IsNullOrWhiteSpace(section) || string.IsNullOrWhiteSpace(entry)) {
             validationError = new ValidationError("Text section and entry are required.");
             return;
         }
@@ -60,8 +57,7 @@ public sealed partial record TextSection(string Section, string Entry)
 }
 
 [SmartEnum<string>]
-public sealed partial class ObjectTextStore
-{
+public sealed partial class ObjectTextStore {
     public static readonly ObjectTextStore Attributes = new(
         "attributes",
         searchRoute: (Geometry: false, Attributes: true));
@@ -72,17 +68,19 @@ public sealed partial class ObjectTextStore
     internal (bool Geometry, bool Attributes) SearchRoute { get; }
 }
 
-[Union]
-public abstract partial record TextAddress
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TextAddress {
+    private TextAddress() { }
+
     public sealed record DocumentKeyCase(TextKey Key) : TextAddress;
     public sealed record DocumentSectionCase(TextSection Address) : TextAddress;
     public sealed record ObjectCase(Guid ObjectId, ObjectTextStore Store, TextKey Key) : TextAddress;
 }
 
-[Union]
-public abstract partial record TextEdit
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TextEdit {
+    private TextEdit() { }
+
     public sealed record SetCase(TextValue Value) : TextEdit;
     public sealed record DeleteCase : TextEdit;
 
@@ -94,8 +92,7 @@ public abstract partial record TextEdit
 public sealed record TextMutation(TextAddress Address, TextEdit Edit);
 
 [SmartEnum<string>]
-public sealed partial class TextComparison
-{
+public sealed partial class TextComparison {
     public static readonly TextComparison Exact = new("exact", true);
     public static readonly TextComparison Folded = new("folded", false);
     internal bool CaseSensitive { get; }
@@ -104,8 +101,7 @@ public sealed partial class TextComparison
 [ComplexValueObject]
 public sealed partial record TextSearchPolicy(
     LanguageExt.HashSet<ObjectTextStore> Stores,
-    TextComparison Comparison)
-{
+    TextComparison Comparison) {
     internal (bool Geometry, bool Attributes) SearchRoute => Stores.Fold(
         (Geometry: false, Attributes: false),
         static (route, store) => (
@@ -122,9 +118,10 @@ public sealed partial record TextSearchPolicy(
             : null;
 }
 
-[Union]
-public abstract partial record TextObjectFilter
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TextObjectFilter {
+    private TextObjectFilter() { }
+
     public sealed record KindsCase(ObjectType Kinds) : TextObjectFilter;
     public sealed record EnumeratorCase(ObjectEnumeratorSettings Settings) : TextObjectFilter;
 }
@@ -135,16 +132,18 @@ public sealed record TextSearch(
     TextSearchPolicy Policy,
     TextObjectFilter Filter);
 
-[Union]
-public abstract partial record TextMutationBatch
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TextMutationBatch {
+    private TextMutationBatch() { }
+
     public sealed record DocumentCase(Seq<TextMutation> Mutations) : TextMutationBatch;
     public sealed record ObjectsCase(Seq<TextMutation> Mutations) : TextMutationBatch;
 }
 
-[Union]
-public abstract partial record TextOperation
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TextOperation {
+    private TextOperation() { }
+
     public sealed record MutateCase(TextMutationBatch Batch) : TextOperation;
     public sealed record ReadDocumentCase : TextOperation;
     public sealed record ReadObjectsCase(Seq<Guid> ObjectIds) : TextOperation;
@@ -157,18 +156,16 @@ public abstract partial record TextOperation
 Every mutation emits its prior and current value. Receipt counts derive from address identity, document counts preserve Rhino's flat-versus-section partition, and object snapshots derive geometry count from the detached store. `TextMatch` carries a non-empty store set, so adding a store row never adds product cases.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 
-using LanguageExt;
-using Thinktecture;
+namespace Rasm.Rhino.Persistence;
 
 public sealed record TextDelta(
     TextAddress Address,
     Option<TextValue> Prior,
     Option<TextValue> Current);
 
-public sealed record TextMutationReceipt(Seq<TextDelta> Changes)
-{
+public sealed record TextMutationReceipt(Seq<TextDelta> Changes) {
     public int DocumentChanges => Changes.Filter(static change =>
         change.Address is not TextAddress.ObjectCase && change.Prior != change.Current).Count;
     public int ObjectChanges => Changes.Filter(static change =>
@@ -179,8 +176,7 @@ public sealed record DocumentTextSnapshot(
     HashMap<TextKey, TextValue> Flat,
     HashMap<TextSection, TextValue> Sections,
     int FlatCount,
-    int SectionCount)
-{
+    int SectionCount) {
     public int Count => FlatCount + SectionCount;
     public bool Consistent => Flat.Count == FlatCount && Sections.Count == SectionCount;
 }
@@ -189,8 +185,7 @@ public sealed record ObjectTextSnapshot(
     Guid ObjectId,
     HashMap<TextKey, TextValue> Attributes,
     HashMap<TextKey, TextValue> Geometry,
-    int AttributeCount)
-{
+    int AttributeCount) {
     public int GeometryCount => Geometry.Count;
     public bool Consistent => Attributes.Count == AttributeCount;
 }
@@ -198,8 +193,7 @@ public sealed record ObjectTextSnapshot(
 [ComplexValueObject]
 public sealed partial record TextMatch(
     Guid ObjectId,
-    LanguageExt.HashSet<ObjectTextStore> Stores)
-{
+    LanguageExt.HashSet<ObjectTextStore> Stores) {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Guid objectId,
@@ -209,9 +203,10 @@ public sealed partial record TextMatch(
             : null;
 }
 
-[Union]
-public abstract partial record TextAnswer
-{
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TextAnswer {
+    private TextAnswer() { }
+
     public sealed record MutationCase(TextMutationReceipt Receipt) : TextAnswer;
     public sealed record DocumentCase(DocumentTextSnapshot Snapshot) : TextAnswer;
     public sealed record ObjectsCase(Seq<ObjectTextSnapshot> Snapshots) : TextAnswer;
@@ -226,24 +221,21 @@ Document mutations run inside the document undo bracket. Object mutations group 
 Rhino's mutable text, clone, undo, and object-table calls form the platform-forced statement seam. Generated `Switch` dispatch retains operation, address, store, edit, and filter identity until each host call; search matches derive from set membership, so an unmatched object is structurally unspellable.
 
 ```csharp signature
-namespace Rasm.Rhino.Persistence;
-
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Specialized;
-using LanguageExt;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Geometry;
-using static LanguageExt.Prelude;
 
-public static class Texts
-{
+namespace Rasm.Rhino.Persistence;
+
+public static class Texts {
     public static Fin<TextAnswer> Commit(
         DocumentSession session,
         TextOperation operation,
-        Op? key = null)
-    {
+        Op? key = null) {
         Op op = key.OrDefault();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
                from request in Optional(operation).ToFin(Fail: op.InvalidInput())
@@ -362,7 +354,7 @@ public static class Texts
             from changes in state.Session.Demand(
                 use: owner => MutateDocuments(owner, document.Mutations, state.Op),
                 key: state.Op,
-                needs: [SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Undo])
+                needs: SessionNeed.Mutation(undo: true, redraw: RedrawPolicy.None).ToArray())
             select (TextAnswer)new TextAnswer.MutationCase(new TextMutationReceipt(changes)),
         objectsCase: static (state, objects) =>
             from plans in state.Session.Demand(
@@ -410,15 +402,14 @@ public static class Texts
         Func<ObjectTextStore, bool> includes,
         Op op) =>
         mutations.Fold(
-            Succ(HashMap<Guid, Seq<TextMutation>>()),
-            (state, mutation) => state.Bind(groups => mutation.Address switch
-            {
+            Fin.Succ(HashMap<Guid, Seq<TextMutation>>()),
+            (state, mutation) => state.Bind(groups => mutation.Address switch {
                 TextAddress.ObjectCase address when includes(address.Store) =>
-                    Succ(groups.Find(address.ObjectId).Match(
+                    Fin.Succ(groups.Find(address.ObjectId).Match(
                         Some: grouped => groups.SetItem(address.ObjectId, grouped.Add(mutation)),
                         None: () => groups.Add(address.ObjectId, Seq(mutation)))),
-                TextAddress.ObjectCase => Succ(groups),
-                _ => Fail<HashMap<Guid, Seq<TextMutation>>>(op.InvalidInput()),
+                TextAddress.ObjectCase => Fin.Succ(groups),
+                _ => Fin.Fail<HashMap<Guid, Seq<TextMutation>>>(op.InvalidInput()),
             }));
 
     private static Fin<Seq<TextMutation>> Admit(
@@ -449,7 +440,7 @@ public static class Texts
                 value => state.Document.Strings.SetString(section.Address.Section, section.Address.Entry, value),
                 () => state.Document.Strings.Delete(section.Address.Section, section.Address.Entry),
                 state.Op),
-            objectCase: static (state, _) => Fail<TextDelta>(state.Op.InvalidInput()));
+            objectCase: static (state, _) => Fin.Fail<TextDelta>(state.Op.InvalidInput()));
 
     private static Fin<TextDelta> ApplyDocument(
         TextMutation mutation,
@@ -460,20 +451,18 @@ public static class Texts
         from prior in op.Catch(read)
         let expected = mutation.Edit.Result
         from applied in op.Catch(() => mutation.Edit.Switch<Unit>(
-            setCase: write =>
-            {
+            setCase: write => {
                 _ = set(write.Value.Value);
                 return unit;
             },
-            deleteCase: _ =>
-            {
+            deleteCase: _ => {
                 delete();
                 return unit;
             }))
         from current in op.Catch(read)
         from delta in current == expected
-            ? Succ(new TextDelta(mutation.Address, prior, current))
-            : Fail<TextDelta>(op.InvalidResult(detail: "Document text postcondition failed."))
+            ? Fin.Succ(new TextDelta(mutation.Address, prior, current))
+            : Fin.Fail<TextDelta>(op.InvalidResult(detail: "Document text postcondition failed."))
         select delta;
 
     private static Fin<(TableOp Operation, Seq<TextDelta> Evidence)> PlanAttributes(
@@ -482,7 +471,7 @@ public static class Texts
         Op op) =>
         from detached in Freeze(() => source.Attributes.GetUserStrings(), op)
         from planned in mutations.Fold(
-            Succ((Values: detached, Evidence: Seq<TextDelta>())),
+            Fin.Succ((Values: detached, Evidence: Seq<TextDelta>())),
             (state, mutation) => state.Bind(plan =>
                 from address in ObjectAddress(mutation.Address, op)
                 let prior = plan.Values.Find(address.Key)
@@ -497,7 +486,7 @@ public static class Texts
         from operation in TableOp.Amend(
             target,
             attributes => mutations.Fold(
-                Succ(Seq<TextDelta>()),
+                Fin.Succ(Seq<TextDelta>()),
                 (state, mutation) => state.Bind(evidence => ApplyObject(
                     attributes.GetUserString,
                     attributes.SetUserString,
@@ -505,8 +494,8 @@ public static class Texts
                     mutation,
                     op).Map(evidence.Add)))
                 .Bind(actual => actual.SequenceEqual(planned.Evidence)
-                    ? Succ(unit)
-                    : Fail<Unit>(op.InvalidResult(detail: "Attribute text plan diverged before commit."))),
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(op.InvalidResult(detail: "Attribute text plan diverged before commit."))),
             Notice.Quiet)
         select (operation, planned.Evidence);
 
@@ -518,7 +507,7 @@ public static class Texts
             .ToFin(Fail: op.InvalidResult(detail: "Geometry duplication returned no custody.")))
         from planned in (
             from deltas in mutations.Fold(
-                Succ(Seq<TextDelta>()),
+                Fin.Succ(Seq<TextDelta>()),
                 (state, mutation) => state.Bind(changes => ApplyObject(
                     edited.GetUserString,
                     edited.SetUserString,
@@ -529,8 +518,8 @@ public static class Texts
             from operation in TableOp.Replace(target, edited, ObjectMode.Respect)
             select (operation, deltas))
             .BindFail(error => op.Catch(edited.Dispose).Match(
-                Succ: _ => Fail<(TableOp, Seq<TextDelta>)>(error),
-                Fail: release => Fail<(TableOp, Seq<TextDelta>)>(error + release)))
+                Succ: _ => Fin.Fail<(TableOp, Seq<TextDelta>)>(error),
+                Fail: release => Fin.Fail<(TableOp, Seq<TextDelta>)>(error + release)))
         select planned;
 
     private static Fin<Seq<TextDelta>> CommitObjectPlans(
@@ -538,11 +527,11 @@ public static class Texts
         Seq<(TableOp Operation, Seq<TextDelta> Evidence)> plans,
         Op op) =>
         plans.IsEmpty
-            ? Succ(Seq<TextDelta>())
+            ? Fin.Succ(Seq<TextDelta>())
             : (from evidence in plans
                     .Map((plan, index) => (!plan.Evidence.IsEmpty
-                        ? Succ(plan.Evidence)
-                        : Fail<Seq<TextDelta>>(op.InvalidResult(
+                        ? Fin.Succ(plan.Evidence)
+                        : Fin.Fail<Seq<TextDelta>>(op.InvalidResult(
                             detail: $"Object text plan '{index}' produced no evidence."))).ToValidation())
                     .Traverse(static value => value)
                     .As()
@@ -567,22 +556,23 @@ public static class Texts
             setCase: write => set(address.Key.Value, write.Value.Value),
             deleteCase: _ => delete(address.Key.Value))))
         from current in op.Catch(() => Value(get(address.Key.Value), op))
-        from delta in accepted || prior == current
-            ? Succ(new TextDelta(mutation.Address, prior, current))
-            : Fail<TextDelta>(op.InvalidResult(detail: $"Object text mutation '{address.Key.Value}' was rejected."))
+        // The accepted branch verifies the STORED value against the intended one, exactly as the document rail does: a host
+        // write that returns true while storing something else is a silent divergence the receipt would otherwise publish.
+        from delta in (accepted && current == mutation.Edit.Result) || prior == current
+            ? Fin.Succ(new TextDelta(mutation.Address, prior, current))
+            : Fin.Fail<TextDelta>(op.InvalidResult(detail: $"Object text mutation '{address.Key.Value}' was rejected."))
         select delta;
 
     private static Fin<TextAddress.ObjectCase> ObjectAddress(TextAddress address, Op op) =>
         address.Switch<Op, Fin<TextAddress.ObjectCase>>(
             state: op,
-            documentKeyCase: static (op, _) => Fail<TextAddress.ObjectCase>(op.InvalidInput()),
-            documentSectionCase: static (op, _) => Fail<TextAddress.ObjectCase>(op.InvalidInput()),
-            objectCase: static (_, value) => Succ(value));
+            documentKeyCase: static (op, _) => Fin.Fail<TextAddress.ObjectCase>(op.InvalidInput()),
+            documentSectionCase: static (op, _) => Fin.Fail<TextAddress.ObjectCase>(op.InvalidInput()),
+            objectCase: static (_, value) => Fin.Succ(value));
 
     private static Fin<DocumentTextSnapshot> ReadDocument(RhinoDoc document, Op op) =>
-        op.Catch(() => Enumerable.Range(0, document.Strings.Count)
-            .Map(index =>
-            {
+        op.Catch(() => toSeq(Enumerable.Range(0, document.Strings.Count))
+            .Map(index => {
                 string raw = document.Strings.GetKey(index);
                 int separator = raw.IndexOf('\\', StringComparison.Ordinal);
                 return from value in op.AcceptValidated<TextValue>(document.Strings.GetValue(index))
@@ -605,15 +595,15 @@ public static class Texts
                 Fin.Succ(value: (Flat: HashMap<TextKey, TextValue>(), Sections: HashMap<TextSection, TextValue>())),
                 (state, row) => state.Bind(maps => row.Flat.Match(
                     Some: key => maps.Flat.ContainsKey(key)
-                        ? Fail<(HashMap<TextKey, TextValue> Flat, HashMap<TextSection, TextValue> Sections)>(
+                        ? Fin.Fail<(HashMap<TextKey, TextValue> Flat, HashMap<TextSection, TextValue> Sections)>(
                             Collision(nameof(TextKey), row.Raw, key.Value, op))
-                        : Succ(maps with { Flat = maps.Flat.Add(key, row.Value) }),
+                        : Fin.Succ(maps with { Flat = maps.Flat.Add(key, row.Value) }),
                     None: () => row.Section.Match(
                         Some: section => maps.Sections.ContainsKey(section)
-                            ? Fail<(HashMap<TextKey, TextValue> Flat, HashMap<TextSection, TextValue> Sections)>(
+                            ? Fin.Fail<(HashMap<TextKey, TextValue> Flat, HashMap<TextSection, TextValue> Sections)>(
                                 Collision(nameof(TextSection), row.Raw, $"{section.Section}\\{section.Entry}", op))
-                            : Succ(maps with { Sections = maps.Sections.Add(section, row.Value) }),
-                        None: () => Fail<(HashMap<TextKey, TextValue> Flat, HashMap<TextSection, TextValue> Sections)>(
+                            : Fin.Succ(maps with { Sections = maps.Sections.Add(section, row.Value) }),
+                        None: () => Fin.Fail<(HashMap<TextKey, TextValue> Flat, HashMap<TextSection, TextValue> Sections)>(
                             op.InvalidResult()))))))
             .Bind(maps => op.Catch(() => Fin.Succ(value: new DocumentTextSnapshot(
                 maps.Flat,
@@ -636,10 +626,10 @@ public static class Texts
     private static Fin<Seq<TextMatch>> Search(RhinoDoc document, TextSearch search, Op op) =>
         from attributes in search.Policy.SearchRoute.Attributes
             ? Find(document, search, ObjectTextStore.Attributes, op)
-            : Succ(HashSet<Guid>())
+            : Fin.Succ(HashSet<Guid>())
         from geometry in search.Policy.SearchRoute.Geometry
             ? Find(document, search, ObjectTextStore.Geometry, op)
-            : Succ(HashSet<Guid>())
+            : Fin.Succ(HashSet<Guid>())
         from matches in op.Catch(() => Fin.Succ(value: attributes.Union(geometry)
             .OrderBy(static id => id)
             .Map(id => TextMatch.Create(
@@ -673,7 +663,7 @@ public static class Texts
             .ToHashSet();
 
     private static Fin<Option<TextValue>> ReadFlat(RhinoDoc document, TextKey key, Op op) =>
-        Enumerable.Range(0, document.Strings.Count)
+        toSeq(Enumerable.Range(0, document.Strings.Count))
             .Exists(index => string.Equals(document.Strings.GetKey(index), key.Value, StringComparison.Ordinal))
             ? Value(document.Strings.GetValue(key.Value), op)
             : Fin.Succ(value: Option<TextValue>.None);
@@ -692,10 +682,10 @@ public static class Texts
                             select (Raw: raw, Key: admitted, Value: value))
                 .Traverse(static row => row)
                 .Bind(rows => rows.Fold(
-                    Succ(HashMap<TextKey, TextValue>()),
+                    Fin.Succ(HashMap<TextKey, TextValue>()),
                     (state, row) => state.Bind(map => map.ContainsKey(row.Key)
-                        ? Fail<HashMap<TextKey, TextValue>>(Collision(nameof(TextKey), row.Raw, row.Key.Value, op))
-                        : Succ(map.Add(row.Key, row.Value))))));
+                        ? Fin.Fail<HashMap<TextKey, TextValue>>(Collision(nameof(TextKey), row.Raw, row.Key.Value, op))
+                        : Fin.Succ(map.Add(row.Key, row.Value))))));
 
     private static Error Collision(string label, string raw, string canonical, Op op) => new Fault.InvalidValue(
         Label: label,

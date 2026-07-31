@@ -5,13 +5,14 @@
 ## [01]-[INDEX]
 
 - [02]-[MODEL_GATE]: `ModelGate`, `Built<TSlot>`, `BuildRun<TSlot>`, `BuildBody`, `BuildFact<TSlot>`, `BuildReceipt<TSlot>`, `BenchBand`, `BenchEvidence` — the folder spine and its bench harvest.
-- [03]-[POLICY_FAMILY]: `SolidBooleanLaw`, `PlanarBooleanLaw`, `FilletShape`, `FilletDegree`, `HigherFilletDegree`, `EdgeFillet`, `MatchLaw`, `MatchCapability`, `MatchRefinement`, `PipeLaw`, `SolidSeed`, `ExtrusionSeed`, `ExtrusionRead`, `SolidEdit`, `MergeSurfaceLaw`, `TrimCutter`, `ConnectSeed` — the construction policies.
+- [03]-[POLICY_FAMILY]: `SolidBooleanLaw`, `PlanarBooleanLaw`, `ArcDegree`, `ArcSlider`, `FilletShape`, `FilletDegree`, `HigherFilletDegree`, `EdgeFillet`, `MatchLaw`, `MatchCapability`, `MatchRefinement`, `PipeLaw`, `SolidSeed`, `ExtrusionSeed`, `ExtrusionRead`, `SolidEdit`, `MergeSurfaceLaw`, `TrimCutter`, `ConnectSeed` — the construction policies.
 - [04]-[OPERATION_RAIL]: `SolidSlot`, `SolidOp`, and the `Solids.Build` entry.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[MODEL_GATE]
 
-- Owner: `ModelGate` — the one custody kernel under every Modeling arm: `Borrow` projects a live native of the demanded kind out of a leased handle, `BorrowMany` sequences borrow windows over a handle spread, `Own`/`OwnMany`/`OwnEach` mint owned leases for fresh natives, `Folded` is the batch fold, and `Entry` is the one operation spine every page runs — capture, non-empty guard, admission through the pre-constructed `AdmitFold` arrow (`Accumulate` unions every rejection, `Abort` stops at the first, default `Accumulate`), then `Folded` — so a family that admits abort-on-first passes `Abort` and adds zero spine surface; `Built<TSlot>` — flat projections over operation-correlated `BuildRun<TSlot>` groups; `BuildBody` `[Union]` — the closed evidence payload vocabulary; `BuildReceipt<TSlot>` — the slot-generic fact-stream monoid.
+- Owner: `ModelGate` — the one custody kernel under every Modeling arm: `Borrow` projects a live native of the demanded kind out of a leased handle, `BorrowMany` sequences borrow windows over a handle spread, `Own`/`OwnMany`/`OwnEach` mint owned leases for fresh natives, `Folded` is the batch fold, and `Entry` is the one operation spine ALL EIGHT Modeling pages run — capture, non-empty guard, accumulating admission, `Folded`, and the bench stamp in one member; `Built<TSlot>` — flat projections over operation-correlated `BuildRun<TSlot>` groups; `BuildBody` `[Union]` — the closed evidence payload vocabulary; `BuildReceipt<TSlot>` — the slot-generic fact-stream monoid.
+- Law: `Entry` discriminates on the operation carrier alone — the `ReadOnlySpan<TOp>` entry materializes and delegates to the `Seq<TOp>` core, and a runtime-bound page enters at the core because a span cannot cross the `Eff.runtime<TRuntime>()` lambda that binds its runtime; admission is ALWAYS accumulating, so every page reports the whole rejection set and no page re-mints a fold with abort-on-first semantics nothing asked for.
 - Law: minting is spine-owned — `Single` and `Many` mint the one-product and spread run with its slot tally, `Kept` and `Owned`/`OwnedMany` close duplicate-edit custody, `Staged` enumerates and owns every harvest inside one guarded custody scope, `Mapped` admits source maps against their declared axis cardinality, `Detached` disposes host-returned originals after duplication, `Rollback` releases accumulated custody on failure, and `Entry` accumulates every operation refusal before dispatch; a page-local re-mint of any member is the deleted form.
 - Law: a construction result is an acquisition, never a crossing — the native static's return is this rail's own owned material, so `Own` mints the owned lease directly and `GeometryCrossing.Cross` remains the entry for foreign or document geometry; a null single result and a null-or-empty array are the native failure signal folded to `InvalidResult` unless the arm passes the `allowEmpty` grant because a declared diagnostic side-channel explains the empty spread — the boolean-union arm survives empty behind its naked/bad/non-manifold marks — and a mid-spread `OwnMany` failure disposes every handle it already minted.
 - Law: one receipt algebra serves every Modeling page — `BuildReceipt<TSlot>` is generic over the page's slot vocabulary, so diagnostic points, uv rows, labels, axis-qualified source maps, segments, faces, components, region topology, tallies, codes, measures, flags, planes, bounds, and texts are one `BuildBody` union with one `+` monoid; `Project<T>(slot, select)` is the only reader, and callers select the demanded body case instead of growing accessor rosters.
@@ -95,6 +96,14 @@ public sealed record Built<TSlot> where TSlot : notnull {
     public Option<BenchEvidence> Bench { get; init; }
 
     internal Built<TSlot> Stamped(BenchEvidence bench) => this with { Bench = Some(bench) };
+
+    // Arm-local witness append: an arm that harvests a host out-channel AFTER minting its product folds the fact in
+    // here so the batch projection and the run correspondence stay one truth. `Products`, `Evidence`, and `Runs`
+    // carry no `init` accessor precisely so a `with { Evidence = … }` cannot desync `Runs` from the batch receipt.
+    public Built<TSlot> Witnessed(BuildReceipt<TSlot> extra) =>
+        new(products: Products,
+            evidence: Evidence + extra,
+            runs: Runs.Map(run => run with { Evidence = run.Evidence + extra })) { Bench = Bench };
 
     public static readonly Built<TSlot> Empty = new(
         products: Seq<GeometryHandle>(), evidence: BuildReceipt<TSlot>.Empty, runs: Seq<BuildRun<TSlot>>());
@@ -189,42 +198,35 @@ internal static class ModelGate {
                     return error;
                 }));
 
-    internal delegate Fin<Seq<TOp>> AdmitFold<TOp>(Seq<TOp> operations, Func<TOp, Op, Fin<TOp>> admit, Op key);
-
-    internal static Fin<Seq<TOp>> Accumulate<TOp>(Seq<TOp> operations, Func<TOp, Op, Fin<TOp>> admit, Op key) =>
-        operations
-            .Traverse(operation => Optional(operation).ToFin(Fail: key.InvalidInput())
-                .Bind(active => admit(active, key))
-                .ToValidation())
-            .As()
-            .ToFin();
-
-    internal static Fin<Seq<TOp>> Abort<TOp>(Seq<TOp> operations, Func<TOp, Op, Fin<TOp>> admit, Op key) =>
-        operations
-            .TraverseM(operation => Optional(operation).ToFin(Fail: key.InvalidInput())
-                .Bind(active => admit(active, key)))
-            .As();
-
     internal static Fin<Built<TSlot>> Entry<TSlot, TOp>(
-        Context context, ReadOnlySpan<TOp> operations,
+        Context context, Seq<TOp> operations,
         Func<TOp, Op, Fin<TOp>> admit,
-        Func<TOp, Context, Fin<Built<TSlot>>> apply,
-        Option<AdmitFold<TOp>> admission = default)
+        Func<TOp, Context, Fin<Built<TSlot>>> apply)
         where TSlot : notnull {
         Op op = Op.Of();
-        Seq<TOp> captured = toSeq(operations.ToArray());
-        AdmitFold<TOp> fold = admission.IfNone(Accumulate);
         (Fin<Built<TSlot>> outcome, BenchEvidence evidence) = BenchBand.Measured(
             operation: typeof(TOp).Name,
-            inputScale: captured.Count,
+            inputScale: operations.Count,
             run: () =>
                 from domain in Optional(context).ToFin(Fail: op.MissingContext())
-                from _ in guard(!captured.IsEmpty, op.InvalidInput())
-                from admitted in fold(captured, admit, op)
+                from _ in guard(!operations.IsEmpty, op.InvalidInput())
+                from admitted in operations
+                    .Traverse(operation => Optional(operation).ToFin(Fail: op.InvalidInput())
+                        .Bind(active => admit(active, op))
+                        .ToValidation())
+                    .As()
+                    .ToFin()
                 from built in Folded(context: domain, operations: admitted, apply: apply)
                 select built);
         return outcome.Map(built => built.Stamped(bench: evidence));
     }
+
+    internal static Fin<Built<TSlot>> Entry<TSlot, TOp>(
+        Context context, ReadOnlySpan<TOp> operations,
+        Func<TOp, Op, Fin<TOp>> admit,
+        Func<TOp, Context, Fin<Built<TSlot>>> apply)
+        where TSlot : notnull =>
+        Entry(context: context, operations: toSeq(operations.ToArray()), admit: admit, apply: apply);
 
     internal static Fin<Built<TSlot>> Single<TSlot>(Op op, TSlot slot, Func<GeometryBase?> run) where TSlot : notnull =>
         op.Catch(() => Own(built: run(), key: op).Map(owned => Built<TSlot>.Of(operation: op,
@@ -421,9 +423,11 @@ internal static class ModelGate {
 
 ## [03]-[POLICY_FAMILY]
 
-- Owner: `SolidBooleanLaw` and `PlanarBooleanLaw` carry only the source arity and manifold policy consumed by each native boolean; `FilletShape` closes the four `Brep.FilletSurfaceSettings` profile factories; `SectionFilletProfile` closes the verified `SurfaceFilletBase` section family; `EdgeFillet` pairs an edge index with a constant or parameter-profiled radius law; `MatchLaw` carries the complete `MatchSrfSettings` policy; `PipeLaw` closes thin/thick constant and variable profiles; `SolidSeed` and `ExtrusionSeed` close heavy and lightweight construction; `ExtrusionRead` closes lightweight projections; `SolidEdit`, `TrimCutter`, and `ConnectSeed` close value-semantic editing.
+- Owner: `SolidBooleanLaw` and `PlanarBooleanLaw` carry only the source arity and manifold policy consumed by each native boolean; `ArcDegree` and `ArcSlider` own the folder's non-rational arc approximation degree and slider bands; `FilletShape` closes the four `Brep.FilletSurfaceSettings` profile factories; `SectionFilletProfile` closes the verified `SurfaceFilletBase` section family; `EdgeFillet` pairs an edge index with a constant or parameter-profiled radius law; `MatchLaw` carries the complete `MatchSrfSettings` policy; `PipeLaw` closes thin/thick constant and variable profiles; `SolidSeed` and `ExtrusionSeed` close heavy and lightweight construction; `ExtrusionRead` closes lightweight projections; `SolidEdit`, `TrimCutter`, and `ConnectSeed` close value-semantic editing.
 - Law: the fillet profile is the settings factory — every `Brep[]`-returning fillet/chamfer overload is obsolete, so `FilletShape.Rig` is the only site naming `CreateRationalArcSettings`/`CreateNonRationalSettings`/`CreateG2BlendSettings`/`CreateChamferSettings`, the tolerance slot reads the regime, and `ContinueAcrossTangentFaces` rides every case as the one public post-factory knob.
-- Law: section fillets generate the degree space — `FilletDegree` and `HigherFilletDegree` rows carry their native constructor delegates; `NonRationalCubic` carries tangent alone and `NonRationalHigher` requires tangent with inner slider, so invalid degree-payload combinations and nested degree dispatch are absent.
+- Law: the non-rational arc approximation has one folder vocabulary — `ArcDegree` rows the host's declared 3/4/5 degree space and `ArcSlider` admits the control-point displacement band once, so `CreateNonRationalSettings` and the curve rail's `CreateNonRationalArcBezier` read the same two owners and no arm carries a bare degree int or an unbounded slider double. Each host member's own narrower guidance band is a catalog row, never a second value type; the factories assign the arguments through without validating, so admission is this layer's alone.
+- Law: section fillets generate the degree space — `FilletDegree` and `HigherFilletDegree` rows carry their native constructor delegates and select which `SurfaceFilletBase` static runs, a distinct axis from `ArcDegree`'s argument-valued degree; `NonRationalCubic` carries tangent alone and `NonRationalHigher` requires tangent with inner slider, so invalid degree-payload combinations and nested degree dispatch are absent.
+- Law: the section harvest is its own consequence — `SectionFillet` lands its fillet products on `SolidSlot.Sectioned` while the surface-fillet harvests land on `SolidSlot.Filleted`, so a consumer partitions section fillets from face and edge fillets off the receipt with no re-derivation.
 - Law: parallel arrays are rows — an edge fillet enters as `(Edge, Law)` rows and the arm splits all-constant rows onto `CreateFilletEdges` and any-profiled rows onto `CreateFilletEdgesVariableRadius` with `BrepEdgeFilletDistance` rows minted per profile point, so equal-cardinality is proven by construction and the two native members stay one case.
 - Law: `MatchLaw` collapses the host's split configuration — constructor continuities, combinable `MatchCapability` membership, and behavior-bearing `MatchRefinement` rig `EnableRefinement` once, so every policy has one native interpretation.
 - Law: seeds carry no custody unless the source is geometry — analytic primitive cases hold value structs; `SolidSeed.CornerPoints` derives the triangular or quadrilateral native constructor from row cardinality; the surface, revolve, and mesh conversion cases hold leased handles borrowed only inside `Build`. `ExtrusionRead` projects the lightweight solid to brep, wireframe, detached cached mesh, station profile, wall geometry, or typed plane evidence through one operation.
@@ -448,11 +452,26 @@ public abstract partial record PlanarBooleanLaw {
     public sealed record Difference(GeometryHandle First, GeometryHandle Second) : PlanarBooleanLaw;
 }
 
+[SmartEnum<int>]
+public sealed partial class ArcDegree {
+    public static readonly ArcDegree Cubic = new(key: 3);
+    public static readonly ArcDegree Quartic = new(key: 4);
+    public static readonly ArcDegree Quintic = new(key: 5);
+}
+
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public readonly partial struct ArcSlider {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
+        validationError = double.IsFinite(value) && value is >= -1.0 and <= 1.0
+            ? null
+            : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"ArcSlider must lie in [-1, 1] (got {value:R})."));
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FilletShape {
     private FilletShape() { }
     public sealed record RationalArc(double Radius, bool Trim = true, bool Extend = false, bool AcrossTangents = false) : FilletShape;
-    public sealed record NonRational(double Radius, int Degree, double TanSlider, double InnerSlider, bool Trim = true, bool Extend = false, bool AcrossTangents = false) : FilletShape;
+    public sealed record NonRational(double Radius, ArcDegree Degree, ArcSlider TanSlider, ArcSlider InnerSlider, bool Trim = true, bool Extend = false, bool AcrossTangents = false) : FilletShape;
     public sealed record G2Blend(double Radius, bool Trim = true, bool Extend = false, bool AcrossTangents = false) : FilletShape;
     public sealed record Chamfer(double Radius0, double Radius1, bool Trim = true, bool Extend = false, bool AcrossTangents = false) : FilletShape;
 
@@ -463,8 +482,8 @@ public abstract partial record FilletShape {
                 rationalArc: static (ctx, shape) => Brep.FilletSurfaceSettings.CreateRationalArcSettings(
                     radius: shape.Radius, tolerance: ctx.Absolute.Value, trim: shape.Trim, extend: shape.Extend),
                 nonRational: static (ctx, shape) => Brep.FilletSurfaceSettings.CreateNonRationalSettings(
-                    radius: shape.Radius, tolerance: ctx.Absolute.Value, degree: shape.Degree,
-                    tanSlider: shape.TanSlider, innerSlider: shape.InnerSlider, trim: shape.Trim, extend: shape.Extend),
+                    radius: shape.Radius, tolerance: ctx.Absolute.Value, degree: shape.Degree.Key,
+                    tanSlider: shape.TanSlider.Value, innerSlider: shape.InnerSlider.Value, trim: shape.Trim, extend: shape.Extend),
                 g2Blend: static (ctx, shape) => Brep.FilletSurfaceSettings.CreateG2BlendSettings(
                     radius: shape.Radius, tolerance: ctx.Absolute.Value, trim: shape.Trim, extend: shape.Extend),
                 chamfer: static (ctx, shape) => Brep.FilletSurfaceSettings.CreateChamferSettings(
@@ -527,8 +546,8 @@ public abstract partial record SectionFilletProfile {
     private SectionFilletProfile() { }
     public sealed record RationalArcs : SectionFilletProfile;
     public sealed record NonRationalArcs(FilletDegree Degree) : SectionFilletProfile;
-    public sealed record NonRationalCubic(double TangentSlider) : SectionFilletProfile;
-    public sealed record NonRationalHigher(HigherFilletDegree Degree, double TangentSlider, double InnerSlider) : SectionFilletProfile;
+    public sealed record NonRationalCubic(ArcSlider TangentSlider) : SectionFilletProfile;
+    public sealed record NonRationalHigher(HigherFilletDegree Degree, ArcSlider TangentSlider, ArcSlider InnerSlider) : SectionFilletProfile;
     public sealed record G2ChordalQuintic : SectionFilletProfile;
 }
 
@@ -897,15 +916,13 @@ public abstract partial record SolidOp {
         PlanarBooleanLaw.Intersection row => Handle(row.First) && Handle(row.Second),
         PlanarBooleanLaw.Difference row => Handle(row.First) && Handle(row.Second),
         FilletShape.RationalArc row => Positive(row.Radius),
-        FilletShape.NonRational row => Positive(row.Radius) && row.Degree is >= 3 and <= 5
-            && Finite(row.TanSlider) && Finite(row.InnerSlider),
+        FilletShape.NonRational row => Positive(row.Radius) && row.Degree is not null,
         FilletShape.G2Blend row => Positive(row.Radius),
         FilletShape.Chamfer row => Positive(row.Radius0) && Positive(row.Radius1),
         SectionFilletProfile.RationalArcs => true,
         SectionFilletProfile.NonRationalArcs row => row.Degree is not null,
-        SectionFilletProfile.NonRationalCubic row => Finite(row.TangentSlider),
-        SectionFilletProfile.NonRationalHigher row => row.Degree is not null
-            && Finite(row.TangentSlider) && Finite(row.InnerSlider),
+        SectionFilletProfile.NonRationalCubic => true,
+        SectionFilletProfile.NonRationalHigher row => row.Degree is not null,
         SectionFilletProfile.G2ChordalQuintic => true,
         RadiusLaw.Constant row => Positive(row.Start) && Positive(row.End),
         RadiusLaw.Profiled row => !row.Rows.IsEmpty
@@ -1466,10 +1483,10 @@ public abstract partial record SolidOp {
                     trimmed0: ctx.Trimmed0, trimmed1: ctx.Trimmed1, fillets: ctx.Fillets),
                 nonRationalCubic: static (ctx, profile) => SurfaceFilletBase.CreateNonRationalCubicFilletSrf(
                         ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
-                        ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, profile.TangentSlider, ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets),
+                        ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, profile.TangentSlider.Value, ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets),
                 nonRationalHigher: static (ctx, profile) => profile.Degree.Create(
                     first: ctx.First, firstUv: ctx.FirstUv, second: ctx.Second, secondUv: ctx.SecondUv,
-                    law: ctx.Law, tangent: profile.TangentSlider, inner: profile.InnerSlider, tolerance: ctx.Tolerance,
+                    law: ctx.Law, tangent: profile.TangentSlider.Value, inner: profile.InnerSlider.Value, tolerance: ctx.Tolerance,
                     trimmed0: ctx.Trimmed0, trimmed1: ctx.Trimmed1, fillets: ctx.Fillets),
                 g2ChordalQuintic: static ctx => SurfaceFilletBase.CreateG2ChordalQuinticFilletSrf(
                     ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
@@ -1484,7 +1501,7 @@ public abstract partial record SolidOp {
         System.Collections.Generic.IEnumerable<Brep> trimmed1,
         Op op) =>
         ModelGate.Staged(op: op,
-            (SolidSlot.Filleted, fillets, false),
+            (SolidSlot.Sectioned, fillets, false),
             (SolidSlot.Trimmed0, trimmed0, true),
             (SolidSlot.Trimmed1, trimmed1, true));
 
@@ -1534,7 +1551,7 @@ public abstract partial record SolidOp {
             reseam: static (ctx, edit) =>
                 from _ in guard(edit.Face < ctx.Working.Faces.Count, ctx.Op.InvalidInput())
                 from built in ModelGate.Owned(ctx.Op, SolidSlot.Edited, ctx.Working, () => Brep.ChangeSeam(
-                    face: ctx.Working.Faces[edit.Face], direction: (int)edit.Axis,
+                    face: ctx.Working.Faces[edit.Face], direction: edit.Axis.Native,
                     parameter: edit.Parameter, tolerance: ctx.Domain.Absolute.Value))
                 select built);
 
@@ -1553,22 +1570,23 @@ public static class Solids {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]       | [OWNER]                                | [FORM]                                   | [ENTRY]                |
-| :-----: | :-------------- | :------------------------------------- | :--------------------------------------- | :--------------------- |
-|  [01]   | custody         | `ModelGate`                            | borrow / mint / map / release            | `Borrow`/`Own`/`Entry` |
-|  [02]   | products        | `Built<TSlot>` / `BuildRun<TSlot>`     | correlated run projections               | every build            |
-|  [03]   | evidence        | `BuildReceipt<TSlot>`                  | polymorphic fact projection              | `Of` / `+` / `Project` |
-|  [04]   | booleans        | `SolidBooleanLaw` / `PlanarBooleanLaw` | source-valid native topology             | boolean cases          |
-|  [05]   | fillet settings | `FilletShape`                          | settings-factory union                   | `Rig`                  |
-|  [06]   | section fillet  | `SectionFilletProfile`                 | degree rows plus structural sliders      | `SectionFillet`        |
-|  [07]   | edge radius     | `EdgeFillet`                           | constant or profiled rows                | `FilletEdges`          |
-|  [08]   | surface match   | `MatchLaw`                             | capability set and refinement row        | `Match`                |
-|  [09]   | pipe            | `PipeLaw`                              | thin/thick radius profiles               | `Pipe`                 |
-|  [10]   | primitive       | `SolidSeed`                            | values and leased conversions            | `Seed`                 |
-|  [11]   | extrusion       | `ExtrusionSeed` / `ExtrusionRead`      | factory and projection unions            | `Lite` / `LiteRead`    |
-|  [12]   | editing         | `SolidEdit`                            | duplicate-edit-own union                 | `Edit`                 |
-|  [13]   | verbs           | `SolidOp`                              | total generated dispatch                 | `Solids.Build`         |
-|  [14]   | bench evidence  | `BenchBand` / `BenchEvidence`          | harvest-grade timing and allocation band | `Entry` stamp          |
+| [INDEX] | [CONCERN]         | [OWNER]                                | [FORM]                                   | [ENTRY]                     |
+| :-----: | :---------------- | :------------------------------------- | :--------------------------------------- | :-------------------------- |
+|  [01]   | custody           | `ModelGate`                            | borrow / mint / map / release            | `Borrow`/`Own`/`Entry`      |
+|  [02]   | products          | `Built<TSlot>` / `BuildRun<TSlot>`     | correlated run projections               | every build                 |
+|  [03]   | evidence          | `BuildReceipt<TSlot>`                  | polymorphic fact projection              | `Of` / `+` / `Project`      |
+|  [04]   | booleans          | `SolidBooleanLaw` / `PlanarBooleanLaw` | source-valid native topology             | boolean cases               |
+|  [05]   | fillet settings   | `FilletShape`                          | settings-factory union                   | `Rig`                       |
+|  [06]   | arc approximation | `ArcDegree` / `ArcSlider`              | folder degree space and slider band      | `FilletShape` / `ArcBezier` |
+|  [07]   | section fillet    | `SectionFilletProfile`                 | degree rows plus structural sliders      | `SectionFillet`             |
+|  [08]   | edge radius       | `EdgeFillet`                           | constant or profiled rows                | `FilletEdges`               |
+|  [09]   | surface match     | `MatchLaw`                             | capability set and refinement row        | `Match`                     |
+|  [10]   | pipe              | `PipeLaw`                              | thin/thick radius profiles               | `Pipe`                      |
+|  [11]   | primitive         | `SolidSeed`                            | values and leased conversions            | `Seed`                      |
+|  [12]   | extrusion         | `ExtrusionSeed` / `ExtrusionRead`      | factory and projection unions            | `Lite` / `LiteRead`         |
+|  [13]   | editing           | `SolidEdit`                            | duplicate-edit-own union                 | `Edit`                      |
+|  [14]   | verbs             | `SolidOp`                              | total generated dispatch                 | `Solids.Build`              |
+|  [15]   | bench evidence    | `BenchBand` / `BenchEvidence`          | harvest-grade timing and allocation band | `Entry` stamp               |
 
 ## [06]-[RESEARCH]
 
@@ -1577,4 +1595,4 @@ public static class Solids {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [ARC_SLIDER_BAND]-[OPEN]: does the native refuse an `ArcSlider` past the -0.95..0.95 band `Brep.FilletSurfaceSettings.CreateNonRationalSettings` documents, or clamp it silently; that factory assigns `TanSlider`/`InnerSlider` through unvalidated while `SurfaceFilletBase.NonRational*` documents -1..1 for one concept, so `ArcSlider` admits the wider band — settle on a `tools.assay bridge` run driving both families at ±0.99 against an in-band run.

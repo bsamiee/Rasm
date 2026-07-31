@@ -73,8 +73,8 @@ public abstract partial record BindSource<TValue> {
     public sealed record FromContext(IndirectBinding<TValue> Path) : BindSource<TValue>;
     public sealed record FromValue(TValue Value) : BindSource<TValue>;
 
-    public static BindSource<TValue> State<TState>(StateCell<TState> state, Lens<TState, TValue> lens) =>
-        new FromState(state.Channel(lens));
+    public static BindSource<TValue> State<TState>(StateCell<TState> state, Lens<TState, TValue> lens, Op? key = null) =>
+        new FromState(state.Channel(lens, key));
 
     public static BindSource<TValue> Context<TContext>(System.Linq.Expressions.Expression<Func<TContext, TValue>> path) =>
         new FromContext(Binding.Property(path));
@@ -93,7 +93,7 @@ public abstract partial record BindSource<TValue> {
 
 - Owner: `StateCell<TState>` exposes one atom through typed lenses and exact event adapters.
 - Entry: `StateCell.Channel` mints the `DirectBinding<TValue>` consumed by `BindSource.State`.
-- Auto: atom change subscriptions map one-to-one to host handler identity, and removal uses the stored adapter.
+- Auto: atom change subscriptions map one-to-one to host handler identity, and removal uses the stored adapter; the adapter is also the marshal seam, so an off-thread `Mutate` reaches the control tree through `UiThread` and the mutation itself stays free of any affinity requirement.
 - Growth: derived state composes lenses before channel creation; no second notification bus exists.
 - Boundary: lens writes execute inside `Atom.Swap`, so `Put` remains pure under retries.
 
@@ -112,13 +112,20 @@ public sealed class StateCell<TState>(Atom<TState> state) {
 
     public Unit Mutate(Func<TState, TState> transition) => ignore(state.Swap(transition));
 
-    public DirectBinding<TValue> Channel<TValue>(Lens<TState, TValue> lens) {
+    // `Change` fires synchronously on whatever thread called `Swap`, and `Mutate` is a public unmarshaled entry, so a
+    // compute lane mutating state would otherwise drive the host binding update straight into the control tree off the
+    // UI thread. The crossing sits in the ADAPTER — the mutation itself stays free — and the channel carries the
+    // caller's key so a failed update is attributable to the rig that opened it, not to a throwaway mint.
+    public DirectBinding<TValue> Channel<TValue>(Lens<TState, TValue> lens, Op? key = null) {
+        Op op = key.OrDefault();
         System.Collections.Concurrent.ConcurrentDictionary<EventHandler<EventArgs>, AtomChangedEvent<TState>> adapters = new();
         return Binding.Delegate<TValue>(
             getValue: () => lens.Get(state.Value),
             setValue: value => ignore(state.Swap(current => lens.Put(current, value))),
             addChangeEvent: handler => {
-                AtomChangedEvent<TState> adapter = _ => handler(this, EventArgs.Empty);
+                AtomChangedEvent<TState> adapter = _ => ignore(UiThread.Run(
+                    new UiDispatch<Unit>.Blocking(() => op.Catch(() => Fin.Succ(Op.Side(() => handler(this, EventArgs.Empty))))),
+                    op).Result);
                 if (adapters.TryAdd(handler, adapter)) state.Change += adapter;
             },
             removeChangeEvent: handler => {
@@ -135,7 +142,7 @@ public sealed class StateCell<TState>(Atom<TState> state) {
 - Auto: context cadence derives through `IndirectBinding.AfterDelay`; commit cadence closes one atomically exchanged latest-value latch before detach and drains its final admitted value.
 - Receipt: setup and admission faults update `BindLedger` under `BindingKey`; successful rigging or admission clears only that key's current fault.
 - Growth: another source is one `BindSource<TValue>` case and one total rig arm.
-- Boundary: host `CatchException` records non-null host failures; semantic admission remains on the generated `Fin<TValue>` gate.
+- Boundary: host `CatchException` records non-null host failures; semantic admission remains on the generated `Fin<TValue>` gate. Every control-tree touch — the bind, the refresh, and the unbind — crosses `UiThread` under one blocking dispatch, so this owner carries the same affinity contract as `ModifierWatch`, `TrayLease`, `ToastDelivery`, `TaskbarPulse`, and `PresenceBadge` rather than standing as the folder's exception.
 - Exemption: host bind, cadence attach, rollback, unbind, and admitted source assignment form the binding-provider statement seam.
 
 ```csharp signature
@@ -242,11 +249,14 @@ public static class Bind {
     public static Fin<BindReceipt> Rig<TControl, TValue>(Control control, BindingPlan<TControl, TValue> plan, Op? key = null)
         where TControl : Control {
         Op op = key.OrDefault();
+        // Host wiring touches the control tree, so it crosses the Eto floor exactly like every other capsule in this
+        // folder; refresh and unbind cross the same way, so attach, update, and detach share one affinity contract
+        // rather than leaving the one public entry that reaches the tree as the folder's lone unmarshaled seam.
         Fin<BindReceipt> outcome =
             from typed in control is TControl accepted
                 ? Fin.Succ(accepted)
                 : Fin.Fail<TControl>(new UiFault.Rejected(Key: op, Field: plan.Key.Value, Reason: "control type rejected"))
-            from receipt in op.Catch(() => Wire(typed, plan, op))
+            from receipt in UiThread.Run(new UiDispatch<BindReceipt>.Blocking(() => op.Catch(() => Wire(typed, plan, op))), op).Result
             select receipt;
         return outcome
             .Map(receipt => (plan.Ledger.Accept(plan.Key), receipt).Item2)
@@ -274,15 +284,15 @@ public static class Bind {
             plan.Key,
             plan.Ledger,
             op,
-            refresh: () => op.Catch(() => {
+            refresh: () => UiThread.Run(new UiDispatch<Unit>.Blocking(() => op.Catch(() => {
                 wired.Binding.Update(plan.Flow.Refresh);
                 return Fin.Succ(unit);
-            }),
-            unbind: () => op.Catch(() => {
+            })), op).Result,
+            unbind: () => UiThread.Run(new UiDispatch<Unit>.Blocking(() => op.Catch(() => {
                 try { _ = wired.Detach(); }
                 finally { wired.Binding.Unbind(); }
                 return Fin.Succ(unit);
-            }));
+            })), op).Result);
     }
 
     private static (DualBinding<TValue>, Func<Unit>) Direct<TControl, TValue>(
@@ -383,7 +393,7 @@ public static class Bind {
 ## [05]-[RECEIPT]
 
 - Owner: `BindReceipt` owns one dual binding and cadence detach; `BindLedger` owns keyed current validity and bounded historical evidence.
-- Entry: `BindLedger.Admitted` rejects default capacity before state allocation; `Refresh`, `Release`, and `Dispose` are the receipt lifecycle; `Accept` and `Reject` are the ledger transitions.
+- Entry: `BindLedger.Admitted` rejects default capacity before state allocation; `Refresh`, `Release`, and `Dispose` are the receipt lifecycle, and the keyed rejection rides `Free` so the shared non-throwing terminal serves this receipt unmodified; `Accept` and `Reject` are the ledger transitions.
 - Receipt: `IsValid` requires an unreleased binding and no current failure under its exact `BindingKey`.
 - Growth: another evidence field extends `BindLedgerEntry`; current failures remain independent of history retention.
 - Boundary: element realization retains receipts and disposes them in reverse tree order.
@@ -447,11 +457,10 @@ public sealed class BindReceipt(
         : refresh().MapFail(fault => (
             ledger.Reject(Key, fault as UiFault ?? new UiFault.HostRejected(Key: op, Detail: fault.Message)), fault).Item2);
 
-    protected override Fin<Unit> Free() => unbind();
-
-    public override void Dispose() => ignore(Release().Match(
-        Succ: static released => released,
-        Fail: fault => ledger.Reject(Key, new UiFault.HostRejected(Key: op, Detail: fault.Message))));
+    // Ledger routing rides `Free`, so the base terminal stays the one non-throwing `Dispose` every capsule shares
+    // and this receipt keeps its keyed rejection without minting a second terminal.
+    protected override Fin<Unit> Free() => unbind().MapFail(fault => (
+        ledger.Reject(Key, fault as UiFault ?? new UiFault.HostRejected(Key: op, Detail: fault.Message)), fault).Item2);
 }
 ```
 

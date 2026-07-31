@@ -341,9 +341,8 @@ public static class Optimize {
             PatternPolicy.Create(PatternLength.Create(raw.MinimumPatternLength), PatternLength.Create(raw.MaximumPatternLength),
                 raw.MinimumPatternOccurrences, raw.FirstPatternLabel), raw.Post);
 
-    private static K<Validation<Error>, Unit> Gate(bool valid, string locus) => valid
-        ? Validation<Error, Unit>.Success(unit)
-        : Validation<Error, Unit>.Fail(Error.New(locus));
+    private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
+        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Posting, locus));
 
     private static Fin<Unit> Numeric(Seq<GNode> nodes) => nodes.ForAll(NumericNode)
         ? Fin.Succ(unit)
@@ -700,14 +699,14 @@ internal static class OptimizationCore {
                 nc1: static (current, nc1) => (current.Nodes.Add(nc1), current.Count),
                 directive: static (current, directive) => (current.Nodes.Add(directive), current.Count)));
         int available = NextLabel(nested.Nested, checked(label + nested.NestedCount));
-        Option<(int Start, int Length, Seq<int> Occurrences)> candidate = Enumerable
-            .Range(policy.MinimumLength.Segments, policy.MaximumLength.Segments - policy.MinimumLength.Segments + 1)
-            .SelectMany(length => Enumerable.Range(0, Math.Max(0, nested.Nested.Count - length + 1)).Select(start => (start, length)))
-            .Select(row => (Start: row.start, Length: row.length, Occurrences: Occurrences(nested.Nested, row.start, row.length)))
-            .Where(row => row.Occurrences.Count >= policy.MinimumOccurrences && Saving(row.Occurrences.Count, row.Length) > 0)
-            .OrderByDescending(row => Saving(row.Occurrences.Count, row.Length))
-            .ThenByDescending(row => row.Length)
-            .HeadOrNone();
+        Option<(int Start, int Length, Seq<int> Occurrences)> candidate = toSeq(Enumerable
+                .Range(policy.MinimumLength.Segments, policy.MaximumLength.Segments - policy.MinimumLength.Segments + 1)
+                .SelectMany(length => Enumerable.Range(0, Math.Max(0, nested.Nested.Count - length + 1)).Select(start => (start, length)))
+                .Select(row => (Start: row.start, Length: row.length, Occurrences: Occurrences(nested.Nested, row.start, row.length)))
+                .Where(row => row.Occurrences.Count >= policy.MinimumOccurrences && Saving(row.Occurrences.Count, row.Length) > 0)
+                .OrderByDescending(row => Saving(row.Occurrences.Count, row.Length))
+                .ThenByDescending(row => row.Length))
+            .Head;
         return candidate.Match(
             Some: row => {
                 Arr<GNode> body = nested.Nested.Skip(row.Start).Take(row.Length).ToArr();

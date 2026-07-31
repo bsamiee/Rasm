@@ -11,13 +11,22 @@
 
 ## [02]-[ADMISSION]
 
-- Owner: `DimFrame` enforces plane and coplanar horizontal-axis invariants through one generated construction gate.
+- Owner: `DimFrame` enforces plane and coplanar horizontal-axis invariants through one generated construction gate; its perpendicularity gate is ANGLE-class, admitted from the document's `ModelAngleToleranceRadians` when a document is in hand and from `RhinoMath.DefaultAngleTolerance` otherwise — a length-class epsilon in that slot demands bit-exact perpendicularity.
 - Owner: `DimensionSpec` carries one payload per host construction form and admits every raw geometric value before native construction.
 - Law: `AngularExtension` carries extension-point behavior as a value consumed by the line-pair constructor.
 - Boundary: `DimensionSpec.Mint` captures the native constructor family through the one `Op.Catch` funnel, so a throwing constructor lands as the keyed `InvalidResult` carrying the caught detail.
 - Growth: a construction form lands as one `DimensionSpec` case and one total dispatch arm.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.DocObjects;
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Annotation;
+
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class RadialKind {
@@ -81,19 +90,33 @@ public sealed partial class DimensionKind {
 public sealed partial class DimFrame {
     public Plane Plane { get; }
     public Option<Vector3d> Horizontal { get; }
+    public double AngleTolerance { get; }
 
+    // `IsPerpendicularTo`'s second argument is an ANGLE tolerance in radians: a zero-length epsilon there demands
+    // bit-exact perpendicularity and refuses every hand-built frame, so the gate reads the document's own angle
+    // tolerance and falls back to the host angle constant, never a length-class epsilon.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError, ref Plane plane, ref Option<Vector3d> horizontal) =>
-        validationError = plane.IsValid && horizontal.ForAll(axis =>
-            axis.IsValid && !axis.IsZero && axis.IsPerpendicularTo(plane.Normal, RhinoMath.ZeroTolerance))
+        ref ValidationError? validationError,
+        ref Plane plane,
+        ref Option<Vector3d> horizontal,
+        ref double angleTolerance) =>
+        validationError = plane.IsValid
+            && double.IsFinite(angleTolerance) && angleTolerance > 0d
+            && horizontal.ForAll(axis => axis.IsValid && !axis.IsZero && axis.IsPerpendicularTo(plane.Normal, angleTolerance))
             ? null
             : new ValidationError(message: "Dimension frame is invalid.");
 
-    public static Fin<DimFrame> Of(Plane plane, Option<Vector3d> horizontal = default, Op? key = null) =>
-        Validate(plane, horizontal, out DimFrame? admitted) is null && admitted is not null
-            ? Fin.Succ(value: admitted)
-            : Fin.Fail<DimFrame>(error: key.OrDefault().InvalidInput());
+    public static Fin<DimFrame> Of(
+        Plane plane, Option<Vector3d> horizontal = default, Option<RhinoDoc> document = default, Op? key = null) =>
+        Admission.Admitted(
+            fault: Validate(
+                plane,
+                horizontal,
+                document.Map(static model => model.ModelAngleToleranceRadians).IfNone(RhinoMath.DefaultAngleTolerance),
+                out DimFrame? admitted),
+            value: admitted,
+            refusal: key.OrDefault().InvalidInput());
 
     internal Vector3d Reference => Horizontal.IfNone(noneValue: Plane.XAxis);
 }
@@ -316,10 +339,10 @@ public sealed partial class DimPose {
         Option<Point2d> textPosition = default, Option<double> textRotation = default,
         Option<TextPointMode> textPoint = default, Option<string> plainUserText = default,
         Option<double> distanceScale = default, Option<DetailEdit> detail = default, Op? key = null) =>
-        Validate(textPosition, textRotation, textPoint, plainUserText, distanceScale, detail, out DimPose? admitted) is null
-            && admitted is not null
-            ? Fin.Succ(value: admitted)
-            : Fin.Fail<DimPose>(error: key.OrDefault().InvalidInput());
+        Admission.Admitted(
+            fault: Validate(textPosition, textRotation, textPoint, plainUserText, distanceScale, detail, out DimPose? admitted),
+            value: admitted,
+            refusal: key.OrDefault().InvalidInput());
 
     internal Fin<Unit> Apply(Dimension geometry, Op key) =>
         from _ in key.Catch(() => {
@@ -370,11 +393,13 @@ public abstract partial record DimOp {
         place: static (ctx, edit) =>
             from style in edit.Style.Resolve(document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)
             from minted in edit.Spec.Mint(style: style, op: ctx.Op)
-            from _ in edit.Overrides.Traverse(patch => patch.Overlay(annotation: minted, key: ctx.Op).Map(static _ => unit)).As()
-            from id in ctx.Op.Catch(() => ResourceId.Admit(ctx.Document.Objects.Add(
-                geometry: minted, attributes: edit.Attributes.IfNoneUnsafe((ObjectAttributes?)null),
-                history: null, reference: false), ctx.Op))
-            from receipt in DraftReceipt.Objects(slot: DraftSlot.Placed, ids: Seq(id))
+            from receipt in new Lease<Dimension>.Owned(Value: minted).Use(owned =>
+                from _ in edit.Overrides.Traverse(patch => patch.Overlay(annotation: owned, key: ctx.Op).Map(static _ => unit)).As()
+                from id in ctx.Op.Catch(() => ResourceId.Admit(ctx.Document.Objects.Add(
+                    geometry: owned, attributes: edit.Attributes.IfNoneUnsafe((ObjectAttributes?)null),
+                    history: null, reference: false), ctx.Op))
+                from placed in DraftReceipt.Objects(slot: DraftSlot.Placed, ids: Seq(id))
+                select placed)
             select receipt,
         adjust: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op, DraftSlot.Adjusted,
             (dimension, key) => edit.Fit.Apply(geometry: dimension, op: key)),
@@ -423,7 +448,8 @@ public static class Dimensions {
 - Owner: `DimPointRole` labels every constructor and display point, so arity never becomes positional consumer knowledge.
 - Owner: `DimAsk` closes state, display, formatted value, viewport text transform, and exploded-piece custody under one request family.
 - Boundary: exploded geometry crosses through one compensating batch, every raw product releases on every outcome, and `DimAnswer.Pieces` owns the detached handles until disposal.
-- Boundary: piece disposal attempts every handle and raises the accumulated cleanup fault only after the full custody run settles.
+- Boundary: `IDisposable` rides the `DimAnswer` union with a total `Dispose` switch, so the `Fin<DimAnswer>` every ask returns is `using`-scopable whatever case it carries; a disposer on the one carrying case leaves the union un-scopable and leaks the pieces.
+- Boundary: piece disposal attempts every handle, and the accumulated cleanup fault parks on the answer's own `Faults` cell — a disposer carries no rail outward and a throw there replaces the primary exception mid-unwind.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -558,17 +584,8 @@ public abstract partial record DimAsk {
         DocumentCommit.Compensated(
             source: products,
             land: product => GeometryCrossing.Cross(source: product, mode: CrossingMode.Detach, key: key),
-            rollback: landed => Release(values: landed, key: key),
-            release: sources => Release(values: sources, key: key));
-
-    internal static Fin<Unit> Release<T>(Seq<T> values, Op key) where T : class, IDisposable =>
-        values.Fold(
-            Fin.Succ(value: unit),
-            (state, value) => (value is null ? Fin.Succ(value: unit) : key.Catch(value.Dispose)).Match(
-                Succ: _ => state,
-                Fail: error => state.Match(
-                    Succ: _ => Fin.Fail<Unit>(error: error),
-                    Fail: prior => Fin.Fail<Unit>(error: prior + error))));
+            rollback: landed => DraftCustody.Release(values: landed, op: key),
+            release: sources => DraftCustody.Release(values: sources, op: key));
 
     private static Fin<(AnnotationObjectBase Native, Dimension Geometry)> Resolved(
         RhinoDoc document,
@@ -635,16 +652,32 @@ public abstract partial record DimAsk {
         probe(out Point3d[] corners) ? Fin.Succ(value: toArr(corners)) : Fin.Fail<Arr<Point3d>>(key.InvalidResult()));
 }
 
+// `IDisposable` rides the UNION, never the one carrying case: `Fin<DimAnswer>` is what `Dimensions.Ask` returns, so a
+// case-local disposer leaves the answer un-`using`-able and the exploded pieces leak at every call site that folds it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DimAnswer : IDetachedDocumentResult {
+public abstract partial record DimAnswer : IDetachedDocumentResult, IDisposable {
+    private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
+
     private DimAnswer() { }
+
     public sealed record State(DimState Snapshot) : DimAnswer;
     public sealed record Skeleton(DimSkeleton Value) : DimAnswer;
     public sealed record Formatted(string Text) : DimAnswer;
     public sealed record Transformed(Transform Value) : DimAnswer;
-    public sealed record Pieces(Seq<GeometryHandle> Products) : DimAnswer, IDisposable {
-        public void Dispose() => DimAsk.Release(values: Products, key: Op.Of()).ThrowIfFail();
-    }
+    public sealed record Pieces(Seq<GeometryHandle> Products) : DimAnswer;
+
+    public Seq<Error> Faults => faults.Value;
+
+    // Disposal carries no rail outward, so a refused release parks on this answer's evidence cell; throwing here
+    // replaces the primary exception mid-`using`-unwind, which `libs/csharp/.planning/RULINGS.md` forecloses.
+    public void Dispose() => _ = Switch(
+        state: static _ => unit,
+        skeleton: static _ => unit,
+        formatted: static _ => unit,
+        transformed: static _ => unit,
+        pieces: row => DraftCustody.Release(values: row.Products, op: Op.Of(name: nameof(DimAnswer))).Match(
+            Succ: static _ => unit,
+            Fail: fault => ignore(faults.Swap(rows => rows.Add(fault)))));
 }
 ```
 

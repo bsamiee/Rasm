@@ -1,6 +1,6 @@
 # [RASM_PARAMETRIC_DEVELOP]
 
-`Rasm.Parametric` develops a UV-provenanced surface into guaranteed-isometric planar strips, the exact-isometry fabrication tier: `Development.Apply` folds near-developable bands between exact geodesic rails, torsal ruling lines per band, and a rigid length-preserving unroll. A per-strip `ddouble` isometry witness proves each strip — a Fabrication acceptance reads its edge-length defect as evidence — and a strip over budget faults on its unit, never emitting an unwitnessed atlas.
+`Rasm.Parametric` develops a UV-provenanced surface into guaranteed-isometric planar strips, the exact-isometry fabrication tier: `Development.Apply` folds near-developable bands between exact geodesic rails, torsal ruling lines per band, and a rigid length-preserving unroll. Each strip proves itself through a per-strip `ddouble` isometry witness — a Fabrication acceptance reads its edge-length defect as evidence — and a strip over budget faults on its unit, never emitting an unwitnessed atlas.
 
 `surface.md`'s `SurfaceResult.UvTessellation` — mesh, per-vertex `(u, v)`, and a live `NurbsForm.Surface` binding — carries the input, and rails compose through `Surfaces.Apply(SurfaceOp.Geodesics)` at `GeodesicGrade.Exact`. Emission converges on `flatten.md`'s `ChartAtlas` seam type, and strip layout is a transient QuikGraph fold leaving as SoA columns on the `StripField` wire.
 
@@ -10,13 +10,13 @@
 
 ## [02]-[DEVELOPMENT]
 
-- Owner: `DevelopPolicy` the policy row (`StripWidth` the geodesic rail spacing · `RulingStations` the per-strip station count · `TorsalTolerance` the ruling residual gate · `IsometryBudget` the per-strip witness ceiling the acceptance reads · `Seed` the UV seed polyline the distance field grows from, empty = the `u = 0` boundary isoline) registering `IValidityEvidence`; `DevelopOp` the request `[Union]` (`Decompose` the strip partition + rulings for inspection · `Unroll` the full pipeline through the witness and atlas); `StripField` the SoA wire (rail offset-columns in UV · ruling endpoint/residual columns · per-strip component and MST layout-parent columns); `DevelopmentReceipt` the evidence row (`Strips` · `Rulings` · `MaxIsometry` · `MeanIsometry` · `MaxTorsal` · `Components`); `DevelopmentResult` the result `[Union]`; `Development` the static entry.
+- Owner: `DevelopPolicy` the policy row (`StripWidth` the geodesic rail spacing · `RulingStations` the per-strip station count · `TorsalTolerance` the ruling residual gate · `IsometryBudget` the per-strip witness ceiling the acceptance reads · `Seed` the UV seed polyline the distance field grows from, empty = the `u = 0` boundary isoline) registering `IValidityEvidence`; `DevelopOp` the request `[Union]` (`Decompose` the strip partition + rulings for inspection · `Unroll` the full pipeline through the witness and atlas); `StripField` the SoA wire (rail offset-columns in UV · ruling endpoint/residual columns · per-strip component and MST layout-parent columns); `DevelopmentReceipt` the evidence row (`Strips` · `Rulings` · the per-strip `IsometryOf` column with its derived `MaxIsometry`/`MeanIsometry` · `MaxTorsal` · `Components`); `DevelopmentResult` the result `[Union]`; `Development` the static entry.
 - Cases: `DevelopOp` cases `Decompose` · `Unroll` (2 — inspection versus fabrication modality, `Unroll` composing `Decompose`'s own fold, never a re-derivation); `DevelopmentResult` cases `Strips` · `Unrolled` (2).
 - Entry: `public static Fin<DevelopmentResult> Apply(DevelopOp op, Op? key = null)` — the ONE entry discriminating on the op case; both cases take the `SurfaceResult.UvTessellation` carrier, so the UV-provenance input law is the parameter TYPE.
 - Auto: `Decompose` composes the geodesic distance through `Surfaces.Apply(SurfaceOp.Geodesics)` with `Grade` PINNED `Exact` on the `k·StripWidth` ladder, takes the iso-distance contours as strip RAILS (UV and world columns lerp-consistent by the tessellation's own provenance), assigns faces to bands by vertex distance, and roots the torsal coplanarity residual per station (arc-spaced on the lower rail) through `Brent.TryFindRoot` coupled by one `Try`-trapped `Broyden.FindRoot` pass; a station short of `TorsalTolerance` records into `TorsalResidual` rather than faulting, because a mildly non-torsal ruling that still unrolls within budget is fabrication-acceptable and the witness is the acceptance criterion. `Unroll` develops each strip by rigid placement on exact edge lengths — ruling quads split on the shorter diagonal, the triangle chain seated from the origin by two-circle intersection with no solve or relaxation — accumulates the isometry WITNESS per strip in `ddouble`, narrows at readout onto the receipt max/mean, and faults `IsometryBudget` breaches as 2449 `Strip`; layout folds strip adjacency into a transient `UndirectedGraph`, reads `ConnectedComponents` and a shared-rail-weighted `MinimumSpanningTreePrim` into the `Component`/`LayoutParent` columns packed in MST breadth order, and the atlas emits one `UvIsland` per strip with rail `FeatureEdge` seams beside a cross-check `DistortionReceipt`.
-- Receipt: `DevelopmentReceipt` — strip/ruling census, max/mean isometry witness, max torsal residual, component count — the Fabrication unroll dry-run and Generation developable-gate evidence; the `ChartAtlas.Receipt` `DistortionReceipt` rides BESIDE it for seam-type compatibility, never instead of it.
+- Receipt: `DevelopmentReceipt` — strip/ruling census, the per-strip isometry witness column with its derived max/mean, max torsal residual, component count — the Fabrication unroll dry-run and Generation developable-gate evidence; the `ChartAtlas.Receipt` `DistortionReceipt` rides BESIDE it for seam-type compatibility, never instead of it.
 - Packages: `Rasm.Parametric` `surface.md` (`SurfaceResult.UvTessellation` the input carrier; `Surfaces.Apply(SurfaceOp.Geodesics)` the exact-rail composition) + `nurbs.md` (`NurbsForm.Surface.NormalAt`/`RationalDerivatives` — the ruling normals and strip evaluation), `Rasm.Processing` (`GeodesicKernel.PropagateWindows` machinery surfaced through the surface geodesic lane; `FeatureEdge`/`MeshFeatureKind` — the seam-edge rows `segment.md` mints), `Rasm.Meshing` (`MeshSpace`), TYoshimura.DoubleDouble (`ddouble` — the 106-bit cancellation-safe witness accumulation, `INumber<ddouble>`-bound fold), MathNet.Numerics (`Brent.TryFindRoot` the per-station torsal root; `Broyden.FindRoot` the coupled station refinement, `Try`-trapped), QuikGraph (`UndirectedGraph<int, SEdge<int>>` + `ConnectedComponents` + `MinimumSpanningTreePrim` — the transient layout fold; results leave as SoA columns per the bounded-lane law), `Rasm.Processing` (`ChartAtlas`/`UvIsland`/`DistortionReceipt`/`ChartId` — the flatten seam types, composed never re-minted), `Rasm.Numerics` (`Predicate.Orient2D` — the flip-free proof), `Rasm.Numerics` (`GeometryFault.DevelopmentFault` + `DevelopmentStage`), `Rasm.Domain` (`Op`, `ValidityClaim`/`IValidityEvidence`), Rhino.Geometry (`Point3d`/`Vector3d`/`Point2d`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new decomposition driver (principal-curvature-aligned rails instead of distance rails) is one rail-derivation arm feeding the SAME strip fold; a new ruling condition (a cone-point-aware torsal variant) is one residual function the same Brent/Broyden solve roots; a new layout packing (nesting-aware placement) is one ordering projection off the same MST columns; zero new entry surfaces.
+- Growth: a new decomposition driver (principal-curvature-aligned rails instead of distance rails) is one rail-derivation arm feeding the SAME strip fold; a new ruling condition (a cone-point-aware torsal variant) is one residual function the same Brent/Broyden solve roots; a further layout packing modality is one ordering projection beside `PlacementOrder` off the same MST columns; zero new entry surfaces.
 - Boundary: this owner holds the EXACT-ISOMETRY tier — re-deriving a conformal or distortion-minimizing solve here, or claiming isometry without the `ddouble` witness, is the tier violation; the input is the `UvTessellation` TYPE and an unbound mesh cannot enter, so the provenance law is structural; rails are `GeodesicGrade.Exact` by law — a heat-grade rail is the drift defect, rail error becoming strip skew becoming witness noise; ruling normals read the surface BINDING at provenance UV — a mesh-normal approximation is the substitution defect; the unroll is rigid placement on exact edge lengths — a spring relaxation, an ARAP pass, or any distortion-minimizing solve here is the tier regression; the witness accumulates in `ddouble` and narrows ONLY at readout — a `double` running sum re-introduces the cancellation the fold exists to kill; QuikGraph containers are transient and the layout leaves as `Component`/`LayoutParent` columns — a stored graph field or leaked `IEdge` type is the lane violation; every failure routes 2449 `Strip` with the strip unit and the isometry or torsal measure, no exception crossing the surface.
 
 ```csharp signature
@@ -59,7 +59,9 @@ public sealed record StripField(
     Arr<int> RulingOffsets, Arr<Point2d> RulingA, Arr<Point2d> RulingB, Arr<double> TorsalResidual,
     Arr<int> Component, Arr<int> LayoutParent);
 
-public sealed record DevelopmentReceipt(int Strips, int Rulings, double MaxIsometry, double MeanIsometry, double MaxTorsal, int Components);
+// IsometryOf is the per-strip witness column — the Fabrication acceptance reads ITS strip's edge-length
+// defect; Max/Mean derive from the column at readout, never a second fold.
+public sealed record DevelopmentReceipt(int Strips, int Rulings, Arr<double> IsometryOf, double MaxIsometry, double MeanIsometry, double MaxTorsal, int Components);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -141,10 +143,14 @@ public static class Development {
 
     static Seq<(int A, int B)> SharedRails(StripField field);
     static double SharedRailLength(StripField field, int a, int b);
+    // Nesting-aware placement: components descending by planar extent (off the unrolled strip bounds), strips
+    // within a component in MST breadth order — ONE ordering projection off the same MST columns, so a nesting
+    // consumer reads placement order and re-derives no layout.
+    internal static Arr<int> PlacementOrder(Seq<UnrolledStrip> strips, IDictionary<int, int> components, Seq<SEdge<int>> mst);
     static Fin<DevelopmentResult> Atlas(
         SurfaceResult.UvTessellation source, StripField field, Seq<UnrolledStrip> strips,
         IDictionary<int, int> components, Seq<SEdge<int>> mst, int componentCount, Op? key);
-    // Atlas packs strips in MST breadth order; UvIsland(ChartId.Create(strip), …, planar) per strip, RegionBoundary
+    // Atlas packs strips in PlacementOrder (nesting-aware: component extent desc, MST breadth within); UvIsland(ChartId.Create(strip), …, planar) per strip, RegionBoundary
     // FeatureEdge rail Seams, FlipFreeBijective by exact Orient2D, FactorNonZeros = 0; DistortionReceipt off the unroll
     // Jacobians paired with the DevelopmentReceipt.
 
@@ -162,6 +168,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Development strip pipeline
+    accDescr: Development.Apply decomposes exact geodesic rails into strips, roots torsal rulings, unrolls rigidly under the ddouble witness, and emits the strip atlas through the flatten seam.
     UvT["surface.md UvTessellation — mesh + (u,v) + binding"] -->|"Development.Apply — ONE Switch"| Rails["Surfaces.Apply(Geodesics) — Grade PINNED Exact"]
     Rails -->|"iso-distance rails at k·StripWidth"| Strips["strip bands"]
     Strips -->|"torsal g(t) roots — Brent per station, Broyden coupling"| Rulings["ruling lattice + TorsalResidual"]

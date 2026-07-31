@@ -2,7 +2,7 @@
 
 Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: `ScanRegistration` discriminates every alignment strategy by `RegistrationMode` over a `RegistrationSession`, the two-or-more-cloud tuple whose `>=2` arity the PEP-646 type carries statically and `register` re-proves at runtime, so a length-1 session refuses typed at the boundary, never as a worker-side `IndexError`. Sessions carry the `scan/ingestion#INGESTION` `Cloud` array carrier, never a live `open3d` cloud — a tensor point cloud is a pybind11 handle no pickler carries, so the arrays cross the process seam whole and each kernel arm re-inflates through `Cloud.tensor()`/`legacy()` where its own native solve begins. Pairwise modes read the first two clouds and the multiway mode folds all N, so a pair is the degenerate `N==2` case of the session, never a parallel surface. Nearest-neighbor registration and pose-graph alignment are this owner's charter — `mesh/spatial#SPATIAL` composes `open3d`/`small-gicp` as query libraries but owns no registration capability.
 
-`register` runs `async`, so no ICP, RANSAC, or pose-graph solve touches the event loop: it composes the graduation `evidence_run` weave (seeded `EvidenceScope.SCAN_REGISTRATION`, no page-local tracer or span/`_ok` pair) around the `lane.offload` crossing on `Kernel.of(_register_kernel, KernelTrait.HOSTILE)` — the `open3d`/`small-gicp`/`kiss-matcher` band holds process-global native state and imports under no isolated subinterpreter, so the module-level kernel ships `REFERENCE` onto the warm process pool and the lane imports neither the kernel nor any compiled package. Each transform graduates through the `rasm.geometry.graduation` spine as `GeometrySubject.REGISTRATION_TRANSFORM`; `graduates()` returns the local `GeometryHandoff` whose `wire()` projection is the compute crossing, and alignment ceilings ride `RegistrationPolicy` rows.
+`register` runs `async`, so no ICP, RANSAC, or pose-graph solve touches the event loop: it composes the graduation `evidence_run` weave (seeded `EvidenceScope.SCAN_REGISTRATION`, no page-local tracer or span/`_ok` pair) around the `lane.offload` crossing on `Kernel.of(_register_kernel, KernelTrait.HOSTILE)` — the `open3d`/`small-gicp`/`kiss-matcher` band holds process-global native state and imports under no isolated subinterpreter, so the module-level kernel ships `REFERENCE` onto the warm process pool and the lane imports neither the kernel nor any compiled package. Each transform graduates through the `rasm.geometry.graduation` spine as `GeometrySubject.REGISTRATION_TRANSFORM`; `graduates()` returns the local `GeometryHandoff` on a key its own `spec` projection derives from the session digest, the mode, and the tuning bytes — no caller threads an evidence key — and alignment ceilings ride `RegistrationPolicy` rows.
 
 ## [01]-[INDEX]
 
@@ -11,14 +11,16 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 ## [02]-[REGISTRATION]
 
 - Owner: `ScanRegistration` — the frozen owner discriminating by `RegistrationMode` over a `RegistrationSession`; `RegistrationPolicy` is the one tuning carrier for every voxel/correspondence/Tukey/solver-gain/multiway bar including the graduation ceilings, with a derived `voxel_schedule`; `RegistrationResult` the `gc=False` receipt whose `of` factory ravels the transform once and defaults the single-pose tuple, sharing one `_from_tensor` projector across the tensor arms and conforming structurally to the `ReceiptContributor` the weave's harvest reads; `BootstrapEngine` (`KISS_MATCHER` | `OPEN3D_FGR`) the global-coarse-pose vocabulary.
-- Cases: `RegistrationMode` rows — `GLOBAL` (initialization-free coarse pose, no initial pose), `MULTISCALE` (coarse-to-fine tensor ICP, Tukey-robust point-to-plane), `COLORED_ICP` (colored point-to-plane), `VGICP` (`small-gicp` voxelized parallel fine-refinement speed path), `MULTIWAY` (N-cloud pose-graph). `GLOBAL`'s coarse pose seeds every fine mode and every multiway pairwise edge; each arm binds the engine and estimator that owns it.
+- Cases: `RegistrationMode` rows — `GLOBAL` (initialization-free coarse pose, no initial pose), `MULTISCALE` (coarse-to-fine tensor ICP, Tukey-robust point-to-plane), `COLORED_ICP` (colored point-to-plane), `VGICP` (`small-gicp` voxelized parallel fine-refinement speed path), `MULTIWAY` (N-cloud pose-graph). `GLOBAL`'s coarse pose seeds every fine mode and every multiway pairwise edge — `register` admits it as an `Option[RegistrationResult]` session input and `bootstrapped` is the composed two-stage fold that produces it, so the seeding law is a real entry rather than a claim; each arm binds the engine and estimator that owns it.
 - Law: `_distributed` records the `REGISTRATION_TRANSFORM` charter row through the graduation `charter_record` derivation on the parent side of the offload — the HOSTILE kernel's meter is the worker's no-op, so a worker-side record meters nothing — reading the one `facts()` fold the receipt already emits, so the measure and the receipt line can never disagree and no spelling is hand-picked here.
 - Law: `bench` rides the graduation `bench_seam` fold over the whole `register` crossing — arity re-proof, offload, solver, weave — cloud-size-parameterized: the subject keys the exact `RegistrationMode` row and the source point count as `rasm.geometry.scan.registration.<mode>.p<points>`, so a latency row compares like-for-like across scan densities; latency and throughput rows per arm, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Entry: `register` admits a session and a mode and returns `RuntimeRail[RegistrationResult]`. Its weave opens the seeded span, `async_boundary` fences the offload, `_flat` absorbs the lane's already-fenced rail un-nested, and the harvest emits the conforming result once on the cleared `Ok` while an `open3d`/`kiss-matcher` raise stays an `Error(BoundaryFault)` on the live span. Kernels take the lane conduit's pickled tap as a trailing offload arg and beat the graduation `GeometryPulse.REGISTRATION` point through `pulsed` — one solve-start beat per mode, one per multiway edge — so a `Hooks` tap streams convergence progress under the lane's lossy drop law.
-- Auto: `_engine` resolves the bootstrap backend once per worker lane — `KISS_MATCHER` when `kiss_matcher` resolves, else `OPEN3D_FGR` — and every arm (`GLOBAL`, each `MULTIWAY` edge) reuses that one decision; the tensor arms share the `_tukey` robust kernel and the `_from_tensor` projector rather than re-reading the `open3d` result per arm.
-- Receipt: emission is the weave's harvest — the conforming `RegistrationResult.contribute` streams once on the cleared `Ok`, never an inline emit or page-local `@receipted` leg. `graduates` measures two keys against two policy ceilings, `inlier_rmse` against `rmse_ceiling` and the `1 - fitness` misfit against `misfit_ceiling`, so a coarse `GLOBAL` pose minting a `0.0` placeholder RMSE cannot clear on the vacuous key alone — its inlier-ratio misfit must clear the floor too. That misfit rides the graduation owner's single `_admit` residual-over-ceiling direction, so no second admission direction is minted here.
-- Packages: `kiss_matcher`, `open3d`, `small_gicp` (the three compiled registration backends, each imported function-local at boundary scope under `# ruff:ignore[import-outside-top-level]`, never module-top), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold), `msgspec`, and the geometry graduation spine (`evidence_run`/`GeometryHandoff`/`GeometrySubject`, `charter_record` the charter measure authority, `bench_seam`/`bench_terminal`, `GeometryPulse`/`PulseBeat`) and runtime rails per the fence imports.
-- Growth: a new registration engine is one `RegistrationMode` row and one kernel arm; a new bootstrap backend is one `BootstrapEngine` member and one `_bootstrap` arm; a stricter graduation bar is a `RegistrationPolicy` ceiling the caller passes. `registration_ransac_based_on_feature_matching` is the named next `BootstrapEngine` row when a scene defeats both standing engines.
+- Auto: `_engine` folds the ORDERED bootstrap provider set through one `find_spec` probe and answers `Option` — both `kiss_matcher` and `open3d` are interpreter-marked, so a probe that tests one and falls through to the other as a floor reports a capability that floor cannot deliver; a `Nothing` refuses typed at the arm that needs it rather than raising `ModuleNotFoundError` inside a worker. Every arm (`GLOBAL`, each `MULTIWAY` edge) reuses that one decision; the tensor arms share the `_tukey` robust kernel and the `_from_tensor` projector rather than re-reading the `open3d` result per arm.
+- Auto: the coarse pose reaches EVERY fine arm through that arm's OWN initial-transform argument — the open3d tensor `init_source_to_target` slot on `icp` and `multi_scale_icp`, the `small_gicp.align` `init_T_target_source` slot — so `_seeded` builds one 4x4 and each solver seeds its correspondence search directly and returns the full source-to-target pose it already composed. The deleted mechanism is a whole-cloud copy per solve plus its normal rotation plus a post-solve matrix product, all of which the provider performs inside its own iteration for free; what forced it was the belief that some fine arm published no slot, and every one of them does. A local ICP started from identity diverges on any pair whose gross misalignment exceeds `max_correspondence`, which is the whole reason the `GLOBAL` arm exists and why an unseeded arm passes the identity those slots already default to rather than skipping the argument.
+- Auto: intra-kernel parallelism binds from `LanePolicy.capacity`, threaded as a trailing kernel argument beside the pulse tap — the daemon's law, one folder, one answer — because a literal thread count inside each of `capacity` concurrent process slots oversubscribes the machine by exactly that factor.
+- Receipt: emission is the weave's harvest — the conforming `RegistrationResult.contribute` streams once on the cleared `Ok`, never an inline emit or page-local `@receipted` leg. `inlier_rmse` is OPTIONAL because the `KISS_MATCHER` arm measures none, so `graduates` derives its ceiling roster PER MEASURE: the `1 - fitness` misfit is graded on every arm and the RMSE bar joins only where an RMSE exists, since a fabricated `0.0` clears every ceiling and graduates a coarse pose as a converged alignment. That misfit rides the graduation owner's single `_admit` residual-over-ceiling direction, so no second admission direction is minted here.
+- Packages: `kiss_matcher`, `open3d`, `small_gicp` (the three compiled registration backends, each a module-scope `lazy import` so the marked distributions stay cold until their own arm runs — never an eager module-top import and never a function-local one the module-top roster hides), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold), `msgspec`, and the geometry graduation spine (`evidence_run`/`GeometryHandoff`/`GeometrySubject`, `charter_record` the charter measure authority, `bench_seam`/`bench_terminal`, `GeometryPulse`/`PulseBeat`) and runtime rails per the fence imports.
+- Growth: a new registration engine is one `RegistrationMode` row and one kernel arm inheriting the carrier pre-pose with no seeding edit; a new bootstrap backend is one `BootstrapEngine` member, one `_ENGINE_MODULE` probe row, and one `_bootstrap` arm; a stricter graduation bar is a `RegistrationPolicy` ceiling the caller passes. `registration_ransac_based_on_feature_matching` is the named next `BootstrapEngine` row when a scene defeats both standing engines.
 - Boundary: the cleaned input `Cloud` is `scan/ingestion#INGESTION`'s product and carrier mint; deviation against a reference is `scan/deviation#DEVIATION`; surface reconstruction is `scan/reconstruction#RECONSTRUCTION`. No mesh repair, tessellation, or durable store here.
 
 ```python signature
@@ -27,12 +29,13 @@ from enum import StrEnum
 from functools import partial
 from importlib.util import find_spec
 from queue import Queue
-from typing import TYPE_CHECKING, assert_never
+from typing import Final, Literal, assert_never
 
 import numpy as np
-from expression import Error
+from expression import Error, Nothing, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct, field
+from msgspec.structs import replace
 
 from rasm.geometry.graduation import (
     EvidenceScope,
@@ -41,19 +44,25 @@ from rasm.geometry.graduation import (
     GeometrySubject,
     PulseBeat,
     bench_seam,
+    bench_subject,
     charter_record,
+    evidence_key,
     evidence_run,
 )
 from rasm.geometry.scan.ingestion import Cloud
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
-from rasm.runtime.identity import ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy, PulseFact, pulsed
 from rasm.runtime.profiles import BenchmarkReceipt
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
-if TYPE_CHECKING:
-    import open3d as o3d  # type-only; the runtime import is function-local so the module loads clean
+# the three compiled registration backends, each interpreter-marked: the module-scope proxy keeps every one cold
+# until its own arm runs, so a loop floor importing this module for the `RegistrationMode` vocabulary loads none of
+# them and an absent provider surfaces through `_engine`'s typed refusal rather than an import at module load.
+lazy import kiss_matcher
+lazy import open3d as o3d
+lazy import small_gicp
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -75,6 +84,31 @@ class BootstrapEngine(StrEnum):
 type RegistrationSession = tuple[Cloud, Cloud, *tuple[Cloud, ...]]
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+# bootstrap engine -> probe MODULE, ordered by precedence; `_engine` walks it once and takes the head that resolves,
+# so a floor carrying neither answers the typed refusal instead of importing into a worker-side crash.
+_ENGINE_MODULE: Final[Block[tuple[BootstrapEngine, str]]] = Block.of_seq((
+    (BootstrapEngine.KISS_MATCHER, "kiss_matcher"),
+    (BootstrapEngine.OPEN3D_FGR, "open3d"),
+))
+
+
+# --- [ERRORS] ---------------------------------------------------------------------------
+
+
+@tagged_union(frozen=True)
+class RegistrationFault(Exception):
+    # raised INTO the lane's `async_boundary`, never a domain `raise ValueError` the lane re-wraps; the lane's fence
+    # names the absent capability at the seam where a bare ModuleNotFoundError would name a private module path.
+    tag: Literal["unprovisioned"] = tag()
+    unprovisioned: str = case()  # the capability whose WHOLE provider set resolved absent at the interpreter floor
+
+
+def _unprovisioned[T](capability: str) -> T:
+    raise RegistrationFault(unprovisioned=capability)
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -89,7 +123,6 @@ class RegistrationPolicy(Struct, frozen=True):
     num_max_corr: int = 5000
     robin_noise_bound_gain: float = 1.0
     solver_noise_bound_gain: float = 0.75
-    num_threads: int = 8
     edge_uncertain_below_fitness: float = 0.5
     preference_loop_closure: float = 0.25
     rmse_ceiling: float = 0.01  # policy-row alignment bar, never a module Final
@@ -99,15 +132,27 @@ class RegistrationPolicy(Struct, frozen=True):
     def voxel_schedule(self) -> tuple[tuple[float, float], ...]:
         return ((self.voxel * 4, self.max_correspondence), (self.voxel, self.voxel))
 
+    @property
+    def spec(self) -> bytes:
+        # the tuning bytes that DEFINE an alignment: two runs at different voxel, correspondence, or robust-kernel
+        # bars are two distinct pieces of evidence, so the policy joins the crossing key rather than averaging into it.
+        return (
+            f"{self.voxel:.17g}|{self.max_correspondence:.17g}|{self.tukey_k:.17g}"
+            f"|{self.colored_lambda_geometric:.17g}|{self.multiscale_iterations}"
+        ).encode()
+
 
 class RegistrationResult(Struct, frozen=True, gc=False):
+    # `inlier_rmse` is OPTIONAL: the TEASER-style global solver reports inlier counts and stage timings and measures
+    # no residual, so absence is spelled rather than filled with a zero every ceiling clears.
     mode: RegistrationMode
     engine: BootstrapEngine | None
     transform: tuple[float, ...]
     poses: tuple[tuple[float, ...], ...]
     fitness: float
-    inlier_rmse: float
+    inlier_rmse: float | None
     inliers: int
+    session_key: ContentKey | None = None  # digest over the session's cloud digests; the evidence key's other half
     rotation_inliers: int = 0
     timings: dict[str, float] = field(default_factory=dict)
 
@@ -116,7 +161,7 @@ class RegistrationResult(Struct, frozen=True, gc=False):
         mode: RegistrationMode,
         transform: np.ndarray,
         fitness: float,
-        inlier_rmse: float,
+        inlier_rmse: float | None,
         inliers: int,
         *,
         engine: BootstrapEngine | None = None,
@@ -126,51 +171,82 @@ class RegistrationResult(Struct, frozen=True, gc=False):
     ) -> "RegistrationResult":
         flat = tuple(np.ravel(np.asarray(transform)))  # the catalogued row-major flatten
         return RegistrationResult(
-            mode, engine, flat, poses or (flat,), float(fitness), float(inlier_rmse), int(inliers), int(rotation_inliers), timings or {}
+            mode, engine, flat, poses or (flat,), float(fitness), inlier_rmse, int(inliers), None, int(rotation_inliers), timings or {}
         )
+
+    def keyed(self, session: "RegistrationSession") -> "RegistrationResult":
+        # the session digest folds the member clouds' own content keys, so a re-solve over identical clouds keys
+        # identically and a solve over a re-ingested session keys apart; `ContentIdentity.key` admits the key tuple
+        # directly, so no member array is re-hashed here.
+        return replace(self, session_key=ContentIdentity.key("scan-session", tuple(cloud.digest for cloud in session)))
 
     @staticmethod
     def _from_tensor(
         mode: RegistrationMode, reg: "o3d.t.pipelines.registration.RegistrationResult", source: "o3d.t.geometry.PointCloud"
     ) -> "RegistrationResult":
-        # open3d `.fitness` is the matched-source fraction; `fitness * |source|` is the inlier estimate
-        return RegistrationResult.of(
-            mode, reg.transformation.numpy(), reg.fitness, reg.inlier_rmse, int(reg.fitness * source.point.positions.shape[0])
-        )
+        # open3d `.fitness` is the matched-source fraction; `fitness * |source|` is the inlier estimate. The solve
+        # took its seed through `init_source_to_target`, so `reg.transformation` is ALREADY the full
+        # source-to-target pose and no composition fold stands between the solver's answer and the receipt.
+        return RegistrationResult.of(mode, reg.transformation.numpy(), reg.fitness, reg.inlier_rmse, int(reg.fitness * source.point.positions.shape[0]))
 
     def facts(self) -> dict[str, object]:
-        # native float/int slots the receipts renderer serializes without a str()/repr() coerce
-        return {
-            "mode": self.mode.value,
-            "engine": self.engine.value if self.engine else "",
-            "fitness": self.fitness,
-            "inlier_rmse": self.inlier_rmse,
-            "inliers": self.inliers,
-            "rotation_inliers": self.rotation_inliers,
-        } | {f"t.{stage}": seconds for stage, seconds in self.timings.items()}
+        # native float/int slots the receipts renderer serializes without a str()/repr() coerce; an unmeasured
+        # residual leaves the map entirely, so a dashboard reads absence rather than a perfect zero.
+        return (
+            {
+                "mode": self.mode.value,
+                "engine": self.engine.value if self.engine else "",
+                "fitness": self.fitness,
+                "inliers": self.inliers,
+                "rotation_inliers": self.rotation_inliers,
+            }
+            | ({} if self.inlier_rmse is None else {"inlier_rmse": self.inlier_rmse})
+            | {f"t.{stage}": seconds for stage, seconds in self.timings.items()}
+        )
 
     def contribute(self) -> tuple[Receipt, ...]:
         return (Receipt.of("rasm.geometry.scan.registration", ("emitted", self.mode.value, self.facts())),)
 
-    def graduates(self, evidence_key: ContentKey, policy: RegistrationPolicy) -> GeometryHandoff:
+    def spec(self, policy: RegistrationPolicy) -> bytes:
+        # the byte projection that DEFINES this evidence: which clouds, which mode, which tuning.
+        return f"{self.mode.value}|{self.session_key.hex if self.session_key else ''}|".encode() + policy.spec
+
+    def graduates(self, policy: RegistrationPolicy) -> GeometryHandoff:
+        # ceilings derive PER MEASURE: the inlier-ratio misfit grades every arm, and the RMSE bar joins only where
+        # the solver measured one, so a coarse global pose is graded on what it computed instead of clearing a
+        # residual ceiling vacuously on a placeholder the page never had a reason to mint.
+        measured = {"misfit": 1.0 - self.fitness} | ({} if self.inlier_rmse is None else {"inlier_rmse": self.inlier_rmse})
+        ceilings = {"misfit": policy.misfit_ceiling} | ({} if self.inlier_rmse is None else {"inlier_rmse": policy.rmse_ceiling})
         return GeometryHandoff.of(
             GeometrySubject.REGISTRATION_TRANSFORM,
-            evidence_key,
-            {"inlier_rmse": self.inlier_rmse, "misfit": 1.0 - self.fitness},
-            {"inlier_rmse": policy.rmse_ceiling, "misfit": policy.misfit_ceiling},
+            evidence_key(GeometrySubject.REGISTRATION_TRANSFORM, self.spec(policy)),
+            measured,
+            ceilings,
         )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _engine() -> BootstrapEngine:
-    return BootstrapEngine.KISS_MATCHER if find_spec("kiss_matcher") is not None else BootstrapEngine.OPEN3D_FGR
+def _engine() -> "Option[BootstrapEngine]":
+    # total over the REAL provider set, ordered by precedence: BOTH backends are interpreter-marked, so a probe
+    # testing one and treating the other as an always-available floor reports a capability the floor cannot deliver
+    # and the failure lands as a worker-side ImportError instead of a typed refusal at selection.
+    return _ENGINE_MODULE.choose(lambda row: Some(row[0]) if find_spec(row[1]) is not None else Nothing).try_head()
+
+
+def _seeded(seed: "Option[tuple[float, ...]]") -> np.ndarray:
+    # the coarse pose as the PROVIDER's own initial-transform argument. Every fine arm publishes one — the open3d
+    # tensor `icp`/`multi_scale_icp` `init_source_to_target` slot and the `small_gicp.align` `init_T_target_source`
+    # slot — so the seed reaches the solver's correspondence search instead of a pre-transformed copy of the source
+    # cloud, and each arm returns the FULL source-to-target pose with no residual composition to get wrong. The
+    # deleted mechanism is exactly that pair: a whole-cloud copy per solve, its normal rotation, and a post-fold
+    # matrix product, all of which the provider does inside its own iteration for free. An absent seed is the
+    # identity every one of those slots already defaults to, so seeded and unseeded are ONE expression.
+    return seed.map(lambda flat: np.reshape(np.asarray(flat, dtype=np.float64), (4, 4))).default_value(np.eye(4))
 
 
 def _tukey(policy: RegistrationPolicy) -> "o3d.t.pipelines.registration.robust_kernel.RobustKernel":
-    import open3d as o3d  # ruff:ignore[import-outside-top-level]
-
     rk = o3d.t.pipelines.registration.robust_kernel
     return rk.RobustKernel(rk.RobustKernelMethod.TukeyLoss, policy.tukey_k)
 
@@ -185,8 +261,6 @@ def _homogeneous(rotation: np.ndarray, translation: np.ndarray) -> np.ndarray:
 def _bootstrap(source: Cloud, target: Cloud, engine: BootstrapEngine, policy: RegistrationPolicy) -> RegistrationResult:
     match engine:
         case BootstrapEngine.KISS_MATCHER:
-            import kiss_matcher  # ruff:ignore[import-outside-top-level]
-
             config = kiss_matcher.KISSMatcherConfig(
                 voxel_size=policy.voxel,
                 use_quatro=policy.use_quatro,
@@ -206,7 +280,7 @@ def _bootstrap(source: Cloud, target: Cloud, engine: BootstrapEngine, policy: Re
                 RegistrationMode.GLOBAL,
                 _homogeneous(np.asarray(solution.rotation), np.asarray(solution.translation)),
                 float(inliers) / max(src.shape[1], 1),
-                0.0,
+                None,  # the TEASER-style solver reports inliers and stage timings, never a residual — absence, not zero
                 inliers,
                 engine=BootstrapEngine.KISS_MATCHER,
                 rotation_inliers=matcher.get_num_rotation_inliers() if solution.valid else 0,
@@ -219,8 +293,6 @@ def _bootstrap(source: Cloud, target: Cloud, engine: BootstrapEngine, policy: Re
                 },
             )
         case BootstrapEngine.OPEN3D_FGR:
-            import open3d as o3d  # ruff:ignore[import-outside-top-level]
-
             reg = o3d.pipelines.registration
             search = o3d.geometry.KDTreeSearchParamHybrid(policy.voxel * 5, 100)
             normals = o3d.geometry.KDTreeSearchParamHybrid(policy.voxel * 2, 30)
@@ -263,10 +335,10 @@ def _edge(
 
 
 def _multiway(session: RegistrationSession, policy: RegistrationPolicy, tap: "Queue[PulseFact | None]") -> RegistrationResult:
-    import open3d as o3d  # ruff:ignore[import-outside-top-level]
-
     reg = o3d.pipelines.registration
-    engine = _engine()  # one engine read; every edge solves on the same bootstrap engine
+    # one engine read; every edge solves on the same bootstrap engine, and an unprovisioned floor refuses typed
+    # HERE rather than each edge dying inside the peel.
+    engine = _engine().default_with(lambda: _unprovisioned("bootstrap"))
     legacy = tuple(cloud.legacy() for cloud in session)  # one worker-side rebuild per cloud, reused by every edge evaluation
     # folds once into decided (node, edge) pairs; the PoseGraph bind is a pure append
     pairs = Block.of_seq(session[1:]).mapi(
@@ -303,26 +375,31 @@ def _multiway(session: RegistrationSession, policy: RegistrationPolicy, tap: "Qu
 
 
 def _register_kernel(
-    session: RegistrationSession, mode: RegistrationMode, policy: RegistrationPolicy, tap: "Queue[PulseFact | None]"
+    session: RegistrationSession,
+    mode: RegistrationMode,
+    policy: RegistrationPolicy,
+    threads: int,
+    seed: "Option[tuple[float, ...]]",
+    tap: "Queue[PulseFact | None]",
 ) -> RegistrationResult:
     # module-level HOSTILE kernel: Cloud carriers cross the process seam as arrays, each arm re-inflates the o3d form
-    # its solver needs, and a raise converts through the lane's async_boundary onto the rail
-    import open3d as o3d  # ruff:ignore[import-outside-top-level]
-
+    # its solver needs, and a raise converts through the lane's async_boundary onto the rail. The coarse pose reaches
+    # every fine arm through that arm's OWN initial-transform argument, so the seeding law costs one 4x4 rather than
+    # a whole-cloud copy per solve, and each solver returns the full source-to-target pose it already composed.
     source, target = session[0], session[1]
+    initial = _seeded(seed)
     pulsed(tap, GeometryPulse.REGISTRATION, PulseBeat(stage=f"solve.{mode.value}", done=0, total=1))  # solve-start beat before the native arm
     reg_t = o3d.t.pipelines.registration
     match mode:
         case RegistrationMode.VGICP:
-            import small_gicp  # ruff:ignore[import-outside-top-level]
-
             # small_gicp.align consumes bare (N, 3) arrays, so the carrier feeds it with no o3d rebuild at all
             result = small_gicp.align(
                 target.positions,
                 source.positions,
+                init_T_target_source=initial,
                 registration_type="VGICP",
                 downsampling_resolution=policy.voxel,
-                num_threads=policy.num_threads,
+                num_threads=threads,
             )
             return RegistrationResult.of(
                 mode,
@@ -341,27 +418,31 @@ def _register_kernel(
                 o3d.utility.DoubleVector(voxels),
                 [reg_t.ICPConvergenceCriteria(max_iteration=it) for it in policy.multiscale_iterations],
                 o3d.utility.DoubleVector(corrs),
+                init_source_to_target=o3d.core.Tensor(initial),
                 estimation_method=reg_t.TransformationEstimationPointToPlane(_tukey(policy)),
             )
             return RegistrationResult._from_tensor(mode, reg, src_t)
         case RegistrationMode.COLORED_ICP:
             colored = reg_t.TransformationEstimationForColoredICP(policy.colored_lambda_geometric, _tukey(policy))
             src_t = source.tensor()
-            reg = reg_t.icp(src_t, target.tensor(), policy.max_correspondence, estimation_method=colored)
+            reg = reg_t.icp(
+                src_t, target.tensor(), policy.max_correspondence, init_source_to_target=o3d.core.Tensor(initial), estimation_method=colored
+            )
             return RegistrationResult._from_tensor(mode, reg, src_t)
         case RegistrationMode.GLOBAL:
-            return _bootstrap(source, target, _engine(), policy)
+            return _bootstrap(source, target, _engine().default_with(lambda: _unprovisioned("bootstrap")), policy)
         case RegistrationMode.MULTIWAY:
             return _multiway(session, policy, tap)
         case unreachable:
             assert_never(unreachable)
 
 
-def _distributed(result: RegistrationResult) -> RegistrationResult:
+def _distributed(result: RegistrationResult, composition: ScopeKey) -> RegistrationResult:
     # parent-side charter projection: the HOSTILE kernel's meter is the worker's no-op, so the
     # REGISTRATION_TRANSFORM charter row records here off the returned facts — the one `facts()` fold feeds the
-    # receipt and the measure alike, spellings derived from the charter, never hand-picked.
-    charter_record(GeometrySubject.REGISTRATION_TRANSFORM, result.facts())
+    # receipt and the measure alike, spellings derived from the charter, never hand-picked — stamped with the
+    # owner's composition so an embedded root's series partitions from the process root's.
+    charter_record(GeometrySubject.REGISTRATION_TRANSFORM, result.facts(), composition=composition)
     return result
 
 
@@ -371,8 +452,11 @@ def _distributed(result: RegistrationResult) -> RegistrationResult:
 class ScanRegistration(Struct, frozen=True):
     lane: LanePolicy
     policy: RegistrationPolicy = RegistrationPolicy()
+    composition: ScopeKey = DEFAULT_SCOPE  # the custody key every weave, charter record, and bench emission stamps
 
-    async def register(self, session: RegistrationSession, mode: RegistrationMode) -> "RuntimeRail[RegistrationResult]":
+    async def register(
+        self, session: RegistrationSession, mode: RegistrationMode, seed: "Option[RegistrationResult]" = Nothing
+    ) -> "RuntimeRail[RegistrationResult]":
         async def dispatch() -> "RuntimeRail[RegistrationResult]":
             # PEP-646 arity is static evidence only, so the two-cloud minimum re-proves HERE at runtime — INSIDE the
             # evidence span, so a short session lands on the SCAN_REGISTRATION receipt as this typed refusal
@@ -380,17 +464,43 @@ class ScanRegistration(Struct, frozen=True):
             if len(session) < 2:
                 return Error(BoundaryFault(config=(f"scan.registration.{mode}", f"session-arity:{len(session)}<2")))
             # HOSTILE is the declared trait because the compiled registration band imports under no isolated subinterpreter;
+            # `lane.capacity` is the intra-kernel thread budget the lane's own slot allocator already bounds, and the
             # trailing tap is the lane conduit's pickled proxy the kernel's pulse beats write through.
-            offloaded = await self.lane.offload(Kernel.of(_register_kernel, KernelTrait.HOSTILE), session, mode, self.policy, self.lane.pulses.tap)
-            return offloaded.map(_distributed)
+            offloaded = await self.lane.offload(
+                Kernel.of(_register_kernel, KernelTrait.HOSTILE),
+                session,
+                mode,
+                self.policy,
+                self.lane.capacity,
+                seed.map(lambda coarse: coarse.transform),
+                self.lane.pulses.tap,
+            )
+            return offloaded.map(lambda result: _distributed(result.keyed(session), self.composition))
 
-        return await evidence_run(EvidenceScope.SCAN_REGISTRATION, f"register.{mode}", dispatch)
+        return await evidence_run(EvidenceScope.SCAN_REGISTRATION, f"register.{mode}", dispatch, composition=self.composition)
+
+    async def bootstrapped(self, session: RegistrationSession, mode: RegistrationMode) -> "RuntimeRail[RegistrationResult]":
+        # the composed two-stage fold the Cases line promises: one initialization-free coarse solve, then the fine
+        # mode seeded by its pose. Each stage opens its own weave, because each is a real solve whose cost and
+        # residual a reader prices separately — never one span hiding two kernels — and a refused coarse stage
+        # short-circuits rather than letting a fine mode run from identity under a seeding claim.
+        match await self.register(session, RegistrationMode.GLOBAL):
+            case Result(tag="ok", ok=coarse):
+                return await self.register(session, mode, Some(coarse))
+            case Result(tag="error") as refused:
+                return refused
 
     def bench(self, session: RegistrationSession, mode: RegistrationMode, *, rounds: int = 32, warmup: int = 4) -> "RuntimeRail[BenchmarkReceipt]":
         # cloud-size-parameterized macro-bench: the subject keys the exact mode row and the source point count, so
         # a latency row compares like-for-like across scan densities; each round drives the whole register crossing
         # — arity re-proof, offload, solver, weave — never an in-kernel probe (the pulse boundary).
-        return bench_seam(f"{EvidenceScope.SCAN_REGISTRATION.value}.{mode}.p{len(session[0])}", partial(self.register, session, mode), rounds=rounds, warmup=warmup)
+        return bench_seam(
+            bench_subject(EvidenceScope.SCAN_REGISTRATION, mode, f"p{len(session[0])}"),
+            partial(self.register, session, mode),
+            rounds=rounds,
+            warmup=warmup,
+            composition=self.composition,
+        )
 ```
 
 ## [03]-[RESEARCH]

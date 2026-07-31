@@ -11,8 +11,8 @@ Schema evolution without migrations and its read accelerator in one owner: every
 
 ## [02]-[CHAIN_VOCABULARY]
 
-- Owner: `Upcast.Raw` — the `{tag, version, payload}` envelope every persisted row projects into before lifting; `Upcast.Chain` — `{latest, steps}` where `steps[i]` lifts version `i + 1` to `i + 2` over the encoded shape.
-- Packages: `effect` (types only at this altitude).
+- Owner: `Upcast.Raw` — the `{tag, version, payload}` envelope every persisted row projects into before lifting; `Upcast.Chain` — `{latest, steps}` where `steps[i]` lifts version `i + 1` to `i + 2` over the encoded shape; `ChainIncomplete` — the page's one single-shape fault, classifying `invalid` off the core `FaultClass` lattice because an inconsistent roster is the wiring caller's own declaration, refused once and never re-driven.
+- Packages: `effect` (`Either`, `Schema`); `@rasm/ts/core` (`FaultClass`).
 - Growth: a new version of one event is one step pushed onto its chain and `latest` bumped by one — old steps never change, because the versions they lift are already in the log.
 - Law: steps are total pure functions over encoded payloads — `(payload: unknown) => unknown` with no failure channel; partiality has nowhere to hide because the terminal decode re-proves every invariant the current schema states.
 - Law: completeness is positional — a chain of `latest: 4` carries exactly three steps; `_sized` proves it at plan construction as a value, `Either.right` the proven chain and `Either.left` the typed `ChainIncomplete`, so a roster mismatch is a wiring fault the composing Layer folds once, never a throw and never a read-time surprise.
@@ -21,7 +21,8 @@ Schema evolution without migrations and its read accelerator in one owner: every
 - Boundary: where `Raw` comes from is `journal/append.md`'s row projection; the current family is app material arriving as a `Schema.Union` value.
 
 ```typescript signature
-import { Data, Either } from "effect"
+import { Either, Schema } from "effect"
+import { FaultClass } from "@rasm/ts/core"
 
 declare namespace Upcast {
   type Raw = {
@@ -37,11 +38,18 @@ declare namespace Upcast {
   type Roster = { readonly [tag: string]: Chain }
 }
 
-class ChainIncomplete extends Data.TaggedError("ChainIncomplete")<{
-  readonly tag: string
-  readonly steps: number
-  readonly latest: number
-}> {}
+class ChainIncomplete extends Schema.TaggedError<ChainIncomplete>()("ChainIncomplete", {
+  tag: Schema.String,
+  steps: Schema.Int,
+  latest: Schema.Int,
+}) {
+  get class(): FaultClass.Kind {
+    return "invalid" // the roster the wiring site handed is unusable as written: quarantined evidence, never a re-drive
+  }
+  override get message(): string {
+    return `<upcast:chain> ${this.tag} steps ${this.steps} latest ${this.latest}`
+  }
+}
 
 const _sized = (tag: string, chain: Upcast.Chain): Either.Either<Upcast.Chain, ChainIncomplete> =>
   chain.steps.length === chain.latest - 1

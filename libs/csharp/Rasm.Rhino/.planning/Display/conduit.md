@@ -18,6 +18,7 @@
 - Law: `ConduitCriterion` turns every host filter axis into one case-unique row inside the mount request; case runtime type is the uniqueness key, so no parallel criterion-kind vocabulary exists.
 - Law: veto is host truth — `Cull` can only widen the incoming `CullObjectEventArgs.CullObject` in the `ObjectCulling` callback and `Suppress` can only narrow the incoming `DrawObjectEventArgs.DrawObject` in `PreDrawObject`, the only two suppression flags the display contract admits; a prior host veto remains set, each decide answers per object per frame, and any deciding step voting to suppress wins.
 - Law: world-space draw steps require a bounds step before the adapter is constructed.
+- Law: `ConduitPhase` is the package-wide draw-seam vocabulary, not the conduit-override roster — every producer that mints a `ConduitFrame` names the seam it occupies, and the `Mounts` column is what separates the eight `DisplayConduit` override phases from the realtime framebuffer and middleground events and the registered-widget draw; a `ConduitStep.Draw` selecting a non-mounting row refuses at admission, and a producer stamping a phase it does not occupy publishes `Draws`/`PerObject`/`WorldSpace` facts its consumers read as measured.
 - Boundary: callback failures append to the lease fault cell; a host callback never discards a failed rail.
 - Growth: a pipeline phase or render state lands as one case and one total adapter arm.
 
@@ -34,18 +35,25 @@ namespace Rasm.Rhino.Display;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ConduitPhase {
-    public static readonly ConduitPhase Culling = new(key: 0, draws: false, perObject: true, worldSpace: false);
-    public static readonly ConduitPhase Bounds = new(key: 1, draws: false, perObject: false, worldSpace: false);
-    public static readonly ConduitPhase BoundsZoomExtents = new(key: 2, draws: false, perObject: false, worldSpace: false);
-    public static readonly ConduitPhase PreObjects = new(key: 3, draws: true, perObject: false, worldSpace: true);
-    public static readonly ConduitPhase PreObject = new(key: 4, draws: true, perObject: true, worldSpace: true);
-    public static readonly ConduitPhase PostObjects = new(key: 5, draws: true, perObject: false, worldSpace: true);
-    public static readonly ConduitPhase Foreground = new(key: 6, draws: true, perObject: false, worldSpace: false);
-    public static readonly ConduitPhase Overlay = new(key: 7, draws: true, perObject: false, worldSpace: false);
+    public static readonly ConduitPhase Culling = new(key: 0, draws: false, perObject: true, worldSpace: false, mounts: true);
+    public static readonly ConduitPhase Bounds = new(key: 1, draws: false, perObject: false, worldSpace: false, mounts: true);
+    public static readonly ConduitPhase BoundsZoomExtents = new(key: 2, draws: false, perObject: false, worldSpace: false, mounts: true);
+    public static readonly ConduitPhase PreObjects = new(key: 3, draws: true, perObject: false, worldSpace: true, mounts: true);
+    public static readonly ConduitPhase PreObject = new(key: 4, draws: true, perObject: true, worldSpace: true, mounts: true);
+    public static readonly ConduitPhase PostObjects = new(key: 5, draws: true, perObject: false, worldSpace: true, mounts: true);
+    public static readonly ConduitPhase Foreground = new(key: 6, draws: true, perObject: false, worldSpace: false, mounts: true);
+    public static readonly ConduitPhase Overlay = new(key: 7, draws: true, perObject: false, worldSpace: false, mounts: true);
+    // The three seams below are NOT `DisplayConduit` overrides: a realtime engine's framebuffer and middleground events and a
+    // registered widget's `OnDraw` each hand out a live pipeline outside the conduit phase order, so they carry honest columns
+    // and refuse mounting rather than borrowing a conduit phase's name.
+    public static readonly ConduitPhase Framebuffer = new(key: 8, draws: true, perObject: false, worldSpace: false, mounts: false);
+    public static readonly ConduitPhase Middleground = new(key: 9, draws: true, perObject: false, worldSpace: true, mounts: false);
+    public static readonly ConduitPhase WidgetOverlay = new(key: 10, draws: true, perObject: false, worldSpace: true, mounts: false);
 
     public bool Draws { get; }
     public bool PerObject { get; }
     public bool WorldSpace { get; }
+    public bool Mounts { get; }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -153,16 +161,6 @@ public sealed partial class PointUse {
     internal PointStyle Native { get; }
 }
 
-[SmartEnum<int>]
-public sealed partial class ActiveSpaceUse {
-    public static readonly ActiveSpaceUse None = new(0, ActiveSpace.None);
-    public static readonly ActiveSpaceUse Model = new(1, ActiveSpace.ModelSpace);
-    public static readonly ActiveSpaceUse Page = new(2, ActiveSpace.PageSpace);
-    public static readonly ActiveSpaceUse UvEditor = new(3, ActiveSpace.UVEditorSpace);
-    public static readonly ActiveSpaceUse BlockEditor = new(4, ActiveSpace.BlockEditorSpace);
-    internal ActiveSpace Native { get; }
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ConduitCriterion {
     private ConduitCriterion() { }
@@ -182,7 +180,7 @@ public abstract partial record ConduitCriterion {
         selection: static (c, row) => Op.Side(() => c.SetSelectionFilter(row.Use.Enabled, row.Use.SubObjects)),
         objects: static (c, row) => Op.Side(() => c.SetObjectIdFilter(row.Ids.Filter(static id => id != Guid.Empty).Distinct().AsEnumerable())),
         geometry: static (c, row) => Op.Side(() => c.GeometryFilter = row.Kinds.Mask),
-        space: static (c, row) => Op.Side(() => c.SpaceFilter = row.Value.Native));
+        space: static (c, row) => Op.Side(() => c.SpaceFilter = row.Value.Key));
 }
 
 [SmartEnum<int>]
@@ -263,7 +261,9 @@ public abstract partial record ConduitStep {
         suppress: static row => row.Decide is not null,
         bounds: static row => row.Contribute is not null && (row.Phase == ConduitPhase.Bounds || row.Phase == ConduitPhase.BoundsZoomExtents),
         objectDraw: static row => row.Project is not null && row.State.ForAll(static aspect => aspect is not null && aspect.Valid),
-        draw: static row => row.Project is not null && row.Phase is not null && row.Phase.Draws && !row.Phase.PerObject && row.State.ForAll(static aspect => aspect is not null && aspect.Valid));
+        draw: static row => row.Project is not null
+            && row.Phase is { Mounts: true, Draws: true, PerObject: false }
+            && row.State.ForAll(static aspect => aspect is not null && aspect.Valid));
 
     internal (bool Supplies, bool Requires) BoundsOrder => Switch(
         cull: static _ => (false, false),
@@ -487,7 +487,8 @@ public static class ConduitHooks {
 - Owner: `ModeOp` is the closed table request family consumed by `Modes.Configure`.
 - Entry: `ModeOp.Apply` returns resolved descriptors for every operation, including host-minted identities.
 - Law: every minted identifier re-resolves before egress; a dangling identifier never becomes a descriptor receipt.
-- Growth: a table verb is one request case and one dispatch arm.
+- Law: every case has a reachable public ingress on `ModeRequest`, so the vocabulary and the entry family agree case for case; a table verb whose only argument is a live `DisplayModeDescription` has no admissible ingress across the receipt boundary and does not exist here — `AddDisplayMode(string)` mints through `BlankCase` and `UpdateDisplayMode` persists a descriptor the fold already resolved.
+- Growth: a table verb is one request case, one dispatch arm, and one `ModeRequest` entry case in the same pass.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -497,7 +498,6 @@ internal abstract partial record ModeOp {
     internal sealed record CensusCase : ModeOp;
     internal sealed record FindCase(ModeId Mode) : ModeOp;
     internal sealed record NamedCase(string Name) : ModeOp;
-    internal sealed record AddCase(DisplayModeDescription Mode) : ModeOp;
     internal sealed record BlankCase(string Name) : ModeOp;
     internal sealed record UpdateCase(DisplayModeDescription Mode) : ModeOp;
     internal sealed record CopyCase(ModeId Source, string Name) : ModeOp;
@@ -513,7 +513,6 @@ internal abstract partial record ModeOp {
             findCase: static (inner, row) => Resolve(row.Mode, inner).Map(static mode => Seq(mode)),
             namedCase: static (inner, row) => inner.Catch(() =>
                 Optional(DisplayModeDescription.FindByName(row.Name)).ToFin(inner.InvalidInput()).Map(static mode => Seq(mode))),
-            addCase: static (inner, row) => Mint(() => DisplayModeDescription.AddDisplayMode(row.Mode), inner),
             blankCase: static (inner, row) => Mint(() => DisplayModeDescription.AddDisplayMode(row.Name), inner),
             updateCase: static (inner, row) => inner.Catch(() =>
                 inner.Confirm(DisplayModeDescription.UpdateDisplayMode(row.Mode)).Map(_ => Seq(row.Mode))),

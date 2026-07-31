@@ -1,6 +1,6 @@
 # [PY_DATA_MESH]
 
-Mesh-file exchange owner over a `MeshBackend` axis with the point-cloud interchange row: `MeshPayload` carries mesh-file identity, cell-block topology, units, named array arities, the FE time-series rail, and preview export over one `_BACKEND` behavior table — `meshio` for FE volume/cell-block meshes, `trimesh` for surface meshes, `rhino3dm` for `.3dm` exchange — and `PointCloud` is the LAS/LAZ/COPC row over `laspy` alone. This is file exchange and identity: the IFC-to-GLB tessellation rail belongs to the geometry package, never re-derived here, and the geometry `pdal` filter-graph stays geometry-owned.
+Mesh-file exchange owner over a `MeshBackend` axis with the point-cloud interchange row and the produced-archive sink: `MeshPayload` carries mesh-file identity, cell-block topology, units, named array arities, the FE time-series rail, and preview export over one `_BACKEND` behavior table — `meshio` for FE volume/cell-block meshes, `trimesh` for surface meshes, `rhino3dm` for `.3dm` exchange — `PointCloud` is the LAS/LAZ/COPC row over `laspy` alone, and `ProductKind` is the peer axis over the produced byte payloads a geometry analysis hands down for durable landing. This is file exchange and identity: the IFC-to-GLB tessellation rail belongs to the geometry package, never re-derived here, the geometry `pdal` filter-graph stays geometry-owned, and the product sink lands bytes a producer already minted rather than authoring any of them.
 
 Every payload keys by runtime `ContentIdentity` over the canonical `float64` point buffer, and the named-array egress rides the shared `tabular/columnar#SCAN` `QueryReceipt.railed` Arrow rail — the same `(table, QueryReceipt)` pair every sibling Arrow producer returns. Source engines load exactly once per operation and threads through the row reader, so `read`/`arrays`/`preview`/`write` never re-open the file. Network-bearing COPC reads route through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop — the same retry/span/lift triplet the sibling spatial pages delegate to the runtime resilience owner.
 
@@ -8,6 +8,7 @@ Every payload keys by runtime `ContentIdentity` over the canonical `float64` poi
 
 - [02]-[MESH]: the `MeshPayload` owner over the `_BACKEND` behavior table — topology, named arrays, time-series, preview, write.
 - [03]-[POINTCLOUD]: the `PointCloud` LAS/LAZ/COPC row — octree subset, the columnar point-record bridge, the remote resilience envelope.
+- [04]-[PRODUCT]: the `ProductKind` produced-archive sink — the BCF/cost/diff byte payloads the IFC analysis and costing planes defer here, landed content-keyed.
 
 ## [02]-[MESH]
 
@@ -35,6 +36,7 @@ from rasm.data.tabular.columnar import QueryReceipt
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary, scoped
 from rasm.runtime.lanes import on_thread
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
@@ -256,12 +258,21 @@ class MeshReceipt(Struct, frozen=True):
     units: str
 
     def contribute(self) -> Iterator[Receipt]:
+        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
+        # the SAME pair handed `Metrics.record` beside the identity this payload minted — so the durable row lands in
+        # the `mesh` partition a predicate prunes and rejoins the live series its twin emitted. Cells stay a receipt
+        # fact rather than a second instrument: one vertex stack is the volume a regression moves, and a per-block
+        # cell count is a topology shape a distribution over one number cannot carry.
+        Metrics.record({"rasm.mesh.points": float(self.point_count)}, domain="mesh", kind=self.backend)
         yield Receipt.of(
             "mesh",
             (
                 "emitted",
                 self.content_key.hex,
                 {
+                    "domain": "mesh",
+                    "kind": self.backend,
+                    "key": self.content_key.hex,
                     "backend": self.backend,
                     "points": self.point_count,
                     "blocks": ",".join(self.cell_blocks),
@@ -380,13 +391,15 @@ from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, async_boundary, boundary, scoped
+from rasm.runtime.faults import RuntimeRail, async_boundary, boundary
 from rasm.runtime.lanes import on_thread
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.resilience import RetryClass, guarded
 from rasm.runtime.roots import ResourceRef
 
-_TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.mesh")
+# `_TRACER` and `_column` are the [02]-[MESH] owners in this same module: one module-scope scope handle serves every
+# leg, so a second `scoped` mint beside it would fork one instrumentation coordinate in two.
 
 type Record = laspy.LasData | laspy.ScaleAwarePointRecord
 type Selection = laspy.DecompressionSelection | None
@@ -444,10 +457,28 @@ def _to_arrow(record: Record) -> pa.Table:
     return pa.table({name: _column(array) for name, array in columns.items()})
 
 
-# one point-cloud emitted-phase evidence both the content-keyed table and the frozen owner
-# contribute, native scalars the receipts `Encoder(enc_hook=repr)` serializes without a `str()` coerce.
+# one point-cloud emitted-phase evidence both the content-keyed table and the frozen owner contribute, native scalars
+# the receipts `Encoder(enc_hook=repr)` serializes without a `str()` coerce. `domain`/`kind`/`key` are the lifted
+# evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads — the SAME pair handed `Metrics.record` beside
+# the minted identity — and `kind` is the LAS point-format id because that closed eleven-member set is the bounded
+# dimension a board joins on, where a CRS WKT or a content key would fork the series per file.
 def _pointcloud_receipt(content_key: ContentKey, point_count: int, point_format: int, crs_wkt: str) -> Iterator[Receipt]:
-    yield Receipt.of("pointcloud", ("emitted", content_key.hex, {"points": point_count, "format": point_format, "crs": crs_wkt}))
+    Metrics.record({"rasm.pointcloud.points": float(point_count)}, domain="pointcloud", kind=str(point_format))
+    yield Receipt.of(
+        "pointcloud",
+        (
+            "emitted",
+            content_key.hex,
+            {
+                "domain": "pointcloud",
+                "kind": str(point_format),
+                "key": content_key.hex,
+                "points": point_count,
+                "format": point_format,
+                "crs": crs_wkt,
+            },
+        ),
+    )
 
 
 class PointRecordTable(Struct, frozen=True):
@@ -562,7 +593,102 @@ def _open_copc(path: str, selection: Selection) -> "laspy.copc.CopcReader":
     return laspy.copc.CopcReader.open(path, **threads, **selected)
 ```
 
-## [04]-[RESEARCH]
+## [04]-[PRODUCT]
+
+- Owner: `ProductKind` — the produced-archive peer axis beside `MeshBackend`, each member carrying its own `_PRODUCT` row (suffix, media type, receipt subject) so the sink is a row per product and never a `write_bcf`/`write_costs`/`write_diff` family. This is the sink `geometry/ifc/analysis` and `geometry/ifc/costing` both defer their durable `.bcfzip`, cost-spreadsheet, and diff-export writes to: a producer hands the bytes it already minted, and this owner lands them content-keyed with the suffix its row declares.
+- Cases: `BCF_ARCHIVE` is the BCF 3.0 zip a `BcfXml` document serializes, `COST_TABLE` the cost spreadsheet an IFC quantity fold renders, `DIFF_REPORT` the change export a model comparison emits. Each is a byte payload with a declared container, never a live document handle, because this tier holds no BCF, spreadsheet, or diff engine and a handle crossing here would drag one.
+- Entry: one `archived` fold over the `(kind, payload, out)` triple — the suffix the row declares is PROVEN against the destination rather than appended, so a caller writing a BCF payload to a `.xlsx` path refuses by name instead of landing a mislabelled archive downstream readers sniff wrong.
+- Receipt: one `ProductReceipt` keyed by `ContentIdentity` over the landed bytes, sharing the `mesh` partition its sibling receipts write so an archive and the model it describes prune on one predicate. It records NO measure: byte volume on the object plane is `tabular/egress#EGRESS`'s instrument, and a second series over the same bytes would double whatever an egress leg already metered.
+- Growth: a new product is one `ProductKind` member with its `_PRODUCT` row; a new container for an existing product is one suffix change on that row; zero new surface and no per-product entrypoint.
+- Boundary: byte landing and identity only — no BCF authoring, no spreadsheet rendering, no model diffing, and no IFC read of any kind. The producing geometry planes own every payload; a `ProductKind` row whose bytes this tier would have to author is the rejected shape.
+
+```python signature
+from collections.abc import Iterator
+from enum import StrEnum
+from typing import Final
+
+from expression import Error
+from expression.collections import Map
+from msgspec import Struct
+
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
+from rasm.runtime.roots import ResourceRef
+
+# `_TRACER` is the [02]-[MESH] owner in this same module.
+
+
+# suffix + media + subject per product: the suffix is the PROVEN container, the media type the wire label a
+# downstream reader admits on, and the subject the receipt phase-subject so one partition holds every product row.
+class _Product(Struct, frozen=True, gc=False):
+    suffix: str
+    media: str
+    subject: str
+
+
+class ProductKind(StrEnum):
+    BCF_ARCHIVE = "bcf_archive"
+    COST_TABLE = "cost_table"
+    DIFF_REPORT = "diff_report"
+
+    @property
+    def row(self) -> _Product:
+        return _PRODUCT[self]
+
+
+_PRODUCT: Final[Map[ProductKind, _Product]] = Map.of_seq([
+    (ProductKind.BCF_ARCHIVE, _Product(".bcfzip", "application/octet-stream", "bcf")),
+    (ProductKind.COST_TABLE, _Product(".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "cost")),
+    (ProductKind.DIFF_REPORT, _Product(".json", "application/json", "diff")),
+])
+
+
+class ProductReceipt(Struct, frozen=True):
+    kind: ProductKind
+    path: str
+    media: str
+    byte_length: int
+    content_key: ContentKey
+
+    def contribute(self) -> Iterator[Receipt]:
+        # the `mesh` partition holds every spatial product row, so an archive and the model it describes prune on one
+        # predicate; no measure records here because the object plane's own egress leg meters the bytes it moves.
+        yield Receipt.of(
+            "product",
+            (
+                "emitted",
+                self.kind.row.subject,
+                {
+                    "domain": "mesh",
+                    "kind": self.kind.value,
+                    "key": self.content_key.hex,
+                    "media": self.media,
+                    "bytes": self.byte_length,
+                    "path": self.path,
+                },
+            ),
+        )
+
+
+def archived(kind: ProductKind, payload: bytes, out: ResourceRef) -> RuntimeRail[ProductReceipt]:
+    # the container proof leads the write: a suffix mismatch is a labelling fault the producer owns, and landing the
+    # bytes first would leave a mislabelled archive on disk for a reader to sniff wrong.
+    row = kind.row
+    if out.path.suffix.lower() != row.suffix:
+        return Error(BoundaryFault(config=(f"product.{row.subject}", f"expected {row.suffix}, destination names {out.path.suffix.lower() or 'none'}")))
+
+    def run() -> RuntimeRail[ProductReceipt]:
+        out.path.write_bytes(payload)
+        return ContentIdentity.of(f"product.{row.subject}", payload).map(
+            lambda key: ProductReceipt(kind=kind, path=str(out.path), media=row.media, byte_length=len(payload), content_key=key)
+        )
+
+    with _TRACER.start_as_current_span(f"product.{row.subject}", attributes={"rasm.product.kind": kind.value}):
+        return boundary(f"product.{row.subject}", run).bind(lambda rail: rail)
+```
+
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

@@ -1,20 +1,20 @@
 # [MATERIALS_FASTENER]
 
-THE FASTENER SEED PAGE owns the `ComponentFamily.Fastener` fold and the single-fastener capacity and assembly algebra. `StockRow.Threaded` carries `ThreadRow` and `GradeRow`; `StockRow.Plain` carries published nail, dowel, and rivet data without a fake thread or bolt grade. Both cases project through `SelectedKind`, `StockDesignation`, `NominalDiameterMm`, `StockLengthMm`, `StockStandard`, `StockSubstance`, and `StockAppearance`, so geometry, IFC binding, realization detail, and `Component.Of` share one fold while case-specific admission remains total.
+THE FASTENER SEED PAGE owns the `ComponentFamily.Fastener` fold and the single-fastener capacity and assembly algebra. `StockRow.Threaded` carries `ThreadRow` and `GradeRow`; `StockRow.Plain` carries published nail, dowel, and rivet data — including its own PUBLISHED tensile strength — without a fake thread or bolt grade. Both cases project through `SelectedKind`, `StockDesignation`, `NominalDiameterMm`, `UltimateMpa`, `StockLengthMm`, `StockStandard`, `StockSubstance`, and `StockAppearance`, so geometry, IFC binding, realization detail, the EC5 dowel check, and `Component.Of` share one fold while case-specific admission remains total.
 
 ## [01]-[INDEX]
 
-- [02]-[FASTENER_FAMILY]: the `FastenerKind`/`ThreadSeries`/`BoltCategory`/`FayingSurface` policy vocabularies, the `HexHardware` envelope, the `ThreadRow`/`GradeRow` frozen standards tables with `Threads`/`Grades` owners, the `Fastening` single-bolt capacity, thread-split, and EC5 dowel-type timber-connection algebra, the `FastenerDetail` realization bag, and the `FastenerSeed.Rows` typed-selection generator over the `StockRow` symbolic rows.
+- [02]-[FASTENER_FAMILY]: the `FastenerKind`/`ThreadSeries`/`BoltCategory`/`FayingSurface` policy vocabularies, the `HexHardware` envelope, the `ThreadRow`/`GradeRow` frozen standards tables with `Threads`/`Grades` owners, the `Fastening` single-bolt capacity, thread-split, and EC5 dowel-type timber-connection algebra over the shared `NominalDiameterMm`/`UltimateMpa` stock projections, the `FastenerDetail` realization bag, and the `FastenerSeed.Rows` typed-selection generator over the `StockRow` symbolic rows.
 - [03]-[BOLT_ASSEMBLY]: the `FastenerAssembly` complete-connection owner — bolt + grip-plies (`Dimension`) + shear-planes + nut + washer over one `(ThreadRow, GradeRow, BoltCategory, FayingSurface)`, the `PreloadKn` `Fp,C = 0.7·fub·As` projection, the `FastenerInstallation` admitted slip-and-torque factor set, the `SlipResistanceKn` EN 1993-1-8 preloaded design value, and the ISO 7089/7090 washer-hardness selection.
 
 ## [02]-[FASTENER_FAMILY]
 
 - Owner: `FastenerSeed` owns the `ComponentFamily.Fastener` row fold; `Threads` and `Grades` own frozen standards data; `FastenerKind` owns the complete IFC entity/token binding for nut and every mechanical kind, including nail; `BoltCategory`, `FayingSurface`, and `ThreadSeries` own policy; `Fastening` owns single-fastener design values; `FastenerAssembly` owns installed-bolt state; and `FastenerDetail` owns the realization bag.
-- Cases: kind {`bolt` · `nut` · `nail` · `screw` · `anchor` · `dowel` · `rivet` · `coupler`} × stock form {threaded hardware over a `ThreadRow`/`GradeRow` pair · plain shank over its published designation, diameter, length, standard, and material pair}; the joint category is a `FastenerAssembly` decision, never a type-row column.
-- Entry: `FastenerSeed.Rows(context)` traverses the typed `Stocked` selection, dispatches `StockRow.Admit`, and feeds the common `StockDesignation`/`NominalDiameterMm`/`StockLengthMm`/material projections into `Component.Of`; `Fastening` owns the threaded-hardware capacity and ISO 4014 length algebra.
+- Cases: kind {`bolt` · `nut` · `nail` · `screw` · `anchor` · `dowel` · `rivet` · `coupler`} × stock form {threaded hardware over a `ThreadRow`/`GradeRow` pair · plain shank over its published designation, diameter, length, tensile strength, standard, and material pair}; the joint category is a `FastenerAssembly` decision, never a type-row column.
+- Entry: `FastenerSeed.Rows(context)` traverses the typed `Stocked` selection, dispatches `StockRow.Admit`, and feeds the common `StockDesignation`/`NominalDiameterMm`/`StockLengthMm`/material projections into `Component.Of`; `Fastening` owns the threaded-hardware capacity, the ISO 4014 length algebra, and the EC5 §8 dowel-type check over `NominalDiameterMm`/`UltimateMpa`.
 - Packages: Rasm.Numerics (`Dimension` — the `[03]` discrete grip-ply/shear-plane counts), Rasm.Domain (`Op`/`Context`/`AcceptValidated`), Rasm.Element (`MaterialId`, `DetailSchema`, `PropertyBag`, the SI `Dimension` axis the bag mints over), Rasm.Materials.Component (the parent owner: `Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile.Circle.Of` the railed profile admission/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]` for the four retained policy vocabularies), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`.As()`/`guard`/`Option`), VividOrange.Standards (`En1993`/`En1993Part.Part1_8`/`NationalAnnex` — the typed joints-code citation on `BoltCategory`), BCL (`ImmutableArray`). No bolt-grade producer exists among admitted packages (`VividOrange.Materials` `EnSteelGrade` is EN member-grade data, no ISO 898-1/SAE/ASTM bolt classes), so the rows are AUTHORED/PUBLISHED here.
 - Growth: a new threaded combination is one `StockRow.Threaded`; a new plain-shank product one `StockRow.Plain`; a new kind one `FastenerKind` row plus its appropriate stock case; a new thread or property class one named table row; and a new connection category one `BoltCategory` row.
-- Boundary: every fastener uses `SectionProfile.Circle` and the seed-built realization bag. Thread semantics and `GradeRow` material data exist only on `StockRow.Threaded`; `StockRow.Plain` carries its own published diameter, length, standard, and independent substance/appearance pair. IFC tokens remain portable egress hints validated by `Rasm.Bim`.
+- Boundary: every fastener uses `SectionProfile.Circle` and the seed-built realization bag. Thread semantics and `GradeRow` material data exist only on `StockRow.Threaded`; `StockRow.Plain` carries its own published diameter, length, tensile strength, standard, and independent substance/appearance pair. `Fastening.TimberDowelShearKn` takes the two SCALARS EC5 §8 consumes — shank diameter and fastener ultimate strength — so the plain dowel, nail, and rivet rows the clause is written for reach it through `StockRow.UltimateMpa`, never a threaded currency a plain product does not carry. IFC tokens remain portable egress hints validated by `Rasm.Bim`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -238,21 +238,26 @@ public static class Fastening {
 
     // EC5 §8 dowel-type TIMBER connection — the first cross-material composition of the fastener and timber
     // vocabularies: embedment fh,k = 0.082·(1 − 0.01·d)·ρk (Eq 8.32, predrilled bolt/dowel) off TimberGrade.DensityK,
-    // fastener yield moment My,Rk = 0.3·fu,b·d^2.6 (Eq 8.30) off the grade band's fub, the per-shear-plane
-    // timber-to-timber single-shear characteristic Fv,Rk as the MINIMUM over the six Johansen modes (Eq 8.6 a-f, the
-    // rope-effect Fax/4 term taken 0 — the withdrawal capacity is hardware-specific data), and the design value
-    // kmod·Fv,Rk/γM with the CONNECTION γM = 1.3 and the timber LoadDuration/ServiceClass joint. Steel-to-timber and
-    // multi-plane groups are the forward Compute join over this per-plane value.
+    // fastener yield moment My,Rk = 0.3·fu,b·d^2.6 (Eq 8.30), the per-shear-plane timber-to-timber single-shear
+    // characteristic Fv,Rk as the MINIMUM over the six Johansen modes (Eq 8.6 a-f, the rope-effect Fax/4 term taken
+    // 0 — the withdrawal capacity is hardware-specific data), and the design value kmod·Fv,Rk/γM with the CONNECTION
+    // γM = 1.3 and the timber LoadDuration/ServiceClass joint. The inputs are the two SCALARS the clause consumes —
+    // shank diameter and fastener ultimate strength — not the THREADED currencies: EC5 §8 is definitionally the PLAIN
+    // dowel-type connection, FastenerKind.Dowel is declared threaded: false, and the family's own dowel and nail rows
+    // are StockRow.Plain, so a (ThreadRow, GradeRow) signature made the page's one realized cross-material capability
+    // unreachable for its namesake. StockRow.UltimateMpa is the polymorphic projection that feeds it from either
+    // stock case. Steel-to-timber and multi-plane groups are the forward Compute join over this per-plane value.
     public static Fin<double> TimberDowelShearKn(
-        ThreadRow thread, GradeRow grade, TimberGrade side1, double t1Mm, TimberGrade side2, double t2Mm,
+        double diameterMm, double fastenerUltimateMpa, TimberGrade side1, double t1Mm, TimberGrade side2, double t2Mm,
         ServiceClass service, LoadDuration duration, Op key) =>
-        from admitted in guard(double.IsFinite(t1Mm) && t1Mm > 0.0 && double.IsFinite(t2Mm) && t2Mm > 0.0,
-            ComponentFault.Dimension(key, $"<dowel-ply-thickness-rejected:{t1Mm:R}:{t2Mm:R}>"))
-        let d = thread.MajorMm
+        from admitted in guard(double.IsFinite(t1Mm) && t1Mm > 0.0 && double.IsFinite(t2Mm) && t2Mm > 0.0
+                && double.IsFinite(diameterMm) && diameterMm > 0.0 && double.IsFinite(fastenerUltimateMpa) && fastenerUltimateMpa > 0.0,
+            ComponentFault.Dimension(key, $"<dowel-inputs-rejected:d={diameterMm:R}:fu={fastenerUltimateMpa:R}:t1={t1Mm:R}:t2={t2Mm:R}>"))
+        let d = diameterMm
         let fh1 = 0.082 * (1.0 - 0.01 * d) * side1.DensityK
         let fh2 = 0.082 * (1.0 - 0.01 * d) * side2.DensityK
         let beta = fh2 / fh1
-        let my = 0.3 * grade.At(thread).TensileStrengthMpa * Math.Pow(d, 2.6)
+        let my = 0.3 * fastenerUltimateMpa * Math.Pow(d, 2.6)
         let ratio = t2Mm / t1Mm
         let modeC = fh1 * t1Mm * d / (1.0 + beta)
             * (Math.Sqrt(beta + 2.0 * beta * beta * (1.0 + ratio + ratio * ratio) + beta * beta * beta * ratio * ratio) - beta * (1.0 + ratio))
@@ -283,11 +288,20 @@ public static class FastenerDetail {
 public abstract partial record StockRow {
     private StockRow() { }
     public sealed record Threaded(FastenerKind Kind, ThreadRow Thread, GradeRow Grade, double LengthMm) : StockRow;
+    // UltimateMpaColumn is the PUBLISHED tensile strength of the plain shank — ASTM F1667 common nail 690, EN 10025
+    // dowel bar 400, ASTM A502 rivet 415 — the one datum the EC5 §8 yield-moment relation needs and no thread/grade
+    // pair carries for a plain product. Named for its column so the shared UltimateMpa projection reads clean.
     public sealed record Plain(
-        FastenerKind Kind, string Designation, double DiameterMm, double LengthMm,
+        FastenerKind Kind, string Designation, double DiameterMm, double LengthMm, double UltimateMpaColumn,
         ComponentStandard Standard, MaterialId Substance, MaterialId Appearance) : StockRow;
 
     public FastenerKind SelectedKind => Switch(threaded: static row => row.Kind, plain: static row => row.Kind);
+    // The shared ultimate-strength projection both stock cases answer: a threaded row reads its grade's tensile
+    // strength at its own thread band, a plain row its published column — so the EC5 dowel check takes ONE scalar
+    // from either form, exactly as NominalDiameterMm already does.
+    public double UltimateMpa => Switch(
+        threaded: static row => row.Grade.At(row.Thread).TensileStrengthMpa,
+        plain: static row => row.UltimateMpaColumn);
     public string StockDesignation => Switch(
         threaded: static row => $"{row.Thread.Designation}-{row.Grade.Tag}",
         plain: static row => row.Designation);
@@ -331,10 +345,10 @@ public static class FastenerSeed {
         new StockRow.Threaded(FastenerKind.Anchor,  Threads.M16,    Grades.G88,  200.0),
         new StockRow.Threaded(FastenerKind.Anchor,  Threads.M20,    Grades.G88,  250.0),
         new StockRow.Threaded(FastenerKind.Anchor,  Threads.In0750, Grades.A325, 304.8),
-        new StockRow.Plain(FastenerKind.Nail,  "8d-common",   3.33, 63.5,  new ComponentStandard("us", 0.0, ComponentAuthority.Astm), MaterialId.Of("steel.fastener-nail"),  MaterialId.Of("metal.iron")),
-        new StockRow.Plain(FastenerKind.Nail,  "10d-common",  3.76, 76.2,  new ComponentStandard("us", 0.0, ComponentAuthority.Astm), MaterialId.Of("steel.fastener-nail"),  MaterialId.Of("metal.iron")),
-        new StockRow.Plain(FastenerKind.Dowel, "dowel-20",   20.0, 100.0, new ComponentStandard("eu", 0.0, ComponentAuthority.En),   MaterialId.Of("steel.fastener-dowel"), MaterialId.Of("metal.steel")),
-        new StockRow.Plain(FastenerKind.Rivet, "rivet-0500", 12.7, 38.1,  new ComponentStandard("us", 0.0, ComponentAuthority.Astm), MaterialId.Of("steel.fastener-rivet"), MaterialId.Of("metal.iron"))];
+        new StockRow.Plain(FastenerKind.Nail,  "8d-common",   3.33, 63.5,  690.0, new ComponentStandard("us", 0.0, ComponentAuthority.Astm), MaterialId.Of("steel.fastener-nail"),  MaterialId.Of("metal.iron")),
+        new StockRow.Plain(FastenerKind.Nail,  "10d-common",  3.76, 76.2,  690.0, new ComponentStandard("us", 0.0, ComponentAuthority.Astm), MaterialId.Of("steel.fastener-nail"),  MaterialId.Of("metal.iron")),
+        new StockRow.Plain(FastenerKind.Dowel, "dowel-20",   20.0, 100.0, 400.0, new ComponentStandard("eu", 0.0, ComponentAuthority.En),   MaterialId.Of("steel.fastener-dowel"), MaterialId.Of("metal.steel")),
+        new StockRow.Plain(FastenerKind.Rivet, "rivet-0500", 12.7, 38.1,  415.0, new ComponentStandard("us", 0.0, ComponentAuthority.Astm), MaterialId.Of("steel.fastener-rivet"), MaterialId.Of("metal.iron"))];
 
     public static Fin<Seq<ComponentRow>> Rows(Context context) =>
         Stocked.ToSeq().Traverse(row =>
@@ -417,7 +431,8 @@ public readonly record struct FastenerAssembly(
         from planes in key.AcceptValidated<Dimension>(candidate: shearPlanes)
         select new FastenerAssembly(thread, grade, category, category.Preloaded ? faying : FayingSurface.None, plies, planes, withWasher);
 
-    // Fp,C = 0.7·fub·As over the size-banded At read.
+    // Fp,C = 0.7·fub·As over the size-banded At read; None IS a snug-tight non-preloaded connection, the absence the
+    // Rasm.Compute consumer reads through the Option — never numeric zero, which would price a preload the joint has not.
     public Option<double> PreloadKn => Category.Preloaded
         ? Some(0.7 * Grade.At(Thread).TensileStrengthMpa * Thread.StressAreaMm2 * 1e-3)
         : None;
@@ -439,12 +454,4 @@ public readonly record struct FastenerAssembly(
 
 ## [04]-[RESEARCH]
 
-- [SEED_GENERATOR]: `StockRow.Threaded` preserves symbolic thread/grade selection and its system guard; `StockRow.Plain` admits nails, dowels, and rivets without fake thread or bolt-grade semantics. Both cases traverse the same `Component.Of` rail and a malformed row aborts the catalogue.
-- [ROW_TABLE_CONVERSION]: REALIZED — `ThreadSize`(17) and `FastenerGrade`(13) convert 1:1 to the frozen `ThreadRow`/`GradeRow` tables, values verbatim, per-column provenance: `MajorMm`/`PitchMm` and the ISO 724 / ASME B1.1 basic minor `MinorMm` PUBLISHED; `StressAreaMm2` PUBLISHED — the printed ISO 898-1 metric areas (`M12` = `84.3 mm²`) and ASME B1.1 Unified areas (`3/8-16` = `50.0 mm²`) stored verbatim, replacing the prior in-fence formulas (a printed normative value is never re-derived; the metric mean-of-diameters formula over-predicts an inch thread ~3%); the thread form DEFINED (`d2 = d − 0.649519·P`, rounded-root `d3 = d − 1.226869·P`, `H = 0.866025·P`, `e = s·2/√3`, gross shank `πd²/4`); the grade bands PUBLISHED as the Table 3 MIN column (cls 8.8 proof `580`/tensile `800 MPa` ≤M16 with the `GradeStep` `600`/`830`/`660` above, Gr5 `585`/`827`, A490 `830`/`1040`) with the Table 3.4 threaded-plane `αv` and the §3.9 preloadable flag — the prior 5.8 row's nominal-column transcription (`500`/`400`) is corrected to the min column (`520`/`420`) the sibling rows already carry. The generated `Switch`/`Map` surfaces of the prior vocabularies were unused (no per-case behavior), and no key ingress survives the typed fold — the speculative `Lazy<FrozenDictionary>` `ByKey` indexes are deleted with it (the connector page's own no-consumer verdict, applied here). Each `GradeRow` cites its own `ComponentStandard` (EN ISO 898-1 rows under `ComponentAuthority.En`, SAE/ASTM rows under `ComponentAuthority.Astm`), retiring the prior single mislabeled static.
-- [TYPE_ROW_SHAPE]: REALIZED — the bespoke `FastenerSection` payload and its section arm are deleted: geometry is `SectionProfile.Circle` over the nominal major (Sectioned `false`, no `ComputedSection`); the realization identity is the seed-built bag whose rows are byte-identical to the retired projector switch (`FastenerType` token + `NominalDiameter` + `NominalLength`, dimension-only SI mints), the per-row stock length riding the `StockRow` selection into `NominalLength`; the joint category and faying class leave the type rows for the `[03]` connection owner, so one bolt type serves bearing and preloaded joints (the prior duplicate bearing/slip-critical rows for one physical bolt collapse); the placed grip length stays an instance concern above this page.
-- [CAPACITY_ALGEBRA]: `Fastening` owns shear, bearing, proof, tensile, and ISO length projections over typed thread and grade rows. `ShearPlane` selects the threaded stress-area/grade factor or gross-shank/`0.60` policy without a boolean. `BearingDesign` admits ply thickness, ultimate stress, and edge factor. `FastenerAssembly` returns optional preload, slip resistance, and tightening torque for the preloaded modality, and `FastenerInstallation` admits their shared factors.
-- [IFC_FASTENER_WIRE]: `FastenerKind` owns both IFC entity and predefined token. Bolt, screw, nail, anchor bolt, dowel, rivet, and coupler stamp `IfcMechanicalFastener`; nut stamps `IfcDiscreteAccessory`/`USERDEFINED`. `ConnectorInstall` composes the canonical `FastenerKind.Nail`, `Screw`, and `Bolt` rows instead of duplicating token strings.
-- [INCH_HARDWARE_ENVELOPE]: RESEARCH — the UNC rows' `Hardware` column is `None`; the ASME B18.2.1 head, B18.2.2 nut, and B18.22.1 washer rows seed the inch `HexHardware` when an inch-detailed generative target lands (the across-flats wrench sizes are already carried). Until then an inch bolt's thread form, stress area, and capacities are complete while its hex solid waits on the ASME envelope rows.
-- [GRADE_SIZE_BANDS]: REALIZED — ISO 898-1 bands the 8.8 mechanical values by size (proof `580`/tensile `800`/yield `640 MPa` at `≤ M16`; `600`/`830`/`660` above): the `GradeStep` option column carries the >threshold triple, `GradeRow.At(thread)` is the ONE band read every capacity projection (`ProofLoadKn`/`TensileLoadKn`/`ShearCapacityKn`/`PreloadKn`) routes through, and the prior single hybrid row (>M16 proof beside ≤M16 tensile — a 3.4% proof overstatement on the stocked `m12`/`m16` bolts) is retired; ASTM F3125 unified the old A325 over-1in reduction, so no inch row steps and the designations are unchanged.
-- [COMPUTE_CONSUMER]: `Rasm.Compute` consumes `Fastening.ShearCapacityKn`, `Fastening.TensileLoadKn`, and the optional `FastenerAssembly.SlipResistanceKn`; the absence branch is a snug-tight connection, never numeric zero.
-- [TIMBER_DOWEL]: REALIZED — `Fastening.TimberDowelShearKn` is the EC5 §8 dowel-type timber connection, the first capability composing the fastener and timber vocabularies: embedment `fh,k = 0.082·(1 − 0.01·d)·ρk` reads `TimberGrade.DensityK` (the carried column previously without an embedment consumer), the yield moment `My,Rk = 0.3·fu,b·d^2.6` reads the grade band's published `fub` through `GradeRow.At(thread)`, the per-shear-plane timber-to-timber `Fv,Rk` is the minimum over the six Johansen modes (Eq 8.6 a-f; the rope-effect `Fax/4` term 0 — withdrawal capacity is hardware-certified data), and the design value folds `kmod` off the timber `LoadDuration`/`ServiceClass` joint over the connection `γM = 1.3`. Steel-to-timber plates and multi-fastener group effects are the forward `Rasm.Compute` join over this per-plane value. Ripple counterpart: `timber#TIMBER_FAMILY` (`TimberGrade.DensityK` the embedment input, now consumed).
+- [INCH_HEX_ENVELOPE]-[OPEN]: which ASME B18.2.1 head, B18.2.2 nut, and B18.22.1 washer dimensions fill the `HexHardware` envelope the UNC `ThreadRow`s carry as `None`; route: the published ASME B18 dimensional tables, one row per stocked inch size.

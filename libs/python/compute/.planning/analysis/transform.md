@@ -32,7 +32,7 @@ from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -241,13 +241,13 @@ def _transform_kernel(samples: object, fs: float, op: TransformOp, workers: int)
     )
 
 
-async def apply(samples: object, fs: float, op: TransformOp, lane: LanePolicy) -> "RuntimeRail[TransformReceipt]":
+async def apply(samples: object, fs: float, op: TransformOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[TransformReceipt]":
     # weave owns span, fence, and the fenced contributor harvest.
     async def dispatch() -> RuntimeRail[TransformReceipt]:
         # One flatten from `RuntimeRail[RuntimeRail[TransformReceipt]]` to `RuntimeRail[TransformReceipt]`.
         return (await lane.offload(Kernel.of(_transform_kernel, KernelTrait.RELEASING), samples, fs, op, lane.capacity)).bind(lambda rail: rail)
 
-    return await evidence_run(EvidenceScope.TRANSFORM, f"transform.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs})
+    return await evidence_run(EvidenceScope.TRANSFORM, f"transform.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs}, composition=composition)
 
 
 def _apply(samples: object, fs: float, op: TransformOp, key: ContentKey, workers: int) -> TransformReceipt:

@@ -1,6 +1,6 @@
 # [APPUI_MOTION_TOKENS]
 
-Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries one `MotionTiming` modality and one reduced-motion delegate, and every duration or easing literal in the package traces to that owner. `MotionTiming.Tween` carries duration plus easing while `MotionTiming.Spring` derives its response envelope from the admitted spring, so an impossible duration/curve/spring combination is unrepresentable. The page owns the token axis, the `MotionPlan` policies and `MotionPacing` discriminant feeding Avalonia transitions, chart timing, pan-zoom canvases, reactive cadence, the closed `ProgressPhase` mapping, and the global reduced-motion degrade switch.
+Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries one `MotionTiming` modality and one reduced-motion delegate, and every duration or easing literal in the package traces to that owner. `MotionTiming.Tween` carries duration with easing while `MotionTiming.Spring` derives its response envelope from the admitted spring, so an impossible duration/curve/spring combination is unrepresentable. This page owns the token axis, the `MotionPlan` policies and `MotionPacing` discriminant feeding Avalonia transitions, chart timing, pan-zoom canvases, reactive cadence, the closed `ProgressPhase` mapping, and the global reduced-motion degrade switch.
 
 ## [01]-[INDEX]
 
@@ -11,15 +11,16 @@ Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries one 
 
 ## [02]-[MOTION_AXIS]
 
-- Owner: `ComparerAccessors.StringOrdinal` accessor; `SpringValue` admission-gated spring algebra; `MotionTiming` closed tween-or-spring modality; `MotionFault` the typed motion rail on the `AppUiFaultBand.Motion` 6630 registry row; `MotionToken` six-row vocabulary.
+- Owner: `ComparerAccessors.StringOrdinal` accessor; `SpringValue` the (response, damping-fraction) authoring projection over the kernel `SpringShape` mint; `MotionTiming` closed tween-or-spring modality; `MotionFault` the typed motion rail on the `AppUiFaultBand.Motion` 6630 registry row; `MotionToken` six-row vocabulary.
 - Cases: instant, fast, standard, emphasized, spring-snappy, spring-gentle; `MotionFault` = SpringOutOfDomain | PhaseUnmapped | OrdinalOutOfDomain | ProbeUnavailable under the 6630 row.
 - Entry: `public partial MotionToken Reduced()` — the `[UseDelegateFromConstructor]` reduced-pair column, total by construction over the row family.
-- Auto: timing rows double as throttle and debounce pacing values consumed by live-data streams, behavior intervals, and screen runtime rows; `SpringValue` derives stiffness and damping from response and damping fraction, so a spring row carries two tuning values, never four constants — and every derivation reads admitted members only, because the `[ComplexValueObject]` factory is the sole construction path.
-- Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
-- Growth: a new motion grade is one `MotionToken` row carrying its reduced delegate; a new spring invariant is one predicate arm inside `ValidateFactoryArguments`; zero new surface.
-- Boundary: `MotionTiming.Tween` carries one NodaTime duration plus one Avalonia `Easing`, while `MotionTiming.Spring` carries one admitted `SpringValue` and derives its duration from `Response`; the former optional-spring ghost and duplicated spring-duration knob are unrepresentable. `MotionToken.Duration`, `Curve`, and `Spring` are projections of the timing case for consumers, not independent constructor columns. Reduced targets are deferred row delegates, `SpringEasing` owns spring progress, and `SpringValue` admits finite positive response plus non-negative damping once; unit mass is derived policy because every token shared it.
+- Auto: timing rows double as throttle and debounce pacing values consumed by live-data streams, behavior intervals, and screen runtime rows; `SpringValue` admission DELEGATES to the kernel `SpringShape.OfResponse` gate — one admission rule, package-typed onto `MotionFault.SpringOutOfDomain` — and its `Shape` projection re-reads that proven gate, so the spring algebra has exactly one owner and a package-local stiffness or damping derivation is the deleted form.
+- Packages: Rasm (project — `SpringShape`/`SpringState` the one spring mint, `Easing` the one easing vocabulary, `UnitInterval` the progress admission), Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
+- Growth: a new motion grade is one `MotionToken` row carrying its reduced delegate; a new spring invariant is one kernel-gate predicate the delegated admission inherits; zero new surface.
+- Boundary: `MotionTiming.Tween` carries one NodaTime duration and one kernel `Easing` row, while `MotionTiming.Spring` carries one admitted `SpringValue` and derives its duration from `Response` and its curve from the kernel three-regime closed form; the former optional-spring ghost, duplicated spring-duration knob, and hand-copied stiffness/damping constants are unrepresentable. `MotionToken.Duration`, `Curve`, and `Spring` are projections of the timing case for consumers, not independent constructor columns. Reduced targets are deferred row delegates; `MotionEasing` is the ONE Avalonia adapter at the animation binding boundary — a per-family Avalonia easing type (`SpringEasing`, the built-in tween easings) is the deleted form.
 
 ```csharp signature
+using KernelEase = Rasm.Parametric.Easing;
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MotionFault : Expected, IValidationError<MotionFault> {
@@ -35,21 +36,37 @@ public abstract partial record MotionFault : Expected, IValidationError<MotionFa
         : MotionFault($"motion/probe: {Detail}", AppUiFaultBand.Motion.Code(3));
 }
 
-// Duration and Easing thread through the base positional parameters (the ControlIntent pattern); the
-// Spring arm derives both from its admitted SpringValue at construction, so the two projections stay
-// case-consistent by construction and never re-derive per read.
+// Duration and Curve thread through the base positional parameters (the ControlIntent pattern); each case
+// derives both from its own payload at construction — the tween from its kernel easing row, the spring from the
+// kernel three-regime closed form over its admitted shape — so the projections stay case-consistent by
+// construction, capture the kernel read ONCE per row, and never re-derive per read.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MotionTiming(Duration Duration, Easing Easing) {
-    public sealed record Tween(Duration Duration, Easing Easing) : MotionTiming(Duration, Easing);
+public abstract partial record MotionTiming(Duration Duration, Func<double, double> Curve) {
+    public sealed record Tween(Duration Duration, KernelEase Ease) : MotionTiming(
+        Duration,
+        t => Ease.Evaluate(t: UnitInterval.Create(Math.Clamp(t, 0d, 1d))));
     public sealed record Spring(SpringValue Value) : MotionTiming(
         Duration.FromMilliseconds(Value.Response * 1000d),
-        new SpringEasing(mass: 1d, stiffness: Value.Stiffness, damping: Value.Damping));
+        SpringProgress(shape: Value.Shape, response: Value.Response));
 
     public Option<SpringValue> SpringValue => Switch(
         tween: static _ => None,
         spring: static value => Some(value.Value));
+
+    // Unit progress through the kernel closed form: position from rest to a unit target over the response
+    // window, every regime (under-, critically-, over-damped) selected by the admitted shape's own zeta. The
+    // failure arm is structurally unreachable — admitted shape, clamped finite elapsed — and collapses
+    // to the terminal pose at this UI leaf.
+    private static Func<double, double> SpringProgress(SpringShape shape, float response) =>
+        t => shape.Evaluate(
+                from: new SpringState(Position: 0d, Velocity: 0d), target: 1d,
+                elapsed: Math.Clamp(t, 0d, 1d) * response, key: ((Op?)null).OrDefault())
+            .Match(Succ: static state => state.Position, Fail: static _ => 1d);
 }
 
+// Authoring projection over the kernel spring mint: Response and DampingFraction are the token-facing
+// tuning pair, admission is the kernel gate package-typed, and Shape re-reads the proven gate — the
+// stiffness/damping constant derivations were the hand-copied kernel algebra and are deleted.
 [ComplexValueObject]
 [ValidationError<MotionFault>]
 public readonly partial struct SpringValue {
@@ -57,26 +74,31 @@ public readonly partial struct SpringValue {
 
     public float DampingFraction { get; }
 
-    public float Stiffness => (2f * MathF.PI / Response) * (2f * MathF.PI / Response);
+    public SpringShape Shape =>
+        SpringShape.OfResponse(response: Response, dampingFraction: DampingFraction).ThrowIfFail();
 
-    public float Damping => 4f * MathF.PI * DampingFraction / Response;
+    static partial void ValidateFactoryArguments(ref MotionFault? validationError, ref float response, ref float dampingFraction) {
+        (float r, float d) = (response, dampingFraction);
+        validationError = SpringShape.OfResponse(response: r, dampingFraction: d).Match(
+            Succ: static _ => (MotionFault?)null,
+            Fail: _ => new MotionFault.SpringOutOfDomain($"response {r} damping-fraction {d}"));
+    }
+}
 
-    static partial void ValidateFactoryArguments(ref MotionFault? validationError, ref float response, ref float dampingFraction) =>
-        validationError = (float.IsFinite(response) && response > 0f, float.IsFinite(dampingFraction) && dampingFraction >= 0f) switch {
-            (false, _) => new MotionFault.SpringOutOfDomain($"response {response}"),
-            (_, false) => new MotionFault.SpringOutOfDomain($"damping-fraction {dampingFraction}"),
-            _ => validationError,
-        };
+// ONE Avalonia adapter at the animation binding boundary: a transition binds a token and reads its
+// curve through this shim, so no second Avalonia easing type exists anywhere in the package.
+public sealed class MotionEasing(Func<double, double> curve) : Avalonia.Animation.Easings.Easing {
+    public override double Ease(double progress) => curve(progress);
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MotionToken {
-    public static readonly MotionToken Instant = new("instant", new MotionTiming.Tween(Duration.Zero, new LinearEasing()), reduced: static () => Instant);
-    public static readonly MotionToken Fast = new("fast", new MotionTiming.Tween(Duration.FromMilliseconds(100), new QuadraticEaseOut()), reduced: static () => Instant);
-    public static readonly MotionToken Standard = new("standard", new MotionTiming.Tween(Duration.FromMilliseconds(250), new CubicEaseInOut()), reduced: static () => Fast);
-    public static readonly MotionToken Emphasized = new("emphasized", new MotionTiming.Tween(Duration.FromMilliseconds(400), new QuinticEaseOut()), reduced: static () => Fast);
+    public static readonly MotionToken Instant = new("instant", new MotionTiming.Tween(Duration.Zero, KernelEase.Linear), reduced: static () => Instant);
+    public static readonly MotionToken Fast = new("fast", new MotionTiming.Tween(Duration.FromMilliseconds(100), KernelEase.QuadOut), reduced: static () => Instant);
+    public static readonly MotionToken Standard = new("standard", new MotionTiming.Tween(Duration.FromMilliseconds(250), KernelEase.CubicInOut), reduced: static () => Fast);
+    public static readonly MotionToken Emphasized = new("emphasized", new MotionTiming.Tween(Duration.FromMilliseconds(400), KernelEase.QuintOut), reduced: static () => Fast);
     public static readonly MotionToken SpringSnappy = new("spring-snappy", new MotionTiming.Spring(SpringValue.Create(response: 0.30f, dampingFraction: 0.85f)), reduced: static () => Fast);
     public static readonly MotionToken SpringGentle = new("spring-gentle", new MotionTiming.Spring(SpringValue.Create(response: 0.65f, dampingFraction: 1.00f)), reduced: static () => Standard);
 
@@ -84,7 +106,7 @@ public sealed partial class MotionToken {
 
     public Duration Duration => Timing.Duration;
 
-    public Func<double, double> Curve => Timing.Easing.Ease;
+    public Func<double, double> Curve => Timing.Curve;
 
     public Option<SpringValue> Spring => Timing.SpringValue;
 
@@ -100,7 +122,7 @@ public sealed partial class MotionToken {
 - Entry: `public TimeSpan ChartSpeed` — chart animation timing for the `AnimationsSpeed` binding.
 - Auto: pan-zoom canvases bind `EnableAnimations` and `AnimationDuration` from `ZoomMilliseconds`; dialog and toast sessions read their plan rows for enter-exit pairs, page transitions read the Page row, and list or sequence entrances derive per-item delay from `Delay(ordinal)` over the Cascade row's `Stagger` column; headless motion specs advance frames through `ForceRenderTimerTick` against the `ClockPolicy` fake pair, so every animation assertion runs deterministically.
 - Packages: Avalonia, LiveChartsCore.SkiaSharpView.Avalonia, PanAndZoom, System.Reactive, NodaTime, BCL inbox
-- Growth: a new animated surface is one `MotionPlan` row, and a new cadence is one `MotionPacing` case plus one `Gate` arm; zero operation proliferation.
+- Growth: a new animated surface is one `MotionPlan` row, and a new cadence is one `MotionPacing` case with one `Gate` arm; zero operation proliferation.
 - Boundary: the projection surface IS the selection boundary — `ChartSpeed`, `ChartCurve`, `ZoomMilliseconds`, and `Gate` fold `ReducedMotion.Select` at the read, so a raw row token structurally cannot leak unreduced timing under active reduction; projections take authored row tokens, and feeding an already-selected token (`EnterToken`, `ExitToken`, a `PhaseMotion.Resolve` result) back through a projection is the deleted double-degrade form. `Gate` discriminates trailing throttle, sampled pulse, and lossless serial dwell through one scheduler-parameterized entrypoint, so headless consumers inject `VirtualTimeScheduler` or `HistoricalScheduler`; the serial row delays and concatenates every element instead of sampling a loss-bearing stream. `Delay` rejects negative ordinals on `Fin`; `PhaseMotion.Resolve` returns `PhaseUnmapped` instead of indexing a dictionary; and `MotionProbeRow.Designed` cannot masquerade as an executable probe. `ToastHorizon` is the one motion-owned hold window the `Shell/dialogs.md` `ToastGate.Flush` drain consumes at composition — a dialog-local horizon literal is the deleted form.
 
 ```csharp signature
@@ -168,12 +190,12 @@ public static class MotionApplication {
 
 ## [04]-[PHASE_MAPPING]
 
-- Owner: `PhaseMotion` frozen mapping table.
-- Entry: `public static Fin<MotionToken> Resolve(ProgressPhase phase)` — typed totality over the nine-row map, with degrade applied inside and an unmapped future case returned as `MotionFault.PhaseUnmapped`.
+- Owner: `PhaseMotion` frozen mapping table and its `Covered` totality assertion.
+- Entry: `public static Fin<MotionToken> Resolve(ProgressPhase phase)` — typed totality over the map, with degrade applied inside and an unmapped future case returned as `MotionFault.PhaseUnmapped`; `public static Fin<Unit> Covered()` — the same rail over the whole vocabulary, the conformance sweep's one read.
 - Auto: progress dialogs, toast progress rows, stat tiles, and chart progress series all derive motion from `Resolve` — zero per-screen motion choices anywhere in the package.
-- Packages: Rasm.Compute (project), BCL inbox
+- Packages: Rasm.Compute (project), LanguageExt.Core, BCL inbox
 - Growth: a new phase lands as one map row beside its Compute case; zero new surface.
-- Boundary: the map freezes at composition and covers every `ProgressPhase` row — the headless conformance sweep asserts `Map` keys equal `ProgressPhase.Items`, so a Compute case added without a map row fails the proof lane instead of rendering unanimated; terminal emphasis is law — Completed lands the snappy spring, Faulted lands emphasized — and re-keying phase motion per surface is the deleted pattern.
+- Boundary: the map freezes at composition and covers every `ProgressPhase` row — `Covered` is that assertion AS A VALUE, folding the Compute vocabulary against the map keys and naming every absent row on `MotionFault.PhaseUnmapped`, so the headless conformance sweep reads one rail and a Compute case added without a map row fails the proof lane instead of rendering unanimated; terminal emphasis is law — Completed lands the snappy spring, Faulted lands emphasized — and re-keying phase motion per surface is the deleted pattern.
 
 ```csharp signature
 public static class PhaseMotion {
@@ -193,6 +215,16 @@ public static class PhaseMotion {
         Map.TryGetValue(phase, out MotionToken token)
             ? Fin.Succ(ReducedMotion.Select(token))
             : Fin.Fail<MotionToken>(new MotionFault.PhaseUnmapped(phase.Key));
+
+    // Coverage is a VALUE the conformance sweep folds, never a prose claim: the map is total over the
+    // Compute vocabulary or it names every absent row on the same fault the resolve takes, so a phase
+    // landed upstream without a row fails the proof lane instead of rendering unanimated.
+    public static Fin<Unit> Covered() =>
+        toSeq(ProgressPhase.Items).Filter(static phase => !Map.ContainsKey(phase)) switch {
+            { IsEmpty: true } => Fin.Succ(unit),
+            var absent => Fin.Fail<Unit>(new MotionFault.PhaseUnmapped(
+                string.Join(", ", absent.Map(static phase => phase.Key)))),
+        };
 }
 ```
 
@@ -270,4 +302,4 @@ public static class ReducedMotion {
 
 ## [06]-[RESEARCH]
 
-- [REDUCED_MOTION_PROBE]: macOS reduce-motion preference probe spelling for embedded and standalone rows.
+- [REDUCED_MOTION_PROBE]-[OPEN]: which macOS reduce-motion preference member serves the embedded and standalone reduced rows?; verify the NSWorkspace accessibility spelling on the host decompile rail.

@@ -7,7 +7,7 @@ Claim admission, lease, urgency order, park ceiling, tenant egress quota, and re
 ## [01]-[INDEX]
 
 - [02]-[CHANNEL_FAMILY]: the channel dispatch table, the shared receipt, the one delivery fault family; `Deliver`.
-- [03]-[MAIL_ROW]: the scoped transporter, the one message shape, auth/DKIM/DSN policy, send evidence; `Mailer`.
+- [03]-[MAIL_ROW]: the transport rows (dial and capture sinks), the one message shape, auth/DKIM/DSN policy, send evidence; `Mailer`.
 - [04]-[HOOK_ROW]: byte-identity signed webhook egress and its settlement fold; `Hook`.
 - [05]-[SUPPRESSION]: the shared suppress-by-evidence fold and the pre-send check; `Deliver`.
 - [06]-[RELAY]: the singleton outbox drain — claim, quota, dispatch, verdict, wake, pacing; `Relay`.
@@ -23,12 +23,12 @@ Claim admission, lease, urgency order, park ceiling, tenant egress quota, and re
 - Packages: `effect` (`Schema`, `Data`, `DateTime`, `Duration`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
-import { Array, Context, Data, DateTime, Duration, Effect, Option, Redacted, Schema, Stream, Struct, pipe } from "effect"
+import { Array, Context, Data, DateTime, Duration, Effect, Option, Record, Redacted, Schema, Stream, Struct, pipe } from "effect"
 import { HttpBody, HttpClientRequest } from "@effect/platform"
 import { Singleton } from "@effect/cluster"
 import { SqlClient } from "@effect/sql"
-import { createTransport, type Transporter } from "nodemailer"
-import type SMTPPool from "nodemailer/lib/smtp-pool"
+import { createTestAccount, createTransport, getTestMessageUrl, type Transporter } from "nodemailer"
+import type Mail from "nodemailer/lib/mailer"
 import { Buffer } from "node:buffer"
 import { Fact, Journal } from "@rasm/ts/data"
 import { Crypto } from "@rasm/ts/security"
@@ -48,22 +48,25 @@ class Receipt extends Schema.Class<Receipt>("DeliverReceipt")({
   wire: Schema.Duration,
 }) {}
 
-const _reasons = {
-  dial: "unavailable",
-  refused: "denied",
-  bounced: "invalid",
-  timeout: "expired",
-  schema: "invalid",
-} as const satisfies Record<string, FaultClass.Kind>
+const _family = FaultClass.family(["dial", "refused", "bounced", "timeout", "schema"] as const, {
+  dial: { class: "unavailable" },
+  refused: { class: "denied" },
+  bounced: { class: "invalid" },
+  timeout: { class: "expired" },
+  schema: { class: "invalid" },
+})
 
 class DeliverFault extends Data.TaggedError("DeliverFault")<{
-  readonly reason: keyof typeof _reasons
+  readonly reason: (typeof _family.reasons)[number]
   readonly channel: "mail" | "webhook"
   readonly detail: string
   readonly targets: ReadonlyArray<string>
 }> {
   get class(): FaultClass.Kind {
-    return _reasons[this.reason]
+    return _family.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<deliver:${this.reason}> ${this.channel}: ${this.detail}`
   }
 }
 
@@ -83,38 +86,87 @@ const _channel = <A extends { readonly tenant: string }, I, R>(row: Deliver.Chan
 ## [03]-[MAIL_ROW]
 
 [MAIL_ROW]:
-- Owner: `Mailer` — the scoped pooled-SMTP service built from the existing `Setting.mail` row. `createTransport` receives the pool geometry, LOGIN credential, and DKIM material; `verify()` proves the connection at acquisition, `close()` drains sockets at release, `isIdle()` gates each claim, and the transporter's `idle` event becomes `Mailer.wake` through one scoped stream bridge. Secrets arrive `Redacted` on `Setting` and unwrap only in `createTransport`.
+- Owner: `Mailer` — the scoped transport service built from the `Setting.mail` row, whose `transport` discriminant selects the sink: `smtp` (the pooled production dial carrying pool geometry, LOGIN credential, and DKIM material), `json` and `stream` (the capture sinks that open no socket), and `ethereal` (the sandbox dial whose credential `createTestAccount()` mints inside the same acquisition). `verify()` proves the connection at acquisition on the dialing arms alone, `close()` releases at teardown, `isIdle()` gates each claim, and the transporter's `idle` event becomes `Mailer.wake` through one scoped stream bridge. Secrets arrive `Redacted` on `Setting` and unwrap only inside the `smtp` row's own builder.
+- Law: the sink is a transport row, never a code path — `_transports` keys the builder and the `dials` column off `Setting.mail.transport`, so pool and DKIM options exist only where a socket does, a capture sink is a root-config choice rather than a conditional inside the service, and a new sink (SES, a provider adapter) is one row. Without it the relay cannot be exercised without live SMTP, so the acceptance-band fold and the suppression tap have no reachable proof.
+- Law: one receipt fold reads every sink — `_Sent` is the widened band the arms share, `envelopeTime` and `rejectedErrors` riding the SMTP connection alone, so a captured send settles as a real `Receipt` with a deterministic `messageId` and an empty rejected band and a second fold never appears; `getTestMessageUrl(info)` is the ethereal arm's own inspection read, an operator affordance beside the receipt and never a receipt field.
 - Law: the message is one Schema — tenant, sender and recipient bands, reply threading, subject, plain/HTML/Watch/AMP/iCalendar alternatives, headers, priority, attachments, and the `list` block are fields of the channel payload decoded once. `_mailOptions` is the only conversion into `nodemailer`'s optional boundary shape; an untyped message object assembled at a call site is unspellable.
+- Law: `list` is the six-key standard vocabulary, not one URL — `unsubscribe`, `help`, `subscribe`, `post`, `archive`, and `owner` each compose one interior `_ListEntry` field admitting either a bare URL or the `{ url, comment }` arm, and `_mailOptions` hands the decoded record through as `list` with absent keys dropped; the annotated arm is what nodemailer renders into the `List-Unsubscribe`/`List-Unsubscribe-Post` pair one-click unsubscribe requires, and the suppression fold's `regulatory` retention is retention OF that header, so a single string cannot express the evidence it claims to keep.
 - Law: DKIM is native and mandatory on production rows — `domainName`/`keySelector`/`privateKey` ride the transport options so every message signs RFC-6376 in-transport; the security wave's HMAC domain never touches mail.
 - Law: transport faults classify through the code table — `EAUTH` folds `refused` (terminal), a 4xx `responseCode` folds `dial` (transient — the lane's lease redelivers), a 5xx recipient failure folds `bounced` (the suppression fold consumes it); string-matching an error message is unspellable beside the table.
 - Law: `isIdle()` and the `idle` event are the relay's pacing signal — the mail lane row reads pool capacity per claim and defers the claim onto its lease while the pool is saturated, so bulk sends respect pool geometry instead of queueing in the transport, and the `idle` event bridges into the wake race so a freed pool re-triggers the drain without waiting the lease width.
-- Receipt: `SMTPPool.SentMessageInfo` folds to the shared `Receipt` — `accepted`/`rejected`/`rejectedErrors` become the acceptance bands, `messageId` the transmission identity, `envelopeTime` the wire band. Nodemailer's top-level `SentMessageInfo` is `any`, so importing it erases the transport boundary under a confident receipt name.
-- Growth: a provider, OAuth2, or inspect transport becomes one discriminated `Setting.mail` policy row consumed by this same scoped service; a new message concern is one payload field and one `_mailOptions` projection.
-- Packages: `nodemailer` (`createTransport`, `Transporter`, `SMTPPool.SentMessageInfo`, `SMTPPool.Options`); `effect` (`Layer`, `Config`, `Redacted`); `../proc/config.ts` (`Setting`).
+- Receipt: the interior `_Sent` band folds to the shared `Receipt` — `accepted`/`rejected`/`rejectedErrors` become the acceptance bands, `messageId` the transmission identity, `envelopeTime` the wire band, with the two SMTP-only members widened optional so an unopened envelope reads no span rather than a forged one. Nodemailer's top-level `SentMessageInfo` is `any`, so importing it erases the transport boundary under a confident receipt name.
+- Growth: a provider, OAuth2, or inspect transport is one `_transports` row against one `Setting.mail.transport` value; a new message concern is one payload field and one `_mailOptions` projection.
+- Packages: `nodemailer` (`createTransport`, `createTestAccount`, `getTestMessageUrl`, `Transporter`, `Mail.Address`, `Mail.ListHeader`); `effect` (`Layer`, `Option`, `Record`, `Redacted`); `../proc/config.ts` (`Setting`).
 
 ```typescript
-class Mailer extends Effect.Service<Mailer>()("runtime/Mailer", {
-  scoped: Effect.gen(function* () {
-    const setting = yield* Setting
-    const transporter: Transporter<SMTPPool.SentMessageInfo, SMTPPool.Options> = yield* Effect.acquireRelease(
+// The band every transport arm answers: `envelopeTime` and `rejectedErrors` ride the SMTP connection alone, so the
+// widened shape is what lets ONE `_mailReceipt` fold read a dialed send and a captured one without a second fold.
+type _Sent = {
+  readonly accepted: ReadonlyArray<string | Mail.Address>
+  readonly rejected: ReadonlyArray<string | Mail.Address>
+  readonly rejectedErrors?: ReadonlyArray<{ readonly recipient?: string; readonly response?: string }> | undefined
+  readonly messageId: string
+  readonly envelopeTime?: number | undefined
+}
+
+const _transports = {
+  // Each arm builds its own transporter, so the factory's per-shape overload resolves at the row and never over a union.
+  // `dials` is the column `verify` reads: a sink that opens no socket has nothing to prove at acquisition.
+  smtp: {
+    dials: true,
+    open: (mail: Setting.Mail) =>
       Effect.sync(() =>
         createTransport({
           pool: true,
-          host: setting.mail.host,
-          port: setting.mail.port,
+          host: mail.host,
+          port: mail.port,
           secure: true,
           maxConnections: WorkClass.bulk.concurrency,
-          rateLimit: setting.mail.rate,
-          auth: { user: setting.mail.user, pass: Redacted.value(setting.mail.pass) },
-          dkim: { domainName: setting.mail.domain, keySelector: setting.mail.selector, privateKey: Redacted.value(setting.mail.key) },
+          rateLimit: mail.rate,
+          auth: { user: mail.user, pass: Redacted.value(mail.pass) },
+          dkim: { domainName: mail.domain, keySelector: mail.selector, privateKey: Redacted.value(mail.key) },
         })
       ),
+  },
+  json: { dials: false, open: () => Effect.sync(() => createTransport({ jsonTransport: true })) },
+  stream: { dials: false, open: () => Effect.sync(() => createTransport({ streamTransport: true, buffer: true })) },
+  ethereal: {
+    dials: true,
+    open: () =>
+      Effect.map(
+        Effect.tryPromise({
+          // the sandbox credential mints inside the same acquisition, so no environment row carries a throwaway secret
+          try: () => createTestAccount(),
+          catch: (cause) => new DeliverFault({ reason: "dial", channel: "mail", detail: String(cause), targets: [] }),
+        }),
+        (account) =>
+          createTransport({
+            host: account.smtp.host,
+            port: account.smtp.port,
+            secure: account.smtp.secure,
+            auth: { user: account.user, pass: account.pass },
+          }),
+      ),
+  },
+} as const satisfies Record<string, {
+  readonly dials: boolean
+  readonly open: (mail: Setting.Mail) => Effect.Effect<Transporter<_Sent>, DeliverFault>
+}>
+
+class Mailer extends Effect.Service<Mailer>()("runtime/Mailer", {
+  scoped: Effect.gen(function* () {
+    const setting = yield* Setting
+    const row = _transports[setting.mail.transport]
+    const transporter: Transporter<_Sent> = yield* Effect.acquireRelease(
+      row.open(setting.mail),
       (built) => Effect.sync(() => built.close()),
     )
-    yield* Effect.tryPromise({
-      try: () => transporter.verify(),
-      catch: (cause) => new DeliverFault({ reason: "dial", channel: "mail", detail: String(cause), targets: [] }),
-    })
+    yield* row.dials
+      ? Effect.tryPromise({
+        try: () => transporter.verify(),
+        catch: (cause) => new DeliverFault({ reason: "dial", channel: "mail", detail: String(cause), targets: [] }),
+      })
+      : Effect.void
     const send = (message: Parameters<Transporter["sendMail"]>[0]) => Effect.gen(function* () {
       const info = yield* Effect.tryPromise({
         try: () => transporter.sendMail(message),
@@ -156,7 +208,7 @@ const _classified = (cause: unknown): DeliverFault => {
   })
 }
 
-const _mailReceipt = (info: SMTPPool.SentMessageInfo, at: DateTime.Utc): Effect.Effect<Receipt, DeliverFault> => {
+const _mailReceipt = (info: _Sent, at: DateTime.Utc): Effect.Effect<Receipt, DeliverFault> => {
   const accepted = Array.map(info.accepted, String)
   const rejected = Array.map(info.rejectedErrors ?? [], (fault) => ({ recipient: String(fault.recipient ?? ""), note: fault.response ?? "" }))
   return accepted.length === 0
@@ -167,6 +219,7 @@ const _mailReceipt = (info: SMTPPool.SentMessageInfo, at: DateTime.Utc): Effect.
     accepted,
     rejected,
     at,
+    // a sink that never opened an envelope measures no envelope time: the absent band reads zero span, never a forged one
     wire: Duration.millis(info.envelopeTime ?? 0),
   }))
 }
@@ -320,6 +373,13 @@ const _settled = (receipt: Receipt) =>
 - Packages: `@effect/cluster` (`Singleton`); `@rasm/ts/data` (`Journal`, `Fact`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/meter.ts` (`Pulse`).
 
 ```typescript
+// one interior field schema every list key composes: the bare URL and the annotated arm are one decoded shape,
+// so a key gains the comment form by declaration and no per-key variant exists to drift
+const _ListEntry = Schema.optionalWith(
+  Schema.Union(Schema.NonEmptyString, Schema.Struct({ url: Schema.NonEmptyString, comment: Schema.NonEmptyString })),
+  { as: "Option" },
+)
+
 const MailPayload = Schema.Struct({
   tenant: Schema.NonEmptyString,
   from: Schema.NonEmptyString,
@@ -342,7 +402,20 @@ const MailPayload = Schema.Struct({
     disposition: Schema.Literal("attachment", "inline"),
     cid: Schema.optionalWith(Schema.String, { as: "Option" }),
   })),
-  list: Schema.optionalWith(Schema.Struct({ unsubscribe: Schema.String }), { as: "Option" }),
+  // the six standard list keys nodemailer renders into List-* headers, each admitting the annotated arm; the
+  // {url, comment} form is what renders the one-click List-Unsubscribe / List-Unsubscribe-Post pair the suppression
+  // fold's regulatory retention is evidence of, and a bare URL string cannot express the header that evidence is about
+  list: Schema.optionalWith(
+    Schema.Struct({
+      unsubscribe: _ListEntry,
+      help: _ListEntry,
+      subscribe: _ListEntry,
+      post: _ListEntry,
+      archive: _ListEntry,
+      owner: _ListEntry,
+    }),
+    { as: "Option" },
+  ),
   weight: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
 
@@ -360,7 +433,8 @@ const _mailOptions = (message: typeof MailPayload.Type): Parameters<Transporter[
   icalEvent: Option.getOrUndefined(message.icalEvent),
   headers: message.headers,
   priority: message.priority,
-  list: Option.match(message.list, { onNone: () => undefined, onSome: (list) => ({ unsubscribe: list.unsubscribe }) }),
+  // the decoded record passes straight through: every present key is one ListHeader and every absent key omits
+  list: Option.getOrUndefined(Option.map(message.list, Record.getSomes)),
   attachments: Array.map(message.attachments, (attachment) => ({
     filename: attachment.filename,
     content: Buffer.from(attachment.content),

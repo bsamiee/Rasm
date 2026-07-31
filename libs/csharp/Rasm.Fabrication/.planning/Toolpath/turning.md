@@ -140,7 +140,7 @@ public sealed partial class AxialKind {
     public partial Seq<double> Depths(double depth, double peckDepth);
 
     private static Seq<double> Pecked(double depth, double peckDepth) =>
-        Range(1, int.Max(1, (int)Math.Ceiling(depth / peckDepth)))
+        Range(1, int.Max(1, (int)Math.Ceiling(depth / peckDepth))).ToSeq()
             .Map(peck => double.Min(depth, peck * peckDepth))
             .ToSeq();
 
@@ -351,13 +351,13 @@ public sealed partial class TurnInsert {
         TipOrientation orientation,
         double clearanceAngleDeg) =>
         from source in Optional(assembly)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "turn-insert:assembly").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turn-insert:assembly"))
         from width in source.Snapshot.Metric(ToolMeasure.InsertWidth)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "turn-insert:width").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turn-insert:width"))
         from lead in source.Snapshot.Metric(ToolMeasure.LeadAngle)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "turn-insert:lead-angle").ToError())
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turn-insert:lead-angle"))
         from insert in Validate(form, width, clearanceAngleDeg, lead, orientation, out TurnInsert admitted) is { } error
-            ? Fin.Fail<TurnInsert>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<TurnInsert>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(admitted)
         select insert;
 }
@@ -586,7 +586,7 @@ public sealed record TurnProgram(Seq<TurnPass> Passes, Seq<ChannelBarrier> Barri
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Turning {
     public static Fin<TurnProgram> Generate(TurnRequest? request) =>
-        from admitted in Optional(request).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "turning:request").ToError())
+        from admitted in Optional(request).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:request"))
         from profile in Compensate(admitted.Demand)
         from passes in admitted.Steps.Map((step, index) => Emit(index, profile, admitted.Demand, step)).TraverseM(identity).As()
         let barriers = admitted.Steps.Map((step, index) => new ChannelBarrier(index, step.Channel, step.WaitFor, step.Signal))
@@ -656,7 +656,8 @@ public static class Turning {
         Seq<Error> waits = steps.Map((step, index) => step.WaitFor.Choose(token =>
                 signals.Exists(signal => signal.Token == token && signal.Step < index)
                     ? Option<Error>.None
-                    : Some(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"turning:step-{index}:wait-before-signal").ToError())))
+                    : Some((Error)new FabricationFault.PolicyInadmissible(
+                        FabConcern.Toolpath, $"turning:step-{index}:wait-before-signal"))))
             .Bind(identity);
         Seq<Error> signalErrors = StepFacts(-1, [
             (signals.Map(static signal => signal.Token).Distinct().Count == signals.Count, "signal-duplicate")]);
@@ -744,19 +745,20 @@ public static class Turning {
             (op.GripPlane + double.Max(op.GripLength, state.Demand.Insert.Width) <= state.Demand.Stock.AxialMaximum, "cutoff-transfer-end") ]));
 
     private static Seq<Error> Required<T>(T? value, string axis) where T : class => value is null
-        ? Seq(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"turning:{axis}").ToError())
+        ? Seq<Error>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"turning:{axis}"))
         : Seq<Error>();
 
     private static Seq<Error> StepFacts(int step, ReadOnlySpan<(bool Ok, string Axis)> facts) =>
         facts.ToArray().ToSeq().Choose(fact => fact.Ok
             ? Option<Error>.None
-            : Some(new GeometryFault.DegenerateInput(Kind.Curve, -1, step < 0 ? $"turning:{fact.Axis}" : $"turning:step-{step}:{fact.Axis}").ToError()));
+            : Some((Error)new FabricationFault.PolicyInadmissible(
+                FabConcern.Toolpath, step < 0 ? $"turning:{fact.Axis}" : $"turning:step-{step}:{fact.Axis}")));
 
     private static Fin<Loop> Compensate(TurnDemand demand) =>
         Range(0, demand.Profile.Count - 1)
             .Choose(index => Clearance(demand.Profile.At(index + 1) - demand.Profile.At(index))
                 > 90.0 - demand.Insert.ClearanceAngleDeg - Math.Abs(demand.Insert.LeadAngleDeg)
-                    ? Some(FabricationFault.Gouge(demand.Profile.At(index), demand.Insert.Form).ToError())
+                    ? Some(new FabricationFault.Gouge(demand.Profile.At(index), demand.Insert.Form).ToError())
                     : Option<Error>.None)
             .ToSeq()
             .Apply(gouges => gouges.IsEmpty
@@ -805,7 +807,7 @@ public static class Turning {
 
     internal static Fin<Seq<Move>> Longitudinal(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
         side.Target(profile, sweep.RadialAllowance)
-            .Apply(target => Range(1, (int)Math.Ceiling(side.Available(demand.Stock, target) / sweep.Depth))
+            .Apply(target => Range(1, (int)Math.Ceiling(side.Available(demand.Stock, target) / sweep.Depth)).ToSeq()
                 .Map(pass => side.Advance(demand.Stock, target, pass, sweep.Depth)
                     .Apply(radius => Crossings(profile, radius, demand.Stock.AxialMaximum + demand.Policy.Approach)
                         .Map(spans => spans.Bind(span => Seq(
@@ -855,15 +857,18 @@ public static class Turning {
             profile.At(0).X + sweep.AxialAllowance,
             side.Clear(profile.At(0).Y + sweep.RadialAllowance, demand.Policy.Approach),
             0.0)))
-        + Range(0, profile.Spans).Map(index => profile.At(index + 1)
+        + Range(0, profile.Spans).ToSeq().Map(index => profile.At(index + 1)
             .Apply(target => profile.BulgeAt(index) == 0.0
                 ? (Move)new Move.Linear(
                     new Point3d(target.X + sweep.AxialAllowance, target.Y + sweep.RadialAllowance, 0.0),
                     Feed(demand, target.Y))
+                // Bulge states the included angle exactly (`tan(sweep/4)`), so the span carries its own sweep
+                // rather than leaving a post or simulator to re-solve it from the chord and centre.
                 : new Move.Circular(
                     new Point3d(target.X + sweep.AxialAllowance, target.Y + sweep.RadialAllowance, 0.0),
                     Feed(demand, target.Y),
-                    ArcOf(profile, index, sweep.RadialAllowance, sweep.AxialAllowance))));
+                    ArcOf(profile, index, sweep.RadialAllowance, sweep.AxialAllowance),
+                    4.0 * Math.Atan(profile.BulgeAt(index)))));
 
     private static Fin<Seq<Move>> FinishMoves(Loop profile, TurnDemand demand, LatheOp.Finish op) =>
         new SweepDemand(0.0, op.RadialAllowance, op.AxialAllowance)
@@ -879,7 +884,7 @@ public static class Turning {
             null))
         from curve in fitted is CurveTrace.Fitted fit
             ? Fin.Succ(fit.Curve)
-            : Fin.Fail<NurbsForm.Curve>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "turning:spline-fit").ToError())
+            : Fin.Fail<NurbsForm.Curve>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:spline-fit"))
         from lowered in CurveAlgebra.Apply(new CurveOp.Lower(
             curve,
             new CurveLowering.Chords(new DivideRule.ByChord(demand.Policy.ChordTolerance)),
@@ -887,11 +892,11 @@ public static class Turning {
             null))
         from loop in lowered is CurveTrace.Lowered result
             ? Fin.Succ(result.Loop)
-            : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "turning:spline-lower").ToError())
+            : Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:spline-lower"))
         select Native(loop, demand, sweep, side);
 
     private static Fin<Seq<Move>> Biarc(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
-        from chunks in Range(0, int.Max(1, profile.Count / 2))
+        from chunks in Range(0, int.Max(1, profile.Count / 2)).ToSeq()
             .Map(chunk => BiarcChunk(profile, demand, sweep, chunk))
             .TraverseM(identity)
             .As()
@@ -915,7 +920,7 @@ public static class Turning {
         Vector2d t0 = new Vector2d(pm.X - p0.X, pm.Y - p0.Y).Normalized;
         Vector2d t1 = new Vector2d(p1.X - pm.X, p1.Y - pm.Y).Normalized;
         BiArcFit2 fit = new(new Vector2d(p0.X, p0.Y), t0, new Vector2d(p1.X, p1.Y), t1);
-        double deviation = Range(0, demand.Policy.BiarcProbeFloor).Map(probe => {
+        double deviation = Range(0, demand.Policy.BiarcProbeFloor).ToSeq().Map(probe => {
             double parameter = (double)probe / (demand.Policy.BiarcProbeFloor - 1);
             double local = parameter <= 0.5 ? parameter * 2.0 : (parameter - 0.5) * 2.0;
             Point3d source = parameter <= 0.5
@@ -935,17 +940,22 @@ public static class Turning {
             new Point3d(segment.P1.x + sweep.AxialAllowance, segment.P1.y + sweep.RadialAllowance, 0.0),
             Feed(demand, segment.P1.y))),
         Arc2d arc => ArcSpan(arc, demand, sweep),
-        _ => Fin.Fail<Move>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "turning:biarc-span").ToError())
+        _ => Fin.Fail<Move>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:biarc-span"))
     };
 
     private static Fin<Move> ArcSpan(Arc2d arc, TurnDemand demand, SweepDemand sweep) {
         Vector2d endpoint = arc.SampleT(1.0);
+        // `Arc2d.AngleEndDeg - AngleStartDeg` is the fitted span's own included angle and `IsReversed` its
+        // traversal sense, so the emitted move carries the biarc fit's exact sweep rather than a magnitude
+        // a downstream consumer would have to recover from the endpoints and centre.
+        double included = Math.Abs(double.DegreesToRadians(arc.AngleEndDeg - arc.AngleStartDeg));
         return Fin.Succ<Move>(new Move.Circular(
             new Point3d(endpoint.x + sweep.AxialAllowance, endpoint.y + sweep.RadialAllowance, 0.0),
             Feed(demand, endpoint.y),
             new ArcCenter(
                 new Point3d(arc.Center.x + sweep.AxialAllowance, arc.Center.y + sweep.RadialAllowance, 0.0),
-                arc.IsReversed ? RotationSense.Clockwise : RotationSense.Counterclockwise)));
+                arc.IsReversed ? RotationSense.Clockwise : RotationSense.Counterclockwise),
+            arc.IsReversed ? -included : included));
     }
 
     private static ArcCenter ArcOf(Loop profile, int index, double radialShift, double axialShift) {
@@ -977,7 +987,7 @@ public static class Turning {
             });
         });
         Seq<LatheDirective> directives = op.DwellRevolutions > 0.0
-            ? Range(0, bands).Map(band => (LatheDirective)new LatheDirective.Dwell(
+            ? Range(0, bands).ToSeq().Map(band => (LatheDirective)new LatheDirective.Dwell(
                 band * (pecks * 2 + 1) + pecks * 2 - 1,
                 op.DwellRevolutions))
             : Seq<LatheDirective>();
@@ -1057,9 +1067,9 @@ public static class Turning {
 
     private static Fin<TurnPass> Thread(int index, TurnDemand demand, TurnStep step, ThreadSpec spec) {
         Seq<(int Start, int Pass, ThreadCutRole Role, double Depth, double Shift)> cuts = Range(0, spec.Starts).Bind(start =>
-            Range(1, spec.RoughPasses).Map(pass => (start, pass, ThreadCutRole.Rough, spec.DepthAt(pass), spec.ShiftAt(pass)))
+            Range(1, spec.RoughPasses).ToSeq().Map(pass => (start, pass, ThreadCutRole.Rough, spec.DepthAt(pass), spec.ShiftAt(pass)))
             + Seq((start, spec.RoughPasses + 1, ThreadCutRole.Finish, spec.Depth, 0.0))
-            + Range(1, demand.Policy.SpringPasses).Map(pass => (start, spec.RoughPasses + 1 + pass, ThreadCutRole.Spring, spec.Depth, 0.0)));
+            + Range(1, demand.Policy.SpringPasses).ToSeq().Map(pass => (start, spec.RoughPasses + 1 + pass, ThreadCutRole.Spring, spec.Depth, 0.0)));
         double majorRadius = spec.MajorDiameter / 2.0;
         double rpm = demand.Spindle.RpmAt(majorRadius, demand.Policy.MinimumSpindleRadius, Surface(demand));
         double axialDirection = Math.Sign(spec.AxialEnd - spec.AxialStart);
@@ -1205,7 +1215,9 @@ public static class Turning {
             Some: load => Fin.Succ(new TurnPass(
                 index, step.Spindle, step.Channel, step.Operation, projected, resolved, Some(load), projectedRemoval)),
             None: () => removal.RemovesMaterial
-                ? from _ in guard(!spans.IsEmpty, new GeometryFault.DegenerateInput(Kind.Curve, -1, "turning:cutting-span").ToError()).ToFin()
+                ? from _ in guard(
+                      !spans.IsEmpty,
+                      (Error)new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:cutting-span")).ToFin()
                   from loads in spans.Map(span =>
                           from intent in Intent(demand, span, chipWidth, axialDepth, radialDepth)
                           from load in demand.Cutting.Evaluate(intent)
@@ -1236,21 +1248,22 @@ public static class Turning {
                 demand.Spindle.RpmAt(span.Radius, demand.Policy.MinimumSpindleRadius, Surface(demand))),
             Speed.FromMillimetersPerMinutes(span.Feed),
             out CutIntent intent) is { } error
-                ? Fin.Fail<CutIntent>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                ? Fin.Fail<CutIntent>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
                 : Fin.Succ(intent);
 
     private static Move Project(Move move, SpindleSide side) => move.Switch(
         state: side.AxialSign,
         rapid: static (sign, row) => new Move.Rapid(new Point3d(row.Target.X * sign, row.Target.Y, row.Target.Z)),
         linear: static (sign, row) => new Move.Linear(new Point3d(row.Target.X * sign, row.Target.Y, row.Target.Z), row.Feed),
+        // A spindle-side flip is an axial mirror, so sense and sweep sign invert together with the point map —
+        // the law `PartTransform.Apply` states for the general mirror, held here on the one-axis case.
         circular: static (sign, row) => new Move.Circular(
             new Point3d(row.Target.X * sign, row.Target.Y, row.Target.Z),
             row.Feed,
             new ArcCenter(
                 new Point3d(row.Arc.Center.X * sign, row.Arc.Center.Y, row.Arc.Center.Z),
-                sign > 0 ? row.Arc.Sense : row.Arc.Sense == RotationSense.Clockwise
-                    ? RotationSense.Counterclockwise
-                    : RotationSense.Clockwise)));
+                sign > 0 ? row.Arc.Sense : row.Arc.Sense.Flipped),
+            sign > 0 ? row.SweepRadians : -row.SweepRadians));
 
     private static RemovalEnvelope Project(RemovalEnvelope removal, SpindleSide side) {
         double start = removal.AxialStart * side.AxialSign;
@@ -1273,7 +1286,7 @@ public static class Turning {
 
     private static Fin<Seq<(double Start, double End)>> Crossings(Loop profile, double radius, double stockFace) =>
         profile.Tolerance.Absolute.Value
-            .Apply(epsilon => stockFace.Cons(Range(0, profile.Count - 1)
+            .Apply(epsilon => stockFace.Cons(Range(0, profile.Count - 1).ToSeq()
                 .Filter(index => (profile.At(index).Y - radius) * (profile.At(index + 1).Y - radius) <= 0.0
                     && Math.Abs(profile.At(index + 1).Y - profile.At(index).Y) > epsilon)
                 .Map(index => profile.At(index).X
@@ -1285,12 +1298,12 @@ public static class Turning {
                     ? kept
                     : kept.Add(axial))))
             .Apply(walls => (walls.Count & 1) == 0
-                ? Fin.Succ(Range(0, walls.Count / 2)
+                ? Fin.Succ(Range(0, walls.Count / 2).ToSeq()
                     .Map(pair => (walls[pair * 2], walls[pair * 2 + 1])).ToSeq())
                 : Fin.Fail<Seq<(double Start, double End)>>(new GeometryFault.DegenerateInput(
-                    Kind.Curve, -1, "turning:crossing-parity").ToError()));
+                    Kind.Curve, None, "turning:crossing-parity").ToError()));
 
-    private static double RadiusAt(Loop profile, double axial, double fallback) => Range(0, profile.Count - 1)
+    private static double RadiusAt(Loop profile, double axial, double fallback) => Range(0, profile.Count - 1).ToSeq()
         .Filter(index => (profile.At(index).X - axial) * (profile.At(index + 1).X - axial) <= 0.0
             && Math.Abs(profile.At(index + 1).X - profile.At(index).X) > profile.Tolerance.Absolute.Value)
         .Map(index => profile.At(index).Y

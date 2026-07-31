@@ -1,8 +1,8 @@
 # [RASM_INTERSECTION_INTERSECT]
 
-`Rasm.Meshing` owns the predicate-exact crossing lattice: one `IntersectOp` `[Union]` folded by one `Intersection.Apply` entry, crossing EXISTENCE decided by exact `Orient3D`/`Orient2D` straddle signs and every crossing POINT carried as an `Implicit` construction rounded only at the `Round()` emission seam. Every endpoint keys by its defining entities through `CrossKey`, so a crossing reached from two adjacent face pairs interns to one row by integer equality — the cross-face merge no float weld expresses — and chains walk that key adjacency into oriented closed loops and typed OPEN rows. Predicate-exact discrete crossing is the whole charter; host-parametric NURBS/Brep intersection homes at `Analysis/relations`.
+`Rasm.Meshing` owns the predicate-exact crossing lattice: one `IntersectOp` `[Union]` folded by one `Intersection.Apply` entry, crossing EXISTENCE decided by exact straddle signs, every crossing POINT an `Implicit` construction rounded at the `Round()` emission seam. Endpoints key by defining entities through `CrossKey`, adjacent-face crossings interning to one row by integer equality, and chains walk that adjacency into oriented closed loops and typed OPEN rows. Predicate-exact discrete crossing is the whole charter; host-parametric NURBS/Brep intersection homes at `Analysis/relations`.
 
-A rebuild composes the broad phase from `Spatial.Apply`, the triangle soups from `MeshEdit.Of`, and exact ordering from `Predicate.Compare`, authoring the Guigue-Devillers narrow phase and the key-connectivity chain assembly alone. `CrossingStore` binds the `Meshing/edit` arena law, and `IntersectResult.Chains` carries the frozen `CrossLattice` so `Meshing/arrangement` consumes the same run without a second narrow phase.
+Rebuilding composes the broad phase from `Spatial.Apply`, the triangle soups from `MeshEdit.Of`, and exact ordering from `Predicate.Compare`, authoring the Guigue-Devillers narrow phase and the key-connectivity chain assembly alone. `CrossingStore` binds the `Meshing/edit` arena law, and `IntersectResult.Chains` carries the frozen `CrossLattice` so `Meshing/arrangement` consumes the same run without a second narrow phase.
 
 ## [01]-[INDEX]
 
@@ -19,7 +19,7 @@ A rebuild composes the broad phase from `Spatial.Apply`, the triangle soups from
 - Growth: a new crossing modality is one `IntersectKind` row and one `IntersectOp` case reading the same narrow phase and key-connectivity assembly; a new crossing construction is a predicate-owner `Implicit` case; a new broad-phase knob is one `IntersectPolicy` column.
 - Boundary: one `IntersectOp` `[Union]` folds every case; connectivity derives from integer `CrossKey` equality and exact `Compare` signs; loops emit oriented at emission and open sections emit as typed rows; `Apply` is total over the `Fin` rail; `CrossingStore` is the single-writer arena whose frozen `CrossLattice` is the only projection consumers hold.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -207,7 +207,7 @@ public static class Intersection {
             planeMesh:        static p => p.Cut.IsValid ? Fin.Succ(unit) : Reject(Kind.Plane, "non-finite plane"));
 
     static Fin<Unit> Reject(Kind kind, string witness) =>
-        Fin.Fail<Unit>(new GeometryFault.DegenerateInput(kind, 0, witness).ToError());
+        Fin.Fail<Unit>(new GeometryFault.DegenerateInput(kind, None, witness).ToError());
 
     static bool Sliver(Point3d a, Point3d b, Point3d c) =>
         Predicate.Orient2D(a, b, c) == Sign.Zero
@@ -614,6 +614,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Crossing lattice flow
+    accDescr: Operands flow through the broad phase, exact narrow phase, and key-interned crossing rows into chained loops and open rows.
     IntersectOp -->|Orient3D / projected Orient2D straddles| Predicate
     IntersectOp -->|Overlap pairs / ray-reach Range via Spatial.Apply| SpatialIndex
     IntersectOp -->|MeshEdit.Of — the ONE soup| MeshEdit

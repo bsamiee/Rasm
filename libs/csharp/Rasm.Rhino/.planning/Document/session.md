@@ -17,7 +17,8 @@
 - Entry: `DocKey.Census` returns detached keys from the host iterator. Internal `DocKey.Resolve` re-enters the handle only inside the session owner, and internal `SessionSnapshot.Of` is the single read site for availability, transition, access, undo enablement, active undo recording, headless, dirty, active-command, and public point-acquisition state. One `session.Worksession` name carries both modalities — a serial spread reads, a `WorksessionOp` value transitions — and `WorksessionSnapshot.FileOf` resolves a worksession runtime serial to its file with no document at all.
 - Law: lifecycle precedence is closing, opening, initializing, creating, ready, unavailable; the tuple switch covers the complete flag product and names no default arm.
 - Law: `SessionSnapshot` is immutable evidence from one read. Every capability use re-resolves the retained key and obtains a new snapshot inside `DocumentSession.Demand` immediately before invoking its host body.
-- Law: the host `Worksession` is a read-only roster — every transition rides the serial-pinned script rail: per verb one fresh membership precondition, one scripted host run, one membership postcondition, and one declared inverse; reload composes detach then attach inside one demand window, and a failed suffix restores the completed prefix before the rail returns. A receipt carries the before and after topology, never a bare success flag.
+- Law: the host `Worksession` is a read-only roster — every transition rides the serial-pinned script rail: per verb one fresh membership precondition, one scripted host run, one membership postcondition, and one declared inverse; reload composes detach then attach inside one demand window, and the verb fold rides `DocumentCommit.Compensated`, the slice's one compensation algebra, so a failed suffix unwinds the completed prefix through the same landed-then-rollback shape every other rail uses. A receipt carries the before and after topology, never a bare success flag.
+- Boundary: the worksession rail is the boundary's single non-undoable host mutation and is exempt from `DocumentCommit.Sealed` by host truth — attach and detach reshape which files the session references, which Rhino's undo stack does not record, so a bracket here would seal an empty record and advertise a rollback the host cannot perform. Its inverse is the declared per-verb script, not an undo serial, which is why it carries no `SessionNeed.Undo` and no `RedrawPolicy`.
 - Boundary: `InGetPoint` proves only a point acquisition; the broader acquisition reentrancy token belongs to the command acquisition algebra.
 - Boundary: `Worksession.ModelCount` may exceed `ModelPaths.Length` by one for an unsaved active model; `UnsavedActive` preserves that state. Serial resolution admits unique requests, exact key coverage, distinct resolved paths, and membership in the model-path roster before map construction. Attach/detach observation stays on the events page's `WorksessionFile` family; this owner carries the transactional receipt.
 
@@ -414,8 +415,8 @@ public sealed record WorksessionReceipt(
 
 public static class SessionWorksession {
     extension(DocumentSession session) {
-        public Fin<WorksessionSnapshot> Worksession(Op? key = null, params ReadOnlySpan<uint> modelSerials) {
-            Op op = key.OrDefault();
+        public Fin<WorksessionSnapshot> Worksession(params ReadOnlySpan<uint> modelSerials) {
+            Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
             Seq<uint> serials = toSeq(modelSerials.ToArray());
             return Optional(session).ToFin(Fail: op.InvalidInput()).Bind(scope => scope.Demand(
                 use: document => WorksessionSnapshot.Of(document: document, key: op, modelSerials: serials),
@@ -430,21 +431,14 @@ public static class SessionWorksession {
                    from receipt in scope.Demand(
                        use: document =>
                            from before in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-                           from completed in request.Verbs.Fold(
-                               Fin.Succ(value: Seq<WorksessionVerb>()),
-                               (rail, verb) => rail.Bind(done => Apply(
-                                       document: document,
-                                       model: request.Model,
-                                       verb: verb,
-                                       op: op)
-                                   .Map(_ => done.Add(value: verb))
-                                   .MapFail(primary => Restore(
-                                       document: document,
-                                       model: request.Model,
-                                       completed: done,
-                                       op: op).Match(
-                                           Succ: _ => primary,
-                                           Fail: cleanup => primary + cleanup))))
+                           from completed in DocumentCommit.Compensated(
+                               source: request.Verbs,
+                               land: verb => Apply(document: document, model: request.Model, verb: verb, op: op).Map(_ => verb),
+                               rollback: landed => Restore(
+                                   document: document,
+                                   model: request.Model,
+                                   completed: landed,
+                                   op: op))
                            from after in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
                                .MapFail(primary => Restore(
                                    document: document,
@@ -607,6 +601,7 @@ public sealed partial class SessionNeed {
 - Law: `Context()` re-enters `Context.Of(RhinoDoc)` on every call, so model-unit and tolerance changes cannot stale the context consumed by later geometry work.
 - Law: `Admission.All` and `Admission.Pair` own reference-argument admission — one span fold and one applicative pair composed by every Document spine, so the Optional-traverse spelling appears once.
 - Boundary: `Lock` plus deferred reentrant disposal serializes handle resolution, evidence, callbacks, and owned cleanup. Live acquisition and demand discriminate on `RhinoApp.IsOnMainThread` and marshal through `InvokeAndWait`; headless work remains on the caller thread.
+- Boundary: the S0 crossing is deliberately off the `MarshalLatency` ledger — that instrument seats at the S2 host-thread owner and reaching up for it is the forbidden upward edge, so `Demand` measures no crossing and the ledger's coverage claim reads S2 and above alone. What the crossing does share with the S2 seam is the fault vocabulary: `InvokeAndWait` swallows a delegate that never ran, so the null sentinel distinguishes a never-run body (`MissingContext`) from a body-produced refusal, and a generic `InvalidResult` standing for both is the deleted form.
 - Boundary: `IDetachedDocumentResult` marks the admitted result census: detached facts and explicit lifetime capsules. `Demand` forbids a raw `RhinoDoc`, and each capsule owns every live handle it carries beyond the callback. `DocumentPath` conforms — admitted path text is detached by construction — so a path resolution returns through `Demand` directly.
 
 ```csharp signature
@@ -920,9 +915,9 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                 return body();
             }
 
-            Fin<TResult> dispatched = Fin.Fail<TResult>(error: op.InvalidResult());
+            Fin<TResult>? dispatched = null;
             RhinoApp.InvokeAndWait(() => dispatched = op.Catch(body));
-            return dispatched;
+            return dispatched ?? Fin.Fail<TResult>(error: op.MissingContext());
         })
         select result;
 
@@ -1384,7 +1379,7 @@ public static class SessionRegimes {
                            stamp: static (result, serial) => result.Seal(serial: serial),
                            op: op),
                        key: op,
-                       needs: [SessionNeed.Mutate, SessionNeed.Undo])
+                       needs: SessionNeed.Mutation(undo: true, redraw: RedrawPolicy.None).ToArray())
                    select receipt;
         }
     }

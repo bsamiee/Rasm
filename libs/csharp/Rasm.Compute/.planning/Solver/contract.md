@@ -1,8 +1,8 @@
 # [COMPUTE_SOLVE_CONTRACT]
 
-Rasm.Compute solve contract: one `PhysicsKind`×`BoundaryCondition`×`ElementClass` axis admits FEA, CFD, thermal, daylight, energy, acoustic, electromagnetic, frame, and multi-physics problems as uniform `SolveProblem` rows on the discretized field. `SolveLane` is the one static fold assembling the discrete operator over the `Solver/discretization#DISCRETIZATION_MESH` `DiscreteMesh` — the isoparametric `Bᵀ·D·B` fold for continuum elements, the closed-form 12-DOF member-stiffness scatter for the frame `ElementClass` rows — then dispatching to numeric-lane factorization or iterative solve, marching the transient/nonlinear loop, and driving the adaptive-recovery ladder; `CoupledLane` is the multi-physics fold over field sets bound by `FieldTransfer` rows under Aitken Δ²-relaxation. Owned vocabulary: `PhysicsKind`/`BoundaryCondition`/`ConstraintMethod`/`SolveMethod`/`TimeIntegrator`/`CouplingScheme`/`RecoveryAction`, the `MaterialField` elastic-or-scalar coefficient carrier, the `SolveProblem`/`SolveResult`/`ConstrainedSystem` carriers, the `RecoveryPolicy`/`CouplingPolicy` policies, and the `SolveLane`/`CoupledLane` folds.
+Rasm.Compute solve contract: one `PhysicsKind`×`BoundaryCondition`×`ElementClass` axis admits FEA, CFD, thermal, daylight, energy, acoustic, electromagnetic, frame, and multi-physics problems as uniform `SolveProblem` rows on the discretized field. `SolveLane` is the one static fold assembling the discrete operator over the `Solver/discretization#DISCRETIZATION_MESH` `DiscreteMesh` — the isoparametric `Bᵀ·D·B` fold for continuum elements, the closed-form 12-DOF member-stiffness scatter for the frame `ElementClass` rows — then dispatching to numeric-lane factorization or iterative solve, marching the transient/nonlinear loop, and driving the adaptive-recovery ladder; `CoupledLane` is the multi-physics fold over field sets bound by `FieldTransfer` rows under Aitken Δ²-relaxation. Owned vocabulary: `PhysicsKind`/`BoundaryCondition`/`ConstraintMethod`/`SolveMethod`/`TimeIntegrator`/`CouplingScheme`/`RecoveryAction`, the `MaterialField` elastic-or-scalar coefficient carrier, the `SolveProblem`/`SolveResult`/`ConstrainedSystem`/`CondensationEvidence` carriers, the `SolvePolicy`/`RecoveryPolicy`/`CouplingPolicy`/`CondensationPolicy` policies, and the `SolveLane`/`CoupledLane` folds.
 
-Dense/sparse factorization and iterative solve ride `Tensor/blas#DENSE_ALGEBRA`/`Tensor/factor#SPARSE_SOLVE`; generalized eigenanalysis reuses the verified dense `Evd` terminal after mass or geometric-stiffness reduction. `ElementClass.Sample`/`QuadratureRule`/`DiscreteMesh`/`FieldSpace` and the frame member-stiffness rows arrive settled from `Solver/discretization#DISCRETIZATION_MESH`, the per-Gauss-point constitutive axis (`ConstitutiveModel`/`StressUpdate`/`MaterialState`) from `Solver/constitutive#CONSTITUTIVE`, the gradient-adjoint tape rides `Tensor/dispatch#EQUIVALENCE_INTEROP`, and a distributed solve dials the `Runtime/wire#PROTO_VOCABULARY` `Solve` rpc. `SolveProblem.ContentKey` composes the kernel `ContentHash.Of` seed-zero rail over canonical bytes — never a per-call-site hash over a formatted string. Every solver receipt is typed, and the page carries no TS_PROJECTION because solve interiors stay host-local behind the `Solve` rpc.
+Dense/sparse factorization and iterative solve ride `Tensor/blas#DENSE_ALGEBRA`/`Tensor/factor#SPARSE_SOLVE`; generalized eigenanalysis reuses the verified dense `Evd` terminal after mass, static-condensation, or geometric-stiffness reduction. Reducing a generalized pencil to standard form demands a positive-definite inertia factor, which a lumped-mass frame lacks on its inertia-free rows, so static condensation is what makes any modal terminal reachable at building order. `ElementClass.Sample`/`DiscreteMesh`/`FieldSpace` and the frame member-stiffness rows arrive settled from `Solver/discretization#DISCRETIZATION_MESH`, whose `ElementClass.Quadrature` elects its rule off the kernel `Rasm/Numerics/integrate#QUADRATURE` `ReferenceElement` ladder, the per-Gauss-point constitutive axis (`ConstitutiveModel`/`StressUpdate`/`MaterialState`) from `Solver/constitutive#CONSTITUTIVE`, the gradient-adjoint tape rides `Tensor/dispatch#EQUIVALENCE_INTEROP`, and a distributed solve dials the `Runtime/wire#PROTO_VOCABULARY` `Solve` rpc. `SolveProblem.ContentKey` composes the kernel `ContentHash.Of` seed-zero rail over canonical bytes — never a per-call-site hash over a formatted string. Every solver receipt is typed, and the page carries no TS_PROJECTION because solve interiors stay host-local behind the `Solve` rpc.
 
 ## [01]-[INDEX]
 
@@ -10,14 +10,14 @@ Dense/sparse factorization and iterative solve ride `Tensor/blas#DENSE_ALGEBRA`/
 
 ## [02]-[SOLVE_CONTRACT]
 
-- Owner: `PhysicsKind` `[SmartEnum<string>]` carries symmetry, lifecycle, `MaterialForm`, and `OperatorForm`; `PhysicsPayload` `[Union]` carries continuum, mixed-flow, radiosity, energy-network, Helmholtz, and eddy-current data; `BoundaryCondition` `[Union]` and `ConstraintMethod` own DOF constraints; `SolveMethod` `[SmartEnum<string>]` carries numeric or continuation lowering; `TimeIntegrator`, `CouplingScheme`, and `RecoveryAction` own their rows; `MaterialField` `[Union]` carries uniform or per-cell coefficients; `SolveProblem` binds every discriminant and payload; `SolveLane` and `CoupledLane` own execution.
-- Cases: `PhysicsKind` fea-static · fea-modal · fea-transient · fea-buckling · cfd-incompressible · thermal-steady · thermal-transient · daylight-radiosity · energy-balance · acoustic-helmholtz · electromagnetic-eddy; `BoundaryCondition` `Dirichlet` · `Neumann` · `Robin` · `Periodic` · `Contact`; `ConstraintMethod` elimination · penalty · lagrange; `SolveMethod` direct-lu · direct-cholesky · bicgstab · gpbicg · tfqmr · mlk-bicgstab · arc-length · dense-evd; `TimeIntegrator` backward-euler · newmark-beta · generalized-alpha · central-difference; `CouplingScheme` one-way · two-way · staggered; `RecoveryAction` refine-mesh · relax · reorder-dofs · switch-method · restart.
-- Entry: `public static Fin<SolveResult> Solve(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, IClock clock)` — `Fin<T>` aborts on an ill-posed BC set or a non-convergent run past the cap; a modal row returns eigenpairs through the verified dense `Evd` route, a buckling row the load factors over the geometric-stiffness pencil, a transient row marches the `TimeIntegrator` over the step set reusing one factorization, a nonlinear row (any problem carrying a `Solver/constitutive` law or a `Contact` condition) drives a Newton-Raphson whose per-iteration operator is the consistent tangent assembled from the SAME trial state, line-searching the internal-force residual over a committed per-(cell, gauss) `MaterialState` ledger — trial evolutions read the committed rows, probes discard theirs, and only a converged step commits its trial ledger and contact multipliers — and every other row the field over the `FieldSpace`; `SolveAdaptive(…, RecoveryPolicy recovery, …)` walks the `RecoveryAction` ladder on a `Fin.Fail`; `CoupledLane.Couple(CoupledProblem coupling, Seq<DiscreteMesh> meshes, …)` solves the coupled field set under Aitken-relaxed staggering.
-- Auto: `Solve` folds elasticity/diffusion as `Bᵀ·D·B`, mixed incompressible flow as velocity-gradient/pressure coupling with advective transport, Helmholtz as stiffness minus wave-number mass, and eddy current as doubled-real curl-curl under conductivity coupling. `Radiosity` lowers `I − diag(ρ)F`, and `EnergyNetwork` lowers its conductance matrix. Second-order structural transients use Newmark/generalized-α/central difference; thermal, flow, and energy rows use a factored first-order capacity march. `ArcLength` enforces the Crisfield displacement/load constraint through predictor-corrector iterations across limit points.
-- Receipt: the `Solve` `ComputeReceipt` case carries the physics/method/constraint keys, DOF count, iteration count, final residual, converged flag, and elapsed; the modal row stamps the recovered eigenvalue count and modal participation factors, the transient rows the integrator key and step count, the nonlinear rows the Newton iteration count and load-step list, and the iterative rows ride the `rasm.compute.solve.residual` histogram; the `Coupling` case carries the scheme key, field/transfer/round counts, final coupling residual, and converged flag (the Aitken factor history rides `CoupledResult.History`); the `RecoveryReceipt` carries the physics key and the ordered `(action, post-recovery residual)` step list and the recovered flag.
+- Owner: `PhysicsKind` `[SmartEnum<string>]` carries symmetry, lifecycle, `MaterialForm`, and `OperatorForm`; `PhysicsPayload` `[Union]` carries continuum, mixed-flow, radiosity, energy-network, Helmholtz, and eddy-current data; `BoundaryCondition` `[Union]` and `ConstraintMethod` own DOF constraints; `SolveMethod` `[SmartEnum<string>]` carries numeric or continuation lowering; `TimeIntegrator`, `CouplingScheme`, and `RecoveryAction` own their rows; `MaterialField` `[Union]` carries uniform or per-cell elastic coefficients including density, or a scalar coefficient; `CondensationPolicy` carries the retained-set ceiling and the reduction residual cap; `SolveProblem` binds every discriminant and payload; `SolvePolicy` binds the method/constraint/integrator rows beside the iteration cap, tolerance, time grid, penalty factor, continuation, condensation, and the lane's wall deadline and cooperative token; `SolveLane` and `CoupledLane` own execution.
+- Cases: `PhysicsKind` fea-static · fea-modal · fea-transient · fea-buckling · cfd-incompressible · thermal-steady · thermal-transient · daylight-radiosity · energy-balance · acoustic-helmholtz · electromagnetic-eddy; `BoundaryCondition` `Dirichlet` · `Neumann` · `Robin` · `Periodic` · `Contact`; `ConstraintMethod` elimination · penalty · lagrange; `SolveMethod` direct-lu · direct-cholesky · bicgstab · gpbicg · tfqmr · mlk-bicgstab · arc-length · dense-evd · condensed-evd; `TimeIntegrator` backward-euler · newmark-beta · generalized-alpha · central-difference; `CouplingScheme` one-way · two-way · staggered; `RecoveryAction` refine-mesh · relax · reorder-dofs · switch-method · restart.
+- Entry: `public static Fin<SolveResult> Solve(SolveProblem problem, DiscreteMesh mesh, SolvePolicy policy, IClock clock)` — `Fin<T>` aborts on an ill-posed BC set or a non-convergent run past the cap; a modal row returns eigenpairs through the verified dense `Evd` route over the whole operator, or — where the policy carries a `CondensationPolicy` — over the statically condensed pencil the inertia-bearing degrees of freedom carry, a buckling row the load factors over the geometric-stiffness pencil, a transient row marches the `TimeIntegrator` over the step set reusing one factorization, a nonlinear row (any problem carrying a `Solver/constitutive` law or a `Contact` condition) drives a Newton-Raphson whose per-iteration operator is the consistent tangent assembled from the SAME trial state, line-searching the internal-force residual over a committed per-(cell, gauss) `MaterialState` ledger — trial evolutions read the committed rows, probes discard theirs, and only a converged step commits its trial ledger and contact multipliers — and every other row the field over the `FieldSpace`; `SolveAdaptive(…, RecoveryPolicy recovery, …)` walks the `RecoveryAction` ladder on a `Fin.Fail`; `CoupledLane.Couple(CoupledProblem coupling, Seq<DiscreteMesh> meshes, …)` solves the coupled field set under Aitken-relaxed staggering.
+- Auto: `Solve` folds elasticity/diffusion as `Bᵀ·D·B`, mixed incompressible flow as velocity-gradient/pressure coupling with advective transport, Helmholtz as stiffness minus wave-number mass, and eddy current as doubled-real curl-curl under conductivity coupling. `Radiosity` lowers `I − diag(ρ)F`, and `EnergyNetwork` lowers its conductance matrix. Second-order structural transients use Newmark/generalized-α/central difference; thermal, flow, and energy rows use a factored first-order capacity march. `ArcLength` enforces the Crisfield displacement/load constraint through predictor-corrector iterations across limit points. `CondensedEvd` elects the retained set off the lumped inertia the model itself carries, factors the condensed block once through the CSparse SPD owner, folds the slave inertia onto the retained pencil, and returns full-length mode shapes with the condensed rows recovered.
+- Receipt: the `Solve` `ComputeReceipt` case carries the physics/method/constraint keys, DOF count, iteration count, final residual, converged flag, and elapsed; the modal row stamps the recovered eigenvalue count and modal participation factors, the condensed modal row its measured `CondensationEvidence` (retained and condensed counts, reduction residual, pencil conditioning) beside the block eigen-defect it reports as the residual, the transient rows the integrator key and step count, the nonlinear rows the Newton iteration count and load-step list, and the iterative rows ride the `rasm.compute.solve.residual` histogram; the `Coupling` case carries the scheme key, field/transfer/round counts, final coupling residual, and converged flag (the Aitken factor history rides `CoupledResult.History`); the `RecoveryReceipt` carries the physics key and the ordered `(action, post-recovery residual)` step list and the recovered flag.
 - Packages: MathNet.Numerics, CSparse, Rasm (project — the kernel `ContentHash.Of` identity entry), Rasm.Element (project — the seam `MaterialPropertySet.Mechanical` elasticity read), System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
-- Growth: a new physics domain is one `PhysicsKind` row with one `PhysicsPayload` case only when its operator data differs; a new BC is one `BoundaryCondition` case; a new constraint application is one `ConstraintMethod` row; a new numeric or continuation method is one `SolveMethod` row carrying its lowering and policy; a new material assignment is one `MaterialField` case; a new time scheme is one `TimeIntegrator` row; a new coupling discipline is one `CouplingScheme` row with a `FieldTransfer`. `CfdSolver`/`ThermalSolver`/`FeaSolver`, `NewmarkSolver`/`GeneralizedAlphaSolver`, `ArcLengthSolver`, and `FsiCoupler`/`ThermalStructuralCoupler` siblings collapse onto `SolveLane`/`TimeIntegrator`/`CoupledLane`.
-- Boundary: one `Solve` owns every physics, boundary-condition, element, payload, and time-scheme combination. `PhysicsKind.Operator` must match the `PhysicsPayload` case, and admission rejects cardinality, range, or coefficient failures before assembly. `SparseOps.Ingest` consumes assembled COO data, `SparseOps.Factor`/`FactoredOp.Solve`/`SolveIterative` own sparse solution, and `DenseOps.Decompose` owns modal reduction. `ConstraintMethod` mutates both operator and right-hand side. `SolveProblem.ContentKey` hashes the full mesh, payload, conditions, members, and constitutive law. `CoupledLane` transfers fields under Aitken Δ² relaxation, and `SolveAdaptive` records each recovery rung.
+- Growth: a new physics domain is one `PhysicsKind` row with one `PhysicsPayload` case only when its operator data differs; a new BC is one `BoundaryCondition` case; a new constraint application is one `ConstraintMethod` row; a new numeric, continuation, or reduction method is one `SolveMethod` row carrying its lowering and policy; a new material assignment is one `MaterialField` case; a new time scheme is one `TimeIntegrator` row; a new coupling discipline is one `CouplingScheme` row with a `FieldTransfer`; a new lane budget is one `SolvePolicy` column the criterion stack reads through `IterationPolicy.Of`; a new reduction budget is one `CondensationPolicy` column. `CfdSolver`/`ThermalSolver`/`FeaSolver`, `NewmarkSolver`/`GeneralizedAlphaSolver`, `ArcLengthSolver`, and `FsiCoupler`/`ThermalStructuralCoupler` siblings collapse onto `SolveLane`/`TimeIntegrator`/`CoupledLane`.
+- Boundary: one `Solve` owns every physics, boundary-condition, element, payload, and time-scheme combination. `PhysicsKind.Operator` must match the `PhysicsPayload` case, and admission rejects cardinality, range, or coefficient failures before assembly. `SparseOps.Ingest` consumes assembled COO data, `SparseOps.Factor`/`FactoredOp.Solve`/`SolveIterative` own sparse solution, and `DenseOps.Decompose` owns the modal terminal. Static condensation is the modal lane's ONE sparse lowering and it composes owners rather than minting an eigensolver: the condensed block factors through `FactorKind.Spd`, the transformation columns ride `FactoredOp.Solve` under its own true-residual witness, the block sweeps ride the held `SparseTensorOps.Spmv` in both directions so no transposed storage materializes, and the retained pencil terminates on `Admission.Definite`, `DenseOps.Decompose`, and `SpectralOps.Decompose` — the dense funnel the two-funnel adjudication assigns to this lane, reached with no storage round-trip because the reduced blocks are already `Matrix<double>`. Kernel `Numerics/matrix` generalized-eigen rivals none of that: it densifies both operands at full order and factors the WHOLE inertia operator, so it neither scales at building order nor admits a singular lumped mass, and stays the small-model owner it was built as. Lumped inertia is REAL mass for the elastic forms and a lumped-mass frame carries no rotary inertia, so the rotational degrees of freedom hold exact zeros: those zeros are what make their condensation spectrally exact, they are what the retained-set election reads, and they are why the mass-normalizing full-operator route and the inertia-dividing explicit march each refuse a mass-singular free row by name instead of scaling or freezing it. `ConstraintMethod` mutates both operator and right-hand side. `SolveProblem.ContentKey` hashes the full mesh, payload, conditions, members, and constitutive law. `CoupledLane` transfers fields under Aitken Δ² relaxation, and `SolveAdaptive` records each recovery rung. Wall budget and cancellation are `SolvePolicy` columns the lane composes onto a canonical row and reach the criterion stack through `IterationPolicy.Of` beside the `Solve` argument clock, so every iterative leg bounds wall time off the one clock the receipt durations read; a canonical row binding a clock static, a deadline parameter grown onto the entry signature, or a per-leg literal cap is the rejected form, and each attempt re-anchors its own window so a relax rung retries against a fresh budget rather than an expired one.
 
 ```csharp signature
 [SmartEnum]
@@ -134,6 +134,10 @@ public sealed partial class SolveMethod {
     public static readonly SolveMethod MlkBiCgStab = new("mlk-bicgstab", iterative: true, kind: FactorizationKind.Lu, krylov: IterativeMethod.MlkBiCgStab, preconditioner: Preconditioner.Diagonal);
     public static readonly SolveMethod ArcLength = new("arc-length", iterative: true, kind: FactorizationKind.Lu, krylov: IterativeMethod.MlkBiCgStab, preconditioner: Preconditioner.Diagonal);
     public static readonly SolveMethod DenseEvd = new("dense-evd", iterative: false, kind: FactorizationKind.Evd, krylov: null, preconditioner: Preconditioner.None);
+    // Both eigen rows terminate on the SAME dense decomposition, so `Kind` agrees; what the condensed row names is
+    // its LOWERING — a sparse static reduction ahead of that terminal — which the receipt method key must report
+    // because a run that reduced its pencil and one that solved the whole operator are different derivations.
+    public static readonly SolveMethod CondensedEvd = new("condensed-evd", iterative: false, kind: FactorizationKind.Evd, krylov: null, preconditioner: Preconditioner.None);
 
     public bool Iterative { get; }
     public FactorizationKind Kind { get; }
@@ -380,6 +384,23 @@ public sealed record ArcLengthPolicy(double Radius, double LoadScale, int Steps,
     public bool Invalid => !double.IsFinite(Radius) || Radius <= 0.0 || !double.IsFinite(LoadScale) || LoadScale <= 0.0 || Steps < 1 || !double.IsFinite(ResidualTolerance) || ResidualTolerance <= 0.0;
 }
 
+// Static-condensation budget: the retained-set ceiling above which the reduction has bought nothing the dense
+// terminal can afford (the terminal is cubic in the retained count, so the ceiling is a real budget, not a taste),
+// and the relative-residual cap the per-column slave equilibrium and the block reduction witness both gate on. The
+// RETAINED SET itself is no column here — it derives from the inertia the model carries, so a caller enumerating a
+// master set is the deleted form and the two rows below are the only reduction knobs that survive the derivation.
+public sealed record CondensationPolicy(int MaxRetained, double ResidualCap) {
+    public static readonly CondensationPolicy Canonical = new(MaxRetained: 1_024, ResidualCap: 1e-8);
+
+    public bool Invalid => MaxRetained < 1 || !double.IsFinite(ResidualCap) || ResidualCap <= 0.0;
+}
+
+// Measured reduction receipt: the retained and condensed counts, the slave-equilibrium block residual
+// `‖K_ss·Ψ + K_sm‖_F / ‖K_sm‖_F` recomputed against the ORIGINAL blocks, and the retained pencil's condition number
+// off one held `Svd(false)` handle. Every column is measured where the reduction happens — a route that could not
+// measure one of them refuses rather than stamping a zero a consumer would read as evidence.
+public readonly record struct CondensationEvidence(int Retained, int Condensed, double Residual, double Conditioning);
+
 public sealed record SolvePolicy(
     SolveMethod Method,
     ConstraintMethod Constraint,
@@ -391,19 +412,37 @@ public sealed record SolvePolicy(
     int TimeSteps,
     int NewtonIterations,
     double PenaltyFactor,
-    Option<ArcLengthPolicy> Continuation) {
-    public static readonly SolvePolicy CanonicalStatic = new(SolveMethod.DirectCholesky, ConstraintMethod.Elimination, TimeIntegrator.BackwardEuler, MaxIterations: 1, Tolerance: 1e-9, EigenPairs: 0, TimeStep: 0.0, TimeSteps: 1, NewtonIterations: 1, PenaltyFactor: 1e12, Continuation: None);
+    Option<ArcLengthPolicy> Continuation,
+    Option<CondensationPolicy> Condensation,
+    // Wall budget and cooperative token are policy VALUES the lane composes onto a canonical row, because the
+    // iterative criterion stack reads clock, deadline, and token together through `IterationPolicy.Of`. Canonical
+    // rows declare the unbounded wall and the never-cancelled token so the numeric canon stays lane-free, while
+    // CLOCK stays the `Solve` argument: a canonical row binding a clock static mints a second clock the receipt
+    // durations never read.
+    Duration Deadline,
+    CancellationToken Cancel) {
+    public static readonly SolvePolicy CanonicalStatic = new(SolveMethod.DirectCholesky, ConstraintMethod.Elimination, TimeIntegrator.BackwardEuler, MaxIterations: 1, Tolerance: 1e-9, EigenPairs: 0, TimeStep: 0.0, TimeSteps: 1, NewtonIterations: 1, PenaltyFactor: 1e12, Continuation: None, Condensation: None, Deadline: Duration.MaxValue, Cancel: CancellationToken.None);
     public static readonly SolvePolicy CanonicalIterative = CanonicalStatic with { Method = SolveMethod.BiCgStab, MaxIterations = 2000, Tolerance = 1e-8 };
     public static readonly SolvePolicy CanonicalModal = CanonicalStatic with { Method = SolveMethod.DenseEvd, MaxIterations = 500, Tolerance = 1e-7, EigenPairs = 12 };
+    // Condensed modal is the SAME canonical modal row plus its reduction — every eigen column (pair count,
+    // tolerance) is inherited so the two routes are comparable, and the reduction is the one thing that differs.
+    public static readonly SolvePolicy CanonicalModalCondensed = CanonicalModal with { Method = SolveMethod.CondensedEvd, Condensation = Some(CondensationPolicy.Canonical) };
     public static readonly SolvePolicy CanonicalTransient = CanonicalStatic with { Method = SolveMethod.DirectLu, Integrator = TimeIntegrator.NewmarkBeta, TimeStep = 0.01, TimeSteps = 100 };
     public static readonly SolvePolicy CanonicalNonlinear = CanonicalIterative with { Method = SolveMethod.MlkBiCgStab, NewtonIterations = 25 };
     public static readonly SolvePolicy CanonicalArcLength = CanonicalNonlinear with { Method = SolveMethod.ArcLength, Continuation = Some(new ArcLengthPolicy(0.05, 1.0, 40, 1e-7)) };
 
     public Fin<Unit> Validate(SolveProblem problem) =>
-        MaxIterations <= 0 || !double.IsFinite(Tolerance) || Tolerance <= 0.0 || !double.IsFinite(PenaltyFactor) || PenaltyFactor <= 0.0 || Continuation.Exists(static continuation => continuation.Invalid)
+        MaxIterations <= 0 || !double.IsFinite(Tolerance) || Tolerance <= 0.0 || !double.IsFinite(PenaltyFactor) || PenaltyFactor <= 0.0 || Continuation.Exists(static continuation => continuation.Invalid) || Condensation.Exists(static condensation => condensation.Invalid)
             ? Fin.Fail<Unit>(new ComputeFault.ModelRejected("<solve-policy-iteration>"))
+            : Deadline <= Duration.Zero
+                ? Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<solve-policy-budget:{Deadline}>"))
             : (Method == SolveMethod.ArcLength) != Continuation.IsSome
                 ? Fin.Fail<Unit>(new ComputeFault.ModelRejected("<solve-policy-continuation-discriminant>"))
+            // Reduction rides the same method-versus-payload discriminant the continuation rides: the row and its
+            // policy travel together, so a `condensed-evd` key can never label a run that carried no reduction and a
+            // reduction can never run under a method key the receipt reports as the whole-operator route.
+            : (Method == SolveMethod.CondensedEvd) != Condensation.IsSome
+                ? Fin.Fail<Unit>(new ComputeFault.ModelRejected("<solve-policy-condensation-discriminant>"))
             : problem.Physics.Eigen && EigenPairs <= 0
                 ? Fin.Fail<Unit>(new ComputeFault.ModelRejected("<solve-policy-eigen-pairs>"))
                 : problem.Physics.Transient && (TimeSteps <= 0 || !double.IsFinite(TimeStep) || TimeStep <= 0.0)
@@ -421,9 +460,13 @@ public sealed record SolvePolicy(
 public abstract partial record MaterialField {
     private MaterialField() { }
 
-    public sealed record UniformElastic(double Young, double Poisson) : MaterialField;
+    // Elastic cases carry DENSITY beside the two elastic constants because inertia is a material fact the seam
+    // already supplies: `Mechanical` holds it, so dropping it here forces every dynamic and modal arm to fabricate a
+    // mass from geometry alone — a lumped vector in metres reported as kilogrammes. The scalar cases carry none:
+    // their coefficient is a conductance and their capacity arrives on the `EnergyNetwork` payload.
+    public sealed record UniformElastic(double Young, double Poisson, double Density) : MaterialField;
     public sealed record UniformScalar(double Scale) : MaterialField;
-    public sealed record PerCellElastic(ImmutableArray<double> Young, ImmutableArray<double> Poisson) : MaterialField;
+    public sealed record PerCellElastic(ImmutableArray<double> Young, ImmutableArray<double> Poisson, ImmutableArray<double> Density) : MaterialField;
     public sealed record PerCellScalar(ImmutableArray<double> Scale) : MaterialField;
 
     public static readonly MaterialField Unit = new UniformScalar(1.0);
@@ -432,22 +475,25 @@ public abstract partial record MaterialField {
         perCell.Traverse(static row => row.ToFin(new ComputeFault.AssessmentInputMissing("<material-field:member-without-mechanical-case>")))
             .Map(static rows => (MaterialField)new PerCellElastic(
                 [.. rows.Map(static m => m.YoungsModulus.Si)],
-                [.. rows.Map(static m => m.PoissonsRatio)]));
+                [.. rows.Map(static m => m.PoissonsRatio)],
+                [.. rows.Map(static m => m.Density.Si)]));
 
-    public Fin<(double Young, double Poisson)> MechanicalAt(int cell) =>
+    // ONE read answers every per-cell constitutive question the assembly and the inertia fold both ask, so a second
+    // density-only accessor beside it is the deleted hop.
+    public Fin<(double Young, double Poisson, double Density)> MechanicalAt(int cell) =>
         Switch(
             state: cell,
-            uniformElastic: static (_, assignment) => Fin.Succ((assignment.Young, assignment.Poisson)),
-            uniformScalar: static (_, _) => Fin.Fail<(double, double)>(new ComputeFault.ModelRejected("<frame-requires-elastic-material>")),
-            perCellElastic: static (index, assignment) => Fin.Succ((assignment.Young[index], assignment.Poisson[index])),
-            perCellScalar: static (_, _) => Fin.Fail<(double, double)>(new ComputeFault.ModelRejected("<frame-requires-elastic-material>")));
+            uniformElastic: static (_, assignment) => Fin.Succ((assignment.Young, assignment.Poisson, assignment.Density)),
+            uniformScalar: static (_, _) => Fin.Fail<(double, double, double)>(new ComputeFault.ModelRejected("<frame-requires-elastic-material>")),
+            perCellElastic: static (index, assignment) => Fin.Succ((assignment.Young[index], assignment.Poisson[index], assignment.Density[index])),
+            perCellScalar: static (_, _) => Fin.Fail<(double, double, double)>(new ComputeFault.ModelRejected("<frame-requires-elastic-material>")));
 
     public Fin<Unit> Validate(long cells, MaterialForm form) {
         bool elastic = form == MaterialForm.Elasticity;
         bool valid = this switch {
-            UniformElastic assignment => elastic && Positive(assignment.Young) && PoissonValid(assignment.Poisson),
+            UniformElastic assignment => elastic && Positive(assignment.Young) && PoissonValid(assignment.Poisson) && Positive(assignment.Density),
             UniformScalar assignment => !elastic && Positive(assignment.Scale),
-            PerCellElastic assignment => elastic && assignment.Young.Length == cells && assignment.Poisson.Length == cells && assignment.Young.All(Positive) && assignment.Poisson.All(PoissonValid),
+            PerCellElastic assignment => elastic && assignment.Young.Length == cells && assignment.Poisson.Length == cells && assignment.Density.Length == cells && assignment.Young.All(Positive) && assignment.Poisson.All(PoissonValid) && assignment.Density.All(Positive),
             PerCellScalar assignment => !elastic && assignment.Scale.Length == cells && assignment.Scale.All(Positive),
             _ => false,
         };
@@ -469,7 +515,7 @@ public abstract partial record MaterialField {
             state: sink,
             uniformElastic: static (writer, assignment) => {
                 writer.Write("ue"u8);
-                WriteScalars(writer, [assignment.Young, assignment.Poisson]);
+                WriteScalars(writer, [assignment.Young, assignment.Poisson, assignment.Density]);
             },
             uniformScalar: static (writer, assignment) => {
                 writer.Write("us"u8);
@@ -479,7 +525,7 @@ public abstract partial record MaterialField {
                 writer.Write("pe"u8);
                 Span<byte> count = stackalloc byte[4];
                 BinaryPrimitives.WriteInt32LittleEndian(count, assignment.Young.Length); writer.Write(count);
-                WriteScalars(writer, assignment.Young); WriteScalars(writer, assignment.Poisson);
+                WriteScalars(writer, assignment.Young); WriteScalars(writer, assignment.Poisson); WriteScalars(writer, assignment.Density);
             },
             perCellScalar: static (writer, assignment) => {
                 writer.Write("ps"u8);
@@ -640,7 +686,12 @@ public sealed record SolveResult(
     int NewtonSteps,
     double Residual,
     bool Converged,
-    Instant At);
+    Instant At) {
+    // Reduction evidence rides an init member because it is route-borne, not universal: `Option<T>` is total over
+    // `default` so no other construction site in the lane changes, and a route that reduced nothing carries `None`
+    // rather than a zeroed record every consumer would have to disbelieve.
+    public Option<CondensationEvidence> Condensation { get; init; }
+}
 
 public sealed record ConstrainedSystem(
     SparseCompressedRowMatrixStorage<double> Operator,
@@ -667,7 +718,7 @@ public static class SolveLane {
         from result in Routed(problem, policy.Method).Switch(
             state: (System: system, Mesh: mesh, Problem: problem, Policy: policy, At: clock.GetCurrentInstant(), Clock: clock),
             direct: static state => Direct(state.System, state.Problem, state.Policy, state.At),
-            iterative: static state => Iterative(state.System, state.Problem, state.Policy, state.At),
+            iterative: static state => Iterative(state.System, state.Problem, state.Policy, state.Clock),
             nonlinear: static state => Newton(state.System, state.Mesh, state.Problem, state.Policy, state.Clock),
             transient: static state => March(state.System, state.Mesh, state.Problem, state.Policy, state.At),
             eigen: static state => Modal(state.System, state.Mesh, state.Problem, state.Policy, state.Clock))
@@ -912,29 +963,54 @@ public static class SolveLane {
             }
     }
 
-    static double[] Lumped(DiscreteMesh mesh, int dof) {
-        int nodes = checked((int)mesh.NodeCount), per = mesh.Element.Nodes;
+    // Peak-relative inertia floor is the ONE scale-derived threshold the mass-singularity refusals and the
+    // condensation partition all read, so masslessness is a fraction of the model's own peak inertia and never an
+    // absolute kilogramme literal. The fraction exists only to absorb assembly round-off: the frame idealization
+    // writes EXACT zeros on its inertia-free rows, so nothing near the floor is a judgement call.
+    const double InertiaFraction = 1e-12;
+    static double InertiaFloor(double[] mass, double fraction) => TensorPrimitives.Max<double>(mass) * fraction;
+
+    // First free row whose inertia sits at or under the floor — the row an inertia-dividing march cannot advance and
+    // a mass-normalizing pencil cannot scale. Prescribed rows are excluded because they carry no free amplitude.
+    static Option<long> MassSingular(double[] mass, LanguageExt.HashSet<long> constrained, double floor) =>
+        toSeq(Enumerable.Range(0, mass.Length)).Find(dof => !constrained.Contains(dof) && mass[dof] <= floor).Map(static dof => (long)dof);
+
+    // Lumped inertia is REAL mass for the elastic forms: `ρ·A·L` over a frame cell's two joints and `ρ·∫|detJ|` over
+    // a continuum cell's nodes, the density read off the ONE `MechanicalAt` per-cell constitutive accessor. A
+    // lumped-mass frame carries NO rotary inertia — the textbook idealization — so the rotational slots stay exactly
+    // zero rather than taking a translational share whose kilogrammes are not kilogramme-metres-squared; those exact
+    // zeros are what make static condensation of those rows spectrally exact. For the scalar forms the vector is the
+    // geometric volume share the `Capacity` fold scales into a thermal or network capacity, never a mass.
+    // Exemption: the per-cell scatter is the measured-kernel statement seam.
+    static Fin<double[]> Lumped(DiscreteMesh mesh, SolveProblem problem) {
+        int nodes = checked((int)mesh.NodeCount), per = mesh.Element.Nodes, dof = problem.Dof;
+        bool frame = mesh.Element.Family == ShapeFamily.Frame, elastic = problem.Physics.Form == MaterialForm.Elasticity;
+        int inertial = frame ? 3 : dof;
         double[] mass = new double[nodes * dof];
         ReadOnlySpan<long> conn = mesh.Indices;
         for (int cell = 0; cell < mesh.ElementCount; cell++) {
             ReadOnlySpan<double> xyz = mesh.NodalXyz(cell);
-            double volume = 0.0;
-            if (mesh.Element.Family == ShapeFamily.Frame) {
+            double extent = 0.0;
+            if (frame) {
                 double dx = xyz[3] - xyz[0], dy = xyz[4] - xyz[1], dz = xyz[5] - xyz[2];
-                volume = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                extent = Math.Sqrt(dx * dx + dy * dy + dz * dz);
             }
             else {
                 foreach ((double X, double Y, double Z, double Weight) gauss in mesh.Element.Quadrature.Points) {
-                    volume += gauss.Weight * Math.Abs(mesh.Element.Sample((gauss.X, gauss.Y, gauss.Z), xyz).DetJ);
+                    extent += gauss.Weight * Math.Abs(mesh.Element.Sample((gauss.X, gauss.Y, gauss.Z), xyz).DetJ);
                 }
             }
-            double share = Math.Max(1e-12, volume) / per;
+            Fin<double> weight = elastic
+                ? problem.Field.MechanicalAt(cell).Map(row => row.Density * (frame ? problem.Members[cell].Area : 1.0))
+                : Fin.Succ(1.0);
+            if (weight.Case is not double scale) { return weight.Map(static _ => default(double[])!); }
+            double share = Math.Max(1e-12, extent) * scale / per;
             for (int a = 0; a < per; a++) {
                 int node = (int)conn[cell * per + a];
-                for (int ci = 0; ci < dof; ci++) { mass[node * dof + ci] += share; }
+                for (int ci = 0; ci < inertial; ci++) { mass[node * dof + ci] += share; }
             }
         }
-        return mass;
+        return Fin.Succ(mass);
     }
 
     static Fin<ConstrainedSystem> Constrained(SparseCompressedRowMatrixStorage<double> operatorCsr, Seq<BoundaryCondition> conditions, SolvePolicy policy) =>
@@ -948,22 +1024,33 @@ public static class SolveLane {
             .Bind(factored => factored.Solve(system.Rhs, policy.Tolerance * 1e3))
             .Map(field => new SolveResult(problem, policy.Method, field.AsMemory(), None, None, None, system.Rhs.Length, 1, 1, 0.0, true, at));
 
-    static IterationPolicy Iteration(SolvePolicy policy) =>
-        IterationPolicy.Default with { Tolerance = policy.Tolerance, MaxIterations = policy.MaxIterations, Preconditioner = policy.Method.Preconditioner.Build };
+    // `IterationPolicy.Of` is the numeric record's one ambient-free ingress and takes clock, wall budget, and token
+    // together: the lane's own clock crosses here and the budget half rides the policy row, so the criterion stack
+    // bounds wall time and cancellation off one clock and no canonical row carries a second.
+    static IterationPolicy Iteration(SolvePolicy policy, IClock clock) =>
+        IterationPolicy.Of(clock, policy.Deadline, policy.Cancel)
+            with { Tolerance = policy.Tolerance, MaxIterations = policy.MaxIterations, Preconditioner = policy.Method.Preconditioner.Build };
 
-    static Fin<SolveResult> Iterative(ConstrainedSystem system, SolveProblem problem, SolvePolicy policy, Instant at) =>
+    static Fin<SolveResult> Iterative(ConstrainedSystem system, SolveProblem problem, SolvePolicy policy, IClock clock) =>
         policy.Method.Krylov.ToFin(ComputeFault.Create($"<solve-method-not-iterative:{policy.Method.Key}>"))
-            .Bind(krylov => SparseOps.SolveIterative(system.Operator, krylov, system.Rhs, Iteration(policy)))
+            .Bind(krylov => SparseOps.SolveIterative(system.Operator, krylov, system.Rhs, Iteration(policy, clock)))
             .Bind(run => run.Terminal is SolveTerminal.Admitted
-                ? Fin.Succ(new SolveResult(problem, policy.Method, run.Field.ToArray().AsMemory(), None, None, None, system.Rhs.Length, 0, 1, run.Residual, true, at))
+                ? Fin.Succ(new SolveResult(problem, policy.Method, run.Field.ToArray().AsMemory(), None, None, None, system.Rhs.Length, 0, 1, run.Residual, true, clock.GetCurrentInstant()))
                 : Fin.Fail<SolveResult>(new ComputeFault.ModelRejected($"<solve-diverged:{policy.Method.Key}:residual={run.Residual:e3}>")));
 
-    static Fin<SolveResult> March(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, Instant at) {
-        double[] lumped = Lumped(mesh, problem.Dof);
-        return problem.Physics.Form == MaterialForm.Elasticity
-            ? policy.Integrator.Implicit ? Newmark(system, problem, policy, lumped, at) : CentralDifference(system, problem, policy, lumped, at)
-            : FirstOrder(system, problem, policy, Capacity(problem, lumped), at);
-    }
+    // Implicit schemes add stiffness and damping to the effective operator, so an inertia-free row still carries a
+    // solvable diagonal; the explicit scheme DIVIDES by inertia, so the same row is unmarchable and its guard would
+    // freeze it at zero and publish that as motion. A frame's rotational rows are exactly those rows, so the explicit
+    // integrator refuses the model by naming the row instead of returning frozen rotations.
+    static Fin<SolveResult> March(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, Instant at) =>
+        Lumped(mesh, problem).Bind(lumped =>
+            problem.Physics.Form != MaterialForm.Elasticity
+                ? FirstOrder(system, problem, policy, Capacity(problem, lumped), at)
+                : policy.Integrator.Implicit
+                    ? Newmark(system, problem, policy, lumped, at)
+                    : MassSingular(lumped, system.Constrained, InertiaFloor(lumped, InertiaFraction)).Match(
+                        Some: dof => Fin.Fail<SolveResult>(new ComputeFault.ModelRejected($"<explicit-mass-singular:dof={dof}:integrator={policy.Integrator.Key}>")),
+                        None: () => CentralDifference(system, problem, policy, lumped, at)));
 
     static double[] Capacity(SolveProblem problem, double[] lumped) => problem.Payload switch {
         PhysicsPayload.EnergyNetwork energy => energy.Capacity.ToArray(),
@@ -1091,7 +1178,7 @@ public static class SolveLane {
                             ? Fin.Succ((state.Field, norm, state.Step, true, evaluation.Trial, evaluation.ContactMultipliers))
                             : policy.Method.Krylov.ToFin(ComputeFault.Create($"<solve-method-not-iterative:{policy.Method.Key}>"))
                                 // Consistent tangent from the SAME trial state governs the Newton operator.
-                                .Bind(krylov => SparseOps.SolveIterative(evaluation.Tangent, krylov, residual, Iteration(policy)))
+                                .Bind(krylov => SparseOps.SolveIterative(evaluation.Tangent, krylov, residual, Iteration(policy, clock)))
                                 .Bind(run => ArmijoLineSearch(mesh, problem, tangent, system.Rhs, state.Field, run.Field, norm, state.Committed, state.Multipliers, clock).Map(alpha => {
                                     double[] updated = new double[state.Field.Length];
                                     TensorPrimitives.MultiplyAdd(run.Field, alpha, state.Field, updated);
@@ -1104,7 +1191,7 @@ public static class SolveLane {
     }
 
     static Fin<SolveResult> ArcLength(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, ArcLengthPolicy path, IClock clock) {
-        IterationPolicy iteration = Iteration(policy);
+        IterationPolicy iteration = Iteration(policy, clock);
         SparseMatrix tangent = new(system.Operator);
         MaterialState[] pristine = problem.Material.Match(Some: law => Pristine(mesh, problem, law.Model), None: static () => []);
         // Modified-Newton arc-length: the corrector's linear solves keep the initial-stiffness operator while the
@@ -1295,16 +1382,222 @@ public static class SolveLane {
             ? Fin.Succ(state.Alpha)
             : Fin.Fail<double>(new ComputeFault.ModelRejected($"<solve-line-search-cap:residual={baseline:e3}>")));
 
+    // Vibration is dispatched by the POLICY VALUE, not by a method-key comparison: the reduction travels as
+    // `Condensation` and the discriminant validation already tied it to its method row, so the arm reads the value.
     static Fin<SolveResult> Modal(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, IClock clock) =>
         problem.Physics == PhysicsKind.FeaBuckling
             ? Buckle(system, mesh, problem, policy, clock)
-            : Vibration(system, mesh, problem, policy, clock.GetCurrentInstant());
+            : policy.Condensation.Match(
+                Some: condensation => Condensed(system, mesh, problem, policy, condensation, clock),
+                None: () => Vibration(system, mesh, problem, policy, clock.GetCurrentInstant()));
 
-    static Fin<SolveResult> Vibration(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, Instant at) {
-        double[] mass = Lumped(mesh, problem.Dof);
-        return DenseOps.Decompose(MassNormalized(Matrix<double>.Build.OfStorage(system.Operator), mass), FactorizationKind.Evd)
-            .Bind(factorization => EigenPairs(factorization, policy.EigenPairs, mass))
-            .Map(pairs => new SolveResult(problem, policy.Method, pairs.Vectors, Some(pairs.Values), Some(pairs.Participation), Some(mass.Sum()), system.Rhs.Length, 1, 1, 0.0, true, at));
+    // Whole-operator modal normalizes by `1/√m` per row, so an inertia-free free row scales its column by the
+    // reciprocal of the floor and returns a spurious mode as an answer. The refusal names the row AND the route that
+    // does serve it, because a frame idealization ALWAYS has such rows and the condensed pencil is where they belong.
+    static Fin<SolveResult> Vibration(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, Instant at) =>
+        Lumped(mesh, problem).Bind(mass =>
+            MassSingular(mass, system.Constrained, InertiaFloor(mass, InertiaFraction)).Match(
+                Some: dof => Fin.Fail<SolveResult>(new ComputeFault.ModelRejected($"<modal-mass-singular:dof={dof}:route={SolveMethod.CondensedEvd.Key}>")),
+                None: () => DenseOps.Decompose(MassNormalized(Matrix<double>.Build.OfStorage(system.Operator), mass), FactorizationKind.Evd)
+                    .Bind(factorization => EigenPairs(factorization, policy.EigenPairs, mass))
+                    .Map(pairs => new SolveResult(problem, policy.Method, pairs.Vectors, Some(pairs.Values), Some(pairs.Participation), Some(mass.Sum()), system.Rhs.Length, 1, 1, 0.0, true, at))));
+
+    // Static (Guyan) condensation is the modal lane's sparse lowering. `Ψ = −K_ss⁻¹·K_sm` carries the condensed rows'
+    // static response to a unit retained displacement, and because those rows carry NO inertia the reduction drops no
+    // mass term at all — the retained pencil (`K_r = K_mm + K_ms·Ψ`, `M_r = M_mm + Ψᵀ·M_ss·Ψ`) reproduces the full
+    // model's lower spectrum rather than approximating it. The condensed block factors ONCE through the CSparse SPD
+    // owner and every column solves against that standing factor; the retained pencil terminates on the SAME dense
+    // `Evd` the whole-operator route uses, so this row adds a lowering and never a second eigensolver.
+    static Fin<SolveResult> Condensed(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, CondensationPolicy condensation, IClock clock) =>
+        Lumped(mesh, problem).Bind(mass =>
+            Partition(mass, system.Constrained, InertiaFloor(mass, InertiaFraction)).Bind(split =>
+                split.Masters.Length < policy.EigenPairs
+                    ? Fin.Fail<SolveResult>(new ComputeFault.ModelRejected($"<condensation-retained-below-pairs:{split.Masters.Length}:pairs={policy.EigenPairs}>"))
+                    : split.Masters.Length > condensation.MaxRetained
+                        ? Fin.Fail<SolveResult>(new ComputeFault.ModelRejected($"<condensation-retained-cap:{split.Masters.Length}:cap={condensation.MaxRetained}>"))
+                        : Reduce(system.Operator, mass, split, condensation.ResidualCap).Bind(reduced =>
+                            Spectrum(reduced, policy.EigenPairs).Map(spectrum => Result(problem, policy, split, mass, reduced, spectrum, clock.GetCurrentInstant())))));
+
+    // Full-length modes and a full-mass participation set make the condensed result INDISTINGUISHABLE in shape
+    // from the whole-operator one, so every downstream station recovery reads one field layout and one
+    // participation convention regardless of which lowering ran; the evidence member alone reports a reduction.
+    static SolveResult Result(SolveProblem problem, SolvePolicy policy, DofSplit split, double[] mass, Reduced reduced, (Matrix<double> Modes, ReadOnlyMemory<double> Values, double Defect) spectrum, Instant at) {
+        ReadOnlyMemory<double> modes = Recovered(reduced, split, mass.Length, spectrum.Modes, spectrum.Values.Length);
+        return new SolveResult(problem, policy.Method, modes, Some(spectrum.Values), Some(Participated(modes, mass, spectrum.Values.Length)), Some(TensorPrimitives.Sum<double>(mass)), mass.Length, 1, 1, spectrum.Defect, true, at) {
+            Condensation = Some(new CondensationEvidence(split.Masters.Length, split.Slaves.Length, reduced.Residual, reduced.Conditioning)),
+        };
+    }
+
+    // Partition carries both directions of the correspondence: the ordered retained and condensed rows, and the
+    // per-row position within its own side so the block walk resolves a triplet's home in two array reads.
+    readonly record struct DofSplit(int[] Masters, int[] Slaves, int[] MasterOf, int[] SlaveOf);
+
+    // Retained/condensed election DERIVES from the inertia the model carries: a prescribed row leaves the pencil
+    // entirely because it has no free amplitude, a free row above the floor is retained, and a free row at or under it
+    // is condensed. An election that condenses nothing refuses by name so the method key never labels a run that
+    // reduced nothing, and one that retains nothing refuses because a pencil needs a coordinate.
+    // Exemption: the two-way index scatter is the measured-kernel statement seam.
+    static Fin<DofSplit> Partition(double[] mass, LanguageExt.HashSet<long> constrained, double floor) {
+        int[] masterOf = new int[mass.Length], slaveOf = new int[mass.Length];
+        List<int> masters = new(mass.Length), slaves = new(mass.Length);
+        for (int dof = 0; dof < mass.Length; dof++) {
+            masterOf[dof] = -1;
+            slaveOf[dof] = -1;
+            if (constrained.Contains(dof)) { continue; }
+            if (mass[dof] > floor) { masterOf[dof] = masters.Count; masters.Add(dof); }
+            else { slaveOf[dof] = slaves.Count; slaves.Add(dof); }
+        }
+        return masters.Count == 0
+            ? Fin.Fail<DofSplit>(new ComputeFault.ModelRejected($"<condensation-no-retained-dof:floor={floor:e3}>"))
+            : slaves.Count == 0
+                ? Fin.Fail<DofSplit>(new ComputeFault.ModelRejected($"<condensation-no-condensed-dof:retained={masters.Count}:floor={floor:e3}>"))
+                : Fin.Succ(new DofSplit([.. masters], [.. slaves], masterOf, slaveOf));
+    }
+
+    // Retained pencil carrier: the two dense blocks the terminal consumes, the transformation columns the row
+    // recovery re-reads, and the two measured evidence scalars.
+    readonly record struct Reduced(Matrix<double> Stiffness, Matrix<double> Mass, double[][] Transform, double Residual, double Conditioning);
+
+    // Three sub-blocks, never four: the condensed-condensed block feeds the sparse SPD factorization, the
+    // condensed-retained block feeds BOTH the transformation right-hand sides and the `K_ms·Ψ` sweep (held as CSC,
+    // so its adjoint leg binds `TransposeMultiply` and allocates no transposed storage), and the retained-retained
+    // block is dense because the retained count is capped. `K_ms` never materializes — it IS `K_smᵀ`.
+    // Exemption: the CSR row walk is the measured-kernel statement seam.
+    static Fin<(SparseCompressedRowMatrixStorage<double> Condensed, CompressedColumnStorage<double> Coupling, Matrix<double> Retained)> Blocks(
+        SparseCompressedRowMatrixStorage<double> csr, DofSplit split) {
+        int slaves = split.Slaves.Length, masters = split.Masters.Length;
+        List<int> ssRows = new(csr.ValueCount), ssCols = new(csr.ValueCount), smRows = new(csr.ValueCount), smCols = new(csr.ValueCount);
+        List<double> ssVals = new(csr.ValueCount), smVals = new(csr.ValueCount);
+        Matrix<double> retained = Matrix<double>.Build.Dense(masters, masters);
+        for (int row = 0; row < csr.RowCount; row++) {
+            for (int slot = csr.RowPointers[row]; slot < csr.RowPointers[row + 1]; slot++) {
+                int column = csr.ColumnIndices[slot];
+                double value = csr.Values[slot];
+                if (split.SlaveOf[row] >= 0 && split.SlaveOf[column] >= 0) { ssRows.Add(split.SlaveOf[row]); ssCols.Add(split.SlaveOf[column]); ssVals.Add(value); }
+                else if (split.SlaveOf[row] >= 0 && split.MasterOf[column] >= 0) { smRows.Add(split.SlaveOf[row]); smCols.Add(split.MasterOf[column]); smVals.Add(value); }
+                else if (split.MasterOf[row] >= 0 && split.MasterOf[column] >= 0) { retained[split.MasterOf[row], split.MasterOf[column]] += value; }
+            }
+        }
+        return SparseOps.Ingest(SparseFormat.Coo, slaves, slaves, [.. ssRows], [.. ssCols], [.. ssVals])
+            .Bind(condensed => SparseOps.Ingest(SparseFormat.Coo, slaves, masters, [.. smRows], [.. smCols], [.. smVals])
+                .Map(coupling => (condensed, (CompressedColumnStorage<double>)SparseOps.ToCsc(coupling), retained)));
+    }
+
+    static Fin<Reduced> Reduce(SparseCompressedRowMatrixStorage<double> csr, double[] mass, DofSplit split, double cap) =>
+        Blocks(csr, split).Bind(blocks =>
+            SparseOps.Factor(blocks.Condensed, FactorKind.Spd, ColumnOrdering.MinimumDegreeAtPlusA, 1.0, 0.0)
+                .Bind(condensedOp => Transform(condensedOp, blocks.Coupling, split.Slaves.Length, split.Masters.Length, cap)
+                    .Bind(transform => Pencil(blocks.Coupling, blocks.Retained, transform.Columns, mass, split, transform.Residual))));
+
+    // One sparse solve per retained column against the STANDING factor carries the condensed rows' static response,
+    // and each column crosses `FactoredOp.Solve`'s own true-residual witness at the policy cap. The block defect
+    // `K_ss·Ψ + K_sm` accumulates in the SAME fold through one held GEMV seeded with the coupling column itself:
+    // `GemvForm.Accumulate(1.0, 1.0)` computes it in one call with no temporary and no second sweep, so the reported
+    // reduction residual is measured against the original blocks rather than inferred from a per-column gate.
+    // Exemption: the column march over the standing factor is the measured-kernel statement seam.
+    static Fin<(double[][] Columns, double Residual)> Transform(FactoredOp condensedOp, CompressedColumnStorage<double> coupling, int slaves, int masters, double cap) {
+        double[][] columns = new double[masters][];
+        double[] rhs = new double[slaves], defect = new double[slaves];
+        double defectMass = 0.0, couplingMass = 0.0;
+        for (int column = 0; column < masters; column++) {
+            coupling.Column(column, rhs);
+            couplingMass += TensorPrimitives.SumOfSquares<double>(rhs);
+            rhs.AsSpan().CopyTo(defect);
+            TensorPrimitives.Multiply<double>(rhs, -1.0, rhs);
+            Fin<double[]> solved = condensedOp.Solve(rhs, cap);
+            if (solved.Case is not double[] response) { return solved.Map(static _ => default((double[][], double))); }
+            columns[column] = response;
+            Fin<Unit> swept = SparseTensorOps.Spmv(condensedOp.A, GemvForm.Accumulate(1.0, 1.0), response, defect);
+            if (swept.IsFail) { return swept.Map(static _ => default((double[][], double))); }
+            defectMass += TensorPrimitives.SumOfSquares<double>(defect);
+        }
+        return Math.Sqrt(defectMass) / Math.Max(1.0, Math.Sqrt(couplingMass)) is var residual && residual <= cap
+            ? Fin.Succ((columns, residual))
+            : Fin.Fail<(double[][], double)>(new ComputeFault.ModelRejected($"<condensation-residual:{residual:e3}:cap={cap:e3}>"));
+    }
+
+    // Retained pencil: `K_r = K_mm + K_ms·Ψ` through one adjoint GEMV per column over the SAME coupling storage, and
+    // `M_r = M_mm + Ψᵀ·M_ss·Ψ` over the condensed inertia as a diagonal CSC, so condensed mass folds ONTO the
+    // retained set instead of vanishing. Both blocks force symmetry before the terminal because `IsSymmetric()`
+    // compares by exact `!=` and an accumulated block fails it, and `M_mm` contributes on the diagonal alone because
+    // a lumped inertia operator has no off-diagonal term to partition.
+    // Exemption: the column sweep over the coupling block is the measured-kernel statement seam.
+    static Fin<Reduced> Pencil(CompressedColumnStorage<double> coupling, Matrix<double> retained, double[][] transform, double[] mass, DofSplit split, double residual) {
+        int masters = split.Masters.Length, slaves = split.Slaves.Length;
+        double[] condensedMass = new double[slaves];
+        for (int row = 0; row < slaves; row++) { condensedMass[row] = mass[split.Slaves[row]]; }
+        CompressedColumnStorage<double> inertia = SparseOps.Diagonal(condensedMass);
+        Matrix<double> reducedMass = Matrix<double>.Build.Dense(masters, masters);
+        double[] adjoint = new double[masters], weighted = new double[slaves];
+        for (int column = 0; column < masters; column++) {
+            Fin<Unit> stiffness = SparseTensorOps.Spmv(coupling, GemvForm.Transposed, transform[column], adjoint);
+            if (stiffness.IsFail) { return stiffness.Map(static _ => default(Reduced)); }
+            for (int row = 0; row < masters; row++) { retained[row, column] += adjoint[row]; }
+            Fin<Unit> weighting = SparseTensorOps.Spmv(inertia, GemvForm.Apply, transform[column], weighted);
+            if (weighting.IsFail) { return weighting.Map(static _ => default(Reduced)); }
+            reducedMass[column, column] = mass[split.Masters[column]] + TensorPrimitives.Dot<double>(transform[column], weighted);
+            for (int row = 0; row < column; row++) {
+                double coupled = TensorPrimitives.Dot<double>(transform[row], weighted);
+                reducedMass[row, column] = coupled;
+                reducedMass[column, row] = coupled;
+            }
+        }
+        Matrix<double> pencil = Admission.Symmetrize(retained);
+        return Conditioned(pencil).Map(conditioning => new Reduced(pencil, Admission.Symmetrize(reducedMass), transform, residual, conditioning));
+    }
+
+    // One held `Svd(false)` handle answers the conditioning, and a non-finite reading is not laundered into a large
+    // number: `ConditionNumber` is `+Inf` exactly when the pencil is rank-deficient, which is a refusal, and a
+    // downstream evidence fact would reject the non-finite value at its own admission anyway.
+    static Fin<double> Conditioned(Matrix<double> pencil) =>
+        pencil.Svd(computeVectors: false).ConditionNumber is var conditioning && double.IsFinite(conditioning)
+            ? Fin.Succ(conditioning)
+            : Fin.Fail<double>(new ComputeFault.ModelRejected("<condensation-pencil-rank-deficient>"));
+
+    // Retained generalized pencil terminates on the lane's OWN dense route: `Admission.Definite` gates the reduced
+    // inertia (a retained row the reduction cannot supply inertia for fails HERE, named), `chol.Factor.LU()` is the
+    // sanctioned application of the factor's inverse — `Factor.Transpose()` alone is the silently-wrong half-factor —
+    // and the congruence `Ã = L⁻¹·K_r·L⁻ᵀ` (spelled as `L⁻¹·(L⁻¹·K_r)ᵀ`, exact for a symmetric `K_r`) turns the pencil
+    // into the symmetric standard problem `DenseOps.Decompose` already owns. `SpectralOps.Decompose` is the one
+    // spectral return and carries the block defect, so the reported residual is measured. Back-mapping `φ = L⁻ᵀ·y` IS
+    // mass normalization — `φᵀ·M_r·φ = yᵀ·y = 1` by construction — so a second normalize pass is deleted ceremony.
+    static Fin<(Matrix<double> Modes, ReadOnlyMemory<double> Values, double Defect)> Spectrum(Reduced reduced, int pairs) =>
+        Admission.Definite(reduced.Mass).Bind(chol => {
+            LU<double> lower = chol.Factor.LU(), upper = chol.Factor.Transpose().LU();
+            Matrix<double> congruent = Admission.Symmetrize(lower.Solve(lower.Solve(reduced.Stiffness).Transpose()));
+            return DenseOps.Decompose(congruent, FactorizationKind.Evd).Bind(factorization =>
+                factorization is Factorization.Evd { Decomposition: Evd<double> evd }
+                && SpectralOps.Decompose(congruent, evd, Symmetricity.Symmetric) is SpectralResult.Symmetric spectrum
+                    ? Fin.Succ((upper.Solve(spectrum.Vectors), spectrum.Values.Take(Math.Min(pairs, spectrum.Values.Count)).ToArray().AsMemory(), spectrum.Defect))
+                    : Fin.Fail<(Matrix<double>, ReadOnlyMemory<double>, double)>(ComputeFault.Create("<condensation-non-symmetric-evd>")));
+        });
+
+    // Full-length modes: a retained row carries its reduced amplitude directly, a condensed row recovers `u_s = Ψ·φ_r`
+    // so the returned shape is a real displacement everywhere rather than a hole the consumer reads as zero motion,
+    // and a prescribed row is exactly zero because it has no free amplitude. The layout is the same column-major
+    // `(n × k)` field the whole-operator route returns — a reduced-length field would silently mis-index every
+    // station recovery that slices it by DOF count.
+    // Exemption: the scatter over the partition is the measured-kernel statement seam.
+    static ReadOnlyMemory<double> Recovered(Reduced reduced, DofSplit split, int dofs, Matrix<double> modes, int pairs) {
+        double[] flat = new double[dofs * pairs];
+        for (int mode = 0; mode < pairs; mode++) {
+            for (int master = 0; master < split.Masters.Length; master++) { flat[mode * dofs + split.Masters[master]] = modes[master, mode]; }
+            for (int slave = 0; slave < split.Slaves.Length; slave++) {
+                double response = 0.0;
+                for (int master = 0; master < split.Masters.Length; master++) { response += reduced.Transform[master][slave] * modes[master, mode]; }
+                flat[mode * dofs + split.Slaves[slave]] = response;
+            }
+        }
+        return flat.AsMemory();
+    }
+
+    // Participation reads the FULL recovered mode against the full lumped inertia, so `Γ = φᵀ·M·r` is the same
+    // quantity the whole-operator route reports and the seismic mass-participation gate compares it against the same
+    // `ΣΓ² ≤ rᵀ·M·r` completeness bound with no route-dependent normalization.
+    static ReadOnlyMemory<double> Participated(ReadOnlyMemory<double> modes, double[] mass, int pairs) {
+        double[] factors = new double[pairs];
+        for (int mode = 0; mode < pairs; mode++) { factors[mode] = TensorPrimitives.Dot<double>(mass, modes.Span.Slice(mode * mass.Length, mass.Length)); }
+        return factors.AsMemory();
     }
 
     static Fin<SolveResult> Buckle(ConstrainedSystem system, DiscreteMesh mesh, SolveProblem problem, SolvePolicy policy, IClock clock) =>

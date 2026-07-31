@@ -34,7 +34,7 @@ from msgspec import Struct
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait, Wire
 
 
@@ -176,7 +176,7 @@ class Differentiation:
     # One `async` entry composes the runtime crossing on the HOSTILE trait (the x64 mutation is process-global)
     # under the hub weave; isolation, band, and worker-death retry derive at the runtime Kernel crossing owner.
     async def differentiate(
-        self, lane: LanePolicy, fn: Callable, x: Pytree, target: DiffTarget = DiffTarget.ARRAY, policy: DiffPolicy = DiffPolicy()
+        self, lane: LanePolicy, fn: Callable, x: Pytree, target: DiffTarget = DiffTarget.ARRAY, policy: DiffPolicy = DiffPolicy(), *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[DiffReceipt]":
         async def dispatch() -> RuntimeRail[DiffReceipt]:
             # SHARED_MEMORY lifts a bare-ndarray `x` across the process seam at zero payload bytes; a nested pytree passes
@@ -184,7 +184,7 @@ class Differentiation:
             return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE, wire=Wire.SHARED_MEMORY), fn, x, self, target, policy)
 
         facts = {"mode": self.tag, "target": target.value, "aux": policy.has_aux}
-        return await evidence_run(EvidenceScope.SENSITIVITY, f"diff.{self.tag}", dispatch, facts=facts)
+        return await evidence_run(EvidenceScope.SENSITIVITY, f"diff.{self.tag}", dispatch, facts=facts, composition=composition)
 
 
 # Gated jax/equinox modules built ONCE per solve, so the import and float64 promotion fire once. `gated()`

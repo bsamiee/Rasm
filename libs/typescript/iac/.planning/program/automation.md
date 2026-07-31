@@ -1,6 +1,6 @@
 # [IAC_AUTOMATION]
 
-The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSelectStack` with no `Pulumi.yaml` anywhere — every workspace fact (self-managed `backend.url`, `secretsProvider`, passphrase, CLI root) is an Effect `Config` read resolved once, and the pulumi CLI-binary-on-PATH is a deploy-host fact wrapped exactly here. The engine's `onEvent` callback bridges into an Effect `Stream` through `Stream.asyncPush` inside the run's own `Scope` — release aborts the engine run, so fiber interruption, scope close, and budget exhaustion all cancel with no orphan update — and one fold function buckets summary, steps, and diagnostics in a single pass whether the events arrive as a stream or a batch. The run owner internalizes its own resilience: a jittered exponential `Schedule` gated on the fault family's own `retry` column self-heals state-lock collisions, a per-run budget rides `Effect.timeoutFail`, and a span wraps every drive, so a consumer composes capability, never recurrence plumbing. `previewRefresh` rides the same owner as the read-only fifth leg: `reconcile` re-reads live provider state against the desired graph without mutating, and its receipt is the drift material `operate/policy.md` projects, so drift evidence and deploy evidence share one vocabulary by construction. The fleet verbs close the engine's workspace surface on the same owner — ESC attachment, batch adoption, update history with its duration series, stack tags, cancel, rename, the polymorphic config verb, and the workspace roster reads are typed members over the engine's own methods, receipt identity carries the one `fullyQualifiedStackName` spelling, and `remote` is the Deployments execution row gated on the spec's `cloud` backend. The engine has no in-band typed error class, so this page also owns the deploy plane's one fault family: `DeployFault`, reason-discriminated with its policy table riding the class as a static, minted by one foreign-value triage over the `CommandError` classes. The module is `iac/src/program/automation.ts`; a new engine event arm is one fold row, a new failure cause is one policy row plus one triage arm, and the mutating ledger itself is closed.
+The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSelectStack` with no `Pulumi.yaml` anywhere — every workspace fact (self-managed `backend.url`, `secretsProvider`, passphrase, CLI root) is an Effect `Config` read resolved once, and the pulumi CLI-binary-on-PATH is a deploy-host fact wrapped exactly here. The engine's `onEvent` callback bridges into an Effect `Stream` through `Stream.asyncPush` inside the run's own `Scope` — release aborts the engine run, so fiber interruption, scope close, and budget exhaustion all cancel with no orphan update — and one fold function buckets summary, steps, and diagnostics in a single pass whether the events arrive as a stream or a batch. The run owner internalizes its own resilience: a jittered exponential `Schedule` gated on the fault family's own `retry` column self-heals state-lock collisions, a per-run budget rides `Effect.timeoutFail`, and a span wraps every drive, so a consumer composes capability, never recurrence plumbing. `previewRefresh` rides the same owner as the read-only fifth leg: `reconcile` re-reads live provider state against the desired graph without mutating, and its receipt is the drift material `operate/policy.md` projects, so drift evidence and deploy evidence share one vocabulary by construction. The fleet verbs close the engine's workspace surface on the same owner — ESC attachment, batch adoption, update history with its duration series, stack tags, cancel, rename, the polymorphic config verb, and the workspace roster reads are typed members over the engine's own methods, receipt identity carries the one `fullyQualifiedStackName` spelling, and `remote` is the Deployments execution row gated on the spec's `cloud` backend. The engine has no in-band typed error class, so this page also owns the deploy plane's one fault family: `DeployFault`, reason-discriminated over one core `FaultClass.family` mint and minted by one foreign-value triage over the `CommandError` classes. The module is `iac/src/program/automation.ts`; a new engine event arm is one fold row, a new failure cause is one family row plus one triage arm, and the mutating ledger itself is closed.
 
 ## [01]-[INDEX]
 
@@ -90,37 +90,46 @@ declare namespace RunReceipt {
 ## [03]-[DEPLOY_FAULT]
 
 [DEPLOY_FAULT]:
-- Owner: `DeployFault`, the deploy plane's one fault family — a `Data.TaggedError` whose `reason` row discriminates every failure route, with the interior `_POLICY` table carrying rank, retryability, and halting posture per reason riding the class as `DeployFault.policies`; the class projects its row as `policy`, so recovery reads data, never a reason `switch`, and the run owner's retry schedule gates on the same column.
-- Law: the family is in-process by construction — a deploy fault never crosses a wire (the receipt does), so the zero-codec `Data.TaggedError` form is correct and promotion to `Schema.TaggedError` rewrites only the declaration.
-- Law: `triaged(stack)` is the one foreign-value conversion — a `Match.instanceOf` ladder over the engine's thrown classes (`ConcurrentUpdateError`, `StackNotFoundError`, `StackAlreadyExistsError`, the `CommandError` base, `InputPropertiesError`/`InputPropertyError`, `RunError`) with `Match.orElse` minting the `alien` quarantine row, subclasses matched before their base; every `Effect.tryPromise` catch slot in the folder names this triage and no second conversion exists.
-- Law: only `concurrent` retries — a state-lock collision is the one transient cause, and its recurrence is internal now: the run owner's `_PULSE` schedule reads `fault.policy.retry`, so the policy column is a rail fact, not caller documentation; `cancelled` is not a failure posture (rank 1, non-halting) because interruption is the caller's own verdict.
-- Growth: a new cause is one `_POLICY` row plus one triage arm; a new policy axis is one row column every consumer reads through `policy`.
-- Boundary: `ParseError` from receipt and output decodes re-spells into this family at the decode seam (`alien` with the parse message as detail); the rank fold over accumulated faults rides `DeployFault.byRank`.
-- Packages: `effect` (`Data`, `Match`, `Order`, `pipe`); `@pulumi/pulumi` (`InputPropertiesError`, `InputPropertyError`, `RunError`); `@pulumi/pulumi/automation` (`CommandError` family).
+- Owner: `DeployFault`, the deploy plane's one fault family — a reason-discriminated `Schema.TaggedError` minted over one `FaultClass.family` seam, each row naming the core kind the `class` getter projects beside the single deploy-local `halting` axis; recovery reads the core lattice off `class`, so severity, retryability, blame, and quarantine have one owner branch-wide and no reason `switch` exists here.
+- Law: the taxonomy is the core lattice's, not this folder's — a local rank, retry, or blame column beside `class` is the per-folder fork the branch fault ruling deletes, so severity IS the core kind tuple's position (`DeployFault.bySeverity` maps onto `FaultClass.severity`) and retryability IS `FaultClass.retryable`; `halting` survives as the genuine deploy axis no core column carries — whether a run sequence stops on the fault or continues past it.
+- Law: `triaged(stack)` is the one foreign-value conversion — a `Match.instanceOf` ladder over the engine's thrown classes (`ConcurrentUpdateError`, `StackNotFoundError`, `StackAlreadyExistsError`, the `CommandError` base, `InputPropertiesError`/`InputPropertyError`, `RunError`) with `Match.orElse` minting the `alien` row, subclasses matched before their base; every `Effect.tryPromise` catch slot in the folder names this triage and no second conversion exists.
+- Law: only `concurrent` retries and the lattice is what says so — a state-lock collision is the one transient cause, `conflicted` is the one retryable kind any row selects, and the run owner's `_PULSE` gates on `FaultClass.retryable`, so the retry set is a consequence of the class map rather than a column a reader must keep in agreement with it. `cancelled` classifies `denied` because interruption is the caller's own verdict and nothing failed.
+- Law: a run that outlives its ceiling is its own reason — `budget` names the timeout after the scope-close abort, so the discriminant rides the closed vocabulary instead of a sentinel string a reader must match inside `detail`, and the free-form field carries evidence alone.
+- Growth: a new cause is one family row carrying its kind and `halting` column plus one triage arm; a new deploy-local axis is one row column, and a taxonomy axis is a core `FaultClass` row edit that every folder inherits at once.
+- Boundary: `ParseError` from receipt and output decodes re-spells into this family at the decode seam (`alien` with the parse message as detail); the severity fold over accumulated faults rides `DeployFault.bySeverity`.
+- Packages: `effect` (`Match`, `Order`, `Schema`, `pipe`); `@rasm/ts/core` (`FaultClass`); `@pulumi/pulumi` (`InputPropertiesError`, `InputPropertyError`, `RunError`); `@pulumi/pulumi/automation` (`CommandError` family).
 
 ```typescript
 import { InputPropertiesError, InputPropertyError, RunError } from "@pulumi/pulumi"
 import { CommandError, ConcurrentUpdateError, StackAlreadyExistsError, StackNotFoundError } from "@pulumi/pulumi/automation"
-import { Data, Match, Order, pipe } from "effect"
+import { FaultClass } from "@rasm/ts/core"
+import { Match, Order, Schema, pipe } from "effect"
 
-const _POLICY = {
-  cancelled: { rank: 1, retry: false, halting: false },
-  concurrent: { rank: 2, retry: true, halting: false },
-  absent: { rank: 3, retry: false, halting: true },
-  duplicate: { rank: 3, retry: false, halting: true },
-  command: { rank: 4, retry: false, halting: true },
-  input: { rank: 4, retry: false, halting: true },
-  diagnostic: { rank: 5, retry: false, halting: true },
-  alien: { rank: 6, retry: false, halting: true },
-} as const
+// One row per reason: the core kind the class getter projects, plus the ONE deploy-local axis. Rank, retry,
+// blame, and quarantine are the core FaultClass row table's — a literal here would fork them, and the
+// severity order the old rank column spelled IS the core kind tuple's own position.
+const _family = FaultClass.family(
+  ["cancelled", "concurrent", "absent", "duplicate", "input", "command", "budget", "diagnostic", "alien"] as const,
+  {
+    cancelled: { class: "denied", halting: false }, // the caller withdrew the run; nothing failed and nothing retries
+    concurrent: { class: "conflicted", halting: false }, // the ONE retryable kind this family selects: the state lock clears
+    absent: { class: "absent", halting: true },
+    duplicate: { class: "invalid", halting: true }, // a create naming an identity already taken — the request, not the estate
+    input: { class: "invalid", halting: true },
+    command: { class: "breached", halting: true },
+    budget: { class: "breached", halting: true }, // the run outlived its declared ceiling after the scope-close abort
+    diagnostic: { class: "breached", halting: true },
+    alien: { class: "defect", halting: true },
+  },
+)
 
-class DeployFault extends Data.TaggedError("DeployFault")<{
-  readonly reason: DeployFault.Reason
-  readonly stack: string
-  readonly detail: string
-}> {
-  static readonly policies: DeployFault.Policies = _POLICY
-  static readonly byRank: Order.Order<DeployFault> = Order.mapInput(Order.number, (fault: DeployFault) => fault.policy.rank)
+class DeployFault extends Schema.TaggedError<DeployFault>()("DeployFault", {
+  reason: _family.schema,
+  stack: Schema.String,
+  detail: Schema.String,
+}) {
+  static readonly roster: typeof _family.reasons = _family.reasons
+  static readonly bySeverity: Order.Order<DeployFault> = Order.mapInput(FaultClass.severity, (fault: DeployFault) => fault.class)
   static readonly triaged = (stack: string): ((caught: unknown) => DeployFault) =>
     pipe(
       Match.type<unknown>(),
@@ -133,16 +142,19 @@ class DeployFault extends Data.TaggedError("DeployFault")<{
       Match.when(Match.instanceOf(RunError), (e) => new DeployFault({ reason: "diagnostic", stack, detail: e.message })),
       Match.orElse((residue) => new DeployFault({ reason: "alien", stack, detail: String(residue) })),
     )
-  get policy(): DeployFault.Row {
-    return _POLICY[this.reason]
+  get class(): FaultClass.Kind {
+    return _family.classOf(this.reason)
+  }
+  get halting(): boolean {
+    return _family.rows[this.reason].halting
+  }
+  override get message(): string {
+    return `<deploy:${this.reason}> ${this.stack}: ${this.detail}`
   }
 }
 
 declare namespace DeployFault {
-  type Reason = keyof typeof _POLICY
-  type Row = { readonly rank: number; readonly retry: boolean; readonly halting: boolean }
-  type Policies = typeof _POLICY
-  type _Rows<T extends { readonly [K in Reason]: Row } = typeof _POLICY> = T
+  type Reason = (typeof _family.reasons)[number]
 }
 ```
 
@@ -152,7 +164,7 @@ declare namespace DeployFault {
 - Owner: `Automation` — `stack` acquires the idempotent workspace, `run` drives one mutating ledger op to a receipt, `reconcile` runs the read-only `previewRefresh` leg to the same receipt shape, `receipt` folds an event batch through the same one-pass fold the stream rides, `ephemeral` brackets a stack whose release destroys it, `snapshot`/`restore` are the state-lifecycle pair over `exportStack`/`importStack`, `adopt` is the batch-adoption verb over `Stack.import` (`ImportResource` rows, `protect` by default — the operator disaster/onboarding entry), `attach`/`environments` are the imperative ESC pair over `Stack.addEnvironments`/`listEnvironments` (no typed `StackSettings` field exists, so attachment is run data), `history` reads the engine's update audit beside the receipt and `series` projects it into the per-op duration benchmark, `label`/`tags` write and read stack tags for fleet organization, `cancel` aborts a wedged in-flight update, `rename` moves stack identity in state, `config` is the one polymorphic configuration verb, `whoAmI`/`listStacks`/`installPlugin` read and provision the workspace roster, and `remote` is the Deployments execution row over `RemoteWorkspace.createOrSelectStack`, admitted only when `spec.hosted`. The `_host` Config surface is the one deploy-host read: `PULUMI_BACKEND_URL` selects the self-managed state store, `PULUMI_CONFIG_PASSPHRASE` rides `Config.redacted` and unwraps exactly once into `envVars`, `PULUMI_PROJECT` defaults, `PULUMI_HOME` and `PULUMI_CLI_ROOT` are optional — the CLI binary resolves through `PulumiCommand.get` against the optional root and rides `LocalWorkspaceOptions.pulumiCommand`, and no `Pulumi.yaml` exists because `projectSettings` carries the same facts programmatically.
 - Law: the driver is one exhaustive record — `_LEDGER` maps each op, `reconcile` included, to its `Stack` method under a mapped contract, so a sixth op is a compile error at the record; `up`/`preview` receive the policy-pack and gate options, `refresh`/`destroy`/`reconcile` the minimal projection, and every arm receives `signal` and `onEvent`. The `reconcile` arm calls `previewRefresh` — the engine's non-mutating reconcile — so a mutating `refresh` remains a deliberate ledger choice a human or workflow makes after reading drift evidence.
 - Law: the event bridge is a Stream, not an accumulator — `_streamed` registers `onEvent` through `Stream.asyncPush` inside the run's `Scope`, `emit.single` carries each engine event, settle maps to `emit.end`/`emit.fail`, and the `AbortController` acquired with the run is released by aborting it, so interruption, scope close, and timeout all cancel the engine run structurally and an orphaned update is unspellable; `_folded` is the single one-pass fold — summary from the last `SummaryEvent`, a step row per `resourcePreEvent`, a diagnostic row per `DiagnosticEvent` — consumed by `Stream.runFold` on the live path and `Array.reduce` on the batch path, so the receipt derivation exists once and never re-scans a buffer.
-- Law: resilience is internal — `_PULSE` is the recurrence policy composed once beside the fault family it serves (`Schedule.exponential` jittered, bounded by `Schedule.recurs`, gated `Schedule.whileInput` on `fault.policy.retry`), every drive carries a `budget` through `Effect.timeoutFail` (default forty-five minutes; exhaustion mints a halting `command` fault after the scope-close abort), and `Effect.withSpan` stamps the run so the deploy plane's primary egress reports itself; a consumer composes capability, never retry plumbing, and a policy column no rail reads is the named defect this owner closes.
+- Law: resilience is internal — `_PULSE` is the recurrence policy composed once beside the fault family it serves (`Schedule.exponential` jittered, bounded by `Schedule.recurs`, gated `Schedule.whileInput` on `FaultClass.retryable`), every drive carries a `budget` through `Effect.timeoutFail` (default forty-five minutes; exhaustion mints the halting `budget` fault carrying the ceiling it outlived, after the scope-close abort), and `Effect.withSpan` stamps the run so the deploy plane's primary egress reports itself; a consumer composes capability, never retry plumbing, and a taxonomy column no rail reads is the named defect this owner closes.
 - Law: the deploy host exports its own telemetry — the automation process's composition root merges the runtime plane's `Export.live` beneath this owner, so the `iac.automation.run` span, its retry annotations, and the process logs reach the same collector every deployed app feeds; this page names spans and receipts only, and the deploy-visible annotation the boards carry is `operate/observe.md`'s apply-time resource.
 - Law: identity has one spelling — the receipt `stack` field and the run span carry the canonical `fullyQualifiedStackName("organization", host.project, name)` the engine itself resolves for a self-managed backend, while the fault family carries the caller's slug because triage fires before host facts resolve; a receipt keyed on the raw slug is the drift this law forecloses, and `history`, `series`, and the drift projection correlate on the same qualified spelling.
 - Law: `config` discriminates by input shape — absent reads the whole map (`getAllConfig`), a string reads one key (`getConfig`), a `[key, value]` tuple writes one (`setConfig`), a `ConfigMap` writes bulk (`setAllConfig`), and `{ refresh: true }` re-pulls from the backend (`refreshConfig`) — five modalities on one member whose ladder reads evidence the value carries, so no `getConfig`/`setConfig` sibling family exists on this owner.
@@ -163,7 +175,7 @@ declare namespace DeployFault {
 - Entry: `Automation.stack(spec, program)` then `Automation.run(stack, spec.name, "up", { policyPacks })`; `Automation.reconcile(stack, spec.name)` for the standing drift read; `Automation.series(stack, spec.name)` for the regression read; `Automation.ephemeral(spec, program)` under a `Scope` for review stacks; `Automation.adopt(stack, spec.name, resources)` to absorb a pre-existing estate; `Automation.attach(stack, spec.name, envs)` after `operate/cloud.md` authors the environment.
 - Growth: a new host fact is one `_host` row; a new call-local option is one `_RunOpts` field inherited by `Options` mechanically; a new fleet verb is one member over the engine method that carries it; a new config modality is one `_config` overload line plus one ladder arm.
 - Boundary: the `PulumiFn` the stack runs is `provider.md`'s product; the drift projection over `reconcile` receipts and the `Evidence` sink vocabulary run settle delivers into are `operate/policy.md`'s; the hosted schedule/webhook twins of these verbs are `operate/cloud.md`'s rows.
-- Packages: `effect` (`Config`, `Duration`, `Effect`, `Option`, `Predicate`, `Redacted`, `Schema`, `Schedule`, `Stream`, `Array`, `Record`); `@pulumi/pulumi/automation` (`LocalWorkspace`, `RemoteWorkspace`, `PulumiCommand`, `fullyQualifiedStackName`, `Stack`, `ConfigMap`, `ConfigValue`, `EngineEvent`, `PulumiFn`, `Deployment`, `ImportResource`, `StackSummary`, `UpdateSummary`, `WhoAmIResult`, `RemoteGitProgramArgs`, `RemoteStack`).
+- Packages: `effect` (`Config`, `Duration`, `Effect`, `Option`, `Predicate`, `Redacted`, `Schema`, `Schedule`, `Stream`, `Array`, `Record`); `@rasm/ts/core` (`FaultClass`); `@pulumi/pulumi/automation` (`LocalWorkspace`, `RemoteWorkspace`, `PulumiCommand`, `fullyQualifiedStackName`, `Stack`, `ConfigMap`, `ConfigValue`, `EngineEvent`, `PulumiFn`, `Deployment`, `ImportResource`, `StackSummary`, `UpdateSummary`, `WhoAmIResult`, `RemoteGitProgramArgs`, `RemoteStack`).
 
 ```typescript
 import {
@@ -187,10 +199,12 @@ const _facts = (name: string) =>
 
 const _qualified = (project: string, name: string): string => fullyQualifiedStackName("organization", project, name)
 
+// the gate is the core lattice, not a local column: `conflicted` is the one retryable kind any row selects,
+// so the retry set follows the class map and cannot drift from a policy table a reader keeps in agreement
 const _PULSE = Schedule.exponential("500 millis").pipe(
   Schedule.jittered,
   Schedule.intersect(Schedule.recurs(4)),
-  Schedule.whileInput((fault: DeployFault) => fault.policy.retry),
+  Schedule.whileInput((fault: DeployFault) => FaultClass.retryable(fault)),
 )
 
 type _RunOpts = {
@@ -284,7 +298,7 @@ const _driven = (stack: Stack, name: string, op: RunReceipt.Op, options?: Automa
         Effect.flatMap((fold) => _decoded(op, qualified, fold)),
         Effect.timeoutFail({
           duration: options?.budget ?? Duration.minutes(45),
-          onTimeout: () => new DeployFault({ reason: "command", stack: name, detail: "<budget-exhausted>" }),
+          onTimeout: () => new DeployFault({ reason: "budget", stack: name, detail: Duration.format(options?.budget ?? Duration.minutes(45)) }),
         }),
         Effect.retry(_PULSE),
         Effect.withSpan("iac.automation.run", { attributes: { stack: qualified, op } }),

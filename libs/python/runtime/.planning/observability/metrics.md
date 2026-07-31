@@ -12,7 +12,7 @@ Observable instruments read frozen `MetricState` snapshots keyed per composition
 ## [02]-[METRIC]
 
 - Owner: `INSTRUMENTS` is the one table every derived surface reads — a row's `kind` selects its mint from `SYNC_MINT` or `OBSERVABLE_MINT`, its `name` IS the key the synchronous carrier holds it under, the `mapped` rows derive `MEASURES` against the `DOMAINS` roster, `views` derives one name-exact `ViewRow` per row from its own `keys` projection, and `MeterReceipt.instruments` names the same rows — no per-instrument `create_*` call, seed function, carrier field, name-to-field map, or hand-listed allow-list beside it. Both mint tables key one enum and their key sets partition it exactly, so `SYNC_MINT` membership is the single discriminant both enrollment folds read and a row can neither declare one family while landing in the other's fold nor fall through both. `InstrumentKind` spans the closed OTel instrument space whole rather than the subset in hand, and a producer's declared aggregation intent selects a kind instead of forcing every measure through a histogram. `latched` imports from `reliability/faults#FAULT` and guards the process enrollment `_enrolled` beside the telemetry owner's pipeline latch — one definition, its `reentrant` closure stamping `ADOPTED` for a later composition — while the per-scope latch is the `_receipts` map fold, never a re-pinned local guard.
-- Entry: under a `PACKAGE`/`TEST` profile no provider is set, so `get_meter` resolves the API proxy meter and the fold mints proxy instruments that upgrade in place at the install — the gate is the installed provider, never a profile argument here, and every proxy family answers the same `isinstance` narrowing its real counterpart does. `record` is one polymorphic entrypoint: a scalar records the `SERVE_DURATION` row, a `Mapping` records each named measure onto the row `MEASURES` resolves — the artifacts emit-harvest seam records under `domain="artifact"`, the data query-receipt projection under `domain="query"`, the geometry charter fold under `domain="geometry"`, the compute graduation taps under `domain="compute"`, the bench family under `domain="bench"` — timings keyed by subject beside the graded verdict under its `outcome` discriminant — the worker-crossing `Cost` bracket under `domain="cost"` keyed by kernel name, the evidence drain's landed facts and metered quantities under `domain="journal"`, and this branch's own pulse-conduit drops under `domain="runtime"` — both arms under the active context so every measurement exemplar-correlates to its span, and both arms fold the tenant entry and the caller's composition stamp onto the attributes through `_attributed` under its budget. EVERY recording path resolves its write member from the instrument's own family through `_write` — the three by-name rows included — so a row re-kinded from histogram to counter moves every call site with it and no site names a write verb. `timed` folds a resolved rail through `FAULT_OUTCOME` at one site — `deadline` lands `cancelled`, every other fault `rejected`, an `Ok` rail `completed` — never a lossy ok/error bool per handler.
+- Entry: under a `PACKAGE`/`TEST` profile no provider is set, so `get_meter` resolves the API proxy meter and the fold mints proxy instruments that upgrade in place at the install — the gate is the installed provider, never a profile argument here, and every proxy family answers the same `isinstance` narrowing its real counterpart does. `record` is one polymorphic entrypoint: a scalar records the `SERVE_DURATION` row, a `Mapping` records each named measure onto the row `MEASURES` resolves — the artifacts emit-harvest seam records under `domain="artifact"` and its graduated texture slots under `domain="texture"` fanned by the producing `tool` its map band names, the data query-receipt projection under `domain="query"`, the geometry charter fold under `domain="geometry"`, the compute graduation taps under `domain="compute"`, the bench family under `domain="bench"` — timings keyed by subject beside the graded verdict under its `outcome` discriminant — the worker-crossing `Cost` bracket under `domain="cost"` keyed by kernel name, the evidence drain's landed facts and metered quantities under `domain="journal"`, and this branch's own pulse-conduit drops under `domain="runtime"` — both arms under the active context so every measurement exemplar-correlates to its span, and both arms fold the tenant entry and the caller's composition stamp onto the attributes through `_attributed` under its budget. EVERY recording path resolves its write member from the instrument's own family through `_write` — the three by-name rows included — so a row re-kinded from histogram to counter moves every call site with it and no site names a write verb. `timed` folds a resolved rail through `FAULT_OUTCOME` at one site — `deadline` lands `cancelled`, every other fault `rejected`, an `Ok` rail `completed` — never a lossy ok/error bool per handler.
 - Auto: the free-threading gate protects each state and receipt map mutation and nothing else — the carrier and the tenant set are immutable values swapped whole, so a measurement reads them without queueing behind a process-wide lock, and only a first-seen tenant value takes the gate. Each observable callback snapshots the complete `(scope, state)` roster under one gate pass, samples the process off the gate, republishes the reading halves per key under a second pass, then projects, stamping `composition` on a non-default scope's observations so two embedded compositions stay distinguishable on one instrument set — the syscall window never held across a lock a measurement takes, and a registration landing mid-sample surviving the republish. Process readings refresh on that EXPORT cycle under `READING_TTL_S` rather than at a producer call, so a composition that records nothing still exports live gauges and one cycle's process rows share one `oneshot`; `cpu_percent(interval=None)` is the non-blocking since-last-call delta, the first sample the `0.0` seed. `rasm.band.in_flight` is a level the export cycle samples through the `occupied` probes bounded owners register, one series per named band — this owner names no `CapacityLimiter` and imports no `anyio`, the probe being a bare integer read — so a lane limiter, a worker pool, and a durable intake each report their own saturation instead of summing into one number, where a per-drain remainder instead republishes the last drain's abandoned count under a level's name and doubles the drain counter's own `cancelled` column. Probe custody is lifetime-bound at both ends: each call fences, so one raising owner subtracts itself from its band rather than darkening every other bound in the cycle, and a band whose last owner retires leaves the map entirely — a level nobody holds publishes NO point, because a zero-seeded fold reads identically to a live limiter sitting empty and buries the one distinction the series answers. `rasm.lane.drained` is the opposite shape and therefore synchronous: a drain receipt is a per-drain delta whose counts add at the call, where an observable fed by a replaced snapshot republishes the last drain forever and a cumulative reader compounds that sawtooth into a total nobody produced. Its `outcome` dimension carries the receipts-owned TERMINAL partition alone — `accepted` is the admitted total those columns exactly sum to, so admitting it as a fifth value doubles every cross-dimension sum a board takes. `ProcessReading.sample`'s `suppress` is the one admitted raw-except site: the OTel observable-callback contract returns `Iterable[Observation]` and forbids a railed `Result`, so a dead-process race drops the reading and the gauges yield empty for that cycle; its vanished-process fence rides the receipts-owned `PROCESS_FAULTS` tuple, never a second local mint.
 - Growth: a new measured signal is ONE `InstrumentSpec` row and nothing else — a mapping-arm row carries `mapped=True` under a rostered segment beside whatever `dimensions` its producer stamps through the `record` discriminant map, an observable row carries its `project`, and the carrier key, the census pair, the receipt name, and the view allow-list all name themselves from that row; a measure whose capability subject no `DOMAINS` row holds admits that row first, while a second producer under a standing subject adds none; a new by-name reader is one `Final` name constant its own row spells; a new metric dimension is one `Dimension` member on the row's `dimensions` tuple, reaching the write site and the view allow-list at once; a new process probe one `ProbeField` literal with its `ProcessReading` field and `_gauge` row inside the batched `oneshot`; a new bounded owner reporting occupancy one `occupied` scope around its lifetime under its own `band` value, its probe minting that band's series on entry and retiring it with the band's last owner, no row edit either way; a new terminal drain disposition one `DrainOutcome` member at the receipts owner, reaching this counter through the imported `DRAIN_DISPOSITIONS` with no edit here; a new fault-to-outcome mapping one `FAULT_OUTCOME` row, unmapped tags defaulting `rejected`; a new cardinality ceiling one `SignalProfile.cardinality_budget` value threaded through `install`; a new composition one `ScopeKey` value threaded through the `scope` keyword every entry carries, reaching each series through the one attribute fold. OTel closes the instrument space, so `InstrumentKind` grows only where that specification mints a family.
 - Boundary: no second `MeterProvider`, no SDK provider, reader, exporter, `View`, or exemplar-reservoir construction, no `set_on_retry_hooks` registration, and no AppHost telemetry envelope, health status, or product export — the metric-stream shaping this owner holds is DATA, and the `observability/telemetry#TELEMETRY` install is the one surface that turns a `ViewRow` into an SDK `View`, which is what keeps every SDK type above the composition root. Histogram wire shape is that owner's base2-exponential `WIRE_AGGREGATION` default; the advisory rows here are the explicit-shape fallback a deployment re-arms by naming the instrument, and the tenant ceiling arrives as a policy value rather than a literal minted here. Occupancy arrives the same way: an owner hands in its own read, so no concurrency primitive, lane type, or `anyio` import crosses into this tier to be sampled.
@@ -99,6 +99,7 @@ class Dimension(StrEnum):
     OUTCOME = "outcome"
     TARGET = "target"
     CAUSE = "cause"
+    TOOL = "tool"
     KIND = "rasm.kind"
     BAND = "band"
     COMPOSITION = "composition"
@@ -175,7 +176,9 @@ DOMAINS: Final[Map[str, str]] = Map.of_seq([
     ("artifact", "produced-artifact byte volume and compression economics"),
     ("band", "live occupancy of every bounded band the branch names"),
     ("bench", "benchmark claims and the verdicts grading them"),
+    ("catalog", "cloud-asset discovery volume per STAC query"),
     ("compute", "solver execution, monitoring, and the numerical residual per graduation"),
+    ("contract", "data-contract claim breaches per checked frame"),
     ("cost", "worker-crossing resource price per kernel"),
     ("deploy", "the consumption-profile axes a signal groups on"),
     ("egress", "object-plane byte movement per operation"),
@@ -203,6 +206,7 @@ DOMAINS: Final[Map[str, str]] = Map.of_seq([
     ("runtime", "mid-operation fact delivery across the worker conduit"),
     ("serve", "served-request latency per method"),
     ("tensor", "gridded tensor backend and region selection"),
+    ("texture", "produced plane-set pyramid depth and texel volume per producing tool"),
     ("virtual", "virtual-dataset source composition and branch selection"),
 ])
 
@@ -344,8 +348,8 @@ def _refreshed(state: MetricState, now: float) -> MetricState:
 
 
 def _resampled(live: MetricState, sampled: MetricState) -> MetricState:
-    # the sample runs off the gate, so the live row may have gained or lost occupancy probes meanwhile: only the
-    # reading halves publish back and the live occupancy stands, where a whole-row swap would drop a registration
+    # `ProcessReading.sample` runs off the gate, so the live row may have gained or lost occupancy probes meanwhile:
+    # only the reading halves publish back and the live occupancy stands, where a whole-row swap drops a registration
     # that landed during the sample and darken that band for the rest of the process.
     return replace(live, reading=sampled.reading, sampled_at=sampled.sampled_at)
 
@@ -409,16 +413,40 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec(RETRY_ATTEMPTS, InstrumentKind.COUNTER, "{attempt}", dimensions=(Dimension.TARGET, Dimension.CAUSE)),
     InstrumentSpec("rasm.artifact.byte_volume", InstrumentKind.HISTOGRAM, "By", mapped=True),
     InstrumentSpec("rasm.artifact.compression_ratio", InstrumentKind.HISTOGRAM, "1", mapped=True),
+    # Pyramid depth and texel volume are the produced-set facts a texture regression moves that byte volume alone
+    # cannot separate — a truncated ladder and a downscaled plane both read as fewer bytes on
+    # `rasm.artifact.byte_volume` — so each graduates to its own distribution. The producing leg stays a FAN rather
+    # than a second series: one set legitimately mixes the spawned encode floor with an in-process leg, and `tool`
+    # is the bounded key the manifest's own per-map column already carries, so a board attributes a shift to the
+    # leg that pressed it without doubling the instrument roster.
+    InstrumentSpec("rasm.texture.mip_depth", InstrumentKind.HISTOGRAM, "{level}", mapped=True, dimensions=(Dimension.TOOL,)),
+    InstrumentSpec("rasm.texture.texels", InstrumentKind.HISTOGRAM, "{texel}", mapped=True, dimensions=(Dimension.TOOL,)),
     InstrumentSpec("rasm.query.engine.duration", InstrumentKind.HISTOGRAM, "ms", mapped=True),
     InstrumentSpec("rasm.query.rows", InstrumentKind.HISTOGRAM, "{row}", mapped=True),
     InstrumentSpec("rasm.egress.byte_volume", InstrumentKind.HISTOGRAM, "By", mapped=True),
     InstrumentSpec("rasm.quality.breach_fraction", InstrumentKind.HISTOGRAM, "1", mapped=True),
+    # A profile's breach FRACTION and a contract's breach COUNT answer different questions off different gates —
+    # the fraction grades a sampled frame's shape, this counter tallies the settled claims a covenant refused — so
+    # the contract claim trends its own monotonic series rather than folding onto a distribution it would skew.
+    InstrumentSpec("rasm.contract.breaches", InstrumentKind.COUNTER, "{breach}", mapped=True),
     InstrumentSpec("rasm.impact.score", InstrumentKind.HISTOGRAM, "kg", mapped=True),
     InstrumentSpec("rasm.graph.nodes", InstrumentKind.HISTOGRAM, "{node}", mapped=True),
     InstrumentSpec("rasm.graph.edges", InstrumentKind.HISTOGRAM, "{edge}", mapped=True),
     InstrumentSpec("rasm.lake.commit.files_added", InstrumentKind.COUNTER, "{file}", mapped=True),
     InstrumentSpec("rasm.lake.commit.files_removed", InstrumentKind.COUNTER, "{file}", mapped=True),
     InstrumentSpec("rasm.materialize.rows", InstrumentKind.HISTOGRAM, "{row}", mapped=True),
+    # Data-plane throughput rows: every one is a per-operation DELTA a producer adds at its own call, so each takes
+    # the monotonic counter a cumulative reader integrates rather than a distribution over magnitudes nobody
+    # compares across sources. The `<measure>` tail is byte-identical to its cross-domain twin — `byte_volume`
+    # beside artifact and egress, `rows` beside query and materialize, `points` shared by both point-bearing
+    # producers — so one board expression joins the tail across every domain producing it.
+    InstrumentSpec("rasm.tensor.byte_volume", InstrumentKind.COUNTER, "By", mapped=True),
+    InstrumentSpec("rasm.catalog.items", InstrumentKind.COUNTER, "{item}", mapped=True),
+    InstrumentSpec("rasm.virtual.references", InstrumentKind.COUNTER, "{reference}", mapped=True),
+    InstrumentSpec("rasm.field.byte_volume", InstrumentKind.COUNTER, "By", mapped=True),
+    InstrumentSpec("rasm.ragged.rows", InstrumentKind.COUNTER, "{row}", mapped=True),
+    InstrumentSpec("rasm.mesh.points", InstrumentKind.COUNTER, "{point}", mapped=True),
+    InstrumentSpec("rasm.pointcloud.points", InstrumentKind.COUNTER, "{point}", mapped=True),
     InstrumentSpec("rasm.geometry.evidence.duration", InstrumentKind.HISTOGRAM, "ms", mapped=True),
     InstrumentSpec("rasm.geometry.evidence.cpu_time", InstrumentKind.COUNTER, "s", mapped=True),
     InstrumentSpec("rasm.geometry.evidence.rss_delta", InstrumentKind.HISTOGRAM, "By", mapped=True),
@@ -428,7 +456,16 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.geometry.deviation.noncompliant", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.geometry.registration.fitness", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.geometry.section.closure", InstrumentKind.HISTOGRAM, "1", mapped=True),
+    # The three graduating subjects whose charter counterparts had no mounted row: an IDS/clash verdict's failing
+    # share, a form-finding solve's max-abs residual, and a comfort run's discomfort fraction. Each reads `1`
+    # because each is dimensionless by construction — a share, a fraction, and a residual whose two engines carry
+    # different physical dimensions (a DR force residual against a TNA crown scale), so naming either engine's unit
+    # would export the other's magnitude against a descriptor it does not satisfy. `noncompliant` spells identically
+    # to its deviation twin, one tail a board joins across both compliance planes.
+    InstrumentSpec("rasm.geometry.compliance.noncompliant", InstrumentKind.HISTOGRAM, "1", mapped=True),
+    InstrumentSpec("rasm.geometry.form.residual", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.geometry.energy.eui", InstrumentKind.GAUGE, "kW.h/m2", mapped=True),
+    InstrumentSpec("rasm.geometry.comfort.discomfort", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.compute.evidence.duration", InstrumentKind.HISTOGRAM, "ms", mapped=True),
     InstrumentSpec("rasm.compute.evidence.cpu_time", InstrumentKind.COUNTER, "s", mapped=True),
     InstrumentSpec("rasm.compute.evidence.rss_delta", InstrumentKind.HISTOGRAM, "By", mapped=True),
@@ -565,7 +602,7 @@ class Metrics:
         # `budget` is the ceiling the telemetry owner's `SignalProfile.cardinality_budget` carries. Instruments are
         # process singletons, so the first ENROLLING composition fixes the guard and a later one adopts the standing
         # ceiling — its receipt records the effective value, never its request, exactly as `ADOPTED` reads elsewhere.
-        # The gate spans CUSTODY alone — claiming the ceiling and reading the scope's receipt, then publishing state
+        # `cls._gate` spans CUSTODY alone — claiming the ceiling and reading the scope's receipt, then publishing state
         # and receipt — with meter construction and instrument enrollment outside it, so a measurement never queues
         # behind SDK machinery and no lock order runs opposite the export cycle's.
         with cls._gate:

@@ -35,7 +35,11 @@ declare namespace Overlay {
     readonly floor: number
     readonly arrow?: RefObject<SVGSVGElement | null>
   }
-  type Detents = { readonly points: ReadonlyArray<number | string>; readonly fadeFrom: number }
+  type Detents = {
+    readonly points: ReadonlyArray<number | string>
+    readonly fadeFrom: number
+    readonly sequential: boolean // velocity-skip disabled where each detent is a semantic stop rather than a waypoint
+  }
   type Dismissal = "close" | "close-silent" | "commit-close" | "ignore"
   type Present =
     | { readonly _tag: "Opened"; readonly overlay: string }
@@ -82,18 +86,61 @@ const _middleware = (options: Overlay.Anchor) => [
 ## [03]-[SHEET_HOST]
 
 [SHEET_HOST]:
-- Owner: the sheet law riding `Overlay` — the vaul host: `Drawer.Root` with `open`/`onOpenChange` and `activeSnapPoint`/`setActiveSnapPoint` atom-bound, `snapPoints` + `fadeFromIndex` as the detent policy row (`Overlay.Detents`), `Drawer.Title` + `Drawer.Description` always present (visually hidden when no heading shows), `handleOnly` for drag-origin discipline with `Drawer.Handle` as the affordance; a nested flow mounts `Drawer.NestedRoot`, and `snapToSequentialPoint` disables velocity skipping where detents are semantic stops.
-- Packages: `vaul` (`Drawer.Root`, `Drawer.NestedRoot`, `Drawer.Trigger`, `Drawer.Portal`, `Drawer.Overlay`, `Drawer.Content`, `Drawer.Handle`, `Drawer.Title`, `Drawer.Description`, `Drawer.Close`).
+- Owner: `Overlay.sheet(detents, held, drive, nesting)` — the vaul host as prop records: the detent policy row (`Overlay.Detents`) and the atom-held `Overlay.Detent` fold into `ComponentProps` of `Drawer.Root`, `Drawer.Content`, and `Drawer.Handle`, so `open`/`onOpenChange` and `activeSnapPoint`/`setActiveSnapPoint` are store state at one declaration and a vaul prop rename breaks HERE rather than at every sheet. `Drawer.Title` + `Drawer.Description` are always mounted (visually hidden when no heading shows — Radix warns and the sheet goes unlabeled otherwise), and `handleOnly` pins the drag origin to `Drawer.Handle`.
+- Law: nesting is a vocabulary row, never a boolean — `Overlay.roots` maps the closed `flat`/`nested` axis onto `Drawer.Root`/`Drawer.NestedRoot` and the sheet record hands back the resolved component, so a nested flow is one key and the cumulative-scale behavior arrives with it; the flat arm alone takes `modal`, because a nested sheet inherits its parent's modality.
+- Law: prop records lift, never restate — every returned record is `ComponentProps` of the part it feeds, the same law `Chart.Bespoke` follows, and a hand-typed sheet-props interface beside this fold is the parallel shape it deletes.
+- Packages: `vaul` (`Drawer.Root`, `Drawer.NestedRoot`, `Drawer.Trigger`, `Drawer.Portal`, `Drawer.Overlay`, `Drawer.Content`, `Drawer.Handle`, `Drawer.Title`, `Drawer.Description`, `Drawer.Close`; the `DialogProps` control surface — `snapPoints`/`fadeFromIndex`/`activeSnapPoint`/`setActiveSnapPoint`/`snapToSequentialPoint`/`handleOnly`/`repositionInputs`/`direction`/`dismissible`/`closeThreshold`/`modal` — and `HandleProps.preventCycle`).
 - Law: the sheet's drag is vaul's own — no `use-gesture` binding on a sheet surface (`system/act`'s double-bind defect); sheet motion is the drag physics with `Motion.sheet` for programmatic open/close, never both animating one property.
 - Law: `repositionInputs` stays default where a sheet hosts fields — the keyboard-avoidance behavior is the package's; a hand-rolled viewport listener beside it is the named defect.
-- Growth: a new sheet detent is one `snapPoints` entry; a new sheet surface is one `Drawer.Root` composition — the detent policy row never forks.
+- Law: `dismissible: false` demands the controlled `open` this fold already supplies — an uncontrolled undismissible sheet traps itself open, so the two facts travel as one record.
+- Growth: a new sheet detent is one `snapPoints` entry; a new sheet surface is one `Overlay.sheet` call — the detent policy row never forks.
+
+```typescript
+import type { ComponentProps } from "react"
+import { Drawer } from "vaul"
+
+const _roots = { flat: Drawer.Root, nested: Drawer.NestedRoot } as const
+
+declare namespace Overlay {
+  type Nesting = keyof typeof _roots
+  type Detent = { readonly open: boolean; readonly at: number | string | null }
+  type Sheet = {
+    readonly Root: (typeof _roots)[Overlay.Nesting]
+    readonly root: ComponentProps<typeof Drawer.Root>
+    readonly content: ComponentProps<typeof Drawer.Content>
+    readonly handle: ComponentProps<typeof Drawer.Handle>
+  }
+}
+
+const _sheet = (
+  detents: Overlay.Detents,
+  held: Overlay.Detent,
+  drive: (next: Overlay.Detent) => void,
+  nesting: Overlay.Nesting,
+): Overlay.Sheet => ({
+  Root: _roots[nesting],
+  root: {
+    open: held.open,
+    onOpenChange: (open) => drive({ ...held, open }),
+    snapPoints: [...detents.points], // vaul's control surface takes a mutable array: this fold is the one seam the readonly policy row copies at
+    fadeFromIndex: detents.fadeFrom,
+    activeSnapPoint: held.at,
+    setActiveSnapPoint: (at) => drive({ ...held, at }),
+    snapToSequentialPoint: detents.sequential,
+    handleOnly: true,
+    ...(nesting === "flat" && { modal: true }), // a nested sheet inherits its parent's modality; only the flat arm states one
+  },
+  content: { "aria-describedby": undefined }, // the Description part carries the description; the auto-wired id would name a node this fold never mounts
+  handle: { preventCycle: true }, // the handle drags; detent cycling stays the atom's write
+})
+```
 
 ## [04]-[PALETTE]
 
 [PALETTE]:
 - Owner: the palette law riding `Overlay` — the `Overlay.Command` vocabulary: one `as const satisfies Record<string, Overlay.Command>` table where each row carries `icon` (a named `LucideIcon` — the row's identity, tree-shaken), `label` (a `system/intl` catalog key), `keywords` (alias tokens for the scorer), and `run` (the intent write — an atom setter or callable atom the app wires); the palette renders the table through cmdk — `Command.Input`/`Command.List`/`Command.Group`/`Command.Item`/`Command.Empty` — with controlled `value`/`onValueChange`, `useCommandState((s) => s.filtered.count)` driving the count/empty rows without list re-render.
 - Packages: `cmdk` (`Command` compound, `CommandDialog`, `Command.Loading`, `useCommandState`, `defaultFilter`); `lucide-react` (`LucideIcon` — icon-as-identity); `system/intl` (labels, `useFilter` pre-normalization where locale-sensitive); `system/primitive` (`Clipboard` — the copy rail); `@tanstack/react-virtual` + `@floating-ui/react` `inner`/`useInnerOffset` (the virtualized lane).
-- Law: hosting picks exactly one shell — `CommandDialog` for the global modal palette (its own Radix portal + focus trap); a BARE `Command` inside `Drawer.Content` for a sheet palette (vaul owns portal/trap); a bare `Command` inside `FloatingFocusManager` for an anchored palette (floating-ui owns position/portal/trap) — two focus traps on one surface is the named defect, and `useListNavigation`/`useTypeahead` never stack over a cmdk list.
+- Law: hosting picks exactly one shell, and `Overlay.hosts` is the row table that makes the choice checkable — each row names which package owns the portal and which owns the focus trap, so `modal` takes `CommandDialog` (cmdk's own Radix portal and trap), `sheet` takes a BARE `Command` inside `Drawer.Content` (vaul owns both), and `anchored` takes a bare `Command` inside `FloatingFocusManager` (floating-ui owns position, portal, and trap). Two focus traps on one surface is the named defect the `trap` column exists to expose, `CommandDialog` inside either non-modal host is that defect spelled twice, and `useListNavigation`/`useTypeahead` never stack over a cmdk list.
 - Law: a result set past the DOM budget virtualizes — the anchored combobox lane windows pre-filtered rows through `useVirtualizer` with `useListNavigation({ virtual: true })` keeping focus on the input (`scrollToIndex` reveals the active row), and `inner`/`useInnerOffset` anchor the tall scrollable list at the active item; cmdk's own list serves below the budget — one lane per palette, chosen by row count.
 - Law: item `value` is the stable spec key, never the visible label — filtering and selection survive label localization; `keywords` carry the localized aliases.
 - Law: async command sources set `shouldFilter={false}` and render pre-filtered rows from an atom (`Atom.debounce`d query, `Result`-folded, `Command.Loading` on the `waiting` arm) — the machine keeps keyboard/selection, the store owns matching.
@@ -102,16 +149,48 @@ const _middleware = (options: Overlay.Anchor) => [
 - Growth: a new command is one spec row; a new palette surface is one hosting-shell choice — the table never forks.
 
 ```typescript
+import { Command, CommandDialog, defaultFilter, useCommandState } from "cmdk"
+import { Array, Record } from "effect"
 import type { LucideIcon } from "lucide-react"
+import type { ComponentProps } from "react"
+
+const _hosts = {
+  modal: { shell: CommandDialog, portal: "cmdk", trap: "cmdk" },
+  sheet: { shell: Command, portal: "vaul", trap: "vaul" },
+  anchored: { shell: Command, portal: "floating-ui", trap: "floating-ui" },
+} as const
 
 declare namespace Overlay {
   type Command = {
     readonly icon: LucideIcon
-    readonly label: string
+    readonly label: string // a system/intl catalog key: the scorer reads its RESOLVED text through keywords, never this key
     readonly keywords: ReadonlyArray<string>
     readonly run: () => void
   }
+  type Host = keyof typeof _hosts
+  type HostRow = { readonly shell: typeof Command | typeof CommandDialog; readonly portal: string; readonly trap: string }
+  type Palette = {
+    readonly root: ComponentProps<typeof Command>
+    readonly items: ReadonlyArray<ComponentProps<typeof Command.Item>>
+  }
+  type _Rows<T extends Record.ReadonlyRecord<Overlay.Host, Overlay.HostRow> = typeof _hosts> = T // row guard: a host missing its ownership columns fails at the declaration
 }
+
+const _palette = (
+  table: Record.ReadonlyRecord<string, Overlay.Command>,
+  resolve: (label: string) => string,
+  remote: boolean,
+): Overlay.Palette => ({
+  // an async source hands the store the matching and renders pre-filtered rows; the local table keeps cmdk's scorer
+  root: { shouldFilter: !remote, loop: true, filter: defaultFilter },
+  items: Array.map(Record.toEntries(table), ([key, row]) => ({
+    value: key, // the stable spec key: filtering and selection survive label localization
+    keywords: [resolve(row.label), ...row.keywords], // the localized text enters the scorer HERE, never as the value
+    onSelect: row.run,
+  })),
+})
+
+const _matched = (): number => useCommandState((state) => state.filtered.count) // the count and empty rows read the store, so the list never re-renders to report its own size
 ```
 
 ## [05]-[PRESENCE_COHORT]
@@ -130,8 +209,13 @@ declare namespace Overlay {
   type Shape = {
     readonly dismiss: typeof _dismiss
     readonly hook: typeof _presentHook
+    readonly hosts: typeof _hosts
+    readonly matched: typeof _matched
     readonly middleware: typeof _middleware
+    readonly palette: typeof _palette
     readonly present: typeof _present
+    readonly roots: typeof _roots
+    readonly sheet: typeof _sheet
     readonly virtual: typeof _virtual
   }
 }
@@ -139,8 +223,13 @@ declare namespace Overlay {
 const Overlay: Overlay.Shape = {
   dismiss: _dismiss,
   hook: _presentHook,
+  hosts: _hosts,
+  matched: _matched,
   middleware: _middleware,
+  palette: _palette,
   present: _present,
+  roots: _roots,
+  sheet: _sheet,
   virtual: _virtual,
 }
 

@@ -24,15 +24,13 @@
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
 using Rasm.Domain;
@@ -426,7 +424,7 @@ public sealed record AssemblyJoint(int Index, AssemblyMemberKey Owner, Component
 - Law: source-first order respects resource exclusivity, dwell, cool, inspection, and lane policy; each step carries typed start, finish, fixture, resources, and stability evidence, and every receipt resolves by joint key rather than array position.
 - Law: disassembly reverses the proven precedence order, so an occlusion or thermal edge that gated a join gates its removal; a roster reversal ignores both.
 - Law: removing a completed or blocked joint re-proves every surviving receipt against the residual assembly through the same evidence boundary, because removal moves the load path the original receipts measured.
-- Exemption: QuikGraph construction, component labeling, bounded scheduling folds, analytic corridor kernels, and canonical boundary serialization mutate only their admitted containers; every adjacent collection in the preimage is count-framed.
+- Exemption: QuikGraph construction, component labeling, bounded scheduling folds, analytic corridor kernels, and the `Rasm.Element` `CanonicalWriter` projection mutate only their admitted containers; the codec counts every adjacent collection in the preimage and opens on the plan's strictest joint alignment.
 - Packages: `BidirectionalGraph<JoinNode, AssemblyEdge>` carries reason payloads directly, while the component `UndirectedGraph` remains the disjoint physical-connectivity projection.
 - Boundary: precedence and physical connectivity remain distinct; cycle evidence retains the cyclic joint and edge census, and geometry failure, missing specification, unstable release, and blocked access remain typed failures carrying a `JoinRejection` reason rather than one opaque code.
 
@@ -570,12 +568,12 @@ public sealed partial record AssemblyPlan(
             return Validation<Error, Unit>.Fail(new FabricationFault.FixtureInadmissible(
                 new FixturingWitness.Membership(-1, members.Count, 0)).ToError());
         Set<AssemblyMemberKey> keys = members.Map(static member => member.Key).ToSet();
-        return members.Count > 0 && keys.Count == members.Count
-        && members.ForAll(member => member is not null && member.Component is not null
-            && member.Key.Representation == member.Component.RepresentationKey && member.Pose.IsValid)
-            ? Validation<Error, Unit>.Success(unit)
-            : Validation<Error, Unit>.Fail(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Membership(-1, members.Count, keys.Count)).ToError());
+        return AdmissionSlots.Gate(
+            members.Count > 0 && keys.Count == members.Count
+            && members.ForAll(member => member is not null && member.Component is not null
+                && member.Key.Representation == member.Component.RepresentationKey && member.Pose.IsValid),
+            new FabricationFault.FixtureInadmissible(
+                new FixturingWitness.Membership(-1, members.Count, keys.Count)));
     }
 
     static K<Validation<Error>, Unit> GatePolicy(Seq<AssemblyMember> input, AssemblyPolicy policy) {
@@ -586,8 +584,8 @@ public sealed partial record AssemblyPlan(
         Set<AssemblyMemberKey> members = input.Map(static member => member.Key).ToSet();
         Set<string> realized = input.Bind(static member => member.Component.Connections.ToSeq()
             .Map(static connection => connection.RealizingKey)).ToSet();
-        return
-        policy.CorridorClearance.As(LengthUnit.Millimeter) >= 0.0
+        return AdmissionSlots.Gate(
+            policy.CorridorClearance.As(LengthUnit.Millimeter) >= 0.0
         && double.IsFinite(policy.CorridorClearance.As(LengthUnit.Millimeter))
         && double.IsFinite(policy.HandlingLoad.As(ForceUnit.Newton)) && policy.HandlingLoad.As(ForceUnit.Newton) >= 0.0
         && policy.DatumJoints.Distinct().Count() == policy.DatumJoints.Count
@@ -609,10 +607,9 @@ public sealed partial record AssemblyPlan(
             && specification.Capacity.As(ForceUnit.Newton) > 0.0
             && specification.DurationsValid
             && double.IsFinite(specification.ReleaseStrengthFraction)
-            && specification.ReleaseStrengthFraction is > 0.0 and <= 1.0)
-            ? Validation<Error, Unit>.Success(unit)
-            : Validation<Error, Unit>.Fail(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Membership(-1, realized.Count, policy.Specifications.Count)).ToError());
+            && specification.ReleaseStrengthFraction is > 0.0 and <= 1.0),
+            new FabricationFault.FixtureInadmissible(
+                new FixturingWitness.Membership(-1, realized.Count, policy.Specifications.Count)));
     }
 
     static K<Validation<Error>, Seq<AssemblyJoint>> Census(Seq<AssemblyMember> input, AssemblyPolicy policy) {
@@ -671,7 +668,7 @@ public sealed partial record AssemblyPlan(
                 .Bind(edge => graph.Edges.Filter(reason => reason.Source == edge.Source && reason.Target == edge.Target)).Distinct().ToSeq();
             Seq<JoinStep> service = Service(graph, order, joints, keyedJoints, keyed, components, policy.Execution);
             ContentKey key = ContentKey.Of(EgressKind.Plan, Canonical(
-                input, policy.Execution, steps, count, reduced, joints, receipts, blocked, service));
+                input, policy.Execution, steps, count, reduced, joints, receipts, blocked, service, Grid(joints)));
             return Fin.Succ(new AssemblyPlan(input, policy.Execution, steps, count, reduced, joints, receipts, blocked, service, key));
         });
 
@@ -836,7 +833,7 @@ public sealed partial record AssemblyPlan(
         Seq<double> bounds = Seq(lower, upper)
             + Crossing(axial0, axialRate, 0.0).Filter(value => value > lower && value < upper)
             + Crossing(axial0, axialRate, standoff).Filter(value => value > lower && value < upper);
-        Seq<double> ordered = bounds.Distinct().OrderBy(identity).ToSeq();
+        Seq<double> ordered = toSeq(bounds.Distinct().OrderBy(identity));
         return ordered.Zip(ordered.Tail).Exists(interval => {
             double middle = 0.5 * (interval.First + interval.Second);
             double axial = axial0 + (axialRate * middle);
@@ -949,6 +946,10 @@ public sealed partial record AssemblyPlan(
         && access.Retract.As(LengthUnit.Millimeter) >= 0.0;
     static bool Finite(Vector3d value) => double.IsFinite(value.X) && double.IsFinite(value.Y) && double.IsFinite(value.Z);
 
+    // The ONE byte codec on this page is the `Rasm.Element` `CanonicalWriter`: `Double` folds `-0.0` to `+0.0` and
+    // every NaN payload to one quiet pattern, `String` frames by UTF-8 byte count, and every collection writes
+    // `Ordinal(count)` first, so the count-framed preimage this page already required is the codec's own law
+    // rather than a page-local convention. The grid is the plan's own strictest joint alignment.
     static byte[] Canonical(
         Seq<AssemblyMember> members,
         AssemblyExecution execution,
@@ -958,188 +959,172 @@ public sealed partial record AssemblyPlan(
         Seq<AssemblyJoint> joints,
         Seq<JoinReceipt> receipts,
         Seq<BlockedCorridor> blocked,
-        Seq<JoinStep> service) {
-        using ArrayPoolBufferWriter<byte> buffer = new();
-        Write(buffer, execution.Cadence.Key); Write(buffer, execution.MaxParallel);
-        Write(buffer, subassemblies);
-        Frame(buffer, members, static (held, member) => {
-            Write(held, member.Key.Representation); Write(held, member.Key.Instance); WriteTransform(held, member.Pose);
-        });
+        Seq<JoinStep> service,
+        double toleranceMm) {
+        CanonicalWriter buffer = new(toleranceMm);
+        buffer.String(execution.Cadence.Key).Ordinal(execution.MaxParallel).Ordinal(subassemblies);
+        Frame(buffer, members, static (held, member) =>
+            WriteTransform(held.U128(member.Key.Representation).Ordinal(member.Key.Instance), member.Pose));
         Frame(buffer, joints, static (buffer, joint) => {
-            Write(buffer, joint.Index); Write(buffer, joint.Owner.Representation); Write(buffer, joint.Owner.Instance);
-            Write(buffer, joint.Connection.DetailKey); Write(buffer, joint.Connection.RealizingKey);
-            _ = joint.Connection.At.Match(
-                Some: at => { Write(buffer, 1); WriteEdge(buffer, at); return unit; },
-                None: () => { Write(buffer, 0); return unit; });
-            Write(buffer, joint.At.A.X); Write(buffer, joint.At.A.Y); Write(buffer, joint.At.A.Z);
-            Write(buffer, joint.At.B.X); Write(buffer, joint.At.B.Y); Write(buffer, joint.At.B.Z);
-            WriteProcess(buffer, joint.Specification.Process);
-            Write(buffer, joint.Specification.Fit.GapMin.As(LengthUnit.Millimeter));
-            Write(buffer, joint.Specification.Fit.GapMax.As(LengthUnit.Millimeter));
-            Write(buffer, joint.Specification.Fit.InterferenceMax.As(LengthUnit.Millimeter));
-            Write(buffer, joint.Specification.Fit.AlignmentMax.As(LengthUnit.Millimeter));
-            Write(buffer, joint.Specification.Fit.ClosureMax.As(LengthUnit.Millimeter));
-            Write(buffer, joint.Specification.Fit.SurfaceRoughnessMax.As(LengthUnit.Millimeter));
-            Write(buffer, joint.Specification.Fit.TemperatureMin.As(TemperatureUnit.DegreeCelsius));
-            Write(buffer, joint.Specification.Fit.TemperatureMax.As(TemperatureUnit.DegreeCelsius));
-            Write(buffer, joint.Specification.Capacity.As(ForceUnit.Newton));
-            Write(buffer, joint.Specification.ReleaseStrengthFraction);
-            Frame(buffer, joint.Specification.Components.ToSeq(), static (held, component) => { Write(held, component.Representation); Write(held, component.Instance); });
-            Frame(buffer, joint.Specification.Resources, Write);
-            Frame(buffer, joint.Specification.Fixtures, Write);
-            Frame(buffer, joint.Specification.Access, static (buffer, access) => {
-                Write(buffer, access.Axis.X); Write(buffer, access.Axis.Y); Write(buffer, access.Axis.Z);
-                Write(buffer, access.HalfAngle.As(AngleUnit.Radian)); Write(buffer, access.Standoff.As(LengthUnit.Millimeter));
-                Write(buffer, access.ToolRadius.As(LengthUnit.Millimeter)); Write(buffer, access.HolderRadius.As(LengthUnit.Millimeter));
-                Write(buffer, access.Approach.As(LengthUnit.Millimeter)); Write(buffer, access.Retract.As(LengthUnit.Millimeter));
-                Write(buffer, access.LineOfSight ? 1 : 0);
-            });
-            Frame(buffer, joint.Specification.PhaseDurations.ToSeq().Map(static row => row).OrderBy(static row => row.Key.Rank).ToSeq(),
-                static (held, row) => { Write(held, row.Key.Rank); Write(held, row.Value.As(DurationUnit.Second)); });
-            Frame(buffer, joint.Specification.ServiceDurations.ToSeq().Map(static row => row).OrderBy(static row => row.Key.Rank).ToSeq(),
-                static (held, row) => { Write(held, row.Key.Rank); Write(held, row.Value.As(DurationUnit.Second)); });
-            _ = joint.Specification.GrooveIncludedAngle.Match(
-                Some: angle => { Write(buffer, 1); Write(buffer, angle.As(AngleUnit.Radian)); return unit; },
-                None: () => { Write(buffer, 0); return unit; });
+            buffer.Ordinal(joint.Index).U128(joint.Owner.Representation).Ordinal(joint.Owner.Instance)
+                .String(joint.Connection.DetailKey).String(joint.Connection.RealizingKey);
+            WriteOption(buffer, joint.Connection.At, static (held, at) => WriteEdge(held, at));
+            buffer.Double(joint.At.A.X).Double(joint.At.A.Y).Double(joint.At.A.Z)
+                .Double(joint.At.B.X).Double(joint.At.B.Y).Double(joint.At.B.Z);
+            WriteProcess(buffer, joint.Specification.Process)
+                .Double(joint.Specification.Fit.GapMin.As(LengthUnit.Millimeter))
+                .Double(joint.Specification.Fit.GapMax.As(LengthUnit.Millimeter))
+                .Double(joint.Specification.Fit.InterferenceMax.As(LengthUnit.Millimeter))
+                .Double(joint.Specification.Fit.AlignmentMax.As(LengthUnit.Millimeter))
+                .Double(joint.Specification.Fit.ClosureMax.As(LengthUnit.Millimeter))
+                .Double(joint.Specification.Fit.SurfaceRoughnessMax.As(LengthUnit.Millimeter))
+                .Double(joint.Specification.Fit.TemperatureMin.As(TemperatureUnit.DegreeCelsius))
+                .Double(joint.Specification.Fit.TemperatureMax.As(TemperatureUnit.DegreeCelsius))
+                .Double(joint.Specification.Capacity.As(ForceUnit.Newton))
+                .Double(joint.Specification.ReleaseStrengthFraction);
+            Frame(buffer, joint.Specification.Components.ToSeq(),
+                static (held, component) => held.U128(component.Representation).Ordinal(component.Instance));
+            Frame(buffer, joint.Specification.Resources, static (held, resource) => held.String(resource));
+            Frame(buffer, joint.Specification.Fixtures, static (held, fixture) => held.Ordinal(fixture));
+            Frame(buffer, joint.Specification.Access, static (held, access) => held
+                .Double(access.Axis.X).Double(access.Axis.Y).Double(access.Axis.Z)
+                .Double(access.HalfAngle.As(AngleUnit.Radian)).Double(access.Standoff.As(LengthUnit.Millimeter))
+                .Double(access.ToolRadius.As(LengthUnit.Millimeter)).Double(access.HolderRadius.As(LengthUnit.Millimeter))
+                .Double(access.Approach.As(LengthUnit.Millimeter)).Double(access.Retract.As(LengthUnit.Millimeter))
+                .Bool(access.LineOfSight));
+            Frame(buffer, toSeq(joint.Specification.PhaseDurations.AsIterable().OrderBy(static row => row.Key.Rank)),
+                static (held, row) => held.Ordinal(row.Key.Rank).Double(row.Value.As(DurationUnit.Second)));
+            Frame(buffer, toSeq(joint.Specification.ServiceDurations.AsIterable().OrderBy(static row => row.Key.Rank)),
+                static (held, row) => held.Ordinal(row.Key.Rank).Double(row.Value.As(DurationUnit.Second)));
+            WriteOption(buffer, joint.Specification.GrooveIncludedAngle,
+                static (held, angle) => held.Double(angle.As(AngleUnit.Radian)));
         });
-        Frame(buffer, steps, static (buffer, step) => {
-            Write(buffer, step.Order); Write(buffer, step.Joint); Write(buffer, step.Phase.Rank); Write(buffer, step.Subassembly);
-            WriteOption(buffer, step.Fixture, static (held, fixture) => Write(held, fixture));
-            Frame(buffer, step.Resources, Write);
-            Write(buffer, step.Start.As(DurationUnit.Second)); Write(buffer, step.Finish.As(DurationUnit.Second));
-            WriteStability(buffer, step.Stability);
-        });
-        Frame(buffer, precedence, static (buffer, edge) => {
-            Write(buffer, edge.Source.Joint); Write(buffer, edge.Source.Phase.Rank);
-            Write(buffer, edge.Target.Joint); Write(buffer, edge.Target.Phase.Rank); Write(buffer, edge.Kind.Code);
-        });
-        Frame(buffer, blocked, static (buffer, row) => {
-            Write(buffer, row.Joint); Write(buffer, row.Corridor); Write(buffer, row.Occluder);
-        });
+        Frame(buffer, steps, WriteStep);
+        Frame(buffer, precedence, static (held, edge) => held
+            .Ordinal(edge.Source.Joint).Ordinal(edge.Source.Phase.Rank)
+            .Ordinal(edge.Target.Joint).Ordinal(edge.Target.Phase.Rank).Ordinal(edge.Kind.Code));
+        Frame(buffer, blocked, static (held, row) => held.Ordinal(row.Joint).Ordinal(row.Corridor).Ordinal(row.Occluder));
         Frame(buffer, receipts, static (buffer, receipt) => {
-            Write(buffer, receipt.Joint); Write(buffer, receipt.Tolerance.Gap.As(LengthUnit.Millimeter));
-            Write(buffer, receipt.Tolerance.Interference.As(LengthUnit.Millimeter));
-            Write(buffer, receipt.Tolerance.Alignment.As(LengthUnit.Millimeter));
-            Write(buffer, receipt.Tolerance.Closure.As(LengthUnit.Millimeter));
-            Write(buffer, receipt.Tolerance.SurfaceRoughness.As(LengthUnit.Millimeter));
-            Write(buffer, receipt.Tolerance.Temperature.As(TemperatureUnit.DegreeCelsius));
+            buffer.Ordinal(receipt.Joint)
+                .Double(receipt.Tolerance.Gap.As(LengthUnit.Millimeter))
+                .Double(receipt.Tolerance.Interference.As(LengthUnit.Millimeter))
+                .Double(receipt.Tolerance.Alignment.As(LengthUnit.Millimeter))
+                .Double(receipt.Tolerance.Closure.As(LengthUnit.Millimeter))
+                .Double(receipt.Tolerance.SurfaceRoughness.As(LengthUnit.Millimeter))
+                .Double(receipt.Tolerance.Temperature.As(TemperatureUnit.DegreeCelsius));
             Frame(buffer, receipt.Clearance, static (held, clearance) => WriteOption(
                 held,
                 clearance.Blocked,
-                static (sink, zone) => Write(sink, zone.Collision.Key.Digest)));
+                static (sink, zone) => sink.U128(zone.Collision.Key.Digest)));
             WriteStability(buffer, receipt.Stability);
             WriteOption(buffer, receipt.Robot, WritePlacementReceipt);
-            Frame(buffer, receipt.Visibility, static (held, visible) => Write(held, visible ? 1 : 0));
-            Frame(buffer, receipt.Resources, Write);
-            Write(buffer, receipt.Duration.As(DurationUnit.Second));
+            Frame(buffer, receipt.Visibility, static (held, visible) => held.Bool(visible));
+            Frame(buffer, receipt.Resources, static (held, resource) => held.String(resource));
+            buffer.Double(receipt.Duration.As(DurationUnit.Second));
         });
-        Frame(buffer, service, static (held, step) => {
-            Write(held, step.Order); Write(held, step.Joint); Write(held, step.Phase.Rank); Write(held, step.Subassembly);
-            WriteOption(held, step.Fixture, static (sink, fixture) => Write(sink, fixture));
-            Frame(held, step.Resources, Write);
-            Write(held, step.Start.As(DurationUnit.Second)); Write(held, step.Finish.As(DurationUnit.Second));
-            WriteStability(held, step.Stability);
-        });
-        return buffer.WrittenSpan.ToArray();
+        Frame(buffer, service, WriteStep);
+        return buffer.ToBytes().ToArray();
     }
 
-    static void WritePlacementReceipt(ArrayPoolBufferWriter<byte> buffer, CellPlacementReceipt receipt) {
+    // The strictest joint alignment the plan admits IS the canonical grid: quantizing looser than the tightest fit
+    // a joint must hold would address two plans that differ exactly where their fit evidence is decided.
+    static double Grid(Seq<AssemblyJoint> joints) =>
+        joints.Map(static joint => joint.Specification.Fit.AlignmentMax)
+            .Fold(Option<Length>.None, static (least, row) => least.Filter(held => held <= row).IfNone(row))
+            .IfNone(Length.Zero)
+            .As(LengthUnit.Millimeter);
+
+    // The assembly and service orders are one row shape, so one writer serves both frames.
+    static void WriteStep(CanonicalWriter buffer, JoinStep step) {
+        buffer.Ordinal(step.Order).Ordinal(step.Joint).Ordinal(step.Phase.Rank).Ordinal(step.Subassembly);
+        WriteOption(buffer, step.Fixture, static (held, fixture) => held.Ordinal(fixture));
+        Frame(buffer, step.Resources, static (held, resource) => held.String(resource));
+        buffer.Double(step.Start.As(DurationUnit.Second)).Double(step.Finish.As(DurationUnit.Second));
+        WriteStability(buffer, step.Stability);
+    }
+
+    static void WritePlacementReceipt(CanonicalWriter buffer, CellPlacementReceipt receipt) {
         WritePlacement(buffer, receipt.Selected);
         Frame(buffer, receipt.Ranked, WritePlacement);
     }
 
-    static void WritePlacement(ArrayPoolBufferWriter<byte> buffer, CellPlacementCandidate candidate) {
+    static void WritePlacement(CanonicalWriter buffer, CellPlacementCandidate candidate) {
         candidate.Cell.Source.Switch(
             state: buffer,
-            library: static (held, source) => { Write(held, 1); Write(held, source.Name); Write(held, source.Meshes.Key); return unit; },
-            embedded: static (held, source) => { Write(held, 2); Write(held, source.Xml); return unit; });
-        WritePlane(buffer, candidate.Cell.BaseFrame); WritePlane(buffer, candidate.Cell.ToolFrame);
-        WritePlane(buffer, candidate.NormalizedBaseFrame);
-        Frame(buffer, candidate.Joints, static (held, joints) => Frame(held, joints.ToSeq(), static (sink, value) => Write(sink, value)));
-        Frame(buffer, candidate.Metrics.ToSeq().Map(static row => row).OrderBy(static row => row.Key.Key).ToSeq(),
-            static (held, metric) => { Write(held, metric.Key.Key); Write(held, metric.Value); });
-        Write(buffer, candidate.Score);
+            library: static (held, source) => held.Ordinal(1).String(source.Name).String(source.Meshes.Key),
+            embedded: static (held, source) => held.Ordinal(2).String(source.Xml));
+        WritePlane(WritePlane(WritePlane(buffer, candidate.Cell.BaseFrame), candidate.Cell.ToolFrame),
+            candidate.NormalizedBaseFrame);
+        Frame(buffer, candidate.Joints, static (held, joints) =>
+            Frame(held, joints.ToSeq(), static (sink, value) => sink.Double(value)));
+        Frame(buffer, toSeq(candidate.Metrics.AsIterable().OrderBy(static row => row.Key.Key)),
+            static (held, metric) => held.String(metric.Key.Key).Double(metric.Value));
+        buffer.Double(candidate.Score);
     }
 
-    static void WriteStability(ArrayPoolBufferWriter<byte> buffer, StabilityReceipt receipt) {
-        Write(buffer, receipt.Components); Write(buffer, receipt.CapacityMargin); Write(buffer, receipt.SupportMargin);
-        Write(buffer, receipt.LoadPathMargin); Write(buffer, receipt.FixtureHeld ? 1 : 0);
-    }
+    static void WriteStability(CanonicalWriter buffer, StabilityReceipt receipt) =>
+        buffer.Ordinal(receipt.Components).Double(receipt.CapacityMargin).Double(receipt.SupportMargin)
+            .Double(receipt.LoadPathMargin).Bool(receipt.FixtureHeld);
 
-    static void WritePlane(ArrayPoolBufferWriter<byte> buffer, Plane plane) {
-        WritePoint(buffer, plane.Origin); WriteVector(buffer, plane.XAxis); WriteVector(buffer, plane.YAxis); WriteVector(buffer, plane.ZAxis);
-    }
+    static CanonicalWriter WritePlane(CanonicalWriter buffer, Plane plane) =>
+        WriteVector(WriteVector(WriteVector(WritePoint(buffer, plane.Origin), plane.XAxis), plane.YAxis), plane.ZAxis);
 
-    static void WriteEdge(ArrayPoolBufferWriter<byte> buffer, Edge3 edge) {
-        WritePoint(buffer, edge.A); WritePoint(buffer, edge.B);
-    }
+    static CanonicalWriter WriteEdge(CanonicalWriter buffer, Edge3 edge) =>
+        WritePoint(WritePoint(buffer, edge.A), edge.B);
 
-    static void WritePoint(ArrayPoolBufferWriter<byte> buffer, Point3d point) {
-        Write(buffer, point.X); Write(buffer, point.Y); Write(buffer, point.Z);
-    }
+    static CanonicalWriter WritePoint(CanonicalWriter buffer, Point3d point) =>
+        buffer.Double(point.X).Double(point.Y).Double(point.Z);
 
-    static void WriteVector(ArrayPoolBufferWriter<byte> buffer, Vector3d vector) {
-        Write(buffer, vector.X); Write(buffer, vector.Y); Write(buffer, vector.Z);
-    }
+    static CanonicalWriter WriteVector(CanonicalWriter buffer, Vector3d vector) =>
+        buffer.Double(vector.X).Double(vector.Y).Double(vector.Z);
 
-    static void WriteTransform(ArrayPoolBufferWriter<byte> buffer, Transform value) {
-        WritePoint(buffer, value * new Point3d(0.0, 0.0, 0.0));
-        WritePoint(buffer, value * new Point3d(1.0, 0.0, 0.0));
-        WritePoint(buffer, value * new Point3d(0.0, 1.0, 0.0));
-        WritePoint(buffer, value * new Point3d(0.0, 0.0, 1.0));
-    }
+    static CanonicalWriter WriteTransform(CanonicalWriter buffer, Transform value) =>
+        WritePoint(WritePoint(WritePoint(WritePoint(buffer, value * new Point3d(0.0, 0.0, 0.0)),
+            value * new Point3d(1.0, 0.0, 0.0)), value * new Point3d(0.0, 1.0, 0.0)), value * new Point3d(0.0, 0.0, 1.0));
 
-    static void WriteOption<T>(ArrayPoolBufferWriter<byte> buffer, Option<T> value, Action<ArrayPoolBufferWriter<byte>, T> write) =>
+    // Absence is a presence BIT, never a sentinel: the codec canonicalizes every NaN to one pattern, so a
+    // `double.NaN` stand-in and a measured NaN would address identically.
+    static CanonicalWriter WriteOption<T>(CanonicalWriter buffer, Option<T> value, Action<CanonicalWriter, T> write) =>
         value.Match(
-            Some: item => { Write(buffer, 1); write(buffer, item); return unit; },
-            None: () => { Write(buffer, 0); return unit; });
+            Some: item => { buffer.Bool(true); write(buffer, item); return buffer; },
+            None: () => buffer.Bool(false));
 
-    static void Frame<T>(ArrayPoolBufferWriter<byte> buffer, Seq<T> rows, Action<ArrayPoolBufferWriter<byte>, T> write) {
-        Write(buffer, rows.Count);
+    static CanonicalWriter Frame<T>(CanonicalWriter buffer, Seq<T> rows, Action<CanonicalWriter, T> write) {
+        buffer.Ordinal(rows.Count);
         _ = rows.Iter(row => write(buffer, row));
+        return buffer;
     }
 
-
-    static Unit WriteProcess(ArrayPoolBufferWriter<byte> buffer, JoinProcess process) => process.Switch(
+    static CanonicalWriter WriteProcess(CanonicalWriter buffer, JoinProcess process) => process.Switch(
         state: buffer,
-        fusion: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Procedure); Write(held, row.HeatInput.JoulesPerMillimeter);
-            Write(held, row.Preheat.As(TemperatureUnit.DegreeCelsius)); Write(held, row.Interpass.As(TemperatureUnit.DegreeCelsius)); Write(held, row.Tackable ? 1 : 0); return unit; },
-        brazed: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Filler); Write(held, row.Liquidus.As(TemperatureUnit.DegreeCelsius)); Write(held, row.Dwell.As(DurationUnit.Second)); Write(held, row.DepositedEnergy.As(EnergyUnit.Joule)); return unit; },
-        soldered: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Filler); Write(held, row.Liquidus.As(TemperatureUnit.DegreeCelsius)); Write(held, row.Dwell.As(DurationUnit.Second)); Write(held, row.DepositedEnergy.As(EnergyUnit.Joule)); return unit; },
-        bonded: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Adhesive); Write(held, row.Bondline.As(LengthUnit.Millimeter)); Write(held, row.Cure.As(DurationUnit.Second)); Write(held, row.ClampPressure.As(PressureUnit.Pascal)); return unit; },
-        threaded: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Fastener); Write(held, row.Torque.As(TorqueUnit.NewtonMeter)); Write(held, row.Preload.As(ForceUnit.Newton)); Write(held, row.Locking); Write(held, row.Screw ? 1 : 0); return unit; },
-        riveted: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Rivet); Write(held, row.UpsetForce.As(ForceUnit.Newton)); Write(held, row.HeadHeight.As(LengthUnit.Millimeter)); return unit; },
-        studded: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Stud); Write(held, row.InstallationForce.As(ForceUnit.Newton)); WriteOption(held, row.ArcEnergy, static (sink, energy) => Write(sink, energy.As(EnergyUnit.Joule))); return unit; },
-        interference: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Interference.As(LengthUnit.Millimeter)); Write(held, row.InsertionForce.As(ForceUnit.Newton)); Write(held, row.TemperatureDelta.As(TemperatureDeltaUnit.DegreeCelsius)); WriteOption(held, row.ConditioningEnergy, static (sink, energy) => Write(sink, energy.As(EnergyUnit.Joule))); return unit; },
-        clinched: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Tool); Write(held, row.Force.As(ForceUnit.Newton)); Write(held, row.Button.As(LengthUnit.Millimeter)); return unit; },
-        pinned: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Pin); Write(held, row.InsertionForce.As(ForceUnit.Newton)); Write(held, row.Removable ? 1 : 0); return unit; },
-        snapped: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Feature); Write(held, row.Engagement.As(ForceUnit.Newton)); Write(held, row.Release.As(ForceUnit.Newton)); return unit; },
-        connector: static (held, row) => { Write(held, row.Class.Code); Write(held, row.Key); Write(held, row.MatingForce.As(ForceUnit.Newton)); Write(held, row.Latching ? 1 : 0); return unit; });
-
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(sizeof(int)), value);
-        buffer.Advance(sizeof(int));
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, UInt128 value) {
-        BinaryPrimitives.WriteUInt64LittleEndian(buffer.GetSpan(sizeof(ulong)), (ulong)(value >> 64));
-        buffer.Advance(sizeof(ulong));
-        BinaryPrimitives.WriteUInt64LittleEndian(buffer.GetSpan(sizeof(ulong)), (ulong)value);
-        buffer.Advance(sizeof(ulong));
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, double value) {
-        BinaryPrimitives.WriteInt64LittleEndian(buffer.GetSpan(sizeof(long)), BitConverter.DoubleToInt64Bits(value));
-        buffer.Advance(sizeof(long));
-    }
-
-    static void Write(ArrayPoolBufferWriter<byte> buffer, string value) {
-        int length = Encoding.UTF8.GetByteCount(value);
-        Write(buffer, length);
-        Encoding.UTF8.GetBytes(value, buffer.GetSpan(length));
-        buffer.Advance(length);
-    }
+        fusion: static (held, row) => held.Ordinal(row.Class.Code).String(row.Procedure).Double(row.HeatInput.JoulesPerMillimeter)
+            .Double(row.Preheat.As(TemperatureUnit.DegreeCelsius)).Double(row.Interpass.As(TemperatureUnit.DegreeCelsius)).Bool(row.Tackable),
+        brazed: static (held, row) => held.Ordinal(row.Class.Code).String(row.Filler).Double(row.Liquidus.As(TemperatureUnit.DegreeCelsius))
+            .Double(row.Dwell.As(DurationUnit.Second)).Double(row.DepositedEnergy.As(EnergyUnit.Joule)),
+        soldered: static (held, row) => held.Ordinal(row.Class.Code).String(row.Filler).Double(row.Liquidus.As(TemperatureUnit.DegreeCelsius))
+            .Double(row.Dwell.As(DurationUnit.Second)).Double(row.DepositedEnergy.As(EnergyUnit.Joule)),
+        bonded: static (held, row) => held.Ordinal(row.Class.Code).String(row.Adhesive).Double(row.Bondline.As(LengthUnit.Millimeter))
+            .Double(row.Cure.As(DurationUnit.Second)).Double(row.ClampPressure.As(PressureUnit.Pascal)),
+        threaded: static (held, row) => held.Ordinal(row.Class.Code).String(row.Fastener).Double(row.Torque.As(TorqueUnit.NewtonMeter))
+            .Double(row.Preload.As(ForceUnit.Newton)).String(row.Locking).Bool(row.Screw),
+        riveted: static (held, row) => held.Ordinal(row.Class.Code).String(row.Rivet).Double(row.UpsetForce.As(ForceUnit.Newton))
+            .Double(row.HeadHeight.As(LengthUnit.Millimeter)),
+        studded: static (held, row) => WriteOption(
+            held.Ordinal(row.Class.Code).String(row.Stud).Double(row.InstallationForce.As(ForceUnit.Newton)),
+            row.ArcEnergy, static (sink, energy) => sink.Double(energy.As(EnergyUnit.Joule))),
+        interference: static (held, row) => WriteOption(
+            held.Ordinal(row.Class.Code).Double(row.Interference.As(LengthUnit.Millimeter))
+                .Double(row.InsertionForce.As(ForceUnit.Newton))
+                .Double(row.TemperatureDelta.As(TemperatureDeltaUnit.DegreeCelsius)),
+            row.ConditioningEnergy, static (sink, energy) => sink.Double(energy.As(EnergyUnit.Joule))),
+        clinched: static (held, row) => held.Ordinal(row.Class.Code).String(row.Tool).Double(row.Force.As(ForceUnit.Newton))
+            .Double(row.Button.As(LengthUnit.Millimeter)),
+        pinned: static (held, row) => held.Ordinal(row.Class.Code).String(row.Pin).Double(row.InsertionForce.As(ForceUnit.Newton))
+            .Bool(row.Removable),
+        snapped: static (held, row) => held.Ordinal(row.Class.Code).String(row.Feature).Double(row.Engagement.As(ForceUnit.Newton))
+            .Double(row.Release.As(ForceUnit.Newton)),
+        connector: static (held, row) => held.Ordinal(row.Class.Code).String(row.Key).Double(row.MatingForce.As(ForceUnit.Newton))
+            .Bool(row.Latching));
 }
 ```
 

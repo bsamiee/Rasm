@@ -14,9 +14,10 @@
 
 ## [02]-[PANEL_MODEL]
 
-- Owner: `PanelKey` admits the panel type's `Guid` once; every registry call derives `Type` and identity from `TPanel`.
+- Owner: `PanelKey` admits the panel type's declared `[Guid]` once; every registry call derives `Type` and identity from `TPanel`. Registration demands the declared `GuidAttribute` because the runtime synthesizes a fallback for an unattributed type, so `Type.GUID` is never empty and only the attribute probe proves a key stable across builds.
 - Owner: `PanelChange` closes shown, hidden, unclassified, panel-closing, and document-closing evidence without a boolean payload.
-- Receipt: `PanelFact` carries panel, optional document, change, and monotonic ordinal.
+- Owner: `PanelSeat` is the instance identity — a `PanelType.PerDoc` panel holds one live instance PER OPEN DOCUMENT, so the panel key alone names a type, never an instance, and every fact, ledger row, and receipt keys on the `(PanelKey, Option<DocKey>)` pair with a system panel seated under the `None` document.
+- Receipt: `PanelFact` carries panel, optional document, change, and monotonic ordinal, and projects its own `PanelSeat`.
 - Owner: `HostPanel` is the abstract implement seam over the foreign `Panel` and `IPanel` bases; it realizes Eto content once and routes every host callback through `PanelHost.Stamp`.
 - Law: an identity refusal, an `OnLife` throw, and an `OnLife` failure all land in `HostPanel.Faults` — durable typed evidence that never re-enters the host callback.
 - Boundary: `Construction` retains `Fin<ElementReceipt>` so realization failure and control-tree lifetime remain typed even when the host requires a constructed panel instance.
@@ -24,6 +25,8 @@
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Frozen;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Domain;
@@ -49,9 +52,15 @@ public readonly partial struct PanelKey {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
         validationError = value == Guid.Empty ? new ValidationError(message: "Panel identity is empty.") : null;
 
+    // `Type.GUID` computes a runtime identity for an undecorated type and never yields `Guid.Empty`, so the empty
+    // gate cannot tell a declared panel identity from a build-derived one; the attribute read is the whole admission.
     public static Fin<PanelKey> Of(Type panelType, Op? key = null) {
         ArgumentNullException.ThrowIfNull(panelType);
-        return Of(value: panelType.GUID, key: key);
+        Op op = key.OrDefault();
+        return op.Catch(() => Optional(panelType.GetCustomAttribute<GuidAttribute>())
+            .ToFin(Fail: op.InvalidResult(detail: panelType.FullName ?? panelType.Name))
+            .Bind(marked => op.Catch(() => Fin.Succ(value: new Guid(marked.Value)))))
+            .Bind(value => Of(value: value, key: op));
     }
 
     public static Fin<PanelKey> Of(Guid value, Op? key = null) {
@@ -102,7 +111,11 @@ public abstract partial record PanelChange {
     };
 }
 
-public sealed record PanelFact(PanelKey Panel, Option<DocKey> Document, PanelChange Change, long Ordinal);
+public readonly record struct PanelSeat(PanelKey Panel, Option<DocKey> Document);
+
+public sealed record PanelFact(PanelKey Panel, Option<DocKey> Document, PanelChange Change, long Ordinal) {
+    public PanelSeat Seat => new(Panel: Panel, Document: Document);
+}
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public abstract class HostPanel : Panel, IPanel {
@@ -182,10 +195,11 @@ public abstract class HostPanel : Panel, IPanel {
 ## [03]-[PANEL_HOST]
 
 - Owner: `PanelOp<TPanel>` is the one registry operation family for a panel type.
-- Cases: registration, placement, presence, document close, document/serial instances, one document instance, icon replacement, and dock-bar usage.
+- Cases: registration, placement, presence, document close, scoped instances, icon replacement, and dock-bar usage — session-scoped and serial-scoped instance reads are one case because `PanelInstanceScope` already discriminates them.
 - Entry: `PanelHost.Run<TPanel>` dispatches one request under one command-thread crossing and returns `PanelReceipt<TPanel>`.
+- Entry: `PanelHost.Use<TPanel, T>` is the ONE live-instance surface — the body runs inside the session frame that resolved the instances and returns a detached value, so no `HostPanel` crosses out of the boundary; `PanelReceipt.Found` therefore carries the `PanelSeat` and the live count, never the instances the host destroys on `PanelClosing`.
 - Law: `PanelOp<TPanel>.Admit` validates every nested identity, scope, placement, and icon payload before dispatch.
-- Receipt: `PanelPresence` carries visibility as a closed state plus dock bars and the registry-wide open-panel set.
+- Receipt: `PanelPresence` carries visibility as a closed state with dock bars and the registry-wide open-panel set.
 - Law: `PanelPlacement` carries selected-tab policy beside its placement evidence; call sites never pass a second placement knob.
 - Boundary: resource- and path-backed icons minted by this owner are disposed after synchronous host calls, while borrowed native icons remain caller-owned.
 
@@ -301,7 +315,6 @@ public abstract partial record PanelOp<TPanel> where TPanel : HostPanel {
     public sealed record Presence : PanelOp<TPanel>;
     public sealed record Close(DocumentSession Session) : PanelOp<TPanel>;
     public sealed record Instances(PanelInstanceScope Scope) : PanelOp<TPanel>;
-    public sealed record Resolve(DocumentSession Session) : PanelOp<TPanel>;
     public sealed record Rebadge(PanelIcon Icon) : PanelOp<TPanel>;
     public sealed record DockBarUsage(DockBarKey DockBar) : PanelOp<TPanel>;
 
@@ -315,7 +328,6 @@ public abstract partial record PanelOp<TPanel> where TPanel : HostPanel {
         presence: static (_, _) => Fin.Succ(value: unit),
         close: static (held, row) => guard(row.Session is not null, held.InvalidInput()).ToFin(),
         instances: static (held, row) => Optional(row.Scope).ToFin(Fail: held.InvalidInput()).Bind(scope => scope.Admit(held)),
-        resolve: static (held, row) => guard(row.Session is not null, held.InvalidInput()).ToFin(),
         rebadge: static (held, row) => Optional(row.Icon).ToFin(Fail: held.InvalidInput()).Bind(icon => icon.Admit(held)),
         dockBarUsage: static (held, row) => row.DockBar.Admit(held));
 }
@@ -327,21 +339,25 @@ public abstract partial record PanelReceipt<TPanel> where TPanel : HostPanel {
     public sealed record Opened(PanelPresence Presence) : PanelReceipt<TPanel>;
     public sealed record Probed(PanelPresence Presence) : PanelReceipt<TPanel>;
     public sealed record Closed(PanelKey Panel) : PanelReceipt<TPanel>;
-    public sealed record Found(Seq<TPanel> Panels) : PanelReceipt<TPanel>;
-    public sealed record Resolved(Option<TPanel> Panel) : PanelReceipt<TPanel>;
+    public sealed record Found(PanelSeat Seat, int Live) : PanelReceipt<TPanel>;
     public sealed record Rebadged(PanelKey Panel) : PanelReceipt<TPanel>;
     public sealed record DockBar(DockBarKey Id, bool InUse) : PanelReceipt<TPanel>;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class PanelHost {
-    private static readonly Atom<HashMap<PanelKey, PanelFact>> Ledger = Atom(HashMap<PanelKey, PanelFact>());
+    private static readonly Atom<HashMap<PanelSeat, PanelFact>> Ledger = Atom(HashMap<PanelSeat, PanelFact>());
     private static readonly Atom<Seq<(long Id, CallbackObserver<PanelFact> Observer)>> Watchers =
         Atom(Seq<(long, CallbackObserver<PanelFact>)>());
     private static long ordinal;
     private static long observerId;
 
-    public static HashMap<PanelKey, PanelFact> Facts => Ledger.Value;
+    public static HashMap<PanelSeat, PanelFact> Facts => Ledger.Value;
+
+    public static HashMap<Option<DocKey>, PanelFact> FactsFor(PanelKey panel) =>
+        toHashMap(toSeq(Ledger.Value).Choose(row => row.Key.Panel == panel
+            ? Some((row.Key.Document, row.Value))
+            : Option<(Option<DocKey>, PanelFact)>.None));
 
     internal static long NextOrdinal() => Interlocked.Increment(location: ref ordinal);
 
@@ -369,26 +385,10 @@ public static class PanelHost {
                                return Fin.Succ<PanelReceipt<TPanel>>(value: new PanelReceipt<TPanel>.Closed(Panel: held.Panel));
                            })),
                        key: held.Op),
-                   instances: static (held, work) => work.Scope.Switch(
-                       held.Op,
-                       document: static (op, scope) => HostThread.Run(
-                           work: new HostWork<PanelReceipt<TPanel>>.Session(
-                               Document: scope.Session,
-                               Needs: [SessionNeed.Read],
-                               Body: document => Fin.Succ<PanelReceipt<TPanel>>(value: new PanelReceipt<TPanel>.Found(
-                                   Panels: toSeq(Panels.GetPanels<TPanel>(document)).Strict()))),
-                           key: op),
-                       serial: static (op, scope) => HostThread.Run(
-                           work: new HostWork<PanelReceipt<TPanel>>.Execute(
-                               Body: () => Fin.Succ<PanelReceipt<TPanel>>(value: new PanelReceipt<TPanel>.Found(
-                                   Panels: toSeq(Panels.GetPanels<TPanel>(scope.Document)).Strict()))),
-                           key: op)),
-                   resolve: static (held, work) => HostThread.Run(
-                       work: new HostWork<PanelReceipt<TPanel>>.Session(
-                           Document: work.Session,
-                           Needs: [SessionNeed.Read],
-                           Body: document => Fin.Succ<PanelReceipt<TPanel>>(value: new PanelReceipt<TPanel>.Resolved(
-                               Panel: Optional(Panels.GetPanel(held.Panel, document) as TPanel)))),
+                   instances: static (held, work) => Use<TPanel, PanelReceipt<TPanel>>(
+                       scope: work.Scope,
+                       body: (seat, live) => Fin.Succ<PanelReceipt<TPanel>>(
+                           value: new PanelReceipt<TPanel>.Found(Seat: seat, Live: live.Count)),
                        key: held.Op),
                    rebadge: static (held, work) => Rebadged<TPanel>(panel: held.Panel, work: work, op: held.Op),
                    dockBarUsage: static (held, work) => HostThread.Run(
@@ -399,10 +399,37 @@ public static class PanelHost {
     }
 
     internal static Unit Stamp(PanelFact fact, Op op) {
-        _ = Ledger.Swap(held => held.AddOrUpdate(fact.Panel, fact));
+        _ = Ledger.Swap(held => held.AddOrUpdate(fact.Seat, fact));
         return ignore(Watchers.Value.Iter(row => row.Observer.Guard(
             project: () => Fin.Succ(value: fact),
             op: op)));
+    }
+
+    // `Use` keeps the live host instance inside the crossing: the body runs in the same session frame that resolved
+    // it, and the caller keeps only the detached seat, count, or projection its own body returns.
+    public static Fin<T> Use<TPanel, T>(PanelInstanceScope scope, Func<PanelSeat, Seq<TPanel>, Fin<T>> body, Op? key = null)
+        where TPanel : HostPanel {
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentNullException.ThrowIfNull(body);
+        Op op = key.OrDefault();
+        return from _ in scope.Admit(op)
+               from panel in PanelKey.Of(panelType: typeof(TPanel), key: op)
+               from result in scope.Switch(
+                   (Panel: panel, Body: body, Op: op),
+                   document: static (held, seat) => HostThread.Run(
+                       work: new HostWork<T>.Session(
+                           Document: seat.Session,
+                           Needs: [SessionNeed.Read],
+                           Body: document => DocKey.Of(document: document, key: held.Op).Bind(owner => held.Body(
+                               new PanelSeat(Panel: held.Panel, Document: Some(owner)),
+                               toSeq(Panels.GetPanels<TPanel>(document)).Strict()))),
+                       key: held.Op),
+                   serial: static (held, seat) => HostThread.Run(
+                       work: new HostWork<T>.Execute(Body: () => held.Body(
+                           new PanelSeat(Panel: held.Panel, Document: Some(seat.Document)),
+                           toSeq(Panels.GetPanels<TPanel>(seat.Document)).Strict())),
+                       key: held.Op))
+               select result;
     }
 
     internal static Subscription Watch(CallbackObserver<PanelFact> observer) {
@@ -464,7 +491,7 @@ public static class PanelHost {
 - Owner: `PanelObserve` chooses the owned callback ledger or the host-wide `DocumentStream` projection.
 - Entry: `PanelObservation.Observe` returns one symmetric `Subscription` for either row and delivers projection failures through the sink rail.
 - Law: owned callbacks update `PanelHost.Facts`; host-wide projection never re-stamps the owned ledger.
-- Law: `PanelHooks.Mount` registers the `rasm.rhino.hostui.panel` point on the `MountRegistry` row grammar — ask `CallbackObserver<PanelFact>`, grant `Subscription` over the owned watcher fan — and the point's replay modality is the `PanelHost.Facts` latest-per-panel ledger a binder reads before its first delivery.
+- Law: `PanelHooks.Mount` registers the `rasm.rhino.hostui.panel` point on the `MountRegistry` row grammar — ask `CallbackObserver<PanelFact>`, grant `Subscription` over the owned watcher fan, the untyped ask projected through one typed refusal rather than a hard cast — and the point's replay modality is the `PanelHost.Facts` latest-per-SEAT ledger a binder reads before its first delivery, with `FactsFor` projecting one panel's rows per document.
 - Boundary: each delivery crosses `CallbackObserver<PanelFact>`; delivery and rejection faults accumulate without starving sibling observers.
 
 ```csharp signature
@@ -510,22 +537,27 @@ public static class PanelObservation {
 }
 
 public static class PanelHooks {
-    public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
-        MountRegistry.Mount(
+    public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) {
+        ArgumentNullException.ThrowIfNull(plugin);
+        Op op = key.OrDefault();
+        return MountRegistry.Mount(
             mount: new HookMount(
                 Point: RhinoPoint.HostUiPanel,
                 Plugin: plugin,
                 Ask: typeof(CallbackObserver<PanelFact>),
                 Grant: typeof(Subscription),
-                Bind: static ask => Fin.Succ<object>(value: PanelHost.Watch((CallbackObserver<PanelFact>)ask))),
-            key: key.OrDefault());
+                Bind: ask => Optional(ask as CallbackObserver<PanelFact>)
+                    .ToFin(Fail: op.InvalidInput())
+                    .Map(static observer => (object)PanelHost.Watch(observer))),
+            key: op);
+    }
 }
 ```
 
 ## [05]-[RUI]
 
 - Owner: `RuiCommand` closes file, group, sidebar, and sizing modalities; `Rui.Run` absorbs snapshot and batch arity.
-- Entry: `Rui.Run` returns the full post-operation snapshot plus applied-prefix evidence when a command fails.
+- Entry: `Rui.Run` returns the full post-operation snapshot with applied-prefix evidence when a command fails.
 - Owner: `RuiFileRef` closes identifier, path, and named lookup with `NameMatch` carrying comparison policy.
 - Law: `Rui.Run` admits and normalizes the complete command batch before the host crossing; lookup and mutation consume only admitted references and paths.
 - Law: `RuiBarSize` carries a nonempty sizing operation; no optional pair reaches the fold.
@@ -689,8 +721,8 @@ internal sealed record RuiBatchState(int Applied, Option<Error> Fault);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Rui {
-    public static Fin<RuiReceipt> Run(Op? key = null, params ReadOnlySpan<RuiCommand> commands) {
-        Op op = key.OrDefault();
+    public static Fin<RuiReceipt> Run(params ReadOnlySpan<RuiCommand> commands) {
+        Op op = Op.Of(name: nameof(Rui));
         Seq<RuiCommand> batch = toSeq(commands.ToArray()).Strict();
         return from admitted in batch.TraverseM(command => Optional(command)
                    .ToFin(Fail: op.InvalidInput())
@@ -855,6 +887,7 @@ public static class MenuLinks {
 - Entry: `Sections.Mount` realizes every body, preserves declaration order, and returns a `SectionMount` owning the holder, every `ElementReceipt`, and the accumulated hook faults.
 - Law: every leaf lifecycle override chains the host base member first, then routes its `SectionSignal` case; a hook fault lands in `SectionMount.Faults` and never re-enters the holder.
 - Law: `SectionSpec` admits positive height before realization, an empty section sequence rejects before any host leaf is minted, and at most one section carries the `FullHeight` row.
+- Law: `Mount` owns the thread crossing for the whole realize-and-seat fold — `Element.Realize` refuses an off-thread caller instead of marshalling, so an unseamed entry answers `UiFault.OffThread` where every sibling entry on this page crosses, and the raw holder and leaf mints inside `Seat` inherit the same affinity as `HostControl.Mint`.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -1015,16 +1048,22 @@ public static class Sections {
         ArgumentNullException.ThrowIfNull(features);
         ArgumentNullException.ThrowIfNull(runtime);
         Op op = key.OrDefault();
-        return from admitted in sections
-                   .TraverseM(section => Optional(section).ToFin(Fail: op.InvalidInput()))
-                   .As()
-               from _ in guard(
-                   flag: !admitted.IsEmpty
-                       && admitted.Filter(static section => section.Features.Contains(SectionFeature.FullHeight)).Count <= 1,
-                   False: op.InvalidInput()).ToFin()
-               from contents in ElementReceipt.Gather(admitted.Map(static section => section.Body), runtime, op)
-               from mounted in Seat(sections: admitted, contents: contents, features: features, op: op)
-               select mounted;
+        // `Element.Realize` REFUSES off-thread rather than marshalling, so the crossing is this entry's, not the fold's:
+        // admission runs outside it and every host leaf — realized content and raw holder mints alike — is inside.
+        return sections
+            .TraverseM(section => Optional(section).ToFin(Fail: op.InvalidInput()))
+            .As()
+            .Bind(admitted => guard(
+                    flag: !admitted.IsEmpty
+                        && admitted.Filter(static section => section.Features.Contains(SectionFeature.FullHeight)).Count <= 1,
+                    False: op.InvalidInput())
+                .ToFin()
+                .Bind(_ => HostThread.Run(
+                    work: new HostWork<SectionMount>.Execute(Body: () =>
+                        from contents in ElementReceipt.Gather(admitted.Map(static section => section.Body), runtime, op)
+                        from mounted in Seat(sections: admitted, contents: contents, features: features, op: op)
+                        select mounted),
+                    key: op)));
     }
 
     private static Fin<SectionMount> Seat(
@@ -1075,9 +1114,10 @@ public static class Sections {
 - Owner: `ThemePalette.Detach` folds a received `ThemeZone` into detached `ThemeSwatch` rows under `PerceptualColor`, and `ThemePalette.Feed` joins them to the Eto theme catalog through `ThemeShift.Hosted` under a declared path-to-role map — the map is the positive allow-list, every declared role must resolve to a zone swatch, and an unresolved role fails the feed with the missing paths as typed evidence; `UiServices.Resolve<TService>` is the one platform-service seam over the locator with the provider fallback.
 - Law: a new Rhino widget is one `HostControl` case and one `Mint` arm; command-bearing cases resolve through the runtime `IntentTable`, and the runtime captured at projection is the panel's own realize runtime.
 - Law: `GridWrap` is the family's one nested case — children are `HostControl` rows admitted and minted through the same dispatch, so the wrapping grid composes the family it belongs to, never a parallel container surface.
-- Law: unit-aware numeric entry carries an admitted `UnitSpan` plus one `UnitFormat` case; model-unit and explicit-length-unit formatting share the same mint arm, and the control parses its own text.
+- Law: unit-aware numeric entry carries an admitted `UnitSpan` with one `UnitFormat` case; model-unit and explicit-length-unit formatting share the same mint arm, and the control parses its own text.
 - Boundary: a partially minted `RhinoButtonRow` or `ControlGridLayout` is disposed with its orphaned children when any addition or child mint fails; successful rows transfer lifetime to the enclosing element receipt.
 - Law: colour payloads enter as `PerceptualColor` and quantize once through `Pigment.ToColor` at the mint arm; the host theme tree is read-only — a consumer detaches swatches and never authors a zone.
+- Law: `ThemePalette.Detach` and `UiServices.Resolve` cross `HostThread` like every other entry on this page — the live `ThemeZone` walk and the `RhinoUiServiceLocator`/`PlatformServiceProvider` reads are host-thread reads, and `Feed` inherits the crossing through `Detach` rather than opening a second one.
 - Boundary: the parent-coupled host slider and the document-bound linetype grid stay behind their own document-scoped owners; `Rhino.UI.Forms` dialog bases ride `ShellWindows.Present`, and native `CppPointer` handles never cross this family.
 
 ```csharp signature
@@ -1106,16 +1146,16 @@ public sealed partial class RhinoSpace {
     internal Size Resolve() => RhinoLayout.Spacing(spacingType: Key);
 }
 
-[SmartEnum<uint>]
+[SmartEnum<NumericUpDownWithUnitParsingUpdateMode>]
 public sealed partial class UnitPulse {
-    public static readonly UnitPulse OnValueChange = new(1u);
-    public static readonly UnitPulse OnEnterOrLoseFocus = new(2u);
-    public static readonly UnitPulse WhenDoneChanging = new(8u);
+    public static readonly UnitPulse OnValueChange = new(key: NumericUpDownWithUnitParsingUpdateMode.OnValueChange);
+    public static readonly UnitPulse OnEnterOrLoseFocus = new(key: NumericUpDownWithUnitParsingUpdateMode.OnEnterOrLoseFocus);
+    public static readonly UnitPulse WhenDoneChanging = new(key: NumericUpDownWithUnitParsingUpdateMode.WhenDoneChanging);
 
     internal static NumericUpDownWithUnitParsingUpdateMode Fold(FrozenSet<UnitPulse> pulses) =>
         toSeq(pulses).Fold(
             default(NumericUpDownWithUnitParsingUpdateMode),
-            static (mask, pulse) => mask | (NumericUpDownWithUnitParsingUpdateMode)pulse.Key);
+            static (mask, pulse) => mask | pulse.Key);
 }
 
 [ComplexValueObject]
@@ -1350,17 +1390,19 @@ public static class ThemePalette {
     public static Fin<Seq<ThemeSwatch>> Detach(ThemeZone zone, Op? key = null) {
         ArgumentNullException.ThrowIfNull(zone);
         Op op = key.OrDefault();
-        return toSeq(zone.Enumerate())
-            .Choose(static entry => entry.Value is Color colour ? Some((Entry: entry, Colour: colour)) : None)
-            .TraverseM(row => PerceptualColor.OfRgb(
-                    red: (byte)row.Colour.Rb,
-                    green: (byte)row.Colour.Gb,
-                    blue: (byte)row.Colour.Bb,
-                    alpha: row.Colour.A,
-                    key: op)
-                .Map(colour => new ThemeSwatch(Path: $"{zone.Id}/{row.Entry.Id}", Value: colour)))
-            .As()
-            .Map(static swatches => swatches.Strict());
+        return HostThread.Run(
+            work: new HostWork<Seq<ThemeSwatch>>.Execute(Body: () => toSeq(zone.Enumerate())
+                .Choose(static entry => entry.Value is Color colour ? Some((Entry: entry, Colour: colour)) : None)
+                .TraverseM(row => PerceptualColor.OfRgb(
+                        red: (byte)row.Colour.Rb,
+                        green: (byte)row.Colour.Gb,
+                        blue: (byte)row.Colour.Bb,
+                        alpha: row.Colour.A,
+                        key: op)
+                    .Map(colour => new ThemeSwatch(Path: $"{zone.Id}/{row.Entry.Id}", Value: colour)))
+                .As()
+                .Map(static swatches => swatches.Strict())),
+            key: op);
     }
 
     public static Fin<ThemeChange> Feed(
@@ -1389,9 +1431,11 @@ public static class ThemePalette {
 public static class UiServices {
     public static Fin<TService> Resolve<TService>(Op? key = null) where TService : class {
         Op op = key.OrDefault();
-        return op.Catch(() =>
-            (Optional(RhinoUiServiceLocator.GetService<TService>()) | Optional(PlatformServiceProvider.Service as TService))
-                .ToFin(Fail: new UiFault.Unavailable(Key: op, Capability: typeof(TService).Name)));
+        return HostThread.Run(
+            work: new HostWork<TService>.Execute(Body: () => op.Catch(() =>
+                (Optional(RhinoUiServiceLocator.GetService<TService>()) | Optional(PlatformServiceProvider.Service as TService))
+                    .ToFin(Fail: new UiFault.Unavailable(Key: op, Capability: typeof(TService).Name)))),
+            key: op);
     }
 }
 ```

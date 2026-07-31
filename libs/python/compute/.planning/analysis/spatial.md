@@ -31,7 +31,7 @@ from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:
@@ -422,13 +422,13 @@ def _spatial_kernel(query: SpatialQuery, workers: int) -> "RuntimeRail[SpatialRe
     )
 
 
-async def solve(query: SpatialQuery, lane: LanePolicy) -> "RuntimeRail[SpatialReceipt]":
+async def solve(query: SpatialQuery, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SpatialReceipt]":
     # Weave owns span, fence, and the fenced contributor harvest; `lane.capacity` bounds the KD-tree scan team.
     async def dispatch() -> RuntimeRail[SpatialReceipt]:
         # One flatten from `RuntimeRail[RuntimeRail[SpatialReceipt]]` to `RuntimeRail[SpatialReceipt]`.
         return (await lane.offload(Kernel.of(_spatial_kernel, KernelTrait.RELEASING), query, lane.capacity)).bind(lambda rail: rail)
 
-    return await evidence_run(EvidenceScope.SPATIAL, f"spatial.{query.tag}", dispatch, facts={"query": query.tag, "points": query.cardinality})
+    return await evidence_run(EvidenceScope.SPATIAL, f"spatial.{query.tag}", dispatch, facts={"query": query.tag, "points": query.cardinality}, composition=composition)
 ```
 
 ## [03]-[RESEARCH]

@@ -2,19 +2,19 @@
 
 Upstream color-derivation substrate feeding perceptually correct color into every visual sub-domain — derive returns color values, never a receipt. `Colorimetry` owns one two-engine dispatch. colour-science carries colorimetric truth through the universal `colour.convert` model-pair gateway, appearance models, spectral intake, spectral resampling, color-difference families, chromatic adaptation, correlated color temperature, colorimetric indices, color correction, graded CVD simulation, reflectance recovery, and Munsell notation. ColorAide's `everything.ColorAll` carries the per-color presentation legs: gamut mapping, filters, smooth and categorical palettes, harmony, blending, Porter-Duff composition, Planckian swatches, perceptual difference, contrast, and CSS egress. colour-cxf supplies the inbound CxF3 spot-library graph. `ColorOp` and `Derivation` are closed `@tagged_union` families: operation admission rejects invalid source-model, route, arity, and empty-payload combinations, while each result case carries only its operation's evidence and exposes `coords` as the one common projection.
 
-Color arity is ruled at two pages: measurement, the `Metric` family, and spectral resampling are derive owner blocks, while CxF device-half intake, plate authoring, TAC gating, LUT authoring, and raster egress consolidate in `graphic/color/managed#MANAGED`. This page owns `AdaptMethod`, `BlendMode`, `PorterDuff`, the shared `Palette` carrier, and `hex_ramp`; `graphic/layer#LAYER` and `graphic/style#STYLE` compose those values downward. Each `_METRIC` row binds its measure to the `ColorModel` its engine demands. Refined `Annotated` contracts admit scalar, vector, and matrix invariants, while every field-spanning or engine-route factory returns `Result[ColorOp, DeriveFault]`. Every arm resolves through `self.lane.offload` as a `KernelTrait.HOSTILE` kernel — colour-science's numpy-band natives never import inside an isolated subinterpreter, so the warm process pool is the one isolation that keeps the process-global `domain_range_scale` state worker-local — and carries provider faults on `RuntimeRail`.
+Color arity is ruled at two pages: measurement, the `Metric` family, and spectral resampling are derive owner blocks, while CxF device-half intake, plate authoring, TAC gating, LUT authoring, and raster egress consolidate in `graphic/color/managed#MANAGED`. `ColorModel` is the branch's one colour-model vocabulary — three engine columns per row, the `colour.convert` graph node, the ColorAide space id, and the `colour.RGB_COLOURSPACES` primaries record — so `graphic/color/managed#MANAGED`'s grade chain and `graphic/raster/process#PROCESS`'s produced-raster funnel both key on this owner and lower it at their own page, never forking a per-page space enum. This page owns `AdaptMethod`, `BlendMode`, `PorterDuff`, the shared `Palette` carrier, and `hex_ramp`; `graphic/layer#LAYER` and `graphic/style#STYLE` compose those values downward. Each `_METRIC` row binds its measure to the `ColorModel` its engine demands, and `Observer` and `Illuminant` are the one measurement context every spectral ingress and every reference-free index resolves against. Refined `Annotated` contracts admit scalar, vector, and matrix invariants, while every field-spanning or engine-route factory returns `Result[ColorOp, DeriveFault]`. Every arm resolves through `self.lane.offload` as a `KernelTrait.HOSTILE` kernel — colour-science's numpy-band natives never import inside an isolated subinterpreter, so the warm process pool is the one isolation that keeps the process-global `domain_range_scale` state worker-local — and carries provider faults on `RuntimeRail`.
 
 ## [01]-[INDEX]
 
-- [02]-[DERIVE]: the two-engine `Colorimetry` owner over the closed-payload `ColorOp` family — `convert`/`adapt`/`gamut`/`filter`/`simulate`/`palette`/`compose`/`temperature`/`measure`/`correct`/`spot`/`recover`/`notate` fold into the closed `Derivation` result family whose cases carry operation-specific evidence and whose `coords` projection is total; the dual-name `ColorModel` vocabulary, the `Metric`/`_METRIC` measure table, the canonical `BlendMode`/`PorterDuff` policy vocabularies, and the shared `Palette` carrier plus the `hex_ramp` and `cxf_book` egress projections.
+- [02]-[DERIVE]: `Colorimetry` owns the two-engine dispatch over the closed-payload `ColorOp` family — `convert`/`adapt`/`gamut`/`filter`/`simulate`/`palette`/`compose`/`temperature`/`measure`/`correct`/`spot`/`recover`/`notate` fold into the closed `Derivation` result family whose cases carry operation-specific evidence and whose `coords` projection is total; the three-column `ColorModel` vocabulary every sibling colour surface keys on, the `Metric`/`_METRIC` measure table, the `Observer`/`Illuminant` measurement context and its total `_WHITEPOINT` table, the canonical `BlendMode`/`PorterDuff` policy vocabularies, and the shared `Palette` carrier beside the `hex_ramp` and `cxf_book` egress projections.
 
 ## [02]-[DERIVE]
 
 - Cases: `ColorOp` routes `Convert` through `colour.convert`, `wavelength_to_XYZ`, `msds_to_XYZ`, or the ColorAide gateway; `Adapt` through `chromatic_adaptation`; `Gamut` through `Color.fit` or `fit_pointer_gamut`; `Filter` through `Color.filter`; `Simulate` through `matrix_cvd_Machado2009`; `Palette` through `Color.average`, `steps`, `discrete`, `harmony`, and `closest`; `Compose` through `mask`, `layer`, or `weighted_mix`; `Temperature` through the CCT pair; `Measure` through `_METRIC`; `Correct` through `colour_correction`; `Spot` through CxF spectral, Lab, or XYZ intake; `Recover` through `XYZ_to_sd`; and `Notate` through the Munsell pair. `Derivation.gamut` alone carries `GamutFit`, evidence-bearing cases carry their `frozendict[Metric, float]`, and value-only cases cannot construct either payload.
-- Auto: every arm resolves inside `self.lane.offload(Kernel.of(Colorimetry._resolved, KernelTrait.HOSTILE), op)` — a process worker runs one kernel at a time, so the non-thread-local `domain_range_scale` global never races, and the runtime lane owns capacity and provider-fault conversion; the numpy-band `colour`/`coloraide` imports bar the subinterpreter arm outright. `Convert` folds the source through `_resolve` under `domain_range_scale("reference")`, and its admission rail proves source-model agreement plus an engine route before dispatch; every spectral ingress passes `_aligned` onto `_WORKING_SHAPE`, lands in XYZ, and `_landed` rides the ColorAide gateway for an aide-only target, so a wavelength or measured spectrum converts into every non-spectral `ColorModel`. `Measure` admits a single `SpectralDistribution` for spectral-only metrics, rejects a mismatched source model, and resolves the `Option`-carried reference into the `_METRIC[metric]` row's input model. Each `Derivation` case stores only its payload's notation, path, measures, or `GamutFit` witness. `hex_ramp` is the one sRGB-array-to-CSS-hex projection.
-- Growth: a new operation is one `ColorOp` case plus one acceptor arm folding into `Derivation`; a new colorimetric measure one `Metric` member plus one `_METRIC` `MetricSpec` row carrying its input `ColorModel` and callable; a new filter or CVD type one `ColorFilter` row, a new graded deficiency one `Deficiency` row; a new gamut-fit method one `FitMethod` row; a new palette modality one `Ramp` case, a new interpolation curve one `Interp` row (the mixbox `spectral` pigment curves are those), a new hue arc or easing one `HueArc`/`Easing` row; a new blend or operator one `BlendMode`/`PorterDuff` row every downstream lowering composes by name; a new harmony wheel one `Harmony` row; a new appearance or named model one `ColorModel` row carrying both engine columns (the ZCAM/Hellwig-2022/Kim-2009/RLAB/Hunt roster is that); a new CCT/Planckian/adaptation method one `CctMethod`/`Blackbody`/`AdaptMethod`/`CamMethod` row; a new white point or observer one `Illuminant`/`Observer` row keying `_WHITEPOINT`; a new correction solver one `CorrectMethod` row; a new reflectance-recovery solver one `RecoverMethod` row; a new inbound exchange intake one `ColorOp` case decoding its wire (the `Spot` CxF seed is that); a new palette egress one projection beside `hex_ramp` (the `cxf_book` CxF3 ink-book serialization is that — the `Spot` intake's inverse, `write_cxf` over the authored `cxf3.CxF` graph); a finer working grid the one `_WORKING_SHAPE` row; zero new surface.
+- Auto: every arm resolves inside `self.lane.offload(Kernel.of(Colorimetry._resolved, KernelTrait.HOSTILE), op)` — a process worker runs one kernel at a time, so the non-thread-local `domain_range_scale` global never races, and the runtime lane owns capacity and provider-fault conversion; the numpy-band `colour`/`coloraide` imports bar the subinterpreter arm outright. `Convert` folds the source through `_resolve` under `domain_range_scale("reference")`, and its admission rail proves source-model agreement and an engine route before dispatch; every spectral ingress passes `_aligned` onto `_WORKING_SHAPE`, integrates under the op's own `Illuminant` and `Observer`, lands in XYZ, and `_landed` rides the ColorAide gateway for an aide-only target, so a wavelength or measured spectrum converts into every non-spectral `ColorModel`. `Measure` admits a single `SpectralDistribution` for spectral-only metrics, rejects a mismatched source model, and resolves the `Option`-carried reference into the `_METRIC[metric]` row's input model — an omitted reference falls to `_white`, which reads the op's declared `Illuminant` off the total `_WHITEPOINT` table so whiteness, yellowness, CRI, and CFI report under the white the caller measured against. Each `Derivation` case stores only its payload's notation, path, measures, or `GamutFit` witness, and every context-bearing arm trails its observer and illuminant. `hex_ramp` is the one sRGB-array-to-CSS-hex projection.
+- Growth: a new operation is one `ColorOp` case and one acceptor arm folding into `Derivation`; a new colorimetric measure one `Metric` member and one `_METRIC` `MetricSpec` row carrying its input `ColorModel` and callable; a new filter or CVD type one `ColorFilter` row, a new graded deficiency one `Deficiency` row; a new gamut-fit method one `FitMethod` row; a new palette modality one `Ramp` case, a new interpolation curve one `Interp` row (the mixbox `spectral` pigment curves are those), a new hue arc or easing one `HueArc`/`Easing` row; a new blend or operator one `BlendMode`/`PorterDuff` row every downstream lowering composes by member, the row answering its own engine reach where an engine's registry stops short of the algebra (`PorterDuff.SATURATE` is that — libvips composites it, ColorAide refuses it by name); a new harmony wheel one `Harmony` row; a new appearance, named, RGB, or luma-chroma model one `ColorModel` row filling the engine columns its registries carry (the ZCAM/Hellwig-2022/Kim-2009/RLAB/Hunt appearance roster, the ACES/Rec/P3/ProPhoto primaries roster, and the YCbCr/YUV/YIQ/YPbPr/YDbDr luma-chroma roster are those); a new engine registry one `ModelNames` column; a new CCT/Planckian/adaptation method one `CctMethod`/`Blackbody`/`AdaptMethod`/`CamMethod` row; a new white point or observer one `Illuminant`/`Observer` row keying `_WHITEPOINT`; a new correction solver one `CorrectMethod` row; a new reflectance-recovery solver one `RecoverMethod` row; a new inbound exchange intake one `ColorOp` case decoding its wire (the `Spot` CxF seed is that); a new palette egress one projection beside `hex_ramp` (the `cxf_book` CxF3 ink-book serialization is that — the `Spot` intake's inverse, `write_cxf` over the authored `cxf3.CxF` graph); a finer working grid the one `_WORKING_SHAPE` row; zero new surface.
 - Boundary: no chart or scene rendering, ICC/LUT/CCTF raster egress, plate authoring, TAC gate, or CxF device-half. `graphic/color/managed#MANAGED` owns those operations, and derive imports no `pillow`. Derive mints no receipt, owns no folder-local limiter, and admits no tag-plus-default result bag. colour-science owns spectral, appearance, CIE difference, adaptation, temperature, index, CCM, CVD-matrix, recovery, and Munsell operations; ColorAide owns gamut fitting, filters, compositing, palettes, harmony, blackbody, perceptual difference, contrast, and CSS notation; colour-cxf contributes the color half of CxF intake and the `cxf_book` authoring egress, so the ink lifecycle closes at derive — measured or derived spot colors leave as CxF3 the same measurement-context grammar the intake resolves.
-- Packages: `colour-science` (the colorimetric-truth engine — `convert`/`chromatic_adaptation`/`delta_E`/`temperature`/colorimetric-index/`colour_correction`/`matrix_cvd_Machado2009`/`XYZ_to_sd`/`munsell_colour_to_xyY` and the `SpectralDistribution`+`align` resample surface per the fence imports), `coloraide` (`everything.ColorAll`, the all-plugins engine — gamut fit, CVD+W3C filters, palette interpolation including the mixbox pigment curves, mask/layer/weighted-mix compositing, harmony, blackbody, OKLab-perceptual difference, WCAG contrast, CSS notation), `colour-cxf` (`read_cxf` → the `cxf3.CxF` graph for the CxF3 spot-library intake; `write_cxf` over the built `cxf3` dataclass graph — `Object`/`ColorSpecification`/`ReflectanceSpectrum`/`ColorCielab` — for the `cxf_book` egress), plus `expression`/`numpy`/`beartype` and the runtime `LanePolicy`/`Kernel`/`KernelTrait`; the full member surface lives in the package `.api` catalogs.
+- Packages: `colour-science` (the colorimetric-truth engine — `convert`/`chromatic_adaptation`/`delta_E`/`temperature`/colorimetric-index/`colour_correction`/`matrix_cvd_Machado2009`/`XYZ_to_sd`/`munsell_colour_to_xyY` and the `SpectralDistribution`+`align` resample surface per the fence imports), `coloraide` (`everything.ColorAll`, the all-plugins engine — gamut fit, CVD+W3C filters, palette interpolation including the mixbox pigment curves, mask/layer/weighted-mix compositing, harmony, blackbody, OKLab-perceptual difference, WCAG contrast, CSS notation), `colour-cxf` (`read_cxf` → the `cxf3.CxF` graph for the CxF3 spot-library intake; `write_cxf` over the built `cxf3` dataclass graph — `Object`/`ColorSpecification`/`ReflectanceSpectrum`/`ColorCielab` — for the `cxf_book` egress), with `expression`/`numpy`/`beartype` and the runtime `LanePolicy`/`Kernel`/`KernelTrait`; the full member surface lives in the package `.api` catalogs.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -86,8 +86,15 @@ type DeriveFault = Literal[
 
 
 class ModelNames(NamedTuple):
+    # Three independent engine columns, each naming the row in ITS registry: `science` the `colour.convert` graph node,
+    # `aide` the ColorAide space id, `rgb` the `colour.RGB_COLOURSPACES` primaries-and-cctf record. A model reaches a
+    # registry only where its column is filled — an RGB colourspace is not a `convert` node and a `convert` node
+    # carries no primaries — so a caller refuses on the column its route needs, never on a membership set kept beside
+    # this vocabulary. Consumers whose own engine spells these models differently lower by member at their own page,
+    # exactly as `graphic/raster/io#IO` lowers `BlendMode` and `PorterDuff` onto libvips nicknames.
     science: str | None
     aide: str | None
+    rgb: str | None = None
     spectral: bool = False
 
 
@@ -99,26 +106,30 @@ class ColorModel(ModelNames, Enum):
     LCHAB = ModelNames("CIE LCHab", "lch-d65")
     OKLAB = ModelNames("Oklab", "oklab")
     OKLCH = ModelNames("Oklch", "oklch")
-    SRGB = ModelNames("sRGB", "srgb")
-    SRGB_LINEAR = ModelNames(None, "srgb-linear")
+    SRGB = ModelNames("sRGB", "srgb", rgb="sRGB")
+    SRGB_LINEAR = ModelNames(None, "srgb-linear", rgb="Linear Rec.709 (sRGB)")
     ICTCP = ModelNames("ICtCp", "ictcp")
-    DISPLAY_P3 = ModelNames(None, "display-p3")
-    DISPLAY_P3_LINEAR = ModelNames(None, "display-p3-linear")
-    A98_RGB = ModelNames(None, "a98-rgb")
-    A98_RGB_LINEAR = ModelNames(None, "a98-rgb-linear")
-    PROPHOTO_RGB = ModelNames(None, "prophoto-rgb")
+    DISPLAY_P3 = ModelNames(None, "display-p3", rgb="Display P3")
+    DISPLAY_P3_LINEAR = ModelNames(None, "display-p3-linear", rgb="Linear P3-D65")
+    A98_RGB = ModelNames(None, "a98-rgb", rgb="Adobe RGB (1998)")
+    A98_RGB_LINEAR = ModelNames(None, "a98-rgb-linear", rgb="Linear AdobeRGB")
+    PROPHOTO_RGB = ModelNames(None, "prophoto-rgb", rgb="ProPhoto RGB")
     PROPHOTO_RGB_LINEAR = ModelNames(None, "prophoto-rgb-linear")
-    REC2020 = ModelNames(None, "rec2020")
-    REC2020_LINEAR = ModelNames(None, "rec2020-linear")
+    REC2020 = ModelNames(None, "rec2020", rgb="ITU-R BT.2020")
+    REC2020_LINEAR = ModelNames(None, "rec2020-linear", rgb="Linear Rec.2020")
     REC2100_PQ = ModelNames(None, "rec2100-pq")
     REC2100_HLG = ModelNames(None, "rec2100-hlg")
     REC2100_LINEAR = ModelNames(None, "rec2100-linear")
+    REC709 = ModelNames(None, None, rgb="ITU-R BT.709")
+    DCI_P3 = ModelNames(None, None, rgb="DCI-P3")
+    RGB_CIE = ModelNames(None, None, rgb="CIE RGB")
     HSV = ModelNames("HSV", "hsv")
-    HSL = ModelNames(None, "hsl")
+    HSL = ModelNames("HSL", "hsl")
     HWB = ModelNames(None, "hwb")
     JZAZBZ = ModelNames("Jzazbz", "jzazbz")
     JZCZHZ = ModelNames(None, "jzczhz")
-    CMYK = ModelNames(None, "cmyk")
+    CMYK = ModelNames("CMYK", "cmyk")
+    CMY = ModelNames("CMY", None)
     HCT = ModelNames(None, "hct")
     LUV = ModelNames("CIE Luv", "luv")
     LCHUV = ModelNames(None, "lchuv")
@@ -126,10 +137,17 @@ class ColorModel(ModelNames, Enum):
     HPLUV = ModelNames(None, "hpluv")
     OKHSL = ModelNames(None, "okhsl")
     OKHSV = ModelNames(None, "okhsv")
-    ACES2065_1 = ModelNames(None, "aces2065-1")
-    ACESCC = ModelNames(None, "acescc")
-    ACESCCT = ModelNames(None, "acescct")
-    ACESCG = ModelNames(None, "acescg")
+    YCBCR = ModelNames("YCbCr", None)
+    YCCBCCRC = ModelNames("YcCbcCrc", None)
+    YCOCG = ModelNames("YCoCg", None)
+    YUV = ModelNames(None, None)
+    YIQ = ModelNames(None, None)
+    YPBPR = ModelNames(None, None)
+    YDBDR = ModelNames(None, None)
+    ACES2065_1 = ModelNames(None, "aces2065-1", rgb="ACES2065-1")
+    ACESCC = ModelNames(None, "acescc", rgb="ACEScc")
+    ACESCCT = ModelNames(None, "acescct", rgb="ACEScct")
+    ACESCG = ModelNames(None, "acescg", rgb="ACEScg")
     CIECAM02 = ModelNames("CIECAM02", None)
     CAM16 = ModelNames("CAM16", None)
     ZCAM = ModelNames("ZCAM", None)
@@ -278,6 +296,14 @@ class PorterDuff(StrEnum):
     LIGHTER = "lighter"
     PLUS_LIGHTER = "plus-lighter"
     PLUS_DARKER = "plus-darker"
+    SATURATE = "saturate"  # Porter and Duff's own extended operator beside `plus`, which the CSS compositing set drops
+
+    @property
+    def composited(self) -> bool:
+        # ColorAide's compositing registry carries the twelve basic operators and the three CSS extensions, so
+        # `saturate` refuses there by name while libvips composites it — the algebra is the vocabulary's, the reach
+        # is each engine's, and the member answers reach rather than a membership set kept beside the roster.
+        return self is not PorterDuff.SATURATE
 
 
 class CctMethod(StrEnum):
@@ -487,7 +513,7 @@ class Ramp:
 @tagged_union(frozen=True)
 class ColorOp:
     tag: ColorOpTag = tag()
-    convert: tuple[ColorSource, ColorModel, ColorModel, AdaptMethod, Observer] = case()
+    convert: tuple[ColorSource, ColorModel, ColorModel, AdaptMethod, Observer, Illuminant] = case()
     adapt: tuple[Tristimulus, Illuminant, Illuminant, CamMethod, Observer] = case()
     gamut: tuple[Tristimulus, ColorModel, ColorModel, FitMethod] = case()
     filter: tuple[Tristimulus, ColorFilter, Amount] = case()
@@ -495,10 +521,10 @@ class ColorOp:
     palette: tuple[tuple[ColorText, ...], ColorText, PaletteCount, Spacing, ColorModel, Ramp, tuple[ColorText, ...]] = case()
     compose: tuple[tuple[ColorText, ...], ColorModel, BlendMode, PorterDuff, tuple[Weight, ...], tuple[str, ...]] = case()
     temperature: tuple[CctSource, CctMethod, Blackbody, ColorModel] = case()
-    measure: tuple[ColorSource, ColorModel, Option[Tristimulus], Metric, Observer] = case()
+    measure: tuple[ColorSource, ColorModel, Option[Tristimulus], Metric, Observer, Illuminant] = case()
     correct: tuple[ColorMatrix, ColorMatrix, ColorMatrix, CorrectMethod] = case()
     spot: tuple[bytes, ColorModel] = case()
-    recover: tuple[Tristimulus, ColorModel, RecoverMethod, Observer] = case()
+    recover: tuple[Tristimulus, ColorModel, RecoverMethod, Observer, Illuminant] = case()
     notate: NotateSource = case()
 
     @staticmethod
@@ -509,6 +535,7 @@ class ColorOp:
         target: ColorModel,
         adapt: AdaptMethod = AdaptMethod.BRADFORD,
         observer: Observer = Observer.CIE_1931_2,
+        illuminant: Illuminant = Illuminant.D65,
     ) -> Result["ColorOp", DeriveFault]:
         measured = isinstance(value, SpectralDistribution | MultiSpectralDistributions)
         spectral = measured or isinstance(value, float)
@@ -522,7 +549,7 @@ class ColorOp:
             if spectral is not source.spectral
             else Error("<unsupported-route>")
             if target.spectral and not measured
-            else Ok(ColorOp(convert=(value, source, target, adapt, observer)))
+            else Ok(ColorOp(convert=(value, source, target, adapt, observer, illuminant)))
             if route or target.spectral
             else Error("<unsupported-route>")
         )
@@ -592,7 +619,7 @@ class ColorOp:
             else Error("<weights-arity>")
             if weights and len(weights) != len(colors)
             else Ok(ColorOp(compose=(colors, space, blend, operator, weights, mask)))
-            if space.aide is not None
+            if space.aide is not None and operator.composited
             else Error("<unsupported-route>")
         )
 
@@ -611,14 +638,18 @@ class ColorOp:
         source: ColorModel = ColorModel.SRGB,
         reference: Option[Tristimulus] = Nothing,
         observer: Observer = Observer.CIE_1931_2,
+        illuminant: Illuminant = Illuminant.D65,
     ) -> Result["ColorOp", DeriveFault]:
+        # `illuminant` is the measurement context, never a constant: whiteness, yellowness, CRI, and CFI are
+        # illuminant-relative by definition, so a reference-free index resolved against a fixed white reports a
+        # different number under the same sample the moment the press, booth, or display white moves.
         spectral_sample = isinstance(sample, SpectralDistribution)
         return (
             Error("<non-spectral-sample>")
             if _METRIC[metric].spectral and not spectral_sample
             else Error("<source-model>")
             if spectral_sample is not source.spectral
-            else Ok(ColorOp(measure=(sample, source, reference, metric, observer)))
+            else Ok(ColorOp(measure=(sample, source, reference, metric, observer, illuminant)))
         )
 
     @staticmethod
@@ -649,7 +680,11 @@ class ColorOp:
     @staticmethod
     @beartype
     def Recover(
-        seed: Tristimulus, source: ColorModel = ColorModel.SRGB, method: RecoverMethod = RecoverMethod.MENG_2015, observer: Observer = Observer.CIE_1931_2
+        seed: Tristimulus,
+        source: ColorModel = ColorModel.SRGB,
+        method: RecoverMethod = RecoverMethod.MENG_2015,
+        observer: Observer = Observer.CIE_1931_2,
+        illuminant: Illuminant = Illuminant.D65,
     ) -> Result["ColorOp", DeriveFault]:
         # seed is a tristimulus, so a spectral source model contradicts it and an engine-less model
         # cannot reach the XYZ hop `_resolved`'s recover arm takes.
@@ -658,7 +693,7 @@ class ColorOp:
             if source.spectral
             else Error("<unsupported-route>")
             if source.science is None and source.aide is None
-            else Ok(ColorOp(recover=(seed, source, method, observer)))
+            else Ok(ColorOp(recover=(seed, source, method, observer, illuminant)))
         )
 
     @staticmethod
@@ -683,11 +718,16 @@ class Colorimetry:
     @staticmethod
     def _resolved(op: ColorOp) -> Derivation:
         match op:
-            case ColorOp(tag="convert", convert=(value, source, target, adapt, observer)):
+            case ColorOp(tag="convert", convert=(value, source, target, adapt, observer, illuminant)):
                 with colour.domain_range_scale("reference"):
-                    coords = np.asarray(Colorimetry._resolve(value, source, target, observer, adapt), dtype=np.float64)
+                    coords = np.asarray(Colorimetry._resolve(value, source, target, observer, illuminant, adapt), dtype=np.float64)
                 return Derivation(
-                    convert=(coords, Colorimetry._notate(target.aide, coords), target.science or target.aide or "", Colorimetry._path(source, target))
+                    convert=(
+                        coords,
+                        Colorimetry._notate(target.aide, coords),
+                        target.science or target.aide or target.rgb or "",
+                        (*Colorimetry._path(source, target), observer.value, illuminant.value),
+                    )
                 )
             case ColorOp(tag="adapt", adapt=(value, source, target, method, observer)):
                 with colour.domain_range_scale("reference"):
@@ -817,16 +857,18 @@ class Colorimetry:
                         )
                     case _ as unreachable:
                         assert_never(unreachable)
-            case ColorOp(tag="measure", measure=(sample, source, reference, metric, observer)):
+            case ColorOp(tag="measure", measure=(sample, source, reference, metric, observer, illuminant)):
                 space, fn = _METRIC[metric].space, _METRIC[metric].fn
                 with colour.domain_range_scale("reference"):
-                    a = Colorimetry._resolve(sample, source, space, observer)
-                    b = reference.map(lambda ref: Colorimetry._resolve(ref, source, space, observer)).default_with(
-                        lambda: Colorimetry._white(space, observer)
+                    a = Colorimetry._resolve(sample, source, space, observer, illuminant)
+                    b = reference.map(lambda ref: Colorimetry._resolve(ref, source, space, observer, illuminant)).default_with(
+                        lambda: Colorimetry._white(space, observer, illuminant)
                     )
                     value = float(fn(a, b))
                 coords = a if isinstance(a, np.ndarray) else np.empty(0, dtype=np.float64)
-                return Derivation(measure=(coords, (), space.science or space.aide or "", (metric.value,), frozendict({metric: value})))
+                return Derivation(
+                    measure=(coords, (), space.science or space.aide or "", (metric.value, observer.value, illuminant.value), frozendict({metric: value}))
+                )
             case ColorOp(tag="correct", correct=(colors, measured, reference, method)):
                 corrected = np.asarray(colour.colour_correction(colors, measured, reference, method=method.value), dtype=np.float64)
                 return Derivation(correct=(corrected, Colorimetry._notate(ColorModel.SRGB.aide, corrected), "sRGB", (method.value,)))
@@ -837,11 +879,13 @@ class Colorimetry:
                 return Derivation(
                     spot=(coords, tuple(row[1] for row in swatches), target.science or target.aide or "", ("cxf", *(row[2] for row in swatches)))
                 )
-            case ColorOp(tag="recover", recover=(seed, source, method, observer)):
+            case ColorOp(tag="recover", recover=(seed, source, method, observer, illuminant)):
                 with colour.domain_range_scale("reference"):
-                    xyz = np.asarray(Colorimetry._resolve(seed, source, ColorModel.XYZ, observer), dtype=np.float64)
+                    xyz = np.asarray(Colorimetry._resolve(seed, source, ColorModel.XYZ, observer, illuminant), dtype=np.float64)
                     sd = colour.XYZ_to_sd(xyz, method=method.value).align(_WORKING_SHAPE)
-                return Derivation(recover=(np.asarray(sd.values, dtype=np.float64), (), "Spectral Distribution", (method.value,)))
+                return Derivation(
+                    recover=(np.asarray(sd.values, dtype=np.float64), (), "Spectral Distribution", (method.value, observer.value, illuminant.value))
+                )
             case ColorOp(tag="notate", notate=value):
                 with colour.domain_range_scale("reference"):
                     match value:
@@ -866,8 +910,15 @@ class Colorimetry:
 
     @staticmethod
     def _resolve(
-        value: ColorSource, source: ColorModel, target: ColorModel, observer: Observer, adapt: AdaptMethod = AdaptMethod.BRADFORD
+        value: ColorSource,
+        source: ColorModel,
+        target: ColorModel,
+        observer: Observer,
+        illuminant: Illuminant,
+        adapt: AdaptMethod = AdaptMethod.BRADFORD,
     ) -> MetricInput | ColorMatrix | MultiSpectralDistributions:
+        # `observer` and `illuminant` are the one measurement context every spectral ingress and every reference white
+        # reads: the CMFS pair the cone fundamentals come from and the SPD a measured reflectance integrates under.
         aligned = Colorimetry._aligned(value)
         if target.spectral:
             return aligned
@@ -877,7 +928,7 @@ class Colorimetry:
                 return Colorimetry._landed(np.asarray(colour.wavelength_to_XYZ(nm, cmfs), dtype=np.float64), target)
             case MultiSpectralDistributions():
                 return Colorimetry._landed(
-                    np.asarray(colour.msds_to_XYZ(aligned, cmfs, colour.SDS_ILLUMINANTS[Illuminant.D65.value]), dtype=np.float64), target
+                    np.asarray(colour.msds_to_XYZ(aligned, cmfs, colour.SDS_ILLUMINANTS[illuminant.value]), dtype=np.float64), target
                 )
             case _ if source.aide is not None and target.aide is not None and (source.science is None or target.science is None):
                 # a science=None endpoint (wide-gamut/HSL/HWB) colour-science has no node for rides the ColorAide
@@ -901,10 +952,12 @@ class Colorimetry:
         return landed if xyz.ndim == 2 else landed[0]
 
     @staticmethod
-    def _white(space: ColorModel, observer: Observer) -> Coordinates:
+    def _white(space: ColorModel, observer: Observer, illuminant: Illuminant) -> Coordinates:
+        # Reference-free measures take the op's OWN declared white as their second operand, read off the total
+        # Observer x Illuminant table — never a fixed row, because every illuminant-relative index moves with it.
         if space.spectral:
             return np.empty(0, dtype=np.float64)
-        return np.asarray(Colorimetry._resolve(_WHITEPOINT[observer][Illuminant.D65], ColorModel.XYZ, space, observer), dtype=np.float64)
+        return np.asarray(Colorimetry._resolve(_WHITEPOINT[observer][illuminant], ColorModel.XYZ, space, observer, illuminant), dtype=np.float64)
 
     @staticmethod
     def _notate(space_aide: str | None, coords: Coordinates) -> tuple[str, ...]:
@@ -916,7 +969,7 @@ class Colorimetry:
     @staticmethod
     def _path(source: ColorModel, target: ColorModel) -> tuple[str, ...]:
         if source.science is None or target.science is None:
-            return tuple(name for name in (source.aide, target.aide) if name is not None)
+            return tuple(name for name in (source.aide or source.rgb, target.aide or target.rgb) if name is not None)
         captured: list[str] = []
         colour.describe_conversion_path(source.science, target.science, mode="Long", print_callable=captured.append)
         return (source.science, *captured, target.science)

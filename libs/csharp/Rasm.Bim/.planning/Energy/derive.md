@@ -11,13 +11,13 @@ Wire posture is HOST-LOCAL, foreign types emit-confined: each lowered `Hb.Model`
 
 ## [02]-[MODEL_DERIVE]
 
-- Owner: `EnergyDerive` the BIM-to-BEM lower fold (graph → honeybee HBJSON envelope + energy library, graph → dragonfly DFJSON massing).
-- Entry: `EnergyDerive.Lower(ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at, Op key)` → `Fin<EnergyOutcome.Emitted>` — dispatches the frozen `Lowers` target table: the `hbjson` arm lowers each scoped `IfcSpace` and its opening sub-faces onto the honeybee envelope + energy library, the `dfjson` arm folds the `Compose` tree onto dragonfly massing plates; each surface and opening composition lowers through ONE property-case fold.
-- Auto: lowered models carry the SEMANTIC envelope and library only; simulation context — parameters, run period, conditioning, weather — is Compute's or the python recipe plane's, never authored on the lower.
+- Owner: `EnergyDerive` the BIM-to-BEM lower fold (graph → honeybee HBJSON envelope + energy library, graph → dragonfly DFJSON massing); `BoundaryRow` the closed boundary-condition vocabulary carrying one honeybee closure and its derived dragonfly projection; `EnvelopeFace` the segment-aligned envelope row both arms read.
+- Entry: `EnergyDerive.Lower(ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at, Op key)` → `Fin<EnergyOutcome.Emitted>` — dispatches the frozen `Lowers` target table: the `hbjson` arm lowers each scoped `IfcSpace` and its opening sub-faces onto the honeybee envelope + energy library, the `dfjson` arm folds the `Compose` tree onto dragonfly massing plates whose per-segment boundary conditions, window ratios, ground contact, and sky exposure read that same envelope, with the site's un-massed neighbours lowered onto `ContextShade` and the seam georeference onto `ReferenceVector`; each surface and opening composition lowers through ONE property-case fold.
+- Auto: lowered models carry the SEMANTIC envelope and library only; simulation context — parameters, run period, conditioning, weather — is Compute's or the python recipe plane's, never authored on the lower. `Envelope` derives each space's bounding surfaces ONCE — face type, boundary row, footprint ring, attributed openings — so the two arms cannot drift about which wall carries which condition or which window, and the dragonfly arm joins those surfaces to floor-boundary SEGMENTS in plan within half a segment length so the parameter lists index the walls they describe.
 - Receipt: one `EnergyReceipt` per emit tallies the folded spaces, surfaces, openings, and constructions; the model's `Validate()` DataAnnotations fold into `Warnings` beside the degrade tallies, never an exception.
 - Packages: HoneybeeSchema, DragonflySchema, Rasm.Element, Rasm, LanguageExt.Core, NodaTime
-- Growth: a new lower target is one row on the frozen `Lowers` target table (the `EnergyProjector.Arms`/`EnergyTranslate.Matrix` row law); per-space program/loads lower as `ProgramTypeAbridged` rows once the seam carries occupancy evidence; a NoMass R-value lower is one arm row the moment the seam carries an R-value-only thermal case; the space-adjacency `Surface` boundary condition is one arm row the moment the seam carries a second-level adjacency payload naming the counterpart face.
-- Boundary: `EnergyDerive` reads the graph through seam-owned surfaces and the `Model/query#ELEMENT_SET` scope algebra; Compute is a peer stratum, never a dependency, so its discipline reads (`SpacesOf`/`BoundingSurfacesOf`) are never referenced. Every missing- or ambiguous-evidence path degrades warning-counted — a footprint-less space, a material lacking both the `Thermal` and `Optical` case — never a zero-area fabrication or a fabricated physics row. `graph→OSM`/`gbXML`/`IDF` DIRECT egress is deliberately absent: no in-process HBJSON→OSM translation is admitted (the python peer's `honeybee-openstudio` leg owns it), and a second graph→OSM builder beside Compute's simulation-scoped `BuildModel` is the duplicate-fold defect, so the request rails `BimFault.CapabilityMiss`. Glazing lowering consumes the same seam `Optical` case (`Discipline.Energy`) Compute's `StandardGlazing` build reads, so the lowered honeybee document and Compute's OSM model agree on layer physics by construction.
+- Growth: a new lower target is one row on the frozen `Lowers` target table (the `EnergyProjector.Arms`/`EnergyTranslate.Matrix` row law); a new boundary condition is one `BoundaryRow` row both schemas project from; a richer glazing posture is one `PlateWindow` case swapped at the `Glazing` return with the same measured quotient behind it; per-space program/loads lower as `ProgramTypeAbridged` rows once the seam carries occupancy evidence; a NoMass R-value lower is one arm row the moment the seam carries an R-value-only thermal case; the space-adjacency `Surface` boundary condition needs no new row — `BoundaryRow.Surface` already projects into both schemas and waits only on the raise stamping the counterpart-face payload.
+- Boundary: `EnergyDerive` reads the graph through seam-owned surfaces and the `Model/query#ELEMENT_SET` scope algebra; Compute is a peer stratum, never a dependency, so its discipline reads (`SpacesOf`/`BoundingSurfacesOf`) are never referenced. Envelope derivation is SHARED and single — a per-arm boundary walk is the deleted form that let two emitted documents disagree about one building — and the ring area both arms need is the seam owner's `FootprintPolygon.Area` — the Newell fold, shell minus holes, seated where the rings live — because a vertical aperture ring projects to near-zero area under the planar NTS algebra the geospatial owner holds and a page-local ring-area helper re-derives arithmetic the carrier owns. Every missing- or ambiguous-evidence path degrades warning-counted — a footprint-less space, a material lacking both the `Thermal` and `Optical` case, a wall segment no bounding surface matched — never a zero-area fabrication or a fabricated physics row; a zero-area glazing sum emits dragonfly's ABSENT window slot and never a `SimpleWindowRatio` of `0`, which a solver reads as a real zero-area window rather than as no window. `graph→OSM`/`gbXML`/`IDF` DIRECT egress is deliberately absent: no in-process HBJSON→OSM translation is admitted (the python peer's `honeybee-openstudio` leg owns it), and a second graph→OSM builder beside Compute's simulation-scoped `BuildModel` is the duplicate-fold defect, so the request rails `BimFault.CapabilityMiss`. Glazing lowering consumes the same seam `Optical` case (`Discipline.Energy`) Compute's `StandardGlazing` build reads, so the lowered honeybee document and Compute's OSM model agree on layer physics by construction.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -41,8 +41,53 @@ using static LanguageExt.Prelude;
 using Df = DragonflySchema;
 using Hb = HoneybeeSchema;
 using Os = OpenStudio;
+// Both schemas close the SAME five boundary cases in DIFFERENT type-argument orders — honeybee's Face slot puts
+// Adiabatic third, dragonfly's Room2D slot puts Surface third — so those closures are distinct constructed types
+// one shared row projects into; window and shade closures alias for signature density alone.
+using FaceBoundary = HoneybeeSchema.AnyOf<HoneybeeSchema.Ground, HoneybeeSchema.Outdoors, HoneybeeSchema.Adiabatic, HoneybeeSchema.Surface, HoneybeeSchema.OtherSideTemperature>;
+using PlateBoundary = HoneybeeSchema.AnyOf<HoneybeeSchema.Ground, HoneybeeSchema.Outdoors, HoneybeeSchema.Surface, HoneybeeSchema.Adiabatic, HoneybeeSchema.OtherSideTemperature>;
+using PlateWindow = HoneybeeSchema.AnyOf<DragonflySchema.SingleWindow, DragonflySchema.SimpleWindowArea, DragonflySchema.SimpleWindowRatio, DragonflySchema.RepeatingWindowRatio, DragonflySchema.RectangularWindows, DragonflySchema.DetailedWindows>;
+using ShadeGeometry = HoneybeeSchema.AnyOf<HoneybeeSchema.Face3D, HoneybeeSchema.Mesh3D>;
 
 namespace Rasm.Bim;
+
+// --- [TYPES] ---------------------------------------------------------------------------------
+// BoundaryRow closes the boundary-condition vocabulary both schemas read. Ingest stamps a text token on the seam
+// edge and the prior form dispatched it through a `_`-armed text switch per arm — two switches over one string,
+// each defaulting an unrecognized token to Outdoors, so a Surface adjacency silently became an exterior wall on
+// BOTH sides and neither arm could tell. The row is the closed vocabulary, Face is its honeybee closure, and Plate
+// DERIVES from Face rather than declaring a second delegate column: the two closures differ only in the ORDER of
+// their five type arguments, so one concrete case re-converts into the other and a per-row second delegate would be
+// five more chances for the two documents to disagree about one boundary. The open-object `_` is the exhaustiveness
+// floor over AnyOf's untyped payload, never a swallowed case of a closed owner.
+[SmartEnum<string>]
+public sealed partial class BoundaryRow {
+    public static readonly BoundaryRow Ground = new("Ground", static () => (FaceBoundary)new Hb.Ground());
+    public static readonly BoundaryRow Outdoors = new("Outdoors", static () => (FaceBoundary)new Hb.Outdoors());
+    public static readonly BoundaryRow Adiabatic = new("Adiabatic", static () => (FaceBoundary)new Hb.Adiabatic());
+    public static readonly BoundaryRow Surface = new("Surface", static () => (FaceBoundary)new Hb.Surface());
+    public static readonly BoundaryRow OtherSideTemperature = new("OtherSideTemperature", static () => (FaceBoundary)new Hb.OtherSideTemperature());
+
+    [UseDelegateFromConstructor]
+    public partial FaceBoundary Face();
+
+    public PlateBoundary Plate() => Face().Obj switch {
+        Hb.Ground ground => ground,
+        Hb.Adiabatic adiabatic => adiabatic,
+        Hb.Surface surface => surface,
+        Hb.OtherSideTemperature other => other,
+        _ => new Hb.Outdoors(),
+    };
+}
+
+// EnvelopeFace is the ONE segment-aligned envelope row both arms read, so a honeybee envelope and a dragonfly
+// massing plate can never disagree about which wall carries which boundary condition or which window: a Room2D
+// floor-boundary SEGMENT and a space's vertical bounding SURFACE are one fact seen from two schemas, and deriving
+// them twice is exactly how two emitted documents drift. Openings carries the occurrence NODES the raise's Host
+// correlation attributed to this face — the honeybee arm lowers each one's construction, the dragonfly arm
+// quotients their ring areas against the extruded wall.
+readonly record struct EnvelopeFace(
+    Node.Object Surface, Hb.FaceType Face, BoundaryRow Condition, FootprintPolygon Ring, Seq<Node.Object> Openings);
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 // BIM-to-BEM lower: graph -> honeybee envelope + library (hbjson) or dragonfly massing (dfjson). Model store
@@ -75,18 +120,14 @@ public static class EnergyDerive {
         var state = (Rooms: Seq<Hb.Room>(), Surfaces: 0, Openings: 0, Constructions: 0, Warnings: 0);
         foreach (Node.Object space in SpacesUnder(graph, scope)) {
             var faces = Seq<Hb.Face>();
-            foreach ((Relationship.Generic edge, Node.Object surface) in Boundaries(graph, space.Id)) {
-                if (geometry.Footprint(surface.Representations).Case is not FootprintPolygon ring) { state.Warnings++; continue; }
-                if (!EnergyClassRows.ToFace.TryGetValue((surface.Classification.Code, surface.PredefinedType), out var faceType)) {
-                    state.Warnings++; continue;
-                }
+            foreach (EnvelopeFace bound in Envelope(graph, space, geometry, ref state.Warnings)) {
                 state.Surfaces++;
-                Option<string> construction = LowerComposition(graph, surface.Id, store, ref state.Warnings)
+                Option<string> construction = LowerComposition(graph, bound.Surface.Id, store, ref state.Warnings)
                     .Do(_ => state.Constructions++);
-                var (apertures, doors) = Openings(graph, space.Id, surface.ExternalId.IfNone(surface.Name), geometry, store, ref state.Openings, ref state.Warnings, ref state.Constructions);
+                var (apertures, doors) = Openings(graph, bound, geometry, store, ref state.Openings, ref state.Warnings, ref state.Constructions);
                 faces = faces.Add(new Hb.Face(
-                    surface.ExternalId.IfNone(surface.Name), Face3D(ring), faceType,
-                    Condition(edge), new Hb.FacePropertiesAbridged(
+                    bound.Surface.ExternalId.IfNone(bound.Surface.Name), Face3D(bound.Ring), bound.Face,
+                    bound.Condition.Face(), new Hb.FacePropertiesAbridged(
                         energy: construction.Match(
                             Some: static id => new Hb.FaceEnergyPropertiesAbridged(construction: id),
                             None: static () => (Hb.FaceEnergyPropertiesAbridged?)null)),
@@ -154,22 +195,50 @@ public static class EnergyDerive {
         $"{prefix}-{ContentHash.Of(set.Layers.Fold(new CanonicalWriter(0.0),
             static (w, layer) => w.String(layer.Material.ToString()).Double(layer.Thickness.Si)).ToBytes().Span):x32}";
 
+    // Holes ride the seam carrier whole: a courtyard slab lowers as boundary plus hole loops, so honeybee's own
+    // face algebra subtracts the court instead of conditioning it.
     static Hb.Face3D Face3D(FootprintPolygon ring) =>
-        new([.. ring.Ring.Map(static p => (List<double>)[p.X, p.Y, p.Z])]);
+        new([.. ring.Ring.Map(static p => (List<double>)[p.X, p.Y, p.Z])],
+            holes: ring.Holes.IsEmpty ? null : [.. ring.Holes.Map(static hole => (List<List<double>>)[.. hole.Map(static p => (List<double>)[p.X, p.Y, p.Z])])]);
 
-    // Boundary-condition derivation: the edge payload the raise stamped, defaulting Outdoors — the closed
-    // IBoundarycondition set dispatched by text, never a downcast chain. The Surface adjacency case needs the
-    // counterpart-face ids no seam payload carries yet — the documented Outdoors degrade, a growth arm row.
-    static Hb.AnyOf<Hb.Ground, Hb.Outdoors, Hb.Adiabatic, Hb.Surface, Hb.OtherSideTemperature> Condition(Relationship.Generic edge) =>
+    // Boundary-condition derivation reads the edge payload the raise stamped through the closed BoundaryRow
+    // vocabulary's own generated keyed lookup, so an unrecognized token resolves to the NAMED Outdoors default
+    // rather than falling out of a `_` arm. Surface adjacency stays reachable the moment the seam payload carries
+    // its counterpart-face ids — that row already exists, only the raise's stamp is pending.
+    static BoundaryRow Condition(Relationship.Generic edge) =>
         edge.Attributes.Find(EnergyProjector.BoundaryCondition)
             .Bind(static v => v is PropertyValue.Text t ? Some(t.Value) : None)
-            .Match<Hb.AnyOf<Hb.Ground, Hb.Outdoors, Hb.Adiabatic, Hb.Surface, Hb.OtherSideTemperature>>(
-                Some: static text => text switch {
-                    "Ground"    => new Hb.Ground(),
-                    "Adiabatic" => new Hb.Adiabatic(),
-                    _           => new Hb.Outdoors(),
-                },
-                None: static () => new Hb.Outdoors());
+            .Bind(static text => BoundaryRow.TryGet(text, out BoundaryRow? row) && row is { } found ? Some(found) : None)
+            .IfNone(BoundaryRow.Outdoors);
+
+    // ONE envelope derivation both arms read: each bounding surface's face type, boundary-condition row, footprint
+    // ring, and attributed opening occurrences, gathered once per space. A footprint-less or class-unmapped surface
+    // is warning-counted and dropped exactly as before — never a zero-area fabrication — and both arms count one
+    // set of drops because they read one fold.
+    static Seq<EnvelopeFace> Envelope(ElementGraph graph, Node.Object space, GeometrySource geometry, ref int warnings) {
+        var faces = Seq<EnvelopeFace>();
+        foreach ((Relationship.Generic edge, Node.Object surface) in Boundaries(graph, space.Id)) {
+            if (geometry.Footprint(surface.Representations).Case is not FootprintPolygon ring) { warnings++; continue; }
+            if (!EnergyClassRows.ToFace.TryGetValue((surface.Classification.Code, surface.PredefinedType), out var faceType)) {
+                warnings++; continue;
+            }
+            faces = faces.Add(new EnvelopeFace(surface, faceType, Condition(edge), ring,
+                OpeningsOf(graph, space.Id, surface.ExternalId.IfNone(surface.Name))));
+        }
+        return faces;
+    }
+
+    // Openings of one face: the space's boundary edges whose Host attribute names the face identifier — a raise
+    // correlation idiom read back, never a NodeId join (rooted ids are raise-local). Window and door occurrences
+    // ride ONE set because both arms need the same nodes: the honeybee arm splits them by class into sub-faces, the
+    // dragonfly arm sums the window rings alone into a glazing ratio.
+    static Seq<Node.Object> OpeningsOf(ElementGraph graph, NodeId space, string hostIdentifier) =>
+        graph.EdgesAt(space).Choose(e =>
+            e is Relationship.Generic g && g.WireName == IfcRelKind.SpaceBoundary.Key && g.Relating == space
+                && g.Attributes.Find(EnergyProjector.Host).Exists(v => v is PropertyValue.Text t && t.Value == hostIdentifier)
+                ? graph.Find<Node.Object>(g.Related) : None)
+            .Filter(static o => o.Classification.Code == IfcClass.Window.Key || o.Classification.Code == IfcClass.Door.Key)
+            .ToSeq();
 
     static Seq<Node.Object> SpacesUnder(ElementGraph graph, EnergyScope scope) =>
         graph.ObjectNodes.Filter(o => o.Classification.Code == IfcClass.Space.Key)
@@ -187,20 +256,15 @@ public static class EnergyDerive {
                 ? graph.Find<Node.Object>(g.Related).Map(s => (g, s))
                 : None).ToSeq();
 
-    // Openings of one face: the space's boundary edges whose Host attribute names the face identifier — a raise
-    // correlation idiom read back, never a NodeId join (rooted ids are raise-local). One read yields BOTH sub-face
-    // lists (IfcWindow -> Aperture, IfcDoor -> Door), and each opening's own composition lowers through the SAME
-    // discriminated fold so a raised window construction round-trips onto the aperture's abridged reference.
+    // Honeybee sub-face lowering over the SHARED opening set: one pass yields both lists (IfcWindow -> Aperture,
+    // IfcDoor -> Door) and each opening's own composition lowers through the SAME discriminated fold so a raised
+    // window construction round-trips onto the aperture's abridged reference.
     static (List<Hb.Aperture> Apertures, List<Hb.Door> Doors) Openings(
-        ElementGraph graph, NodeId space, string hostIdentifier, GeometrySource geometry, Hb.ModelEnergyProperties store,
+        ElementGraph graph, EnvelopeFace bound, GeometrySource geometry, Hb.ModelEnergyProperties store,
         ref int openings, ref int warnings, ref int constructions) {
         var apertures = new List<Hb.Aperture>();
         var doors = new List<Hb.Door>();
-        foreach (var opening in graph.EdgesAt(space).Choose(e =>
-            e is Relationship.Generic g && g.WireName == IfcRelKind.SpaceBoundary.Key && g.Relating == space
-                && g.Attributes.Find(EnergyProjector.Host).Exists(v => v is PropertyValue.Text t && t.Value == hostIdentifier)
-                ? graph.Find<Node.Object>(g.Related) : None)) {
-            if (opening.Classification.Code != IfcClass.Window.Key && opening.Classification.Code != IfcClass.Door.Key) { continue; }
+        foreach (Node.Object opening in bound.Openings) {
             // A footprint-less opening is warning-counted exactly as a footprint-less surface — a silent skip
             // under-glazed the emitted model with zero receipt evidence, the deleted asymmetry.
             if (geometry.Footprint(opening.Representations).Case is not FootprintPolygon ring) { warnings++; continue; }
@@ -229,9 +293,16 @@ public static class EnergyDerive {
     // flattens onto a Room2D floor boundary — massing altitude only, no energy library, the honeybee shape
     // inverted; storey multiplier evidence reads back onto Story(multiplier:), so a unique-stories-x-repeat tower
     // round-trips its repeat factor.
+    // Every plate reads the SHARED envelope: boundaryConditions and windowParameters index the floor-boundary
+    // SEGMENTS one for one, isGroundContact reads a Ground-conditioned floor face and isTopExposed an
+    // Outdoors-conditioned roof face. Filling five of nineteen columns emitted a sealed opaque box — no glazing, no
+    // soil contact, no sky — whose every solar gain, daylight autonomy, and glazing-ratio result was wrong by the
+    // whole envelope, and the omission was invisible because each widened column is schema-OPTIONAL and Validate
+    // passes. The graph the honeybee arm reads to full envelope depth is the same graph this arm reads.
     static Fin<EnergyOutcome.Emitted> Dragonfly(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at, Op key) {
         ContentAddress pedigree = ContentAddress.OfGraph(graph);   // the content-stable identifier + Graph pedigree, one derivation
         var buildings = Seq<Df.Building>();
+        var massed = Seq<NodeId>();
         int spaces = 0, warnings = 0;
         foreach (Node.Object building in graph.ObjectNodes.Filter(o => o.Classification.Code == IfcClass.Building.Key)) {
             var stories = Seq<Df.Story>();
@@ -239,14 +310,26 @@ public static class EnergyDerive {
                 var plates = Seq<Df.Room2D>();
                 foreach (Node.Object space in Parts(graph, storey.Id, IfcClass.Space).Filter(s => InScope(s, scope))) {
                     if (geometry.Footprint(space.Representations).Case is not FootprintPolygon ring) { warnings++; continue; }
-                    Seq<Vector3> plate = ring.Ring;
+                    Seq<Vector3> plate = Open(ring.Ring);
+                    Seq<EnvelopeFace> envelope = Envelope(graph, space, geometry, ref warnings);
+                    Seq<(Vector3 From, Vector3 To)> walls = Segments(plate);
+                    double height = Height(graph, space.Id).IfNone(DefaultFloorToCeiling);
                     spaces++;
                     plates = plates.Add(new Df.Room2D(
                         space.ExternalId.IfNone(space.Name),
                         [.. plate.Map(static p => (List<double>)[p.X, p.Y])],
                         plate.Head.Map(static p => p.Z).IfNone(0.0),
-                        Height(graph, space.Id).IfNone(DefaultFloorToCeiling),
-                        new Df.Room2DPropertiesAbridged()));
+                        height,
+                        new Df.Room2DPropertiesAbridged(),
+                        isGroundContact: envelope.Exists(static f => f.Face == Hb.FaceType.Floor && f.Condition == BoundaryRow.Ground),
+                        isTopExposed: envelope.Exists(static f => f.Face == Hb.FaceType.RoofCeiling && f.Condition == BoundaryRow.Outdoors),
+                        boundaryConditions: [.. walls.Map(wall => Aligned(envelope, wall)
+                            .Map(static face => face.Condition).IfNone(BoundaryRow.Outdoors).Plate())],
+                        windowParameters: [.. walls.Map(wall => Glazing(envelope, wall, height, geometry))],
+                        // Hole plates lower each interior ring as one further coordinate list, so a courtyard,
+                        // atrium, or lightwell subtracts from conditioned floor area instead of massing solid.
+                        floorHoles: ring.Holes.IsEmpty ? null : [.. ring.Holes.Map(hole =>
+                            (List<List<double>>)[.. Open(hole).Map(static p => (List<double>)[p.X, p.Y])])]));
                 }
                 if (!plates.IsEmpty) {
                     stories = stories.Add(new Df.Story(storey.ExternalId.IfNone(storey.Name), [.. plates],
@@ -254,16 +337,103 @@ public static class EnergyDerive {
                 }
             }
             if (!stories.IsEmpty) {
+                massed = massed.Add(building.Id);
                 buildings = buildings.Add(new Df.Building(building.ExternalId.IfNone(building.Name),
                     new Df.BuildingPropertiesAbridged(), uniqueStories: [.. stories]));
             }
         }
         var model = new Df.Model($"rasm-massing-{pedigree.Value:x32}", new Df.ModelProperties(),
-            buildings: [.. buildings], units: Df.Units.Meters, tolerance: graph.Header.Tolerance);
+            buildings: [.. buildings], units: Df.Units.Meters, tolerance: graph.Header.Tolerance,
+            // Site context is the DOMINANT shading term in any urban setting, and the geospatial owner already
+            // landed the neighbours on the SAME graph this fold walks — so an emitted massing model without them
+            // computed solar gain as if the site were empty desert. ReferenceVector is how dragonfly relocates a
+            // local model onto the earth for solar position; without it every sun path is computed at the model
+            // origin, so a georeferenced graph emitted a model that could not know where it stood.
+            contextShades: [.. Context(graph, geometry, massed)],
+            referenceVector: [graph.Header.Reference.Eastings, graph.Header.Reference.Northings, graph.Header.Reference.OrthogonalHeight]);
         warnings += model.Validate().Count();
         return Fin.Succ(Emit(InterchangeFormat.Dfjson, Encoding.UTF8.GetBytes(model.ToJson()), pedigree, at,
             new EnergyReceipt(EnergyLeg.Lowered, InterchangeFormat.Dfjson, None, spaces, 0, 0, 0, warnings, default, at)));
     }
+
+    // Site context is every footprint-bearing geographic element the geospatial projector landed plus every
+    // IfcBuilding this fold did NOT mass — a neighbour block ingested as a site-context occurrence carries no
+    // storey decomposition, so "contributed no stories" is exactly the discriminant that separates the model's own
+    // buildings from the ones surrounding it, read off the massed set rather than re-walked.
+    static Seq<Df.ContextShade> Context(ElementGraph graph, GeometrySource geometry, Seq<NodeId> massed) =>
+        graph.ObjectNodes
+            .Filter(o => o.Classification.Code == GeographicElementClass
+                || (o.Classification.Code == IfcClass.Building.Key && !massed.Contains(o.Id)))
+            .Choose(o => geometry.Footprint(o.Representations).Map(ring =>
+                new Df.ContextShade(o.ExternalId.IfNone(o.Name),
+                    [(ShadeGeometry)Face3D(ring)], new Df.ContextShadePropertiesAbridged())))
+            .ToSeq();
+
+    // Geospatial projection carries the TRUE IFC4.3 entity-type string on the seam Classification rather than an
+    // IfcClass row, so this site-context read matches that same code — resolving it through IfcClass.TryGet
+    // collapses it to the Proxy fallback and misses every neighbour.
+    const string GeographicElementClass = "IfcGeographicElement";
+
+    // Dragonfly's FloorBoundary is an OPEN ring — the schema closes it implicitly — so a source ring carrying its
+    // repeated first vertex emits a zero-length final wall and shifts every parameter list by one against the
+    // segments it indexes. Open drops that duplicate once; a ring that never carried one passes through.
+    static Seq<Vector3> Open(Seq<Vector3> ring) =>
+        ring.Count > 1 && ring.Head.Exists(head => head == ring.Last) ? ring.Take(ring.Count - 1).ToSeq() : ring;
+
+    // Each floor-boundary SEGMENT is one Room2D wall, so every per-wall parameter list indexes by segment and the
+    // ring closes back to its first vertex. A ring under three vertices bounds no plate and yields no segments, so
+    // every parameter list stays empty rather than misaligned against a boundary that is not there.
+    static Seq<(Vector3 From, Vector3 To)> Segments(Seq<Vector3> ring) =>
+        ring.Count < 3
+            ? Seq<(Vector3, Vector3)>()
+            : ring.Select((point, index) => (From: point, To: ring[(index + 1) % ring.Count])).ToSeq();
+
+    // Aligned joins a Room2D wall segment to the space's vertical bounding SURFACE that is the same fact in the
+    // other schema: the wall face whose ring centre lies nearest the segment midpoint IN PLAN, accepted only within
+    // half the segment length so a surface across the room never claims a segment it does not bound. Floor and
+    // ceiling faces are excluded because they bound the plate itself, not any of its walls.
+    static Option<EnvelopeFace> Aligned(Seq<EnvelopeFace> envelope, (Vector3 From, Vector3 To) wall) {
+        Vector3 mid = (wall.From + wall.To) * 0.5;
+        double reach = Vector3.Distance(wall.From, wall.To) * 0.5;
+        return envelope
+            .Filter(static f => f.Face == Hb.FaceType.Wall)
+            .Fold(Option<(EnvelopeFace Face, double Gap)>.None, (best, face) =>
+                PlanDistance(mid, Centre(face.Ring.Ring)) is var gap && gap <= reach
+                && best.Map(held => gap < held.Gap).IfNone(true)
+                    ? Some((face, gap))
+                    : best)
+            .Map(static row => row.Face);
+    }
+
+    // Glazing answers one wall segment's window parameter: aperture area over wall area, where the wall is that
+    // segment EXTRUDED to the floor-to-ceiling height — Room2D's own massing model, so the denominator needs no
+    // area owner at all — and the numerator is the seam owner's FootprintPolygon.Area Newell fold over the window
+    // rings the raise attributed to the matched face (exact for a VERTICAL ring the planar NTS algebra reads as
+    // near-zero). Doors are excluded: a door is not glazing and folding it into the ratio over-states solar gain
+    // on every entrance wall. Segments with no matched face, a degenerate wall, or zero aperture area yield NULL,
+    // because dragonfly's own ABSENT slot is how "no glazing" is spelled — a SimpleWindowRatio of 0 reads
+    // downstream as a real zero-area window the solver still meshes and reports. Clamping the quotient below one
+    // keeps a mis-measured ring from emitting a wall more than fully glazed.
+    static PlateWindow? Glazing(Seq<EnvelopeFace> envelope, (Vector3 From, Vector3 To) wall, double height, GeometrySource geometry) {
+        double area = Vector3.Distance(wall.From, wall.To) * height;
+        return Aligned(envelope, wall).Match(
+            Some: face => area > 0.0
+                && face.Openings
+                    .Filter(static o => o.Classification.Code == IfcClass.Window.Key)
+                    .Fold(0.0, (sum, window) => sum + geometry.Footprint(window.Representations)
+                        .Map(static ring => ring.Area).IfNone(0.0)) is var glazed && glazed > 0.0
+                ? (PlateWindow)new Df.SimpleWindowRatio(Math.Min(glazed / area, 1.0))
+                : null,
+            None: () => null);
+    }
+
+    static Vector3 Centre(Seq<Vector3> ring) =>
+        ring.IsEmpty ? Vector3.Zero : ring.Fold(Vector3.Zero, static (sum, point) => sum + point) * (1.0 / ring.Count);
+
+    // Plan distance alone: a wall surface's ring centre sits at mid-height while its floor-boundary
+    // segment lies on the slab, so a 3D distance rejects every real match by half the storey height.
+    static double PlanDistance(Vector3 a, Vector3 b) =>
+        Math.Sqrt(((a.X - b.X) * (a.X - b.X)) + ((a.Y - b.Y) * (a.Y - b.Y)));
 
     // Massing fallback when a space carries no Qto height — a named policy default (the Compute density-1000
     // precedent), never a silent zero; a real height reads the Qto_SpaceBaseQuantities bag the IFC ingest OR the
@@ -420,4 +590,5 @@ public static class EnergyTranslate {
 
 ## [04]-[RESEARCH]
 
+- [HBJSON_WIRE_PARITY]-[OPEN]: does the `HoneybeeSchema` `Model.ToJson()` render this lower content-keys feed the same octets the python `libs/python/geometry` energy model keys — `honeybee.Model.to_dict(included_prop=("energy",))` under `msgspec` deterministic encoding — or do the two serializers diverge in key order, float spelling, or omitted-default handling; serialize ONE document through both ends and byte-compare the two renders, then pin one byte source on both pages or seat a canonical re-encode at the crossing.
 - [SEAM_ALIGNMENT]-[OPEN]: do the Compute-side member spellings `BuildConstruction`, `StandardGlazing`, and the density-1000 fallback row still match the lower's seam reads; verify against `csharp:Rasm.Compute` `Runtime` energy-build pages when the Compute OSM build page next rebuilds.

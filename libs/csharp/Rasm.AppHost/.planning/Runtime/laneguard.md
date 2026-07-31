@@ -11,12 +11,12 @@ The in-process work-lane resilience governor for the runtime spine: one `LaneGua
 ## [02]-[LANE_GUARD]
 
 - Owner: `LaneStrategy` `[SmartEnum<string>]` the per-lane pipeline-row vocabulary under the `ComparerAccessors.StringOrdinal` accessor; `LanePolicy` the per-`WorkLane` resilience-row record; `LaneGuard` the static keyed-pipeline registry over the in-process lanes; `LaneFault` `[Union]` fault family deriving its codes through `FaultBand.Lane` = Text | BulkheadRejected | Shed | LaneBroken.
-- Entry: `Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, bool chaos, params ReadOnlySpan<LanePolicy> rows)` — one `AddResiliencePipeline` entry per `WorkLane` row keyed by the lane key, composing bulkhead, rate-limiter, circuit-breaker, hedge, and (on the test-host profile) chaos strategies; `Run(LaneGuard.Runtime runtime, WorkLane lane, Func<CancellationToken, ValueTask<T>> work)` returns `IO<T>` — executes the in-process work through the lane's keyed pipeline so the command/solve edge rides the lane's resilience.
-- Auto: each lane's pipeline is one keyed `ResiliencePipeline` registered through `AddResiliencePipeline<T>(lane.Key, ...)` exactly as `KeyedLane.Register` registers per hop, but for the in-process command/solve edge so the lane and the hop share one resilience pattern and one retry-owner discipline — exactly one retry owner per lane just as each hop has exactly one; the bulkhead is a `ConcurrencyLimiterStrategyOptions` bounded-permit isolation per lane so a saturated lane cannot starve another lane's permits, the rate-limiter is the lane's admission shape, the circuit-breaker binds a `CircuitBreakerManualControl` and `CircuitBreakerStateProvider` keyed per lane so the breaker state reads from Polly's own observation surface (never a parallel state delegate), and the hedge admits only idempotent commands so a duplicated non-idempotent solve never double-applies; the adaptive-concurrency arm reads `ResourceMonitoring` and resizes the bulkhead permit count at runtime (`ADAPTIVE_ARMS`), and the load-shed arm reads the atomic `DegradationReading` and sheds at the lane's degradation floor; the chaos strategies arm on the test-host profile only — `AddChaosLatency`/`AddChaosFault`/`AddChaosOutcome` over `ChaosLatencyStrategyOptions`/`ChaosFaultStrategyOptions`/`ChaosOutcomeStrategyOptions` with an `InjectionRate` column — so the work lanes carry a first-class chaos surface symmetric to the transport `KeyedLane` chaos, never in production; adaptive concurrency reads `TimeProvider` through `ClockPolicy`, never `Stopwatch`.
-- Receipt: a lane execution's resilience events land under the lane key in the package meter and logger exactly as the keyed-pipeline events do; a shed decision fans the shed verdict (`SHED_VERDICT`); no parallel lane receipt.
+- Entry: `Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, Func<DegradationReading> pressure, TenantLimiters tenants, bool chaos, params ReadOnlySpan<LanePolicy> rows)` — one `AddResiliencePipeline` entry per `WorkLane` row keyed by the lane key, composing bulkhead, tenant-partitioned rate-limiter, circuit-breaker, the `AddTimeout` deadline over the `allotted` attempt-class read, hedge, and (on the test-host profile) chaos strategies, with `TelemetryOptions` carrying the lane's own metering enricher and severity map; `Run(LaneGuard.Runtime runtime, WorkLane lane, Func<CancellationToken, ValueTask<T>> work)` returns `IO<T>` — executes the in-process work through the lane's keyed pipeline so the command/solve edge rides the lane's resilience.
+- Auto: each lane's pipeline is one keyed `ResiliencePipeline` registered through `AddResiliencePipeline<T>(lane.Key, ...)` exactly as `KeyedLane.Register` registers per hop, but for the in-process command/solve edge so the lane and the hop share one resilience pattern and one retry-owner discipline — exactly one retry owner per lane just as each hop has exactly one; the bulkhead is a `ConcurrencyLimiterStrategyOptions` bounded-permit isolation per lane so a saturated lane cannot starve another lane's permits, the rate-limiter partitions that admission BY TENANT — a `RateLimiterStrategyOptions.RateLimiter` lease producer over a per-tenant `TokenBucketRateLimiter` keyed on the branch-settled `TenantId.Wire` text — so one tenant's burst bounds at its own bucket instead of consuming the lane's whole pool, and `OnRejected` carries `RateLimiterRejectedException.RetryAfter` onto the refusal so a rejected caller learns when to return, the circuit-breaker binds a `CircuitBreakerManualControl` and `CircuitBreakerStateProvider` keyed per lane so the breaker state reads from Polly's own observation surface (never a parallel state delegate), and the hedge admits only idempotent commands so a duplicated non-idempotent solve never double-applies; the adaptive-concurrency arm reads `ResourceMonitoring` and resizes the bulkhead permit count at runtime (`ADAPTIVE_ARMS`), and the load-shed arm reads the atomic `DegradationReading` and sheds at the lane's degradation floor; the chaos strategies arm on the test-host profile only — `AddChaosLatency`/`AddChaosFault`/`AddChaosOutcome` over `ChaosLatencyStrategyOptions`/`ChaosFaultStrategyOptions`/`ChaosOutcomeStrategyOptions` with an `InjectionRate` column, the Simmy builder extensions shipping inside `Polly.Core` itself so no second package row admits them — so the work lanes carry a first-class chaos surface symmetric to the transport `KeyedLane` chaos, never in production; adaptive concurrency reads `TimeProvider` through `ClockPolicy`, never `Stopwatch`.
+- Receipt: a lane execution's resilience events land under the lane key in the package meter and logger exactly as the keyed-pipeline events do — the lane key, the live shed level, and the tenant slot are `MeteringEnricher` tags on the measurement itself, never the DI registration key a query cannot group by, and `SeverityProvider` maps the `LaneFault` family onto the incident ladder; a shed decision fans the shed verdict (`SHED_VERDICT`); no parallel lane receipt.
 - Packages: Polly.Core, Polly.Extensions, Polly.RateLimiting, Microsoft.Extensions.Diagnostics.ResourceMonitoring, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one lane strategy is one pipeline row inside one keyed pipeline; one chaos arm is one `AddChaos*` strategy row on the test-host profile; a new lane is one `LanePolicy` row keyed by its `WorkLane`; zero new surface.
-- Boundary: `LaneGuard` is the new spine owner for the in-process command/solve edge, distinct from the transport `KeyedLane` — it must not become a second retry on the transport seam, so in-process lanes get exactly one retry owner (`LaneGuard`) just as each hop has exactly one and a retry both on the lane and re-applied at the hop on one seam is the rejected form (the one-retry-owner-per-seam discipline); `WorkLane` is the `Rasm.Compute` solve-path name distinct from the `Runtime/resources#DRAIN_QUEUES` `DrainQueue` process-queue name, so `LaneGuard` keys a pipeline per `WorkLane` but never owns the `WorkLane` vocabulary; the keyed-pipeline registry mirrors `Wire/outbound#KEYED_PIPELINES` `KeyedLane.Register`'s `AddResiliencePipeline`/`CircuitBreakerManualControl`/`CircuitBreakerStateProvider` pattern verbatim so the in-process and transport resilience share one shape, never a second registry pattern; chaos arms on the test-host profile only so a production lane carries zero chaos; the adaptive-concurrency arm reads `TimeProvider` through `ClockPolicy`, never a direct `Stopwatch` call site; no `AddSingleton` spelling — the registry composes through `AddResiliencePipeline` exactly as the keyed transport registry does.
+- Growth: one lane strategy is one pipeline row inside one keyed pipeline; one chaos arm is one `AddChaos*` strategy row on the test-host profile; a new lane is one `LanePolicy` row keyed by its `WorkLane`; a new resilience dimension is one `LaneEnricher` tag beside its `LaneTags` const; zero new surface.
+- Boundary: `LaneGuard` is the new spine owner for the in-process command/solve edge, distinct from the transport `KeyedLane` — it must not become a second retry on the transport seam, so in-process lanes get exactly one retry owner (`LaneGuard`) just as each hop has exactly one and a retry both on the lane and re-applied at the hop on one seam is the rejected form (the one-retry-owner-per-seam discipline); `WorkLane` is the `Rasm.Compute` solve-path name distinct from the `Runtime/resources#DRAIN_QUEUES` `DrainQueue` process-queue name, so `LaneGuard` keys a pipeline per `WorkLane` but never owns the `WorkLane` vocabulary; the keyed-pipeline registry mirrors `Wire/outbound#KEYED_PIPELINES` `KeyedLane.Register`'s `AddResiliencePipeline`/`CircuitBreakerManualControl`/`CircuitBreakerStateProvider` pattern verbatim so the in-process and transport resilience share one shape, never a second registry pattern; the resilience meter carries the lane key as a TAG through `ConfigureTelemetry(TelemetryOptions)` — the `ILoggerFactory` overload sets a logger alone, so a page claiming a per-lane series behind it publishes none and the deleted form is that overload beside the claim; the rate-limiter partitions on tenant because the bulkhead's isolation is cross-lane only, so an unpartitioned lane pool is the intra-lane starvation the page's own isolation clause never covered; chaos arms on the test-host profile only so a production lane carries zero chaos; the adaptive-concurrency arm reads `TimeProvider` through `ClockPolicy`, never a direct `Stopwatch` call site; no `AddSingleton` spelling — the registry composes through `AddResiliencePipeline` exactly as the keyed transport registry does.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -70,12 +70,67 @@ public static class LaneGuard {
     // Non-generic per-lane pipelines: bulkhead, breaker, timeout, optional hedge, and (test-host only) chaos.
     // The non-generic ResiliencePipeline executes heterogeneous work generically per call, so one lane
     // pipeline guards every solve on that lane without a per-result-type registration.
-    public static IServiceCollection Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, bool chaos, params ReadOnlySpan<LanePolicy> rows) =>
+    static readonly ResiliencePropertyKey<TimeSpan?> RetryAfterKey = new("rasm.lane.retry-after");
+
+    // The per-tenant lease producer: one TokenBucketRateLimiter per tenant wire text, minted once and reused,
+    // so a lane's admission partitions on the SAME identity the meter tag, the RLS predicate, and the receipt
+    // fold key on — never a second tenant alphabet.
+    public sealed class TenantLimiters(TokenBucketRateLimiterOptions options) {
+        readonly ConcurrentDictionary<string, RateLimiter> byTenant = new(StringComparer.Ordinal);
+        public RateLimiter Limiter(string tenant) => byTenant.GetOrAdd(tenant, _ => new TokenBucketRateLimiter(options));
+    }
+
+    // The lane's own dimensions on every resilience measurement: the lane key the page's Receipt clause
+    // promises, the live shed level, and the tenant slot the branch dimension-key ruling fixes — so a per-lane
+    // resilience series is real and joins the rest of the estate's telemetry on one grammar.
+    public sealed class LaneEnricher(LanePolicy row, Func<DegradationReading> pressure) : MeteringEnricher {
+        public override void Enrich<TResult, TArgs>(in EnrichmentContext<TResult, TArgs> context) {
+            context.Tags.Add(new(LaneTags.Lane, row.Lane.ToString()));
+            context.Tags.Add(new(LaneTags.Shed, ShedVerdict.Of(pressure(), row.Lane, row.ShedFloor).Level.ToString()));
+            context.Tags.Add(new(TenantContext.TenantSlot, TenantContext.Current.Id.Wire));
+        }
+    }
+
+    public static class LaneTags {
+        public const string Lane = "rasm.lane.key";
+        public const string Shed = "rasm.lane.shed";
+    }
+
+    public static IServiceCollection Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, Func<DegradationReading> pressure, TenantLimiters tenants, bool chaos, params ReadOnlySpan<LanePolicy> rows) =>
         rows.ToArray().ToSeq().Fold(services, (graph, row) =>
             graph.AddResiliencePipeline(row.Key, builder => {
                 builder
-                    .ConfigureTelemetry(telemetry)
+                    // The ILoggerFactory overload sets a logger and NOTHING else: the lane key is only the DI
+                    // registration key, so the promised per-lane resilience series does not exist as a metric
+                    // dimension. The options overload is where the estate's own grammar reaches the meter —
+                    // MeteringEnrichers append the lane key, the shed level, and the tenant slot per the branch
+                    // dimension-key ruling, and SeverityProvider maps the lane fault family onto the kernel
+                    // AlertSeverity ladder rather than Polly's flat package default.
+                    .ConfigureTelemetry(new TelemetryOptions {
+                        LoggerFactory = telemetry,
+                        MeteringEnrichers = { new LaneEnricher(row, pressure) },
+                        SeverityProvider = static args => args.Event.EventName switch {
+                            nameof(LaneFault.LaneBroken) => ResilienceEventSeverity.Error,
+                            nameof(LaneFault.Shed) or nameof(LaneFault.BulkheadRejected) => ResilienceEventSeverity.Warning,
+                            _ => ResilienceEventSeverity.Information,
+                        },
+                    })
                     .AddConcurrencyLimiter(permitLimit: row.BulkheadPermits, queueLimit: row.QueueLimit)
+                    // The concurrency limiter is ONE global permit pool per lane, so one tenant's burst consumes
+                    // every permit and starves the rest at the same WorkLane — the page's cross-lane isolation
+                    // clause forecloses starvation BETWEEN lanes and never WITHIN one. The rate-limiter strategy
+                    // is the partitioning seam LaneStrategy.RateLimiter names: the lease producer keys a
+                    // per-tenant TokenBucketRateLimiter on the branch-settled TenantId.Wire text, so a tenant's
+                    // burst bounds at its own bucket, and RetryAfter projects into the refusal so a rejected
+                    // caller learns when to return rather than re-arriving blind.
+                    .AddRateLimiter(new RateLimiterStrategyOptions {
+                        RateLimiter = args => tenants.Limiter(TenantContext.Current.Id.Wire).AcquireAsync(1, args.Context.CancellationToken),
+                        OnRejected = args => {
+                            args.Context.Properties.Set(RetryAfterKey,
+                                args.Outcome.Exception is RateLimiterRejectedException rejected ? rejected.RetryAfter : null);
+                            return default;
+                        },
+                    })
                     .AddCircuitBreaker(new CircuitBreakerStrategyOptions {
                         ManualControl = BreakerOf(row.Key),
                         StateProvider = StateOf(row.Key),
@@ -150,6 +205,4 @@ public readonly record struct ShedVerdict(WorkLane Lane, DegradationLevel Level,
 
 ## [05]-[RESEARCH]
 
-- [KEYED_PIPELINE_MIRROR]: the `LaneGuard` registry mirrors the `Wire/outbound#KEYED_PIPELINES` `KeyedLane.Register` pattern verbatim — one `AddResiliencePipeline<T>(lane.Key, ...)` per `WorkLane`, `ConfigureTelemetry` at pipeline head, `AddConcurrencyLimiter` bulkhead, `AddCircuitBreaker` binding `CircuitBreakerManualControl`/`CircuitBreakerStateProvider` keyed per lane, `AddTimeout` over the deadline-row read, `AddHedging` on idempotent lanes — so the in-process command/solve edge and the transport hops share one resilience shape (`Polly.Core`/`Polly.Extensions`/`Polly.RateLimiting` 8.7.0, all admitted), never a second registry; exactly one retry owner per lane and per hop, never both on one seam.
-- [SIMMY_CHAOS]: the chaos axis composes `Polly.Simmy` `AddChaosLatency`/`AddChaosFault`/`AddChaosOutcome` over `ChaosLatencyStrategyOptions`/`ChaosFaultStrategyOptions`/`ChaosOutcomeStrategyOptions` carrying an `InjectionRate` column, confirmed present in the `Polly.Core` 8.7.0 decompile (`Polly.Simmy`/`Polly.Simmy.Latency`/`Polly.Simmy.Fault`/`Polly.Simmy.Outcomes` namespaces with the `ChaosLatencyPipelineBuilderExtensions`/`ChaosFaultPipelineBuilderExtensions`/`ChaosOutcomePipelineBuilderExtensions` builder extensions), the same Simmy surface the `Wire/outbound#KEYED_PIPELINES` test-host profile cites; chaos arms on the test-host profile only so a production lane carries zero chaos.
-- [SHED_RIPPLE]: the per-`WorkLane` `ShedVerdict` minted from the atomic `Observability/health#DEGRADATION_RAIL` `DegradationReading` (the `COLLAPSE_HEALTH_DEGRADATION_CELL` coherent cell) is the one verdict `Rasm.Compute/Runtime/admission` consumes on its `SubstrateSelection` fold (the `ONE_DEGRADATION_SHED_VERDICT` ripple), never a Compute-side re-derivation; the adaptive-concurrency arm reads the `Observability/health#HEALTH_FOLD` `UtilizationCell` `MeterListener` graded against the `ResourceQuota` container limit and `Microsoft.Extensions.Diagnostics.ResourceMonitoring` (10.7.0, admitted), so the permit resize rides the same observable-instrument-and-quota path the host pressure grade reads, never a parallel meter, and reads `TimeProvider` through `ClockPolicy` never `Stopwatch`.
+(none)

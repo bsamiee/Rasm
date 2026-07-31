@@ -1,27 +1,29 @@
 # [PY_GEOMETRY_IFC_ANALYSIS]
 
-IFC property, quantity, and relationship analysis and standards-conformant validation — AEC verbs the tessellation hop drops: quantity takeoff, Pset queries, IDS model-checking, clash detection, space-program validation, and BCF issue authoring over `ifcopenshell.util`, `ifctester`, `ifcclash`, and `bcf`, every provider output folded into one `AnalysisRow` algebra. C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and buildingSMART validation output that projection never produces.
+IFC property, quantity, and relationship analysis and standards-conformant validation — AEC verbs the tessellation hop drops: quantity takeoff, Pset queries, IDS model-checking, clash detection, space-program validation, and BCF issue authoring over `ifcopenshell.util`, `ifctester`, `ifcclash`, `ifc5d.qto`, and `bcf`, every provider output folded into one `AnalysisRow` algebra. C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and buildingSMART validation output that projection never produces.
 
-Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELECTOR`), so a malformed selector faults typed at the boundary, never a silent empty `filter_elements` match three arms deep. `run` threads the graduation `evidence_run` weave under `EvidenceScope.IFC_ANALYSIS`, `@beartype(conf=FAULT_CONF)` binding the contract fence. OCC clash trees are this owner's one transient-native boundary, riding the runtime-pinned `guarded_sync(RetryClass.OCC_NATIVE)` row, never a bare `stamina.retry` mint; durable `.bcfzip`/IDS-report archive writes stay `python:data/spatial`'s. Evidence graduates under `GeometrySubject.BIM_COMPLIANCE`, the differentiated member the IDS/clash/BCF verdict class owns, distinct from the section-integral and lifecycle members their owners bind.
+Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELECTOR`), so a malformed selector faults typed at the boundary, never a silent empty `filter_elements` match three arms deep, and the `SelectorMatch` it hands back carries the canonical `filter_string` every receipt keys its evidence on. `run` threads the graduation `evidence_run` weave under `EvidenceScope.IFC_ANALYSIS` and carries no head decorator — `@beartype(conf=FAULT_CONF)` on `_dispatch` is the one innermost seam this capsule fences, as its two peers hold. OCC clash trees are this owner's one transient-native boundary, riding the runtime-pinned `guarded_sync(RetryClass.OCC_NATIVE)` row, never a bare `stamina.retry` mint; the authored `.bcfzip` rides home as archive BYTES on the receipt and the durable write stays `python:data/spatial`'s. Evidence graduates under `GeometrySubject.BIM_COMPLIANCE`, the differentiated member the IDS/clash/BCF verdict class owns, distinct from the section-integral and lifecycle members their owners bind.
 
 ## [01]-[INDEX]
 
-- [02]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, and kind-specific graduation evidence under `BIM_COMPLIANCE`.
+- [02]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, the columnar row egress, and kind-specific graduation evidence under `BIM_COMPLIANCE`.
 
 ## [02]-[ANALYSIS]
 
 - Owner: `IfcAnalysis` dispatches verbs through one rail-returning `_dispatch` fold; `AnalysisRow` is the one carrier whose case IS the shape — one algebra, never a per-verb row dialect; graduation subject rides the `ANALYSIS_SUBJECT` module constant, never a per-receipt `subject: str` field racing the discriminant.
-- Entry: `query` meaning is kind-fixed through the `QUERY_SPLIT` table — pure selector, `a#b` side pair, or spec path/JSON table — one table-keyed split, never a partition-per-arm string ladder; `CLASH`/`BCF` sides validate under one polymorphic batch parse aborting on the first malformed member, an empty query defaulting both sides to whole-model mode. `BCF` is the composition apex, re-running the clash leg and stacking overlaps into `bcf` topics with viewpoints AND the OCC-rendered `get_viewpoint_snapshot` image bound per topic, never a same-string round-trip.
-- Auto: IDS reads BOTH verdict depths off one validation pass — per-spec entity ratio and the `Json(ids).report()` roll-up, `percent_checks_pass` on the `Results` ROOT and `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec whose `0.0` row poisons the evidence mean; space-program validation excludes spaces absent from the program table — a `0.0`-ratio row reads an out-of-program space as total non-compliance — and scales net area through `calculate_unit_scale` squared before comparison.
-- Receipt: `evidence` ledger is kind-specific, never a row count — IDS keys per-entity AND per-check failing fractions, `SPACE_PROGRAM` the per-space failing fraction, `CLASH` the unresolved-cluster count, takeoff/BCF the empty-result fraction — so a model breaching its ceiling fails the carrier's `admitted` verdict rather than crossing clean.
-- Packages: `ifcopenshell`, `ifctester`, `ifcclash`, and `bcf-client` per the fence imports; `IfcSelector` is the only `filter_elements` caller.
-- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
-- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no durable store — topic rows are the wire carry, the durable `.bcfzip` write the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`.
+- Entry: `run` takes the model, the kind, the free-form `query`, and the `composition` custody key. `query` meaning is kind-fixed through the `QUERY_SPLIT` table — pure selector, `a#b` side pair, or spec path/JSON table — read ONCE at the `_dispatch` head so every row governs the arm it keys, the four empty-delimiter rows included and the `BCF` row governing the BCF arm, where a hardcoded `CLASH` key leaves five of six rows unread. `CLASH`/`BCF` sides arrive pre-split and validate under one polymorphic batch parse aborting on the first malformed member, an empty query defaulting both sides to whole-model mode. `BCF` is the composition apex, re-running the clash leg and stacking overlaps into `bcf` topics with viewpoints AND the OCC-rendered `get_viewpoint_snapshot` image bound per topic, never a same-string round-trip.
+- Auto: IDS reads BOTH verdict depths off one validation pass — per-spec entity ratio and the `Json(ids).report()` roll-up, `percent_checks_pass` on the `Results` ROOT and `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec whose `0.0` row poisons the evidence mean. Space-program validation measures through the package that owns measurement: `ifc5d.qto.quantify` folds the shared `RuleSet` base-quantity table over the space set and the grade reads the `Qto_SpaceBaseQuantities.NetFloorArea` cell off the returned `ResultsDict`, so no local `get_psets(qtos_only=True)` key fold and no unit-scale square survive — the take-off already converts to the model's declared project units, the ONE regime the program table is read in. Two exclusions are distinct and both named: a space absent from the program table carries no program signal and is excluded from grading, while a space the take-off could not measure is a TYPED REFUSAL on its own `unquantified` axis, never a `0.0` area grading as total non-compliance.
+- Receipt: receipts carry the census, frames carry the rows. `contribute` emits one row per run — row count, subject count, archive extent where one exists, and the residual ledger — because a whole-model take-off is one fact key per element per quantity and a flattened row stream turns the runtime receipt into a hundred-thousand-key dict per run; `frame` projects those rows as ONE columnar `EvidenceFrame` through the graduation port, columns off the first row's `facts` keys exactly as the sibling lifecycle rollup does. `evidence` ledger is kind-specific, never a row count — IDS keys per-entity AND per-check failing fractions, `SPACE_PROGRAM` the per-space failing fraction beside its unquantified count, `CLASH` the unresolved-cluster count, takeoff/BCF the empty-result fraction — so a model breaching its ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates` and `frame` derive their own `ContentKey` from the receipt's `spec` — kind plus the validated query projection — through the spine's `evidence_key`, so no caller mints a key for evidence it did not produce. `_distributed` records the `non-compliant` fraction as the `rasm.geometry.compliance.noncompliant` charter measure at the producing fold; the cluster-count and empty-fraction keys name no charter row and record nothing, a count or boolean gate earning no histogram.
+- Packages: `ifcopenshell`, `ifctester`, `ifcclash`, `bcf-client`, and `ifc5d` (`qto.quantify` the space base-quantity take-off, its `rules` key arriving as the sibling lifecycle owner's `RuleSet` vocabulary rather than a second transcription) per the fence imports; `IfcSelector` is the only `filter_elements` caller.
+- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key — the frame column set following from `facts` with no edit here; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a new quantity axis on the space grade is one `SPACE_AREA` cell row; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
+- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the receipt stream where the frame is the columnar carrier.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable
 from enum import StrEnum
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Final, Literal, NotRequired, TypedDict, assert_never
 
 from beartype import beartype
@@ -30,15 +32,26 @@ from expression.collections import Map
 from msgspec import Struct
 from msgspec.json import decode
 
-from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
+from rasm.geometry.graduation import (
+    EvidenceFrame,
+    EvidenceScope,
+    GeometryHandoff,
+    GeometrySubject,
+    charter_record,
+    evidence_key,
+    evidence_run,
+)
+from rasm.geometry.ifc.costing import RuleSet
 from rasm.geometry.ifc.selector import IfcSelector
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
-from rasm.runtime.identity import ContentKey
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.resilience import RetryClass, guarded_sync
 
-if TYPE_CHECKING:  # every runtime ifcopenshell use is a function-local boundary import, so the module loads clean
+if TYPE_CHECKING:  # every runtime provider use is a function-local boundary import, so the module loads clean; the
+    # type-only names here are what make the `Clasher`/`ClashSet`/`BcfXml` string annotations below resolvable at all
+    import bcf.v3.bcfxml
     import ifcopenshell
+    from ifcclash.ifcclash import Clasher, ClashSet
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
@@ -112,6 +125,9 @@ class AnalysisRow:
 
 ANALYSIS_SUBJECT: Final[GeometrySubject] = GeometrySubject.BIM_COMPLIANCE
 
+# One delimiter row per kind, read ONCE at the `_dispatch` head so every row governs the arm it keys — the four
+# empty-delimiter rows the no-split path and the `BCF` row the BCF arm, where a hardcoded `CLASH` key leaves five of six
+# rows spelling nothing. Mirrors the sibling `PHASE_DELIMITER` fold, never a `.get` default that drops a kind.
 QUERY_SPLIT: Final[Map[AnalysisKind, str]] = Map.of_seq([
     (AnalysisKind.QUANTITY, ""),
     (AnalysisKind.PSET, ""),
@@ -121,14 +137,26 @@ QUERY_SPLIT: Final[Map[AnalysisKind, str]] = Map.of_seq([
     (AnalysisKind.BCF, "#"),
 ])
 
+# The `ifc5d.qto` cell the space-program grade reads off the `ResultsDict` (`element -> qto -> quantity -> float`);
+# a miss on this pair IS the unquantified case, never a zero area. One row, so a second quantity axis is one row.
+SPACE_AREA: Final[tuple[str, str]] = ("Qto_SpaceBaseQuantities", "NetFloorArea")
+
 # --- [MODELS] --------------------------------------------------------------------------
 
 
 class AnalysisResult(Struct, frozen=True, gc=False):
     kind: AnalysisKind
+    # run identity — the kind plus the validated query projection (canonical `filter_string`, spec path, program table,
+    # or side pair) — from which `graduates`/`frame` derive their own `ContentKey` through the spine.
+    spec: str
     subjects: tuple[str, ...]
     rows: tuple[AnalysisRow, ...]
     checks_pass: float | None = None  # IDS arm's Json-report root percent_checks_pass roll-up; None elsewhere
+    # SPACE_PROGRAM spaces the take-off measured NO area cell for: their own axis against their own ceiling, because a
+    # 0.0 area grades as total non-compliance and spells a measurement no producer took.
+    unquantified: tuple[str, ...] = ()
+    # BCF arm's authored `.bcfzip` archive bytes, the wire carry the data seam persists; empty on every other kind.
+    product: bytes = b""
 
     def evidence(self) -> dict[str, float]:
         match self.kind:
@@ -138,9 +166,11 @@ class AnalysisResult(Struct, frozen=True, gc=False):
                 check_fail = 1.0 - self.checks_pass / 100.0 if self.checks_pass is not None else 0.0
                 return {"non-compliant": entity_fail, "check-fail": check_fail}
             case AnalysisKind.SPACE_PROGRAM:
-                # an empty `ratios` is "no compliance signal" keyed 0.0 — never a fabricated total-non-compliance mean.
+                # an empty `ratios` is "no compliance signal" keyed 0.0 — never a fabricated total-non-compliance mean —
+                # and the unmeasured set rides its OWN key, so a model before take-off reads "N spaces unquantified"
+                # rather than "0% compliant" against a mean nothing measured.
                 ratios = tuple(r.compliance[1] for r in self.rows if r.tag == "compliance")
-                return {"non-compliant": 1.0 - sum(ratios) / len(ratios) if ratios else 0.0}
+                return {"non-compliant": 1.0 - sum(ratios) / len(ratios) if ratios else 0.0, "unquantified": float(len(self.unquantified))}
             case AnalysisKind.CLASH:
                 clusters = {r.clash[3] for r in self.rows if r.tag == "clash"}
                 return {"clash-clusters": float(len(clusters))}
@@ -150,62 +180,138 @@ class AnalysisResult(Struct, frozen=True, gc=False):
                 assert_never(unreachable)
 
     def contribute(self) -> Iterable[Receipt]:
-        facts: dict[str, object] = {f"{self.kind}.{i}.{k}": v for i, r in enumerate(self.rows) for k, v in r.facts.items()}
-        yield Receipt.of("rasm.geometry.ifc.analysis", ("emitted", self.kind.value, facts | {"subjects": len(self.subjects)} | self.evidence()))
+        # census, never the rows: a whole-model QUANTITY take-off carries one fact key per element per quantity, which
+        # makes the runtime receipt a hundred-thousand-key dict per run. Per-row evidence crosses as `frame()`; the
+        # receipt keeps the counts and the residual ledger the ceiling gates on, and the archive extent only where one
+        # exists, so a kind that authored nothing publishes no zero-length claim.
+        yield Receipt.of(
+            "rasm.geometry.ifc.analysis",
+            (
+                "emitted",
+                self.kind.value,
+                {"rows": len(self.rows), "subjects": len(self.subjects)}
+                | ({"product": len(self.product)} if self.product else {})
+                | self.evidence(),
+            ),
+        )
 
-    def graduates(self, evidence_key: ContentKey, ceiling: dict[str, float]) -> GeometryHandoff:
-        return GeometryHandoff.of(ANALYSIS_SUBJECT, evidence_key, self.evidence(), ceiling)
+    def graduates(self, ceiling: dict[str, float]) -> GeometryHandoff:
+        return GeometryHandoff.of(ANALYSIS_SUBJECT, evidence_key(ANALYSIS_SUBJECT, self.spec), self.evidence(), ceiling)
+
+    def frame(self) -> "RuntimeRail[EvidenceFrame]":
+        # rows are kind-homogeneous, so the first row's fact keys ARE the column set; the folder's largest row sets —
+        # one quantity or pset row per element — cross the geometry-to-data seam as one columnar frame per run instead
+        # of a flattened fact map. An empty result frames zero rows rather than faulting, and a row set that is NOT
+        # homogeneous rails on the port's own width check at this producer rather than raising past its consumer.
+        names = tuple(self.rows[0].facts) if self.rows else ()
+        table: dict[str, list[object]] = {
+            "kind": [self.kind.value] * len(self.rows),
+            **{name: [row.facts[name] for row in self.rows] for name in names},
+        }
+        return EvidenceFrame.of(ANALYSIS_SUBJECT, evidence_key(ANALYSIS_SUBJECT, self.spec), table)
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
 
 
+def _archived(document: "bcf.v3.bcfxml.BcfXml") -> bytes:
+    # `BcfXml.save(filename)` writes the zip and returns None, so the authored archive rides home as bytes through one
+    # scoped temp path — the sibling lifecycle owner's SPF `write`-then-read shape. Without this carry the document is
+    # dropped at function exit and the `.bcfzip` the page promises the data seam never crosses at all.
+    with TemporaryDirectory(prefix="ifc-bcf-") as work:
+        path = Path(work, "topics.bcfzip")
+        document.save(path)
+        return path.read_bytes()
+
+
+def _distributed(result: AnalysisResult, composition: ScopeKey) -> AnalysisResult:
+    # BIM_COMPLIANCE charter projection at the producing fold, off the one `evidence()` ledger the receipt, the frame,
+    # and the handoff already read — the IDS and space-program `non-compliant` fraction IS the
+    # `rasm.geometry.compliance.noncompliant` measure, so the spelling derives from the charter row and no producing
+    # arm picks one. The cluster-count and empty-fraction keys name no charter row, so the projection skips them: a
+    # count or boolean-shaped gate earns no histogram. Every verb runs caller-floor, so this is already the parent side.
+    charter_record(ANALYSIS_SUBJECT, result.evidence(), composition=composition)
+    return result
+
+
 class IfcAnalysis:
     @staticmethod
-    @beartype
-    def run(model: "ifcopenshell.file", kind: AnalysisKind, query: str) -> "RuntimeRail[AnalysisResult]":
-        # weave flatten absorbs the rail-returning `_dispatch`, so a selector parse fault meets the converted
-        # provider fault on one carrier; graduation stays the caller's own step on the returned receipt.
-        return evidence_run(EvidenceScope.IFC_ANALYSIS, f"run.{kind}", lambda: IfcAnalysis._dispatch(model, kind, query))
+    def run(
+        model: "ifcopenshell.file", kind: AnalysisKind, query: str, *, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> "RuntimeRail[AnalysisResult]":
+        # weave flatten absorbs the rail-returning `_dispatch`, so a selector parse fault meets the converted provider
+        # fault on one carrier; graduation stays the caller's own step on the returned receipt. The head carries no
+        # decorator — `_dispatch` is the one innermost untrusted seam the capsule fences, as its two peers hold.
+        return evidence_run(
+            EvidenceScope.IFC_ANALYSIS,
+            f"run.{kind}",
+            lambda: IfcAnalysis._dispatch(model, kind, query).map(lambda result: _distributed(result, composition)),
+            composition=composition,
+        )
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def _dispatch(model: "ifcopenshell.file", kind: AnalysisKind, query: str) -> "RuntimeRail[AnalysisResult]":
+        # ONE `QUERY_SPLIT` read at the head partitions the query for every kind — the empty-delimiter rows passing the
+        # whole query through — so each row governs by being read and the `CLASH`/`BCF` legs consume an already-split
+        # pair rather than reaching for another kind's key. Each arm derives its own `spec` from the VALIDATED
+        # projection it holds, so two spellings of one query key one piece of evidence.
+        delimiter = QUERY_SPLIT[kind]
+        head, _, tail = query.partition(delimiter) if delimiter else (query, "", "")
         match kind:
             case AnalysisKind.QUANTITY | AnalysisKind.PSET:
                 quantities = kind is AnalysisKind.QUANTITY
-                return IfcSelector.filter(model, query).map(
-                    lambda elements: AnalysisResult(
-                        kind, tuple(e.GlobalId for e in elements), tuple(IfcAnalysis._takeoff(e, quantities) for e in elements)
+                return IfcSelector.filter(model, head).map(
+                    lambda matched: AnalysisResult(
+                        kind,
+                        f"{kind.value}|{matched.query.filter_string}",
+                        tuple(e.GlobalId for e in matched.elements),
+                        tuple(IfcAnalysis._takeoff(e, quantities) for e in matched.elements),
                     )
                 )
             case AnalysisKind.SPACE_PROGRAM:
-                return Ok(IfcAnalysis._space(model, query))
+                return Ok(IfcAnalysis._space(model, head, f"{kind.value}|{head}"))
             case AnalysisKind.IDS:
-                return Ok(IfcAnalysis._validate(model, query))
+                return Ok(IfcAnalysis._validate(model, head, f"{kind.value}|{head}"))
             case AnalysisKind.CLASH:
-                return IfcAnalysis._clash_sides(query).bind(lambda sides: IfcAnalysis._clash(model, sides))
+                return IfcAnalysis._clash_sides(head, tail).bind(lambda sides: IfcAnalysis._clash(model, sides, f"{kind.value}|{sides[0]}#{sides[1]}"))
             case AnalysisKind.BCF:
-                return IfcAnalysis._clash_sides(query).bind(lambda sides: IfcAnalysis._author(model, sides))
+                return IfcAnalysis._clash_sides(head, tail).bind(lambda sides: IfcAnalysis._author(model, sides, f"{kind.value}|{sides[0]}#{sides[1]}"))
             case unreachable:
                 assert_never(unreachable)
 
     @staticmethod
-    def _space(model: "ifcopenshell.file", query: str) -> AnalysisResult:
-        # Program-table decode runs under the weave fence, so a malformed JSON table is a
-        # BoundaryFault classified at the seam, never an inline try/except in domain logic.
-        program = decode(query.encode(), type=dict[str, float])
-        scale = IfcAnalysis._unit_scale(model)
+    def _space(model: "ifcopenshell.file", table: str, spec: str) -> AnalysisResult:
+        import ifc5d.qto  # ruff:ignore[import-outside-top-level]
+
+        # Program-table decode runs under the weave fence, so a malformed JSON table is a BoundaryFault classified at
+        # the seam, never an inline try/except in domain logic. Measurement is the PACKAGE'S — `qto.quantify` folds the
+        # shared `RuleSet` base-quantity table over the space set and the grade reads its `SPACE_AREA` cell off the
+        # returned `ResultsDict` — so no `get_psets(qtos_only=True)` key fold survives here and no unit scale either:
+        # the take-off already converts SI to the model's declared project units, the ONE regime the table is read in.
+        program = decode(table.encode(), type=dict[str, float])
         spaces = model.by_type("IfcSpace")
-        # a space absent from the program table carries no program signal and is EXCLUDED from grading.
-        graded = tuple(
-            (s, program[key], IfcAnalysis._net_area(s) * scale)
-            for s in spaces
-            for key in (s.LongName or s.Name or "",)
-            if program.get(key, 0.0) > 0.0
-        )
+        qto, quantity = SPACE_AREA
+        results = ifc5d.qto.quantify(model, set(spaces), ifc5d.qto.rules[RuleSet.IFC4.value])
+        measured = {
+            space: area
+            for space in spaces
+            for area in (results.get(space, {}).get(qto, {}).get(quantity),)
+            if isinstance(area, (int, float))
+        }
+        # two exclusions, both named: a space absent from the program table carries no program signal and never grades,
+        # while a targeted space the take-off could not measure lands on the `unquantified` axis — a `0.0` area
+        # fallback spells total non-compliance for a measurement no producer took.
+        targeted = tuple((space, program[name]) for space in spaces for name in (space.LongName or space.Name or "",) if program.get(name, 0.0) > 0.0)
+        graded = tuple((space, target, measured[space]) for space, target in targeted if space in measured)
         rows = tuple(AnalysisRow.of_compliance(s.GlobalId, area / target, 0 if area >= target else 1) for s, target, area in graded)
-        return AnalysisResult(AnalysisKind.SPACE_PROGRAM, tuple(s.GlobalId for s, _, _ in graded), rows)
+        return AnalysisResult(
+            AnalysisKind.SPACE_PROGRAM,
+            spec,
+            tuple(s.GlobalId for s, _, _ in graded),
+            rows,
+            unquantified=tuple(space.GlobalId for space, _ in targeted if space not in measured),
+        )
 
     @staticmethod
     def _takeoff(element: "ifcopenshell.entity_instance", quantities: bool) -> AnalysisRow:
@@ -218,7 +324,7 @@ class IfcAnalysis:
         return AnalysisRow.of_pset(element.GlobalId, merged)
 
     @staticmethod
-    def _validate(model: "ifcopenshell.file", spec_path: str) -> AnalysisResult:
+    def _validate(model: "ifcopenshell.file", spec_path: str, spec: str) -> AnalysisResult:
         import ifctester.ids  # ruff:ignore[import-outside-top-level]
         import ifctester.reporter  # ruff:ignore[import-outside-top-level]
 
@@ -226,42 +332,48 @@ class IfcAnalysis:
         document.validate(model)
         rows = tuple(
             AnalysisRow.of_compliance(
-                spec.name, len(spec.passed_entities) / max(len(spec.passed_entities) + len(spec.failed_entities), 1), len(spec.failed_entities)
+                row.name, len(row.passed_entities) / max(len(row.passed_entities) + len(row.failed_entities), 1), len(row.failed_entities)
             )
-            for spec in document.specifications
-            if spec.status is not None
+            for row in document.specifications
+            if row.status is not None
         )
-        applicable = tuple(spec.name for spec in document.specifications if spec.status is not None)
+        applicable = tuple(row.name for row in document.specifications if row.status is not None)
         results = ifctester.reporter.Json(document).report()
-        return AnalysisResult(AnalysisKind.IDS, applicable, rows, checks_pass=float(results["percent_checks_pass"]))
+        return AnalysisResult(AnalysisKind.IDS, spec, applicable, rows, checks_pass=float(results["percent_checks_pass"]))
 
     @staticmethod
-    def _clash_sides(query: str) -> "RuntimeRail[tuple[str, str]]":
-        if not query:
-            return Ok(("", ""))
-        a_query, _, b_query = query.partition(QUERY_SPLIT[AnalysisKind.CLASH])
-        return IfcSelector.parse((a_query, b_query or a_query)).map(lambda sides: (sides[0].filter_string, sides[1].filter_string))
+    def _clash_sides(head: str, tail: str) -> "RuntimeRail[tuple[str, str]]":
+        # the pair arrives PRE-SPLIT from the one head read, so this leg neither re-partitions nor reaches for another
+        # kind's delimiter row; an empty query defaults both sides to whole-model mode and a bare `a` side clashes
+        # against itself. One polymorphic batch parse validates both and aborts on the first malformed member.
+        return (
+            Ok(("", ""))
+            if not head and not tail
+            else IfcSelector.parse((head, tail or head)).map(lambda sides: (sides[0].filter_string, sides[1].filter_string))
+        )
 
     @staticmethod
-    def _clash(model: "ifcopenshell.file", sides: tuple[str, str]) -> "RuntimeRail[AnalysisResult]":
+    def _clash(model: "ifcopenshell.file", sides: tuple[str, str], spec: str) -> "RuntimeRail[AnalysisResult]":
         return IfcAnalysis._run_clash(model, sides).map(
             lambda run: AnalysisResult(
                 AnalysisKind.CLASH,
+                spec,
                 tuple(c["a_global_id"] for c in run[1]),
                 tuple(AnalysisRow.of_clash(c["a_global_id"], c["b_global_id"], c["distance"], c.get("cluster", 0)) for c in run[1]),
             )
         )
 
     @staticmethod
-    def _author(model: "ifcopenshell.file", sides: tuple[str, str]) -> "RuntimeRail[AnalysisResult]":
+    def _author(model: "ifcopenshell.file", sides: tuple[str, str], spec: str) -> "RuntimeRail[AnalysisResult]":
         from bcf.v3.bcfxml import BcfXml  # ruff:ignore[import-outside-top-level]
 
-        # this leg authors the in-memory archive and reads its topic GUIDs back; the durable save is the data seam's.
+        # this leg authors the archive, reads its topic GUIDs back, AND carries the archive bytes on the receipt, so the
+        # durable `.bcfzip` write is the data seam's own step over a payload that actually crossed.
         def compose(run: "tuple[Clasher, tuple[ClashRow, ...], ClashSet]") -> AnalysisResult:
             clasher, clashes, clash_set = run
             document = BcfXml.create_new("rasm.ifc.analysis")
             rows = tuple(IfcAnalysis._topic(document, clasher, clash_set, c) for c in clashes)
-            return AnalysisResult(AnalysisKind.BCF, tuple(r.topic[0] for r in rows), rows)
+            return AnalysisResult(AnalysisKind.BCF, spec, tuple(r.topic[0] for r in rows), rows, product=_archived(document))
 
         return IfcAnalysis._run_clash(model, sides).map(compose)
 
@@ -296,19 +408,6 @@ class IfcAnalysis:
             return clasher, tuple({**c, "cluster": clusters.get(c.get("group", ""), 0)} for c in clashes), clash_set
 
         return guarded_sync(RetryClass.OCC_NATIVE, solve, subject="ifc.clash.tree")
-
-    @staticmethod
-    def _unit_scale(model: "ifcopenshell.file") -> float:
-        import ifcopenshell.util.unit  # ruff:ignore[import-outside-top-level]
-
-        return float(ifcopenshell.util.unit.calculate_unit_scale(model)) ** 2
-
-    @staticmethod
-    def _net_area(space: "ifcopenshell.entity_instance") -> float:
-        import ifcopenshell.util.element  # ruff:ignore[import-outside-top-level]
-
-        qtos = ifcopenshell.util.element.get_psets(space, qtos_only=True)
-        return next((float(pset["NetFloorArea"]) for pset in qtos.values() if "NetFloorArea" in pset), 0.0)
 ```
 
 ## [03]-[RESEARCH]

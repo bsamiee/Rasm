@@ -6,19 +6,19 @@ One feature-flag, progressive-rollout, and experimentation owner for the runtime
 
 - [02]-[FLAG_DEFINITION]: Frozen flag-row family with targeting rules, segments, and variants compiled into one config-backed provider.
 - [03]-[STICKY_BUCKETING]: Deterministic `XxHash3` subject-plus-flag bucketing seating each subject in a stable rollout segment.
-- [04]-[VERDICT_PROJECTION]: One `FlagVerdict` projection over `FlagEvaluationDetails<Value>` the model-routing and fleet-roll consumers read.
+- [04]-[VERDICT_PROJECTION]: One `FlagVerdict` projection over `FlagEvaluationDetails<Value>` the model-routing and fleet-roll consumers read, and the one registered `SpineHook` every evaluation crosses carrying the fault lift and the exposure emit.
 - [05]-[KILL_SWITCH_FOLD]: The operator kill-switch collapsing `OperatorOverride` onto the flag row's `Disabled` column over the reload transition.
 
 ## [02]-[FLAG_DEFINITION]
 
 - Owner: `FlagKey` `[ValueObject<string>]` the bucketing-stable flag identity under the `ComparerAccessors.StringOrdinal` accessor; `Variant` `[ValueObject<string>]` the assigned-arm identity; `RolloutSegment` the `[0,100)` percentage band a bucketed subject falls into; `TargetingRule` `[Union]` the closed match-predicate family discriminating a subject onto a variant; `FlagDefinition` the per-flag row carrying the ordered rules, the segment-to-variant map, the default variant, and the disabled flag; `FlagRegistry` the frozen flag-set the provider compiles from configuration.
 - Cases: `TargetingRule` = `All` (unconditional match seating the rollout segments) | `TenantIn` (a `FrozenSet<string>` slug allow-list) | `AttributeEquals` (a targeting-attribute key-equals-value match) | `SegmentBand` (a `RolloutSegment` percentage gate) — each rule case carries the `Variant` it seats and breaks every rule-fold arm; rules evaluate in declared order and the first match wins.
-- Entry: `Compile(FlagRegistry registry)` returns `IO<InMemoryProvider>` folding every `FlagDefinition` row into one `Dictionary<string, OpenFeature.Providers.Memory.Flag>` whose `Flag<Value>` carries the variant map and the `Func<EvaluationContext, string>` context evaluator the bucketing seats, then constructs the provider; `Register(FlagRegistry registry, string domain)` returns `IO<Unit>` registering the compiled provider through `Api.Instance.SetProviderAsync(domain, provider)` so awaiting it observes provider readiness.
-- Auto: each `FlagDefinition` compiles to exactly one `Flag<Value>` — the variant map is the `IDictionary<string, Value>` keyed by `Variant`, the default variant is the row's `Default`, and the `Func<EvaluationContext, string>` evaluator is the `STICKY_BUCKETING` `Assign` closure folding the ordered `TargetingRule` rows over the `EvaluationContext` so the variant pick lives in the flag's own evaluator and never in calling code; the `disabled` flag maps from `FlagDefinition.Disabled` onto the `Flag<T>` `disabled:` constructor parameter so the provider's own disabled branch resolves the default variant with `Reason.Disabled` — never a metadata side-note the provider ignores; the provider is the single `InMemoryProvider` per domain registered through `SetProviderAsync` whose `InitializeAsync` completes before the registration task so the features rail is ready-gated like every other boot owner; a flag-set reload re-folds the registry and replays `InMemoryProvider.UpdateFlagsAsync(flags)` over the same provider so a targeting-rule edit lands live on the next evaluation without a second provider, fanning one `ProviderEventTypes.ProviderConfigurationChanged` the verdict consumers observe.
+- Entry: `Compile(FlagRegistry registry)` returns `IO<InMemoryProvider>` folding every `FlagDefinition` row into one `Dictionary<string, OpenFeature.Providers.Memory.Flag>` whose `Flag<Value>` carries the variant map and the `Func<EvaluationContext, string>` context evaluator the bucketing seats, then constructs the provider; `Register(FeaturesRuntime runtime, FlagRegistry registry, string domain)` returns `IO<Unit>` seating the `SpineHook` through `Api.Instance.AddHooks`, the cross-cutting ambient context through `Api.Instance.SetContext`, the three `Api.Instance.AddHandler(ProviderEventTypes, EventHandlerDelegate)` observations, and the compiled provider through `Api.Instance.SetProviderAsync(domain, provider)` so awaiting it observes provider readiness.
+- Auto: each `FlagDefinition` compiles to exactly one `Flag<Value>` — the variant map is the `IDictionary<string, Value>` keyed by `Variant`, the default variant is the row's `Default`, and the `Func<EvaluationContext, string>` evaluator is the `STICKY_BUCKETING` `Assign` closure folding the ordered `TargetingRule` rows over the `EvaluationContext` so the variant pick lives in the flag's own evaluator and never in calling code; the `disabled` flag maps from `FlagDefinition.Disabled` onto the `Flag<T>` `disabled:` constructor parameter so the provider's own disabled branch resolves the default variant with `Reason.Disabled` — never a metadata side-note the provider ignores; the provider is the single `InMemoryProvider` per domain registered through `SetProviderAsync` whose `InitializeAsync` completes before the registration task so the features rail is ready-gated like every other boot owner; a flag-set reload re-folds the registry and replays `InMemoryProvider.UpdateFlagsAsync(flags)` over the same provider so a targeting-rule edit lands live on the next evaluation without a second provider, fanning one `ProviderEventTypes.ProviderConfigurationChanged` whose registered handler reads `ProviderEventPayload.FlagsChanged` onto the `SpineLog.FlagsChanged` stride — the fan is an observation because a handler is registered for it, and the `ProviderReady`/`ProviderError` handlers beside it seat the boot-readiness event and the `FeatureFault.ProviderNotReady` case the payload's own `ErrorType` classifies.
 - Receipt: a flag-set compile logs one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`) carrying the flag count and the domain; a live `UpdateFlagsAsync` rides the same event stream carrying the changed-flag keys, never a parallel features receipt.
 - Packages: OpenFeature, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one flag is one `FlagDefinition` row; one targeting predicate is one `TargetingRule` case breaking every rule-fold arm; a richer match shape is one rule case carrying its predicate data, never a second rule axis; a new variant is one entry on the row's variant map; zero new surface.
-- Boundary: the registry is the only flag owner — a hand-rolled flag lookup, an ad-hoc percentage-rollout computation at a call site, and a string-keyed config read bypassing the provider are the deleted forms; the flag rows bind through the existing eight-source `ConfigSource` chain and `OptionsAdmission` so a targeting-rule edit is a config transition, not a parallel flag store beside the `ConfigurationManager`; the provider is config-backed and in-process — a remote flag SaaS would be one additional `FeatureProvider` row registered under a second domain later, never a replacement of this owner; the kill-switch is the flag row's `Disabled` column the `KILL_SWITCH_FOLD` flips, never a second switch beside the flag rows; a targeting attribute carrying classified subject data redacts through the `Wire/companion#CONTROL_SERVICE` `Redactor` over `DataClassification` before it enters the `EvaluationContext`, never a second classification taxonomy.
+- Boundary: the registry is the only flag owner — a hand-rolled flag lookup, an ad-hoc percentage-rollout computation at a call site, and a string-keyed config read bypassing the provider are the deleted forms; the flag rows bind through the existing eight-source `ConfigSource` chain and `OptionsAdmission` under one `Flags` section root so a targeting-rule edit is a config transition, not a parallel flag store beside the `ConfigurationManager`; the provider is config-backed and in-process — a remote flag SaaS would be one additional `FeatureProvider` row registered under a second domain later, never a replacement of this owner; the kill-switch is the flag row's `Disabled` column the `KILL_SWITCH_FOLD` flips, never a second switch beside the flag rows; a targeting attribute carrying classified subject data redacts through the `Wire/companion#CONTROL_SERVICE` `Redactor` over `DataClassification` before it enters the `EvaluationContext`, never a second classification taxonomy.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -83,9 +83,28 @@ public static class FlagCompilation {
                 return map;
             })));
 
-    public static IO<Unit> Register(FlagRegistry registry, string domain) =>
-        Compile(registry).Bind(provider =>
-            IO.liftAsync(async () => { await Api.Instance.SetProviderAsync(domain, provider); return unit; }));
+    // Registration seats FOUR things at once and each is the only place its concern can live: the compiled
+    // provider under its domain, the cross-cutting SpineHook (the one surface every evaluation crosses,
+    // including a consumer reaching IFeatureClient directly, which Features.Evaluate structurally cannot see),
+    // the ambient EvaluationContext carrying the cross-cutting attributes so the tenant slug and host key are
+    // stated ONCE rather than re-set on every FlagSubject, and the provider event handlers that make the
+    // configuration-changed fan a real observation rather than a claimed one.
+    public static IO<Unit> Register(FeaturesRuntime runtime, FlagRegistry registry, string domain) =>
+        Compile(registry).Bind(provider => IO.liftAsync(async () => {
+            Api.Instance.AddHooks(new SpineHook(runtime));
+            Api.Instance.SetContext(EvaluationContext.Builder()
+                .Set("tenant", TenantContext.Current.Slug)
+                .Set("host", runtime.HostKey)
+                .Build());
+            Api.Instance.AddHandler(ProviderEventTypes.ProviderConfigurationChanged, payload =>
+                SpineLog.FlagsChanged(runtime.Logger, domain, string.Join(',', payload.FlagsChanged ?? [])));
+            Api.Instance.AddHandler(ProviderEventTypes.ProviderReady, payload =>
+                SpineLog.ProviderReady(runtime.Logger, payload.ProviderName ?? domain));
+            Api.Instance.AddHandler(ProviderEventTypes.ProviderError, payload =>
+                ignore(runtime.Fault(Features.Classify(payload.ErrorType ?? ErrorType.ProviderNotReady, payload.Message))));
+            await Api.Instance.SetProviderAsync(domain, provider);
+            return unit;
+        }));
 }
 ```
 
@@ -127,14 +146,14 @@ public static class Bucketing {
 
 ## [04]-[VERDICT_PROJECTION]
 
-- Owner: `FlagVerdict` the canonical evaluation-outcome carrier the cross-page consumers read; `FeatureFault` `[Union]` the closed evaluation-fault family deriving its codes through `FaultBand.Feature`; `Features` the static evaluation surface over the one resolved `IFeatureClient`; the `EvaluationContext` builder fold over a subject and its targeting attributes.
+- Owner: `FlagVerdict` the canonical evaluation-outcome carrier the cross-page consumers read; `FeatureFault` `[Union]` the closed evaluation-fault family deriving its codes through `FaultBand.Feature`; `Features` the static evaluation surface over the one resolved `IFeatureClient`; `SpineHook` the one registered `Hook` every evaluation crosses, carrying the fault lift and the experimentation exposure; `FeaturesRuntime` the composition record the hook and the provider-event handlers read; the `EvaluationContext` builder fold over a subject and its targeting attributes.
 - Cases: `FeatureFault` = `Text` | `ProviderNotReady` | `FlagAbsent` | `TypeMismatch` | `ContextInvalid` — one case per `OpenFeature` `ErrorType` cause that crosses into domain logic, each breaking every consumer arm.
 - Entry: `Evaluate(IFeatureClient client, FlagKey key, FlagSubject subject)` returns `IO<FlagVerdict>` — builds the `EvaluationContext` from the subject through `EvaluationContext.Builder().SetTargetingKey(...).Set(...)`, runs `client.GetObjectDetailsAsync((string)key, Value.Null, context)` returning `FlagEvaluationDetails<Value>`, and projects the detail's `Variant`, `Reason`, `ErrorType`, and resolved value onto one `FlagVerdict`; `Context(FlagSubject subject)` returns `EvaluationContext` — the one builder fold every evaluation shares so subject identity, tenant slug, and targeting attributes enter the provider through one shape.
-- Auto: the verdict is the single shape the consumers read — `Agent/reasoning#MODEL_GOVERNANCE` `ModelRoute.From(FlagVerdict)` maps `Variant` to a model route and `Sandbox/provisioning#ROLLOVER_DRAIN` maps `Variant` to a `RollStrategy` row, both reading the same `(FlagKey Key, Variant Variant, bool Enabled, string Reason)` projection so neither re-runs the evaluator nor re-derives the bucket; the evaluation reads `FlagEvaluationDetails<T>` carrying `Value`, `FlagKey`, `Reason`, `Variant`, `ErrorType`, and `ErrorMessage` so a provider failure lands on `ErrorType` plus `Reason.Error` and never throws across the client boundary — the `Classify` fold lifts a non-`None` `ErrorType` to the typed `FeatureFault`, and a clean evaluation projects the `Variant`/`Reason` onto an `Enabled = ErrorType.None && Reason != Reason.Disabled` verdict; the `Reason` vocabulary (`TargetingMatch`, `Split`, `Disabled`, `Default`, `Static`, `Cached`, `Error`) rides the verdict verbatim so a consumer distinguishes a targeting match from a default fallthrough without re-evaluating; the targeting context is built once per evaluation through the `Context` fold and the ambient global `EvaluationContext` stays for cross-cutting attributes only; an absent features rail seats no provider so the consumers fall to their policy defaults (`ModelRoute.Default`, the policy `RollStrategy`) and the routing arms are inert, never a hard-coded model or an unguarded rollout.
-- Receipt: a non-`None` `ErrorType` logs the fault code in the registry band `FaultBand.Feature` through `ReceiptSinkPort.Send`; an experimentation exposure rides `IFeatureClient.Track(name, context, details)` so an A/B exposure event emits through the OpenFeature tracking surface, never a parallel experimentation instrument; the verdict carries the `CorrelationId` the consuming command threads so a routed model draw and a rolled fleet wave correlate to the verdict that selected them.
+- Auto: the verdict is the single shape the consumers read — `Agent/reasoning#MODEL_GOVERNANCE` `ModelRoute.From(FlagVerdict)` maps `Variant` to a model route and `Sandbox/provisioning#ROLLOVER_DRAIN` maps `Variant` to a `RollStrategy` row, both reading the same `(FlagKey Key, Variant Variant, bool Enabled, string Reason)` projection so neither re-runs the evaluator nor re-derives the bucket; the evaluation reads `FlagEvaluationDetails<T>` carrying `Value`, `FlagKey`, `Reason`, `Variant`, `ErrorType`, and `ErrorMessage` so a provider failure lands on `ErrorType` plus `Reason.Error` and never throws across the client boundary — the `Classify` fold lifts a non-`None` `ErrorType` to the typed `FeatureFault`, and a clean evaluation projects the `Variant`/`Reason` onto an `Enabled = ErrorType.None && Reason != Reason.Disabled` verdict; the `Reason` vocabulary (`TargetingMatch`, `Split`, `Disabled`, `Default`, `Static`, `Cached`, `Error`) rides the verdict verbatim so a consumer distinguishes a targeting match from a default fallthrough without re-evaluating; the targeting context is built once per evaluation through the `Context` fold and the ambient global `EvaluationContext` carries the cross-cutting attributes — the tenant slug and the host key seated ONCE at `Register` through `Api.Instance.SetContext`, never re-set on every `FlagSubject`; an absent features rail seats no provider so the consumers fall to their policy defaults (`ModelRoute.Default`, the policy `RollStrategy`) and the routing arms are inert, never a hard-coded model or an unguarded rollout.
+- Receipt: `SpineHook.AfterAsync` is the ONE site both evidence legs fire from — a non-`None` `ErrorType` lifts through `Features.Classify` onto `ReceiptSinkPort.Send` in the registry band `FaultBand.Feature`, and the exposure rides `IFeatureClient.Track(name, context, details)` carrying the assigned variant and reason as `TrackingEventDetails`, so an A/B exposure emits through the OpenFeature tracking surface and never a parallel experimentation instrument; `SpineHook.ErrorAsync` catches the provider-thrown half no `FlagEvaluationDetails` carries; the verdict carries the `CorrelationId` the consuming command threads so a routed model draw and a rolled fleet wave correlate to the verdict that selected them.
 - Packages: OpenFeature, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new evaluation-fault cause is one `FeatureFault` case; a new consumer reads the existing `FlagVerdict` shape and maps `Variant` to its own row family, never a second verdict; a richer targeting attribute is one `Set` call on the `Context` fold; zero new surface.
-- Boundary: the verdict is the only cross-page features seam — a consumer reaching the `IFeatureClient` directly, a second verdict shape, and a re-derived bucket at a consumer are the deleted forms; the projection reads `FlagEvaluationDetails<Value>` and never the raw `FeatureProviderException` so a provider fault is a typed `FeatureFault` at the boundary and never an exception in domain logic; the verdict is read-only evidence — the consumers map `Variant` to their own row families (`ModelRoute`, `RollStrategy`) and the features rail never owns the consumer's behavior, exactly the one-direction seam the consumer cards declare; the `Enabled` flag is derived from `ErrorType.None && Reason != Reason.Disabled` so a disabled flag and a provider error both read `Enabled = false` at the consumer without the consumer inspecting the `ErrorType`.
+- Growth: a new evaluation-fault cause is one `FeatureFault` case; a new consumer reads the existing `FlagVerdict` shape and maps `Variant` to its own row family, never a second verdict; a richer targeting attribute is one `Set` call on the `Context` fold; a new cross-cutting evaluation concern is one override on the existing `SpineHook` and a new provider observation one `AddHandler` row at `Register`; zero new surface.
+- Boundary: the verdict is the only cross-page features seam — a consumer reaching the `IFeatureClient` directly, a second verdict shape, and a re-derived bucket at a consumer are the deleted forms; the fault lift and the exposure emit ride the registered `Hook`, never a wrapper around `Evaluate`, because the hook is the one surface a direct `IFeatureClient` reach still crosses and a wrapper is one a caller can forget — a `Classify` fold with no call site, leaving the whole declared fault union unreachable, is the deleted form the hook exists to foreclose; the projection reads `FlagEvaluationDetails<Value>` and never the raw `FeatureProviderException` so a provider fault is a typed `FeatureFault` at the boundary and never an exception in domain logic; the verdict is read-only evidence — the consumers map `Variant` to their own row families (`ModelRoute`, `RollStrategy`) and the features rail never owns the consumer's behavior, exactly the one-direction seam the consumer cards declare; the `Enabled` flag is derived from `ErrorType.None && Reason != Reason.Disabled` so a disabled flag and a provider error both read `Enabled = false` at the consumer without the consumer inspecting the `ErrorType`.
 
 ```csharp signature
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -179,6 +198,41 @@ public static class Features {
         _ => new FeatureFault.Text(message ?? nameof(ErrorType.General)),
     };
 }
+
+// --- [COMPOSITION] ----------------------------------------------------------------------
+// The composition inputs the hook and the handlers read, so the hook holds no ambient state and a test seats
+// its own sink: the receipt fan, the event stride, the process host key the ambient context carries, and the
+// exposure-event name policy the tracking leg emits under.
+public sealed record FeaturesRuntime(
+    string HostKey,
+    ILogger Logger,
+    Func<FeatureFault, Unit> Fault,
+    Func<FlagKey, EvaluationContext, TrackingEventDetails, Unit> Expose);
+
+// The ONE cross-cutting evaluation seam: registered once through Api.Instance.AddHooks, it fires on EVERY
+// evaluation — including a consumer reaching IFeatureClient directly, which no wrapper around Features.Evaluate
+// can cover — so the fault union and the exposure event have exactly one call site each and neither depends on
+// a caller remembering a wrapper. AfterAsync emits the experimentation exposure and lifts a non-None ErrorType
+// through the existing Classify onto the receipt fan; ErrorAsync catches the provider-thrown half the details
+// object never carries. The deleted form is Classify with no caller at all, leaving the whole FeatureFault
+// union — ProviderNotReady included — unreachable prose behind a rail nothing fed.
+public sealed class SpineHook(FeaturesRuntime runtime) : Hook {
+    public override ValueTask AfterAsync<T>(
+        HookContext<T> context, FlagEvaluationDetails<T> details,
+        IReadOnlyDictionary<string, object>? hints = null, CancellationToken cancellationToken = default) {
+        FlagKey key = FlagKey.Create(details.FlagKey);
+        ignore(runtime.Expose(key, context.EvaluationContext,
+            new TrackingEventDetails.Builder().Set("variant", details.Variant ?? "default").Set("reason", details.Reason ?? Reason.Unknown).Build()));
+        return details.ErrorType is ErrorType.None
+            ? ValueTask.CompletedTask
+            : (ignore(runtime.Fault(Features.Classify(details.ErrorType, details.ErrorMessage))), ValueTask.CompletedTask).Item2;
+    }
+
+    public override ValueTask ErrorAsync<T>(
+        HookContext<T> context, Exception error,
+        IReadOnlyDictionary<string, object>? hints = null, CancellationToken cancellationToken = default) =>
+        (ignore(runtime.Fault(new FeatureFault.Text($"{context.FlagKey}:{error.Message}"))), ValueTask.CompletedTask).Item2;
+}
 ```
 
 ## [05]-[KILL_SWITCH_FOLD]
@@ -189,7 +243,7 @@ public static class Features {
 - Receipt: the kill-switch flip rides the `ReloadReceipt` the config page mints carrying the `PatchTrigger`/`OperatorOverride` transition, never a parallel kill-switch receipt; the forced-off evaluation rides the normal `FlagVerdict` carrying `Reason.Disabled`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a per-flag forced-off is one `OperatorOverride` row the fold reads; a forced-*on* variant is the symmetric prepended `All` rule seating the target variant; zero new surface.
-- Boundary: the kill-switch is the only forced-exposure owner — a boolean kill flag beside the flag rows, a separate emergency-disable store, a runtime mutation of the variant map, and a forced-off targeting rule re-implementing the provider's own disabled gate are the deleted forms; the override is the one `OperatorOverride` union the config page owns so the host has one operator-forcing vocabulary covering the degradation-level forcing and the flag forcing, never two; the fold flips one column and never deletes the flag's targeting so the kill-switch is reversible by one reload, and a forced-off flag still mints a `FlagVerdict` carrying `Reason.Disabled` so the consumers route to their safe defaults through the same seam, never a special-cased disable path.
+- Boundary: the kill-switch is the only forced-exposure owner — a boolean kill flag beside the flag rows, a config-authored `Disabled` row, a separate emergency-disable store, a runtime mutation of the variant map, and a forced-off targeting rule re-implementing the provider's own disabled gate are the deleted forms — the fold is the column's only writer; the override is the one `OperatorOverride` union the config page owns so the host has one operator-forcing vocabulary covering the degradation-level forcing and the flag forcing, never two; the fold flips one column and never deletes the flag's targeting so the kill-switch is reversible by one reload, and a forced-off flag still mints a `FlagVerdict` carrying `Reason.Disabled` so the consumers route to their safe defaults through the same seam, never a special-cased disable path.
 
 ```csharp signature
 // --- [OPERATIONS] -----------------------------------------------------------------------
@@ -239,6 +293,4 @@ interface FlagVerdictWire {
 
 ## [07]-[RESEARCH]
 
-- [FLAG_CONFIG_SCHEMA]: the `FlagDefinition` rows bind from the `ConfigSource` chain under one `Flags` section root — the targeting-rule ordering, the segment-band partition of the `[0,100)` line, and the variant-map value shapes settle against the config-section schema the `OptionsAdmission` binder admits; the `Disabled` column the `KILL_SWITCH_FOLD` flips is the operator override, never a config-authored kill row.
-- [TRACKING_SINK]: the `IFeatureClient.Track(name, context, details)` experimentation-exposure leg emits an A/B exposure event the experimentation analysis reads — the tracking-event sink (an OTel event versus the receipt stream) settles against the `Observability/telemetry` event surface before the exposure leg finalizes; the verdict carries the `CorrelationId` so an exposure correlates to the model draw or fleet wave the variant selected.
-- [PROVIDER_DOMAIN]: the `SetProviderAsync(domain, provider)` domain-scoping carries one `InMemoryProvider` per evaluation domain — the model-routing domain and the fleet-roll domain may share one provider or split by domain key, settling against whether the routing and rollout flag sets share a registry; a remote flag-management provider is one additional `FeatureProvider` row under a second domain later, never a replacement of the config-backed provider.
+(none)

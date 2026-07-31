@@ -112,6 +112,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Numeric Substrate">
+        <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 

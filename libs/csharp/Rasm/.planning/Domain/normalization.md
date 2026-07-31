@@ -168,7 +168,7 @@ public partial record CurveForm {
 
 - Owner: `Normalization` is the internal coercion owner consumed across the friend-assembly seam; its `extension(object? geometry)` block resolves kind, leases the geometry vocabulary as `Lease<GeometryBase>`, derives bounds, and projects typed coercions. `GeometryForm` classifies the source shape before value admission, and `Widen` transfers the `CurveForm`/`SurfaceForm`/`BrepForm` leases without consuming or duplicating. `CurveFormOf` and `PrimitiveOf` own tolerance-aware analytic recovery; `TopologyProjection` owns component provenance, typed projection, ownership severing, transfer detection, and disposal.
 - Entry: `geometry.KindOf`, `geometry.GeometryForm`, `geometry.BoundsOf`, and `geometry.CoerceTo<TTarget>` form the receiver-local ingress; every refusal stays `Fin`-typed as `InvalidInput` or `Unsupported`.
-- Auto: `KindOf` resolves analytic identity before native and declared identity; `GeometryForm` reconstructs topology from the source type, so callers supply no kind, context, ownership, or conversion-mode knob. A native source and a recognized value kind each pass `OpAcceptance` before conversion, an unrecognized non-native type fails as `Unsupported` before the validity oracle relabels it, native reference geometry stays borrowed, and every admitted value primitive becomes owned through its form recovery. `CoerceTo<TTarget>` type-checks recovered primitives, `BrepForm` derives ownership from reference identity, and `TopologyProjection` ties its face bridge to carrier disposal.
+- Auto: `KindOf` resolves analytic identity before native and declared identity; `GeometryForm` reconstructs topology from the source type, so callers supply no kind, context, ownership, or conversion-mode knob. Kind resolution runs FIRST and the topology arms carry natives and value primitives alike, so no stratum arm declares a refusal a shape test above it already answered; an unrostered type fails as `Unsupported` before the validity oracle relabels it unless it is native, both admitted paths pass `OpAcceptance` before conversion, native reference geometry stays borrowed, and every admitted value primitive becomes owned through its form recovery. `CoerceTo<TTarget>` type-checks recovered primitives, `BrepForm` derives ownership from reference identity, and `TopologyProjection` ties its face bridge to carrier disposal.
 - Growth: a geometry kind lands in `Kind` and the relevant form lattice, a typed coercion target in `PrimitiveOf`, a projection source in `TopologyProjection` with its validity law; generated `Topology.Switch` forces `GeometryForm` to classify each new stratum.
 - Boundary: `GeometryRequest` stays in `Analysis/query`, evaluation and sampling in `Domain/evaluation`, and readiness in `Domain/validation`.
 
@@ -304,26 +304,30 @@ internal static class Normalization {
                 (InferredKind(geometry: g, context: context, key: key) | NativeKind(geometry: g) | Kind.Of(type: g.GetType()))
                 .ToFin(key.InvalidInput()));
         }
+        // Topology resolves BEFORE native shape, so every stratum arm carries real traffic: a resolved kind routes
+        // its own value primitives and its own natives through one arm, and only a GeometryBase carrying no `Kind`
+        // row — annotation, light, instance reference — takes the un-rostered borrow. Testing `GeometryBase` first
+        // instead starved the mesh, SubD, point-cloud, hatch, and extrusion arms of every value they can ever see
+        // and left five arms declaring an `Unsupported` refusal the borrow above them never let happen.
         public Fin<Lease<GeometryBase>> GeometryForm(Op key) =>
-            Optional(geometry).ToFin(key.InvalidInput()).Bind(source => source switch {
-                GeometryBase native => key.AcceptInput(value: native)
-                    .Map(static admitted => (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(Value: admitted)),
-                _ => Kind.Of(type: source.GetType())
-                    .ToFin(key.Unsupported(geometryType: source.GetType(), outputType: typeof(GeometryBase)))
-                    .Bind(kind => key.AcceptInput(value: source).Bind(value => kind.Topology.Switch(
-                        state: (Source: value, Key: key),
-                        unknown: static state => UnsupportedGeometry(source: state.Source, key: state.Key),
-                        point: static state => state.Source is Point3d point
-                            ? Fin.Succ<Lease<GeometryBase>>(new Lease<GeometryBase>.Owned(Value: new Rhino.Geometry.Point(location: point)))
-                            : UnsupportedGeometry(source: state.Source, key: state.Key),
-                        curve: static state => CurveForm(source: state.Source, key: state.Key).Map(static lease => Widen(lease: lease)),
-                        surface: static state => SurfaceForm(source: state.Source, key: state.Key).Map(static lease => Widen(lease: lease)),
-                        brep: static state => BrepForm(source: state.Source, key: state.Key).Map(static lease => Widen(lease: lease)),
-                        mesh: static state => UnsupportedGeometry(source: state.Source, key: state.Key),
-                        subD: static state => UnsupportedGeometry(source: state.Source, key: state.Key),
-                        pointCloud: static state => UnsupportedGeometry(source: state.Source, key: state.Key),
-                        hatch: static state => UnsupportedGeometry(source: state.Source, key: state.Key),
-                        extrusion: static state => UnsupportedGeometry(source: state.Source, key: state.Key)))),
+            Optional(geometry).ToFin(key.InvalidInput()).Bind(source => Kind.Of(type: source.GetType()).Case switch {
+                Kind kind => key.AcceptInput(value: source).Bind(value => kind.Topology.Switch(
+                    state: (Source: value, Key: key),
+                    unknown: static state => UnsupportedGeometry(source: state.Source, key: state.Key),
+                    point: static state => state.Source is Point3d point
+                        ? Fin.Succ<Lease<GeometryBase>>(new Lease<GeometryBase>.Owned(Value: new Rhino.Geometry.Point(location: point)))
+                        : BorrowedGeometry(source: state.Source, key: state.Key),
+                    curve: static state => CurveForm(source: state.Source, key: state.Key).Map(static lease => Widen(lease: lease)),
+                    surface: static state => SurfaceForm(source: state.Source, key: state.Key).Map(static lease => Widen(lease: lease)),
+                    brep: static state => BrepForm(source: state.Source, key: state.Key).Map(static lease => Widen(lease: lease)),
+                    mesh: static state => BorrowedGeometry(source: state.Source, key: state.Key),
+                    subD: static state => BorrowedGeometry(source: state.Source, key: state.Key),
+                    pointCloud: static state => BorrowedGeometry(source: state.Source, key: state.Key),
+                    hatch: static state => BorrowedGeometry(source: state.Source, key: state.Key),
+                    extrusion: static state => BorrowedGeometry(source: state.Source, key: state.Key))),
+                _ => source is GeometryBase native
+                    ? key.AcceptInput(value: native).Map(static admitted => (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(Value: admitted))
+                    : UnsupportedGeometry(source: source, key: key),
             });
         public Fin<BoundingBox> BoundsOf(Op key) =>
             Optional(geometry).ToFin(key.InvalidInput()).Bind(g => OpAcceptance.ValidityOf(source: g).Case switch {
@@ -394,6 +398,12 @@ internal static class Normalization {
         lease.Switch(
             owned: static owned => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: owned.Value),
             borrowed: static borrowed => (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(Value: borrowed.Value));
+    // Reference geometry the host still owns crosses borrowed; a value shape reaching a native-only stratum has
+    // no form recovery and refuses typed, so one member answers both halves of every pass-through arm.
+    private static Fin<Lease<GeometryBase>> BorrowedGeometry(object source, Op key) =>
+        source is GeometryBase native
+            ? Fin.Succ<Lease<GeometryBase>>(new Lease<GeometryBase>.Borrowed(Value: native))
+            : UnsupportedGeometry(source: source, key: key);
     private static Fin<Lease<GeometryBase>> UnsupportedGeometry(object source, Op key) =>
         Fin.Fail<Lease<GeometryBase>>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(GeometryBase)));
     internal static Fin<CurveForm> CurveFormOf(Curve curve, Context context) =>
@@ -465,20 +475,21 @@ config:
 ---
 flowchart LR
     accTitle: GeometryForm normalization dispatch
-    accDescr: One admitted geometry value dispatches by native shape or derived topology into borrowed or owned form leases, while invalid and unsupported inputs converge on the typed fault rail.
-    Raw(["object? geometry"]) --> Classify{"GeometryBase or known Kind?"}
-    Classify -->|native| NativeAdmit[AcceptInput]
-    Classify -->|known value kind| ValueAdmit[AcceptInput]
-    Classify -.->|unknown value| Fault[/Fault rail/]
+    accDescr: One admitted geometry value resolves its Kind row first, then dispatches every stratum through the topology arms into borrowed or owned form leases, while invalid and unrostered non-native inputs converge on the typed fault rail.
+    Raw(["object? geometry"]) --> Classify{"Kind row for the runtime type?"}
+    Classify -->|resolved| KindAdmit[AcceptInput]
+    Classify -->|unrostered native| NativeAdmit[AcceptInput]
+    Classify -.->|unrostered value| Fault[/Fault rail/]
     NativeAdmit -.->|InvalidInput| Fault
     NativeAdmit --> Borrowed[Borrowed native]
-    ValueAdmit -.->|InvalidInput| Fault
-    ValueAdmit --> Dispatch{"Topology?"}
-    Dispatch -->|point| Point[Owned Point]
+    KindAdmit -.->|InvalidInput| Fault
+    KindAdmit --> Dispatch{"Topology?"}
+    Dispatch -->|point value| Point[Owned Point]
     Dispatch -->|curve| Curve[CurveForm → Widen]
     Dispatch -->|surface| Surface[SurfaceForm → Widen]
     Dispatch -->|brep| Brep[BrepForm → Widen]
-    Dispatch -->|native-only or unknown| Fault
+    Dispatch -->|mesh · SubD · cloud · hatch · extrusion| Borrowed
+    Dispatch -.->|unknown| Fault
     Borrowed --> GeometryLease[/"Lease&lt;GeometryBase&gt;"/]
     Point --> GeometryLease
     Curve --> GeometryLease

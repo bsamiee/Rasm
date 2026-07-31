@@ -80,7 +80,7 @@ public sealed partial class ElementPayload {
         .IfNone(Arr<Loop>());
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ElementPart> parts) {
-        parts = parts.OrderBy(static part => part.Slot.Key, StringComparer.Ordinal).ToSeq();
+        parts = toSeq(parts.OrderBy(static part => part.Slot.Key, StringComparer.Ordinal));
         validationError = parts.IsEmpty
             ? new ValidationError("element payload carries no representation part")
             : parts.GroupBy(static part => part.Slot.Key, StringComparer.Ordinal).Count() != parts.Count
@@ -206,15 +206,15 @@ public static class ElementImport {
 
     public static Fin<ElementProjection> Project(ElementReceipt receipt, ElementEgress egress) =>
         egress.Switch(
-            component: static (_, state) => Fin.Succ<ElementProjection>(new ElementProjection.Component(state.Component)),
-            topology: static (_, state) => Fin.Succ<ElementProjection>(new ElementProjection.Topology(state.Topology)),
-            facts: static (_, state) => Fin.Succ<ElementProjection>(new ElementProjection.Facts(state.Facts)),
-            canonicalProperties: static (request, state) => Try.lift<ElementProjection>(() => {
+            state: receipt,
+            component: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Component(state.Component)),
+            topology: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Topology(state.Topology)),
+            facts: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Facts(state.Facts)),
+            canonicalProperties: static (state, request) => Try.lift<ElementProjection>(() => {
                 int before = request.Destination.WrittenCount;
                 request.Destination.Write(state.CanonicalProperties.Span);
                 return new ElementProjection.Written(request.Destination.WrittenCount - before);
-            }).Run().MapFail(_ => Translation(state.Locus)),
-            state: receipt);
+            }).Run().MapFail(_ => Translation(state.Locus)));
 
     static Fin<ElementReceipt> AdmitOne(ElementGraph graph, ElementSubject subject, Op key) =>
         from baked in graph.Bake(subject.Id, key)
@@ -525,7 +525,7 @@ public static class ElementImport {
 
     static ReadOnlyMemory<byte> CanonicalProperties(ElementGraph graph, Element baked) {
         CanonicalWriter writer = new(graph.Header.Tolerance);
-        Seq<PropertyBag> bags = baked.Properties.OrderBy(static bag => bag.SetName, StringComparer.Ordinal).ToSeq();
+        Seq<PropertyBag> bags = toSeq(baked.Properties.OrderBy(static bag => bag.SetName, StringComparer.Ordinal));
         writer.Ordinal(bags.Count);
         foreach (PropertyBag bag in bags) {
             writer.String(bag.SetName).Ordinal(bag.Values.Count);

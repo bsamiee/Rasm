@@ -22,7 +22,7 @@ Dashboards are identity-derived data, and the pack library is the same owner's d
 - Law: `Query.breach` and `Query.indicator` are the two SLI projections this owner publishes, and every consuming plane — the burn panels below, the iac rule expression, the iac objective query — renders one of them; a plane re-deriving a breach expression, a good-over-total quotient, or a level comparison from `sli` fields is the forked-discipline defect, so the shared legs (`_complement`, `_goodShare`, `_timeShare`, `_alternate`) stay interior and the two folds differ only where the operator's observable is not the alert's complement.
 - Law: both SLI projections fold identically under both targets because each returns a `Query` value and never a string — a target-specific breach expression re-imports the forked discipline this owner deletes, and the target enters once at the terminal render.
 - Law: operator rows carry both spellings, so a target is a COLUMN on the vocabulary rather than a table of its own — `_FNS` carries the PromQL range function beside the SQL fold over a value column, `_OPS` the token pair with the `truth` flag marking a comparison the engine casts to a number, `_AGG` the PromQL aggregation beside the engine-fold key, `_RANK` the function beside its sort direction, and `_MATCH` the matcher token beside its predicate kind and negation.
-- Law: engine grammar is a closed `_ENGINES` roster and residence schema is caller data — the roster spells the eight members the three admitted engines genuinely disagree on and a fourth engine is one row, while table names, column names, and the attribute accessor arrive as a `Residence` value because DDL is the residence owner's, so no render arm branches on an engine name and no consumer hand-writes SQL.
+- Law: engine grammar is a closed `_ENGINES` roster and residence schema is caller data — the roster spells the members the three admitted engines genuinely disagree on and a fourth engine is one row, while table names, column names, and the attribute accessor arrive as a `Residence` value because DDL is the residence owner's, so no render arm branches on an engine name and no consumer hand-writes SQL.
 - Law: series names are `Convention.MetricName` rows and label keys are `Convention.Key` rows — `Query.Labels` is the closed `Convention.Attributes` stamping record widened by the `_DIALECT` pair, the histogram `le` bucket label and the frequency `key` occurrence label, both export-contract facts rather than emission-plane keys — so the algebra admits no free-string metric, no unowned label key, and no off-vocabulary bounded value, and the tenant template variable enters as an ordinary label value (`$tenant`).
 - Law: a mint name is not a series name under the PromQL target — `Convention.translated` projects the store's own spelling through the target's strategy, so a suffixing receiver's unit word and type tail reach the selector and a store row translating differently renders its own names off the same query value.
 - Law: quoting splits by target and each crosses one seam — `_literal` delegates PromQL scalar quoting and every control-character escape to `JSON.stringify`, and `_quoted` spells the SQL literal by doubling the single quote; metric names, label keys, equality values, and regex values all cross the seam their own target owns.
@@ -31,7 +31,8 @@ Dashboards are identity-derived data, and the pack library is the same owner's d
 - Law: `Windowed` renders by operand shape under both targets — a selector operand takes the range form (`fn(selector[w])`, one grouped SELECT over the source rows) and any composed operand takes the subquery form (`fn((expr)[w:])`, a re-aggregate over the inner relation) — so time-share expressions compose from the same rows and no builder hand-writes subquery or join syntax.
 - Law: the histogram representation is a target row, never a name fact — a classic store exposes `le`-bearing `_bucket` series so the quantile arm aggregates `by (le)` and the fraction arm divides two bucket rates, while a native store carries one series so the same two cases render `histogram_quantile` and `histogram_fraction` over it.
 - Law: every SQL relation answers the same three columns — the bucket instant, the series identity, and the value — so a combinator wraps its operand as a subquery, the join keys are fixed by construction, and grouping keys thread DOWN from the enclosing `Aggregate` into the leaf that reads them; a constant SUBTREE broadcasts inline rather than joining — recognition is recursive because the scalar relation carries the empty series identity a join key must match, so a composed threshold folds exactly as a bare literal does and neither target renders a shape the other cannot.
-- Law: the leaf reads its relation AND its value column off the metric's own kind, so a residence relating histograms in a bucket table names the scalar that table genuinely carries and no fold reads a column its relation never declared.
+- Law: the leaf reads its relation AND its value column off the metric's own kind, so a residence relating histograms in a bucket table names the scalar that table genuinely carries and no fold reads a column its relation never declared; `Residence` is total over the kind vocabulary, so a wire form the convention owner lands demands its relation and value column here in the same pass rather than letting a leaf read a column its table never wrote. The two distribution cases read the residence's own bucket readers — `Residence.quantile`/`Residence.fraction` render off `ExplicitBounds`/`BucketCounts` in the residence owner's dialect — so the objective query and the burn panel answer the same number against a residence they answer against a metrics store, and a scalar fold over a bucket relation's `Sum` is the degraded approximation this split deletes.
+- Law: a summary rank earns NO case — the bridge fans a summary onto a `quantile` dimension exactly as it fans a frequency onto `key`, so the read is `Instant` under that dialect label and the whole algebra (aggregation, windowing, binary composition) applies unchanged; a second quantile case would fork one question across two grammars, and the pane builder picks the shape from the row's own kind while `Convention.quantiles` supplies the ranks the mint actually holds.
 - Law: the render fold IS the dialect's codegen output — PromQL is a single-line dialect whose rendered string is byte-load-bearing (quoted UTF-8 selector identity), so a document-assembly layer (`@effect/printer` `Doc`/`encloseSep`) is rejected: layout grouping and reflow forge selector spelling, and the closed family already owns every arm.
 - Law: the fn/op/agg vocabularies stay interior — `_FNS`/`_OPS` are `as const satisfies` row tables no export reaches, their unions derive as the interior `_Fn`/`_Op`/`_Agg` aliases the case fields consume, and consumers speak literals the fields already type; the `type`-plus-`const` pair is the family's whole public spelling.
 - Entry: constructors ride the family (`Query.Windowed({ fn: "rate", of, window })`), `Query.promql`/`Query.sql` mint the target off the residence a tile declares, `Query.render(query, target)` at pack-build time.
@@ -100,8 +101,9 @@ const _MATCH = {
 } as const satisfies Record<string, { readonly negate: boolean; readonly promql: string; readonly sql: "compare" | "match" }>
 const _INTERVAL = { rate: "$__rate_interval" } as const
 // Export-contract labels: the frequency occurrence axis is the owned `wire` constant both metric bridges append, while
-// `le` stays a free string because a suffixing receiver mints the bucket bound itself and no data point ever carries it.
-const _DIALECT = [Convention.wire.occurrence, "le"] as const
+// `le` and `quantile` stay free strings because a suffixing receiver mints the bucket bound and the summary rank itself
+// and no data point ever carries either.
+const _DIALECT = [Convention.wire.occurrence, "le", "quantile"] as const
 const _POLARITY = { ceiling: "gt", floor: "lt" } as const satisfies Record<Slo.Polarity, keyof typeof _OPS> // level breach side reads as one comparison row, never a branch
 const _COLUMN = { at: "at", by: "by", value: "v" } as const // the three columns every rendered relation answers; ordinal GROUP BY keeps the expressions unrepeated
 
@@ -141,8 +143,10 @@ declare namespace Query {
   type Residence = {
     readonly attribute: (key: Key) => string
     readonly degrade: string
+    readonly fraction: (below: number) => string
     readonly identity: (keys: ReadonlyArray<Key>) => string
     readonly name: string
+    readonly quantile: (at: number) => string
     readonly table: { readonly [K in Convention.InstrumentKind]: string }
     readonly time: string
     readonly value: { readonly [K in Convention.InstrumentKind]: string }
@@ -150,7 +154,7 @@ declare namespace Query {
   type Target = _Target
 }
 
-// Eight members, each one a spelling the three admitted engines genuinely disagree on: a `QUALIFY` clause two of them
+// Each member is a spelling the three admitted engines genuinely disagree on: a `QUALIFY` clause two of them
 // take, a boolean cast one of them refuses outright, and the aggregate roster `_AGG` rows name through their fold column.
 const _ENGINES = {
   clickhouse: {
@@ -158,10 +162,8 @@ const _ENGINES = {
     bucket: (column: string, seconds: number) => `toStartOfInterval(${column}, INTERVAL ${seconds} SECOND)`,
     latest: (value: string, time: string) => `argMax(${value}, ${time})`,
     match: (value: string, pattern: string) => `match(${value}, ${pattern})`,
-    quantile: (value: string, quantile: number) => `quantile(${quantile})(${value})`,
     rank: (inner: string, order: string, count: number) =>
       `SELECT * FROM (${inner}) QUALIFY row_number() OVER (PARTITION BY ${_COLUMN.at} ORDER BY ${_COLUMN.value} ${order}) <= ${count}`,
-    share: (value: string, upper: number) => `countIf(${value} <= ${upper}) / nullif(count(), 0)`,
     truth: (predicate: string) => `toFloat64(${predicate})`,
   },
   duckdb: {
@@ -169,10 +171,8 @@ const _ENGINES = {
     bucket: (column: string, seconds: number) => `time_bucket(INTERVAL '${seconds} seconds', ${column})`,
     latest: (value: string, time: string) => `arg_max(${value}, ${time})`,
     match: (value: string, pattern: string) => `regexp_matches(${value}, ${pattern})`,
-    quantile: (value: string, quantile: number) => `quantile_cont(${value}, ${quantile})`,
     rank: (inner: string, order: string, count: number) =>
       `SELECT * FROM (${inner}) QUALIFY row_number() OVER (PARTITION BY ${_COLUMN.at} ORDER BY ${_COLUMN.value} ${order}) <= ${count}`,
-    share: (value: string, upper: number) => `count(*) FILTER (WHERE ${value} <= ${upper})::DOUBLE / nullif(count(*), 0)`,
     truth: (predicate: string) => `CAST(${predicate} AS DOUBLE)`,
   },
   postgres: {
@@ -180,13 +180,10 @@ const _ENGINES = {
     bucket: (column: string, seconds: number) => `time_bucket(INTERVAL '${seconds} seconds', ${column})`,
     latest: (value: string, time: string) => `(array_agg(${value} ORDER BY ${time} DESC))[1]`,
     match: (value: string, pattern: string) => `${value} ~ ${pattern}`,
-    quantile: (value: string, quantile: number) => `percentile_cont(${quantile}) WITHIN GROUP (ORDER BY ${value})`,
     // no QUALIFY: the window column materializes one level down and the outer filter reads it
     rank: (inner: string, order: string, count: number) =>
       `SELECT ${_COLUMN.at}, ${_COLUMN.by}, ${_COLUMN.value} FROM (SELECT *, row_number() OVER (PARTITION BY ${_COLUMN.at}`
       + ` ORDER BY ${_COLUMN.value} ${order}) AS rn FROM (${inner}) ranked) ordered WHERE rn <= ${count}`,
-    // bigint over bigint truncates here, so the numerator casts before the division rather than after
-    share: (value: string, upper: number) => `(count(*) FILTER (WHERE ${value} <= ${upper}))::double precision / nullif(count(*), 0)`,
     truth: (predicate: string) => `CASE WHEN ${predicate} THEN 1.0 ELSE 0.0 END`, // boolean casts to a number nowhere on this engine
   },
 } as const satisfies Record<string, {
@@ -194,9 +191,7 @@ const _ENGINES = {
   readonly bucket: (column: string, seconds: number) => string
   readonly latest: (value: string, time: string) => string
   readonly match: (value: string, pattern: string) => string
-  readonly quantile: (value: string, quantile: number) => string
   readonly rank: (inner: string, order: string, count: number) => string
-  readonly share: (value: string, upper: number) => string
   readonly truth: (predicate: string) => string
 }>
 
@@ -364,9 +359,9 @@ const _sql = (query: Query, row: _Sql, keys: ReadonlyArray<Query.Key> = []): str
             onSome: _constant,
           })),
       Const: ({ value }) => _constant(`${value}`),
-      Fraction: ({ labels, metric, upper, window }) => _leaf(row, keys, { labels, metric }, window, (column) => engine.share(column, upper)),
+      Fraction: ({ labels, metric, upper, window }) => _leaf(row, keys, { labels, metric }, window, () => row.residence.fraction(upper)),
       Instant: (source) => _leaf(row, keys, source, row.resolution, (column) => engine.latest(column, row.residence.time)),
-      Quantile: ({ labels, metric, q, window }) => _leaf(row, keys, { labels, metric }, window, (column) => engine.quantile(column, q)),
+      Quantile: ({ labels, metric, q, window }) => _leaf(row, keys, { labels, metric }, window, () => row.residence.quantile(q)),
       Rank: ({ count, of, op }) => engine.rank(_sql(of, row, keys), _RANK[op].order, count),
       // composed operands re-bucket to the OUTER window: folding at the leaf's own resolution would average one sample
       // per bucket and silently answer the resolution instead of the window the caller named
@@ -422,7 +417,7 @@ const Query: Data.TaggedEnum.Constructor<Query> & {
 - Law: `source` carries the datasource key the rendering target named, so a board mixing a metrics-store tile with a columnar-residence tile binds each panel to the backend that answers its own dialect; deriving the key from the panel tag instead binds every table to whatever backend the tag defaulted to and empties a residence tile silently.
 - Law: rows are emission-complete — threshold steps, legend format, and unit are semantic panel facts declared here so `iac` maps rows to provider fields verbatim and invents nothing; the datasource binding, folder placement, and apply lifecycle stay provider facts on `iac`'s side of the seam.
 - Law: every panel row maps onto one Foundation-SDK builder — the `_tag` selects its admitted builder subpath and the shared `_PanelFields` land on inherited members, so the iac compile leg is a per-tag fold over typed builders and a panel field with no cataloged builder member stays out of the settled family.
-- Law: every visualization case carries the policy its name promises — interaction owns tooltip and zoom, heatmaps own color and bucket scales, logs own ordering/deduplication/wrapping, tables own sort, geomaps own coordinate/label/weight mappings, and node graphs own node/edge identity mappings; these remain fields on the case, never provider-only option bags or parallel DTOs — and a field the pinned provider SDK exposes no builder member for is deleted at this owner, never carried as an inert emission fact.
+- Law: every visualization case carries the policy its name promises — interaction owns tooltip and zoom, heatmaps own color and bucket scales, logs own ordering/deduplication/wrapping, tables own sort, geomaps own coordinate/label/weight mappings, and node graphs own node/edge identity mappings; these remain fields on the case, never provider-only option bags or parallel DTOs — and a field reaching no documented wire read at the panel is deleted at this owner, never carried as an inert emission fact. The binding surface is the panel's documented contract, not only a typed builder member: the Geomap colour/label/weight fields land through the SDK's typed `common` dimension builders inside the markers layer's config envelope, and the Nodes mapping fields land as frame-column renames onto the panel's own lowercase convention (`id`/`source`/`target`/`title`/`color`/`mainstat` — `nodeWeight` is `mainstat`, a stat magnitude, never the `noderadius` pixel radius), so every mapping field here is admissible exactly because a documented read exists.
 - Law: a shared field lands at every tag whose builder reads it and nowhere else — `tooltip` reaches the Timeseries tooltip member, `zoom` reaches the Geomap controls pair and the Nodes zoom mode, and a tag whose builder subpath answers neither emits neither; the alternative, carrying one shared field onto every tag, writes options no builder there reads back.
 - Law: `Geomap` and `Nodes` are the spatial and relational rows the BIM/geo and dependency planes fill through later-wave payloads — a geo-features pack or an element-graph pack is one pack row over these existing panel rows, never a panel family fork.
 - Law: layout derives — `DashboardModel.laid(model)` is a `mapAccum` shelf fold assigning `{ x, y, w, h }` positions across the 24-column grid from each panel's `span`, wrapping when a shelf overflows and advancing by the tallest panel on the shelf; a hand-positioned panel does not exist, and a layout change is a fold change applied to every dashboard at once.
@@ -493,9 +488,11 @@ const Gauge = Schema.TaggedStruct("Gauge", {
 })
 const Heatmap = Schema.TaggedStruct("Heatmap", {
   ..._PanelFields,
-  color: Schema.optionalWith(Schema.Literal("continuous", "diverging", "opacity", "scheme"), { default: () => "scheme" as const }),
+  // the two colour axes carry exactly the pinned SDK's enum value sets (`HeatmapColorMode`, `HeatmapColorScale`) —
+  // a literal no builder member spells is deleted at this owner, never carried as an inert emission fact
+  color: Schema.optionalWith(Schema.Literal("opacity", "scheme"), { default: () => "scheme" as const }),
   expr: Schema.String,
-  scale: Schema.optionalWith(Schema.Literal("exponential", "linear", "symlog"), { default: () => "linear" as const }),
+  scale: Schema.optionalWith(Schema.Literal("exponential", "linear"), { default: () => "linear" as const }),
   unit: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
 })
 const Logs = Schema.TaggedStruct("Logs", {
@@ -527,6 +524,7 @@ const Nodes = Schema.TaggedStruct("Nodes", {
   ..._PanelFields,
   edges: Schema.String,
   mapping: Schema.Struct({
+    edgeId: Schema.NonEmptyString, // the edges frame's own REQUIRED id column — an edge row without one never renders
     edgeSource: Schema.NonEmptyString,
     edgeTarget: Schema.NonEmptyString,
     nodeColor: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
@@ -565,7 +563,7 @@ type Panel = typeof Panel.Type
 - Entry: `DashboardModel.of(board, page)`; `DashboardModel.laid(model)` at the apply seam; `DashboardModel.snapshot` at a doctor, support-receipt, or evidence-fill consumer.
 - Growth: a new dashboard-level axis is one field with its default in the field declaration, inherited by every pack through `of`.
 - Growth: a new plane a tile reads is one `Board` field, so the pane builders take the context whole and never grow a parameter each.
-- Growth: a wire form the vocabulary admits is one `Convention` `_kinds` entry reaching every signal through `declared`, and a `LiveMetric` case is earned only where Effect carries a registry state no standing case shapes.
+- Growth: a wire form the vocabulary admits is one `Convention` `_kinds` entry reaching every signal through `declared`, and a `LiveMetric` case is earned only where Effect carries a registry state no standing case shapes; the `Summary` case reads the windowed rows the vocabulary now mints, so its rank pairs carry the same `Option` absence the registry itself reports for a rank no sample filled.
 - Packages: `effect` (`Array`, `Data`, `Duration`, `Effect`, `Match`, `Metric`, `MetricPair`, `MetricState`, `Number`, `Option`, `Record`, `Schema`, `Struct`); `value/identity` (`AppIdentity`); `convention#IDENTITY_PROJECTION`.
 
 ```typescript signature
@@ -825,13 +823,16 @@ const Bench: Data.TaggedEnum.Constructor<Bench.Verdict> & {
 - Law: the view pack is the interaction plane's board — graft arrivals and the refusal census by reason, pivot delta frames, and submit trips by outcome — so the ui branch's viewer, chart, and form owners each carry a standing consumer and no declared instrument reaches a receipt with no board behind it; the panes carry no tenant label because a browser-role process emits one session's series and `DashboardModel.of` already supplies the tenant variable.
 - Law: the vital pack pairs each payload gauge with the observation stream, so the level and observation planes land on one board.
 - Law: a gauge row names its own level series, because one OTLP metric name carries one descriptor unit and the level family splits per UCUM code.
-- Law: the security pack projects the whole folder — the reject rate and facet table, the authorization-denial rate by reason, the rotated-refresh replay rate by surface, the rotation, cold-JWKS, quarantine, and shredded-open rates, and the JWKS-resolve and key-derivation quantiles — so every `Convention` security instrument carries a standing consumer and no custody signal reaches a receipt with no board behind it.
+- Law: the security pack projects the whole folder — the admission rate beside the reject rate and facet table, the authorization-denial rate by reason, the rotated-refresh replay rate by surface, the rotation, cold-JWKS, quarantine, and shredded-open rates, and the JWKS-resolve, key-derivation, and ceremony quantiles — so every `Convention` security instrument carries a standing consumer and no custody signal reaches a receipt with no board behind it.
+- Law: admission leads the security pack because it is the reject rate's denominator — both fan on the one closed kind vocabulary, so a credential-stuffing spike and a traffic spike separate on the same axis; a refusal-only board renders the identical curve for both and no burn rate can normalize against it.
+- Law: the overview pack carries the front door whole — the request-latency quantiles beside the admission rate by scheme, the refusal rate by reason, and the idempotency dispositions — so the plane every external request enters is measured at the same altitude it is served, and the replay half of the idempotency bracket is visible rather than inferred from a flat request count.
 - Law: the replay pane filters the reject counter on its own `kind` rather than minting a second counter — the reject stream already keys the replay half, and a twin doubles the mounted series while stranding its denominator on any emission edit.
 - Law: security panes carry no tenant label — the security instrument rows declare no tenant dimension, so the pack reads process-level series while `DashboardModel.of` supplies the tenant variable every dashboard already carries.
 - Law: the crash pack groups the capture counter's ONE declared fan — a class table over `error.type` beside the capture-rate stat — while fingerprint and hop evidence reads off the exception log stream, so no panel groups on an axis the census proves no producer stamps.
-- Law: the object pack is the content-addressed plane's health board — write outcomes grouped by `rasm.object.outcome`, the landed-bytes and resumable-upload flow pair, the sweep-reclaim rate, the served-asset transform rate grouped by `rasm.asset.engine` beside `rasm.asset.outcome`, and the asset-transcode duration quantiles — every series the data object owners tap from receipts, tenant-free because the object instruments are process-level, while every dispute settles against the receipt.
+- Law: the object pack is the content-addressed plane's health board — write outcomes grouped by `rasm.object.outcome`, the landed-bytes and resumable-upload flow pair, the sweep-reclaim rate, the served-asset transform rate grouped by `rasm.asset.engine` beside `rasm.asset.outcome`, the asset-transcode duration quantiles, and the remote-origin plane's own operation, throughput, latency, session, resume, reconciliation, watch, and exec panes — every series the data object owners tap from receipts, tenant-free because the object instruments are process-level, while every dispute settles against the receipt.
+- Law: the remote panes read the widest surface on the plane, so the operation pane splits on the fault-class axis rather than pairing a refusal counter with a success twin, and the resume pane exists because the engine rows CLAIM resumability that no other series can witness — a lane that never once resumed is otherwise indistinguishable from one that always does.
 - Law: the lake pack is the storage-harvest board — admission-wait and deferred-wait quantiles, harvested engine-profile quantiles, the retried rate by `rasm.olap.engine`, the cache hit-share expression grouped by `rasm.cache.name`, and the pool-lease instant by `rasm.pool.scheme` — so the lake-engine profile parity and cache/pool census the data lanes mint read on one standing board, and its residence tile carries the same retry series over the evidence horizon the store's own retention cannot reach.
-- Law: the bench pack trends the claim bridge — the `rasm.bench.band` timing ladder per payload suite, one generated enrichment panel per GC/heap/hardware-counter unit family, and the verdict rate grouped by `rasm.bench.verdict` — the meter-bridged projection of `[05]`'s fold, so a regression is a threshold-visible line the same fold gates on and incompatible units never share one axis.
+- Law: the bench pack trends the claim bridge — the `rasm.bench.band` timing ladder per payload suite, one generated enrichment panel per GC/heap/hardware-counter unit family, and the verdict rate grouped by `rasm.bench.verdict` — the meter-bridged projection of `[05]`'s fold, so a regression is a threshold-visible line the same fold gates on and incompatible units never share one axis; each enrichment row carries the axes its own band needs, so the counter panel splits its five leaves while the two whose band column already splits them add none.
 - Law: `DashboardModel.suite(board, payload)` folds the mapped `_SUITE` record, whose key contract is exactly `DashboardModel.Pack`; a new pack cannot compile until its suite projection lands, and the standing fleet never requires a hand-maintained array roster.
 - Law: spans are the builders' only local decision — each pane declares its grid `span` so the model's shelf fold lays every pack without per-pack layout code; a reusable visualization earns a builder at two pack call sites, else it inlines.
 - Law: a pane's grouping axes enter the `Query` through `_grouped` and reach the legend from that same list — a legend template naming a key its query never grouped on renders per-series under PromQL and one collapsed relation under SQL, so the axis list has one consumer and both targets answer the pane identically.
@@ -928,18 +929,32 @@ const _display = (metric: Convention.MetricName, fold: Convention.Display): Opti
 // Trend panes differ by five literals alone, so the rows carry them and one builder renders the family: a sixth trend is
 // one row, the rate-versus-increase choice is the row's own `fn`, and the legend derives from the grouping axes.
 const _TRENDS = {
+  // the refusal rate and its denominator ride one pane pair: a refusal curve alone cannot separate an attack from traffic
+  admitPassed: { axes: [Convention.rasm.admitScheme], fn: "rate", labels: {}, metric: Convention.metric.admitPassed, span: { h: 8, w: 12 }, title: "admissions by scheme" },
+  admitRefused: { axes: [Convention.rasm.admitReason], fn: "rate", labels: {}, metric: Convention.metric.admitRefused, span: { h: 8, w: 12 }, title: "refusals by reason" },
   assetTransforms: { axes: [Convention.rasm.assetEngine, Convention.rasm.assetOutcome], fn: "rate", labels: {}, metric: Convention.metric.assetTransformed, span: { h: 8, w: 12 }, title: "asset transforms by engine and outcome" },
   auditActions: { axes: [Convention.rasm.auditAction], fn: "rate", labels: _tenant, metric: Convention.metric.factDrained, span: { h: 8, w: 16 }, title: "audit actions" },
   chartFrames: { axes: [], fn: "rate", labels: {}, metric: Convention.metric.chartFrames, span: { h: 6, w: 8 }, title: "pivot delta frames" },
   formSubmits: { axes: [Convention.rasm.formOutcome], fn: "rate", labels: {}, metric: Convention.metric.formSubmit, span: { h: 8, w: 12 }, title: "submit trips by outcome" },
   gatewayOutcomes: { axes: [Convention.rasm.gatewayOutcome], fn: "rate", labels: {}, metric: Convention.metric.gatewayCommands, span: { h: 8, w: 12 }, title: "gateway outcomes" },
+  idempotency: { axes: [Convention.rasm.admitDisposition], fn: "rate", labels: {}, metric: Convention.metric.idempotencyOutcome, span: { h: 8, w: 12 }, title: "idempotency dispositions" },
   invokeFaults: { axes: [Convention.wire.occurrence], fn: "rate", labels: {}, metric: Convention.metric.invokeFault, span: { h: 8, w: 12 }, title: "fault reasons" }, // the frequency export mints the reason under the owned occurrence axis
   invokeOutcomes: { axes: [Convention.rasm.invokeOutcome], fn: "rate", labels: {}, metric: Convention.metric.invokeCalls, span: { h: 8, w: 12 }, title: "invoke outcomes" },
   objectWrites: { axes: [Convention.rasm.objectOutcome], fn: "rate", labels: {}, metric: Convention.metric.objectWritten, span: { h: 8, w: 12 }, title: "writes by outcome" },
   olapRetries: { axes: [Convention.rasm.olapEngine], fn: "rate", labels: {}, metric: Convention.metric.olapRetried, span: { h: 8, w: 12 }, title: "queries retried" },
+  remoteBytes: { axes: [Convention.rasm.remoteOp, Convention.rasm.remoteScheme], fn: "rate", labels: {}, metric: Convention.metric.remoteBytes, span: { h: 8, w: 12 }, title: "remote throughput" },
+  remoteExecExits: { axes: [Convention.attr.errorType, Convention.rasm.remoteScheme], fn: "rate", labels: {}, metric: Convention.metric.remoteExecExits, span: { h: 6, w: 8 }, title: "remote command exits" },
+  // one pane splits the six-reason fan against its landed half, so the refusal share reads without a second counter
+  remoteOps: { axes: [Convention.attr.errorType, Convention.rasm.remoteOp, Convention.rasm.remoteScheme], fn: "rate", labels: {}, metric: Convention.metric.remoteOps, span: { h: 8, w: 14 }, title: "remote operations by verb and fault class" },
+  // resumability the engine flags CLAIM: with no series, a lane that never once resumed reads exactly like one that always does
+  remoteResumed: { axes: [Convention.rasm.remoteEngine], fn: "rate", labels: {}, metric: Convention.metric.remoteResumed, span: { h: 6, w: 8 }, title: "transfers resumed by engine" },
+  remoteSyncActions: { axes: [Convention.rasm.remoteAction], fn: "rate", labels: {}, metric: Convention.metric.remoteSyncActions, span: { h: 8, w: 10 }, title: "reconciliation actions" },
+  remoteWatchChanges: { axes: [Convention.rasm.remoteScheme, Convention.rasm.remoteWatch], fn: "rate", labels: {}, metric: Convention.metric.remoteWatchChanges, span: { h: 6, w: 8 }, title: "watch changes by strategy" },
   sceneGrafts: { axes: [], fn: "rate", labels: {}, metric: Convention.metric.sceneGrafts, span: { h: 6, w: 8 }, title: "graft arrivals" },
   // refusal reasons ride the owned occurrence axis both metric bridges append, so this pane splits on the frequency export's own key
   sceneRefusals: { axes: [Convention.wire.occurrence], fn: "rate", labels: {}, metric: Convention.metric.sceneRefusals, span: { h: 8, w: 12 }, title: "graft refusals by reason" },
+  // admit and reject fan on ONE closed kind vocabulary, so the two panes join per kind and a burn ratio is readable
+  securityAdmissions: { axes: [Convention.rasm.securityKind], fn: "rate", labels: {}, metric: Convention.metric.securityAdmitted, span: { h: 8, w: 14 }, title: "authenticity admissions" },
   securityDenials: { axes: [Convention.rasm.securityReason], fn: "rate", labels: {}, metric: Convention.metric.securityPolicyDeny, span: { h: 8, w: 12 }, title: "authorization denials" },
   securityJwksMisses: { axes: [], fn: "rate", labels: {}, metric: Convention.metric.securityJwksMiss, span: { h: 6, w: 8 }, title: "cold JWKS resolutions" },
   securityKeyQuarantines: { axes: [], fn: "rate", labels: {}, metric: Convention.metric.securityJwksQuarantined, span: { h: 6, w: 8 }, title: "keys quarantined" },
@@ -975,6 +990,7 @@ const _LEVELS = {
   derivativePressure: { axes: [], metrics: [Convention.metric.derivativeActive, Convention.metric.derivativeQueued], span: { h: 6, w: 9 }, title: "derivative pressure" },
   laneProgress: { axes: [Convention.rasm.laneName], metrics: [Convention.metric.laneCheckpoint], span: { h: 6, w: 9 }, title: "lane checkpoints" },
   poolLeases: { axes: [Convention.rasm.poolScheme], metrics: [Convention.metric.poolHeld], span: { h: 6, w: 12 }, title: "pool leases held" },
+  remoteSessions: { axes: [Convention.rasm.remoteScheme], metrics: [Convention.metric.remoteSessionsHeld], span: { h: 6, w: 8 }, title: "remote sessions held" },
   workDepth: {
     axes: [],
     metrics: [Convention.metric.outboxDepth, Convention.metric.queueDepth, Convention.metric.outboxRedelivered],
@@ -1080,11 +1096,22 @@ const _flow = (board: DashboardModel.Board, row: (typeof _FLOWS)[keyof typeof _F
     unit: _display(Array.headNonEmpty(row.metrics), "rate"),
   })
 
-const _quantile = (row: { readonly labels: Query.Labels; readonly metric: Convention.MetricName<"histogram">; readonly title: string }) =>
+// A bucketed row answers its rank through the histogram case; a windowed one is already fanned on the export's own
+// `quantile` label, so the read is the ordinary instant under that label and the mint's `maxAge` owns the width no
+// window argument could restate. One builder family, the row's own kind picking the shape.
+const _isSummary = (metric: Convention.MetricName): metric is Convention.MetricName<"summary"> =>
+  Convention.named[metric].kind === "summary"
+
+const _rung = (metric: Convention.MetricName<"histogram" | "summary">, labels: Query.Labels, quantile: Query.QuantileValue): Query =>
+  _isSummary(metric)
+    ? Query.Instant({ labels: { ...labels, quantile: `${quantile}` }, metric })
+    : Query.Quantile({ labels, metric, q: quantile, window: _WINDOW })
+
+const _quantile = (row: { readonly labels: Query.Labels; readonly metric: Convention.MetricName<"histogram" | "summary">; readonly title: string }) =>
 (board: DashboardModel.Board) =>
 (quantile: Query.QuantileValue): Panel =>
   Timeseries.make({
-    exprs: [Query.render(Query.Quantile({ labels: row.labels, metric: row.metric, q: quantile, window: _WINDOW }), board.target)],
+    exprs: [Query.render(_rung(row.metric, row.labels, quantile), board.target)],
     legend: Option.none(),
     source: board.target.source,
     span: { h: 8, w: 12 },
@@ -1105,6 +1132,8 @@ const _lakeDeferred = _quantile({ labels: {}, metric: Convention.metric.olapDefe
 const _lakeProfile = _quantile({ labels: {}, metric: Convention.metric.profileDuration, title: "engine profile" })
 const _jwksLatency = _quantile({ labels: {}, metric: Convention.metric.securityJwksResolve, title: "JWKS resolve" })
 const _kdfLatency = _quantile({ labels: {}, metric: Convention.metric.securityKdf, title: "key derivation" })
+const _ceremonyLatency = _quantile({ labels: {}, metric: Convention.metric.securityCeremony, title: "credential ceremony" })
+const _remoteLatency = _quantile({ labels: {}, metric: Convention.metric.remoteDuration, title: "remote operation" }) // the windowed row: the rank reads off the export's own quantile label
 
 const _vitalGauge = (board: DashboardModel.Board) =>
 (gauge: { readonly ceiling: number; readonly kind: string; readonly metric: Convention.MetricName<"gauge"> }): Panel =>
@@ -1294,28 +1323,30 @@ const _benchLadder = (board: DashboardModel.Board) => (suite: string): Panel =>
   })
 
 // One panel per enrichment band, each band its own instrument row: the code rides that row, so the three bands never
-// share an axis and none re-spells a display word.
+// share an axis and none re-spells a display word. The counter block's five leaves share one band value, so its row
+// carries the leaf axis while the GC and heap bands, whose band column already splits them, carry none.
 const _BENCH_ENRICHMENT = [
-  { metric: Convention.metric.benchGc, title: "gc timing" },
-  { metric: Convention.metric.benchHeap, title: "heap delta" },
-  { metric: Convention.metric.benchCounter, title: "hardware counters" },
-] as const
+  { axes: [], metric: Convention.metric.benchGc, title: "gc timing" },
+  { axes: [], metric: Convention.metric.benchHeap, title: "heap delta" },
+  { axes: [Convention.rasm.benchCounterKind], metric: Convention.metric.benchCounter, title: "hardware counters" },
+] as const satisfies ReadonlyArray<{ readonly axes: ReadonlyArray<Query.Key>; readonly metric: Convention.MetricName<"gauge">; readonly title: string }>
 
 const _benchEnrichment = (board: DashboardModel.Board, suite: string, row: (typeof _BENCH_ENRICHMENT)[number]): Panel =>
+  pipe([Convention.rasm.benchBand, Convention.rasm.benchLabel, ...row.axes], (axes) =>
   Timeseries.make({
     exprs: [
       Query.render(
-        _grouped([Convention.rasm.benchBand, Convention.rasm.benchLabel], Query.Instant({ labels: { [Convention.rasm.benchSuite]: suite }, metric: row.metric })),
+        _grouped(axes, Query.Instant({ labels: { [Convention.rasm.benchSuite]: suite }, metric: row.metric })),
         board.target,
       ),
     ],
-    legend: _legend([Convention.rasm.benchLabel, Convention.rasm.benchBand]),
+    legend: _legend(axes),
     source: board.target.source,
     span: { h: 8, w: 12 },
     steps: [],
     title: `${suite} ${row.title}`,
     unit: _display(row.metric, "level"),
-  })
+  }))
 
 const _burnPair = (board: DashboardModel.Board) => (spec: Alert.Spec): Panel =>
   Timeseries.make({
@@ -1442,6 +1473,14 @@ const _PACKS: { readonly [K in DashboardModel.Pack]: (board: DashboardModel.Boar
         _flow(board, _FLOWS.objectFlow),
         _trend(board, _TRENDS.assetTransforms),
         ...Array.map(payload.quantiles, _transcodeLatency(board)),
+        _trend(board, _TRENDS.remoteOps),
+        _trend(board, _TRENDS.remoteBytes),
+        ...Array.map(payload.quantiles, _remoteLatency(board)),
+        _levels(board, _LEVELS.remoteSessions),
+        _trend(board, _TRENDS.remoteResumed),
+        _trend(board, _TRENDS.remoteSyncActions),
+        _trend(board, _TRENDS.remoteWatchChanges),
+        _trend(board, _TRENDS.remoteExecExits),
       ],
       slug: "object",
       tags: ["object", "storage"],
@@ -1451,7 +1490,12 @@ const _PACKS: { readonly [K in DashboardModel.Pack]: (board: DashboardModel.Boar
   overview: (board, payload) =>
     DashboardModel.of(board, {
       annotations: [],
-      panels: Array.map(payload.quantiles, _latency(board)),
+      panels: [
+        ...Array.map(payload.quantiles, _latency(board)),
+        _trend(board, _TRENDS.admitPassed),
+        _trend(board, _TRENDS.admitRefused),
+        _trend(board, _TRENDS.idempotency),
+      ],
       slug: "overview",
       tags: ["overview"],
       title: "service overview",
@@ -1461,6 +1505,7 @@ const _PACKS: { readonly [K in DashboardModel.Pack]: (board: DashboardModel.Boar
     DashboardModel.of(board, {
       annotations: [],
       panels: [
+        _trend(board, _TRENDS.securityAdmissions),
         _trend(board, _TRENDS.securityRejects),
         _facets(board, _FACETS.securityFacets),
         _trend(board, _TRENDS.securityDenials),
@@ -1471,6 +1516,7 @@ const _PACKS: { readonly [K in DashboardModel.Pack]: (board: DashboardModel.Boar
         _trend(board, _TRENDS.securityShreds),
         ...Array.map(payload.quantiles, _jwksLatency(board)),
         ...Array.map(payload.quantiles, _kdfLatency(board)),
+        ...Array.map(payload.quantiles, _ceremonyLatency(board)),
       ],
       slug: "security",
       tags: ["security"],

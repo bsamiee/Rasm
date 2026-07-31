@@ -12,9 +12,10 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 
 ## [02]-[DEGRADATION_TABLE]
 
-- Owner: the `_degrades` anchor — one row per `Pg.Grant` member, carrying a verdict per embedded-profile column; the derived `Sqlite.Fallback` union every consumer dispatches on, and the two-directional guard pair binding the key space to the spine's grant union.
+- Owner: the `_degrades` anchor — one row per `Pg.Grant` member, carrying a verdict per embedded-profile column; the `_fallbacks` verdict tuple closing the value space; and the guard triple binding the key space to the spine's grant union in both directions and the value space to that tuple in both directions.
 - Packages: none — the table is pure vocabulary over `lane/postgres.md`'s grant keys, reached through the one `Pg` import.
-- Growth: a new spine grant breaks `_Rows` at this declaration the day it lands in the matrix — completeness is a compile fact, never a census; another embedded profile is one more column across every row.
+- Growth: a new spine grant breaks `_Rows` at this declaration the day it lands in the matrix — completeness is a compile fact, never a census; a new substitute is one `_fallbacks` entry before any cell may spell it; another embedded profile is one more column across every row.
+- Law: the verdict vocabulary is CLOSED — a guard constraining cells to bare `string` binds the keys and leaves the values open, so a misspelled substitute lands silently, reads as a distinct posture, and widens the derived union by one with nothing raising; `_fallbacks` is the value contract, so `Sqlite.Fallback` is what the guards PROVE rather than whatever the cells happened to spell, and an entry no row uses fails the excess guard exactly as an excess grant key does.
 - Law: the pglite column prices an embedded POSTGRESQL engine, so a spine grant it inherits reads `builtIn` and single-connection residency answers the concurrency primitives. `extensionOption` names a `PGlite.create` option row the pin's OWN contrib set can fill — presence at composition stays the capability probe's answer, never a column's claim — so a grant whose provider that set does not ship reads `none` beside every other profile refusing it, and one whose fallback is app-side reads that fallback: an `extensionOption` standing for an extension nobody can install advertises a knob a consumer gate then waits on forever.
 - Law: the embedded engine answers `uuidv7`, `merge`, `returningOldNew`, `virtualGenerated`, and `temporal` natively, so each reads `builtIn`.
 - Law: `skipScan` rides the embedded planner, so the column reads `plannerOwned` exactly as every server profile does.
@@ -29,6 +30,15 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 
 ```typescript signature
 import { Pg } from "./postgres.ts" // Grant keys stay type-plane reads; profile receipt is the one consumed value.
+
+// The substitute vocabulary, closed before any cell may spell one: `builtIn` and `none` are the two terminal
+// verdicts, and every other entry names a real mechanism some profile runs in the spine primitive's place.
+const _fallbacks = [
+  "appCheck", "appMint", "appSide", "asyncLane", "batchInsert", "builtIn", "checkpointLane", "chunkedInsert",
+  "conflictChanges", "databasePerTenant", "extensionOption", "filePerApp", "fts5", "hostSchedule", "inTabFold",
+  "loadExtension", "none", "originScope", "platformCron", "plannerOwned", "poll", "preRead", "primarySerialized",
+  "reactivityHooks", "schemaDecode", "singleTab", "singleWriter", "snapshotTruncate", "syncPull", "upsert",
+] as const
 
 const _degrades = {
   rls: { server: "filePerApp", wasm: "originScope", libsql: "databasePerTenant", d1: "databasePerTenant", pglite: "builtIn" },
@@ -69,9 +79,10 @@ declare namespace Sqlite {
   type Degraded = keyof typeof _degrades
   type Profile = keyof (typeof _degrades)[Degraded]
   type Lane = Exclude<Profile, "pglite">
-  type Fallback = (typeof _degrades)[Degraded][Profile]
-  type _Rows<T extends Record<Pg.Grant, Record<Profile, string>> = typeof _degrades> = T
-  type _Keys<K extends Pg.Grant = Degraded> = K
+  type Fallback = (typeof _fallbacks)[number]
+  type _Rows<T extends Record<Pg.Grant, Record<Profile, Fallback>> = typeof _degrades> = T // every grant covered, every cell a rostered verdict
+  type _Keys<K extends Pg.Grant = Degraded> = K // no excess grant row
+  type _Fallbacks<V extends (typeof _degrades)[Degraded][Profile] = Fallback> = V // no rostered verdict the matrix never spells
 }
 
 ```
@@ -303,7 +314,7 @@ export { PgliteRuntime }
 ## [05]-[SNAPSHOT_IO]
 
 - Owner: `Sqlite.bytes(io)` — ONE byte-operation entry whose modality is the `Sqlite.Io` case value: `Snapshot` (whole-database export content-addressed into the object plane across either server profile), `Backup` (node-only non-blocking online backup with page-progress metadata), `Seed`/`Dump` (wasm import/export), and `Extend` (runtime extension load across either server profile); `_server` resolves the structurally common byte-capable client from the environment without making the caller select the profile.
-- Packages: `@effect/sql-sqlite-node` (`client.export`, `client.backup`, `client.loadExtension`, `BackupMetadata`); `@effect/sql-sqlite-bun` (`client.export`, `client.loadExtension`); `@effect/sql-sqlite-wasm` (`client.import`, `client.export`, `SqliteClient.withTransferables`); the object plane's put entry consumes the exported bytes at the composition seam.
+- Packages: `@effect/sql-sqlite-node` (`client.export`, `client.backup`, `client.loadExtension`, `BackupMetadata`); `@effect/sql-sqlite-bun` (`client.export`, `client.loadExtension`); `@effect/sql-sqlite-wasm` (`client.import`, `client.export`, `SqliteClient.withTransferables`); `effect` (`Data`, `Option`, `Schema`); `@rasm/ts/core` (`FaultClass`); the object plane's put entry consumes the exported bytes at the composition seam.
 - Entry: server snapshots feed the content-addressed object plane — the key IS the bytes, so a re-put is idempotent; the browser seeds a first-run database from a server-minted snapshot fetched by content key, and the memory profile persists by dump-then-seed through its own storage row.
 - Receipt: `backup` yields `BackupMetadata` — total and remaining pages — so a live backup is observable progress, not a blocking export; `dump` yields the raw bytes because the browser cannot mint into the object plane directly.
 - Growth: a byte operation is one `Sqlite.Io` case and `$match` arm; a seed source is a caller decision over bytes; libSQL excludes these cases because replica sync is its durability transport.
@@ -311,14 +322,25 @@ export { PgliteRuntime }
 - Law: browser seed bytes transfer when their backing is an `ArrayBuffer`; `SharedArrayBuffer` cannot enter a transfer list and rides shared memory unchanged. Wasm client export transport owns its response crossing, so this page never invents an unsupported return-transfer API.
 - Law: seed-then-verify — after `import`, the lane's ensure relations probe exactly like server startup, so a truncated or foreign blob fails closed at seed time, never at first query.
 - Law: `loadExtension` is the degradation table's `loadExtension` verdict realized — its typed client failure aborts the admission effect, and the composition runs that effect before constructing the capability Layer whose registry probe grants the module.
+- Law: `SqliteFault` closes through the core `FaultClass.family` seam — `profile` classifies `absent` because a composition holding no byte-capable server client simply lacks the surface — so retryability, blame, and quarantine derive from the core row table and a second refusal condition is one family row with its kind, never a local rank or retry column beside `class`.
 
 ```typescript signature
-import { Data, Option } from "effect"
+import { Data, Option, Schema } from "effect"
+import { FaultClass } from "@rasm/ts/core"
 
-class SqliteFault extends Data.TaggedError("SqliteFault")<{
-  readonly reason: "profile"
-  readonly operation: "snapshot" | "extend"
-}> {}
+const _family = FaultClass.family(["profile"] as const, { profile: { class: "absent" } })
+
+class SqliteFault extends Schema.TaggedError<SqliteFault>()("SqliteFault", {
+  reason: _family.schema,
+  operation: Schema.Literal("snapshot", "extend"),
+}) {
+  get class(): FaultClass.Kind {
+    return _family.classOf(this.reason)
+  }
+  override get message(): string {
+    return `<sqlite:${this.reason}> ${this.operation}`
+  }
+}
 
 type _ServerClient = Pick<NodeSqlite.SqliteClient.SqliteClient, "export" | "loadExtension">
 

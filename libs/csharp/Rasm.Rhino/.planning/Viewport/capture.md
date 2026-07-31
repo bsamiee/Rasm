@@ -24,6 +24,7 @@ using Rasm.Rhino.Document;
 using Rasm.Rhino.HostUi;
 using Rasm.Rhino.Modeling;
 using System.Collections.Frozen;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Viewport;
@@ -607,8 +608,10 @@ public sealed partial class CaptureDecor {
 
 - Owner: `CaptureSink` owns bitmap, SVG, and printer delivery over one prepared settings batch. `CaptureArtifact` closes raster, vector, printed, depth, and sequence receipts; raster and grayscale payloads cross as owned leases, while all other cases are detached values.
 - Owner: `TransparentCaptureSpec` projects supported `CaptureFeature` rows plus `RealtimeRenderPasses` into `ViewCapture`; `DepthChannels` projects the same vocabulary into every `ZBufferCapture.Show*` toggle; `DepthProjection` selects statistics, bounded pixel samples with world recovery, or leased grayscale output.
-- Law: depth configuration precedes projection — `SetDisplayMode` and every `Show*` write invalidate the native grayscale cache, so the depth rail applies mode and channels once, then projects. `MinZ`/`MaxZ`/`ZValueAt` return `float` host precision carried unwidened; `WorldPointAt` is the per-pixel screen-to-world unprojection `DepthProbe`'s single-distance camera read cannot answer; `GrayscaleDib` returns the capture-cached bitmap, which survives capsule disposal and transfers into the artifact lease exactly once.
+- Law: depth configuration precedes projection — `SetDisplayMode` and every `Show*` write invalidate the native grayscale cache, so the depth rail applies mode and channels once, then projects. `MinZ`/`MaxZ`/`ZValueAt` return `float` host precision carried unwidened; `WorldPointAt` is the per-pixel screen-to-world unprojection `DepthProbe`'s single-distance camera read cannot answer; `GrayscaleDib` returns the capture-cached bitmap, which survives capsule disposal, so the grayscale row is its ONE caller and transfers it into the artifact lease exactly once — a sampling arm reaching it for pixel bounds pays a full grayscale render and leaks the cached bitmap, so sample bounds read the bound viewport's own `Size` instead.
+- Law: vector egress is exactly the formats the host writes — `ViewCaptureWriter` is not a sixth delivery row, on the catalogued unreachability (`api-rhinocommon-runtime.md` `[ENTRYPOINT_SCOPE]: skin, vector capture, and risky-call guard`): its one drive entry is `Draw(nint constPtrPrintInfo, RhinoDoc)`, `ViewCaptureSettings.ConstPointer()` is `internal`, and no public `ViewCapture` member accepts a writer, so a subclass compiles and can never be handed a frame. The refusal is host-shaped, not permanent — a bundle publishing a public frame source turns the primitive sinks into a delivery row, and the catalog row is where that change surfaces. `CaptureArtifact.VectorCase` carrying the host's own `XmlDocument` is the primitive stream this page publishes.
 - Boundary: `CaptureRequest` owns modality selection, while each case exposes only its supported payload. `CaptureSink` remains settings-only, so transparent, depth, and sequence requests cannot acquire printer or SVG delivery accidentally.
+- Boundary: `CaptureArtifact.Summary` is the neutral run projection the shell's completion-notice row consumes; the artifact family itself never reaches a notification surface. Projection is the whole obligation — this page never calls `Notices.Announce`, because every announce operand beyond the outcome (the localized label, the observer that receives the reply, the timeline that stamps it) belongs to the caller, and a scripted or bridge-run capture must reach no notification surface at all. `Announce` takes `Option<RunOutcome>` precisely so the consumer's own call is one line over this projection.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -674,6 +677,18 @@ public abstract partial record CaptureArtifact : IDetachedDocumentResult {
         internal SequenceCase(SequenceReceipt receipt) => Receipt = receipt;
         public SequenceReceipt Receipt { get; }
     }
+
+    // `HostUi` reads this neutral carrier for its completion-notice row, so no capture type crosses that seam.
+    public RunOutcome Summary(HostText label) => Switch(
+        state: label,
+        rasterCase: static (text, row) => (RunOutcome)new RunOutcome.Completed(Label: text, Scale: Scale(nameof(RasterCase.Extent), $"{row.Extent.Width}x{row.Extent.Height}")),
+        vectorCase: static (text, _) => new RunOutcome.Completed(Label: text, Scale: FrozenDictionary<string, string>.Empty),
+        printedCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(PrintedCase.Pages), row.Pages.ToString(CultureInfo.InvariantCulture))),
+        depthCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(DepthField.Hits), row.Field.Hits.ToString(CultureInfo.InvariantCulture))),
+        sequenceCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(SequenceReceipt), row.Receipt.HtmlFileName)));
+
+    private static FrozenDictionary<string, string> Scale(string field, string value) =>
+        new Dictionary<string, string>(StringComparer.Ordinal) { [field] = value }.ToFrozenDictionary(StringComparer.Ordinal);
 
     internal static Fin<CaptureArtifact> Raster(System.Drawing.Bitmap bitmap, Op key) => key.Catch(() => {
         System.Drawing.Bitmap? owned = bitmap;
@@ -851,21 +866,22 @@ public abstract partial record DepthProjection {
         guard(pixels.Length > 0, key.OrDefault().InvalidInput()).ToFin()
             .Map(_ => (DepthProjection)new SamplesCase(Pixels: toSeq(pixels.ToArray()).Strict()));
 
-    internal Fin<DepthPayload> Project(ZBufferCapture capture, Op key) => Switch(
-        (Capture: capture, Op: key),
+    // Extent enters from the bound viewport the run already resolved: `GrayscaleDib` renders and caches a full
+    // viewport bitmap that SURVIVES capsule disposal, so calling it to recover two integers leaks one GDI+ bitmap per
+    // samples capture and pays a whole grayscale render for a bounds probe. `Offset2i` already refuses a negative
+    // component, so half of a two-sided guard is dead and only the upper bound stays live.
+    internal Fin<DepthPayload> Project(ZBufferCapture capture, Size2i extent, Op key) => Switch(
+        (Capture: capture, Extent: extent, Op: key),
         statsCase: static (_, _) => Fin.Succ(value: (DepthPayload)new DepthPayload.StatsCase()),
-        samplesCase: static (ctx, projection) => ctx.Op.Catch(() => {
-            System.Drawing.Bitmap? bounds = ctx.Capture.GrayscaleDib();
-            return from raster in Optional(bounds).ToFin(Fail: ctx.Op.InvalidResult())
-                   from pixels in projection.Pixels.TraverseM(pixel =>
-                       guard(pixel.X >= 0 && pixel.Y >= 0 && pixel.X < raster.Width && pixel.Y < raster.Height, ctx.Op.InvalidInput())
-                           .ToFin()
-                           .Map(_ => new DepthSample(
-                               Pixel: pixel,
-                               Z: ctx.Capture.ZValueAt(x: pixel.X, y: pixel.Y),
-                               World: ctx.Capture.WorldPointAt(x: pixel.X, y: pixel.Y)))).As()
-                   select (DepthPayload)new DepthPayload.SamplesCase(rows: pixels.Strict());
-        }),
+        samplesCase: static (ctx, projection) => projection.Pixels
+            .TraverseM(pixel => guard(pixel.X < ctx.Extent.Width && pixel.Y < ctx.Extent.Height, ctx.Op.InvalidInput())
+                .ToFin()
+                .Bind(_ => ctx.Op.Catch(() => Fin.Succ(new DepthSample(
+                    Pixel: pixel,
+                    Z: ctx.Capture.ZValueAt(x: pixel.X, y: pixel.Y),
+                    World: ctx.Capture.WorldPointAt(x: pixel.X, y: pixel.Y))))))
+            .As()
+            .Map(static rows => (DepthPayload)new DepthPayload.SamplesCase(rows: rows.Strict())),
         grayscaleCase: static (ctx, _) => ctx.Op.Catch(() =>
             Optional(ctx.Capture.GrayscaleDib()).ToFin(Fail: ctx.Op.InvalidResult())
                 .Map(static bitmap => (DepthPayload)new DepthPayload.GrayscaleCase(
@@ -1236,9 +1252,10 @@ public sealed record SequenceReceipt(
     string HtmlPath,
     Seq<string> Images,
     Seq<string> Dates,
-    uint UndoRecord = 0u) : IDetachedDocumentResult {
+    // An inspect never opens a bracket, so absence is structural: `0u` is a live host serial's neighbour, not a spelling for "none".
+    Option<uint> UndoRecord = default) : IDetachedDocumentResult {
 
-    internal SequenceReceipt Stamp(uint undoRecord) => this with { UndoRecord = undoRecord };
+    internal SequenceReceipt Stamp(uint undoRecord) => this with { UndoRecord = Some(undoRecord) };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1259,7 +1276,8 @@ public abstract partial record SequenceOp {
 ## [05]-[RUN_RAIL]
 
 - Owner: `CapturePlan` is the sink-free preparation value. `CaptureRequest` closes settings, transparent, depth, and sequence modalities behind their factories; `SettingsCase` alone pairs a non-empty plan sequence with a settings-driven sink and sink-derived cardinality admission. `PreparedCapture` is the internal disposable prepared-program resource; its settings sequence carries arity, its `Use` gate rejects use after disposal, and reverse release retires every native setting after the sole consumer settles.
-- Entry: `Captures.Run(DocumentSession, CaptureRequest, Op?) : Fin<CaptureArtifact>` is the sole public execution rail. `CaptureRequest.Settings`, `Transparent`, `Depth`, and `Sequence` admit each modality; internal `Stage` shares settings acquisition with PDF composition without exposing `ViewCaptureSettings`.
+- Entry: `Captures.Run(DocumentSession, CaptureRequest, Op?) : Fin<CaptureArtifact>` is the sole public execution rail. `CaptureRequest.Settings`, `Transparent`, `Depth`, and `Sequence` admit each modality; internal `Stage` shares settings acquisition with PDF composition without exposing `ViewCaptureSettings`, and admits its session on the same rail `Run` does rather than handing an unproved reference to the host work.
+- Law: bench identity spells the REQUEST factory (`nameof(CaptureRequest.<verb>)`), never the private staging helper that happens to share the verb's name — an unqualified `nameof` binds the helper and re-keys every recorded row the moment that helper is renamed.
 - Law: every capture entry crosses `HostThread.Run` with a `HostWork<T>.Session`; settings, transparent, and depth cases carry `SessionNeed.Redraw`, sequence adopt carries `SessionNeed.Mutate` plus `SessionNeed.Undo` around one sealed `UndoBracket`, and sequence inspect carries `SessionNeed.Read` only. Target resolution, host work, delivery, and disposal remain inside that command-thread scope.
 - Law: run-rail frame timing is the Modeling bench band — every `Captures.Run` case crosses `HostThread.Run`, brackets its in-host body in `BenchBand.Measured`, and stamps the `BenchEvidence` (operation identity from the request case, input scale from the case's own cardinality — plan count, pixel area, sample count, or frame count — duration, allocation, host fingerprint) onto `CaptureArtifact.Bench`, so allocation belongs to the executing host thread and bridge-run harvest sessions produce corpus-comparable rows with no second measurement path.
 - Law: batch preparation is one iterative `Fold`. A failed acquisition reverse-disposes every previously prepared setting, and the completed `PreparedCapture` reverse-disposes its sequence after the sole consumer settles.
@@ -1360,10 +1378,13 @@ public static class Captures {
         Op op = key.OrDefault();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
                from admitted in op.Need(value: request)
+               // Every operation identity spells its REQUEST factory: a bare `nameof(Settings)` inside this class binds
+               // whichever private helper shares the verb's name, so renaming a helper silently re-keys every bench row
+               // against a corpus the page promises stays comparable.
                let identity = admitted.Switch(
-                   settingsCase: static row => (Operation: nameof(Settings), Scale: (long)row.Plans.Count),
-                   transparentCase: static row => (Operation: nameof(Transparent), Scale: (long)row.Spec.Extent.Width * row.Spec.Extent.Height),
-                   depthCase: static row => (Operation: nameof(Depth), Scale: row.Spec.Projection is DepthProjection.SamplesCase samples ? samples.Pixels.Count : 1L),
+                   settingsCase: static row => (Operation: nameof(CaptureRequest.Settings), Scale: (long)row.Plans.Count),
+                   transparentCase: static row => (Operation: nameof(CaptureRequest.Transparent), Scale: (long)row.Spec.Extent.Width * row.Spec.Extent.Height),
+                   depthCase: static row => (Operation: nameof(CaptureRequest.Depth), Scale: row.Spec.Projection is DepthProjection.SamplesCase samples ? samples.Pixels.Count : 1L),
                    sequenceCase: static row => (Operation: nameof(CaptureRequest.Sequence), Scale: row.Operation is SequenceOp.AdoptCase adopt ? adopt.Spec.Frames.Value : 1L))
                from artifact in admitted.Switch(
                    (Session: owner, Identity: identity, Op: op),
@@ -1470,11 +1491,12 @@ public static class Captures {
         Op? key = null) {
         Op op = key.OrDefault();
         Seq<CapturePlan> requested = toSeq(plans.ToArray()).Strict();
-        return from body in op.Need(value: consume)
+        return from owner in Optional(session).ToFin(Fail: op.MissingContext())
+               from body in op.Need(value: consume)
                from _rows in guard(!requested.IsEmpty && requested.ForAll(static plan => plan is not null), op.InvalidInput())
                from output in HostThread.Run(
                    work: new HostWork<TOut>.Session(
-                       Document: session,
+                       Document: owner,
                        Needs: [SessionNeed.Redraw],
                        Body: document => Prepare(document: document, plans: requested, key: op)
                            .Bind(lease => lease.Use(body))),
@@ -1513,11 +1535,17 @@ public static class Captures {
         from _valid in guard(settings.IsValid, key.InvalidResult())
         select unit;
 
-    private static Fin<DepthField> Depth(RhinoViewport viewport, DepthCaptureSpec spec, Op key) => key.Catch(() => {
+    private static Fin<DepthField> Depth(RhinoViewport viewport, DepthCaptureSpec spec, Op key) =>
+        from extent in key.Catch(() => Fin.Succ(value: viewport.Size))
+            .Bind(size => Size2i.Of(width: size.Width, height: size.Height, key: key))
+        from field in Depth(viewport: viewport, extent: extent, spec: spec, key: key)
+        select field;
+
+    private static Fin<DepthField> Depth(RhinoViewport viewport, Size2i extent, DepthCaptureSpec spec, Op key) => key.Catch(() => {
         using ZBufferCapture capture = new(viewport: viewport);
         _ = spec.Mode.Iter(id => capture.SetDisplayMode(modeId: id));
         _ = spec.Channels.Apply(capture: capture);
-        return from payload in spec.Projection.Project(capture: capture, key: key)
+        return from payload in spec.Projection.Project(capture: capture, extent: extent, key: key)
                from field in key.Catch(() => {
                    int hits = capture.HitCount();
                    float min = capture.MinZ();

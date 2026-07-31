@@ -34,6 +34,7 @@ using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Thinktecture;
 using static LanguageExt.Prelude;
+using static Rasm.Element.Projection.AdmissionSlots;
 
 namespace Rasm.Element.Graph;
 
@@ -244,12 +245,8 @@ public sealed partial class TableType {
 // keeps a downstream NOT NULL honest, since the custodian receives a positional cell and cannot recover intent.
 public readonly record struct TableColumn(string Name, TableType Type, bool Nullable) {
     public Validation<Error, Unit> Conforms(Option<PropertyValue> cell, Op key) => cell.Match(
-        None: () => Nullable
-            ? Success<Error, Unit>(unit)
-            : Fail<Error, Unit>(ElementFault.ValueRejected(key, $"<table-cell-absent:{Name}>")),
-        Some: value => Type.Admits(value)
-            ? Success<Error, Unit>(unit)
-            : Fail<Error, Unit>(ElementFault.ValueRejected(key, $"<table-cell-type:{Name}:{Type.Key}>")));
+        None: () => Gate(Nullable, key, $"<table-cell-absent:{Name}>"),
+        Some: value => Gate(Type.Admits(value), key, $"<table-cell-type:{Name}:{Type.Key}>")).As();
 }
 
 // Temporal CATEGORY and the column it implies are ONE value, so a family cannot declare a category its columns
@@ -662,12 +659,16 @@ public static class GraphTable {
 
     // One row per BAND: the grid, the CRS identity, and the pyramid/timeline depths denormalize onto every band so a
     // spatial or role predicate needs no join. ByteLength reads the BASE level, the footprint a storage rollup means.
+    // Placement tabulates through the `Geospatial/coverage` `LatticeGeodesy` projection — the lattice's own census
+    // (`Columns`/`Rows`) plus the affine-derived world origin and per-axis cell span — never a north-up OriginX/
+    // CellSizeX quadruple, which is unreadable off a rotated or sheared affine and names members the kernel lattice
+    // does not carry; `Origin`/`Span` answer the seam-neutral Vector3, so no host coordinate reaches a table cell.
     static Seq<TableRow> Coverages(CoverageGrid grid, Element element, string snapshot) =>
         grid.Bands.Map(band => (TableRow)new TableRow.Coverage(
             snapshot, element.Id.Value, ContentAddress.Of(grid.RasterKey).ToValue(), grid.Kind.Key,
             grid.Crs.Resolution.Key, grid.Crs.Epsg, grid.Crs.GeodeticDatum,
-            grid.Grid.OriginX, grid.Grid.OriginY, grid.Grid.CellSizeX, grid.Grid.CellSizeY,
-            grid.Grid.Width, grid.Grid.Height,
+            grid.Grid.Origin.X, grid.Grid.Origin.Y, grid.Grid.Span.X, grid.Grid.Span.Y,
+            grid.Grid.Columns.Value, grid.Grid.Rows.Value,
             band.Index, band.Name, band.SampleType.Key, band.Role.Key, band.Units,
             band.Offset, band.Scale, band.NoData,
             grid.Overviews.Count, grid.Slices.Count, grid.ByteLength()));

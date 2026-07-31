@@ -247,6 +247,7 @@ public static class StretchPlan {
 - Owner: `ArrangeReceipt` — the settlement evidence: raising `Op`, case name, moved-object count, total displacement magnitude, and ordered entry/settlement stamps with elapsed latency from one `MonotonicTimeline`, implementing `IValidityEvidence`.
 - Entry: `CanvasLayout.Arrange(VerbNoun label, Arrangement plan, Op? key = null)` → `Fin<ArrangeReceipt>` — the ONE gate: acquire the document scope, resolve each id to its `IAttributes` (a missing object is a typed fault, never a silent skip), compute the case's deltas, then per object ADD a `PivotAction(obj)` undo row BEFORE `IAttributes.Move(dx, dy)` — the host action captures the pre-move pivot, and `Extends` dedups consecutive nudges of one object into one record — and seal the filled `ActionList` through `HistoryLedger.Seal(document.Undo, actions, label, op)`. One marshal window covers resolve, move, and seal, so no half-arranged graph is observable.
 - Law: mutation and undo are one act — a zero-delta object contributes no undo row, and an arrangement whose every delta is zero seals nothing and reports a zero-count receipt.
+- Growth: `DocumentMethods.MakeRoom(RectangleF before, RectangleF after, ActionList actions)` is this solver's unclaimed host verb — displacing neighbours to open canvas room is an `Arrangement` case (a `RoomCase(RectangleF Before, RectangleF After)` folding the host's own displacement into the same sealed-mutation gate), never a `Document/document.md` transaction case; that page's boundary line already routes it here.
 - Law: `VerbNoun` arrives minted — the label mint spelling is the standing `Document/history.md` RESEARCH item, and this gate never constructs one.
 - Boundary: snapped interactive movement during a drag is the host's own (`ObjectDragInteraction` composes `SnappingConstraints` internally); whole-graph selection sweeps and structural verbs are `Document/document.md`'s transaction; the live `SnapXAction`/`SnapYAction` nudge state is a `Canvas/canvas.md` lens read surfaced as `NudgeVector` evidence.
 - Packages: Grasshopper2 (`IAttributes.Pivot`/`Bounds`/`AggregateBounds`/`Snappable`/`Move`, `IDocumentObject.Attributes`, `Document.Undo`, `ActionList.Add`, `PivotAction`, `VerbNoun`, `WireEnds`), `Document/history.md` (`HistoryLedger.Seal`), `Shell/session.md` (`GhSession`, `ScopeTarget`), Eto.Drawing, LanguageExt.Core, `Rasm.Domain`, `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`).
@@ -317,7 +318,7 @@ public static class CanvasLayout {
             state: (Graph: graph, Key: key),
             alignCase: static (s, c) =>
                 from rows in Resolve(graph: s.Graph, objects: c.Objects, key: s.Key)
-                from anchor in rows.HeadOrNone().ToFin(s.Key.InvalidInput())
+                from anchor in rows.Head.ToFin(s.Key.InvalidInput())
                 from moves in rows.Tail.Map(row => c.Edge.Mint(
                         payload: new CandidatePayload.AlignCase(
                             Source: row.Bounds, Target: anchor.Bounds,
@@ -327,8 +328,8 @@ public static class CanvasLayout {
                 select moves.Strict(),
             distributeCase: static (s, c) =>
                 Resolve(graph: s.Graph, objects: c.Objects, key: s.Key).Map(rows => {
-                    Seq<IAttributes> ordered = rows.OrderBy(row => c.Vertical ? row.Pivot.Y : row.Pivot.X).ToSeq().Strict();
-                    return ordered.HeadOrNone().Match(
+                    Seq<IAttributes> ordered = toSeq(rows.OrderBy(row => c.Vertical ? row.Pivot.Y : row.Pivot.X)).Strict();
+                    return ordered.Head.Match(
                         Some: head => ordered.Tail.Fold(
                             (Cursor: c.Vertical ? head.Bounds.Bottom : head.Bounds.Right, Moves: Seq<(IAttributes, float, float)>()),
                             (held, row) => {

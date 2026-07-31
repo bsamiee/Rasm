@@ -1,6 +1,6 @@
 # [ELEMENT_DELTA]
 
-The ONE graph-mutation owner: a `GraphMutation` `[Union]` request (`PutNode`/`DropNode`/`Link`/`Unlink`/`Reheader`/`Batch`) applied through the generated total `Switch` to a HAMT `WorkingGraph` producing a `GraphDelta` — the single immutable change record that IS the persistable event body. This is the live-authoring counterpart to the frozen `Graph/element#ELEMENT_GRAPH` read snapshot: the `WorkingGraph` is an `ImmutableDictionary` HAMT over nodes plus an `ImmutableList` of edges (O(log n) structural sharing per edit), `Thaw` lowers a frozen `ElementGraph` into it, `Freeze` lifts it back to a read snapshot (rebuilding the incidence index and the `QuikGraph` view once). Every mutation enforces the seam's STRUCTURAL edge law through the generated total `Switch` over the `Relations/relation#EDGE_ALGEBRA` cases — a `Link` validates endpoint presence, non-`Generic` irreflexivity, and endpoint-kind legality (`Compose`/`Connect`/`Void` join objects, a `Connect`'s optional realizing intermediary validated the SAME as its binary endpoints and distinct from both, `Associate` binds a material/appearance/coverage resource, `Assign` targets a definition by its sub-kind), railing `Projection/fault#FAULT_BAND` `ElementFault.RelationshipInvalid`; a `DropNode` cascades its incident edges so the graph never dangles; a duplicate link or a drop-absent rails `ElementFault.DeltaConflict` — structural invariants ONLY, the IFC-semantic legality being the consumer's `Projection/projection#GRAPH_CONSTRAINT` `IGraphConstraint`. `Merge` is the left-fold-faithful sequential compactor used by `Batch` and persistence compaction; its cancellation-and-coalescing append produces a UNIQUE-PER-ID normal form (every node id in at most one of `{added, revised}`, remove-then-add the lone deliberate removed-plus-added pair), so BOTH the ordered replay law `a.Merge(b).ReplayOnto(g) == b.ReplayOnto(a.ReplayOnto(g))` AND the address law (`ToCanonicalBytes` is the well-defined content key of the net change) hold without an unproved associativity claim. A `Reheader` mutation (mirrored by the `GraphDelta.Reheader` projector builder) establishes the model header on the model-creating event, so the interactive authoring path sets release/view/georeference/tolerance through the SAME algebra the projector uses, and `ReplayOnto` folds a delta into a frozen graph — the persistence path where Marten stores the `GraphDelta` event and the inline projection folds `GraphDelta → ElementGraph`, never a whole-graph snapshot per event — while `AdmitOnto` is the structural-VALIDATING sibling that routes a projector-built delta through `WorkingGraph.Apply` (the `LegalLink` law per `Link`) for the `Projection/projection#PROJECTION_CONTRACT` `Assemble` admission. The page composes `Graph/element#ELEMENT_GRAPH` for the frozen snapshot, `Relations/relation#EDGE_ALGEBRA` for the edge endpoints, and `Projection/address#CANONICAL_WRITER` for the order-independent content key; a malformed mutation rails `ElementFault`.
+The ONE graph-mutation owner: a `GraphMutation` `[Union]` request (`PutNode`/`DropNode`/`Link`/`Unlink`/`Reheader`/`Batch`) applied through the generated total `Switch` to a HAMT `WorkingGraph` producing a `GraphDelta` — the single immutable change record that IS the persistable event body. This is the live-authoring counterpart to the frozen `Graph/element#ELEMENT_GRAPH` read snapshot: the `WorkingGraph` is a `TrackingHashMap` HAMT over nodes — the structure accumulating its own per-key `Change<Node>` record from the last `Snapshot`, so `Diff` READS the added/revised/removed partition where a membership subtraction once recomputed it, while `Apply` authors its own per-mutation delta because a typed conflict is evidence no change log carries — plus an `ImmutableList` of edges (O(log n) structural sharing per edit), `Thaw` lowers a frozen `ElementGraph` into it, `Freeze` lifts it back to a read snapshot (rebuilding the incidence index and the `QuikGraph` view once). Every mutation enforces the seam's STRUCTURAL edge law through the generated total `Switch` over the `Relations/relation#EDGE_ALGEBRA` cases — a `Link` validates endpoint presence, non-`Generic` irreflexivity, and endpoint-kind legality (`Compose`/`Connect`/`Void` join objects, a `Connect`'s optional realizing intermediary validated the SAME as its binary endpoints and distinct from both, `Associate` binds a material/appearance/coverage resource, `Assign` targets a definition by its sub-kind), railing `Projection/fault#FAULT_BAND` `ElementFault.RelationshipInvalid`; a `DropNode` cascades its incident edges so the graph never dangles; a duplicate link or a drop-absent rails `ElementFault.DeltaConflict` — structural invariants ONLY, the IFC-semantic legality being the consumer's `Projection/projection#GRAPH_CONSTRAINT` `IGraphConstraint`. `Merge` is the left-fold-faithful sequential compactor used by `Batch` and persistence compaction; its cancellation-and-coalescing append produces a UNIQUE-PER-ID normal form (every node id in at most one of `{added, revised}`, remove-then-add the lone deliberate removed-plus-added pair), so BOTH the ordered replay law `a.Merge(b).ReplayOnto(g) == b.ReplayOnto(a.ReplayOnto(g))` AND the address law (`ToCanonicalBytes` is the well-defined content key of the net change) hold without an unproved associativity claim. A `Reheader` mutation (mirrored by the `GraphDelta.Reheader` projector builder) establishes the model header on the model-creating event, so the interactive authoring path sets release/view/georeference/tolerance through the SAME algebra the projector uses, and `ReplayOnto` folds a delta into a frozen graph — the persistence path where Marten stores the `GraphDelta` event and the inline projection folds `GraphDelta → ElementGraph`, never a whole-graph snapshot per event — while `AdmitOnto` is the structural-VALIDATING sibling that routes a projector-built delta through `WorkingGraph.Apply` (the `LegalLink` law per `Link`) for the `Projection/projection#PROJECTION_CONTRACT` `Assemble` admission. The page composes `Graph/element#ELEMENT_GRAPH` for the frozen snapshot, `Relations/relation#EDGE_ALGEBRA` for the edge endpoints, and `Projection/address#CANONICAL_WRITER` for the order-independent content key; a malformed mutation rails `ElementFault`.
 
 ## [01]-[INDEX]
 
@@ -8,7 +8,7 @@ The ONE graph-mutation owner: a `GraphMutation` `[Union]` request (`PutNode`/`Dr
 
 ## [02]-[GRAPH_DELTA]
 
-- Owner: `WorkingGraph` the HAMT live-authoring form (`ImmutableDictionary<NodeId, Node>` + `ImmutableList<Relationship>`); `GraphMutation` the `[Union]` mutation request; `GraphDelta` the immutable change record that IS the persistable event body; the structural edge law `LegalLink`/`LegalConnect`/`LegalAssign`.
+- Owner: `WorkingGraph` the HAMT live-authoring form (`TrackingHashMap<NodeId, Node>` + `ImmutableList<Relationship>`); `GraphMutation` the `[Union]` mutation request; `GraphDelta` the immutable change record that IS the persistable event body; the structural edge law `LegalLink`/`LegalConnect`/`LegalAssign`.
 - Cases: `PutNode` (upsert a node — add if absent, revise if present, recording the before/after) · `DropNode` (remove a node and CASCADE its incident edges) · `Link` (add an edge after validating endpoint presence and structural legality) · `Unlink` (remove an edge by structural equality) · `Reheader` (establish/revise the model header on the model-creating event — the interactive-authoring counterpart to the projector's `GraphDelta.Reheader` builder) · `Batch` (a `Seq<GraphMutation>` folded fail-fast into one accumulated delta); the closed mutation family.
 - Entry: `WorkingGraph.Thaw(ElementGraph)` lowers a frozen snapshot into the HAMT form; `Apply(GraphMutation, key)` applies a mutation, `Fin<T>` returning the next `WorkingGraph` plus the `GraphDelta` it produced (railing `ElementFault.NodeAbsent` on a link to an absent endpoint or absent realizing intermediary, `ElementFault.RelationshipInvalid` on an illegal endpoint-kind pair, a non-`Generic` self-loop, or an endpoint-coincident realizing node, `ElementFault.DeltaConflict` on a drop-absent or duplicate link); `Freeze(header)` lifts the HAMT form back to a frozen `ElementGraph` under the resolved header (rebuilding the incidence index and `QuikGraph` view once), the header an interactive session resolves as `accumulatedDelta.Header.IfNone(baseHeader)` — the SAME resolution `ReplayOnto` uses; `GraphDelta.ReplayOnto(ElementGraph)` folds a delta into a frozen graph for the persistence rehydrate (re-applying RAW, the delta validated when produced); `GraphDelta.AdmitOnto(ElementGraph, Op)` is the structural-VALIDATING sibling routing a projector-built delta through `WorkingGraph.Apply` so `LegalLink` runs per `Link` (the `Projection/projection#PROJECTION_CONTRACT` `Assemble` admission step), `Fin<T>` returning the frozen graph plus the re-derived event body and railing `RelationshipInvalid`/`NodeAbsent`/`DeltaConflict` on a structurally-illegal projection; `GraphDelta.Diff(before, after)` subtracts two frozen snapshots into the normal-form delta whose replay law `Diff(a, b).ReplayOnto(a) == b` holds under the `[Equatable]` graph equality — the re-import reconcile and the cross-runtime model-diff lane produce their event body here rather than a per-consumer subtraction.
 - Auto: `Apply` dispatches the generated total `Switch`: `PutNode` adds or revises, `DropNode` removes the node and every incident edge, `Link` admits one legal non-duplicate edge, `Unlink` removes one structural match, `Reheader` records only the header, and `Batch` left-folds sub-mutations through `Merge`. `LegalLink` and `LegalAssign` are generated total dispatches with no runtime-default arm, so an `AssignKind` row lands its arm here or the dispatch stops compiling. `WorkingGraph` preserves structural sharing on the HAMT until `Freeze` materializes the read snapshot.
@@ -143,21 +143,34 @@ public sealed record GraphDelta(
  // the cross-runtime model-diff lane compose: a revised IFC re-ingested through Assemble yields a fresh graph, and
  // Diff(stored, reassembled) IS the event body the stream appends — a re-import becomes an ordinary event, and the
  // stream compaction gains the ground truth Diff(a, b).ReplayOnto(a) == b under the [Equatable] graph equality.
- // Node change detection is the Node [Equatable] structural equality over the id-keyed maps; a removed node's
- // incident edges are NOT re-issued (the erase cascade owns them — the AdmitOnto re-issue filter, mirrored), so the
- // delta is minimal; the header contributes only when the two differ. Normal-form by construction: each id in
- // exactly one slot, each edge single-entry.
+ // The node partition is READ off the working map's own change record, never derived a second time: `Snapshot` zeroes
+ // the log to make `before` the baseline, the erase-then-set replay morphs it to `after`, and `Changes` then holds
+ // exactly the added/mapped/removed classification a membership subtraction used to recompute beside it. The mapped
+ // arm keeps the `[Equatable]` inequality test because the map's own log records a write, not a semantic change, so
+ // the delta's minimality law stays this seam's and never rides an assumption about the structure's logging grain.
+ // A removed node's incident edges are NOT re-issued (the erase cascade owns them — the AdmitOnto re-issue filter,
+ // mirrored), so the delta is minimal; the header contributes only when the two differ. Normal-form by construction:
+ // each id in exactly one slot, each edge single-entry. The edge half stays a set subtraction — the tracking map keys
+ // on node id and an edge is not key-shaped, so the structure carries nothing for it.
  public static GraphDelta Diff(ElementGraph before, ElementGraph after) {
-  Seq<NodeId> removed = toSeq(before.Nodes.Keys).Filter(id => !after.Nodes.ContainsKey(id));
-  Seq<Node> added = toSeq(after.Nodes.Values).Filter(n => !before.Nodes.ContainsKey(n.Id));
-  Seq<(Node Before, Node After)> revised = toSeq(after.Nodes.Values)
-   .Choose(n => before.Nodes.TryGetValue(n.Id, out Node? prior) && prior is { } existing && !Equals(existing, n) ? Some((Before: existing, After: n)) : None);
+  TrackingHashMap<NodeId, Node> baseline = toHashMap(before.Nodes).ToTrackingHashMap().Snapshot();
+  TrackingHashMap<NodeId, Node> morphed = toSeq(after.Nodes.Values).Fold(
+   toSeq(before.Nodes.Keys).Filter(id => !after.Nodes.ContainsKey(id)).Fold(baseline, static (map, id) => map.Remove(id)),
+   static (map, node) => map.AddOrUpdate(node.Id, node));
+  (Seq<Node> Added, Seq<(Node Before, Node After)> Revised, Seq<NodeId> Removed) partition = toSeq(morphed.Changes).Fold(
+   (Added: Seq<Node>(), Revised: Seq<(Node Before, Node After)>(), Removed: Seq<NodeId>()),
+   static (acc, entry) => entry.Value switch {
+    EntryAdded<Node> a => (acc.Added.Add(a.Value), acc.Revised, acc.Removed),
+    EntryMapped<Node, Node> m when !Equals(m.From, m.To) => (acc.Added, acc.Revised.Add((m.From, m.To)), acc.Removed),
+    EntryRemoved<Node> => (acc.Added, acc.Revised, acc.Removed.Add(entry.Key)),
+    _ => acc,
+   });
   HashSet<Relationship> beforeEdges = before.Edges.ToHashSet();
   HashSet<Relationship> afterEdges = after.Edges.ToHashSet();
   return new(
-   added, removed, revised,
+   partition.Added, partition.Removed, partition.Revised,
    toSeq(after.Edges).Filter(e => !beforeEdges.Contains(e)),
-   toSeq(before.Edges).Filter(e => !afterEdges.Contains(e) && !removed.Exists(e.Touches)),
+   toSeq(before.Edges).Filter(e => !afterEdges.Contains(e) && !partition.Removed.Exists(e.Touches)),
    before.Header.Equals(after.Header) ? None : Some(after.Header));
  }
 
@@ -208,16 +221,25 @@ public abstract partial record GraphMutation {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// The HAMT live-authoring form — ImmutableDictionary nodes + ImmutableList edges, O(log n) per edit. Header-free:
+// The HAMT live-authoring form — TrackingHashMap nodes + ImmutableList edges, O(log n) per edit. Header-free:
 // the model header rides the GraphDelta event and the frozen ElementGraph, never the working form.
-public sealed record WorkingGraph(ImmutableDictionary<NodeId, Node> Nodes, ImmutableList<Relationship> Edges) {
+//
+// The node half is a TrackingHashMap because that structure IS the snapshot delta's node half by construction: the
+// same HAMT plus a per-key change record accumulated from the last Snapshot, so Diff reads the added/revised/removed
+// partition instead of recomputing it by O(n) membership subtraction. Apply keeps its OWN per-mutation delta and
+// does not read the record: a mutation answers a typed conflict (drop-absent, duplicate-link) the change log cannot
+// express, and its edge half is not key-shaped, so a mutation's evidence is authored where the fault is decided
+// while the snapshot partition is read where the whole morph is visible. The edge half stays ImmutableList for the
+// same key-shape reason. The Merge normal-form law and the ToCanonicalBytes address law are unaffected — both read
+// the delta, and only where Diff's node half COMES FROM moves.
+public sealed record WorkingGraph(TrackingHashMap<NodeId, Node> Nodes, ImmutableList<Relationship> Edges) {
  public static WorkingGraph Thaw(ElementGraph graph) =>
-  new(graph.Nodes.ToImmutableDictionary(), graph.Edges.ToImmutableList());
+  new(toHashMap(graph.Nodes).ToTrackingHashMap(), graph.Edges.ToImmutableList());
 
  public ElementGraph Freeze(Header header) =>
   ElementGraph.Of(header, Nodes.ToFrozenDictionary(), [.. Edges]);
 
- internal WorkingGraph Set(Node node) => this with { Nodes = Nodes.SetItem(node.Id, node) };
+ internal WorkingGraph Set(Node node) => this with { Nodes = Nodes.AddOrUpdate(node.Id, node) };
  // The DropNode cascade keys on Relationship.Touches (Members), so it drops EVERY edge tied to the id — the binary
  // endpoints, a Connect's realizing intermediary, AND a Generic edge whose only tie is a PropertyValue.Reference buried
  // in its attributes. Cascade, never strip-the-attribute: the closed GraphMutation family carries no edge-attribute
@@ -262,14 +284,14 @@ public sealed record WorkingGraph(ImmutableDictionary<NodeId, Node> Nodes, Immut
  // self-permissive. The Connect REALIZING intermediary is a first-class structural participant (it rides
  // Members/DirectedPairs, the incidence index, and the Erase cascade), so LegalConnect validates it the SAME as the
  // binary endpoints — present, an Object, AND distinct from both — when Some.
- static Fin<Unit> LegalLink(Relationship edge, ImmutableDictionary<NodeId, Node> nodes, Op key) {
+ static Fin<Unit> LegalLink(Relationship edge, TrackingHashMap<NodeId, Node> nodes, Op key) {
   (NodeId relating, NodeId related) = edge.Endpoints;
   Option<NodeId> absent = edge.Members.Find(member => !nodes.ContainsKey(member));
   return absent.IsSome ? ElementFault.NodeAbsent(key, $"<link-member-absent:{absent.IfNone(default(NodeId)!).Value}>")
    : !nodes.TryGetValue(relating, out Node? r) ? ElementFault.NodeAbsent(key, $"<link-relating-absent:{relating.Value}>")
    : !nodes.TryGetValue(related, out Node? d) ? ElementFault.NodeAbsent(key, $"<link-related-absent:{related.Value}>")
    : relating == related && edge is not Relationship.Generic ? ElementFault.RelationshipInvalid(key, $"<link-self-loop:{relating.Value}>")
-   : edge.Switch<(Node Relating, Node Related, ImmutableDictionary<NodeId, Node> Nodes, Op Key), Fin<Unit>>(
+   : edge.Switch<(Node Relating, Node Related, TrackingHashMap<NodeId, Node> Nodes, Op Key), Fin<Unit>>(
     (r!, d!, nodes, key),
     compose: static (s, _) => BothObjects(s.Relating, s.Related, s.Key, "<compose-endpoints-must-be-objects>"),
     assign: static (s, a) => LegalAssign(a, s.Relating, s.Related, s.Key),
@@ -283,7 +305,7 @@ public sealed record WorkingGraph(ImmutableDictionary<NodeId, Node> Nodes, Immut
  // both endpoints (a coincident realizing node would duplicate Members and collapse the From→Realizing→To legs),
  // resolves in the graph, AND is an Object (coincident/non-Object rails RelationshipInvalid, absent rails NodeAbsent);
  // None is a plain binary connection passing on the endpoint pair alone.
- static Fin<Unit> LegalConnect(Relationship.Connect c, Node from, Node to, ImmutableDictionary<NodeId, Node> nodes, Op key) =>
+ static Fin<Unit> LegalConnect(Relationship.Connect c, Node from, Node to, TrackingHashMap<NodeId, Node> nodes, Op key) =>
   BothObjects(from, to, key, "<connect-endpoints-must-be-objects>")
    .Bind(_ => c.Realizing.Match(
      None: () => Fin.Succ(unit),

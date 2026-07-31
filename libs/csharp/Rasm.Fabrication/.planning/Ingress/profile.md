@@ -325,7 +325,7 @@ public static partial class ProfileImport {
     static Fin<(double Scale, UnitsType Evidence)> Scale(UnitsType declared, ProfileUnitPolicy policy, ProfilePath path) =>
         policy.Switch(
             state: declared,
-            declared: static unit => Unit(unit).Map(scale => (scale, unit)),
+            declared: static (unit, _) => Unit(unit).Map(scale => (scale, unit)),
             declaredOr: static (unit, fallback) => Fin.Succ((
                 Unit(unit).IfFail(_ => Length.From(1d, fallback.Unit).Millimeters), unit)),
             @override: static (unit, forced) => Fin.Succ((Length.From(1d, forced.Unit).Millimeters, unit)))
@@ -457,7 +457,7 @@ public abstract partial record MarkingContent {
     // threading the receiver through the state tuple returns the identical instance for every static case.
     public MarkingContent Shift(Vector3d delta) => Switch(
         state: (Content: this, Delta: delta),
-        glyph: static state => state.Content,
+        glyph: static (state, _) => state.Content,
         text: static (state, arm) => (MarkingContent)(arm with { Align = arm.Align + state.Delta }),
         paragraph: static (state, _) => state.Content,
         tag: static (state, _) => state.Content);
@@ -711,7 +711,7 @@ public static partial class ProfileImport {
         double sweep = HatchSweep(arc.StartAngle, arc.EndAngle, arc.CounterClockWise);
         int parts = Math.Abs(sweep) == Math.PI * 2.0 ? 4 : 1;
         double step = sweep / parts;
-        return Range(0, parts).Map(index => {
+        return Range(0, parts).ToSeq().Map(index => {
             double from = arc.StartAngle + index * step;
             double to = from + step;
             return new HatchSpan(
@@ -736,7 +736,7 @@ public static partial class ProfileImport {
             : Math.Max(0, vertices.Length - 1);
         if (bulges.Length < spans)
             throw new System.IO.InvalidDataException($"hatch-polyline:bulges:{bulges.Length}:{spans}");
-        return Range(0, spans).Map(index => new HatchSpan(
+        return Range(0, spans).ToSeq().Map(index => new HatchSpan(
             Ocs(hatch.Normal, new XY(vertices[index].X, vertices[index].Y), hatch.Elevation, scale),
             Ocs(hatch.Normal, new XY(vertices[(index + 1) % vertices.Length].X, vertices[(index + 1) % vertices.Length].Y), hatch.Elevation, scale),
             bulges[index] * Math.Sign(hatch.Normal.Z)));
@@ -780,7 +780,7 @@ public static partial class ProfileImport {
 
     static Seq<(Vector3d Delta, int Row, int Column)> Replicas(Insert row, double scale) {
         Matrix3 frame = Matrix3.ArbitraryAxis(row.Normal) * Matrix3.RotationZ(row.Rotation);
-        return Range(0, row.RowCount).Bind(rowIndex => Range(0, row.ColumnCount).Map(columnIndex => {
+        return Range(0, row.RowCount).Bind(rowIndex => Range(0, row.ColumnCount).ToSeq().Map(columnIndex => {
             XYZ offset = frame * new XYZ(columnIndex * row.ColumnSpacing, rowIndex * row.RowSpacing, 0d);
             return (new Vector3d(offset.X * scale, offset.Y * scale, offset.Z * scale), rowIndex, columnIndex);
         }));
@@ -865,7 +865,7 @@ public static partial class ProfileImport {
     static Fin<(Loop Loop, SplineSampler Sampler, int Points)> SplineLoop(
         CadSpline row, ProfilePolicy policy, Entity entity, ProfilePath path, double scale) {
         int density = policy.Spline.Value;
-        Seq<XYZ> walked = Range(0, density)
+        Seq<XYZ> walked = Range(0, density).ToSeq()
             .Map(index => (double)index / (density - 1))
             .Choose(parameter => row.TryPointOnSpline(parameter, out XYZ point) ? Some(point) : Option<XYZ>.None)
             .Strict();
@@ -943,12 +943,12 @@ public static class ProfileTopology {
 
     public static Fin<Receipt> Repair(Seq<ProfileContour> contours, ProfilePolicy policy) => policy.Closure.Switch(
         state: (Contours: contours, Policy: policy),
-        open: static state => Normalize(state.Contours, state.Policy, demandClosed: false, gap: 0d),
-        exact: static state => state.Contours.IsEmpty
-            ? Fin.Fail<Receipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:empty").ToError())
+        open: static (state, _) => Normalize(state.Contours, state.Policy, demandClosed: false, gap: 0d),
+        exact: static (state, _) => state.Contours.IsEmpty
+            ? Fin.Fail<Receipt>(new GeometryFault.DegenerateInput(Kind.Curve, None, "profile-topology:empty").ToError())
             : Normalize(state.Contours, state.Policy, demandClosed: true, gap: 0d),
         healed: static (state, closure) => state.Contours.IsEmpty
-            ? Fin.Fail<Receipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:empty").ToError())
+            ? Fin.Fail<Receipt>(new GeometryFault.DegenerateInput(Kind.Curve, None, "profile-topology:empty").ToError())
             : Normalize(state.Contours, state.Policy, demandClosed: true, closure.MaxGap.Value.Millimeters));
 
     static Fin<Receipt> Normalize(Seq<ProfileContour> contours, ProfilePolicy policy, bool demandClosed, double gap) =>
@@ -956,7 +956,7 @@ public static class ProfileTopology {
         from closed in stitched.Contours.Find(row => demandClosed && row.Provenance.Lane.Closes && !row.Loop.Closed)
             .Match(
                 Some: row => Fin.Fail<Seq<ProfileContour>>(
-                    new FabricationFault.OpenLoop(FabConcern.Profile, row.Loop.Count)),
+                    new FabricationFault.OpenLoop(FabConcern.Ingress, row.Loop.Count)),
                 None: () => Fin.Succ(stitched.Contours))
         from groups in closed.GroupBy(static row => (
                 Provenance: row.Provenance with { Ordinals = Set<int>(), Handle = 0ul }, row.Loop.Closed))
@@ -968,14 +968,17 @@ public static class ProfileTopology {
 
     // One closed provenance group IS the region unit: clean and densify through the arc owner, then read nesting
     // from the fill rule — a boolean union under one winding absorbs every hole into its outer boundary.
+    // `Seq.Head` is `Option`, and an empty group is the one state this guard cannot answer, so the head binds once
+    // and an empty group passes through unregioned rather than dereferencing absence.
     static Fin<Normalized> NormalizeGroup(Seq<ProfileContour> rows, ProfilePolicy policy) =>
-        rows.Head.Provenance.Lane.Closes && rows.Head.Loop.Closed
-        ? from forest in ArcForest
-              .Admit(rows.Map(static row => row.Loop), policy.Tolerance, rows.Head.Loop.Plane).ToFin()
+        rows.Head.Filter(static head => head.Provenance.Lane.Closes && head.Loop.Closed).Match(
+        Some: head =>
+          from forest in ArcForest
+              .Admit(rows.Map(static row => row.Loop), policy.Tolerance, head.Loop.Plane).ToFin()
           from cleaned in ArcAlgebra.Apply(new ArcOp.Clean(forest))
           from evidence in cleaned switch {
               ArcTrace.Forest arm => Fin.Succ(arm),
-              _ => Fin.Fail<ArcTrace.Forest>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:clean").ToError()),
+              _ => Fin.Fail<ArcTrace.Forest>(new GeometryFault.DegenerateInput(Kind.Curve, None, "profile-topology:clean").ToError()),
           }
           from lowered in evidence.Result.Loops
               .Traverse(loop => ArcAlgebra
@@ -983,23 +986,23 @@ public static class ProfileTopology {
                   .Bind(static trace => trace switch {
                       ArcTrace.Densified arm => Fin.Succ(arm.Receipt),
                       _ => Fin.Fail<DensifyReceipt>(
-                          new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:densify").ToError()),
+                          new GeometryFault.DegenerateInput(Kind.Curve, None, "profile-topology:densify").ToError()),
                   }).ToValidation()).As().ToFin()
           from trace in PolygonAlgebra.Apply(
               new PolygonOp.Topology(lowered.Map(static receipt => receipt.Result), policy.Fill))
           from topology in trace switch {
               PolygonTrace.Regions arm => Fin.Succ(arm.Result),
-              _ => Fin.Fail<TopologyReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:projection").ToError()),
+              _ => Fin.Fail<TopologyReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, None, "profile-topology:projection").ToError()),
           }
-          let provenance = rows.Head.Provenance
+          let provenance = head.Provenance
           let admitted = evidence.Result.Loops
           select new Normalized(
               admitted.Map(loop => new ProfileContour(loop, provenance)),
               Some(new ProfileRegion(provenance, topology)),
               Cleanup(provenance, rows, evidence.Receipt)
                   .Concat(lowered.Map(receipt => Densification(provenance, receipt)).Somes())
-                  .Concat(Areas(provenance, rows, admitted)))
-        : Fin.Succ(new Normalized(rows, Option<ProfileRegion>.None, Seq<ProfileRepair>()));
+                  .Concat(Areas(provenance, rows, admitted))),
+        None: () => Fin.Succ(new Normalized(rows, Option<ProfileRegion>.None, Seq<ProfileRepair>())));
 
     static Fin<Stitched> Stitch(Seq<ProfileContour> contours, Context tolerance, double gap) =>
         contours.GroupBy(static contour => (
@@ -1010,7 +1013,7 @@ public static class ProfileTopology {
                 groups.Bind(static group => group.Repairs)));
 
     static Fin<Stitched> StitchLane(Seq<ProfileContour> group, Context tolerance, double gap) =>
-        group.Head.Provenance.Lane.Closes
+        group.Head.Exists(static head => head.Provenance.Lane.Closes)
             ? StitchGroup(group, tolerance, gap)
             : Fin.Succ(new Stitched(group, Seq<ProfileRepair>()));
 
@@ -1020,7 +1023,7 @@ public static class ProfileTopology {
         List<(Loop Loop, Set<int> Ordinals)> chains = group
             .Map(static row => (row.Loop, row.Provenance.Ordinals)).ToList();
         if (Branching(chains.Map(static chain => chain.Loop).ToList(), gap))
-            return Fin.Fail<Stitched>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:branch").ToError());
+            return Fin.Fail<Stitched>(new GeometryFault.DegenerateInput(Kind.Curve, None, "profile-topology:branch").ToError());
         int joins = 0;
         double joinedDistance = 0d;
         bool merged;
@@ -1044,7 +1047,11 @@ public static class ProfileTopology {
                 None: static () => false);
         } while (merged);
 
-        ProfileProvenance provenance = group.Head.Provenance with {
+        // `StitchLane` proves a head before routing here, so absence is a caller defect and refuses typed rather
+        // than dereferencing the `Option` the sequence returns.
+        if (group.Head.Case is not ProfileContour lead)
+            return Fin.Fail<Stitched>(new GeometryFault.DegenerateInput(Kind.Curve, None, "profile-topology:group-empty").ToError());
+        ProfileProvenance provenance = lead.Provenance with {
             Ordinals = group.Bind(static row => row.Provenance.Ordinals).ToSet(),
         };
         Seq<(Loop Loop, Set<int> Ordinals, Option<double> Gap)> closures = toSeq(chains)
@@ -1100,7 +1107,7 @@ public static class ProfileTopology {
         ? Loop.Admit(
             loop.Vertices.Rev().ToArr(),
             false,
-            Range(0, loop.Count).Map(index => index == loop.Count - 1
+            Range(0, loop.Count).ToSeq().Map(index => index == loop.Count - 1
                 ? 0d
                 : -loop.BulgeAt(loop.Count - 2 - index)).ToArr(),
             loop.Tolerance).ToOption()
@@ -1185,16 +1192,16 @@ public abstract partial record ProfileView {
 public static partial class ProfileImport {
     public static ProfileView Project(ProfileImportReceipt receipt, ProfileProjection projection) => projection.Switch(
         state: receipt,
-        loops: static value => new ProfileView.Loops(value.Loops),
-        lanes: static value => new ProfileView.Lanes(Group(value.Contours, static row => row.Provenance.Lane)),
-        layers: static value => new ProfileView.Layers(Group(value.Contours, static row => row.Provenance.Layer)),
-        regions: static value => new ProfileView.Regions(value.Regions),
-        markings: static value => new ProfileView.Markings(value.Markings),
-        tags: static value => new ProfileView.Tags(TagsOf(value.Markings)),
-        bounds: static value => new ProfileView.Bounds(value.Extents),
-        repairs: static value => new ProfileView.Repairs(value.Repairs),
-        census: static value => new ProfileView.Census(value.Census),
-        receipt: static value => new ProfileView.Receipt(value));
+        loops: static (value, _) => new ProfileView.Loops(value.Loops),
+        lanes: static (value, _) => new ProfileView.Lanes(Group(value.Contours, static row => row.Provenance.Lane)),
+        layers: static (value, _) => new ProfileView.Layers(Group(value.Contours, static row => row.Provenance.Layer)),
+        regions: static (value, _) => new ProfileView.Regions(value.Regions),
+        markings: static (value, _) => new ProfileView.Markings(value.Markings),
+        tags: static (value, _) => new ProfileView.Tags(TagsOf(value.Markings)),
+        bounds: static (value, _) => new ProfileView.Bounds(value.Extents),
+        repairs: static (value, _) => new ProfileView.Repairs(value.Repairs),
+        census: static (value, _) => new ProfileView.Census(value.Census),
+        receipt: static (value, _) => new ProfileView.Receipt(value));
 
     // TagsOf is PUBLIC because the keyed attribute read has two callers: this projection and the run input that
     // carries markings forward to a traveler or a posted program. One fold owns the grouping, so a downstream

@@ -7,7 +7,7 @@ Rasm.Compute owns the suite wire CONTRACT: the proto services compiled GrpcServi
 ## [01]-[INDEX]
 
 - [02]-[PROTO_VOCABULARY]: six wire services, canonical geometry and support-bundle messages, the `DocumentService`↔`DocumentTransaction` parity seam, the polymorphic field-mask and `Any` envelopes, and the MINTED `GaussianSplatScan` frame.
-- [03]-[CONTRACT_EVOLUTION]: descriptor-diff drift law over field/rpc/oneof/enum/reserved/packed/nested surface behind one canonical projection-checksum gate, with parse hardening.
+- [03]-[CONTRACT_EVOLUTION]: descriptor-diff drift law over field/rpc/oneof/enum/reserved/packed/nested surface behind one canonical projection-checksum gate, with parse hardening and the branch-interior stage-crossing slot mirror.
 - [04]-[FAULT_PROJECTION]: one `FaultDetail` family, the `StatusCode`→`WireFault` rail, and the band-complete `FaultWire` projection mirroring the admission custody map with an in-band conflict decode arm.
 - [05]-[TS_PROJECTION]: browser wire posture — fault and frame contracts, method shapes, the transaction-parity shape, field-mask read.
 
@@ -16,7 +16,7 @@ Rasm.Compute owns the suite wire CONTRACT: the proto services compiled GrpcServi
 - Owner: the six service contracts and the canonical geometry and support-bundle message families declared in the remote-lane owner folder; `WireServices` — the channel-scoped generated-client capsule carrying one polymorphic `Mask` projection and the `Unpack` typed-fault projection; `WireDocument` — the flagship `DocumentService`↔`DocumentTransaction` parity surface folding budget, `Bounded` pre-check, `Classify`, and receipt emission into the canonical operation set field-for-field across in-process and cross-process.
 - Cases: ComputeService, DocumentService, ControlService, Diagnostic, ArtifactSync, grpc.health.v1.Health — google/rpc/status.proto and grpc.health.v1 compile verbatim beside the owned files.
 - Law: `WireDocument` is the `DocumentService`↔`DocumentTransaction` parity owner — `ExecuteTransaction` carries the in-process `DocumentTransaction` verb set field-for-field through one budget-bounded, fault-classified, receipt-emitting forwarder, so the same canonical operation set, the same `TransactionReceipt`, and the same wire choreography produce the identical typed receipt whether the transaction runs through the in-process handler or across the channel; the dedup window equals the `DeadlineClass.HopTotal` allotment so the one retry owner's horizon gates the idempotency edge on both legs, the response mirrors the typed receipt through `WireDocument.Receipt`, and a non-exceptional in-band conflict decodes through `WireDocument.Conflict` reading the `TransactionReceipt.conflict=5` slot onto the typed `WireFault` rail with no parallel response DTO and no hand-rolled per-consumer projection.
-- Law: `GaussianSplatScan` is GROUNDED here — the SPZ v4 and SOG v2 binary specifications are stable, versioned, MIT-published law, so C# owns the wire vocabulary without waiting on a consumer. It rides the ArtifactSync `ArtifactFrame` byte seam as a STANDALONE artifact (NEVER a `GeometryPayload` oneof case — the oneof carries point_cloud/mesh/voxel only), reassembles via `FrameEdge.Reassemble<GaussianSplatScan>` under the whole-artifact `XxHash128` identity gate, and admits to the Compute `Rasm.Compute/Runtime/payload#RESIDENCY` `SplatScan`, whose member set (`FormatKey`/`Positions`/`Scales`/`Rotations`/`Harmonics`/`HarmonicDegree`/`SplatCount`) byte-mirrors these fields; Python `realitycapture` SPZ/SOG decode, the `xxhash` cp315 wheel, and the render-side consumer leaf `Rasm.AppUi/Render/reality#SPLAT_SOURCE` stay named sibling-branch facts.
+- Law: `GaussianSplatScan` is GROUNDED here — the SPZ v4 and SOG v2 binary specifications are stable, versioned, MIT-published law, so C# owns the wire vocabulary without waiting on a consumer. It rides the ArtifactSync `ArtifactFrame` byte seam as a STANDALONE artifact (NEVER a `GeometryPayload` oneof case — the oneof carries point_cloud/mesh/voxel only), reassembles via `FrameEdge.Reassemble<GaussianSplatScan>` under the whole-artifact `XxHash128` identity gate, and admits to the Compute `Rasm.Compute/Runtime/payload#RESIDENCY` `SplatScan`, whose member set (`FormatKey`/`Positions`/`Scales`/`Rotations`/`Harmonics`/`HarmonicDegree`/`SplatCount`/`Alphas` — the harmonic band leading with its DC triple, the alphas column the sigmoid-activated opacity appended additive-only) byte-mirrors these fields; Python `realitycapture` SPZ/SOG decode, the `xxhash` cp315 wheel, and the render-side consumer leaf `Rasm.AppUi/Render/reality#SPLAT_SOURCE` stay named sibling-branch facts.
 - Auto: Grpc.Tools compiles GrpcServices=Client at build with `PrivateAssets=all`, `Access=Internal` for package-internal generated types and `Access=Public` only where the contract crosses the package boundary; app roots compile the same files GrpcServices=Server and emit the descriptor set that feeds connect-es codegen and the manifest checksum. Producer descriptors regenerate `rasm.runtime._pb2.channels_pb2`; `SupportBundleRequest`, `SupportBundleReply`, and `Diagnostic/CaptureBundle` then bind the Python `PROTO_VOCABULARY` request and response rows without a hand-maintained twin.
 - Packages: Google.Protobuf, Grpc.Tools, Grpc.Net.Client, NodaTime.Serialization.Protobuf
 - Growth: one rpc row on an existing service or one numbered message field absorbs a new wire fact; the browser collaboration decomposition (server-stream down, unary chunked up) is designed-only growth of one rpc row per direction; zero new surface.
@@ -175,12 +175,13 @@ Each message carries its proto field set and wire role:
 
 ## [03]-[CONTRACT_EVOLUTION]
 
-- Owner: `ContractDrift` `[Union]` three-way drift classification; `ContractGuard` — descriptor surface fold over field/rpc/oneof/enum/reserved/packed shape recursing nested message and enum types, classifier delegate, descriptor publication path, proto-name reconciliation, canonical projection checksum, field-mask read guard; `ParseGuard` — inbound parse-hardening policy record carrying the size-gated buffer decode, the proto2 `ExtensionRegistry`, and the dynamic open-envelope admission.
+- Owner: `ContractDrift` `[Union]` three-way drift classification; `ContractGuard` — descriptor surface fold over field/rpc/oneof/enum/reserved/packed shape recursing nested message and enum types, classifier delegate, descriptor publication path, proto-name reconciliation, canonical projection checksum, field-mask read guard; `ParseGuard` — inbound parse-hardening policy record carrying the size-gated buffer decode, the proto2 `ExtensionRegistry`, and the dynamic open-envelope admission; `StageCrossing` — the Compute-side reciprocal mirror of the branch-interior photo-to-PBR slot roster, folding through the same canonical projection.
 - Cases: Identical, Additive (tolerated), Breaking (typed rejection carrying the missing or retyped surface rows).
-- Entry: `AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf)` — the delegate `Discovery.Compatible` consumes; checksum equality or additive drift admits, breaking drift rejects on the hop fault rail.
+- Entry: `AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf)` — the delegate `Discovery.Compatible` consumes; checksum equality or additive drift admits, breaking drift rejects on the hop fault rail. `StageCrossing.Probe()` proves both stage rosters against their own record arities at boot and `StageCrossing.Checksum(roster)` folds one roster to the digest the relaying root compares against the producing end's.
+- Law: the photo-to-PBR stage crossing is NOT a Compute wire and mints no codec here — `Rasm.Materials` SPECIFIES the request, `Model/inference#STAGE_EXECUTION` EXECUTES it, the branch strata forbid a project reference either way, so the app root relays the bytes and transcribes them into the lowered-primitive `StageRequest`/`StageResult` records Compute declares independently. What Compute OWES is the reciprocal mirror of the frozen slot roster — the same both-ends-checkable discipline the `[04]-[FAULT_PROJECTION]` band registry takes — so an appended column at one end alone fails a boot probe rather than misdecoding at its slot, and a relaying root refuses to transcribe a byte across a checksum disagreement.
 - Packages: Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
-- Growth: a removed field becomes one reserved row carrying its number range — `message.ToProto().ReservedRange` projects each `Start`-`End` span into the surface set so numbers never return to use and a removed-then-reclaimed number classifies Breaking; one surface-projection row absorbs a new descriptor dimension — packed-encoding flip, nested-type retype, oneof-membership change; the host↔companion capability negotiation and per-node EP-option bag ride the `Struct`/`Value`/`ListValue` open-envelope column under the same additive-only contract — open within an additive-only contract, never a drift escape hatch; zero new surface.
-- Boundary: contract identity is the serialized descriptor set built through `FileDescriptor.BuildFromByteStrings` at startup; an empty descriptor set faults before hashing. `ContractGuard.Checksum` folds the ordered `Surface(...)` set into one UTF-8 stream and applies `XxHash128.Hash`, so semantically identical generators agree without hashing unstable raw `SerializedData`. `AdditiveOnly` admits checksum equality and otherwise classifies the descriptor diff; checksum mismatch never admits alone. `Surface` recurses messages and enums and projects message and service declarations, field number, type, cardinality, map shape, packing, oneof membership, JSON name, reserved ranges, enum values, and RPC input, output, and streaming shape, so adding an empty declaration still changes identity. `UnknownFieldSet` retention stays at the generated-parser default. `ParseGuard.Read` checks `ReadOnlySequence<byte>.Length` before `MessageParser<T>.ParseFrom(ReadOnlySequence<byte>)`, and `ExtensionRegistry` resolves declared proto2 extensions at the same boundary.
+- Growth: a removed field becomes one reserved row carrying its number range — `message.ToProto().ReservedRange` projects each `Start`-`End` span into the surface set so numbers never return to use and a removed-then-reclaimed number classifies Breaking; one surface-projection row absorbs a new descriptor dimension — packed-encoding flip, nested-type retype, oneof-membership change; the host↔companion capability negotiation and per-node EP-option bag ride the `Struct`/`Value`/`ListValue` open-envelope column under the same additive-only contract — open within an additive-only contract, never a drift escape hatch; a new stage column is one `StageCrossing` slot row landing in the same change as its `Model/inference` record column, which the arity probe then forces; zero new surface.
+- Boundary: contract identity is the serialized descriptor set built through `FileDescriptor.BuildFromByteStrings` at startup; an empty descriptor set faults before hashing. `StageCrossing` carries slot ordinals and wire field names ALONE in its digest — the half the producing end reproduces from its own `[Key(n)]` roster — while the Compute column each slot lands on stays a `nameof` binding this side proves and never transmits, so a rename here breaks a build and never a peer. `ContractGuard.Checksum` folds the ordered `Surface(...)` set into one UTF-8 stream and applies `XxHash128.Hash`, so semantically identical generators agree without hashing unstable raw `SerializedData`. `AdditiveOnly` admits checksum equality and otherwise classifies the descriptor diff; checksum mismatch never admits alone. `Surface` recurses messages and enums and projects message and service declarations, field number, type, cardinality, map shape, packing, oneof membership, JSON name, reserved ranges, enum values, and RPC input, output, and streaming shape, so adding an empty declaration still changes identity. `UnknownFieldSet` retention stays at the generated-parser default. `ParseGuard.Read` checks `ReadOnlySequence<byte>.Length` before `MessageParser<T>.ParseFrom(ReadOnlySequence<byte>)`, and `ExtensionRegistry` resolves declared proto2 extensions at the same boundary.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -248,7 +249,7 @@ public static class ContractGuard {
         Seq($"{message.FullName}:message")
             .Concat(message.Fields.InDeclarationOrder().ToSeq()
             .Map(field => $"{message.FullName}.{field.Name}={field.FieldNumber}:{field.FieldType}:{(field.IsRepeated ? "R" : "S")}:{(field.IsMap ? "M" : "-")}:{(field.IsPacked ? "P" : "-")}:{field.ContainingOneof?.Name ?? "-"}:{field.JsonName}")
-            .Concat(message.Oneofs.ToSeq().Map(oneof => $"{message.FullName}~{oneof.Name}=[{string.Join(',', oneof.Fields.OrderBy(static f => f.FieldNumber).Select(static f => f.FieldNumber))}]"))
+            .Concat(toSeq(message.Oneofs).Map(oneof => $"{message.FullName}~{oneof.Name}=[{string.Join(',', oneof.Fields.OrderBy(static f => f.FieldNumber).Select(static f => f.FieldNumber))}]"))
             .Concat(message.ToProto().ReservedRange.ToSeq().Map(range => $"{message.FullName}.reserved:{range.Start}-{range.End}"))
             .Concat(message.NestedTypes.ToSeq().Bind(MessageSurface))
             .Concat(message.EnumTypes.ToSeq().Map(EnumSurface)));
@@ -259,6 +260,71 @@ public static class ContractGuard {
     private static Seq<string> RpcSurface(FileDescriptor file) =>
         file.Services.ToSeq().Bind(static service => Seq($"{service.FullName}:service")
             .Concat(service.Methods.ToSeq().Map(method => $"{service.FullName}/{method.Name}:{method.InputType.FullName}->{method.OutputType.FullName}:{(method.IsClientStreaming ? "C" : "U")}{(method.IsServerStreaming ? "S" : "U")}")));
+}
+
+// Compute's end of the branch-interior photo-to-PBR crossing. No codec lands here: the specifying package owns the
+// positional roster, the app root relays and transcribes the bytes, and Compute receives already-typed records
+// whose every column is a lowered primitive. Two independently declared rosters with no correspondence is what
+// this owner deletes — each row pins one frozen slot ordinal beside the `Model/inference#STAGE_EXECUTION` column it
+// lands on through `nameof`, so a rename breaks a build, an appended column with no counterpart breaks `Probe`,
+// and the relaying root compares one digest per direction before it moves a byte. Mirroring the peer's
+// `[Key(n)]` annotations, its serializer, or its vocabularies here would re-mint the rosters that ruling forecloses.
+public static class StageCrossing {
+    public const string RequestWire = "rasm.materials.stage-request.v1";
+    public const string ResultWire = "rasm.materials.stage-result.v1";
+
+    public static readonly Seq<(int Slot, string Wire, string Column)> Request = Seq(
+        (0, "stage", nameof(StageRequest.Stage)),
+        (1, "modelCardId", nameof(StageRequest.ModelCardId)),
+        (2, "licenseClass", nameof(StageRequest.License)),
+        (3, "inputs", nameof(StageRequest.Inputs)),
+        (4, "inputWidth", nameof(StageRequest.InputWidth)),
+        (5, "inputHeight", nameof(StageRequest.InputHeight)),
+        (6, "outputWidth", nameof(StageRequest.OutputWidth)),
+        (7, "outputHeight", nameof(StageRequest.OutputHeight)),
+        (8, "tileWidth", nameof(StageRequest.TileWidth)),
+        (9, "tileHeight", nameof(StageRequest.TileHeight)),
+        (10, "overlap", nameof(StageRequest.Overlap)),
+        (11, "padMode", nameof(StageRequest.Pad)),
+        (12, "bucket", nameof(StageRequest.Bucket)),
+        (13, "provider", nameof(StageRequest.Provider)),
+        (14, "precision", nameof(StageRequest.Precision)),
+        (15, "seed", nameof(StageRequest.Seed)),
+        (16, "op", nameof(StageRequest.Op)),
+        (17, "artefact", nameof(StageRequest.Artefact)));
+
+    public static readonly Seq<(int Slot, string Wire, string Column)> Result = Seq(
+        (0, "stage", nameof(StageResult.Stage)),
+        (1, "modelCardId", nameof(StageResult.ModelCardId)),
+        (2, "outputs", nameof(StageResult.Outputs)),
+        (3, "providerUsed", nameof(StageResult.ProviderUsed)),
+        (4, "partitionCount", nameof(StageResult.PartitionCount)),
+        (5, "elapsedMs", nameof(StageResult.ElapsedMs)),
+        (6, "goldenDelta", nameof(StageResult.GoldenDelta)),
+        (7, "tilesEmitted", nameof(StageResult.TilesEmitted)),
+        (8, "op", nameof(StageResult.Op)),
+        (9, "artefact", nameof(StageResult.Artefact)),
+        (10, "parityFresh", nameof(StageResult.ParityFresh)),
+        (11, "coverage", nameof(StageResult.Coverage)));
+
+    // Slot ordinals and wire names ALONE fold, because that half the producing end reproduces from its own
+    // roster; the Compute column stays a build-time binding. Ordering by slot makes the digest independent of
+    // declaration order, so a re-sorted roster is not a contract change.
+    public static string Checksum(Seq<(int Slot, string Wire, string Column)> roster) =>
+        Convert.ToHexStringLower(XxHash128.Hash(Encoding.UTF8.GetBytes(
+            string.Join(';', roster.OrderBy(static row => row.Slot).Map(static row => $"{row.Slot}:{row.Wire}")))));
+
+    // Record arity IS the proof: a wire column appended with no Compute column, a Compute column with no slot, or
+    // a duplicated ordinal all fail here at boot, where a decoder trusting position fails at the texel.
+    public static Fin<Unit> Probe() =>
+        Arity<StageRequest>() == Request.Count && Arity<StageResult>() == Result.Count
+        && Request.Map(static row => row.Slot).ToFrozenSet().Count == Request.Count
+        && Result.Map(static row => row.Slot).ToFrozenSet().Count == Result.Count
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(ComputeFault.Create(
+                $"<stage-crossing-drift:{Arity<StageRequest>()}/{Request.Count}:{Arity<StageResult>()}/{Result.Count}>"));
+
+    static int Arity<T>() => typeof(T).GetConstructors().Single().GetParameters().Length;
 }
 ```
 

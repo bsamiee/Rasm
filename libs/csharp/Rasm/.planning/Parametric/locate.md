@@ -13,7 +13,7 @@ Structural law is the (value × locator) matrix as CASE-OWNED rows: each `Locati
 
 - Owner: `Locator` `[Union]` is the addressing algebra — `CurveParameter`, `ArcLength`, `NormalizedLength`, `SurfaceParameter`, `ClosestTo`, `PerpendicularParameters`; `NormalizedMid` is the `NormalizedLength(0.5)` factory, the arc-length-normalized station family one payload. Addressing carries its own policy: `ResolveParameter` lowers the three curve addresses to a parameter under `Context.Fractional`, and `CurveRequirement` derives the readiness gate (`Requirement.CurveLength` for the length-driven addresses, `Requirement.Basic` otherwise), never a per-arm literal.
 - Owner: `LocationValue` `[Union]` — `Point`, `Frame`, `Normal`, `Tangent`, `Curvature`, `Derivative`, `Parameter`, `Length`, each a ROW of the (value × locator) matrix carrying a `nameof`-derived `Op Key`, an `Option<SupportProjection>` closest column, and virtual `OnCurve`/`OnSurface`/`OnPerpendicular` arms defaulting to `Unsupported`; `Resolve` folds the locator FAMILY to the owning arm, the curve family riding the default route. Curve arms delegate frame/tangent/curvature to the `Parametric/projections` `CurveProjection` rows through `VectorIntent.Curve`, never a second evaluation path; surface arms compose the `Domain/evaluation` floor; `Length` measures `Curve.GetLength` from `Domain.T0` to the resolved parameter; `Parameter` surfaces the address the resolution already computed; `Derivative` gates non-negative order.
-- Owner: `Division` `[Union]` — `ByCount`, `ByLength`, validating at the fold (non-positive count, non-finite or sub-tolerance length → `Reject`) and lowering to `Curve.DivideByCount`/`DivideByLength`; `ByLength` carries `Requirement.CurveLength`.
+- Owner: `Division` `[Union]` — `ByCount`, `ByLength`, `ByChord`, `AsContour`, validating at the fold (non-positive count, non-finite or sub-tolerance spacing, degenerate contour axis → `Reject`) and lowering to `Curve.DivideByCount`/`DivideByLength`/`DivideEquidistant`/`DivideAsContour`; the length-driven cases carry `Requirement.CurveLength`, and each case is its own division LAW — arc-length, straight-line chord, and contour-plane spacing never collapse onto one distance knob.
 - Owner: `CurvatureMode` `[Union]` — `Vector`, `Scalar`, with the two derivation columns the sweep reads (`IsCurveMagnitude`; `SurfaceMetrics`, vector mode yielding `Gaussian`+`Mean` and a surface scalar its singleton); `CurvatureAggregation` `[Union]` — `Samples`, `Extrema`, its `Key` column selecting the operation identity and `Band` parameterizing the `Stat.Extrema` tolerance band (band `0.0` the exact extremum, a positive band the plateau set — a policy value, not a second fold).
 - Owner: `Location` `[Union]` — the aspect the query routes: `At`, `Curvature`, `Divide`, `Orientation`, `Contains`, `ShortPath`; twin sample/extrema cases collapse to ONE `CurvatureCase` discriminated by `CurvatureAggregation`, aggregation a value, not a sibling case.
 - Entry: `Operation<TGeometry, TOut>()` is the generated `Switch` fold from aspect to operation, and `AnalysisQuery.Location` the ONLY public route in — no aspect exposes a second executable surface.
@@ -90,6 +90,13 @@ public abstract partial record LocationValue {
     public sealed record NormalCase : LocationValue {
         internal override Op Key => LocationKeys.NormalAt;
         internal override Option<SupportProjection> Closest => Some(SupportProjection.Normal);
+        // Curve normal IS the RMF frame's Y axis — the projections FrameNormal row, so At(CurveParameter, Normal)
+        // answers through the one evaluation path instead of an Unsupported cell beside a shipped capability.
+        internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
+            Locate.Curve<TGeometry, TOut, Vector3d>(key: LocationKeys.NormalAt, locator: locator, project: static (key, curve, t, context) =>
+                VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.FrameNormal, key: key)
+                    .Bind(intent => intent.Project<Vector3d>(context: context, key: key))
+                    .Bind(normal => key.Accept(value: normal)));
         internal override Operation<TGeometry, TOut> OnSurface<TGeometry, TOut>(Point2d uv) =>
             Locate.Surface<TGeometry, TOut, Vector3d>(key: LocationKeys.NormalAt, uv: uv, project: static (key, surface, p) =>
                 Evaluation.NormalAt(surface: surface, uv: p, key: key).Bind(normal => key.Accept(value: normal)));
@@ -127,6 +134,17 @@ public abstract partial record LocationValue {
                     Optional(curve.DerivativeAt(t: t, derivativeCount: Order)).Filter(derivatives => Order < derivatives.Length)
                         .ToFin(key.InvalidResult())
                         .Bind(derivatives => key.Accept(value: derivatives[Order])));
+        // Order-n surface jet block ∂ⁿS/∂uᵏ∂vⁿ⁻ᵏ (k = n..0) off the host order-n evaluate — the
+        // order-1 pair is the projections Jacobian's columns, so At(SurfaceParameter, Derivative(n))
+        // answers as a value sequence instead of an Unsupported cell beside a shipped capability.
+        internal override Operation<TGeometry, TOut> OnSurface<TGeometry, TOut>(Point2d uv) =>
+            Order < 1
+                ? Operation<TGeometry, TOut>.Reject(key: LocationKeys.DerivativeAt, fault: LocationKeys.DerivativeAt.InvalidInput())
+                : Locate.Surface<TGeometry, TOut, Vector3d>(key: LocationKeys.DerivativeAt, uv: uv, project: (key, surface, p) =>
+                    surface.Evaluate(u: p.X, v: p.Y, numberDerivatives: Order, point: out Point3d _, derivatives: out Vector3d[] derivatives)
+                    && derivatives.Length >= (((Order - 1) * (Order + 2)) / 2) + Order + 1
+                        ? Fin.Succ(toSeq(derivatives.Skip(count: ((Order - 1) * (Order + 2)) / 2).Take(count: Order + 1)))
+                        : Fin.Fail<Seq<Vector3d>>(key.InvalidResult()));
     }
     public sealed record ParameterCase : LocationValue {
         internal override Op Key => LocationKeys.ParameterAt;
@@ -177,14 +195,31 @@ public abstract partial record Division {
     private Division() { }
     public sealed record ByCount(int Count) : Division;
     public sealed record ByLength(double Length) : Division;
+    // Equal STRAIGHT-LINE chord spacing — a distinct division law from arc-length ByLength; the
+    // fabrication chord-tolerance station set neither existing case can express.
+    public sealed record ByChord(double Distance) : Division;
+    // Contour-plane stations along an axis pair — its own division law with its own payload, so it is
+    // a case, never a column on a spacing case.
+    public sealed record AsContour(Point3d Start, Point3d End, double Interval) : Division;
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => this switch {
         ByCount { Count: <= 0 } => Analysis.Operation<TGeometry, TOut>.Reject(key: LocationKeys.Divide, fault: LocationKeys.Divide.InvalidInput()),
-        ByLength { Length: double length } when !double.IsFinite(length) || length <= RhinoMath.ZeroTolerance =>
+        ByLength { Length: double length } when !double.IsFinite(length) || length <= EpsilonPolicy.ZeroTolerance =>
+            Analysis.Operation<TGeometry, TOut>.Reject(key: LocationKeys.Divide, fault: LocationKeys.Divide.InvalidInput()),
+        ByChord { Distance: double distance } when !double.IsFinite(distance) || distance <= EpsilonPolicy.ZeroTolerance =>
+            Analysis.Operation<TGeometry, TOut>.Reject(key: LocationKeys.Divide, fault: LocationKeys.Divide.InvalidInput()),
+        AsContour { Start: Point3d s, End: Point3d e, Interval: double interval } when
+            !s.IsValid || !e.IsValid || !double.IsFinite(interval) || interval <= EpsilonPolicy.ZeroTolerance || s.DistanceTo(other: e) <= EpsilonPolicy.ZeroTolerance =>
             Analysis.Operation<TGeometry, TOut>.Reject(key: LocationKeys.Divide, fault: LocationKeys.Divide.InvalidInput()),
         ByCount bc => Locate.Divide<TGeometry, TOut>(key: LocationKeys.Divide, requirement: null,
             divide: curve => curve.DivideByCount(segmentCount: bc.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None }),
         ByLength bl => Locate.Divide<TGeometry, TOut>(key: LocationKeys.Divide, requirement: Requirement.CurveLength,
             divide: curve => curve.DivideByLength(segmentLength: bl.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None }),
+        // ByChord binds the parameter-returning overload, matching the sibling arms — stations keep their parameter
+        // channel live at the seam even though the aspect emits points.
+        ByChord bc => Locate.Divide<TGeometry, TOut>(key: LocationKeys.Divide, requirement: Requirement.CurveLength,
+            divide: curve => curve.DivideEquidistant(distance: bc.Distance, curveParameters: out double[] _) switch { Point3d[] points => Optional(points), _ => Option<Point3d[]>.None }),
+        AsContour ac => Locate.Divide<TGeometry, TOut>(key: LocationKeys.Divide, requirement: null,
+            divide: curve => Optional(curve.DivideAsContour(contourStart: ac.Start, contourEnd: ac.End, interval: ac.Interval)).Filter(static points => points.Length > 0)),
         _ => Analysis.Operation<TGeometry, TOut>.Reject(key: LocationKeys.Divide, fault: LocationKeys.Divide.InvalidInput()),
     };
 }
@@ -230,6 +265,8 @@ public abstract partial record Location {
         new CurvatureCase(Count: count, Mode: mode, Aggregation: CurvatureAggregation.Extrema(direction: direction, band: band));
     public static Location DivideByCount(int count) => new DivideCase(By: new Division.ByCount(Count: count));
     public static Location DivideByLength(double length) => new DivideCase(By: new Division.ByLength(Length: length));
+    public static Location DivideByChord(double distance) => new DivideCase(By: new Division.ByChord(Distance: distance));
+    public static Location DivideAsContour(Point3d start, Point3d end, double interval) => new DivideCase(By: new Division.AsContour(Start: start, End: end, Interval: interval));
     public static Location Orientation(Plane plane) => new OrientationCase(Plane: plane);
     public static Location Contains(Point3d point, Plane plane) => new ContainsCase(Probe: point, Frame: plane);
     public static Location ShortPath(Point2d start, Point2d end) => new ShortPathCase(Start: start, End: end);
@@ -480,6 +517,8 @@ config:
     padding: 25
 ---
 flowchart LR
+    accTitle: Location operation flow
+    accDescr: AnalysisQuery.Location routes aspects through the Locate spine — value rows resolve locator arms, divisions lower to host members, and the curvature sweep folds stations to stats.
     Query["Analysis/query AnalysisQuery.Location"] -->|Location.Operation| Location["Location aspect Switch"]
     Location -->|At| Rows["LocationValue case rows — Key · Closest column · OnCurve / OnSurface / OnPerpendicular"]
     Location -->|Curvature| Sweep["Locate.Curvature matrix → Sweep"]

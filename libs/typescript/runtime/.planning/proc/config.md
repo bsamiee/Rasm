@@ -100,10 +100,11 @@ const Provider: Data.TaggedEnum.Constructor<Provider.Stage> & {
 ## [04]-[SETTING_OWNER]
 
 [SETTING_OWNER]:
-- Owner: `Setting` — the runtime environment contract: one `Effect.Service` class, `effect: Config.unwrap(record)`, the record nested under the `RUNTIME` namespace with one group per consuming sub-domain (`CLUSTER`, `FANOUT`, `FLAG`, `LIFE`, `MAIL`, `OTEL`, `SERVE`); `Config` is a subtype of `Effect`, so the record is the constructor, `Setting.Default` resolves the whole environment at Layer construction, its `ConfigError` rides the Default layer's error channel, and the root annotation `Layer.Layer<Out>` is where an unset or malformed variable fails — one line, before any run seam.
+- Owner: `Setting` — the runtime environment contract: one `Effect.Service` class, `effect: Config.unwrap(record)`, the record nested under the `RUNTIME` namespace with one `Config.nested` group per consuming sub-domain; `Config` is a subtype of `Effect`, so the record is the constructor, `Setting.Default` resolves the whole environment at Layer construction, its `ConfigError` rides the Default layer's error channel, and the root annotation `Layer.Layer<Out>` is where an unset or malformed variable fails — one line, before any run seam.
 - Law: consumers depend on `Setting`, never on `Config` — the built service is a plain resolved struct, so the `flag`, `life`, and `pubsub` owners read fields with no `ConfigError` in their own channels and no second resolve anywhere in the process.
 - Law: the form is the family — an app or sibling-folder contract is declared exactly as `Setting` is (service class, `Config.unwrap` record, described rows, nested groups) under its own namespace; a second config-reading pattern beside this form is the fork this page exists to prevent, and two services never read one variable.
 - Law: a group is the growth site — a new runtime row lands inside its owning group, a new consuming sub-domain lands as one `Config.nested` group; neither adds an export, a service, or a resolve site; substitution is provider material — a proof overrides rows by swapping the chain, never by a second `Setting`; the `OTEL` group homes the export transport rows and the profiling backend rows.
+- Law: the deploy-to-process seam has one named writing counterpart — `iac`'s `StackOutputs.channels` (`iac/.planning/program/spec.md`) is the total `<plane>.<field>`-to-variable catalog populating the deployed environment this contract resolves against, so `FANOUT.ORIGIN` reads what the `fanout.origin` channel writes and `OTEL.ORIGIN` what `otlp.endpoint` writes, and neither side restates the other's spelling; a row here needing a stack-realized value obligates its channel row at that owner in the same pass, and a realized plane consumed outside this contract (the `sharding` pair, which `@effect/cluster`'s own `layerFromEnv` reads) never mints a `Setting` group to shadow it.
 - Law: `otel/emit`'s `Export.Policy` reads collector origin, sealed headers, cadence, transport deadline and concurrency, sampling ratio, diagnostic floor, and baggage promotion prefixes from `Setting.otel` — every axis a fleet retunes without a rebuild.
 - Law: structural tuning stays policy default — temporality, histogram sizing, cardinality budgets, span and log limits, redaction rules, placement, engine health, and instrumentation postures never enter the environment.
 - Law: the diagnostic row crosses as a name, so `otel/emit` owns the one total map onto `DiagLogLevel` and no numeric level reaches an environment.
@@ -209,7 +210,11 @@ const _cluster = Config.nested(
 
 const _mail = Config.nested(
     Config.unwrap({
-        host: Config.string('HOST').pipe(Config.withDescription('SMTP host the pooled transporter dials')),
+        transport: Config.literal('smtp', 'json', 'stream', 'ethereal')('TRANSPORT').pipe(
+            Config.withDefault('smtp' as const),
+            Config.withDescription('mail sink row deliver#MAIL_ROW keys its transport table on; capture sinks open no socket'),
+        ),
+        host: Config.string('HOST').pipe(Config.withDescription('SMTP host the pooled transporter dials; smtp arm alone consumes it')),
         port: Config.port('PORT').pipe(Config.withDefault(465), Config.withDescription('SMTP port')),
         user: Config.string('USER').pipe(Config.withDescription('SMTP credential user')),
         pass: Config.redacted('PASS').pipe(Config.withDescription('SMTP credential; sealed Redacted to the transport seam')),
@@ -316,13 +321,15 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 - Law: the family form is proven by `Setting` itself — the `SERVE` group carries the vocabulary's every member (literal spread from the `_tiers` anchor, `Schema.Config` branded scalar, defaulted structural port) and the `MAIL` group carries the sealed-secret rows; a sibling contract instantiates the identical form under its own namespace, and a second demonstration service beside the real owner is the duplication this page deletes.
 - Owner: `Profile` — the six-axis consumption row a composition root supplies as one canonical-json document on `RUNTIME.PROFILE.ROW`: `tenancy`, `topology`, `lifecycle`, and `isolation` are closed literal unions, `host` and `providers` carry descriptor structs whose rows this branch supplies, and `_crossing` is a mapped type over the isolation union so a new axis value fails the object literal at compile time instead of falling through at runtime. `Profile.topologies` and the `Consumption` type namespace publish those closed rosters branch-wide, so `iac/program/spec` spreads this spelling into `StackSpec` and the branch carries one topology vocabulary.
 - Law: deployment shape is data the root states, never a fact the branch infers — an ambient `process.platform` read, a build flag, a bundler condition, and a branch on which product embeds the runtime are the four deleted forms; `Profile.admit` runs inside `Setting`'s own effect, so an unservable axis value fails the boot line beside every `ConfigError` and the graph never half-builds.
-- Law: refusal names the axis — `ProfileRefused` carries `axis`, `value`, and `reason`, matching the deploy plane's own refusal grammar, so a caller reads which of the six coordinates to restate; silent degradation and a narrowed public surface are the two failed forms.
+- Law: refusal names the axis on a CLOSED reason axis — `ProfileRefused` carries `axis` and `value` as the coordinates a caller restates, `reason` as the discriminant it dispatches on (`missing`, `uncrossed`, `unserved`), and the crossing verdict as `detail` evidence; `class` projects that roster through one core `FaultClass.family` mint, so the branch taxonomy holds and no rank, retry, or status row stands beside it. A free-string reason is the rejected form — unroutable by `catchTag` and unfoldable by the class lattice — and silent degradation and a narrowed public surface remain the two other failed forms.
 - Law: this branch answers `in-proc` on the Effect fiber runtime, `thread` through `proc/worker`'s pool, `process` through `proc/exec`'s subprocess spec behind a bound `local-spawn` provider, and `remote` through `net/client` behind a bound `remote-compute` provider; `wasm` refuses outright because no guest runtime hosts foreign bytecode here, and the worker pool nearest it gives thread isolation alone.
 - Law: `Profile`, its descriptor schemas, and `_profile` seat above the `Setting` region of `runtime/src/proc/config.ts` — the fences split by cluster, never by file order, so `Setting` composes them as one module's earlier declarations.
 - Entry: `Profile.admit(row)` at `Setting` construction; `yield* Setting` then reads `profile.row` everywhere else.
 - Packages: `effect` (`Config`, `Data`, `Effect`, `Option`, `Schema`).
 
 ```typescript signature
+import { FaultClass } from '@rasm/ts/core';
+
 const _tenancies = ['none', 'single', 'multi'] as const;
 const _topologies = ['in-host', 'sidecar', 'companion', 'service', 'edge', 'cli'] as const;
 const _lifecycles = ['caller-owned', 'package-owned'] as const;
@@ -365,11 +372,28 @@ const _crossing: { readonly [K in Consumption.Isolation]: Consumption.Capability
     remote: 'remote-compute',
 };
 
-class ProfileRefused extends Data.TaggedError('ProfileRefused')<{
-    readonly axis: Consumption.Axis;
-    readonly value: string;
-    readonly reason: string;
-}> {}
+// A free-string reason is unroutable and unfoldable, so the refusal grammar closes here: `reason` is the discriminant
+// a caller dispatches on, `axis`/`value` are the coordinates it restates, and the crossing verdict rides `detail` as
+// evidence rather than as the discriminant. `class` projects the roster through one core family mint.
+const _refusal = FaultClass.family(['missing', 'uncrossed', 'unserved'] as const, {
+    missing: { class: 'absent' }, // the stated topology demands a row the profile did not supply
+    uncrossed: { class: 'absent' }, // the isolation value crosses only through a capability this deployment never declared
+    unserved: { class: 'denied' }, // the isolation value has no serving path at all
+});
+
+class ProfileRefused extends Schema.TaggedError<ProfileRefused>()('ProfileRefused', {
+    axis: Schema.Literal(..._axes),
+    reason: _refusal.schema,
+    value: Schema.String,
+    detail: Schema.optionalWith(Schema.String, { as: 'Option' }),
+}) {
+    get class(): FaultClass.Kind {
+        return _refusal.classOf(this.reason);
+    }
+    override get message(): string {
+        return `<${this.reason}> ${this.axis}=${this.value}`;
+    }
+}
 
 class Profile extends Schema.Class<Profile>('runtime/Profile')({
     tenancy: Schema.optionalWith(Schema.Literal(..._tenancies), { default: () => 'single' as const }),
@@ -406,10 +430,25 @@ class Profile extends Schema.Class<Profile>('runtime/Profile')({
 
     static readonly admit = (row: Profile): Effect.Effect<Profile, ProfileRefused> =>
         row.topology === 'in-host' && Option.isNone(row.host)
-            ? Effect.fail(new ProfileRefused({ axis: 'host', value: 'none', reason: 'in-host topology carries no host descriptor row' }))
+            ? Effect.fail(
+                  new ProfileRefused({
+                      axis: 'host',
+                      reason: 'missing',
+                      value: 'none',
+                      detail: Option.some('in-host topology carries no host descriptor row'),
+                  }),
+              )
             : _crossing[row.isolation] === 'served' || row.grants.has(_crossing[row.isolation] as Consumption.Capability)
               ? Effect.succeed(row)
-              : Effect.fail(new ProfileRefused({ axis: 'isolation', value: row.isolation, reason: _crossing[row.isolation] }));
+              : Effect.fail(
+                    new ProfileRefused({
+                        axis: 'isolation',
+                        // the crossing verdict discriminates: no serving path at all, or one gated behind an undeclared capability
+                        reason: _crossing[row.isolation] === 'unserved' ? 'unserved' : 'uncrossed',
+                        value: row.isolation,
+                        detail: Option.some(_crossing[row.isolation]),
+                    }),
+                );
 }
 
 const _profile = Config.nested(

@@ -191,7 +191,7 @@ public sealed partial class WireSchedule {
 
     public static Fin<WireSchedule> Admit(WireContext context, double thicknessMm, Arr<WirePass> passes) =>
         Validate(context, thicknessMm, passes, out WireSchedule admitted) is { } error
-            ? Fin.Fail<WireSchedule>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<WireSchedule>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(admitted);
 
     static partial void ValidateFactoryArguments(
@@ -225,12 +225,12 @@ public sealed partial class GuidePlanes {
             * 180.0 / Math.PI;
         return demand <= MaxTaperDeg
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(FabricationFault.WireTaperExceeded(demand, MaxTaperDeg).ToError());
+            : Fin.Fail<Unit>(new FabricationFault.WireTaperExceeded(demand, MaxTaperDeg).ToError());
     }
 
     public static Fin<GuidePlanes> Admit(double lowerZ, double upperZ, double programZ, double maxTaperDeg) =>
         Validate(lowerZ, upperZ, programZ, maxTaperDeg, out GuidePlanes admitted) is { } error
-            ? Fin.Fail<GuidePlanes>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<GuidePlanes>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(admitted);
 
     static partial void ValidateFactoryArguments(
@@ -265,7 +265,7 @@ public sealed partial class WireCorrespondence {
 
     public static Fin<WireCorrespondence> Admit(WireDirection direction, Arr<StationPair> anchors) =>
         Validate(direction, anchors, out WireCorrespondence admitted) is { } error
-            ? Fin.Fail<WireCorrespondence>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<WireCorrespondence>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(admitted);
 
     static partial void ValidateFactoryArguments(
@@ -441,24 +441,24 @@ public sealed partial class WireJob {
     public WireRecovery Recovery { get; }
 
     public static Fin<WireJob> Admit(WireDemand? candidate) =>
-        from raw in Optional(candidate).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:demand").ToError())
-        from cycle in Optional(raw.Cycle).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:cycle").ToError())
-        from profile in Optional(raw.Profile).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:profile").ToError())
-        from budget in Optional(raw.Budget).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:budget").ToError())
-        from access in Optional(raw.Access).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:access").ToError())
-        from retention in Optional(raw.Retention).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:retention").ToError())
-        from recovery in Optional(raw.Recovery).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:recovery").ToError())
+        from raw in Optional(candidate).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:demand"))
+        from cycle in Optional(raw.Cycle).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:cycle"))
+        from profile in Optional(raw.Profile).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:profile"))
+        from budget in Optional(raw.Budget).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:budget"))
+        from access in Optional(raw.Access).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:access"))
+        from retention in Optional(raw.Retention).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:retention"))
+        from recovery in Optional(raw.Recovery).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:recovery"))
         from radius in PhysicsQuantity.Length.Admit(raw.WireRadius)
         from thickness in PhysicsQuantity.Length.Admit(raw.Thickness)
         from guides in GuidePlanes.Admit(raw.LowerGuideZ, raw.UpperGuideZ, raw.ProgramZ, raw.MaxTaperDeg)
         from _ in cycle.TaperDemand <= guides.MaxTaperDeg
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(FabricationFault.WireTaperExceeded(cycle.TaperDemand, guides.MaxTaperDeg).ToError())
-        from context in Optional(raw.Context).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:context").ToError())
+            : Fin.Fail<Unit>(new FabricationFault.WireTaperExceeded(cycle.TaperDemand, guides.MaxTaperDeg).ToError())
+        from context in Optional(raw.Context).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:context"))
         from schedule in WireSchedule.Admit(context, thickness, raw.Schedule)
         from admitted in Validate(cycle, profile, radius, guides, budget, schedule,
             access, retention, recovery, out WireJob job) is { } error
-            ? Fin.Fail<WireJob>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            ? Fin.Fail<WireJob>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
             : Fin.Succ(job)
         select admitted;
 
@@ -626,11 +626,11 @@ public sealed record WireProgram(
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class WireEdm {
     public static Fin<TOut> Generate<TOut>(WireDemand? raw, Func<WireProgram, TOut> project) =>
-        from _ in Optional(project).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:projection").ToError())
+        from _ in Optional(project).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:projection"))
         from job in WireJob.Admit(raw)
         from program in Dispatch(job)
         from projected in Try.lift(() => project(program)).Run()
-            .MapFail(error => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"wire:projection:{error.Message}").ToError())
+            .MapFail(error => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"wire:projection:{error.Message}"))
         select projected;
 
     private static Fin<WireProgram> Dispatch(WireJob job) => job.Cycle.Switch(
@@ -749,17 +749,17 @@ public static class WireEdm {
 
     private static Fin<Loop> Offset(Loop loop, double distance) =>
         OffsetMany(loop, distance).Bind(rows => rows.Count == 1
-            ? Fin.Succ(rows.Head)
-            : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:offset-topology").ToError()));
+            ? rows.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "wire:offset-topology").ToError())
+            : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, None, "wire:offset-topology").ToError()));
 
     private static Fin<Seq<Loop>> OffsetMany(Loop loop, double distance) =>
         ArcAlgebra.Apply(new ArcOp.Offset(new ArcOffsetSource.Path(loop), distance)).Bind(trace => trace.Switch(
             forest: static row => Fin.Succ(row.Result.Loops),
             paths: static row => Fin.Succ(row.Result),
-            motion: static _ => Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:offset-result").ToError()),
-            inspection: static _ => Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:offset-result").ToError()),
-            densified: static _ => Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:offset-result").ToError()),
-            recovered: static _ => Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:offset-result").ToError())));
+            motion: static _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:offset-result")),
+            inspection: static _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:offset-result")),
+            densified: static _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:offset-result")),
+            recovered: static _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:offset-result"))));
 
     private static Polyline<double> Native(Loop loop) =>
         new(loop.Vertices.Map((point, index) => PlineVertex<double>.FromSlice([point.X, point.Y, loop.BulgeAt(index)])), loop.Closed);
@@ -768,7 +768,7 @@ public static class WireEdm {
         path.FindPointAtPathLength(length) switch {
             (true, int span, Vector2<double> point, _) => Normal(path, source, span, point).Map(normal => new WireGuidePoint(
                 new Point3d(point.X, point.Y, source.Plane), span, source.BulgeAt(span), normal)),
-            _ => Fin.Fail<WireGuidePoint>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:station").ToError()),
+            _ => Fin.Fail<WireGuidePoint>(new GeometryFault.DegenerateInput(Kind.Curve, None, "wire:station").ToError()),
         };
 
     private static Fin<Vector3d> Normal(Polyline<double> path, Loop source, int span, Vector2<double> point) {
@@ -777,7 +777,7 @@ public static class WireEdm {
         Vector3d normal = new(-tangent.Y, tangent.X, 0.0);
         return normal.Unitize()
             ? Fin.Succ(normal)
-            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:tangent").ToError());
+            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, span, "wire:tangent").ToError());
     }
 
     private static double SpanLength(Loop loop, int index) {
@@ -803,7 +803,9 @@ public static class WireEdm {
     private static Seq<(double Station, double TurnDeg)> VertexStations(Loop loop, Polyline<double> path, double perimeter) =>
         toSeq(Enumerable.Range(0, loop.Spans))
             .Map(index => SpanLength(loop, index))
-            .Fold(Seq(0.0), static (rows, length) => rows.Add(rows.Last + length))
+            // The seed keeps the running sum non-empty, so the prior cumulative reads off `Last` as an `Option`
+            // whose `None` arm can only be the seed's own zero.
+            .Fold(Seq(0.0), static (rows, length) => rows.Add(rows.Last.IfNone(0.0) + length))
             .Take(loop.Closed ? loop.Spans : loop.Spans + 1)
             .ToSeq()
             .Map((cumulative, index) => (Station: cumulative / perimeter, TurnDeg: TurnDeg(path, loop, index)));
@@ -817,12 +819,12 @@ public static class WireEdm {
         double perimeter = path.PathLength();
         if (!(perimeter > 0.0))
             return Fin.Fail<(Polyline<double>, Seq<(double, double, double, double)>)>(
-                new GeometryFault.DegenerateInput(Kind.Curve, -1, "wire:perimeter").ToError());
+                new GeometryFault.DegenerateInput(Kind.Curve, None, "wire:perimeter").ToError());
         Seq<(double Station, double TurnDeg)> vertices = VertexStations(loop, path, perimeter);
         double start = job.Access.Start.IfNone(0.0);
         double window = pass.CornerSlowMm / perimeter;
         Seq<(double Station, double Progress, double SpeedScale, double TurnDeg)> ordered =
-            pass.CornerStations(vertices.Map(static row => row.Station), perimeter, loop.Closed)
+            toSeq(pass.CornerStations(vertices.Map(static row => row.Station), perimeter, loop.Closed)
                 .Concat(job.Retention.Stations)
                 .Concat(job.Cycle.Stations)
                 .Concat(Seq(0.0, 1.0, start))
@@ -839,15 +841,18 @@ public static class WireEdm {
                         .Fold(0.0, static (peak, vertex) => Math.Max(peak, vertex.TurnDeg))))
                 .Map(row => (row.Station, row.Progress, SpeedScale: pass.CornerScale(row.Turn), TurnDeg: row.Turn))
                 .Filter(row => loop.Closed || row.Station >= start)
-                .OrderBy(static row => row.Progress)
-                .ToSeq();
+                .OrderBy(static row => row.Progress));
+        // A closed loop returns to its own seam, so the wrap row repeats the FIRST mark's scale and turn; with no
+        // marks at all there is nothing to wrap and the ordered set stands as-is.
         return Fin.Succ((path, loop.Closed
-            ? ordered.Concat(Seq((Station: start, Progress: 1.0, SpeedScale: ordered.Head.SpeedScale, TurnDeg: ordered.Head.TurnDeg)))
+            ? ordered.Head
+                .Map(first => ordered.Add((Station: start, Progress: 1.0, first.SpeedScale, first.TurnDeg)))
+                .IfNone(ordered)
             : ordered));
     }
 
     private static Fin<WireProgram> Program(WireJob job, Seq<Seq<WireBlock>> rows) =>
-        from access in rows.Bind(static pass => pass).HeadOrNone()
+        from access in rows.Bind(static pass => pass).Head
             .Traverse(first => Access(job, first))
             .As()
         let cut = rows.Bind(static pass => pass)
