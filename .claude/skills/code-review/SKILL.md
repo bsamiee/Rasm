@@ -49,7 +49,7 @@ Step order never proves a drain, the owning receipt does: `reconcile` surfaces `
 - WATCH: severity and folder balance across shards.
 - KNOB: explicit `--shards`, one per balanced folder slice up to the ceiling — small slices direct freed capacity into capability depth, never early finish.
 
-[STEP_4]-[FIX]: one keeper per shard under `templates/fix.md`, dispatched concurrently from the briefs on either transport, codex mechanics the codex skill's, each writing `<round-dir>/shard-<letter>-report.json`.
+[STEP_4]-[FIX]: one keeper per shard under `templates/fix.md`, dispatched concurrently from the briefs on either transport, codex mechanics the delegate-codex skill's, each writing `<round-dir>/shard-<letter>-report.json`.
 - WATCH: `shards --spawns` proves each shard's miner passes; a lost report relaunches once, and a second failure is hand-repaired, since every downstream verb refuses a partial shard-report set.
 - KNOB: template wording.
 - Codex shards run the config-default model and effort unflagged under the full user config; miner spawns need the multi-agent depth row, so deviate only for purely mechanical slices. Each shard returns only its report path — the codex shard's `-o` capture, the claude shard's own final write.

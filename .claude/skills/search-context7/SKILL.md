@@ -1,13 +1,13 @@
 ---
-name: context7-search
+name: search-context7
 description: >-
     External-package truth: any signature, member, or capability of an imported library
     resolves through Context7 over memory or a guessed git tag. Load before the first lookup.
     Fires on any Context7 mention, doc or API lookup, a new import, "how does <lib> do X",
-    and before coding against an uninstalled member. Un-indexed sources belong to tavily-search.
+    and before coding against an uninstalled member. Un-indexed sources belong to search-tavily.
 ---
 
-# [CONTEXT7_SEARCH]
+# [SEARCH_CONTEXT7]
 
 Two MCP tools and a REST surface: `resolve-library-id` ranks indexed sources, `query-docs` returns cited code per scoped question, REST adds ranked metadata and budgeted pulls.
 
@@ -18,7 +18,7 @@ Two MCP tools and a REST surface: `resolve-library-id` ranks indexed sources, `q
 - Families: `/org/project` repository (production recipes), `/websites/*` doc site (concept prose), `/llmstxt/*` llms.txt bulk.
 - Selection: benchmark score rules; snippet count is coverage, never quality; official name punctuation intact (`Next.js`, `Three.js`).
 - Versions: a task naming a version takes the roster's `/org/project/version` ID; a version word inside the query does nothing.
-- Fallback: "Library not found" means a wrong ID — re-resolve; an un-indexed library or version routes to source via tavily-search, never memory.
+- Fallback: "Library not found" means a wrong ID — re-resolve; an un-indexed library or version routes to source via search-tavily, never memory.
 
 ## [01]-[SYMBOL_TRUTH]
 

@@ -594,7 +594,7 @@ const wrapPrompt = (report, law, task, medium, minHeads) =>
     report +
     '.delegate/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
     REPO +
-    '/.claude/skills/codex/scripts/codex-delegate.sh --task ' +
+    '/.claude/skills/delegate-codex/scripts/codex.sh --task ' +
     report +
     '.delegate/task.md --law ' +
     report +

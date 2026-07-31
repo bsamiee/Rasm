@@ -383,7 +383,7 @@ classes:
       - 'appleeventsd'
       - 'preflight.{0,80}(wrong|different).{0,20}identity'
       - 'TCC.{0,60}binds.{0,60}process'
-    refuting_citation: '.claude/skills/applescript/references/events.md — TCC attributes automation to the responsible process, devolving to the shared parent for CLI children (r4b-01)'
+    refuting_citation: '.claude/skills/coding-applescript/references/events.md — TCC attributes automation to the responsible process, devolving to the shared parent for CLI children (r4b-01)'
     landed_surfaces:
       - '.coderabbit.yaml'
       - '.greptile/rules.md'

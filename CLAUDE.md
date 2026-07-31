@@ -51,8 +51,8 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 [TOOL_ROUTING]:
 - [ALWAYS]: use `ast-grep` skill on every code surface — outline before reading source, structural search over grep, rewrites, and durable rules.
 - [ALWAYS]: use `exa` MCP to start open-web search with neural discovery, the right page, repo, paper, or entity; REPLACES `WebFetch` entirely.
-- [ALWAYS]: use `tavily-search` skill on known targets — extract or crawl a site, or run a cited multi-source report.
-- [ALWAYS]: use `context7-search` skill when working on code/fences with external libraries, never guess on SDK/framework/API capabilities or implementations.
+- [ALWAYS]: use `search-tavily` skill on known targets — extract or crawl a site, or run a cited multi-source report.
+- [ALWAYS]: use `search-context7` skill when working on code/fences with external libraries, never guess on SDK/framework/API capabilities or implementations.
 - [ALWAYS]: use `nuget` MCP to validate the existence of a package and newest version available.
 - [ALWAYS]: use `claudeCodeDocs` MCP when working on Claude Code configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
 - [ALWAYS]: use `openaiDeveloperDocs` MCP when working on Codex configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.

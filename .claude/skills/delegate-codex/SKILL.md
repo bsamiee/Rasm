@@ -1,5 +1,5 @@
 ---
-name: codex
+name: delegate-codex
 description: >-
     Owns codex usage end to end, dispatch through the supervised delegate script, the codex
     prompt contract, model and effort choice, and session resume. Use as a write delegated
@@ -10,7 +10,7 @@ description: >-
     and on "offload this", "save my usage", or any mention of codex.
 ---
 
-# [CODEX]
+# [DELEGATE_CODEX]
 
 `codex exec` runs a non-interactive agent in its own context window and returns one final message. Model and effort come from `~/.codex/config.toml`.
 

@@ -475,7 +475,7 @@ const chunk = (arr, n) => {
     return o;
 };
 
-// Dispatch: the wrapper runs one supervised codex-delegate.sh delegate in the background, reads the receipt, verifies the
+// Dispatch: the wrapper runs one supervised codex.sh delegate in the background, reads the receipt, verifies the
 // --out product, and returns mechanical orchestration data. Delegate law rides --law (developer-instructions,
 // role split); the --task file carries only the task; the output contract sits LAST. A web-research delegate (o.web)
 // rides --web and takes a territory clause that admits its web tools and the named packages' official sources over repo files.
@@ -506,7 +506,7 @@ const delegateLaw = (schema, o) =>
 
 // One core builder for both codex delegates; only step (4) differs — codexPrompt returns a thin receipt, codexInline
 // relays the product JSON verbatim (scout's payload is small orchestration input that fans Research and slices Map).
-const DELEGATE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-delegate.sh';
+const DELEGATE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/delegate-codex/scripts/codex.sh';
 const codexSteps = (label, task, schema, o, step4) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';

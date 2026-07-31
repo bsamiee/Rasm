@@ -1,5 +1,5 @@
 ---
-name: agy
+name: delegate-agy
 description: >-
     Gemini dispatch via Antigravity: image generation and Nano Banana, visual
     judgment of images, visual artifacts, screenshots, diagrams, and second-model
@@ -8,7 +8,7 @@ description: >-
     counterexample hunts, and on any mention of Gemini, Antigravity, or Nano Banana.
 ---
 
-# [AGY]
+# [DELEGATE_AGY]
 
 Antigravity is an external Gemini call admitted only where it adds capability beyond the local toolchain. Print mode runs the wrapper — one bounded prompt in, one JSON receipt out — yet executes tools and lands file writes without any permission flag, so safety is prompt discipline: a review or judgment prompt names no save path and directs inspect-only work; a generation prompt binds every save path to a throwaway scratch root, never a repo path or `$HOME`.
 

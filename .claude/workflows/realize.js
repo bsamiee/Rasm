@@ -289,7 +289,7 @@ const retryDelegate = async (fn) => {
     return null;
 };
 
-// Codex dispatch: the wrapper runs one supervised codex-delegate.sh delegate in the background, reads the receipt, verifies the
+// Codex dispatch: the wrapper runs one supervised codex.sh delegate in the background, reads the receipt, verifies the
 // --out product, and returns mechanical orchestration data. Delegate law rides --law (developer-instructions,
 // role split); the --task file carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -311,7 +311,7 @@ const delegateLaw = (schema, o) =>
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 // Every realize codex delegate is read-only recon (the native executor authors), so the delegate never writes: --out
 // materializes the product and the wrapper relays only the thin receipt.
-const DELEGATE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-delegate.sh';
+const DELEGATE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/delegate-codex/scripts/codex.sh';
 const flagsOf = (o) =>
     [o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)

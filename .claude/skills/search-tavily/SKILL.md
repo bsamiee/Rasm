@@ -1,5 +1,5 @@
 ---
-name: tavily-search
+name: search-tavily
 description: >-
     Owns live-web retrieval through Tavily CLI (`tvly`), search, extract, map, crawl,
     research, on the cheapest verb that answers: relevance resolved server-side, not
@@ -8,7 +8,7 @@ description: >-
     routes here.
 ---
 
-# [TAVILY_SEARCH]
+# [SEARCH_TAVILY]
 
 `tvly` owns live-web retrieval as one intent surface; the cheapest verb that answers wins. An open question is `search` — `--include-answer` returns a synthesized answer with no follow-up call, `--include-raw-content markdown` folds the top results' full content into the same call. Known URLs are `extract`; a site is one `crawl --instructions`, with `map` recon first when URLs must be picked by hand; a cited multi-source report is `research`. Live web routes here over `WebFetch`, which reads one URL blind while `tvly` ranks, scopes, and filters server-side.
 

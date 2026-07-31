@@ -420,7 +420,7 @@ const SELF_CHECK =
     '— an omitted load-bearing fact is as wrong as a false one.';
 
 // Register fork — substance identical (burden of proof on the work, both naivety axes, no-churn); the hostile register
-// measurably makes a dispatched delegate over-read and probe out of territory, so the `codex` rows stay de-conflicted.
+// measurably makes a dispatched delegate over-read and probe out of territory, so the `delegate-codex` rows stay de-conflicted.
 const REG = {
     claude: {
         stance:
@@ -572,7 +572,7 @@ const delegateLaw = (schema, o) =>
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 
 // Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
-const DELEGATE_SCRIPT = ROOT_DIR + '/.claude/skills/codex/scripts/codex-delegate.sh';
+const DELEGATE_SCRIPT = ROOT_DIR + '/.claude/skills/delegate-codex/scripts/codex.sh';
 const flagsOf = (o) =>
     [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
         .filter(Boolean)
