@@ -4,7 +4,7 @@ description: >-
     Owns the local review cycle over three engines — CodeRabbit, Greptile, and Macroscope
     (`.coderabbit.yaml`, `.greptile/`, `.macroscope/`). Use on any request to review, and
     whenever those config files are read, edited, or authored — this skill owns their schemas
-    and rule grammar. Hosted PR reviewer round-trips belong to pr-loop.
+    and rule grammar.
 ---
 
 # [CODE_REVIEW]
