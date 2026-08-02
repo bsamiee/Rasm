@@ -93,7 +93,7 @@ No tier selector exists in tool schema, CLI flags, or model catalog: the backend
 
 Every render passes two gates. `magick identify` proves a real raster at the expected dimensions — the payload is JPEG whatever the extension unless the agent converts, so the filename is never format proof — and a wrapper read-back describes the artifact against the visual contract. A ~1KB file is the failure signature: the backend returned no image (`CORTEX_STEP_TYPE_GENERATE_IMAGE: no image generated in response` in the `--log-file`) and the agent code-drew a placeholder; the never-code-drawing clause and the size gate catch it, and one re-run resolves a transient backend miss.
 
-Generated mockups and diagrams are inputs to the realizing skill, never deliverables: agy drafts the spec, renders, and read-back-critiques, then html-studio realizes the page and mermaid-diagramming realizes the fence. A closed loop is the strongest pattern — visual contract, render, read-back critique against the contract, targeted correction — never a single "make it pretty" round.
+Generated mockups and diagrams are inputs to the realizing skill, never deliverables: agy drafts the spec, renders, and read-back-critiques, then mermaid-diagramming realizes the fence. A closed loop is the strongest pattern — visual contract, render, read-back critique against the contract, targeted correction — never a single "make it pretty" round.
 
 ## [08]-[REFUSAL]
 

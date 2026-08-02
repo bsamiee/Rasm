@@ -35,7 +35,7 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 |  [11]   | `tests/README.md` + `tests/RULINGS.md`      | Proof-estate law — read before any test work                                        |
 |  [12]   | root `README.md` + `tools/<tool>/README.md` | Tool owners, output routing, operator roles                                         |
 
-[STANDARDS_ROUTING]: Use the route-owned standard for the file being edited; an HTML artifact routes durable to `docs/atlas/`, temp to `.claude/scratch`:
+[STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
 | [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]              | [NAMING_SCHEMA]                |
 | :-----: | :------------------------- | :----------------------------- | :----------------------------- | :----------------------------- |
@@ -46,7 +46,6 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 |  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                          | `snake_case`                   |
 |  [06]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                          | `kebab-case`                   |
 |  [07]   | Mermaid                    | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages | [N/A]                          |
-|  [08]   | HTML (`.html`)             | Skill: `html-studio`           | `docs/atlas/`                  | `<kind>.<scope>[.<slug>].html` |
 
 [TOOL_ROUTING]:
 - [ALWAYS]: use `ast-grep` skill on every code surface — outline before reading source, structural search over grep, rewrites, and durable rules.
