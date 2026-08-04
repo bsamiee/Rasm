@@ -93,6 +93,7 @@
 |  [09]   | `Throttle` / `Sample`                                | fold    | trailing rate-limit / pulse-gate |
 |  [10]   | `TakeUntil` / `SkipUntil` / `Take` / `Skip`          | fold    | lifecycle window                 |
 |  [11]   | `TakeUntil(CancellationToken)`                       | fold    | token-bounded lifetime window    |
+|  [12]   | `CombineLatest(IEnumerable<IObservable<T>>)`         | static  | n-ary combine -> `IList<T>`      |
 
 [HOT_STREAM_ENTRYPOINTS]: multicast, connection, and sharing over `Observable`
 

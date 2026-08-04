@@ -44,9 +44,13 @@
 |  [02]   | `Show(object?, string?) -> Task<object?>`                 | identifier-keyed result |
 |  [03]   | `Show(object?, string? \| DialogHost, opened?, closing?)` | handler-bound overloads |
 |  [04]   | `Close(string?, object?, object?)`                        | result-bearing close    |
-|  [05]   | `Pop(string?, object?)`                                   | stacked-session pop     |
-|  [06]   | `IsDialogOpen(string?, object?) -> bool`                  | open-state probe        |
+|  [05]   | `Pop(string?, object?)`                                   | raise-to-front + reshow |
+|  [06]   | `IsDialogOpen(string?[, object?]) -> bool`                | open-state probe        |
 |  [07]   | `GetDialogSession(string?) -> DialogSession?`             | session resolution      |
+- Every static member resolves its host by SCANNING the loaded instances and THROWS `InvalidOperationException` on three distinct misses — no loaded host at all, no host whose `Identifier` matches, and more than one match — so `Show`, `Close`, `Pop`, `GetDialogSession`, and `IsDialogOpen` are all throwing reads before the host mounts and after it unmounts, and a consumer guards every crossing on a mount-bound presence fact rather than on a probe.
+- `Pop(identifier, content)` is the RAISE verb, not a retreat: it matches an open host by CONTENT REFERENCE, moves it to the end of the stack (which `CurrentSession` reads as the top), and re-presents it through a hide-then-show pair that re-runs the open transition. A null content matches nothing and the call is a no-op, and no single-argument overload exists — retreat is `DialogSession.Close(parameter)`, which routes through the vetoable close.
+- `IsDialogOpen(identifier, content)` additionally THROWS when the resolved host carries `IsMultipleDialogsEnabled` false, so the content-bearing probe is stack-only; the single-argument form reads the top session's `IsEnded` and never throws on that axis.
+- `CurrentSession`/`CurrentSessions` are INSTANCE members with no static counterpart, so a stack-wide fold reaches them through the mounted control and never through the identifier surface.
 
 [SESSION_OPS]: methods and read-only properties on the resolved `DialogSession` and the routed event args
 
@@ -81,12 +85,14 @@
 |  [01]   | `OverlayBackground`                                           | scrim brush behind the dialog                           |
 |  [02]   | `BlurBackground` / `BlurBackgroundRadius`                     | backdrop blur toggle and radius                         |
 |  [03]   | `PopupPositioner` / `PopupTemplate`                           | `IDialogPopupPositioner` placement; popup-root template |
-|  [04]   | `DialogHostStyle.GetCornerRadius`/`SetCornerRadius`           | attached per-host corner radius                         |
-|  [05]   | `DialogHostStyle.SetBorderBrush` / `SetBorderThickness`       | attached per-host border (set-only)                     |
-|  [06]   | `DialogHostStyle.GetBoxShadow`/`SetBoxShadow`                 | attached per-host box shadow                            |
-|  [07]   | `DialogHostStyle.GetClipToBounds`/`SetClipToBounds`           | attached per-host clip flag                             |
-|  [08]   | `IDialogPopupPositioner.Update(Size, Size) -> Rect`           | compute the popup rect                                  |
-|  [09]   | `IDialogPopupPositionerConstrainable.Constrain(Size) -> Size` | clamp the popup to bounds                               |
+|  [04]   | `DialogHostStyle.{CornerRadius,BorderBrush,BorderThickness,   | the attached property identities a code binding targets;|
+|         | BoxShadow,ClipToBounds}Property`                              | `AttachedProperty<T>` derives `StyledProperty<T>`       |
+|  [05]   | `DialogHostStyle.GetCornerRadius`/`SetCornerRadius`           | attached per-host corner radius                         |
+|  [06]   | `DialogHostStyle.SetBorderBrush` / `SetBorderThickness`       | attached per-host border (set-only)                     |
+|  [07]   | `DialogHostStyle.GetBoxShadow`/`SetBoxShadow`                 | attached per-host box shadow                            |
+|  [08]   | `DialogHostStyle.GetClipToBounds`/`SetClipToBounds`           | attached per-host clip flag                             |
+|  [09]   | `IDialogPopupPositioner.Update(Size, Size) -> Rect`           | compute the popup rect                                  |
+|  [10]   | `IDialogPopupPositionerConstrainable.Constrain(Size) -> Size` | clamp the popup to bounds                               |
 
 [EVENTS]: routed events and their handler-property delegates on `DialogHost`
 
@@ -100,7 +106,7 @@
 [TOPOLOGY]:
 - `Show(content, identifier)` returns `Task<object?>` whose awaited value is the close `Parameter`, and a session is reached by `Identifier` rather than by holding the control, so the dispatcher closes and queries a session it never constructed.
 - `DialogClosing` arms `DialogClosingEventArgs.Cancel()` through `DialogClosingCallback`, blocking dismissal until a dirty form resolves; `CanBeCancelled` gates whether the veto is honored.
-- `IsMultipleDialogsEnabled` promotes the host to a session stack — `CurrentSessions` is the set a retreat consults and `Pop` retreats one; a `Show` on a non-stacked host holding an open session folds onto it, probed via `IsDialogOpen(Identifier)`, rather than minting a parallel root.
+- `IsMultipleDialogsEnabled` promotes the host to a session stack — `CurrentSessions` is the instance-side set a retreat fold consults and `Pop` RAISES one to the top rather than dismissing it; a `Show` on a non-stacked host holding an open session folds onto it, probed via `IsDialogOpen(Identifier)` behind a mount fact, rather than minting a parallel root.
 - `UpdateContent` swaps a resolved session's content in place (progress -> result) without closing, so the awaited `Show` task stays the single result handle across content phases.
 
 [STACKING]:
@@ -113,6 +119,6 @@
 
 [RAIL_LAW]:
 - Package: `DialogHost.Avalonia`
-- Owns: retained modal orchestration — identifier-addressed sessions, the awaitable close-parameter result rail, the vetoable `DialogClosing` seam, the session stack, and per-host overlay/blur/positioner/chrome.
+- Owns: retained modal orchestration — identifier-addressed sessions, the awaitable close-parameter result rail, the vetoable `DialogClosing` seam, the session stack with its content-keyed raise verb, and per-host overlay/blur/positioner/chrome.
 - Accept: modal state as host-addressable, command- and identifier-driven surfaces; `Show` results as `Task<object?>` close parameters onto the `Fin` rail; the `Interaction` seam owning each per-surface binding.
-- Reject: a control-reference show path where the static identifier surface addresses the session; host-specific modal service families; inline overlay/chrome literals where theme tokens resolve; re-typing the erased close parameter at each call site instead of one boundary capsule.
+- Reject: an unguarded static crossing where the instance resolution throws on an absent, unmatched, or ambiguous identifier; reading `Pop` as a dismissal; a control-reference show path where the static identifier surface addresses the session; host-specific modal service families; inline overlay/chrome literals where theme tokens resolve; re-typing the erased close parameter at each call site instead of one boundary capsule.

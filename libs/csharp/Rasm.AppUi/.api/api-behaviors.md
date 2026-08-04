@@ -140,6 +140,8 @@ Assembly and namespace cells drop the shared `Xaml.Behaviors.` and `Avalonia.Xam
 
 [EVENT_TYPES]: `Avalonia.Xaml.Interactions.Events` — `<Event>EventTrigger` / `<Event>EventBehavior` mint one typed routed-event trigger and behavior pair per Avalonia control event.
 
+- Gesture rails bind this POINTER family, each member shipping both halves of the pair: `PointerPressed` `PointerReleased` `PointerMoved` `PointerEntered` `PointerExited` `PointerWheelChanged` `PointerCaptureLost`, beside the aggregate `PointerEvents` pair carrying the whole set through one attachment.
+
 [RESPONSIVE_TYPES]: `Avalonia.Xaml.Interactions.Responsive`
 
 | [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY] | [CAPABILITY]          |

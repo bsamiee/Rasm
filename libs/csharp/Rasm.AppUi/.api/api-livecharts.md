@@ -68,6 +68,31 @@
 |  [17]   | `ChartPointState`           | class         | named state carrying a `Set` collection |
 |  [18]   | `Set`                       | class         | `PropertyName`/`Value` state setter row |
 
+[POINT_MODEL_TYPES]: the bound-value model in `LiveChartsCore.Kernel` every `Mapping` delegate answers in, and the axis contracts in `LiveChartsCore.Kernel.Sketches` every theme and chrome rule writes through.
+
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]   | [CAPABILITY]                                            |
+| :-----: | :---------------- | :-------------- | :------------------------------------------------------ |
+|  [01]   | `Coordinate`      | readonly struct | one plotted point across every series arity             |
+|  [02]   | `Error`           | readonly struct | per-point error extents on both axes                    |
+|  [03]   | `ChartPoint`      | class           | measured point with its context and visual              |
+|  [04]   | `IPlane`          | interface       | axis members every scale carries                        |
+|  [05]   | `ICartesianAxis`  | interface       | `IPlane` plus tick, subseparator, and crosshair members |
+|  [06]   | `IPolarAxis`      | interface       | `IPlane` plus angular label and radius members          |
+|  [07]   | `FindingStrategy` | enum            | hover and hit-test comparison policy                    |
+|  [08]   | `ClipMode`        | flags enum      | draw-margin clip axes                                   |
+
+[`Coordinate`]: `PrimaryValue` `SecondaryValue` `TertiaryValue` `QuaternaryValue` `QuinaryValue` `SenaryValue` `PointError` `IsEmpty` `Empty`
+[`Error`]: `Xi` `Xj` `Yi` `Yj` `IsEmpty` `Empty` — ctors `(double xi, double xj, double yi, double yj)` and `(double x, double y)`
+[`IPlane`]: `Name` `NameTextSize` `NamePadding` `Labeler` `Labels` `MinStep` `ForceStepToMin` `MinSeparators` `UnitWidth` `MinLimit` `MaxLimit` `IsInverted` `LabelsRotation` `TextSize` `ShowSeparatorLines` `CustomSeparators` `NamePaint` `LabelsPaint` `SeparatorsPaint` `DataBounds` `VisibleDataBounds` `AnimationsSpeed` `EasingFunction` `GetPossibleSize` `GetNameLabelSize`
+[`ICartesianAxis`]: `Orientation` `Position` `Padding` `LabelsDensity` `LabelsAlignment` `InLineNamePlacement` `SeparatorsAtCenter` `TicksAtCenter` `SubseparatorsPaint` `SubseparatorsCount` `DrawTicksPath` `TicksPaint` `SubticksPaint` `ZeroPaint` `CrosshairPaint` `CrosshairLabelsPaint` `CrosshairLabelsBackground` `CrosshairPadding` `CrosshairSnapEnabled` `SharedWith` `MinZoomDelta` `BouncingDistance` `GetLimits` `SetLimits` `InvalidateCrosshair` `ClearCrosshair` `SetLogBase`
+[`IPolarAxis`]: `Orientation` `Ro` `LabelsAngle` `LabelsVerticalAlignment` `LabelsHorizontalAlignment` `LabelsPadding` `LabelsBackground` `Initialize` `Initialized`
+[`FindingStrategy`]: `Automatic` `CompareAll` `CompareOnlyX` `CompareOnlyY` `CompareAllTakeClosest` `CompareOnlyXTakeClosest` `CompareOnlyYTakeClosest` `ExactMatch` `ExactMatchTakeClosest`
+[`ClipMode`]: `None`(0) `X`(1) `Y`(2) `XY`(3)
+
+- `Coordinate` ctor arities map to series families directly: `(x, y)` for line, column, and pie; `(x, y, weight)` for scatter and heat; `(x, high, open, close, low)` for candlesticks; `(x, maximum, thirdQuartile, firstQuartile, minimum, median)` for box; and the seven-argument form `(primary, secondary, tertiary, quaternary, quinary, senary, Error)` for an error-bearing point. The two-argument form assigns `y` to `PrimaryValue` and `x` to `SecondaryValue`, so a hand-built coordinate that swaps them plots transposed.
+- `ZoomAndPanMode` carries composite members beside its flags: `PanX`(1) `ZoomX`(2) `PanY`(4) `ZoomY`(8) `NoFit`(0x10) `NoZoomBySection`(0x20) `InvertPanningPointerTrigger`(0x40) `X`(3) `Y`(0xC) `Both`(0xF).
+- `LegendPosition` carries no `Auto` member (`Hidden` `Top` `Left` `Right` `Bottom`) where `TooltipPosition` does (`Hidden` `Auto` `Top` `Bottom` `Left` `Right` `Center`), so a shared placement vocabulary maps its auto row onto a chosen side for the legend.
+
 [GAUGE_AND_VISUAL_TYPES]: gauge series and free visual elements; each wraps the drawn `LiveChartsCore` visual it names.
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                   |
@@ -449,7 +474,7 @@
 |  [07]   | `SkiaPaint.StrokeCap` / `.StrokeJoin`                                          | property | Skia cap and join                   |
 |  [08]   | `SkiaPaint.PathEffect` / `.ImageFilter`                                        | property | dash effect and image filter        |
 |  [09]   | `SkiaPaint.ConfigureSkiaSharpFont(FontBuilderDelegate)`                        | instance | build the `SKFont` per draw         |
-|  [10]   | `SolidColorPaint(SKColor)` / `(SKColor, float)`                                | ctor     | solid paint, optional stroke width  |
+|  [10]   | `SolidColorPaint()` / `(SKColor)` / `(SKColor, float)`                         | ctor     | bare paint, colour, stroke width    |
 |  [11]   | `SolidColorPaint.Color`                                                        | property | settable paint colour               |
 |  [12]   | `LinearGradientPaint(SKColor[], SKPoint, SKPoint, float[]?, SKShaderTileMode)` | ctor     | full linear gradient                |
 |  [13]   | `LinearGradientPaint(SKColor, SKColor)` / `(SKColor[])`                        | ctor     | two-stop and ramp shorthands        |
@@ -462,19 +487,27 @@
 
 [OFFSCREEN_ENTRYPOINTS]: headless rendering and the drawn tooltip and legend concretes
 
-| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                      |
-| :-----: | :-------------------------------------------------------------------- | :------- | :-------------------------------- |
-|  [01]   | `InMemorySkiaSharpChart.Width` / `.Height` / `.Background`            | property | render size and backdrop colour   |
-|  [02]   | `InMemorySkiaSharpChart.CoreCanvas`                                   | property | live `CoreMotionCanvas`           |
-|  [03]   | `InMemorySkiaSharpChart.GetImage() -> SKImage`                        | instance | rendered image in memory          |
-|  [04]   | `InMemorySkiaSharpChart.SaveImage(Stream, SKEncodedImageFormat, int)` | instance | encode to a stream                |
-|  [05]   | `InMemorySkiaSharpChart.SaveImage(string, SKEncodedImageFormat, int)` | instance | encode to a file path             |
-|  [06]   | `InMemorySkiaSharpChart.DrawOnCanvas(SKCanvas)`                       | instance | draw into a caller-owned canvas   |
-|  [07]   | `SKCartesianChart(IChartView)` / `SKPieChart` / `SKPolarChart`        | ctor     | mirror a live chart offscreen     |
-|  [08]   | `SKGeoMap(IGeoMapView)`                                               | ctor     | mirror a live map offscreen       |
-|  [09]   | `SKDefaultTooltip.Wedge` / `.Easing` / `.AnimationsSpeed`             | property | pointer size and reveal animation |
-|  [10]   | `SKDefaultLegend.Easing` / `.AnimationsSpeed`                         | property | legend reveal animation           |
-|  [11]   | `SKHeatLegend.Formatter` / `.BadgePadding` / `.BadgeWidth`            | property | heat-badge text and box           |
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :---------------------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `InMemorySkiaSharpChart.Width` / `.Height` / `.Background`              | property | render size and backdrop colour   |
+|  [02]   | `InMemorySkiaSharpChart.CoreCanvas`                                     | property | live `CoreMotionCanvas`           |
+|  [03]   | `InMemorySkiaSharpChart.GetImage() -> SKImage`                          | instance | rendered image in memory          |
+|  [04]   | `InMemorySkiaSharpChart.SaveImage(Stream, SKEncodedImageFormat, int)`   | instance | encode to a stream                |
+|  [05]   | `InMemorySkiaSharpChart.SaveImage(string, SKEncodedImageFormat, int)`   | instance | encode to a file path             |
+|  [06]   | `InMemorySkiaSharpChart.DrawOnCanvas(SKCanvas)`                         | instance | draw into a caller-owned canvas   |
+|  [07]   | `SKCartesianChart(IChartView)` / `SKPieChart` / `SKPolarChart`          | ctor     | mirror a live chart offscreen     |
+|  [08]   | `SKGeoMap(IGeoMapView)`                                                 | ctor     | mirror a live map offscreen       |
+|  [09]   | `SKCartesianChart()` / `SKPieChart()` / `SKPolarChart()` / `SKGeoMap()` | ctor     | standalone offscreen chart        |
+|  [10]   | `InMemorySkiaSharpChart.SaveImage(SKCanvas)`                            | instance | encode into a caller-owned canvas |
+|  [09]   | `SKDefaultTooltip.Wedge` / `.Easing` / `.AnimationsSpeed`               | property | pointer size and reveal animation |
+|  [10]   | `SKDefaultLegend.Easing` / `.AnimationsSpeed`                           | property | legend reveal animation           |
+|  [11]   | `SKHeatLegend.Formatter` (`Func<double,string>`)                        | property | the heat legend's ONLY label text |
+|  [12]   | `SKHeatLegend.BadgePadding` (`Padding`) / `.BadgeWidth` (`double?`)     | property | ramp bar inset and thickness      |
+
+- Both drawn legends build their content in `GetLayout(Chart)` and neither admits a caller-supplied entry set, so what each can DRAW is fixed: `SKDefaultLegend` iterates `chart.Series.Where(x => x.IsVisibleAtLegend)` and emits exactly one `ISeries.GetMiniatureGeometry(null)` plus one `ISeries.Name` label per entry — no value column, no statistics cell, and no explicitly declared domain is reachable through it; `SKHeatLegend` takes the FIRST visible `IHeatSeries`, reads that series' own `HeatMap` and `WeightBounds`, and draws one `LinearGradientPaint` bar with exactly TWO `LabelGeometry` labels, `Formatter(WeightBounds.Min)` and `Formatter(WeightBounds.Max)`, so its whole label surface is that delegate and an intermediate stop label is undrawable. A heat legend whose chart has no visible heat series, or whose ramp is empty, calls `Hide(chart)` and draws nothing.
+- Both legends derive ORIENTATION from `chart.LegendPosition` alone (`Left` and `Right` lay out vertically, `Top` and `Bottom` horizontally) and both read `chart.GetLegendPosition()` for their own origin, so a caller-declared flow column would be overridden on two of the five positions and a corner placement is unreachable — `LegendPosition` spells four sides plus `Hidden` and no corner.
+- `chart.View.LegendTextSize` below zero falls back to `Theme.LegendTextSize`, and `SKDefaultLegend` resolves its text paint as `chart.View.LegendTextPaint ?? Theme.LegendTextPaint ?? SolidColorPaint(30,30,30)`, so an unset legend paint reaches a near-black shipped default rather than a theme miss.
+- `LiveCharts.DefaultSettings.MaxTooltipsAndLegendsLabelsWidth` caps every drawn legend and tooltip label's `MaxWidth`, so a long series name wraps at a process-wide bound rather than at a per-legend one.
 
 [GEO_ENTRYPOINTS]: properties on `SourceGenMapChart`
 
@@ -512,6 +545,13 @@
 - Every `Xaml*` shell implements the runtime contract it declares — `XamlLineSeries` is an `ISeries`, `BaseXamlAxis<T>` an `ICartesianAxis`, `XamlRectangularSection` an `IChartElement` — so the XAML element drops straight into `Series`, `XAxes`, or `Sections`; `WrappedSeries` stays protected, and code-behind reaching for the runtime type constructs a `LiveChartsCore.SkiaSharpView` series instead.
 - `LiveCharts.DefaultSettings` is one process-wide instance and `LiveChartsSettings.HasTheme` replaces the whole `Theme`, so a single `LiveCharts.Configure` call seeds the theme through one `Add{Default,Light,Dark}Theme` and chains every `HasRuleFor*` onto that instance; `SourceGenChart.ChartTheme` overrides one control against the process theme.
 - Theme rules are ordered builder lists, not overwrites: `Theme.ApplyStyleToSeries` folds `SeriesBuilder` then the family list over each series, and `Theme.GetSeriesColor` walks `Colors` by series index, so a palette swap re-colours the whole dashboard from one `ColorPalletes` row.
+- `Theme.GetSeriesColor` is exactly `Colors[series.SeriesId % Colors.Length]`, so re-running `ApplyStyleToSeries` over already-attached series after a theme re-registration is deterministic and idempotent — a series keeps its ramp position across a swap rather than advancing one slot per re-apply, which is what makes a live re-tint of mounted charts a supported operation rather than a re-mount.
+- `Coordinate.Empty` is the NULL POINT: `ChartPoint.IsEmpty` reads `Coordinate.IsEmpty`, the measure pass skips empty points when computing bounds, and `EnableNullSplitting` breaks a line into segments at them. A `Mapping` delegate returning `Coordinate.Empty` therefore renders a genuine gap, where returning a zero would draw a value the data never carried.
+- `ISeries.DataLabelsFormatter` is `Func<ChartPoint, string>` over the UNTYPED point, and the bound model reaches it as `ChartPoint.Context.DataSource` (`object?`), so a formatter recovers its own row by pattern-matching that member. `ChartPoint.AsDataLabel` is NOT usable inside one: it resolves through `Context.Series.GetDataLabelText(this)`, which invokes the very formatter being defined, so a formatter reading it recurses until the stack ends.
+- `LiveCharts.AsDate(this double ticks) -> DateTime` and `AsTimeSpan(this double ticks) -> TimeSpan` are the ONLY axis-value conversions and both clamp a negative input to zero; no `AsChartValue` inverse exists, so the outbound direction is `DateTime.Ticks` and a temporal value crossing into chart space carries no package helper.
+- `LiveChartsCore.Measure.MeasureUnit` (`Pixels`, `ChartValues`) is the enum behind every `LocationUnit` property, and only `XamlNeedle` and `XamlAngularTicks` carry the axis-anchored placement trio `LocationUnit`/`ScalesXAt`/`ScalesYAt`. `XamlDrawnLabelVisual` and its `DrawnLabelVisual` base carry `X` and `Y` as raw `float` PIXELS with no measure unit and no axis index, so a drawn label anchored to a datum is re-placed by the caller on every pan, zoom, and re-range — the data-anchored planes are the section and the series, not the label visual.
+- `Paint.IsStroke` is settable and backed by `PaintStyle`, so `SolidColorPaint(SKColor, float strokeWidth)` yields a stroke paint and `SolidColorPaint(SKColor)` a fill; `Color`, `IsStroke`, `StrokeThickness`, `PathEffect`, and `ZIndex` are all settable on a live paint, and the parameterless ctor yields one carrying none of them — so a mounted chart re-styles by writing the draw tasks it already holds, and every slot a mint set is a slot a re-style must set, since `PathEffect` held from a prior resolve dashes a row that never asked for one.
+- `LiveCharts.MaxFps` sits beside `RenderingSettings` as the process frame ceiling; `RenderingSettings` itself carries `UseGPU`, `TryUseVSync`, `LiveChartsRenderLoopFPS`, and `ShowFPS`.
 
 [STACKING]:
 - `api-dynamicdata.md` (`DynamicData`): a `SourceCache.Connect().Transform(…).ToCollection()` or a bound `ObservableCollectionExtended` is the `Values` source on an `Xaml*Series`, so a chart redraws off the same change-set the grid and tiles read, without a copy.

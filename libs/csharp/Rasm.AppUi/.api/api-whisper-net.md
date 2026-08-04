@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_WHISPER_NET]
 
-`Whisper.net` owns offline speech-to-text for the LiveCaption rail: managed bindings over the native `whisper.cpp` ggml engine that load a model into a reusable `WhisperFactory`, configure one `WhisperProcessor` through a single polymorphic `With*` builder, and stream `SegmentData` as an `IAsyncEnumerable` for live emission. One in-model task translates recognition to English, and a separate Silero-VAD pipeline gates audio to speech spans before transcription.
+`Whisper.net` owns offline speech-to-text for the live-caption rail — `Document/media` owns capture and `Theme/locale#SPEECH_POLICY` `CaptionPolicy` states language and translate election: managed bindings over the native `whisper.cpp` ggml engine that load a model into a reusable `WhisperFactory`, configure one `WhisperProcessor` through a single polymorphic `With*` builder, and stream `SegmentData` as an `IAsyncEnumerable` for live emission. One in-model task translates recognition to English, and a separate Silero-VAD pipeline gates audio to speech spans before transcription.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -94,7 +94,7 @@
 - `WhisperProcessor.ProcessAsync`: returns `IAsyncEnumerable<SegmentData>`; `GetSupportedLanguages` returns `IEnumerable<string>` and `GetRuntimeInfo` a `string?`.
 - `WhisperProcessor.DetectLanguageWithProbability`: returns `(string? language, float probability)`; a `(ReadOnlySpan<float>, params ReadOnlySpan<string>)` overload constrains detection to candidate languages.
 
-[BUILDER_KNOBS]: every knob is a `With*` fold returning `WhisperProcessorBuilder`, `Build()` terminal; the LiveCaption path folds `WithLanguage("auto")` or `WithLanguageDetection()`, `WithTranslate()`, and `WithSegmentEventHandler`, tuned by the threshold and sampling rows.
+[BUILDER_KNOBS]: every knob is a `With*` fold returning `WhisperProcessorBuilder`, `Build()` terminal; the caption path folds `WithLanguage("auto")` or `WithLanguageDetection()`, `WithTranslate()`, and `WithSegmentEventHandler`, tuned by the threshold and sampling rows.
 
 [TASK_LANGUAGE]: `WithLanguage` `WithLanguageDetection` `WithTranslate` `WithPrompt` `WithCarryInitialPrompt` `WithNoContext` `WithSingleSegment` `WithSuppressRegex` `WithoutSuppressBlank`
 [WINDOW]: `WithThreads` `WithOffset` `WithDuration` `WithMaxLastTextTokens` `WithAudioContextSize`
@@ -145,6 +145,6 @@
 
 [RAIL_LAW]:
 - Package: `Whisper.net`
-- Owns: offline speech-to-text for LiveCaption — model load, the one `WhisperProcessorBuilder` `With*` fold, streaming `ProcessAsync` to `IAsyncEnumerable<SegmentData>`, in-model translate-to-English (`WithTranslate`), language auto-detect, DTW token timestamps, and Silero-VAD segmentation.
+- Owns: offline speech-to-text for the caption rail — model load, the one `WhisperProcessorBuilder` `With*` fold, streaming `ProcessAsync` to `IAsyncEnumerable<SegmentData>`, in-model translate-to-English (`WithTranslate`), language auto-detect, DTW token timestamps, and Silero-VAD segmentation.
 - Accept: one `WhisperFactory` per session streaming through `ProcessAsync`; task and tuning on the single builder; `WhisperVadProcessor.DetectSpeech*` gating to speech spans; `SegmentData.Start`/`End` `TimeSpan`s driving caption timing; `WhisperSpeechToTextClient.GetStreamingTextAsync` as the `ISpeechToTextClient` seam.
 - Reject: a cloud STT dependency where offline `whisper.cpp` is the mandate; a `Get`/`Transcribe`/`Translate` operation family where the one builder plus `ProcessAsync` discriminate task by `With*` row and input by overload; a hand-rolled VAD beside the Silero pipeline; an inline translation of caption text beside `WithTranslate`; leaking the factory, processor, or VAD handles past their `IDisposable`/`IAsyncDisposable` teardown.

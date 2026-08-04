@@ -126,22 +126,28 @@
 |  [05]   | `LoadingRow` / `UnloadingRow`                                               | event   | row recycle         |
 |  [06]   | `LoadingRowDetails` / `UnloadingRowDetails` / `RowDetailsVisibilityChanged` | event   | details lifecycle   |
 |  [07]   | `Sorting` (`DataGridColumnEventArgs`)                                       | event   | sort intercept      |
-|  [08]   | `SelectionChanged`                                                          | event   | selection signal    |
+|  [08]   | `SelectionChanged` / `CurrentCellChanged` / `CellPointerPressed`            | event   | selection signal    |
+|  [09]   | `LoadingRowGroup` / `UnloadingRowGroup` (`DataGridRowGroupHeaderEventArgs`) | event   | group-header mount  |
+|  [10]   | `ColumnDisplayIndexChanged` / `ColumnReordering` / `ColumnReordered`        | event   | column-order signal |
+|  [11]   | `CopyingRowClipboardContent` (`DataGridRowClipboardEventArgs`)              | event   | copy-row intercept  |
 
 [COLUMN_ENTRYPOINTS]: per-column model, owner qualified
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]            |
-| :-----: | :------------------------------------------------------------------ | :------- | :---------------------- |
-|  [01]   | `DataGridBoundColumn.Binding` (`BindingBase`)                       | property | value path              |
-|  [02]   | `DataGridBoundColumn.ClipboardContentBinding`                       | property | copy path override      |
-|  [03]   | `DataGridColumn.SortMemberPath`                                     | property | sort key path           |
-|  [04]   | `DataGridColumn.CustomSortComparer` (`IComparer`)                   | property | sort comparer           |
-|  [05]   | `DataGridColumn.Header` / `HeaderTemplate`                          | property | header content          |
-|  [06]   | `DataGridColumn.Width` (`DataGridLength`) / `MinWidth` / `MaxWidth` | property | sizing                  |
-|  [07]   | `DataGridColumn.IsReadOnly` / `IsVisible` / `DisplayIndex`          | property | per-column policy       |
-|  [08]   | `DataGridColumn.CanUserSort` / `CanUserResize` / `CanUserReorder`   | property | per-column gates        |
-|  [09]   | `DataGridColumn.CellStyleClasses`                                   | property | conditional styling     |
-|  [10]   | `DataGridTemplateColumn.CellTemplate` / `CellEditingTemplate`       | property | display + edit template |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]           |
+| :-----: | :------------------------------------------------------------------ | :------- | :--------------------- |
+|  [01]   | `DataGridBoundColumn.Binding` (`BindingBase`)                       | property | value path             |
+|  [02]   | `DataGridBoundColumn.ClipboardContentBinding`                       | property | copy path override     |
+|  [03]   | `DataGridColumn.SortMemberPath`                                     | property | sort key path          |
+|  [04]   | `DataGridColumn.CustomSortComparer` (`IComparer`)                   | property | sort comparer          |
+|  [05]   | `DataGridColumn.Header` / `HeaderTemplate`                          | property | header content         |
+|  [06]   | `DataGridColumn.Width` (`DataGridLength`) / `MinWidth` / `MaxWidth` | property | sizing                 |
+|  [07]   | `DataGridColumn.ActualWidth` (`double`)                             | property | measured extent        |
+|  [08]   | `DataGridColumn.IsReadOnly` / `IsVisible` / `DisplayIndex`          | property | per-column policy      |
+|  [09]   | `DataGridColumn.CanUserSort` / `CanUserResize` / `CanUserReorder`   | property | per-column gates       |
+|  [10]   | `DataGridColumn.CellStyleClasses` (`Classes`)                       | property | per-column style class |
+|  [11]   | `DataGridColumn.CellTheme` (`ControlTheme`)                         | property | per-column cell theme  |
+|  [12]   | `DataGridColumn.Sort()` / `Sort(ListSortDirection)` / `ClearSort()` | instance | programmatic sort      |
+|  [13]   | `DataGridTemplateColumn.CellTemplate` / `CellEditingTemplate`       | property | `IDataTemplate` pair   |
 
 [COLLECTION_VIEW_ENTRYPOINTS]: view projection operations on `DataGridCollectionView`
 
@@ -157,7 +163,31 @@
 |  [08]   | `AddNew()` / `CommitNew()` / `CancelNew()`                               | instance | row creation     |
 |  [09]   | `EditItem(object)` / `CommitEdit()` / `CancelEdit()`                     | instance | row edit txn     |
 |  [10]   | `Refresh()`                                                              | instance | full re-project  |
-|  [11]   | `CollectionChanged` / `CurrentChanged`                                   | event    | view signals     |
+|  [11]   | `Culture` (`CultureInfo`)                                                | property | sort culture     |
+|  [12]   | `CollectionChanged` / `CurrentChanged`                                   | event    | view signals     |
+
+[SORT_DESCRIPTION_ENTRYPOINTS]: `DataGridSortDescription` construction and read-back, owner qualified
+
+| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]           |
+| :-----: | :------------------------------------------------------------- | :------- | :--------------------- |
+|  [01]   | `FromPath(string, ListSortDirection, CultureInfo?)`            | static   | path description       |
+|  [02]   | `FromPath(string, ListSortDirection, IComparer)`               | static   | path plus comparer     |
+|  [03]   | `FromComparer(IComparer, ListSortDirection)`                   | static   | comparer description   |
+|  [04]   | `PropertyPath` / `HasPropertyPath` / `Direction`               | property | description read-back  |
+|  [05]   | `SwitchSortDirection()` / `OrderBy` / `ThenBy`                 | instance | toggle and application |
+|  [06]   | `DataGridComparerSortDescription.SourceComparer` (`IComparer`) | property | comparer identity      |
+|  [07]   | `DataGridPathSortDescription.Comparer` (`IComparer<object>`)   | property | resolved comparer      |
+
+[VALIDATION_ENTRYPOINTS]: cell/row validity, owner qualified
+
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]            |
+| :-----: | :------------------------------------------------------------------ | :------- | :---------------------- |
+|  [01]   | `DataGrid.IsValid` / `DataGridRow.IsValid` / `DataGridCell.IsValid` | property | read-only; internal set |
+|  [02]   | `DataGridCellEditEndingEventArgs.EditingElement` (`Control`)        | property | validation write target |
+|  [03]   | `DataGridPreparingCellForEditEventArgs.EditingElement`              | property | editor mount target     |
+|  [04]   | `DataGridCollectionViewGroup.Key` / `ItemCount` / `Items`           | property | group identity          |
+|  [05]   | `DataGridRowGroupHeader.PropertyName` / `IsItemCountVisible`        | property | header chrome           |
+|  [06]   | `DataGridRowClipboardEventArgs.ClipboardRowContent` / `Item`        | property | copy-row payload        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -165,7 +195,12 @@
 - `DataGrid` realizes `ItemsSource` lazily through `DataGridRowsPresenter`/`DataGridCellsPresenter`, recycling containers on `LoadingRow`/`UnloadingRow`; no `DataGridRow` exists for an off-screen item.
 - Filter, sort, group, and page state lives on `DataGrid.CollectionView` — the internal `DataGridCollectionView` wrapping a plain `IEnumerable` source — never on the source collection.
 - `CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true)` validates and persists a whole row; `BeginningEdit`/`CellEditEnding`/`RowEditEnding` veto through `e.Cancel`, and the `*Ended` events observe post-commit.
-- Sorting routes through `DataGridColumn.SortMemberPath` and `CustomSortComparer`; the `Sorting` event intercepts to substitute a domain comparer or push the order into the backing query.
+- Sorting routes through `DataGridColumn.SortMemberPath` and `CustomSortComparer`; the `Sorting` event intercepts through `e.Handled`, which vetoes the whole built-in gesture and is the seam for pushing the order into a backing query.
+- The header gesture owns MULTI-SORT: a plain click clears `SortDescriptions` and toggles that column alone, `Shift`-click appends or toggles in place (click order becomes key order), `Ctrl`/`Cmd`-click clears every description, `Shift`+`Ctrl`/`Cmd` is a no-op, and the whole gesture is refused while `EditingRow` is non-null. `DataGridColumn.GetSortDescription` matches a comparer-bearing column by `SourceComparer` alone and a path-bearing column by `PropertyPath`, so a column carrying BOTH `CustomSortComparer` and a path-bearing description gains a SECOND sort entry on the next click.
+- Cell and row validity are read-only from outside: `DataGridCell.IsValid`/`DataGridRow.IsValid` carry internal setters and only `EndCellEdit` writes them, reading `DataValidationErrors.GetHasErrors(editingElement)` when `CurrentColumn.CellEditBinding` is non-null — so `:invalid` is reachable on BOUND columns alone, and `DataValidationErrors.SetErrors` written inside `CellEditEnding` (which raises before that read) both refuses the cell commit and stamps the pseudo-class. A `DataGridTemplateColumn` generates no `CellEditBinding` and therefore cannot reach the cell-level gate.
+- The built-in `Ctrl+C` copy walks `ColumnsInternal.GetVisibleColumns()`, so an `IsVisible=false` column contributes nothing to the clipboard payload; there is no paste path on the control at all.
+- `DataGrid` recycles ROW containers and never columns: `Columns` is a model collection re-materialized wholesale, so each column costs one header plus one realized cell control per visible row for the surface lifetime.
+- `LoadingRowGroup` hands a `DataGridRowGroupHeader` whose `DataContext` the control has already set to the header's `DataGridCollectionViewGroup`.
 - `DataGridCollectionView.DeferRefresh()` returns an `IDisposable` scope collapsing a batch of `SortDescriptions`/`GroupDescriptions`/`Filter` mutations into one re-projection.
 
 [STACKING]:

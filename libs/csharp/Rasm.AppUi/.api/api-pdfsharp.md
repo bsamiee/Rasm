@@ -161,7 +161,8 @@
 |  [06]   | `PdfReader.Open(string, PdfDocumentOpenMode, PdfReaderOptions?)` | static   | open for import, modify, or info-only          |
 |  [07]   | `PdfReader.TestPdfFile(string\|Stream\|byte[]) -> int`           | static   | validate without a full parse                  |
 |  [08]   | `Info` / `Options` / `Settings`                                  | property | metadata, output policy, font/trim settings    |
-|  [09]   | `Outlines` / `SecuritySettings` / `PageCount` / `Version`        | property | bookmarks, encryption, page count, PDF version |
+|  [09]   | `Outlines -> PdfOutlineCollection`                               | property | the bookmark tree root                         |
+|  [10]   | `SecuritySettings` / `PageCount` / `Version` / `Pages`           | property | encryption, page count, version, page access   |
 
 [DRAWING]: `XGraphics` context creation and the draw algebra.
 
@@ -203,6 +204,31 @@
 |  [03]   | `new PdfDocumentRenderer { Document = doc }.RenderDocument()`       | instance | paginate and render onto a `PdfDocument`  |
 |  [04]   | `PdfDocumentRenderer.Save(string)` / `.PdfDocument`                 | instance | persist or expose the underlying document |
 |  [05]   | `DocumentRenderer.PrepareDocument()` / `RenderPage(XGraphics, int)` | instance | mix flow content with precise layout      |
+|  [06]   | `PdfDocumentRenderer.PageCount` / `.DocumentRenderer`               | property | rendered page count; the layout owner     |
+|  [07]   | `PdfDocumentRenderer.PrepareRenderPages()` / `RenderPages(int,int)` | instance | paginate without rendering; render a span |
+|  [08]   | `DocumentRenderer.GetDocumentObjectsFromPage(int) -> DocumentObject[]` | instance | which flow objects landed on a page    |
+|  [09]   | `DocumentRenderer.GetRenderInfoFromPage(int) -> RenderInfo[]?`      | instance | per-page render info with geometry        |
+|  [10]   | `FormattedDocument.PageCount` / `GetPageInfo(int) -> PageInfo`      | instance | measured pagination and page geometry     |
+|  [11]   | `ParagraphElements.AddBookmark(string name, bool prepend = true)`   | instance | seat a `BookmarkField` in a paragraph     |
+
+[OUTLINE]: `PdfDocument.Outlines` is the bookmark tree — the navigation panel every long PDF reader shows.
+
+| [INDEX] | [SURFACE]                                                                            | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :----------------------------------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `PdfOutlineCollection.Add(string title, PdfPage destination)`                        | instance | append a top-level bookmark      |
+|  [02]   | `…Add(string, PdfPage, bool opened)`                                                 | instance | append with expansion state      |
+|  [03]   | `…Add(string, PdfPage, bool, PdfOutlineStyle[, XColor])`                             | instance | append with style and colour     |
+|  [04]   | `PdfOutlineCollection.Insert(int, PdfOutline)` / `RemoveAt` / `Remove` / `Clear`     | instance | reorder and drop bookmarks       |
+|  [05]   | `PdfOutline.Outlines -> PdfOutlineCollection`                                        | property | the node's own children — nesting |
+|  [06]   | `PdfOutline.Parent` / `HasChildren` / `Title` / `DestinationPage`                    | property | tree identity and target         |
+|  [07]   | `PdfOutline.Left` / `Top` (`double?`) / `Right` / `Bottom` / `Zoom` (`double?`)      | property | in-page destination rectangle    |
+|  [08]   | `PdfOutline.Opened` / `Style` / `TextColor` / `PageDestinationType`                  | property | presentation and destination mode |
+|  [09]   | `new PdfOutline(string, PdfPage[, bool[, PdfOutlineStyle[, XColor]]])`               | ctor     | construct before insertion       |
+
+- `PdfOutlineCollection` implements `IList<PdfOutline>`, so ordering is positional and a bookmark tree is built by appending to the document's `Outlines` for top-level nodes and to a node's own `Outlines` for children — nesting is collection membership, never a level field.
+- `Left`/`Top`/`Zoom` are NULLABLE while `Right`/`Bottom` default to `double.NaN`, so an unset in-page destination is absence on the first three and a not-a-number on the last two; leaving all five unset targets the page itself.
+- A bookmark binds to its heading's page through the RENDERER: `RenderDocument()` (or `PrepareRenderPages()`) paginates, then `DocumentRenderer.GetDocumentObjectsFromPage(page)` answers which `DocumentObject` values that page rendered, so matching a retained heading `Paragraph` by reference identity yields its page.
+- `FormattedDocument` keeps its own bookmark map PRIVATE, and `Paragraph` exposes no `AddBookmark` — the member is on `ParagraphElements`, reached as `paragraph.Elements.AddBookmark(name)`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -223,4 +249,4 @@
 - Package: `PDFsharp` + `PDFsharp-MigraDoc`
 - Owns: the vector-PDF deliverable — the `PdfDocument` page tree, the `XGraphics` draw algebra, `PdfReader` open/import/merge, the security/signing/AcroForm/annotation/tagged-PDF namespaces, and the auto-paginated MigraDoc flow DOM rendered onto it.
 - Accept: precise sheet layout drawn with `XGraphics` and `XTextFormatter`; imported pages merged as `XPdfForm`; multi-page flow reports authored as a MigraDoc `Document` and rendered by `PdfDocumentRenderer`; output policy on `PdfDocumentOptions`; signatures and AES encryption applied to the underlying `PdfDocument`.
-- Reject: hand-emitting PDF byte syntax or a parallel page model; a raster path where `XGraphics` draws vector directly; hand-paginating a report with `DrawString` cursor math where the flow DOM owns pagination; a bespoke report model duplicating `Document`/`Section`/`Table`; AppUi-held signing key bytes where the AppHost secrets lease owns credential lifecycle.
+- Reject: hand-emitting PDF byte syntax or a parallel page model; a page number derived from block positions where the layout engine already answers which page an object rendered on; a raster path where `XGraphics` draws vector directly; hand-paginating a report with `DrawString` cursor math where the flow DOM owns pagination; a bespoke report model duplicating `Document`/`Section`/`Table`; AppUi-held signing key bytes where the AppHost secrets lease owns credential lifecycle.

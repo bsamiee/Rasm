@@ -189,6 +189,10 @@
 - `ExpressionAnimation.Expression`: parses lazily on first start, so a malformed expression surfaces at `StartAnimation`, never at assignment.
 - `Offset` and `Scale` are `Vector3D`, so `CreateVector3DKeyFrameAnimation` drives them — the `Vector3` variant targets neither.
 - `InsertExpressionKeyFrame` takes a nullable `Easing` and falls back to the compositor default; the typed `InsertKeyFrame` overload takes a non-null `IEasing`.
+- `InsertKeyFrame` is declared per typed subclass and NOT on `KeyFrameAnimation`, so a base-typed animation inserts value frames only after a downcast; `InsertExpressionKeyFrame` is the base's own member and is therefore the one type-agnostic frame.
+- Namespace split: `CompositionAnimation`, `KeyFrameAnimation`, `ExpressionAnimation`, `CompositionAnimationGroup`, and `ImplicitAnimationCollection` live in `Avalonia.Rendering.Composition.Animations` while every typed `*KeyFrameAnimation` subclass lives in `Avalonia.Rendering.Composition` beside the visuals.
+- Expression keywords: `this.StartingValue` is the animated property's value when the run starts and `this.FinalValue` the value it ends on — in an `ImplicitAnimationCollection` that is the value the triggering assignment carried in, and it falls back to the starting value when no final value is supplied. A trigger animation therefore authors both endpoints as expression frames and needs no literal value, which makes one body cover every slot.
+- `ImplicitAnimationCollection` exposes a settable `this[string]` indexer beside `Insert`/`Lookup`/`HasKey`/`Size`, so the dictionary spelling and the UWP-shaped set address the same inner map.
 
 [GPU_IMPORT]: external image/semaphore import and sync-capability query (`ICompositionGpuInterop`)
 

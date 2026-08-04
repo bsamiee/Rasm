@@ -65,6 +65,8 @@
 [LOCAL_ADMISSION]:
 - Typography roles bind the embedded `fonts:Inter` family or a sibling embedded collection, so render output is byte-identical across the macOS desktop and headless raster backends.
 - A second family (icon, monospace) registers through `ConfigureFonts` and `AddFontCollection` in the same builder pass, never package-specific chaining sugar.
+- The six shipped faces are STATIC, so optical sizing, true italics, and interpolated weights exist only through an owned variable asset registered as a second `EmbeddedFontCollection(Uri key, Uri source)` beside this one; the shipped ladder plus a declared synthetic embolden or skew is the stated fallback where the variable asset is absent, never a silent per-host difference.
+- `FontManagerOptions.DefaultFamilyName` pins the family every unstyled surface resolves and `FontFallbacks` carries the ranked host tail, so a resolved style row names one family and the fallback chain lives on the registry rather than inside every style string.
 
 [RAIL_LAW]:
 - Package: `Avalonia.Fonts.Inter`

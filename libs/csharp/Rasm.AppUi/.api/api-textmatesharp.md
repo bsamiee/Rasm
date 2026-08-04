@@ -32,7 +32,11 @@
 |  [03]   | `Registry`         | class         | standalone tokenizer engine      |
 |  [04]   | `ThemeName`        | enum          | bundled theme key                |
 
-`IRegistryOptions` is the entire seam a host answers: `GetGrammar` returns the scope's grammar, `GetTheme`/`GetDefaultTheme` a theme, `GetInjections` its injections. `RegistryOptions` implements it over the embedded corpus; a Rasm-DSL host implements the four members itself or composes over a `RegistryOptions` and overrides `GetGrammar` for its own `source.rasm` scopes.
+`IRegistryOptions` is the entire seam a host answers, and it is exactly four members: `GetTheme(string scopeName)`, `GetGrammar(string scopeName) -> IRawGrammar`, `GetInjections(string scopeName) -> ICollection<string>`, and `GetDefaultTheme()`.
+
+- `RegistryOptions` implements those four over the embedded corpus; a Rasm-DSL host composes over one and answers `GetGrammar` from its own rows for its `source.rasm` scopes, delegating the rest.
+- Corpus-only members — `GetScopeByExtension`, `GetScopeByLanguageId`, `GetLanguageByExtension`, `GetAvailableLanguages`, `LoadTheme`, the local loaders — live on the concrete class, so a composing locator holds that instance rather than a bare interface.
+- `IRawTheme` is likewise exactly five members — `GetName()`, `GetInclude()`, `GetSettings()`, `GetTokenColors()`, `GetGuiColors()` — so a host implements it as a DECORATOR over a corpus theme, forwarding the token rules and substituting `GetGuiColors()` to own every chrome key rather than inheriting the corpus's partial, per-theme-divergent coverage.
 
 [GRAMMAR_TYPE_SCOPE]: the scope-tagged tokenize surface `Registry.LoadGrammar(scope)` returns
 
@@ -83,7 +87,16 @@
 |  [13]   | `LanguageSnippet`       | class         | snippet row                  |
 |  [14]   | `Region`                | class         | snippet body region          |
 
-`LanguageConfiguration` drives editor behavior beyond color: `Comments.LineComment`/`BlockComment` feed a comment-toggle, `Brackets`/`AutoClosingPairs`/`SurroundingPairs` feed bracket matching and auto-close, `Folding.Markers` feeds marker-based folding. `RegistryOptions.GetLanguageByExtension(".cs").Configuration` reaches it for any bundled language without re-parsing JSON; `GrammarDefinition.Parse` and `LanguageConfiguration.Load`/`Parse` ingest a raw extension.
+`LanguageConfiguration` drives editor behavior beyond color and carries eight settable members: `Comments`, `Brackets : IList<string>[]`, `AutoClosingPairs`, `SurroundingPairs : IList<char>[]`, `IndentationRules : Indentation`, `EnterRules`, `Folding`, and `AutoCloseBefore : string`.
+
+`RegistryOptions.GetLanguageByExtension(".cs").Configuration` reaches it for any bundled language without re-parsing JSON; `GrammarDefinition.Parse`, `LanguageConfiguration.Load(grammarName, configurationFile)`, `LoadFromLocal(configurationFile)`, and `Parse(json)` ingest a raw extension, each returning null for an absent or unparsable source.
+
+- `Comments`: `LineComment : string`, `BlockComment : IList<string>` (open at index 0, close at 1) — the whole comment-toggle input.
+- `AutoClosingPairs`: `CharPairs : IList<char>[]` for the plain two-character rows and `AutoPairs : AutoPair[]` for the object rows, each `AutoPair` carrying `Open`, `Close`, and `NotIn : IList<string>` — the scope roster a pair must NOT close inside. `AutoCloseBefore` is the character set a pair may close before.
+- `Folding`: `OffSide : bool`, `Markers`, and the derived `IsEmpty`; `Markers` carries `Start`/`End` regex strings feeding marker-based folding.
+- `Indentation`: `Increase`, `Decrease`, `Unindent` regex strings (each defaulting to empty) and the derived `IsEmpty`; the JSON reader accepts a bare string or a `{ "pattern": … }` object at each slot.
+- `EnterRules`: `Rules : IList<EnterRule>`, each `EnterRule` carrying `BeforeText`, `AfterText`, `ActionIndent` (`"indent"`, `"indentOutdent"`, `"outdent"`, `"none"`), and `AppendText`.
+- `Language`: `Id`, `Extensions`, `Aliases`, `MimeTypes`, `ConfigurationFile`, and the parsed `Configuration` — so a language-id lookup and an extension lookup reach the same configuration.
 
 [MODEL_TYPE_SCOPE]: the background incremental tokenizer (`TextMateSharp.Model`)
 
@@ -114,10 +127,12 @@
 |  [09]   | `GetTheme(string) -> IRawTheme`                                      | instance | locator contract    |
 |  [10]   | `GetDefaultTheme() -> IRawTheme`                                     | instance | locator contract    |
 |  [11]   | `GetInjections(string) -> ICollection<string>`                       | instance | locator contract    |
-|  [12]   | `LoadFromLocalDir(string, bool)`                                     | instance | custom grammar dir  |
-|  [13]   | `LoadFromLocalFile(string, string)`                                  | instance | custom grammar file |
+|  [12]   | `LoadFromLocalDir(string dirPath, bool overwrite = false)`           | instance | custom grammar dir  |
+|  [13]   | `LoadFromLocalFile(string, string \| FileInfo, bool overwrite = false)` | instance | custom grammar file |
 
-`new RegistryOptions(ThemeName.DarkPlus)` is the construction the editor stack passes to `InstallTextMate`; `GetScopeByExtension(".cs")` yields the scope `SetGrammar` selects. `LoadFromLocalDir`/`LoadFromLocalFile` ingest a VS Code grammar-extension folder, so a file-backed Rasm-DSL grammar registers from disk without a custom `IRegistryOptions`.
+`new RegistryOptions(ThemeName.DarkPlus)` is the construction the editor stack passes to `InstallTextMate`; `GetScopeByExtension(".cs")` yields the scope `SetGrammar` selects, and `GetScopeByLanguageId("csharp")` answers the same question from a fence's declared language.
+
+Both lookups return an empty or null string for an unknown token, so a scope resolution branches on the miss rather than handing `SetGrammar` a scope no grammar answers. `LoadFromLocalDir`/`LoadFromLocalFile` ingest a VS Code grammar-extension folder or `package.json`, so a file-backed Rasm-DSL grammar registers from disk without a custom `IRegistryOptions`; the `FileInfo` overload takes the manifest directly and `overwrite` replaces an already-registered grammar of the same name.
 
 [REGISTRY_ENGINE_ENTRY_SCOPE]: standalone `Registry` tokenization, no editor
 

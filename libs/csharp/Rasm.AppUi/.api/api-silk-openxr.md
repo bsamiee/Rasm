@@ -45,6 +45,10 @@
 |  [13]   | `CompositionLayerFlags`          | enum (flags)  | `BlendTextureSourceAlphaBit` / `UnpremultipliedAlphaBit`     |
 |  [14]   | `SwapchainImageVulkanKHR`        | struct        | imported swapchain image handle                              |
 |  [15]   | `EnvironmentBlendMode`           | enum          | opaque/additive/alpha-blend passthrough                      |
+|  [16]   | `CompositionLayerQuad`           | struct        | world-anchored quad layer (`LayerFlags`/`Space`/`EyeVisibility`/`SubImage`/`Pose`/`Size`) under `StructureType.TypeCompositionLayerQuad` |
+|  [17]   | `Extent2Df`                      | struct        | `float Width` + `float Height`; the quad's metre extent      |
+|  [18]   | `EyeVisibility`                  | enum          | `Both` / `Left` / `Right` per-layer eye selection            |
+|  [19]   | `ReferenceSpaceType`             | enum          | `View` / `Local` / `Stage` reference-space selection         |
 
 [PUBLIC_TYPE_SCOPE]: session-state and event-queue carriers — the runtime drives the session and the app answers on the event it dequeues
 

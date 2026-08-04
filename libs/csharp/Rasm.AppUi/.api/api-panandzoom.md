@@ -53,7 +53,9 @@
 
 ## [03]-[ENTRYPOINTS]
 
-Every surface hangs off `ZoomBorder`. Transform methods trail `bool skipTransitions = false`; history, rotation, and view methods trail `bool animate = true`.
+Every surface hangs off `ZoomBorder`. `Zoom`/`ZoomTo`/`ZoomDeltaTo`/`ZoomIn`/`ZoomOut`/`SetMatrix`/`ResetMatrix` and the four sized and bare stretch fits trail `bool skipTransitions = false`; `ZoomToLevel`, `ZoomToRectangle`, `ZoomToRectangleExact`, `CenterOn`, `Pan`/`PanDelta`/`ContinuePanTo`, the rotation methods, the history and saved-view methods, and `ImportState` trail `bool animate = true`. `ZoomToRectangle`'s `Thickness? padding` also defaults null.
+
+The type name collides: the legacy `Avalonia.Controls.PanAndZoom` package publishes the same full `Avalonia.Controls.PanAndZoom.ZoomBorder` from a differently named assembly, so a consumer carrying both aliases the LEGACY reference (`api-nodeeditor.md` `[LOCAL_ADMISSION]`) and this package's members stay reachable by plain name.
 
 [ZOOM_ENTRYPOINTS]: zoom, pan, and drag operations
 
@@ -100,7 +102,8 @@ Every surface hangs off `ZoomBorder`. Transform methods trail `bool skipTransiti
 |  [02]   | `ScreenToContent(Vector)` / `ContentToScreen(Vector)`               | map screen-delta <-> content-delta vectors  |
 |  [03]   | `GetContentToScreenMatrix()` / `GetScreenToContentMatrix()`         | the live affine and its inverse (`Matrix`)  |
 |  [04]   | `GetVisibleContentBounds()` / `GetViewportBounds()`                 | visible content `Rect` / viewport `Rect`    |
-|  [05]   | `IsPointVisible(Point)` / `IsRectangleVisible(Rect)`                | hit-test against the visible content bounds |
+|  [05]   | `GetVisiblePortion(Rect)`                                           | the visible sub-rectangle of a content box  |
+|  [06]   | `IsPointVisible(Point)` / `IsRectangleVisible(Rect)`                | hit-test against the visible content bounds |
 
 [STATE_ENTRYPOINTS]: saved views, history, discrete levels, grid, and state export
 

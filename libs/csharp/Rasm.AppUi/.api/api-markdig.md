@@ -136,7 +136,7 @@
 - Block and inline nodes form the sole Markdown document model; folds project through `Descendants<T>` with `Span` evidence and annotate via `SetData`/`GetData`, reading node-typed evidence (`HeadingBlock.Level`, `FencedCodeBlock.Info`, `LinkInline.Url`/`IsImage`) directly off each node.
 
 [STACKING]:
-- `api-dynamicdata`(`.api/api-dynamicdata.md`): `Descendants<HeadingBlock>()` projects `(Level, text, Span)` rows seeding a `SourceCache` keyed by `Span.Start`; `TransformToTree` on `Level` folds the flat heading stream into the collapsible outline `Node` tree bound to a `TreeDataGrid`, sharing the one change-set rail with every other panel.
+- `api-dynamicdata`(`.api/api-dynamicdata.md`): `Descendants<HeadingBlock>()` projects `(Level, text, Span)` rows seeding a `SourceCache` keyed by `Span.Start`; `TransformToTree` on `Level` feeds the shared `HierarchyFlatten.Flatten` bridge, whose `FlatNode` indent rows bind the collapsible outline on the flat virtualized `DataGrid`, sharing the one change-set rail with every other panel.
 - `api-avaloniaedit`(`.api/api-avaloniaedit.md`): `Span`/`Line`/`Column` map fold nodes to editor-document offsets, so an outline-row click scrolls the editor and a caret resolves to its enclosing block; `FencedCodeBlock.Info` selects the `api-textmatesharp` grammar for the fence body.
 - Within-lib: one `MarkdownPipelineBuilder.UseAdvancedExtensions()…Build()` constructed at composition, threaded to every parse, resolving link references and asset rewrites through `MarkdownParserContext.Properties` without a second pass.
 

@@ -168,7 +168,7 @@
 
 [TOPOLOGY]:
 - Profiles are the transform operands; a `Transform` compiles a fixed pipeline from an input, output, and optional proofing `Profile`, and `DoTransform` runs pixel buffers through it. Soft-proofing, K-preservation, and gamut warning are `Intent`/`CmsFlags` selections on that one build, never separate factories.
-- `Profile`, `Transform`, and `Context` are `CmsHandle<T> : IDisposable`; the teardown frees the native object, so an undisposed handle leaks native memory.
+- `Profile`, `Transform`, and `Context` derive `CmsHandle<T> : SafeHandle` at `lcmsNET.Impl`, so critical finalization and `Dispose` semantics come from the framework rather than from hand-rolled disposal: `IsInvalid` is `handle == IntPtr.Zero`, the ctor `CmsHandle(nint, Context = null, bool isOwner = true)` gates through `Helper.CheckCreated<T>`, `protected internal Release()` calls `SetHandleAsInvalid()`, and `protected EnsureNotClosed()` throws `ObjectDisposedException` once `IsClosed`. The teardown frees the native object, so an undisposed handle still leaks until finalization.
 
 [STACKING]:
 - `api-pdfsharp.md`: `XGraphics`/`XImage` consume a color-managed `TYPE_CMYK_*` buffer as the pixel source for the vector PDF, and `PdfDocumentOptions.ColorMode` carries the CMYK intent PDFsharp does not compute — `lcmsNET` the color authority, PDFsharp the page authority.

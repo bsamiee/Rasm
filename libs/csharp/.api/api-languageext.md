@@ -155,6 +155,7 @@
 |  [16]   | `FinGuardExtensions.SelectMany(Func<Unit,Fin<B>>)` | static    | gate as a LINQ `from` clause     |
 |  [17]   | `IOptional`                                        | interface | non-generic presence read        |
 |  [18]   | `IOptional.IsSome` / `IsNone`                      | property  | presence off a BOXED `Option<A>` |
+|  [19]   | `Option.Exists(Func<A,bool>)`                      | instance  | predicate over the present arm   |
 
 [ENTRYPOINT_SCOPE]: `Validation<F, A>` accumulation and the `Error` vocabulary
 
@@ -255,8 +256,10 @@
 |  [06]   | `FinT.liftIO(IO<A>)`                     | static      | bare-`IO` ingress under `MonadIO<M>`                     |
 |  [07]   | `FinT.liftIO(IO<Fin<A>>)`                | static      | railed-`IO` ingress — the carrier shape, lifted directly |
 |  [08]   | `FinT.runFin`                            | property    | `K<M, Fin<A>>` egress the queries end on                 |
-|  [09]   | `FinT.Bind` / `SelectMany` overload set  | instance    | binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, bare `Fin<B>`, `Pure<B>`, `Fail<Error>` — a bare `Fin` step in a `FinT` query needs NO lift |
+|  [09]   | `FinT.Bind` / `SelectMany` overload set  | instance    | binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, bare `Fin<B>`    |
 |  [10]   | `FinT.Match(Succ, Fail)` / `MapFail`     | instance    | `K<M, B>` fold / failure map                             |
+
+- `FinT.Bind`/`SelectMany` also bind `Pure<B>` and `Fail<Error>`, so a bare `Fin` step inside a `FinT` query needs no lift.
 
 [ENTRYPOINT_SCOPE]: `Seq`, `Arr`, `HashMap`, `Set` — immutable carriers
 
@@ -320,7 +323,14 @@
 |  [56]   | `Set(IEnumerable<A>)`                                            | ctor     | ordered-set construction            |
 |  [57]   | `Prelude.toHashMap(IEnumerable<(K,V)>)`                          | static   | hashed-map pair admission           |
 |  [58]   | `Seq.Iter(Action<A>)`                                            | instance | side-effecting element walk         |
+|  [59]   | `Seq.Skip(int)`                                                  | instance | drop a leading run                  |
+|  [60]   | `Seq.Take(int)`                                                  | instance | keep a leading run                  |
+|  [61]   | `Seq.Count`                                                      | property | materialized member count           |
+|  [62]   | `SeqExtensions.Rev(Seq<A>)`                                      | static   | reversed carrier                    |
+|  [63]   | `Seq.TakeWhile(Func<A,bool>)`                                    | instance | predicate-bounded leading run       |
+|  [64]   | `Seq.TakeWhile(Func<A,int,bool>)`                                | instance | indexed predicate-bounded run       |
 
+- `Seq<A>` publishes NO `Option`-returning positional read: its one index member is the throwing `this[Index]`, and neither the type nor `SeqExtensions` carries an `At`, so a bounded positional lookup composes `Skip(n).Head`, which answers `None` past the tail.
 - `LanguageExt.List.unfold` runs the state seed until the unfolder answers `None`, returning `IEnumerable<A>`; five overloads cover `Func<S,Option<S>>` (state-only) and one-to-four state slots as a tuple seed. A host walk over a linked native cursor (`node.Next`) is the generation this replaces, so no `while` loop accumulates into a mutable list before `toSeq`.
 
 [ENTRYPOINT_SCOPE]: `TrackingHashMap<K, V>` — the change-logged map (`HashMap.ToTrackingHashMap()` lifts into it)
@@ -366,8 +376,9 @@
 |  [21]   | `Prelude.memo(Func<A,B>)`                | static   | memoized pure function           |
 |  [22]   | `Memo.Reset()`                           | instance | drop a memoized value            |
 |  [23]   | `Range.fromMinMax(A, A, A)`              | static   | generated bounded sequence       |
-|  [24]   | `Prelude.unit`                           | property | the `Unit` literal               |
-|  [25]   | `Prelude.identity(A)`                    | static   | the identity projection          |
+|  [24]   | `Prelude.Range(int\|long from, count)`   | static   | `Range<A>` from origin and count |
+|  [25]   | `Prelude.unit`                           | property | the `Unit` literal               |
+|  [26]   | `Prelude.identity(A)`                    | static   | the identity projection          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -382,6 +393,16 @@
 - `Arr<A>` is the indexed carrier collection expressions build; `Iterable<A>` is the lazy sync-or-async seam materializing through `ToSeq`.
 - `Iterable<A>.FromSpan` is the one lift a `params ReadOnlySpan<A>` parameter takes to reach the carrier rail, because a span cannot cross into a lambda or an iterator; it copies at the call, so the returned carrier outlives the frame.
 - Lookups return `Option`: `HashMap.Find`, `Seq.Head`, `Seq.Last`.
+- Neither `Seq<A>` nor `SeqExtensions` declares an ordering member, so `OrderBy`/`OrderByDescending`/`ThenBy` bind the LINQ extensions and answer `IOrderedEnumerable<A>` — a shape carrying no `K<Seq, A>`, and therefore reaching neither the carrier-generic `Fold` family nor the `Option`-shaped `Head`/`Last` properties. An ordered run re-enters through `toSeq(…)` before any carrier member reads it; chaining straight off `OrderBy` resolves to the throwing `Enumerable.Last()` or fails to compile, and the two failures look nothing alike.
+- Every LINQ shape leaves the carrier the same way `OrderBy` does — `OfType`, `Cast`, `Reverse`, `Order`, `Select`, `Where` — so `Head`, `Last`, `Find`, `Iter`, `Exists`, `Fold`, `Traverse`, and `Choose` reach none of them, and `Prelude.toSeq(…)` is the ONE re-entry. `ToSeq()` is `FoldableExtensions.ToSeq<F, A>(K<F, A>)` and binds no `IEnumerable`, so `linqShape.ToSeq()` does not compile; `Option<A>.ToSeq()` and `Fin<A>.ToSeq()` are the types' own members and do.
+- The carrier keeps the members it declares for itself, so the exit list is exact rather than a rule about names: `SeqExtensions.Distinct` takes a `Seq<A>` receiver and answers `Seq<T>` across all three overloads (bare, `Eq`-parameterized, key-selector), and `Seq<A>` publishes `Map`, `Filter`, `Skip`, and `Take` as instance members answering `Seq<A>` — so `.Distinct().Count`, `.Skip(n).Take(n).Traverse(…)`, and `.Map(…).Fold(…)` all stay on the rail, while the same spellings off an `ImmutableArray`, a `FrozenDictionary.Values`, or an ordered run bind `Enumerable` or nothing at all.
+- An UNSEEDED reduction over a carrier reaches neither surface: `FoldableExtensions.Max<T, A>(K<T, A>)`/`Min` answer `Option<A>` while `Enumerable.Max`/`Min`/`Sum` answer the bare scalar, both bind the same receiver by an interface conversion neither of which is better, and `seq.Max()`, `seq.Min()`, and `seq.Sum()` are therefore `CS0121` on every element type — the numeric non-generic overloads and the `IComparable` generic one alike. The escapes are the SEEDED foldable pair `Max(A initialMax)`/`Min(A initialMin)`, which answer `A` and are total over the empty run, the explicit-`Ord` witness form, the selector-taking `Enumerable.Max(f)`/`Sum(f)` where no foldable twin competes, and a plain `Fold` for a total. The seeded form is the one to reach for, because it retires the emptiness guard the unseeded reduction needed beside it.
+- `FoldableExtensions.Iter` publishes `Action<A>` and `Action<int, A>` — the indexed overload takes the INDEX FIRST, the opposite of the instance indexed `Map`'s `(value, index)`, so a `(value, index)` lambda handed to `Iter` binds the value to the ordinal slot and fails at the first member read rather than at the call. `ForAll` publishes NO indexed overload at all, so an index-bearing predicate pairs the ordinal in through `Map((value, index) => …)` first.
+- `Option<A>` publishes no `MatchUnsafe`; a null-answering projection is the pattern probe `option is { IsSome: true, Case: T value } ? value : null`, which also carries the `IsSome` proof the boundary law requires of any `Case` read.
+- `Prelude.Range(from, count)` answers `Range<A>`, a Foldable that reaches `Iter`, `Fold`, and `Count` but publishes NO `Map` — a `Map` off it binds `ValueTuple1Extensions.Map` and fails inference — so it is the bounded-fixpoint driver a counter loop retires into, and a projection over an integer span crosses `toSeq(Enumerable.Range(…))` instead.
+- `SeqExtensions` carries the members `Seq<A>` itself does not: `Append(Seq<T>)` and `Append(Seq<Seq<T>>)` answer `Seq<T>` where `Enumerable.Append` takes a single element, and `Zip(Seq<U>)` answers `Seq<(T First, U Second)>` beside the projecting arity — so a pairwise walk stays on the rail and reads its halves by those two names.
+- `HeadOrNone` exists on NO type in the assembly — the name survives only in v4-era prose. `Seq<A>` publishes `Head` and `Last` as `Option` properties and `headOrNone`/`lastOrNone` as static optics, so an optional first read over a filtered enumerable is `toSeq(rows.OfType<T>()).Head`.
+- `Seq<A>.Map<B>` takes `Func<A, int, B>` — value first, index second — while the indexed `Choose` on `SeqExtensions` and the `Seq` module's `map`/`choose` take `Func<int, A, …>`, index first. The instance twin is the one the carrier rail spells; a `(value, index)` lambda handed to the module form binds the index to the value slot.
 - `HashMap<K, V>` declares NO fold of its own; the carrier-generic `Fold` reaches it through `K<HashMap<K>, V>`, whose element is `V` ALONE. Folding with the key runs over `AsIterable()`, whose element is the `(K Key, V Value)` pair — `map.Fold(seed, (state, pair) => … pair.Key …)` does not type, and the three-argument `Fold(S, Func<S,K,V,S>)` belongs to the `Eq`-parameterized `HashMap<EqK, K, V>`, not to the two-parameter map.
 - `TrackingHashMap<K, V>` accumulates its own delta: each `AddOrUpdate*` and `Remove*` writes a `Change<V>` entry beside the value, `Changes` reads that log as a `HashMap<K, Change<V>>`, and `Snapshot()` returns the SAME data with the log zeroed — so a delta between two points is `snapshot` then mutate then `Changes`, never a diff of two maps. `Find`, `ContainsKey`, and `TryGetValue` log nothing, and `ToHashMap()` drops the log at the seam where the delta stops mattering.
 - A `Change<A>` reads through `HasNoChange`/`HasChanged`/`HasAdded`/`HasRemoved`/`HasMapped` or the open `HasMappedFrom<FROM>()`, never a `switch` over the sealed case classes; `HasMapped` answers the mapped-TO side, and `ToOption()` projects the post-change value — `Some` for `EntryAdded` and a mapped-to entry, `None` for `EntryRemoved` and `NoChange`.
@@ -391,6 +412,7 @@
 - `Error : Monoid<Error>` is why `Validation<Error, A>` accumulates: `Combine` and `+` join failures into one carrier that `Head`, `Tail`, `Count`, and `AsIterable` re-enumerate.
 - `Atom<A>.Swap` owns lock-free shared state and publishes each accepted swap on `Change`; `Ref<A>` owns the transactional cell that `atomic` commits across several refs in one isolation scope.
 - `Atom<A>.Swap` returns the NEW value, so a take-and-clear spelled as `cell.Swap(_ => empty)` hands back the empty value it just installed — an evidence or tally cell drained that way reports zero forever. Hand-off reads need a member returning the prior value; `Value` is the honest snapshot where none exists.
+- `Atom<A>.Swap`/`SwapMaybe` re-run their function inside a `SpinWait` CAS loop, so the function must be free of side effects — a dispose, a counter bump, or a log inside a swap runs once per losing attempt, and a handle released on an attempt that then loses the exchange is a live cell holding a dead native. A release therefore rides the state the swap ANSWERS: the transition records what it unlinked on the value it installs, and the caller drains that roster once after the swap returns, which also makes a losing attempt recompute against the winner's state and select again.
 
 [STACKING]:
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): a generated `IObjectFactory.Validate` returns its `TValidationError`, which the admission gate maps to `Error` and lands on `Fin<A>`, or on `Validation<Error, A>` when several value objects admit at once; `ISmartEnum.TryGet` lifts to `Option<T>`.

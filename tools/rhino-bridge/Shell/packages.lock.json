@@ -10,9 +10,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.125, )",
-        "resolved": "3.0.125",
-        "contentHash": "CexelZXr4mqLJGy9LGthGnAKUkz/Uh5U4Brh0FnbO+VAI7/TUoPoHKXA+8LLJ8kId7DagSWeuAP3KvCiTvPhgQ=="
+        "requested": "[3.0.138, )",
+        "resolved": "3.0.138",
+        "contentHash": "o97FZRHWIpMeg/Mzb5Whhcqe1/95SxZLn1bkG+P8T4ijiAY6eoe9BYTYyINBVzkyl5zehQ7NB6bz1DnEgqVZmQ=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
@@ -131,9 +131,9 @@
       },
       "Nerdbank.Streams": {
         "type": "CentralTransitive",
-        "requested": "[2.13.16, )",
-        "resolved": "2.13.16",
-        "contentHash": "GjifQ5M4IpQWjGNNbIrsj8M/M7ESb2328OeoGeqxk5rOJiuaAJ5zFc6CyqB+5UWKr1KEGK23hKoxA+z1gooAKA==",
+        "requested": "[2.13.31, )",
+        "resolved": "2.13.31",
+        "contentHash": "cJfllL5AuX2V5mHNXFuw0bMlfX3AoKZSuUBT9HyAk/UWyg8NJjqcRoaNwSC7jwRdC0dq/kXT/rAlpCRS6Nz7Jg==",
         "dependencies": {
           "Microsoft.VisualStudio.Threading.Only": "17.13.61",
           "Microsoft.VisualStudio.Validation": "17.8.8"

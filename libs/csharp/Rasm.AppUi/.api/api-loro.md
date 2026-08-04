@@ -88,15 +88,15 @@
 
 - [01]-[VERSION_VECTOR]: `VersionVector` carries the per-peer op frontier and forms the `Export(Updates(vv))` delta base.
 - [02]-[FRONTIERS]: `Frontiers` carries a DAG cut of op ids for `Checkout`, `Fork`, and `Revert`.
-- [03]-[CURSOR]: `Cursor` carries a text or list position across concurrent edits through `GetCursor` and `GetCursorPos`.
-- [04]-[VALUE_OR_CONTAINER]: `Get` yields a `LoroValue` leaf or a live container handle, and the wrapper narrows itself — `IsValue()`/`IsContainer()` discriminate, `ContainerType()` reads the kind, `AsValue()` takes the leaf, `AsContainer()` yields the `ContainerId` identity rather than a handle, and `AsLoroText`/`AsLoroMap`/`AsLoroList`/`AsLoroMovableList`/`AsLoroTree`/`AsLoroCounter`/`AsLoroUnknown` each take a handle or null, so a kind narrow is table dispatch, never a cast ladder.
+- [03]-[CURSOR]: `Cursor` carries a text or list position across concurrent edits through `GetCursor` and `GetCursorPos`; `Encode() : byte[]` and the static `Decode(byte[]) : Cursor` are the wire pair a remote-caret channel transports, so a peer publishes its anchor and the receiving replica re-resolves it against its OWN document state rather than against an index it never held.
+- [04]-[VALUE_OR_CONTAINER]: `Get` yields a `LoroValue` leaf or a live container handle, and the wrapper narrows itself — `IsValue()`/`IsContainer()` discriminate, `ContainerType()` reads the kind, `AsValue()` takes the leaf, `AsContainer()` yields the `ContainerId` identity rather than a handle, and `AsLoroText`/`AsLoroMap`/`AsLoroList`/`AsLoroMovableList`/`AsLoroTree`/`AsLoroCounter`/`AsLoroUnknown` each take a handle or null, so a kind narrow is table dispatch, never a cast ladder. Each `As*` narrow LIFTS its own Rust Arc, so the narrowed handle is independent of the wrapper that produced it and the wrapper is a second lifetime the caller frees — `Get(key)?.As*()` strands it, so a scoped resolve binds both.
 - [05]-[SUBSCRIPTION]: `Subscription` holds a live subscription and detaches it on disposal.
 - [06]-[UNDO_MANAGER]: `new UndoManager(LoroDoc)` owns local undo and redo while skipping remote operations.
 - [07]-[EPHEMERAL_STORE]: `new EphemeralStore(long timeoutMs)` holds TTL-expiring cursor and selection state.
 - [08]-[AWARENESS]: `new Awareness(ulong peer, long timeoutMs)` holds per-peer user and color state.
 - [09]-[CONFIGURE]: `Configure` owns merge-interval, record-timestamp, and text-style configuration.
 - [10]-[LORO_VALUE_LIKE]: `LoroValueLike` and `LoroValueLikeImpl` carry write values accepted by `Insert`, `Set`, and `Mark`.
-- [11]-[RECORD_CARRIERS]: `ChangeMeta`, `CommitOptions`, `UpdateOptions`, `ImportStatus`, `StyleConfig`, `IdSpan`, `TreeId`, `CounterSpan`, and `AbsolutePosition` carry commit, import, update, identifier, and span data.
+- [11]-[RECORD_CARRIERS]: `ChangeMeta(uint Lamport, Id Id, long Timestamp, string? Message, Frontiers Deps, uint Len)`, `CommitOptions(string? Origin, bool ImmediateRenew, long? Timestamp, string? CommitMsg)`, `UpdateOptions`, `ImportStatus(Dictionary<ulong, CounterSpan> Success, Dictionary<ulong, CounterSpan>? Pending)`, `PosQueryResult(Cursor? Update, AbsolutePosition Current)`, `AwarenessPeerUpdate(ulong[] Updated, ulong[] Added)`, `StyleConfig`, `IdSpan`, `TreeId`, `CounterSpan`, and `AbsolutePosition(uint Pos, Side Side)` carry commit, import, update, query, identifier, and span data; `ChangeMeta`, `PosQueryResult`, and `DiffBatch` are themselves `IDisposable` and a payload's own `Dispose` frees the carriers it holds, so a callback reads its primitives before the frame closes.
 
 [ENUMS]: the bounded vocabularies
 - rail: collaboration
@@ -161,7 +161,7 @@
 |  [01]   | `Get<Kind>(ContainerIdLike)`                              | attached container |
 |  [02]   | `TryGet<Kind>(ContainerIdLike)`                           | nullable container |
 |  [03]   | `GetByPath(Index[])` / `GetByStrPath(string)`             | nested value       |
-|  [04]   | `Jsonpath(string)` / `SubscribeJsonpath(string, ...)`     | query or feed      |
+|  [04]   | `Jsonpath(string)` / `SubscribeJsonpath(string, sub)`     | query or feed      |
 |  [05]   | `GetContainer(ContainerId)` / `HasContainer(ContainerId)` | handle or probe    |
 |  [06]   | `GetValue()` / `GetDeepValue()` / `GetDeepValueWithId()`  | document snapshot  |
 
@@ -176,15 +176,20 @@
 - rail: collaboration
 - every `Subscribe*` returns a `Subscription` (`IDisposable`); the callback delegate receives the typed event. Hold the subscription for its lifetime, dispose to detach.
 
-| [INDEX] | [SURFACE]                                   | [FIRES_ON]         |
-| :-----: | :------------------------------------------ | :----------------- |
-|  [01]   | `SubscribeRoot(Subscriber)`                 | any container      |
-|  [02]   | `Subscribe(ContainerId, Subscriber)`        | one container      |
-|  [03]   | `SubscribeLocalUpdate(LocalUpdateCallback)` | local op-log delta |
-|  [04]   | `SubscribePreCommit(PreCommitCallback)`     | pre-commit         |
-|  [05]   | `SubscribeFirstCommitFromPeer(...)`         | new peer commit    |
+| [INDEX] | [SURFACE]                                                   | [FIRES_ON]         |
+| :-----: | :---------------------------------------------------------- | :----------------- |
+|  [01]   | `SubscribeRoot(Subscriber)`                                 | any container      |
+|  [02]   | `Subscribe(ContainerId, Subscriber)`                        | one container      |
+|  [03]   | `SubscribeLocalUpdate(LocalUpdateCallback)`                 | local op-log delta |
+|  [04]   | `SubscribePreCommit(PreCommitCallback)`                     | pre-commit         |
+|  [05]   | `SubscribeFirstCommitFromPeer(FirstCommitFromPeerCallback)` | new peer commit    |
+|  [06]   | `SubscribeJsonpath(string path, JsonPathSubscriber)`        | jsonpath match set |
 
 `SubscribeLocalUpdate` emits the bytes broadcast to peers, while every other callback receives its typed event. Every container also carries its own `Subscription? Subscribe(Subscriber)` — a per-container diff feed equivalent to `Subscribe(container.Id(), subscriber)` on the document, null when the container is detached.
+
+- `Subscriber` is `void OnDiff(DiffEvent)`; `DiffEvent(EventTriggerKind TriggeredBy, string Origin, ContainerId? CurrentTarget, ContainerDiff[] Events)` is `IDisposable` and its `Dispose` frees the trigger, origin, target, and every event, so a callback reads its projection inside the frame; `ContainerDiff(ContainerId Target, PathItem[] Path, bool IsUnknown, Diff Diff)` is likewise disposable and `PathItem(ContainerId Container, Index Index)` carries the hop.
+- `FirstCommitFromPeerCallback` is `void OnFirstCommitFromPeer(FirstCommitFromPeerPayload)` and the payload is `FirstCommitFromPeerPayload(ulong Peer)` — the peer identity ALONE, so a join handoff names the peer the document observed and carries no commit body.
+- `JsonPathSubscriber` is `void OnJsonpathChanged()` — a bare change edge with NO payload, so a consumer re-reads `Jsonpath(path) : ValueOrContainer[]`; the container-scoped `Subscribe(ContainerId, Subscriber)` is the typed-diff alternative for a scope resolvable to a container.
 
 [CONTAINER_OPS]: the per-kind editing surface (the dense vocabularies the editing rail composes)
 - rail: collaboration
@@ -203,11 +208,11 @@
 - Marks: `Mark(from, to, key, value)` and `Unmark` edit rich-text marks.
 - Position: `GetCursor(pos, Side)` returns a stable cursor.
 - Delta: `ToDelta()` returns `TextDelta[]`, and `ApplyDelta` applies that representation.
-- Encoding: Unicode, `*Utf8`, and `*Utf16` forms compose with `ConvertPos(index, PosType from, PosType to)`.
+- Encoding: Unicode, `*Utf8`, and `*Utf16` forms compose with `ConvertPos(index, PosType from, PosType to) : uint?`, which answers null for an index outside the container's extent in the declared encoding — so a converted position folds through the same absent arm the null cursor takes and never reaches `GetCursor` as a value.
 
 [LORO_MAP]:
 - Values: `Insert(key, v)`, `Get(key)`, `Delete(key)`, `Keys()`, and `Values()` own key access.
-- Containers: `Ensure*Mergeable(key)` creates nested containers idempotently, while `Insert*Container` and `GetOrCreate*Container(key, child)` attach children.
+- Containers: `EnsureMergeableText`/`EnsureMergeableMap`/`EnsureMergeableList`/`EnsureMergeableMovableList`/`EnsureMergeableTree`/`EnsureMergeableCounter(key)` create nested containers idempotently, while `Insert*Container` and `GetOrCreate*Container(key, child)` attach children.
 - Provenance: `GetLastEditor(key)` returns `ulong?` editor identity.
 
 [LORO_LIST]:
@@ -245,9 +250,9 @@
 - Policy: `SetOnPush(OnPush)`, `SetOnPop(OnPop)`, `SetMaxUndoSteps(uint)`, and `AddExcludeOriginPrefix(string)` bind hooks, depth, and origin exclusion.
 
 [EPHEMERAL_STORE]:
-- State: `EphemeralStore(long).Set(key, value)`, `Get(key)`, `Encode(key)`, `EncodeAll()`, and `Apply(byte[])` own cursor and selection presence.
-- Expiry: `RemoveOutdated()` evicts expired state; `Awareness` carries the same explicit sweep — `Awareness.RemoveOutdated() : ulong[]` returns the evicted peer ids, and `Awareness.GetAllStates() : Dictionary<ulong, PeerInfo>` KEEPS a lapsed peer until that sweep runs, so a roster read sweeps first.
-- Feed: `Subscribe(EphemeralSubscriber)` and `SubscribeLocalUpdate(...)` emit presence changes whose encoded bytes broadcast to peers; `EphemeralSubscriber` is `void OnEphemeralEvent(EphemeralStoreEvent)` and the payload is `EphemeralStoreEvent(EphemeralEventTrigger By, string[] Added, string[] Removed, string[] Updated)` — the trigger case rides beside the changed keys.
+- State: `EphemeralStore(long).Set(key, value)`, `Get(key) : LoroValue?`, `Encode(key)`, `EncodeAll()`, and `Apply(byte[])` own cursor and selection presence; `Keys() : string[]` and `GetAllStates() : Dictionary<string, LoroValue>` read the whole channel in one pass, so a per-peer overlay projects every slot without a probe per key, and key PREFIXES partition one store between unrelated presence concerns.
+- Expiry: `EphemeralStore.RemoveOutdated()` returns VOID and evicts expired state; `Awareness` carries a returning sweep — `Awareness.RemoveOutdated() : ulong[]` answers the evicted peer ids — and both `Awareness.GetAllStates() : Dictionary<ulong, PeerInfo>` and the store's own reads KEEP a lapsed entry until that sweep runs, so a roster or overlay read sweeps first. `PeerInfo(LoroValue State, int Counter, long Timestamp)`.
+- Feed: `Subscribe(EphemeralSubscriber)` and `SubscribeLocalUpdate(LocalEphemeralListener)` emit presence changes whose encoded bytes broadcast to peers; `EphemeralSubscriber` is `void OnEphemeralEvent(EphemeralStoreEvent)` and the payload is `EphemeralStoreEvent(EphemeralEventTrigger By, string[] Added, string[] Removed, string[] Updated)` — the trigger case rides beside the changed keys — while `LocalEphemeralListener` is `void OnEphemeralUpdate(byte[])`, the broadcast-bytes twin of `LocalUpdateCallback`.
 
 [AWARENESS]:
 - State: `Awareness(ulong peer, long).SetLocalState(value)` owns per-peer user and color state on a separate channel.

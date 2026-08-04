@@ -57,7 +57,8 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 - `Map` : `INotifyPropertyChanged`, `IDisposable`; `LayerCollection` : `IEnumerable<ILayer>`, drawing index zero first and the last entry on top.
 - `MapEventArgs` and `MapInfoEventArgs` derive from `BaseEventArgs` : `HandledEventArgs`, carrying `ScreenPosition` `WorldPosition` `GestureType` `Map` `GetMapInfo` `GetRemoteMapInfoAsync` `Handled`.
 - `MapInfo` resolves `Feature` `Layer` `Style` from the first `MapInfoRecord`, alongside `MapInfoRecords` `WorldPosition` `ScreenPosition` `Resolution`.
-- support vocabularies: `Mapsui.Manipulations` `GestureType` `ScreenPosition` `Manipulation`; `Mapsui.Rendering` `RenderFormat` `RenderService`; `Mapsui.Animations` `Easing`; `Mapsui.Utilities` `Performance`; `Mapsui.Fetcher` `FetchMachine` `FetchInfo`.
+- support vocabularies: `Mapsui.Manipulations` `GestureType` `ScreenPosition` `Manipulation`; `Mapsui.Rendering` `RenderFormat` `RenderService`; `Mapsui.Animations` `Easing`; `Mapsui.Utilities` `Performance`; `Mapsui.Fetcher` `FetchMachine`; `Mapsui.Layers` `FetchInfo` `MSection`.
+- `FetchInfo(MSection section, string? crs = null, ChangeType changeType = ChangeType.Discrete)` declares in `Mapsui.Layers`, not beside `FetchMachine`, and projects `Extent` and `Resolution` off its own section — the pair every `IProvider.GetFeaturesAsync` body reads its window and its LOD from.
 
 [LAYER_TYPE_SCOPE]: the layer family — `Mapsui.Layers` unless a row names its own namespace
 
@@ -191,7 +192,30 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 |  [13]   | `HttpClientTools`            | static class  | default user-agent string    |
 
 - `TileFetchPlanner` : `IFetchableSource`, `INotifyPropertyChanged` and exposes `NumberTilesNeeded` `Busy` `GetFetchJobs(int, int)` `ViewportChanged(FetchInfo)` `ClearCache()` under the static `DefaultNumberOfSimultaneousFetches`.
-- `HttpClientTools.GetDefaultApplicationUserAgent()` supplies the user-agent `OpenStreetMap.CreateTileLayer` sends when the caller passes none.
+- `TileFetchStatus` carries `PermanentlyUnavailable` (the source confirmed the tile does not exist) and `GaveUp` (retries exhausted) — the two TERMINAL verdicts only; in-flight and success states ride `TileLayer.Busy` and the `DataChanged` payload instead.
+- `TileLayer` : `BaseLayer`, `IFetchableSource` over `TileLayer(ITileSource, int minTiles = 200, int maxTiles = 300, IDataFetchStrategy?, IRenderFetchStrategy?, int minExtraTiles = -1, int maxExtraTiles = -1, Func<TileInfo, Task<IFeature?>>?, HttpClient?)`, exposing `TileSource` `ClearCache()` `GetFetchJobs(int, int)` and the `FetchRequested` event; the ctor SEEDS `BaseLayer.Attribution.Text`/`Url` from `ITileSource.Attribution`, mirrors the planner's `Busy` onto its own, and forwards each fetch outcome as `OnDataChanged(new DataChangedEventArgs(ex, Name))`.
+- The `fetchTileAsFeature` hook answers ONE `IFeature?` per tile into a `MemoryCache<IFeature?>`, and the ctor seats `Style = new RasterStyle()` — so the layer is a RASTER carrier by construction and a vector-tile payload decoding to a feature SET rides an `IProvider` on a vector `Layer`, never this hook. `HttpTileSource.GetTileAsync` THROWS when neither the `HttpClient` default headers nor `ConfigureHttpRequestMessage` supply a `User-Agent`, so the agent write is an admission requirement rather than a courtesy.
+- `Mapsui.Fetcher.DataChangedEventArgs(Exception? error, string layerName)` carries `Error` and `LayerName`, so a fetch failure and a fetch success arrive on ONE event distinguished by a nullable payload.
+- `HttpClientTools.GetDefaultApplicationUserAgent()` supplies the user-agent `OpenStreetMap.CreateTileLayer` sends when the caller passes none; a per-source agent rides `HttpTileSource.ConfigureHttpRequestMessage` or an injected `HttpClient` on the `TileLayer` ctor.
+
+[BRUTILE_SOURCE_SCOPE]: the tile-source contract `Mapsui.Tiling` composes — `BruTile`, `BruTile.Web`, `BruTile.Predefined`, `BruTile.Cache`
+
+| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :----------------------------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `new HttpTileSource(ITileSchema, string urlFormatter, …)`                      | ctor     | XYZ/TMS source from a template      |
+|  [02]   | `new HttpTileSource(ITileSchema, IUrlBuilder, …)`                              | ctor     | source over a custom URL builder    |
+|  [03]   | `HttpTileSource.PersistentCache`                                               | property | settable `IPersistentCache<byte[]>` |
+|  [04]   | `HttpTileSource.Attribution`                                                   | property | settable `Attribution` credit       |
+|  [05]   | `HttpTileSource.ConfigureHttpRequestMessage`                                   | property | per-request header hook             |
+|  [06]   | `new Attribution(string Text = "", string Url = "")`                           | ctor     | credit value                        |
+|  [07]   | `new GlobalSphericalMercator(format, YAxis, minZoomLevel, maxZoomLevel, name)` | ctor     | EPSG:3857 tile schema               |
+|  [08]   | `new FileCache(string directory, string format, TimeSpan cacheExpireTime)`     | ctor     | on-disk persistent tile cache       |
+|  [09]   | `NullCache`                                                                    | class    | the no-op default cache             |
+
+- `HttpTileSource` : `IHttpTileSource`, `ITileSource`, `IUrlBuilder`; the template arity forwards to `BasicUrlBuilder(urlFormatter, serverNodes, apiKey)`, and `GetTileAsync` reads the persistent cache first and writes every fetched tile back into it, so an offline session serves from `FileCache` with no second code path.
+- `Attribution` is a `record struct` with defaulted members, so an absent credit is an EMPTY string rather than a null — a caller requiring attribution tests the text, never the reference.
+- `GlobalSphericalMercator` : `TileSchema`; its ctor arities strip `(format, yAxis, minZoomLevel, maxZoomLevel, name)` from the left and one further arity takes an explicit `zoomLevels` set with an `Extent`, every parameter defaulted — so a zoom-band-only call resolves to the narrowest `(minZoomLevel, maxZoomLevel, name)` arity by the fewest-omitted-optionals rule and takes `"png"` with `YAxis.OSM`, the slippy-map orientation every `{z}/{x}/{y}` template assumes.
+- `IPersistentCache<T>` : `ITileCache<T>` adds no member of its own — it is the marker distinguishing a durable store from the in-memory `MemoryCache<T>` the layer keeps around the viewport.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -352,12 +376,15 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 |  [19]   | `ProjectionDefaults.Projection`                             | static   | ambient `IProjection` slot              |
 |  [20]   | `IProjection.Project(string, string, MPoint)`               | instance | in-place point reprojection             |
 |  [21]   | `IProjection.IsProjectionSupported(string?, string?)`       | instance | CRS pair coverage probe                 |
+|  [22]   | `ViewportExtensions.ScreenToWorldXY(Viewport, double, double)` | static | screen point to world coordinate pair   |
+|  [23]   | `ViewportExtensions.WorldToScreenXY(Viewport, double, double)` | static | world coordinate pair to screen point   |
 
 - `ThemeStyle` also ships the `Func<IFeature, IStyle?>` arity where viewport-relative styling is not needed.
 - `GradientTheme` interpolates only when `MinStyle` and `MaxStyle` share one type drawn from `VectorStyle`, `ImageStyle`, or `LabelStyle`, and only over a numeric column value; every other pairing throws.
 - `GradientTheme` carries init-only `ColumnName` `Min` `Max` `MinStyle` `MaxStyle` `TextColorBlend` `LineColorBlend` `FillColorBlend`, so colour follows a ramp while width and offset interpolate linearly.
 - `ColorBlend` presets: `Rainbow7` `Rainbow5` `BlackToWhite` `WhiteToBlack` `RedToGreen` `GreenToRed` `BlueToGreen` `GreenToBlue` `RedToBlue` `BlueToRed`; `Colors` and `Positions` stay settable for a custom ramp.
 - `SphericalMercator.FromLonLat` and `ToLonLat` each carry an `MPoint` arity beside the tuple arity.
+- `Viewport` is a `readonly record struct` of `CenterX` `CenterY` `Resolution` `Rotation` `Width` `Height` and arithmetic operators alone — every screen-world crossing is a `Mapsui.Extensions.ViewportExtensions` member, so a pointer sample reaching world coordinates without a hit test rides `ScreenToWorldXY` off `Map.Navigator.Viewport`; `Mapsui.Tiling.Extensions` carries the `MRect.ToExtent()`/`Extent.ToMRect()` pair the BruTile schema and the Mapsui window meet through.
 
 [WIDGET_ENTRY_SCOPE]: chrome construction and property surface
 
@@ -412,7 +439,7 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 - `ScaleBarWidget`, `MapInfoWidget`, `PerformanceWidget`, and `LoggingWidget` bind their map at construction, so a widget row carries `Func<Map, IWidget>` rather than a bare `Func<IWidget>`.
 
 [RAIL_LAW]:
-- Package: `Mapsui.Avalonia12` over `Mapsui` and `Mapsui.Tiling`, composing the transitive `Mapsui.Rendering.Skia` and the directly admitted `Mapsui.Nts`
+- Package: `Mapsui.Avalonia12` over `Mapsui` and `Mapsui.Tiling`, composing the transitive `Mapsui.Rendering.Skia`, the directly admitted `Mapsui.Nts`, and the `BruTile` tile-source contract `Mapsui.Tiling` is spelled in
 - Owns: the Shell 2D slippy-map, basemap, and vector-overlay viewport — one `MapControl` over a `Map` with a tile basemap, feature overlays, and screen-anchored chrome on the shared Skia surface
-- Accept: `MapControl` bound to a `Map` via `MapProperty`; a BruTile `TileLayer` basemap; a `MemoryLayer`, `WritableLayer`, or provider-fed `Layer` overlay; `LayerCollection` groups for z-banding; `Navigator` for every camera move; `SphericalMercator`/`ProjectionDefaults` for CRS at the boundary; `GradientTheme`/`ThemeStyle`/`ColorBlend` for data-driven symbology; `Mapsui.Styles` colours from theme tokens; `GetSnapshot` for capture; `Info`/`GetMapInfo` for feature pick
+- Accept: `MapControl` bound to a `Map` via `MapProperty`; a BruTile `TileLayer` basemap over an `HttpTileSource` carrying its own schema, credit, cache, and request hook; a `MemoryLayer`, `WritableLayer`, or provider-fed `Layer` overlay; `LayerCollection` groups for z-banding; `Navigator` for every camera move; `SphericalMercator`/`ProjectionDefaults` for CRS at the boundary; `GradientTheme`/`ThemeStyle`/`ColorBlend` for data-driven symbology; `Mapsui.Styles` colours from theme tokens; `GetSnapshot` for capture; `Info`/`GetMapInfo` for feature pick
 - Reject: a second graphics backend beside the shared `SkiaSharp` family; a hand-built `SKPaint` for map styling; a post-render tile recolour standing in for a dark tile source; domain coordinates entering the model un-reprojected; a widget modeled as a world-space feature; a z-order branch where a layer group decides; reimplementing the `Mapsui` core model behind `Mapsui.UI.Avalonia`; re-declaring the `Mapsui.Nts` geometry, provider, or editing members here

@@ -40,10 +40,10 @@
 |  [13]   | `StringTextSource`                         | class          | in-memory `ITextSource`         |
 
 - `Caret`: `Offset` `Line` `Column` `Location`
-- `TextDocument`: `BeginUpdate` `Replace`
+- `TextDocument`: `BeginUpdate` `EndUpdate` `RunUpdate() -> IDisposable` `Replace` `Insert` `Remove` `GetText(ISegment)` `GetCharAt(int)` `GetLineByNumber(int)` `GetLineByOffset(int)` `LineCount` `TextLength` `UndoStack` — `RunUpdate` is the `using`-scoped form of the begin/end pair, so a multi-edit fold nests inside one document update
 - `StringTextSource`: `StringTextSource(string)` `StringTextSource(string, ITextSourceVersion)` `Empty` `Text` `TextLength` `CreateSnapshot` `CreateReader` `GetText(ISegment)` (`: ITextSource`) — the one concrete plain-text source, so a headless scan runs the same `ISearchStrategy` over raw text that the pane runs over its document
 - `DocumentLine`: `Offset` `Length` `LineNumber`
-- `UndoStack`: `Undo` `Redo` `StartUndoGroup` `SizeLimit`
+- `UndoStack`: `Undo` `Redo` `SizeLimit` `CanUndo` `CanRedo` `AcceptChanges` `IsOriginalFile` `MarkAsOriginalFile` `DiscardOriginalFileMarker` `Push(IUndoableOperation)` `PushOptional` `ClearRedoStack` `ClearAll` — grouping is `StartUndoGroup()` / `StartUndoGroup(object groupDescriptor)` / `StartContinuedUndoGroup(object? groupDescriptor = null)` / `EndUndoGroup()` with the last descriptor readable off `LastGroupDescriptor`, so a run of same-kind edits continues one group instead of minting a step per keystroke
 - `TextViewPosition`: `Line` `Column` `VisualColumn`
 - `TextSegment`: `StartOffset` `EndOffset` `Length` (settable; `: ISegment`)
 - `TextSegmentCollection<T> where T : TextSegment`: `Add` `Remove` `Clear` `Count` `FirstSegment` `LastSegment` `GetNextSegment` `GetPreviousSegment` `FindFirstSegmentWithStartAfter(int)` `FindSegmentsContaining(int)` `FindOverlappingSegments(ISegment)`; `TextSegmentCollection(TextDocument)` and `UpdateOffsets(DocumentChangeEventArgs)` keep every held span live across edits, `Disconnect` releasing that binding
@@ -115,12 +115,13 @@
 |  [11]   | `FoldingMargin`              | class          | fold-marker margin  |
 |  [12]   | `DottedLineMargin`           | static class   | margin separator    |
 
-- `TextView`: `LineTransformers` `BackgroundRenderers` `ElementGenerators` `Layers` `VisualLines` `VisualLinesValid` `Redraw` `InvalidateLayer` `EnsureVisualLines`
+- `TextView`: `LineTransformers` `BackgroundRenderers` `ElementGenerators` `Layers` `VisualLines` `VisualLinesValid` `Redraw` `InvalidateLayer` `EnsureVisualLines` `Document` `Options`; a custom visual measures in two further metrics — `WideSpaceWidth -> double` advances one space in the current face, so a column stop is `IndentationSize * WideSpaceWidth` rather than a character count, and `ScrollOffset -> Vector` carries its own `ScrollOffsetChanged` event
+- `VisualLine`: `FirstDocumentLine` `LastDocumentLine` `StartOffset` `VisualTop` `Height` `VisualLength` `Elements` `TextLines` `GetVisualPosition` `GetTextLineVisualYPosition` — `VisualTop` is document space, so a renderer subtracts `TextView.ScrollOffset.Y` to reach view space
 - `VisualLineElementGenerator`: `GetFirstInterestedOffset` `ConstructElement`
 - `IVisualLineTransformer`: `Transform(ITextRunConstructionContext, IList<VisualLineElement>)`
 - `KnownLayer`: `Background` `Selection` `Text` `Caret` — declaration order IS paint order, and `IBackgroundRenderer.Layer` returns one case
 - `LayerInsertionPosition`: `Below` `Replace` `Above`
-- `BackgroundGeometryBuilder`: `CornerRadius` `AlignToWholePixels` `BorderThickness` `ExtendToFullWidthAtLineEnd` `AddSegment` `AddRectangle` `CloseFigure` `CreateGeometry`
+- `BackgroundGeometryBuilder`: `CornerRadius` `AlignToWholePixels` `BorderThickness` `ExtendToFullWidthAtLineEnd` `AddSegment(TextView, ISegment)` `AddRectangle(TextView, Rect)` `AddRectangle(double left, double top, double right, double bottom)` `CloseFigure` `CreateGeometry` — the four-double overload is the seam a non-segment visual (an indent guide, a column band) builds its own rects through
 - `AbstractMargin`: `TextView` `Document` (`: Control, ITextViewConnect`; a custom margin derives here and reads `Document` after `TextView` binds)
 - `LineNumberMargin`: `MinWidthInDigits` `int` (default `2`)
 - `FoldingMargin`: `FoldingManager` and four `AttachedProperty<IBrush>` marker brushes
@@ -204,8 +205,15 @@
 |  [35]   | `PointerHover`         | event    | lifecycle hook      |
 |  [36]   | `TextArea`             | property | editing accessor    |
 |  [37]   | `SearchPanel`          | property | search accessor     |
+|  [38]   | `ExtentWidth`          | property | content extent      |
+|  [39]   | `ExtentHeight`         | property | content extent      |
+|  [40]   | `ViewportWidth`        | property | scroll window       |
+|  [41]   | `ViewportHeight`       | property | scroll window       |
+|  [42]   | `HorizontalOffset`     | property | scroll position     |
+|  [43]   | `VerticalOffset`       | property | scroll position     |
 
 - `DeclareChangeBlock()`: returns an `IDisposable`; a `using` scope records one reversible `UndoStack` step across multi-edit refactors.
+- Rows [38]–[43] are the scroll geometry an overview strip reads: all six are `double`, forwarding to the templated `ScrollViewer`'s `Extent`, `Viewport`, and `Offset`, so a content-and-viewport rectangle comes off the editor rather than from a re-derivation over `TextView`. Each returns `0.0` while that part is null, so every read before the first layout pass answers a degenerate rectangle and a producer seeding once at composition publishes it.
 - `Load(Stream)`: auto-detects encoding into `Encoding`; `IsModified` drives the dirty indicator.
 - `TextArea`: mounts `FoldingManager.Install`, `CompletionWindow`, and `OverloadInsightWindow`; `SearchPanel.Install` mounts on `TextEditor`.
 - `SearchPanel`: `CanSearch` reports whether the ctor installed this panel; every `SearchResultsBrush` write forwards here, so an assignment made before the control mounts is dropped.
@@ -238,11 +246,15 @@
 |  [22]   | `FoldingMargin.FoldingMarkerBackgroundBrush -> IBrush`         | property | fold-marker fill        |
 |  [23]   | `FoldingMargin.SelectedFoldingMarkerBrush -> IBrush`           | property | hovered marker stroke   |
 |  [24]   | `FoldingMargin.SelectedFoldingMarkerBackgroundBrush -> IBrush` | property | hovered marker fill     |
+|  [25]   | `TextArea.IndentationStrategy -> IIndentationStrategy`         | property | newline re-indent owner |
+|  [26]   | `TextArea.TextEntering` / `TextEntered`                        | event    | pre/post input hooks    |
+|  [27]   | `TextArea.SelectionChanged` / `TextCopied` / `TextPasted`      | event    | selection and clipboard |
 
 - `TextView.CurrentLineBackground`/`CurrentLineBorder`: both default `null` and forward every write to the internal current-line renderer, which `TextEditorOptions.HighlightCurrentLine` gates. Its own light-tuned seed — `#1614DCE0` fill over a 1px `#3400FF6E` border — never reaches the styled properties, and `SetDefaultHighlightLineColors()` stamps that seed straight onto the renderer behind them; a dark pass assigns the two properties and never calls it.
 - `TextView.ColumnRulerPen`: `ColumnRulerPenProperty` registers under the Avalonia property name `"ColumnRulerBrush"` while its CLR accessor reads `ColumnRulerPen`, so the two spellings name one value; default is a frozen 1px `#5A808080` pen, and `TextEditorOptions.ShowColumnRulers` gates the draw.
 - `TextArea.SelectionBorder`: declared `Pen`, not `IPen`, so an `ImmutablePen` does not assign; `SelectionCornerRadius` defaults `3.0` and the three selection brushes default `null`.
 - `TextArea.CaretBrush`: `DirectProperty` proxying `Caret.CaretBrush`, so the caret reads it live; `LeftMargins` is a getter-only `DirectProperty` and margins mutate the collection in place.
+- `TextArea.TextEntering` fires before the input reaches the document and `TextEntered` after, both carrying `TextInputEventArgs`, so an auto-close pair inserts on the second and a suppression cancels on the first; `IndentationStrategy` is a plain `StyledProperty`, assigned once per pane.
 - `TextEditor.SearchResultsBrush`: defaults `#515C6A`; `LineNumbersForeground` defaults `Brushes.Gray` and `LineNumbersMargin` `Thickness(2, 0, 2, 0)`.
 - `FoldingMargin` declares its four marker brushes as `AttachedProperty<IBrush>`, so one setter on an ancestor styles every fold marker beneath it.
 

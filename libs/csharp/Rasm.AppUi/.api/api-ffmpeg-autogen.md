@@ -60,10 +60,12 @@
 |  [06]   | `AVColorTransferCharacteristic` | color transfer   |
 |  [07]   | `AVColorPrimaries`              | color primaries  |
 |  [08]   | `AVPictureType`                 | frame-type hint  |
+|  [09]   | `SwsFlags`                      | scaler algorithm |
 
 [ENUM_MEMBERS]: encode-path enum values.
 - `AVCodecID`: `AV_CODEC_ID_H264` `AV_CODEC_ID_HEVC`
-- `AVPixelFormat`: `AV_PIX_FMT_RGBA` ingress, `AV_PIX_FMT_YUV420P` target
+- `AVPixelFormat`: `AV_PIX_FMT_RGBA` `AV_PIX_FMT_BGRA` `AV_PIX_FMT_RGBA64LE` ingress, `AV_PIX_FMT_YUV420P` target
+- `SwsFlags`: `SWS_FAST_BILINEAR` `SWS_BILINEAR` `SWS_BICUBIC` `SWS_LANCZOS` — `sws_getContext` takes the bitmask as a bare `int`, so a row casts; the hub publishes no `SWS_*` constant of its own
 - `AVMediaType`: `AVMEDIA_TYPE_VIDEO`; `AVPictureType`: I/P/B-frame hints
 - `AVColorSpace`: `AVCOL_SPC_BT709`; `AVColorRange`: `AVCOL_RANGE_MPEG` `AVCOL_RANGE_JPEG`
 
@@ -87,20 +89,23 @@
 |  [12]   | `sws_getContext(int, int, AVPixelFormat, int, int, AVPixelFormat, int, ...) -> SwsContext*`            | RGBA→YUV420P scaler         |
 |  [13]   | `sws_scale(SwsContext*, byte*[], int[], int, int, byte*[], int[]) -> int`                              | convert one frame           |
 |  [14]   | `av_image_fill_arrays(ref byte_ptrArray4, ref int_array4, byte*, AVPixelFormat, int, int, int) -> int` | wrap RGBA as planes         |
-|  [15]   | `avio_open(AVIOContext**, string, int) -> int`                                                         | bind output sink            |
-|  [16]   | `avformat_write_header(AVFormatContext*, AVDictionary**) -> int`                                       | open container              |
-|  [17]   | `avcodec_send_frame(AVCodecContext*, AVFrame*) -> int`                                                 | submit frame to encoder     |
-|  [18]   | `avcodec_receive_packet(AVCodecContext*, AVPacket*) -> int`                                            | drain encoded packet        |
-|  [19]   | `av_rescale_q(long, AVRational, AVRational) -> long`                                                   | rescale to stream base      |
-|  [20]   | `av_interleaved_write_frame(AVFormatContext*, AVPacket*) -> int`                                       | mux a packet interleaved    |
-|  [21]   | `av_write_frame(AVFormatContext*, AVPacket*) -> int`                                                   | mux a packet direct         |
-|  [22]   | `av_write_trailer(AVFormatContext*) -> int`                                                            | finalize container          |
-|  [23]   | `avio_closep(AVIOContext**) -> int`                                                                    | close sink                  |
-|  [24]   | `av_frame_unref(AVFrame*) -> void`                                                                     | reset a frame               |
-|  [25]   | `av_frame_free(AVFrame**) -> void`                                                                     | release a frame             |
-|  [26]   | `av_packet_unref(AVPacket*) -> void`                                                                   | reset a packet              |
-|  [27]   | `av_packet_free(AVPacket**) -> void`                                                                   | release a packet            |
-|  [28]   | `avformat_free_context(AVFormatContext*) -> void`                                                      | release muxer context       |
+|  [15]   | `avio_open(AVIOContext**, string, int) -> int`                                                         | bind file output sink       |
+|  [16]   | `avio_open_dyn_buf(AVIOContext**) -> int`                                                              | bind in-memory output sink  |
+|  [17]   | `avformat_write_header(AVFormatContext*, AVDictionary**) -> int`                                       | open container              |
+|  [18]   | `avcodec_send_frame(AVCodecContext*, AVFrame*) -> int`                                                 | submit frame to encoder     |
+|  [19]   | `avcodec_receive_packet(AVCodecContext*, AVPacket*) -> int`                                            | drain encoded packet        |
+|  [20]   | `av_rescale_q(long, AVRational, AVRational) -> long`                                                   | rescale to stream base      |
+|  [21]   | `av_interleaved_write_frame(AVFormatContext*, AVPacket*) -> int`                                       | mux a packet interleaved    |
+|  [22]   | `av_write_frame(AVFormatContext*, AVPacket*) -> int`                                                   | mux a packet direct         |
+|  [23]   | `av_write_trailer(AVFormatContext*) -> int`                                                            | finalize container          |
+|  [24]   | `avio_closep(AVIOContext**) -> int`                                                                    | close file sink             |
+|  [25]   | `avio_close_dyn_buf(AVIOContext*, byte** buffer) -> int`                                               | take dyn-buf bytes + size   |
+|  [26]   | `av_frame_unref(AVFrame*) -> void`                                                                     | reset a frame               |
+|  [27]   | `av_frame_free(AVFrame**) -> void`                                                                     | release a frame             |
+|  [28]   | `av_packet_unref(AVPacket*) -> void`                                                                   | reset a packet              |
+|  [29]   | `av_packet_free(AVPacket**) -> void`                                                                   | release a packet            |
+|  [30]   | `avformat_free_context(AVFormatContext*) -> void`                                                      | release muxer context       |
+|  [31]   | `av_free(void*) -> void`                                                                               | release a dyn-buf buffer    |
 
 [RUNTIME_BINDING]: native provisioning and version probe on the loader hub.
 
@@ -119,6 +124,8 @@
 [TOPOLOGY]:
 - Every encode folds one ordered pass — muxer-context open, codec configure, buffer allocate, `SwsContext` RGBA→YUV420P convert, `avcodec_send_frame`/`avcodec_receive_packet` drain on `AVERROR(EAGAIN)`/`AVERROR_EOF`, `av_rescale_q` timestamp rescale to stream time-base, `av_interleaved_write_frame` mux, `av_write_trailer` finalize, then `av_*_free`/`avformat_free_context` release; the unsafe surface carries no finalizer, so every handle frees explicitly.
 - `ffmpeg` static construction runs `DynamicallyLoadedBindings.Initialize()`, resolving members from `ffmpeg.RootPath` through the platform `IFunctionResolver` (`lib{name}.{version}.dylib` on macOS); `ThrowErrorIfFunctionNotFound` faults on an absent symbol.
+- The in-memory mux pairs `avio_open_dyn_buf` on `AVFormatContext.pb` with `avio_close_dyn_buf`, which CONSUMES the io context and answers the written length beside a `byte*` the caller frees with `av_free`; `avformat_free_context` releases no io handle, so a fault path that skips the close leaks the whole buffer and a success path that leaves `pb` set closes it twice.
+- `AVFrame.data` and `AVFrame.linesize` are the fixed `byte_ptrArray8`/`int_array8` carriers, each publishing an implicit conversion to the `byte*[]`/`int[]` managed arrays `sws_scale` takes, so a frame's planes cross to the scaler with no per-plane copy.
 
 [STACKING]:
 - `api-libmpv.md`(`.api/api-libmpv.md`): `libmpv` owns media decode and on-screen OpenGL render (the Editing MediaSurface); this owns the encode-out path (the Render capture deliverable), the two seamed encode-out versus decode-in.

@@ -16,9 +16,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.125, )",
-        "resolved": "3.0.125",
-        "contentHash": "CexelZXr4mqLJGy9LGthGnAKUkz/Uh5U4Brh0FnbO+VAI7/TUoPoHKXA+8LLJ8kId7DagSWeuAP3KvCiTvPhgQ=="
+        "requested": "[3.0.138, )",
+        "resolved": "3.0.138",
+        "contentHash": "o97FZRHWIpMeg/Mzb5Whhcqe1/95SxZLn1bkG+P8T4ijiAY6eoe9BYTYyINBVzkyl5zehQ7NB6bz1DnEgqVZmQ=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
@@ -150,8 +150,8 @@
       },
       "DuckDB.NET.Bindings.Full": {
         "type": "Transitive",
-        "resolved": "1.5.3",
-        "contentHash": "3vkxzLkCmPUTRtEBBYrXvl9jOTXJ42uYswsokpysTulOS963ZIcMJRKpcHH2zwa63YI4YchjYvPz0pcR2Helbg=="
+        "resolved": "1.5.5",
+        "contentHash": "QIyg93jXN+ebHtsl3UhNmoKV+UoBlHxicycGUVY8cw/kwTGB8CrrULcLr7ngUkk5pftaPoyIHycxTgshBOalaA=="
       },
       "ExcelNumberFormat": {
         "type": "Transitive",
@@ -165,8 +165,8 @@
       },
       "Generator.Equals.Runtime": {
         "type": "Transitive",
-        "resolved": "4.0.1",
-        "contentHash": "Rowhau6JchkFbw0WHOR1UlQ0G564+pj1PEInpUm5OviWMC8ZiOfrvNTzOrZv+4G1ei+dOXVMNUDsJx/tPArzPw==",
+        "resolved": "4.0.2",
+        "contentHash": "DUEiBio024JA+PD0By2DjnHMELyo8sjd9KmjQCjVT3nkxf0/y9TxwP9sDkZ4yTD+V0JU0KbzJ70tTruCJhfGGg==",
         "dependencies": {
           "Microsoft.Bcl.HashCode": "6.0.0"
         }
@@ -499,8 +499,8 @@
       },
       "JasperFx": {
         "type": "Transitive",
-        "resolved": "2.34.0",
-        "contentHash": "Gz4X/TqINK1PRua8xDJL9kjVRiaO6Am9/HF/QW6ukQm37VwNo+48eEs1Gp08Ytsqbxm4l8ExjXDZgSqf961nNQ==",
+        "resolved": "2.38.0",
+        "contentHash": "aT+fzsjNLXyZEOVHRuH8EvAJkEzeTlscuH26szE2MMG/sXGFGNzwTe+Om57SQbtLsWfdn8OyyHgU1nI3tG1KsQ==",
         "dependencies": {
           "FastExpressionCompiler": "5.4.1",
           "ImTools": "4.0.0",
@@ -515,10 +515,10 @@
       },
       "JasperFx.Events": {
         "type": "Transitive",
-        "resolved": "2.34.0",
-        "contentHash": "zhoYyoMK76o9JFuaOJI1J+MuOFsEKnsk8BAjXBhAYGt9i8mwYaw8WuKJAjqqmO6UormfrNlQcrKaHdyhrwoBBw==",
+        "resolved": "2.38.0",
+        "contentHash": "k7jAEm1ZfgANW2VyQGzwRVb+WZRg7hknn+ntryU9U/1Pscs3oMzDt4OVZwkeS+rrMyDXKQXFzRaV6IHyA7dDHA==",
         "dependencies": {
-          "JasperFx": "2.34.0"
+          "JasperFx": "2.38.0"
         }
       },
       "Json.More.Net": {
@@ -528,8 +528,8 @@
       },
       "JsonPointer.Net": {
         "type": "Transitive",
-        "resolved": "7.0.1",
-        "contentHash": "5C497yxfktYFsqxKG+GUQPsMvBqIjzLkqtDEdMGsnBpl3/OB8DOvTo7LEyRX7AVc1kVVj0IX5zhmLrlbvAYEnw==",
+        "resolved": "7.0.2",
+        "contentHash": "oClYHv2ooeRrtPZyC9sb/Za/ie5pGhjTbNHlAyFg4XOCyU+606FdoZKS7UdaWvtsPlrF+U2w0Ja3TRvn5+spyA==",
         "dependencies": {
           "Humanizer.Core": "3.0.10",
           "Json.More.Net": "3.0.1"
@@ -856,12 +856,12 @@
       },
       "NATS.Extensions.Microsoft.DependencyInjection": {
         "type": "Transitive",
-        "resolved": "3.0.1",
-        "contentHash": "FNdg0BmE9IMpuXoJjEh+EXTGL0r7EXAYZk5Z5JSfIpIv2/BYiuWdOsGVXExzlpXtqxK2LVRncYS+7elCcVOYvg==",
+        "resolved": "3.1.0",
+        "contentHash": "D45Wn4Y2Doyf5w37sGtbrTxiyTH/l43DXdpk3+sU9iSKYUNV96FZHzc1KPZ7e/vkcIn70bdIT/oayb1u0b4tng==",
         "dependencies": {
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.0",
           "Microsoft.Extensions.Options": "8.0.2",
-          "NATS.Client.Simplified": "3.0.1"
+          "NATS.Client.Simplified": "3.1.0"
         }
       },
       "NetTopologySuite.IO.PostGis": {
@@ -918,18 +918,13 @@
       },
       "RESPite": {
         "type": "Transitive",
-        "resolved": "3.0.17",
-        "contentHash": "68slEMyRTUNLc75DruEDsEohFmFfNwkHLLtwQ46bobF+8Tl+UXMKM1kM87ihhKy6JdAqy1RrvAfvBWeLmcY9Gg=="
+        "resolved": "3.1.3",
+        "contentHash": "E/XxKN+lr/lcd2IWnWg/PQyToIi2k4pG8GtJrs0UlbmjWAm1VO2sRTZJqKuyJk7TQk/hnllwa1XYfchIcGqKTg=="
       },
       "SixLabors.Fonts": {
         "type": "Transitive",
         "resolved": "1.0.0",
         "contentHash": "LFQsCZlV0xlUyXAOMUo5kkSl+8zAQXXbbdwWchtk0B4o7zotZhQsQOcJUELGHdfPfm/xDAsz6hONAuV25bJaAg=="
-      },
-      "SourceGear.sqlite3": {
-        "type": "Transitive",
-        "resolved": "3.53.3",
-        "contentHash": "PaDT7JwQ00HmXZT1xSGSC0c24A5lVpJYHMrXBuJATdpB2t0nf4Kq9HyPaZhxVW0elPq4XI1s5BLh7qLuObmzFA=="
       },
       "Speckle.DoubleNumerics": {
         "type": "Transitive",
@@ -959,18 +954,23 @@
         "resolved": "0.55.0",
         "contentHash": "GIfgOvuF8MpU52bprhwtDEtx0gmVIGOepM8bw0lH/TSMD0rg1Xp+5Y53kPG8rFVdcpbNANlhDQ5mEVVPO3/2Tg=="
       },
+      "SQLite": {
+        "type": "Transitive",
+        "resolved": "3.53.4",
+        "contentHash": "KN7jeWqgUPeBRe1FlcpZURzxomuKKEKHmBBQfg+Nx7NkY1LjKhzHvH+3ASkNvhayESE34nMBinL9CV21JfPRJw=="
+      },
       "SQLitePCLRaw.config.e_sqlite3": {
         "type": "Transitive",
-        "resolved": "3.0.4",
-        "contentHash": "W2HMmjAZ1v27fbyzZtONCdC8Ma/tTr5wLAIr4Iq7T4oKrYaI4occJ5TBhSdK4pltwBJLQBG5DcQMz+/w9X4bbg==",
+        "resolved": "3.0.5",
+        "contentHash": "aSk8WE5tF2MybESMgtZAEyMVCAWA0nBqOMc48HFoa9UoSdtm3goDXVzNRnefeKIwE6bV9NaNXptn1F9ReMQI0Q==",
         "dependencies": {
-          "SQLitePCLRaw.provider.e_sqlite3": "3.0.4"
+          "SQLitePCLRaw.provider.e_sqlite3": "3.0.5"
         }
       },
       "SQLitePCLRaw.core": {
         "type": "Transitive",
-        "resolved": "3.0.4",
-        "contentHash": "cOjxfdjE4zQDvDVDUBfucKGXEaYos4l4l+TVwePJEHp/nl9fkgBz/lIVgfMH5dOyKRmNi6RsptUGtZsvsD7iYQ=="
+        "resolved": "3.0.5",
+        "contentHash": "k81AYXXRCw3Zj8rOhyBoCsx/U97KYDFI2CSKr/ijl5BwpsW/hX/4kBiDmerFaoust8nxBwa0IHQFw8MmSHRtnQ=="
       },
       "SQLitePCLRaw.lib.e_sqlite3mc": {
         "type": "Transitive",
@@ -979,10 +979,10 @@
       },
       "SQLitePCLRaw.provider.e_sqlite3": {
         "type": "Transitive",
-        "resolved": "3.0.4",
-        "contentHash": "L4uiEKeRSXxppkGE4iSpgBgC5lNvw2zEN/hAaxTecUS1+DhC6UEFhHaakSYYvnFq7x16B7DQcaXgXy0SkhSwnw==",
+        "resolved": "3.0.5",
+        "contentHash": "um8YSWduhhuskTG2bHfZrBqMNQOydfU8pcseT+cu5RivOGyoUbCrGXxgoRNTmRYw2VbMWnEZVVFcneZT/5dsBg==",
         "dependencies": {
-          "SQLitePCLRaw.core": "3.0.4"
+          "SQLitePCLRaw.core": "3.0.5"
         }
       },
       "SQLitePCLRaw.provider.e_sqlite3mc": {
@@ -1051,31 +1051,31 @@
       },
       "Weasel.Core": {
         "type": "Transitive",
-        "resolved": "9.17.0",
-        "contentHash": "KkIlUx6QS9i1+yk2klpUXeLFaXNWP77+CHQWPnx1wn3QKCz78PNAymI+Lsk/q35Rajzhp+mH7yr7aJrayYttsw==",
+        "resolved": "9.23.2",
+        "contentHash": "SWNWucfZZr402wYG0n6aOOXw0/UaSYdMVL0kWs7j3oTXXTLYW6iSfkyFtCBV2WeItLQ3ZLDnDCnLv/oE4wWdAg==",
         "dependencies": {
-          "JasperFx": "2.24.1"
+          "JasperFx": "2.38.0"
         }
       },
       "Weasel.Postgresql": {
         "type": "Transitive",
-        "resolved": "9.17.0",
-        "contentHash": "gnRO4Gh280a3OURLHC1uaJZ7eTCDR3ECIpzOJBlUq5vtzHdRFVoZdwQQLxh2WhA1dKeFYNxMeYcMeluG2qDAVg==",
+        "resolved": "9.23.2",
+        "contentHash": "7QSHAzEecFjVQQD/2wY1nJepWdAfhqiPTbLgGi+oc0/TykD31qUNqfeyDcjVv1FjDgZ76ooKwJ9ARXnSW5gWzw==",
         "dependencies": {
           "DistributedLock.Postgres": "1.3.0",
-          "JasperFx.Events": "2.0.0",
+          "JasperFx.Events": "2.38.0",
           "Npgsql": "9.0.4",
           "Npgsql.NetTopologySuite": "9.0.4",
-          "Weasel.Core": "9.17.0"
+          "Weasel.Core": "9.23.2"
         }
       },
       "Weasel.Storage": {
         "type": "Transitive",
-        "resolved": "9.17.0",
-        "contentHash": "r7s13H1xMDx9JK/MiqTRKzZ3rkh2kx9cQMGsoQ2kBsOFaA4F8CMpmkKW+9rC13OAVIxJroaJuGYU0kGMvpFPcg==",
+        "resolved": "9.23.2",
+        "contentHash": "0PbqUCveqd+5hEllyLvoVrfyJHlAYOoZ2COn6AY7rt91h2wezxKfcFYQZH1b6rqznxDhIfCiwIfQ5FbtalgHeQ==",
         "dependencies": {
-          "JasperFx.Events": "2.0.0",
-          "Weasel.Core": "9.17.0"
+          "JasperFx.Events": "2.38.0",
+          "Weasel.Core": "9.23.2"
         }
       },
       "csp.contracts": {
@@ -1111,7 +1111,7 @@
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
-          "Generator.Equals": "[4.0.1, )",
+          "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.35.1, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
@@ -1132,7 +1132,7 @@
           "AWSSDK.KeyManagementService": "[4.0.100.6, )",
           "AWSSDK.S3": "[4.0.101.4, )",
           "Apache.Arrow": "[23.0.0, )",
-          "Apache.Arrow.Adbc": "[0.23.0, )",
+          "Apache.Arrow.Adbc": "[0.24.0, )",
           "Apache.Arrow.Adbc.Drivers.Apache": "[0.23.0, )",
           "Apache.Arrow.Adbc.Drivers.BigQuery": "[0.23.0, )",
           "Apache.Arrow.Compression": "[23.0.0, )",
@@ -1158,23 +1158,23 @@
           "Confluent.SchemaRegistry.Serdes.Json": "[2.14.2, )",
           "Confluent.SchemaRegistry.Serdes.Protobuf": "[2.14.2, )",
           "Csp.Contracts": "[1.0.0, )",
-          "DeltaLake.Net": "[0.32.0, )",
+          "DeltaLake.Net": "[0.33.0, )",
           "DotPulsar": "[5.3.1, )",
-          "DuckDB.NET.Data.Full": "[1.5.3, )",
+          "DuckDB.NET.Data.Full": "[1.5.5, )",
           "EFCore.NamingConventions": "[10.0.1, )",
           "FastCDC.Net": "[1.0.1, )",
           "FlowtideDotNet.Substrait": "[0.15.0, )",
-          "Generator.Equals": "[4.0.1, )",
+          "Generator.Equals": "[4.0.2, )",
           "Google.Cloud.Kms.V1": "[3.26.0, )",
           "Google.Cloud.Storage.V1": "[4.15.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
-          "JsonSchema.Net": "[9.3.0, )",
+          "JsonSchema.Net": "[9.4.0, )",
           "K4os.Compression.LZ4": "[1.3.8, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "LightningDB": "[0.22.0, )",
-          "MPXJ.Net": "[16.5.0, )",
+          "MPXJ.Net": "[16.6.0, )",
           "MQTTnet": "[5.2.0.1603, )",
-          "Marten": "[9.18.0, )",
+          "Marten": "[9.22.3, )",
           "MessagePack": "[3.1.8, )",
           "Microsoft.AspNetCore.JsonPatch.SystemTextJson": "[10.0.10, )",
           "Microsoft.Data.Sqlite": "[10.0.10, )",
@@ -1185,7 +1185,7 @@
           "Microsoft.Extensions.Telemetry.Abstractions": "[10.8.0, )",
           "MiniExcel": "[1.45.0, )",
           "Minio": "[7.0.0, )",
-          "NATS.Net": "[3.0.1, )",
+          "NATS.Net": "[3.1.0, )",
           "NetTopologySuite.IO.GeoJSON4STJ": "[4.0.0, )",
           "NetTopologySuite.IO.GeoPackage": "[2.0.0, )",
           "NodaTime": "[3.3.3, )",
@@ -1211,13 +1211,13 @@
           "Rasm": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Riok.Mapperly": "[4.3.1, )",
-          "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.4, )",
+          "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.5, )",
           "SQLitePCLRaw.bundle_e_sqlite3mc": "[2.1.11, )",
           "ScyllaDBCSharpDriver": "[3.22.0.4, )",
           "Sep": "[0.15.1, )",
           "Speckle.Objects": "[2026.6.0, )",
           "Speckle.Sdk": "[2026.6.0, )",
-          "StackExchange.Redis": "[3.0.17, )",
+          "StackExchange.Redis": "[3.1.3, )",
           "System.Formats.Cbor": "[10.0.10, )",
           "System.IO.Hashing": "[10.0.10, )",
           "System.Numerics.Tensors": "[10.0.10, )",
@@ -1228,7 +1228,7 @@
           "ZstdSharp.Port": "[0.8.8, )",
           "linq2db.EntityFrameworkCore": "[10.4.0, )",
           "pocketken.H3": "[4.5.0.1, )",
-          "rocksdb": "[10.10.1.1747, )"
+          "rocksdb": "[11.1.2.3412, )"
         }
       },
       "Apache.Arrow": {
@@ -1242,11 +1242,11 @@
       },
       "Apache.Arrow.Adbc": {
         "type": "CentralTransitive",
-        "requested": "[0.23.0, )",
-        "resolved": "0.23.0",
-        "contentHash": "WGFpRIKNv1jb+/W0T5zSiHHpSaDEWOTDdTkfTJXTaQuMFLfDq/8yL0r5CM2I6ZooJll+cnFckTI51NHKPdphJg==",
+        "requested": "[0.24.0, )",
+        "resolved": "0.24.0",
+        "contentHash": "b0pUSng7z/DA/jMrvxC86e5SgyAKmbNNK5eh0D+vfVuZaiM3XqR1YiLcka7p7YwbXGD8KYLDhPdIVLk4PTeZNA==",
         "dependencies": {
-          "Apache.Arrow": "22.1.0"
+          "Apache.Arrow": "23.0.0"
         }
       },
       "Apache.Arrow.Adbc.Drivers.Apache": {
@@ -1426,15 +1426,15 @@
       },
       "ClosedXML": {
         "type": "CentralTransitive",
-        "requested": "[0.105.0, )",
-        "resolved": "0.105.0",
-        "contentHash": "U0hAdnYyPvF7TqHMFloxrS7pmozab79tFFF4c/bgPtqeelUs7ILpUd3r3c7C0a/DXsUZb3k1n4Pf7Q2LMyMQOg==",
+        "requested": "[0.105.1, )",
+        "resolved": "0.105.1",
+        "contentHash": "X1ruIP9h2FBEK7jmO0peq3s6/Zqt5ve5a9f9kn6WUjdsUWvGbQlqxuGLz822xuFLlmnSeAfWFTGeX/tZlmAt+g==",
         "dependencies": {
           "ClosedXML.Parser": "2.0.0",
           "DocumentFormat.OpenXml": "[3.1.1, 4.0.0)",
           "ExcelNumberFormat": "1.1.0",
           "RBush.Signed": "4.0.0",
-          "SixLabors.Fonts": "1.0.0"
+          "SixLabors.Fonts": "[1.0.0, 3.0.0)"
         }
       },
       "CloudNative.CloudEvents": {
@@ -1550,11 +1550,11 @@
       },
       "DeltaLake.Net": {
         "type": "CentralTransitive",
-        "requested": "[0.32.0, )",
-        "resolved": "0.32.0",
-        "contentHash": "kFn9I18bMRsf9e0SzXibOgl0DnAy6pBg2Rz5tdT4dLOw4y7AVOB1zaPIiHNSnQg/ijdbeIo8r097nDeBfQ7U6w==",
+        "requested": "[0.33.0, )",
+        "resolved": "0.33.0",
+        "contentHash": "9a3LaSX7v7OoSnYpyy9GmUGDPPkE5fFJZxR1+E6NvZpPAhdJH2TcANUaeEL+gt62RqkwpflRuUm4VQ+mB13DXg==",
         "dependencies": {
-          "Apache.Arrow": "21.0.0",
+          "Apache.Arrow": "23.0.0",
           "Microsoft.Data.Analysis": "0.21.1",
           "Microsoft.Extensions.Logging.Abstractions": "8.0.0"
         }
@@ -1580,11 +1580,12 @@
       },
       "DuckDB.NET.Data.Full": {
         "type": "CentralTransitive",
-        "requested": "[1.5.3, )",
-        "resolved": "1.5.3",
-        "contentHash": "B0E3JH6nM9CeYLzmOIGGTz7R5vAKf10516Jiz7VnWj4kV7uMoh8m5mTB6IxTGFJMG6i6aOANwjwP7ud7kA87+Q==",
+        "requested": "[1.5.5, )",
+        "resolved": "1.5.5",
+        "contentHash": "M52jdLPafItTtfzwhvF+a87QHA39fMU6BOlaFLDuzGF6Gx1DSn34+UOEyCMArmw/gGoo1+Btbb/vh51IokVd0w==",
         "dependencies": {
-          "DuckDB.NET.Bindings.Full": "1.5.3"
+          "Apache.Arrow": "23.0.0",
+          "DuckDB.NET.Bindings.Full": "1.5.5"
         }
       },
       "EFCore.NamingConventions": {
@@ -1625,11 +1626,11 @@
       },
       "Generator.Equals": {
         "type": "CentralTransitive",
-        "requested": "[4.0.1, )",
-        "resolved": "4.0.1",
-        "contentHash": "LDQmP7rApxCXz0ddTvVy9AdP+SfnzqfWzxno7yQL2kSWItadY7Do82KALRJNfiNNZrWumDEuih7bbDcRbLrkGQ==",
+        "requested": "[4.0.2, )",
+        "resolved": "4.0.2",
+        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
         "dependencies": {
-          "Generator.Equals.Runtime": "4.0.1"
+          "Generator.Equals.Runtime": "4.0.2"
         }
       },
       "Google.Cloud.Kms.V1": {
@@ -1662,27 +1663,27 @@
       },
       "Grpc.Core.Api": {
         "type": "CentralTransitive",
-        "requested": "[2.80.0, )",
-        "resolved": "2.80.0",
-        "contentHash": "i/8s+MOrYa6n7BmZ5bilcbHk+EMJDQHm2MKLhwGAT+urQqlZ6cpjvSivYvuULjebuX+UKieLYZbLRCmVQxFRkw=="
+        "requested": "[2.83.0, )",
+        "resolved": "2.83.0",
+        "contentHash": "xU8BT2bCw4Ct+/qIFJhhjkDEilKUbBOfp4US7l3Xa3hnlkN9l2LgISCbOw4PFYpW5jJFcK7FUAyWOFIQ94Hiqg=="
       },
       "Grpc.Net.Client": {
         "type": "CentralTransitive",
-        "requested": "[2.80.0, )",
-        "resolved": "2.80.0",
-        "contentHash": "I1Aa24nTRMHqx0pmQfvthFsOpejquDjiJV6092KBqjw6EEr3wA9CMXlrdkoEgHartOiJrpKyZiQRl7n0NVlfBg==",
+        "requested": "[2.83.0, )",
+        "resolved": "2.83.0",
+        "contentHash": "dHYtx7hW4muttsCrWNG4/Ysb1iAIhNPEq28eo7vF166CdXn/RXOr3SGvSreIGIjvmdrADrBNJ2cUeJBto/T0XA==",
         "dependencies": {
-          "Grpc.Net.Common": "2.80.0",
+          "Grpc.Net.Common": "2.83.0",
           "Microsoft.Extensions.Logging.Abstractions": "8.0.0"
         }
       },
       "Grpc.Net.Common": {
         "type": "CentralTransitive",
-        "requested": "[2.80.0, )",
-        "resolved": "2.80.0",
-        "contentHash": "E2ERsx+9IXlry4yjBl8btx0XMIKzymGNSvX5jmBS/uSwYyYDoKIDcIREyLqFLvd8vcJdcoRlycpvn9YRXutFpQ==",
+        "requested": "[2.83.0, )",
+        "resolved": "2.83.0",
+        "contentHash": "9w52xxORdIGu4Mm8lff3psMIlarenu+7TC4uIfiiW9AyaHZ6iPE/18gIkG1DD9byGDuhjuhnN9hiviBUAmCuZw==",
         "dependencies": {
-          "Grpc.Core.Api": "2.80.0"
+          "Grpc.Core.Api": "2.83.0"
         }
       },
       "Humanizer.Core": {
@@ -1693,11 +1694,11 @@
       },
       "JsonSchema.Net": {
         "type": "CentralTransitive",
-        "requested": "[9.3.0, )",
-        "resolved": "9.3.0",
-        "contentHash": "d780/OM10Vi3ZwXtWsdjSwg4T2Gv6PEs4QO1TOcfwYJsT3IpkV6u6RUJYDxNFifc4jsNeIk+0RgRh1X38R5ySA==",
+        "requested": "[9.4.0, )",
+        "resolved": "9.4.0",
+        "contentHash": "muE4nPuzbD9x5XA1mkXJNqX4mhz47oF3EY8qFLY1pyUY7lhXFKq65t/dSKIHeNSLBV17zwZuq24MD1em90rMNg==",
         "dependencies": {
-          "JsonPointer.Net": "7.0.1"
+          "JsonPointer.Net": "7.0.2"
         }
       },
       "K4os.Compression.LZ4": {
@@ -1734,16 +1735,16 @@
       },
       "Marten": {
         "type": "CentralTransitive",
-        "requested": "[9.18.0, )",
-        "resolved": "9.18.0",
-        "contentHash": "RK8wE0aZwKQHoQ2xEx0oCSSOnzNsQObpiBT40xET5y8fOauj+rUJ9tLjaUy2stBVKerFx36tGmed+/bVkPmWFQ==",
+        "requested": "[9.22.3, )",
+        "resolved": "9.22.3",
+        "contentHash": "p3zn4cbi+Y5du0DGJSHejy/svxYy95DEMDc0v/mQgxdwHWw4m+Qi3LWdzH3zacrBLKr58sXJfxmSPzcuOmok9A==",
         "dependencies": {
-          "JasperFx": "2.34.0",
-          "JasperFx.Events": "2.34.0",
+          "JasperFx": "2.38.0",
+          "JasperFx.Events": "2.38.0",
           "Microsoft.Extensions.Hosting.Abstractions": "10.0.0",
           "Microsoft.IO.RecyclableMemoryStream": "3.0.1",
-          "Weasel.Postgresql": "9.17.0",
-          "Weasel.Storage": "9.17.0"
+          "Weasel.Postgresql": "9.23.2",
+          "Weasel.Storage": "9.23.2"
         }
       },
       "MathNet.Numerics": {
@@ -2144,9 +2145,9 @@
       },
       "MPXJ.Net": {
         "type": "CentralTransitive",
-        "requested": "[16.5.0, )",
-        "resolved": "16.5.0",
-        "contentHash": "qJ76PYTbzpiG3IhstwvfW+0W4qq1VXirxskhtpt4hHPR0UKV4z1rBDdSN27/8H8QoWqzYCkAQEFL9wcegPQj0w==",
+        "requested": "[16.6.0, )",
+        "resolved": "16.6.0",
+        "contentHash": "GwZ03vF9UsL/nTcLAPOFBGyD2bJECxTemlEESEzZHfwVTK9449x+4tsEVykASoAqaWdJSPPCshcJeP1q6/RBlg==",
         "dependencies": {
           "IKVM.Maven.Sdk": "1.11.0",
           "Portable.System.DateTimeOnly": "8.0.2"
@@ -2166,105 +2167,105 @@
       },
       "NATS.Client.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "uqpvjqHhlHIfuqtucpSanjZZ0XZV7enjPYxOxTW8BRE0epqGLEKlwb2990yH82QSuMreR+y04IhfgY0pjDxZ4A==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "0sJrGQrW1ZTSvn5VU1mW35NejP6/OQx2PJUCJ1UrIOmDql9Il0SPohs6ZFB2T6s+Ndy5+fPa0+NF2Kk/lV1+/w==",
         "dependencies": {
           "Microsoft.Extensions.Primitives": "6.0.0"
         }
       },
       "NATS.Client.Core": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "QmBnIttS2cYof+13NYuPoJdymkzJCQWNftTGv2fwy2rGLFsBVkhpv1Lej2kXhdOdVic8gaaZsx7S3J8c1Ye/xA==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "wL88Ti/T9ExdFejYYWYylSOom292xSug+9bmJ+EF0fgPUaOWwE6p6xOoAmI95BURQdktAooqncDdblcSrKPAUg==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "6.0.1",
           "Microsoft.Extensions.Primitives": "6.0.0",
-          "NATS.Client.Abstractions": "3.0.1",
+          "NATS.Client.Abstractions": "3.1.0",
           "NATS.NKeys": "1.0.1"
         }
       },
       "NATS.Client.Hosting": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "0nhUB7/3YD26LDPKjTYLLv+FmMmdYp5mHX84ZDqXuQJLsgs6PIoqeG0ZCN8mkHoi8aq0Lyv6i7o02ILyMZGxoA==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "eDOYH0yrypzxFxojgxzvqyTt5ZEW+shyx/A61bhhsdKPSISEkHae1kSqvQAZE8J875UHxAsbTgoU4x9KCz4XuQ==",
         "dependencies": {
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.0",
-          "NATS.Client.Core": "3.0.1"
+          "NATS.Client.Core": "3.1.0"
         }
       },
       "NATS.Client.JetStream": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "pFwXvBBcPCxpItN8PfqYWjl8kYhkqrQwncAA1A8NuJiawo+DQHdUEQJ2e+y5k9b7e62ZOUdY1fGpgyjP04k0ng==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "n+HUDkv+cdzehOlLUkq1ZaPm3vlm1aQDMcPU1Qa26TjdwxJnyOUa7+0K3gvYlW5msqvGNwpqNbgq5ILo9wZjrQ==",
         "dependencies": {
-          "NATS.Client.Core": "3.0.1"
+          "NATS.Client.Core": "3.1.0"
         }
       },
       "NATS.Client.KeyValueStore": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "jvRdbF9qhxOYQmRRqddOUoAMwcABMEYdRneRe8aIhFGymcjockex3gGTXracYjaOZQFhS57ZpP+M1GFxgYr+tA==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "G/24LA7/tQO2AwamvRaSdk5u1nnCNsBrvX+WyH8tc1zZiQ8szKkrFRcszxIl6H1pmygO6MLNWo0rpHUrbppWSw==",
         "dependencies": {
-          "NATS.Client.JetStream": "3.0.1"
+          "NATS.Client.JetStream": "3.1.0"
         }
       },
       "NATS.Client.ObjectStore": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "Blv7piRaXE2ovf4kOiTG0guyzWKC/YaZkwnQCUFXbNDq0jT+TmERS4uFirNl8Zmy7HZeeo8C2ZxvmhatiXWSNA==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "Xmjr4pIAUfNOLxL9Yx3CNEs6Tqe0jt8oWUtl+vQpWMUg8zexlY7f7N0H4RYMouxWN+iStArxkMvYDzU6E3eSvg==",
         "dependencies": {
-          "NATS.Client.JetStream": "3.0.1"
+          "NATS.Client.JetStream": "3.1.0"
         }
       },
       "NATS.Client.Serializers.Json": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "JSZKXk35vqKjxyYhr9eJzzKPJ8wNVu4UwOtA/ZJHKAXaqfcFSZROJkYTK9dsVbWBtoBa8pRa2wsDnf4JuR0OYQ==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "lmiZL0XWribrm5wN+xtCpTYf0kH89ChBPD7N9RvWxEm5/5ntJt4k8ofnkgo84F9v/RUJCA7bmkpnTxO8niWXfg==",
         "dependencies": {
-          "NATS.Client.Abstractions": "3.0.1"
+          "NATS.Client.Abstractions": "3.1.0"
         }
       },
       "NATS.Client.Services": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "Ra3RwF/RD7BPvxv0E4Sl9PZChMu9gFaTx3aGVvaFvqYb1xXXw/uOkWCxpYZEqui261eQxMsa8lapT+TLRJDCVA==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "VmECcKJqS4aErZZWnRIQa8L3Ze/NsdmBmKdP9NWW9t9WAbU60+btpLkOGhAu7wPEo94193OIw4AdIzoe55uiqA==",
         "dependencies": {
-          "NATS.Client.Core": "3.0.1"
+          "NATS.Client.Core": "3.1.0"
         }
       },
       "NATS.Client.Simplified": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "Iu3/mqGpFqMrAWVxrFdkHV6dR8HYDxyIGbio+JRiX1f02aYu1C24e7X9+HOP7vlFqmrwQMQTEzPWyQjyFL4cyw==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "SPYXkALvXJ6wKQ96aQ0zocJ4pi7ZAIGyliE9dcvVNio2YW/ydH4Gr0QrkLZxVTGpFOGy9kadfFMhn86hhRBFrw==",
         "dependencies": {
-          "NATS.Client.Core": "3.0.1",
-          "NATS.Client.Serializers.Json": "3.0.1"
+          "NATS.Client.Core": "3.1.0",
+          "NATS.Client.Serializers.Json": "3.1.0"
         }
       },
       "NATS.Net": {
         "type": "CentralTransitive",
-        "requested": "[3.0.1, )",
-        "resolved": "3.0.1",
-        "contentHash": "EMVo1u6WlaG5i5ncTdh6ez55TCgcgG4M7G2mXMa3KUKf0aDEYl3RZ0NTYwxlXKgZzVf0bboaM27KEylw8SMZ6w==",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "1K1/1JDnpidgGsnPcqmOdcv5D693SvOyTWMYK3IuSW3wL9awNLJ2Ur68ZNgwKkbX6BWeRMUEH0RdWHV62R1NDw==",
         "dependencies": {
-          "NATS.Client.Core": "3.0.1",
-          "NATS.Client.Hosting": "3.0.1",
-          "NATS.Client.JetStream": "3.0.1",
-          "NATS.Client.KeyValueStore": "3.0.1",
-          "NATS.Client.ObjectStore": "3.0.1",
-          "NATS.Client.Serializers.Json": "3.0.1",
-          "NATS.Client.Services": "3.0.1",
-          "NATS.Client.Simplified": "3.0.1",
-          "NATS.Extensions.Microsoft.DependencyInjection": "3.0.1"
+          "NATS.Client.Core": "3.1.0",
+          "NATS.Client.Hosting": "3.1.0",
+          "NATS.Client.JetStream": "3.1.0",
+          "NATS.Client.KeyValueStore": "3.1.0",
+          "NATS.Client.ObjectStore": "3.1.0",
+          "NATS.Client.Serializers.Json": "3.1.0",
+          "NATS.Client.Services": "3.1.0",
+          "NATS.Client.Simplified": "3.1.0",
+          "NATS.Extensions.Microsoft.DependencyInjection": "3.1.0"
         }
       },
       "NATS.NKeys": {
@@ -2623,9 +2624,9 @@
       },
       "RocksDB": {
         "type": "CentralTransitive",
-        "requested": "[10.10.1.1747, )",
-        "resolved": "10.10.1.1747",
-        "contentHash": "uzwXHMAhfGnfa/iTspRRElvjxzfoUsca/fcRtZvYvBnW4k1CdherPeegz8Fym96V6XdJAAVfj9Xw7HkLq3mAqw==",
+        "requested": "[11.1.2.3412, )",
+        "resolved": "11.1.2.3412",
+        "contentHash": "caju+YxgcLw4+MlTYDu5WqBer3vyJDv+OSwYrIXyEfkvFUvBWW38YTuP8ctVFYns5/UtV1aVAw+wza0T/Uf8vw==",
         "dependencies": {
           "ZstdSharp.Port": "0.8.7"
         }
@@ -2684,12 +2685,12 @@
       },
       "SQLitePCLRaw.bundle_e_sqlite3": {
         "type": "CentralTransitive",
-        "requested": "[3.0.4, )",
-        "resolved": "3.0.4",
-        "contentHash": "gg8vENKV/o0pWLI0eJxnTA4X9e63rOvzkCDMAOePDGLieNSHPCGUiJ4CQDqDyNqIf6IPVzD4TOjqY5ACygZkkA==",
+        "requested": "[3.0.5, )",
+        "resolved": "3.0.5",
+        "contentHash": "SW8iASIyWMrLzqabUHYQRvALhvD4ylSBsj4PgEVGwc36kQjc9xT5kSV/XQ9rU7nIpBWD+LPyX3Hlw5FzyUzGeQ==",
         "dependencies": {
-          "SQLitePCLRaw.config.e_sqlite3": "3.0.4",
-          "SourceGear.sqlite3": "3.53.3"
+          "SQLite": "3.53.4",
+          "SQLitePCLRaw.config.e_sqlite3": "3.0.5"
         }
       },
       "SQLitePCLRaw.bundle_e_sqlite3mc": {
@@ -2713,12 +2714,12 @@
       },
       "StackExchange.Redis": {
         "type": "CentralTransitive",
-        "requested": "[3.0.17, )",
-        "resolved": "3.0.17",
-        "contentHash": "ItAm9lokZ1mWsQLF3u4Yw4eb/gvkX6Rp9bLAe1KUKgKAjPkALoQwTc6jJLtBZoOv9LT7RwvSIXZZb9FF30QhOg==",
+        "requested": "[3.1.3, )",
+        "resolved": "3.1.3",
+        "contentHash": "6m3ca55rhCgR65y7xlCxXQE1CnMdfAuLQRzv8kveSmqIYxByZlHNQM5MBEFMigNNvsgGq2WG7T+oNyOaZ9/VzA==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.5",
-          "RESPite": "3.0.17",
+          "RESPite": "3.1.3",
           "System.IO.Hashing": "10.0.5"
         }
       },

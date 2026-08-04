@@ -35,6 +35,10 @@
 |  [16]   | `SKCanvasSaveLayerRecFlags` | layer init/LCD-text/F16 flag set                      |
 |  [17]   | `SKSurfaceProperties`       | pixel-geometry + flags for surface allocation         |
 
+- `SKRect`: `Inflate(SKRect rect, float x, float y)` is the static grow-by-margin twin of the instance mutator, `Contains(SKRect)` the containment test beside its point overloads, and `IsEmpty` the degenerate probe — the three a bounds-admission fold composes without reaching for arithmetic on the edge fields.
+- `SKRect` overlap and combination: `IntersectsWith(SKRect)` and `IntersectsWithInclusive(SKRect)` answer `bool` (edge-touching admitted only by the second), `Intersect(SKRect a, SKRect b)`/`Union(SKRect a, SKRect b)` are the static combining twins of the in-place instance mutators, and `Standardized` normalizes an inverted rect — so a label-collision or quick-reject fold reads these rather than comparing four edges per call.
+- `SKPath` bounds: `Bounds` is the control-point box and `TightBounds` the curve-accurate box (both `SKRect` properties), with `GetBounds(out SKRect)`/`GetTightBounds(out SKRect)` and `ComputeTightBounds()` as their tested and returning arities; `IsEmpty`, `VerbCount`, and `PointCount` are the shape census beside them.
+
 [SURFACE_AND_IMAGE_TYPES]: pixel ownership, recording, and document output
 
 | [INDEX] | [SYMBOL]                                     | [CAPABILITY]                                             |
@@ -55,17 +59,25 @@
 
 [TEXT_AND_FONT_TYPES]: typeface, font, and shaped-text seam
 
-| [INDEX] | [SYMBOL]            | [CAPABILITY]                                          |
-| :-----: | :------------------ | :---------------------------------------------------- |
-|  [01]   | `SKFont`            | sized font: measure, glyph paths, positions, break    |
-|  [02]   | `SKTypeface`        | font face (file/stream/family resolved)               |
-|  [03]   | `SKFontManager`     | system font registry + `MatchCharacter` fallback      |
-|  [04]   | `SKFontStyleSet`    | weight/width/slant variants of one family             |
-|  [05]   | `SKFontStyle`       | weight/width/slant value (`SKFontStyleWeight` etc.)   |
-|  [06]   | `SKFontMetrics`     | ascent/descent/leading/cap/x-height                   |
-|  [07]   | `SKTextBlob`        | immutable positioned glyph run set                    |
-|  [08]   | `SKTextBlobBuilder` | builds blobs via `AddRun`/`AllocateRun` glyph buffers |
-|  [09]   | `SKTextEncoding`    | UTF8/UTF16/UTF32/GlyphId encoding selector            |
+| [INDEX] | [SYMBOL]                            | [CAPABILITY]                                                                     |
+| :-----: | :---------------------------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `SKFont`                            | sized font: measure, glyph paths, positions, break, and the render-posture knobs |
+|  [02]   | `SKTypeface`                        | font face (file/stream/family resolved) with variation and palette cloning       |
+|  [03]   | `SKFontManager`                     | system font registry + style-keyed `MatchFamily` and `MatchCharacter` fallback   |
+|  [04]   | `SKFontStyleSet`                    | weight/width/slant variants of one family                                        |
+|  [05]   | `SKFontStyle`                       | weight/width/slant value (`SKFontStyleWeight` etc.) — an owned native handle     |
+|  [06]   | `SKFontMetrics`                     | ascent/descent/leading/cap/x-height; underline and strikeout rows are `float?`   |
+|  [07]   | `SKTextBlob`                        | immutable positioned glyph run set with the `GetIntercepts` skip-ink query       |
+|  [08]   | `SKTextBlobBuilder`                 | builds blobs via `AddRun`/`AllocateRun` glyph buffers; `Build()` is NULLABLE     |
+|  [09]   | `SKRawRunBuffer<T>`                 | `Glyphs`/`Positions`/`Text`/`Clusters` spans over one allocated run              |
+|  [10]   | `SKTextEncoding`                    | UTF8/UTF16/UTF32/GlyphId encoding selector                                       |
+|  [11]   | `SKFontArguments`                   | `ref struct`: variation position, collection index, palette index and overrides  |
+|  [12]   | `SKFontVariationAxis`               | `Tag`/`Min`/`Default`/`Max`/`IsHidden` axis a variable face publishes            |
+|  [13]   | `SKFontVariationPositionCoordinate` | one `(Axis, Value)` coordinate a face instance is cloned onto                    |
+|  [14]   | `SKFontPaletteOverride`             | one `(Index, Color)` colour-palette entry override                               |
+|  [15]   | `SKFontEdging`                      | `Alias`/`Antialias`/`SubpixelAntialias` glyph coverage                           |
+|  [16]   | `SKFontHinting`                     | `None`/`Slight`/`Normal`/`Full` outline fitting                                  |
+|  [17]   | `SKFourByteTag`                     | packed four-character tag with `Parse` and `uint` conversions both ways          |
 
 [PAINT_PIPELINE_TYPES]: color, shader, filter, effect, and runtime-SkSL surfaces
 
@@ -86,13 +98,15 @@
 |  [13]   | `SKPathEffect`                | geometry effect: dash/corner/discrete/trim/sum  |
 |  [14]   | `SKMaskFilter`                | coverage-mask effect: blur/clip/gamma           |
 |  [15]   | `SKRuntimeEffect`             | compiled SkSL shader/colorfilter/blender        |
-|  [16]   | `SKRuntimeShaderBuilder`      | uniform/child binding for an SkSL shader        |
-|  [17]   | `SKRuntimeColorFilterBuilder` | uniform/child binding for an SkSL color filter  |
-|  [18]   | `SKRuntimeBlenderBuilder`     | uniform/child binding for an SkSL blender       |
-|  [19]   | `SKRuntimeEffectUniforms`     | named uniform block bound to one effect         |
-|  [20]   | `SKRuntimeEffectChildren`     | named child-effect slots bound to one effect    |
-|  [21]   | `SKRuntimeEffectUniform`      | one uniform value, implicit from scalar/vector  |
-|  [22]   | `SKRuntimeEffectChild`        | one child slot, implicit from shader/filter     |
+|  [16]   | `SKRuntimeEffectBuilder`      | base: owns `Effect` + `Uniforms` + `Children`   |
+|  [17]   | `SKRuntimeShaderBuilder`      | uniform/child binding for an SkSL shader        |
+|  [18]   | `SKRuntimeColorFilterBuilder` | uniform/child binding for an SkSL color filter  |
+|  [19]   | `SKRuntimeBlenderBuilder`     | uniform/child binding for an SkSL blender       |
+|  [20]   | `SKRuntimeEffectUniforms`     | named uniform block bound to one effect         |
+|  [21]   | `SKRuntimeEffectChildren`     | named child-effect slots bound to one effect    |
+|  [22]   | `SKRuntimeEffectUniform`      | one uniform value, implicit from scalar/vector  |
+|  [23]   | `SKRuntimeEffectChild`        | one child slot, implicit from shader/filter     |
+|  [24]   | `SKHighContrastConfig`        | grayscale + invert-style + contrast value       |
 
 [CODEC_AND_FORMAT_TYPES]: format, pixel layout, blend, and sampling enums
 
@@ -107,12 +121,17 @@
 |  [07]   | `SKMipmapMode`                    | none/nearest/linear mip selection                                                         |
 |  [08]   | `SKClipOperation`                 | intersect/difference clip combine                                                         |
 |  [09]   | `SKPathOp`                        | difference/intersect/union/xor/reverse-difference                                         |
-|  [10]   | `SKCodecResult`                   | decode-step status for `SKCodec`                                                          |
+|  [10]   | `SKCodecResult`                   | decode-step status for `SKCodec`, beside `SKCodecOptions` and `SKCodecFrameInfo`           |
 |  [11]   | `SKPaintStyle`                    | `Fill` / `Stroke` / `StrokeAndFill` (`SKPaint.Style`)                                     |
-|  [12]   | `SKPathDirection`                 | `Clockwise` / `CounterClockwise` add-shape winding                                        |
-|  [13]   | `SKPathArcSize` / `SKPathAddMode` | arc large/small + `Append`/`Extend` path-append mode                                      |
-|  [14]   | `SKBlurStyle`                     | coverage an `SKMaskFilter` blur keeps                                                     |
-|  [15]   | `SKColorChannel`                  | `R`/`G`/`B`/`A` selector for displacement mapping                                         |
+|  [12]   | `SKStrokeCap`                     | `Butt` / `Round` / `Square` (`SKPaint.StrokeCap`)                                         |
+|  [13]   | `SKStrokeJoin`                    | `Miter` / `Round` / `Bevel` (`SKPaint.StrokeJoin`)                                        |
+|  [14]   | `SKPathDirection`                 | `Clockwise` / `CounterClockwise` add-shape winding                                        |
+|  [15]   | `SKPathArcSize` / `SKPathAddMode` | arc large/small + `Append`/`Extend` path-append mode                                      |
+|  [16]   | `SKBlurStyle`                     | coverage an `SKMaskFilter` blur keeps                                                     |
+|  [17]   | `SKColorChannel`                  | `R`/`G`/`B`/`A` selector for displacement mapping                                         |
+|  [18]   | `SKPath1DPathEffectStyle`         | `Translate`/`Rotate`/`Morph` stamped-glyph orientation                                    |
+|  [19]   | `SKTrimPathEffectMode`            | `Normal`/`Inverted` kept-span selection                                                   |
+|  [20]   | `SKHighContrastConfigInvertStyle` | `NoInvert`/`InvertBrightness`/`InvertLightness`                                           |
 
 `[SKBlendMode]`: `Clear=0` `Src` `Dst` `SrcOver` `DstOver` `SrcIn` `DstIn` `SrcOut` `DstOut` `SrcATop` `DstATop` `Xor` `Plus` `Modulate` `Screen` `Overlay` `Darken` `Lighten` `ColorDodge` `ColorBurn` `HardLight` `SoftLight` `Difference` `Exclusion` `Multiply` `Hue` `Saturation` `Color` `Luminosity=28`
 
@@ -151,7 +170,7 @@
 |  [07]   | `DrawDrawable`                             | `(SKDrawable, in SKMatrix)` deferred custom draw                    |
 |  [08]   | `DrawVertices`                             | `(SKVertices, SKBlendMode, SKPaint)` mesh fill                      |
 |  [09]   | `DrawAtlas`                                | sprite batch with `SKRotationScaleMatrix[]` + `SKSamplingOptions`   |
-|  [10]   | `DrawTextBlob`                             | `(SKTextBlob, x, y, SKPaint)` shaped-glyph draw                     |
+|  [10]   | `DrawText`                                 | `(SKTextBlob, x, y, SKPaint)` shaped-glyph draw — no `DrawTextBlob` |
 |  [11]   | `DrawArc`                                  | `(oval, start, sweep, useCenter, SKPaint)`                          |
 |  [12]   | `DrawColor`                                | `(SKColor, SKBlendMode)` full-clip fill                             |
 |  [13]   | `SaveLayer`                                | `()` / `(SKPaint)` / `(SKRect limit, SKPaint)` -> `int` save depth  |
@@ -163,7 +182,8 @@
 |  [19]   | `DrawAnnotation` / `DrawUrlAnnotation`     | PDF link/named-destination annotations                              |
 |  [20]   | `DrawLine`                                 | `(SKPoint, SKPoint, SKPaint)` / `(x0, y0, x1, y1, SKPaint)` segment |
 
-- `SKCanvasSaveLayerRec`: `Bounds` hints the layer extent, `Paint` composites the layer back on restore, `Backdrop` filters the destination pixels already on the canvas into the new layer instead of transparent black, and `Flags` carries `SKCanvasSaveLayerRecFlags` — `None=0`, `PreserveLcdText=2`, `InitializeWithPrevious=4` copying those pixels unfiltered, `F16ColorType=0x10` forcing a half-float layer.
+- `SKCanvasSaveLayerRec`: `SKRect? Bounds` hints the layer extent, `SKPaint? Paint` composites the layer back on restore, `SKImageFilter? Backdrop` filters the destination pixels already on the canvas into the new layer instead of transparent black, and `Flags` carries `SKCanvasSaveLayerRecFlags` — `None=0`, `PreserveLcdText=2`, `InitializeWithPrevious=4` copying those pixels unfiltered, `F16ColorType=0x10` forcing a half-float layer. All four are settable and the three reference slots are nullable, so a null `Backdrop` beside `InitializeWithPrevious` is the unfiltered-copy arm and a non-null `Backdrop` beside that flag filters the ground and then overwrites it with the raw copy.
+- `SKHighContrastConfig`: `(bool grayscale, SKHighContrastConfigInvertStyle invertStyle, float contrast)` ctor beside a `Default` static and settable `Grayscale`/`InvertStyle`/`Contrast`; `IsValid` gates the invert style within its enum range and the contrast within `[-1, 1]`, so admission reads that property rather than re-deriving the bounds.
 
 [PATH_CONSTRUCTION_ENTRYPOINTS]: `SKPath` contour building, shape adds, and transform
 - surface-root: `SKPath` (`new SKPath()` empty; `new SKPath(SKPath)` copy)
@@ -222,12 +242,15 @@
 |  [27]   | `InstallPixels` / `PeekPixels`     | `SKBitmap`           | adopts pixels / exposes a view                                         |
 |  [28]   | `Create`                           | `SKCodec`            | `(SKStream)` / `(Stream, out SKCodecResult)`                           |
 |  [29]   | `FrameCount` / `RepetitionCount`   | `SKCodec`            | animated-image frame metadata                                          |
-|  [30]   | `GetFrameInfo`                     | `SKCodec`            | returns `SKCodecFrameInfo`                                             |
-|  [31]   | `StartIncrementalDecode`           | `SKCodec`            | starts progressive decode                                              |
+|  [30]   | `GetFrameInfo`                     | `SKCodec`            | `(int index, out SKCodecFrameInfo)` -> `bool`                          |
+|  [31]   | `StartIncrementalDecode`           | `SKCodec`            | `(SKImageInfo, nint pixels, int rowBytes[, SKCodecOptions])`           |
 |  [32]   | `IncrementalDecode`                | `SKCodec`            | continues decode with `out int rowsDecoded`                            |
-|  [33]   | `CreateCopy`                       | `SKVertices`         | `(SKVertexMode, SKPoint[] positions, SKColor[] colors)`                |
-|  [34]   | `CreateCopy`                       | `SKVertices`         | `(…, SKPoint[] texs, SKColor[])` / `(…, texs, colors, ushort[] idx)`   |
-|  [35]   | `Span` / `Size` / `ToArray`        | `SKData`             | `Span<byte>` zero-copy view / `long` length / `byte[]` copy            |
+|  [33]   | `Info`                             | `SKCodec`            | `SKImageInfo` read BEFORE any allocation                               |
+|  [34]   | `GetPixels`                        | `SKCodec`            | `(SKImageInfo, nint pixels[, int rowBytes], SKCodecOptions)` one-shot  |
+|  [35]   | `CreateCopy`                       | `SKVertices`         | `(SKVertexMode, SKPoint[] positions, SKColor[] colors)`                |
+|  [36]   | `CreateCopy`                       | `SKVertices`         | `(…, SKPoint[] texs, SKColor[])` / `(…, texs, colors, ushort[] idx)`   |
+|  [37]   | `Span` / `Size` / `ToArray`        | `SKData`             | `Span<byte>` zero-copy view / `long` length / `byte[]` copy            |
+|  [38]   | `SKCodecOptions(int[, int])`       | `SKCodecOptions`     | frame index alone seats `PriorFrame = -1`; the pair states both        |
 
 [TRANSFORM_VALUE_ENTRYPOINTS]: affine and similarity transform construction
 
@@ -267,18 +290,28 @@
 
 [TEXT_AND_FONT_ENTRYPOINTS]: typeface resolution, measurement, and glyph geometry
 
-| [INDEX] | [SURFACE]                               | [ROOT]              | [CALL]                                                        |
-| :-----: | :-------------------------------------- | :------------------ | :------------------------------------------------------------ |
-|  [01]   | `MatchCharacter`                        | `SKFontManager`     | `(family, weight, width, slant, bcp47[], codepoint)` fallback |
-|  [02]   | `Default` / `MatchFamily`               | `SKFontManager`     | process registry/family lookup                                |
-|  [03]   | `CreateTypeface`                        | `SKFontManager`     | `(Stream, index)` embedded face                               |
-|  [04]   | `MeasureText`                           | `SKFont`            | `(string, out SKRect bounds, SKPaint)` advance/ink box        |
-|  [05]   | `BreakText`                             | `SKFont`            | `(string, maxWidth, out measuredWidth)` fit                   |
-|  [06]   | `GetGlyphs`                             | `SKFont`            | returns glyph IDs                                             |
-|  [07]   | `GetGlyphPositions` / `GetGlyphWidths`  | `SKFont`            | returns layout arrays                                         |
-|  [08]   | `GetGlyphPath`                          | `SKFont`            | `(ushort glyph)` -> outline `SKPath`                          |
-|  [09]   | `AllocateRun` / `AllocatePositionedRun` | `SKTextBlobBuilder` | allocates glyph buffers                                       |
-|  [10]   | `AddRun` / `Build`                      | `SKTextBlobBuilder` | fills runs/builds an `SKTextBlob`                             |
+- posture carry: `SKFont` exposes every host-variable knob as settable state — `Edging`, `Hinting`, `Subpixel`, `LinearMetrics`, `BaselineSnap`, `ForceAutoHinting`, `EmbeddedBitmaps`, `Embolden`, `ScaleX`, `SkewX`, `Size`, `Typeface`, `Spacing`, `Metrics` — so a surface class pins the whole set rather than inheriting a platform default.
+
+| [INDEX] | [SURFACE]                               | [ROOT]              | [CALL]                                                               |
+| :-----: | :-------------------------------------- | :------------------ | :------------------------------------------------------------------- |
+|  [01]   | `MatchCharacter`                        | `SKFontManager`     | `(family, weight, width, slant, bcp47[], codepoint)` cover           |
+|  [02]   | `Default` / `MatchFamily`               | `SKFontManager`     | process registry / `(family)` and `(family, SKFontStyle)` match      |
+|  [03]   | `CreateTypeface`                        | `SKFontManager`     | `(Stream \| SKStreamAsset \| SKData, index)` embedded face           |
+|  [04]   | `MeasureText`                           | `SKFont`            | `(string, out SKRect bounds, SKPaint)` advance/ink box               |
+|  [05]   | `BreakText`                             | `SKFont`            | `(string, maxWidth, out measuredWidth)` fit                          |
+|  [06]   | `GetGlyphs` / `ContainsGlyph`           | `SKFont`            | glyph IDs / `(int codepoint) -> bool` coverage probe                 |
+|  [07]   | `GetGlyphPositions` / `GetGlyphWidths`  | `SKFont`            | returns layout arrays                                                |
+|  [08]   | `GetGlyphPath`                          | `SKFont`            | `(ushort glyph)` -> outline `SKPath`                                 |
+|  [09]   | `UnitsPerEm` / `GlyphCount`             | `SKTypeface`        | the face's own design scale and glyph census                         |
+|  [10]   | `VariationDesignParameters`             | `SKTypeface`        | `SKFontVariationAxis[]` plus `VariationDesignParameterCount`         |
+|  [11]   | `Clone`                                 | `SKTypeface`        | `(ReadOnlySpan<SKFontVariationPositionCoordinate>)` variable         |
+|  [12]   | `Clone`                                 | `SKTypeface`        | `(int paletteIndex)` / `(SKFontArguments)` palette or combined       |
+|  [13]   | `OpenStream` / `ToFont`                 | `SKTypeface`        | `(out int ttcIndex)` face bytes / `(size, scaleX, skewX)` sized font |
+|  [14]   | `GetTableTags` / `GetTableData`         | `SKTypeface`        | `uint[]` present tables / `(uint tag) -> byte[]` one table           |
+|  [15]   | `AllocateRun` / `AllocatePositionedRun` | `SKTextBlobBuilder` | allocates glyph buffers                                              |
+|  [16]   | `AllocateRawPositionedRun`              | `SKTextBlobBuilder` | `(SKFont, count, SKRect?) -> SKRawRunBuffer<SKPoint>` span fill      |
+|  [17]   | `AddRun` / `Build`                      | `SKTextBlobBuilder` | fills runs / builds an `SKTextBlob?` — NULL on an empty builder      |
+|  [18]   | `GetIntercepts` / `CountIntercepts`     | `SKTextBlob`        | `(upper, lower[, SKPaint])` ordered ink crossings for skip-ink       |
 
 [PAINT_STATE_ENTRYPOINTS]: pigment, stroke, and resolved-outline state on one paint
 - root: `SKPaint`
@@ -388,20 +421,29 @@
 [RUNTIME_EFFECT_ENTRYPOINTS]: SkSL compilation, uniform and child binding, and effect projection
 - uniform carry: `SKRuntimeEffectUniform` converts implicitly from `float` and `int` with their arrays and spans, `SKPoint`/`SKPointI`, `SKSize`/`SKSizeI`, `SKPoint3`, `SKColor`, `SKColorF`, `SKMatrix`, and `float[][]`; `SKRuntimeEffectChild` converts from `SKShader`, `SKColorFilter`, and `SKBlender`; a projection's `uniforms` argument is an `SKRuntimeEffectUniforms` and its `children` argument an `SKRuntimeEffectChildren`.
 
-| [INDEX] | [SURFACE]                               | [ROOT]                    | [CALL]                                                        |
-| :-----: | :-------------------------------------- | :------------------------ | :------------------------------------------------------------ |
-|  [01]   | `CreateShader` / `CreateColorFilter`    | `SKRuntimeEffect`         | `(string sksl, out string errors)` compile                    |
-|  [02]   | `CreateBlender`                         | `SKRuntimeEffect`         | `(string sksl, out string errors)` compile                    |
-|  [03]   | `BuildShader` / `BuildColorFilter`      | `SKRuntimeEffect`         | `(string sksl)` -> a builder over a fresh effect              |
-|  [04]   | `BuildBlender`                          | `SKRuntimeEffect`         | `(string sksl)` -> a builder over a fresh effect              |
-|  [05]   | `ToShader`                              | `SKRuntimeEffect`         | `([uniforms][, children][, SKMatrix localMatrix])`            |
-|  [06]   | `ToColorFilter` / `ToBlender`           | `SKRuntimeEffect`         | `([uniforms][, children])`; no local-matrix arm               |
-|  [07]   | `Uniforms` / `Children` / `UniformSize` | `SKRuntimeEffect`         | declared uniform and child names; uniform-block byte size     |
-|  [08]   | `Build`                                 | `SKRuntimeShaderBuilder`  | `([SKMatrix localMatrix])` -> `SKShader`                      |
-|  [09]   | `Add` / `Contains` / `Reset`            | `SKRuntimeEffectUniforms` | `(string name, SKRuntimeEffectUniform)` named binding         |
-|  [10]   | `Add` / `ToArray`                       | `SKRuntimeEffectChildren` | `(string name, SKRuntimeEffectChild?)` / `()` -> `SKObject[]` |
+| [INDEX] | [SURFACE]                               | [ROOT]                                                | [CALL]                                                      |
+| :-----: | :-------------------------------------- | :---------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `CreateShader` / `CreateColorFilter`    | `SKRuntimeEffect`                                     | `(string sksl, out string errors)` compile                  |
+|  [02]   | `CreateBlender`                         | `SKRuntimeEffect`                                     | `(string sksl, out string errors)` compile                  |
+|  [03]   | `BuildShader` / `BuildColorFilter`      | `SKRuntimeEffect`                                     | `(string sksl)` -> a builder over a fresh effect            |
+|  [04]   | `BuildBlender`                          | `SKRuntimeEffect`                                     | `(string sksl)` -> a builder over a fresh effect            |
+|  [05]   | `ToShader`                              | `SKRuntimeEffect`                                     | `([uniforms][, children][, SKMatrix localMatrix])`          |
+|  [06]   | `ToColorFilter` / `ToBlender`           | `SKRuntimeEffect`                                     | `([uniforms][, children])`; no local-matrix arm             |
+|  [07]   | `Uniforms` / `Children` / `UniformSize` | `SKRuntimeEffect`                                     | declared uniform and child names; uniform-block byte size   |
+|  [08]   | `Build`                                 | `SKRuntimeShaderBuilder`                              | `([SKMatrix localMatrix])` -> `SKShader`                    |
+|  [09]   | `Add` / `Contains` / `Reset`            | `SKRuntimeEffectUniforms`                             | `(string name, SKRuntimeEffectUniform)` named binding       |
+|  [10]   | `Add` / `Contains` / `Reset`            | `SKRuntimeEffectChildren`                             | `(string name, SKRuntimeEffectChild?)` named binding        |
+|  [11]   | `Names` / `Count` / `this[string]`      | both blocks                                           | `IReadOnlyList<string>` / `int` / one cell by name          |
+|  [12]   | `ToData` / `ToArray`                    | `SKRuntimeEffectUniforms` / `SKRuntimeEffectChildren` | `()` -> `SKData` / `SKObject[]`                             |
+|  [13]   | `Effect` / `Uniforms` / `Children`      | `SKRuntimeEffectBuilder`                              | the base's three retained properties every builder inherits |
+|  [14]   | `.ctor`                                 | every builder                                         | `(SKRuntimeEffect effect)` — public, adopting the effect    |
 
 - `SKRuntimeColorFilterBuilder.Build`/`SKRuntimeBlenderBuilder.Build`: `()` -> `SKColorFilter` / `SKBlender`; only the shader builder takes a local matrix.
+- `SKRuntimeEffectBuilder.Dispose` disposes the `Effect` it wraps beside both blocks, so a builder constructed per frame over a cached effect frees that effect at the end of that frame — a cache retains the BUILDER and constructs no second one over the same effect.
+- `SKRuntimeEffectUniforms.Contains`/`SKRuntimeEffectChildren.Contains` test the compiled program's own DECLARED name roster (`Array.IndexOf(names, …)`) and never whether a value was written there, so a coverage check probing either block reads every declared name as present on a block nothing has bound — a binding fold records what it wrote and tests that record instead.
+- `SKRuntimeEffectUniforms.Add`/`SKRuntimeEffectChildren.Add` THROW `ArgumentOutOfRangeException` on a name the program never declared, and the uniform overload additionally validates the value's own `SKRuntimeEffectUniform.DataType` against the declaration's type, count, and array flag and throws on a mismatch — the implicit conversions widen the CALL, never the check, so a typed rail resolves the name and the declared shape ahead of the write rather than trapping the throw.
+- `SKRuntimeEffectUniforms.Reset` re-creates the uniform `SKData` and abandons the previous buffer undisposed (only the last survives to `Dispose`), so a per-frame reset costs one abandoned native buffer per program per frame; `SKRuntimeEffectChildren.Reset` clears its object array and releases nothing it was handed, and `SKRuntimeEffectChildren.Dispose` is empty — a bound child shader has no owner but the caller that minted it.
+- `CreateShader`/`CreateColorFilter`/`CreateBlender` return a NULL effect with the diagnostic in `errors` on rejection and a non-null effect with `errors` normalized to null on success; `BuildShader`/`BuildColorFilter`/`BuildBlender` validate that identical pair and THROW, so a typed refusal rail takes the `out errors` form and wraps it with `new SKRuntimeShaderBuilder(effect)` itself.
 
 [GPU_ENTRYPOINTS]: backend context creation and frame submission
 
@@ -428,11 +470,13 @@
 
 [STACKING]:
 - `Avalonia.Skia`(`api-avalonia-skia.md`): `ISkiaSharpApiLeaseFeature.Lease()` yields the live `SKCanvas`/`GRContext`/`SKSurface` a custom control draws through, sharing Avalonia's GPU context and presenting in-airspace; `SkiaSharpExtensions.ToSKRect`/`ToSKMatrix`/`ToSKColor`/`ToSKSamplingOptions` bridge Avalonia value types at the boundary, interior math staying `SKMatrix`/`SKPath`/`SKRect`.
-- `SkiaSharp.HarfBuzz`(`api-skia-harfbuzz.md`): custom-visual text shapes through `SKShaper.Shape` into an `SKTextBlob` drawn via `SKCanvas.DrawTextBlob`, with `SKFontManager.MatchCharacter` supplying fallback before shaping; `SKCanvas.DrawText` serves only shaping-free diagnostics.
+- `SkiaSharp.HarfBuzz`(`api-skia-harfbuzz.md`): custom-visual text shapes into an `SKTextBlob` drawn via the blob overload `SKCanvas.DrawText(SKTextBlob, x, y, SKPaint)` — no `DrawTextBlob` member exists — with `SKFontManager.MatchFamily(family, SKFontStyle)` supplying capability election and `MatchCharacter` the coverage fallback before shaping; the `DrawText(string, …)` overloads serve shaping-free diagnostics alone.
+- `HarfBuzzSharp`(`api-harfbuzzsharp.md`): `SKTypeface.OpenStream(out int ttcIndex)` feeds the HarfBuzz blob and the face's `UnitsPerEm` is the design scale advances rescale through; `SKTypeface.VariationDesignParameters` and `Clone(SKFontArguments)` are the Skia-side twins of that assembly's variation-axis and colour-palette reads, so a face instance carries one variation position and one palette index across both surfaces.
 - `SkiaSharp.NativeAssets.*`(`api-skia-native.md`): `libSkiaSharp` backs every `SKObject` from a per-platform payload, faulting at first draw on a missing or wrong-RID asset rather than at compile.
 - `api-drafting-export.md`: `DWG`/`DXF` codecs consume the resolved `SKPath` outline from `SKPath.Op(SKPathOp)` and `ToSvgPathData`/`ParseSvgPathData`, never a private geometry kernel.
 - Kernel colour vocabulary: `SKColorSpace.CreateRgb(SKColorSpaceTransferFn, SKColorSpaceXyz)` takes both arguments from the kernel `RgbProfile` row the calling policy names — the transfer from the named `SKColorSpaceTransferFn` curve, the primaries from the named `SKColorSpaceXyz` constant where Skia publishes the gamut and otherwise from `new SKColorSpacePrimaries(rx, ry, gx, gy, bx, by, wx, wy).ToColorSpaceXyz()` fed by that row's published chromaticities, so a hand-typed matrix or transcribed whitepoint literal is the deleted form and `SKColorSpace.Equal` compares two spaces derived from one vocabulary; `ToColorSpaceXyz()` returns the ICC D50-adapted matrix the named constants already carry, and the `out`-parameter overload is the refusal channel for a degenerate chromaticity set.
 - Capture rail: `SKSurface.Create(SKImageInfo)` (or a GPU surface from `GRRecordingContext`) draws, `Snapshot()` an `SKImage`, and `Encode(SKEncodedImageFormat.Png, ...)` to an `SKData` byte buffer as the diffable receipt; `SKColorSpace.CreateSrgb`/`CreateIcc` + `SKImageInfo.WithColorSpace` make it color-managed, and animated evidence decodes through `SKCodec.FrameCount`/`GetFrameInfo` per frame.
+- Animated frame dependency: `SKCodecOptions.PriorFrame` is a PROMISE about the destination — it declares that the buffer already holds that frame's pixels, is legal only for a non-`RestorePrevious` frame in `[RequiredFrame, FrameIndex)`, and makes `ZeroInitialized` inert. Left at `-1` (what the one-argument constructor seats) the codec decodes every required frame itself under its own disposal and blend handling, so a decode into a freshly allocated buffer names no prior frame; naming one there composites the requested frame over uninitialized memory and reads as a correct decode of a corrupt image. `IncrementalDecode(out int rowsDecoded)` is the only row measurement either arm produces, so an `IncompleteInput` is partial success exactly where that count is positive.
 - Paged export: `SKDocument.CreatePdf(stream, SKDocumentPdfMetadata)` -> per-sheet `BeginPage`/draw/`EndPage` -> `Close`, sharing the live rail's paint/path stack so on-screen and exported geometry are byte-identical.
 - Runtime effects: `SKRuntimeEffect.BuildShader(sksl)` compiles once into an `SKRuntimeShaderBuilder`, animation re-binds through `Uniforms.Add(name, value)`/`Children.Add(name, child)` on the implicit-conversion set, and `Build([SKMatrix])` mints the frame's `SKShader`; `CreateShader(sksl, out errors)` + `ToShader(uniforms, children, localMatrix)` is the builder-free arm and `errors` carries the SkSL diagnostic.
 - Picture recording: `BeginRecording(cull)` -> draw -> `EndRecording()` seals one device-independent op list that `SKCanvas.DrawPicture`/`SKPicture.Playback` replay N times and `SKImage.FromPicture` rasterizes without a second surface or a second layout run; `ApproximateBytesUsed` is the retained-cost measure a picture cache admits against, and `Serialize()` yields resolution- and device-independent bytes that hash as draw-op evidence beside a pixel hash. `EndRecordingAsDrawable()` swaps the sealed list for a `SKDrawable` that re-renders lazily per replay.

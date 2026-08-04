@@ -11,7 +11,7 @@ Hosts instantiate the entry types and one `Application` extension; the rest is r
 - assembly: `Semi.Avalonia` (`IsTrimmable`)
 - namespace: `Semi.Avalonia`, `Semi.Avalonia.Tokens`, `Semi.Avalonia.Tokens.Palette`, `Semi.Avalonia.Converters` map to the `semi:` prefix at `https://irihi.tech/semi`; `Semi.Avalonia.Locale` carries the culture dictionaries
 - target: `net10.0` and `net8.0` assets
-- abi: compiled AXAML — every resource dictionary is IL and every `x:Key` a `#US` heap literal, so no `.axaml` ships and no dictionary enumerates its keys at runtime
+- abi: compiled AXAML — every resource dictionary is IL and every `x:Key` lives inside a `CompiledAvaloniaXaml.!AvaloniaResources.XamlClosure_N` body, so no `.axaml` ships, `--list-resources` yields one opaque `!AvaloniaResources` blob, and no metadata read recovers the vocabulary; the LIVE object graph does carry it, so a product needing the roster as data instantiates the theme and walks it
 - depends: `Avalonia`, `Irihi.Avalonia.Shared`
 - rail: theme
 
@@ -75,7 +75,8 @@ Hosts instantiate the entry types and one `Application` extension; the rest is r
 |  [03]   | `SemiTheme.Dusk`     | property      | high-contrast variant inheriting `ThemeVariant.Dark`  |
 |  [04]   | `SemiTheme.NightSky` | property      | high-contrast variant inheriting `ThemeVariant.Dark`  |
 
-- Each `Tokens/HighContrast/<Variant>` dictionary overrides eight Windows system-color slots alone — `SemiColor{Window,WindowText,Hotlight,GrayText,Highlight,HighlightText,ButtonText,ButtonFace}` and their `<Name>Color` twins; every other token inherits.
+- Each `Tokens/HighContrast/<Variant>` dictionary resolves to EXACTLY sixteen live keys — `{Window,WindowText,Hotlight,GrayText,Highlight,HighlightText,ButtonText,ButtonFace}Color` and their `SemiColor<Name>` aliases — and carries NO palette rows whatsoever; every other token inherits from the parent variant, so the four are high-contrast system-color mappings over a shared dictionary and never brand palettes.
+- Live variant partitions: `Default`, `Light`, and `Dark` carry 449 keys each; `Aquatic`, `Desert`, `Dusk`, and `NightSky` carry 16 each. The whole theme resolves to 1065 plain resource keys, 83 `ControlTheme` target types, and 7 theme-variant dictionaries.
 
 [PALETTE_KEY_SCOPE]: `Tokens.Palette.Light` and `.Dark` carry identical 449-key sets — a bare key is the `SolidColorBrush`, its `<key>Color` twin the `Color` that brush binds
 
@@ -165,6 +166,9 @@ Hosts instantiate the entry types and one `Application` extension; the rest is r
 |  [03]   | `SemiIconAI<Name>`      | geometry family | 8 AI glyphs — `Icons/AIIcons.axaml`             |
 
 - AI set: `SemiIconAIBell` `SemiIconAIEdit` `SemiIconAIFile` `SemiIconAIFilled` `SemiIconAIImage` `SemiIconAISearch` `SemiIconAIStroked` `SemiIconAIWand`.
+- `Semi.Avalonia.Icons : ResourceDictionary` is public with a parameterless constructor merging the three sets, so the whole glyph vocabulary is addressable as DATA through one instance and `TryGetValue` — a product needing the geometries never transcribes a path roster.
+- Every entry registers through `ResourceDictionary.AddDeferred` and its factory answers `StreamGeometry.Parse(<path data>)`, so a key resolves to an `Avalonia.Media.StreamGeometry` and never to the raw string; the dictionary builds each value on first read and REPLACES the deferred factory with it, so the geometry is created once and shared by every later reader.
+- That replacement is an unguarded dictionary write on the read path, and the same read parks a re-entrancy key while the factory runs, so glyph lookup belongs to the UI thread; a concurrent first read from a background thread corrupts the backing dictionary.
 
 [SKIN_TYPE_SCOPE]: the per-control skin packages' code surface
 
@@ -236,7 +240,7 @@ Hosts instantiate the entry types and one `Application` extension; the rest is r
 - `Semi.Avalonia.DataGrid` and `Semi.Avalonia.AvaloniaEdit` declare no `Irihi.Avalonia.Shared`, so that primitive closure pins against the core and `Semi.Avalonia.{ColorPicker,Dock}` alone.
 - `Semi.Avalonia.AvaloniaEdit` ships a `net8.0` asset alone, so its version moves independently of the `12.1.x` core; pin it against the `Avalonia.AvaloniaEdit` it declares.
 - `RegisterFollowSystemTheme` decides nothing on the macOS Rhino host — OS light and dark following is the shell's own `RequestedThemeVariant` write against `PlatformSettings.GetColorValues()`.
-- `SemiTheme` compiles every dictionary to IL, so no code enumerates the slot roster at runtime; a product that needs the vocabulary as data generates it.
+- `SemiTheme` compiles every dictionary to IL, so no metadata read recovers the slot roster; a product that needs the vocabulary as data instantiates the theme and descends `Styles.Resources` -> `ResourceDictionary.MergedDictionaries` -> `ThemeDictionaries` -> `ControlTheme.Resources`, splitting the `Type`-keyed entries (control themes) from the string-keyed ones (tokens). `MergedDictionaries` and `ThemeDictionaries` sit on the CONCRETE `ResourceDictionary` and not on the `IResourceDictionary` the style surfaces return, so a descent typed on the interface reaches the top-level keys and silently misses every merged and variant-scoped partition.
 - `bodong.PropertyGrid` and `DialogHost.Avalonia` keep their Fluent templates and stay off this chain.
 
 [RAIL_LAW]:

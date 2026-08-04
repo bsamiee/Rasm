@@ -71,6 +71,15 @@
 |  [11]   | `EventStoreStatistics`                  | class         | the `FetchEventStoreStatistics` result                              |
 |  [12]   | `IEventUpcaster` / `JsonTransformation` | interface     | schema-evolution upcast of old event JSON to a new event type       |
 
+[PUBLIC_TYPE_SCOPE]: composable query plans — a stream read that joins a batched round trip
+
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                               |
+| :-----: | :--------------------- | :------------ | :------------------------------------------------------------------------- |
+|  [01]   | `FetchStreamPlan`      | class         | `IQueryPlan<IReadOnlyList<IEvent>>` + `IBatchQueryPlan<…>` over one stream |
+|  [02]   | `FetchStreamStatePlan` | class         | `IQueryPlan<StreamState?>` + `IBatchQueryPlan<…>` over one stream head     |
+
+- Both carry a Guid-id and a string-key ctor; `FetchStreamPlan` additionally takes `version`, `timestamp`, and `fromVersion`, so the AS-OF bound the direct fold accepts rides the plan unchanged. A missing stream yields `null` from the state plan and an empty list from the event plan.
+
 [PUBLIC_TYPE_SCOPE]: event subscriptions — the daemon changefeed lift; `SubscriptionBase` rides `Marten.Subscriptions`, the batch and controller types `JasperFx.Events.Projections`/`.Daemon`
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                            |
@@ -108,6 +117,18 @@
 |  [07]   | `IDocumentStore.QuerySession(SessionOptions)`       | instance | open a read / serializable-isolation session             |
 |  [08]   | `IDocumentStore.Advanced.ResetAllData()`            | instance | teardown + event-store + projection introspection        |
 
+[ENTRYPOINT_SCOPE]: rolling range partitions — declaration on the document mapping, maintenance on `store.Advanced`
+
+| [INDEX] | [SURFACE]                                                                                     | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `MartenRegistry.For<T>().PartitionOn(expr, x => x.ByRollingRange(PartitionPeriod, int, int))` | instance | declare a rolling window over a duplicated date column |
+|  [02]   | `store.Advanced.ApplyRollingPartitionsAsync(CancellationToken)`                               | instance | roll forward AND drop aged `-> TablePartitionStatus[]` |
+|  [03]   | `store.Advanced.RollPartitionsForwardAsync(CancellationToken)`                                | instance | provision the leading edge only                        |
+|  [04]   | `store.Advanced.DropAgedRollingPartitionsAsync(CancellationToken)`                            | instance | retire the trailing edge only                          |
+
+- `PartitionPeriod` spans `Hour`/`Day`/`Week`/`Month`/`Year`; `ByRollingRange` asserts at CONFIGURATION time that the partition key is a duplicated `DateTime`/`DateTimeOffset` member, and an injected `TimeProvider` moves the window without the calendar. One `ManagedRangePartitions` instance passed to several document types rolls all their tables in one pass, matched by reference identity.
+- Partitions name themselves after the period and a `DEFAULT` overflow partition always exists, so an out-of-window row stores rather than failing its check constraint. Only partitions the policy itself named are ever dropped, and every entrypoint is idempotent and multi-node safe.
+
 [ENTRYPOINT_SCOPE]: document read and write (`session`)
 
 | [INDEX] | [SURFACE]                           | [SHAPE]  | [CAPABILITY]                                                         |
@@ -143,6 +164,8 @@
 |  [04]   | `Events.FetchStreamStateAsync(Guid)`                          | instance | current `StreamState` without folding                     |
 |  [05]   | `Events.LoadAsync<T>(Guid)`                                   | instance | load a single typed / untyped stored event by id          |
 |  [06]   | `Events.StreamLatestJson<T>(Guid, Stream)`                    | instance | stream the aggregate's raw JSON, no round-trip            |
+|  [07]   | `session.QueryByPlanAsync(FetchStreamPlan)`                   | instance | the same fold as a standalone reusable plan               |
+|  [08]   | `batch.QueryByPlan(FetchStreamStatePlan)`                     | instance | head state inside a batched multi-query round trip        |
 
 [ENTRYPOINT_SCOPE]: fold a LINQ event query to aggregates (`IMartenQueryable<IEvent>` — `Marten.Events.AggregateToExtensions`)
 
@@ -198,6 +221,9 @@
 - `ProjectionLifecycle.Inline` writes the projected document inside the append transaction, so authoritative containment/topology is read-your-writes consistent and never routes to an async view. `ProjectionLifecycle.Async` runs the analytical lanes off the `IProjectionDaemon` under an explicit staleness watermark; an interactive-correctness read (clash, void-resolution, live QTO) blocks on `WaitForNonStaleProjectionDataAsync`/`daemon.WaitForNonStaleData` first. `ProjectionLifecycle.Live` folds on demand with no stored view.
 - `ElementGraph→Ara3D.BimOpenSchema` egress lands as a co-transactional `FlatTableProjection`, never daemon-lagged. Daemon hosting is `DaemonMode.Solo` or `HotCold`; `RebuildProjectionAsync<TView>` replays a view from sequence zero and `store.Advanced.RebuildSingleStreamAsync<T>` one stream's inline projection.
 - High-water detection holds the async mark behind any gap a live transaction owns: `opts.Projections.UseTransactionEvidenceForGapSkipping` (default on) proves a gap dead against `pg_locks`/`pg_stat_activity`/`pg_current_snapshot()` before skipping it, and `SkipStaleGapsDespiteLiveTransactionsAfter` (default null) is the wall-clock backstop against leaked sessions, so a bulk-import append storm drops no events from an async projection.
+- An allocation fence sharpens that evidence rather than widening it: the detector records when the sequence had allocated nothing above a mark, so a session idle-in-transaction since before the gap's own numbers were drawn provably never reserved one and stops counting as a live owner — which is what unsticks a mark parked behind the daemon's own leadership advisory lock or a leaked ORM session. The daemon further discounts its own lock connections. With no fence recorded the probe is byte-identical to unfenced transaction evidence, so the sharpening never skips a gap the plain evidence would hold.
+- The cap clock is DURABLE: `SkipStaleGapsDespiteLiveTransactionsAfter` measures from a server-stamped first-observation moment persisted beside the mark, so a daemon restart or a distribution handoff no longer postpones the documented bound forever, while the settle threshold stays on the in-memory clock and always gives a fresh gap its full window. A proven-dead span clears WHOLE up to the ceiling recorded at first observation, so a field of dead gaps costs one cycle rather than one cycle each.
+- Rolling range partitions split a document table by a duplicated date column across a moving window. Provisioning the leading edge rides ordinary schema migration and diffs purely additive; retiring the trailing edge cannot, because migration never removes data, so the startup pass drops aged partitions under `ApplyAllDatabaseChangesOnStartup()` and runs BEFORE the configuration assertion — once the clock crosses a period boundary the database legitimately lacks the new partition the pass is about to create.
 - `SubscriptionBase` subclasses lift each daemon-delivered `EventRange` batch by overriding `ProcessEventsAsync(EventRange, ISubscriptionController, IDocumentOperations, CancellationToken)` returning an `IChangeListener` post-commit hook — `NullChangeListener.Instance` for no side effect; `ISubscriptionController.MarkSuccessAsync`/`ReportCriticalFailureAsync` drive per-shard progress and dead-letter recording.
 - Relational `ElementIdentity` commits atomically with the event through `session.Store(identity)` in the SAME `IDocumentSession`, one transaction owning identity + event with no two-ORM gap. `StoreOptions.RegisterValueType<T>()` teaches Marten the `[ValueObject]` strong-typed `NodeId`/`GlobalId`, keeping stream keys and document ids typed end to end.
 - `TenancyStyle.Conjoined` adds a tenant column for single-DB multi-tenancy; `TenancyStyle.Single` with `MultiTenantedDatabases`/`MultiTenantedWithSingleServer` shards per tenant database.
@@ -215,6 +241,6 @@
 
 [RAIL_LAW]:
 - Package: `Marten`
-- Owns: the PostgreSQL event store + document database over one `NpgsqlDataSource` — per-model event streams, stream folding with AS-OF time-travel, the single/multi-stream/flat-table projection family across every lifecycle, the async-projection daemon, optimistic/exclusive concurrency, document persistence, multi-tenancy, and schema migration.
-- Accept: the append substrate beneath the `Version/` engine; inline projections for authoritative read-your-writes topology; async daemon projections for analytical lanes with explicit non-stale waits; identity + event atomicity through one `IDocumentSession`; `GraphDelta` event bodies on per-model streams; STJ serialization of typed value-object keys.
-- Reject: per-`NodeId` stream grain; whole-graph snapshots as event bodies; an async projection serving an interactive-correctness read without a non-stale wait; a hand-rolled event store, stream fold, or CRDT merge (merge is the `Version/` engine's); a second JSON serializer or connection pool; a commit that bypasses `SaveChangesAsync`.
+- Owns: the PostgreSQL event store + document database over one `NpgsqlDataSource` — per-model event streams, stream folding with AS-OF time-travel, the single/multi-stream/flat-table projection family across every lifecycle, the async-projection daemon, optimistic/exclusive concurrency, document persistence, multi-tenancy, rolling range partitioning of document tables, and schema migration.
+- Accept: the append substrate beneath the `Version/` engine; inline projections for authoritative read-your-writes topology; async daemon projections for analytical lanes with explicit non-stale waits; identity + event atomicity through one `IDocumentSession`; `GraphDelta` event bodies on per-model streams; STJ serialization of typed value-object keys; a stream read composed as a `FetchStreamPlan`/`FetchStreamStatePlan` inside a batched round trip; a time-windowed document table declared through `ByRollingRange` and maintained through the `store.Advanced` partition verbs.
+- Reject: per-`NodeId` stream grain; whole-graph snapshots as event bodies; an async projection serving an interactive-correctness read without a non-stale wait; a hand-rolled event store, stream fold, CRDT merge (merge is the `Version/` engine's), or partition-rotation job beside the `store.Advanced` verbs; a second JSON serializer or connection pool; a commit that bypasses `SaveChangesAsync`.

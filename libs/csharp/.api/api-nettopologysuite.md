@@ -106,6 +106,10 @@
 |  [17]   | `JoinStyle`                | enum          | corner join                         |
 |  [18]   | `SpatialFunction`          | enum          | overlay operation selector          |
 |  [19]   | `ByteOrder`                | enum          | WKB endianness                      |
+|  [20]   | `IPointOnGeometryLocator`  | interface     | point-in-area location contract     |
+|  [21]   | `IndexedPointInAreaLocator`| class         | interval-indexed area locator       |
+|  [22]   | `SimplePointInAreaLocator` | class         | unindexed area locator              |
+|  [23]   | `Location`                 | enum          | interior, boundary, exterior, null  |
 
 [`IPreparedGeometry`]: `Geometry` `Intersects` `Disjoint` `Contains` `ContainsProperly` `Within` `Covers` `CoveredBy` `Crosses` `Overlaps` `Touches`
 [`AffineTransformation`]: `TranslationInstance` `RotationInstance` `ScaleInstance` `ShearInstance` `ReflectionInstance` `Translate` `Rotate` `Scale` `Shear` `Reflect` `Compose` `ComposeBefore` `GetInverse` `Determinant` `MatrixEntries` `IsIdentity`
@@ -152,6 +156,20 @@
 |  [09]   | `PreparedGeometryFactory.Prepare(Geometry) -> IPreparedGeometry` | static   | build the segment index          |
 
 - Predicate family: `Geometry.Intersects` `Disjoint` `Contains` `Within` `Covers` `CoveredBy` `Crosses` `Overlaps` `Touches` each take `(Geometry)` and return `bool`; `IPreparedGeometry` mirrors the set and adds `ContainsProperly`.
+
+[ENTRYPOINT_SCOPE]: point-in-area location — `NetTopologySuite.Algorithm.Locate`, the one-geometry-many-points counterpart to `IPreparedGeometry`'s one-against-many
+
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------ | :------- | :------------------------------------ |
+|  [01]   | `IPointOnGeometryLocator.Locate(Coordinate)`            | instance | `Location` of a point in an area      |
+|  [02]   | `IndexedPointInAreaLocator(Geometry)`                   | ctor     | lazily indexed locator over an area   |
+|  [03]   | `SimplePointInAreaLocator(Geometry)`                    | ctor     | unindexed locator, one-shot queries   |
+|  [04]   | `SimplePointInAreaLocator.Locate(Coordinate, Geometry)` | static   | one-shot location without a locator   |
+|  [05]   | `PointOnGeometryLocatorExtensions.Intersects(…)`        | static   | interior-or-boundary as a `bool`      |
+
+[`Location`]: `Interior`(0) `Boundary`(1) `Exterior`(2) `Null`(-1) — the vocabulary every locator answers in, so a boundary hit is a declared third outcome and never a tie-break
+[`IndexedPointInAreaLocator`]: accepts `IPolygonal` and `LinearRing` geometries; the segment index is a `SortedPackedIntervalRTree` built on FIRST `Locate` under a synchronized initializer, so construction is free and the instance is documented thread-safe and immutable
+
 
 [ENTRYPOINT_SCOPE]: construction and factory policy
 
@@ -321,6 +339,7 @@
 - `NtsGeometryServices.Instance` fixes the overlay engine, relate engine, precision model, SRID, and coordinate-sequence factory for every factory, reader, and operation the process constructs; `CreateGeometryFactory` hands back cached factories off that one policy.
 - Constructive operations return new geometry, while coordinate filters and metadata setters mutate in place; `Geometry.GeometryChanged()` clears envelope and derived state after a rewrite.
 - `PreparedGeometryFactory.Prepare` amortizes one fixed geometry's segment index across every candidate, so one-against-many is its only shape.
+- `IndexedPointInAreaLocator` is the POINT specialization of that same amortization and answers a three-valued `Location` where a prepared predicate answers `bool`, so an interior-versus-boundary decision is stated rather than folded into a tie-break; its index builds lazily on first query, which makes constructing one per candidate area free and querying one per point the only cost. A hand-rolled even-odd ray cast beside it re-implements the robust crossing count this class already owns.
 - `STRtree<T>` and `HPRtree<T>` pack on `Build()` or on the first `Query`, closing further insertion while query and `Remove` stay legal; `Quadtree<T>` admits interleaved insertion for a candidate set that keeps moving.
 - Robustness rides `GeometryOverlay.NG` noding with `PrecisionModel` snapping.
 - `GeometryFixer.Fix` and `GeometryPrecisionReducer.Reduce` condition raw ingress before an overlay or a write.

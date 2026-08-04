@@ -15,7 +15,7 @@ This table routes an interaction concern to its owning surface; the most specifi
 |  [03]   | dock arrangement            | factory verbs + workspace rails    | view-layer layout mutation      |
 |  [04]   | view state and activation   | OAPH + `WhenActivated` scope       | constructor stream wiring       |
 |  [05]   | view-model question         | `Interaction<TInput,TOutput>`      | view-model-owned dialog         |
-|  [06]   | user-facing validity        | `ValidationRule` state projection  | screen-side re-validation       |
+|  [06]   | user-facing validity        | owned slot rows + error-info bridge | screen-side re-validation      |
 |  [07]   | interactive verbs           | one command-intent row table       | per-surface command registries  |
 |  [08]   | verb availability           | seeded `CombineLatest` fold        | `CanExecute(parameter)` logic   |
 |  [09]   | live collection to screen   | `SortAndBind` edge + row contract  | snapshot re-query               |
@@ -149,41 +149,56 @@ public static class Spine {
 - Law: view-model-to-view questions ride `Interaction<TInput,TOutput>` — the asker calls `Handle` and never reaches the presentation rail, the handler walks in reverse registration order, the first `SetOutput` wins, an unhandled walk throws typed, and registration disposal restores the prior handler, so the headless row overrides the dialog-presenting handler without touching the asker; a screen's typed question (confirm, choose, supply) is answered by the one standard gate handler `[07]` mounts, never a per-screen dialog-presenting handler, so the small typed vocabulary stays the seam and the presentation policy stays single-owned.
 
 [SCREEN_VALIDITY]:
-- Law: settled boundary law produces the typed outcome; the screen projects it once through the state-observable `ValidationRule` — validity and message as one `ValidationState` value, re-running validation logic in a view-model is the rejected form — and `IsValid()` is a canonical availability input: submit rows gate through the availability fold, never code-behind disabling, with a pending async probe projecting invalid-with-message so the gate stays conservative without a tri-state flag.
-- Law: property-scoped rules feed field adorners through the error-info bridge (`GetErrors`/`ErrorsChanged`) while context-level validity feeds the gate — one context, two read altitudes; rule membership is data with a lifecycle, so mode shifts retire and re-register `ValidationHelper` handles, and the context disposes with the screen.
+- Law: settled boundary law produces the typed outcome and the screen PROJECTS it — one admission stream per slot folded into one row set, re-running validation logic in a view-model is the rejected form; the reactive rail carries no view-model-scoped rule aggregator, so the row set, the context-validity fold, and the adorner bridge are the screen base's own members over the inbox `INotifyDataErrorInfo` contract and an external aggregator package is the rejected dependency.
+- Law: property-scoped rows feed field adorners through the error-info bridge (`GetErrors`/`ErrorsChanged`) while the all-rows-valid fold feeds availability — one row set, two read altitudes — and that fold is a canonical availability input: submit rows gate through the availability fold, never code-behind disabling, with a pending async probe projecting invalid-with-message so the gate stays conservative without a tri-state flag.
+- Law: a rule is a SUBSCRIPTION with a lifetime — registration seats the slot and disposal retires it — so a mode shift re-registers rather than mutating a table, a slot claimed twice refuses on the typed rail rather than silently shadowing, and every row retires with the screen.
 
 ```csharp conceptual
-public sealed class EditScreen : ReactiveValidationObject, IActivatableViewModel {
-    readonly Atom<Seq<Fault>> faults = Atom(Seq<Fault>());
+public sealed class EditScreen : ReactiveObject, IActivatableViewModel, INotifyDataErrorInfo, IDisposable {
+    readonly CompositeDisposable rules = new();
+    readonly BehaviorSubject<HashMap<string, Seq<string>>> slots = new(HashMap<string, Seq<string>>());
     readonly ObservableAsPropertyHelper<int> score;
     string raw = "";
-
-    public Seq<Fault> Faults => faults.Value;
 
     public EditScreen(Func<string, Validation<Error, int>> admit, IObservable<int> live) {
         var outcome = this.WhenAnyValue(static screen => screen.Raw).Select(value => admit(value));
         score = outcome.Select(static fold => fold.Match(Succ: identity, Fail: static _ => 0))
             .ToProperty(this, static screen => screen.Score, initialValue: 0, deferSubscription: true);
 
-        this.ValidationRule(static screen => screen.Raw, outcome.Select(static fold =>
-            new ValidationState(fold.IsSuccess, fold.Match(Succ: static _ => "", Fail: static error => error.Message))));
-        Submit = ReactiveCommand.CreateFromObservable(() => Confirm.Handle(Raw), canExecute: this.IsValid());
+        rules.Add(Rule(nameof(Raw), outcome));
+        Submit = ReactiveCommand.CreateFromObservable(() => Confirm.Handle(Raw), canExecute: Valid);
         this.WhenActivated(anchors => {
             live.Select(static value => value.ToString(CultureInfo.InvariantCulture)).Subscribe(value => Raw = value).DisposeWith(anchors);
-            ThrownExceptions.Subscribe(thrown => ignore(faults.Swap(held => held.Add(new Fault.NativeRejected(Detail: thrown.Message))))).DisposeWith(anchors);
+            ThrownExceptions.Subscribe(thrown => ignore(Faults.Swap(held => held.Add(new Fault.NativeRejected(Detail: thrown.Message))))).DisposeWith(anchors);
         });
     }
 
+    public Atom<Seq<Fault>> Faults { get; } = Atom(Seq<Fault>());
     public ViewModelActivator Activator { get; } = new();
     public Interaction<string, bool> Confirm { get; } = new();
     public ReactiveCommand<Unit, bool> Submit { get; }
     public int Score => score.Value;
     public string Raw { get => raw; set => this.RaiseAndSetIfChanged(ref raw, value); }
 
-    protected override void Dispose(bool disposing) {
-        if (disposing) { score.Dispose(); Submit.Dispose(); }
-        base.Dispose(disposing);
-    }
+    // The context-validity fold and the adorner bridge read ONE row set, so the gate a submit binds and the
+    // text a field paints can never disagree about whether the screen admits.
+    public IObservable<bool> Valid => slots.Select(static rows => rows.ForAll(static row => row.IsEmpty)).DistinctUntilChanged();
+    public bool HasErrors => slots.Value.Exists(static row => !row.IsEmpty);
+    public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
+    public IEnumerable GetErrors(string? propertyName) => slots.Value.Find(propertyName ?? "").IfNone(Seq<string>());
+
+    // A rule is a subscription: seating writes the slot, disposal retires it, so mode shifts never leave a
+    // stale row behind and the whole set dies with the screen.
+    IDisposable Rule<T>(string slot, IObservable<Validation<Error, T>> admissions) =>
+        new CompositeDisposable(
+            admissions.Subscribe(fold => Seat(slot, fold.FailToSeq().Map(static error => error.Message))),
+            Disposable.Create(() => Seat(slot, Seq<string>())));
+
+    Unit Seat(string slot, Seq<string> text) =>
+        (slots.OnNext(slots.Value.AddOrUpdate(slot, text)),
+         ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(slot))).ToUnit();
+
+    public void Dispose() { rules.Dispose(); slots.Dispose(); score.Dispose(); Submit.Dispose(); }
 }
 ```
 

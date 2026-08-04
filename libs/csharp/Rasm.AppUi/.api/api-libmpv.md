@@ -37,6 +37,10 @@
 
 [PUBLIC_TYPE_SCOPE]: typed property and option wrappers.
 - `MpvOption<T> : MpvPropertyWrite<T,T> where T : struct` inherits `Get` / `Set` / `GetAsync` / `SetAsync` from the property base — option and property are one wrapper hierarchy.
+- `MpvProperty<TNull,TRaw>` is the shared base: PUBLIC `PropertyName`, protected `Format` derived once through `MpvFormatter.GetMpvFormat<TRaw>()`, protected `Mpv`, and a `ParseValue` that coerces raw-to-typed and yields null on an empty string.
+- Every read wrapper is NULLABLE by construction — `MpvPropertyRead<T,TRaw> : MpvProperty<T?,TRaw> where T : struct` and `MpvPropertyReadRef<T,TRaw> : MpvProperty<T?,TRaw> where T : class` — so `Get()`/`GetAsync()` answer `T?` and a property the core does not yet hold reads as null rather than as a default.
+- `MpvOptionWith<T> : MpvOption<T,string>` is the sentinel base; `MpvOptionWithAuto<T>` adds `SetAuto`/`SetAutoAsync`/`GetAuto`/`GetAutoAsync` and `MpvOptionWithAutoNo<T>` adds `SetNo`/`SetNoAsync`/`GetNo`/`GetNoAsync` over it, so `auto` and `no` are member calls rather than magic strings.
+- `MpvOptionString : MpvOptionRef<string,string> : MpvPropertyWriteRef<string,string>`, so a string option carries the same `Set`/`SetAsync`/`Add`/`Multiply`/`Cycle` surface a value option does.
 
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]   | [CAPABILITY]                        |
 | :-----: | :---------------------------------------------- | :-------------- | :---------------------------------- |
@@ -62,15 +66,17 @@
 
 [PUBLIC_TYPE_SCOPE]: event payloads.
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]   | [CAPABILITY]                  |
-| :-----: | :------------------------- | :-------------- | :---------------------------- |
-|  [01]   | `MpvPropertyEventArgs`     | property event  | observed property change      |
-|  [02]   | `MpvLogMessageEventArgs`   | log event       | libmpv log line and level     |
-|  [03]   | `MpvStartFileEventArgs`    | lifecycle event | playback start                |
-|  [04]   | `MpvEndFileEventArgs`      | lifecycle event | playback end and reason       |
-|  [05]   | `MpvCommandReplyEventArgs` | command event   | async command completion      |
-|  [06]   | `EndReason`                | reason enum     | end-of-file classifier        |
-|  [07]   | `MpvEventLoop`             | event-loop enum | `Default` (simple) / `Thread` |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]   | [CAPABILITY]                      |
+| :-----: | :------------------------------------ | :-------------- | :-------------------------------- |
+|  [01]   | `MpvPropertyEventArgs`                | property event  | observed property change          |
+|  [02]   | `MpvLogMessageEventArgs`              | log event       | libmpv log line and level         |
+|  [03]   | `MpvStartFileEventArgs`               | lifecycle event | playback start                    |
+|  [04]   | `MpvEndFileEventArgs`                 | lifecycle event | playback end and reason           |
+|  [05]   | `MpvCommandReplyEventArgs`            | command event   | async command completion          |
+|  [06]   | `EndReason`                           | reason enum     | end-of-file classifier            |
+|  [07]   | `MpvEventLoop`                        | event-loop enum | `Default` (simple) / `Thread`     |
+|  [08]   | `MpvValueChangedEventArgs<T,TRaw>`    | typed change    | per-wrapper value change (struct) |
+|  [09]   | `MpvValueChangedEventArgsRef<T,TRaw>` | typed change    | per-wrapper value change (class)  |
 
 [PUBLIC_TYPE_SCOPE]: Avalonia view and render integration.
 
@@ -93,16 +99,23 @@
 |  [01]   | `LoadFile(path, append, appendPlay)` | open media into playlist |
 |  [02]   | `LoadPlaylist(path, append)`         | open a playlist file     |
 |  [03]   | `Seek(units, SeekOption)`            | relative/absolute seek   |
-|  [04]   | `RevertSeek(mark)`                   | undo the last seek       |
+|  [04]   | `RevertSeek(bool mark)`              | mark, or revert to mark  |
 |  [05]   | `FrameStep` / `FrameBackStep`        | single-frame advance     |
 |  [06]   | `Stop`                               | halt playback and unload |
 |  [07]   | `PlaylistNext` / `PlaylistPrev`      | move playlist position   |
 |  [08]   | `SubAdd` / `SubRemove` / `SubReload` | external subtitle tracks |
 |  [09]   | `AudioAdd` / `AudioRemove`           | external audio tracks    |
 |  [10]   | `VideoAdd` / `VideoRemove`           | external video tracks    |
-|  [11]   | `Screenshot(ScreenshotOptions)`      | frame capture            |
-|  [12]   | `Add` / `Cycle` / `Multiply`         | relative property change |
-|  [13]   | `Quit(exitCode)`                     | terminate the player     |
+|  [11]   | `Screenshot(ScreenshotOptions)`      | frame capture to config  |
+|  [12]   | `ScreenshotToFile(path, options)`    | frame capture to a path  |
+|  [13]   | `PlaylistClear` / `…Remove` / `…Move`| playlist mutation        |
+|  [14]   | `PlaylistShuffle` / `…Unshuffle`     | playlist ordering        |
+|  [15]   | `Add` / `Cycle` / `Multiply`         | relative property change |
+|  [16]   | `Quit(exitCode)`                     | terminate the player     |
+
+- `SubAdd(string path, LoadOption option = Select, string? title = null, string? lang = null)` and `AudioAdd` share that arity; `LoadOption` = `Select` · `Auto` · `Cached`.
+- `RevertSeek(true)` MARKS the current position and `RevertSeek(false)` returns to the last mark, so a scrub-and-cancel is two calls on the player's own memory rather than a caller-held snapshot.
+- `ScreenshotOptions` is `[Flags]`: `None` · `Subtitles` · `Video` · `Window` · `EachFrame`; `SeekOption` is `[Flags]`: `None` · `Relative` · `Absolute` · `AbsolutePercent` · `RelativePercent` · `Keyframes` · `Exact`.
 
 [ENTRYPOINT_SCOPE]: typed properties on `MpvContext`; the backing wrapper carries the read/write capability.
 
@@ -123,8 +136,50 @@
 |  [13]   | `AudioId` / `SubId` / `VideoId -> MpvOptionWithAutoNo<int>` | active track selection        |
 |  [14]   | `LoopFile` / `LoopPlaylist -> MpvOptionString`              | file and playlist loop policy |
 |  [15]   | `AbLoopA` / `AbLoopB` / `AbLoopCount -> MpvOptionString`    | A-B section loop policy       |
+|  [16]   | `Start -> MpvOptionString`                                  | pre-load entry position       |
+|  [17]   | `DemuxerCacheTime` / `…Duration -> MpvPropertyRead<double>` | buffered extent and span      |
+|  [18]   | `DemuxerCacheState -> MpvPropertyReadRef<DemuxerCacheState>`| structured cache state        |
+|  [19]   | `SubText -> MpvPropertyReadString`                          | active subtitle cue text      |
+|  [20]   | `SubStart` / `SubEnd -> MpvPropertyRead<float>`             | active cue bounds             |
+|  [21]   | `SubDelay` / `SubVisibility` / `SubPos` / `SubScale`        | subtitle presentation options |
+|  [22]   | `PlaylistPosition -> MpvPropertyWrite<int>`                 | current playlist index        |
+|  [23]   | `PlaylistCount -> MpvPropertyRead<int>`                     | playlist length               |
+|  [24]   | `TrackListCount -> MpvPropertyRead<int>`                    | enumerable track count        |
+|  [25]   | `Duration` / `TimeRemaining` / `PlaytimeRemaining`          | length and remaining reads    |
+|  [26]   | `MediaTitle` / `FileName` / `Path -> MpvPropertyReadString` | source identity reads         |
 
 - `LoopFile` / `LoopPlaylist` admit `"inf"`, `"no"`, or a count string; `AbLoopA` / `AbLoopB` / `AbLoopCount` carry the section bounds and repetition count.
+- `Start` is an OPTION (`start`), not a property: it sets the entry position BEFORE a load, where `TimePos` does not exist because it is a property of a loaded file — a pre-load `TimePos` write is silently inert.
+- `DemuxerCacheTime` is the absolute playback time the demuxer cache reaches, which is the buffered extent a scrub track shades; `DemuxerCacheDuration` is the span it holds ahead of the playhead.
+- `SubText` / `SubStart` / `SubEnd` are the ACTIVE cue and its bounds as mpv itself decoded and timed them, so a caption band renders the player's own segment with no second cue parse.
+
+[ENTRYPOINT_SCOPE]: indexed list properties — `MpvPropertyIndexRead<TIndex,T,TRaw>` exposes `this[TIndex] -> MpvPropertyRead<T,TRaw>` by formatting its `{0}` template, so each element is an ordinary typed read wrapper with its own `Changed` event.
+
+| [INDEX] | [SURFACE]                                                           | [CAPABILITY]                |
+| :-----: | :------------------------------------------------------------------ | :-------------------------- |
+|  [01]   | `TrackListId` / `TrackListSrcId` / `TrackListFfIndex`               | per-track identity          |
+|  [02]   | `TrackListType` (`"audio"`/`"video"`/`"sub"`)                       | per-track lane token        |
+|  [03]   | `TrackListLanguage` / `TrackListCodec` / `TrackListDecoderDesc`     | per-track description       |
+|  [04]   | `TrackListIsDefault` / `…IsForced` / `…IsSelected` / `…IsExternal`  | per-track flags             |
+|  [05]   | `TrackListDemuxWidth` / `…Height` / `…Fps` / `…Bitrate`             | per-track stream facts      |
+|  [06]   | `PlaylistFileName` / `PlaylistTitle`                                | per-entry playlist identity |
+|  [07]   | `PlaylistIsCurrent` / `PlaylistIsPlaying`                           | per-entry playlist state    |
+|  [08]   | `ChapterListTitle` / `ChapterListTime`                              | per-chapter identity        |
+|  [09]   | `EditionListId` / `EditionListTitle` / `EditionListDefault`         | per-edition identity        |
+
+- `track-list/{0}/type` spells the subtitle lane `"sub"` while its option spells it `sid`, so a lane vocabulary spanning both states the correspondence once.
+
+[ENTRYPOINT_SCOPE]: per-wrapper observation — the OBSERVE seam a UI feed subscribes.
+
+| [INDEX] | [SURFACE]                                                         | [CAPABILITY]                          |
+| :-----: | :---------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `MpvPropertyRead<T,TRaw>.Changed`                                 | self-registering typed change event   |
+|  [02]   | `MpvPropertyReadRef<T,TRaw>.Changed`                              | self-registering reference-typed event |
+|  [03]   | `MpvValueChangedEventArgs<T,TRaw>.PropertyName` / `NewValue : T?` | changed name and nullable typed value |
+|  [04]   | `MpvValueChangedEventArgs<T,TRaw>.NewValueRaw : TRaw`             | the unparsed payload                  |
+|  [05]   | `MpvPropertyEventArgs.Format` / `Name` / `Data` / `RequestId`     | raw client-event payload              |
+
+- `Changed` OWNS its registration: a first subscription mints a unique request id, calls `ObserveProperty(id, PropertyName, Format)`, and hooks the context's `PropertyChanged`; a last unsubscribe unhooks and calls `UnobserveProperty(id)`. Its handler filters by that request id and parses `MpvPropertyEventArgs.Data` through the wrapper's own `ParseValue`, so a subscriber spells no property name, tracks no request id, and receives a genuinely optional value.
 
 [ENTRYPOINT_SCOPE]: the raw libmpv client on `MpvContextBase` — command, property, observation, async-control, render, and diagnostics primitives; the wrapper `GetAsync` / `SetAsync` marshal through these.
 
@@ -148,16 +203,21 @@
 
 [ENTRYPOINT_SCOPE]: typed property and option wrapper operations.
 
-| [INDEX] | [SURFACE]                            | [CAPABILITY]             |
-| :-----: | :----------------------------------- | :----------------------- |
-|  [01]   | `MpvPropertyRead.Get / GetAsync`     | read property value      |
-|  [02]   | `MpvPropertyWrite.Set / SetAsync`    | write property value     |
-|  [03]   | `MpvOption.Get / Set`                | startup option access    |
-|  [04]   | `MpvOptionList.Add / AddAsync`       | append list entry        |
-|  [05]   | `MpvOptionList.Remove / RemoveAsync` | drop list entry          |
-|  [06]   | `MpvOptionList.Toggle / ToggleAsync` | flip list membership     |
-|  [07]   | `MpvOptionList.Clear / ClearAsync`   | empty the list option    |
-|  [08]   | `MpvCommand.Invoke / InvokeAsync`    | dispatch a built command |
+| [INDEX] | [SURFACE]                             | [CAPABILITY]              |
+| :-----: | :------------------------------------ | :------------------------ |
+|  [01]   | `MpvPropertyRead.Get / GetAsync`      | read property value       |
+|  [02]   | `MpvPropertyWrite.Set / SetAsync`     | write property value      |
+|  [03]   | `MpvPropertyWrite.Add / AddAsync`     | relative property change  |
+|  [04]   | `MpvPropertyWrite.Multiply / …Async`  | scale a property value    |
+|  [05]   | `MpvPropertyWrite.Cycle / CycleAsync` | step a bounded property   |
+|  [06]   | `MpvOption.Get / Set`                 | startup option access     |
+|  [07]   | `MpvOptionWithAuto.SetAuto / GetAuto` | the `auto` sentinel       |
+|  [08]   | `MpvOptionWithAutoNo.SetNo / GetNo`   | the `no` sentinel         |
+|  [09]   | `MpvOptionList.Add / AddAsync`        | append list entry         |
+|  [10]   | `MpvOptionList.Remove / RemoveAsync`  | drop list entry           |
+|  [11]   | `MpvOptionList.Toggle / ToggleAsync`  | flip list membership      |
+|  [12]   | `MpvOptionList.Clear / ClearAsync`    | empty the list option     |
+|  [13]   | `MpvCommand.Invoke / InvokeAsync`     | dispatch a built command  |
 
 [ENTRYPOINT_SCOPE]: Avalonia view and overlay surface.
 
@@ -201,4 +261,7 @@
 - Package: `HanumanInstitute.LibMpv`, `HanumanInstitute.LibMpv.Avalonia`
 - Owns: managed libmpv playback, the typed property/command/option surface, and the Avalonia OpenGL render integration.
 - Accept: playback driven through `MpvContext` and hosted by `MpvView` on the OpenGL render path.
-- Reject: a bundled libmpv native binary; a hand-rolled mpv command/property marshaller; `NativeControlHost` airspace where the OpenGL path serves; timer-polling for position where an observed `PropertyChanged` carries it.
+- Reject: a bundled libmpv native binary; a hand-rolled mpv command/property marshaller; `NativeControlHost` airspace where the OpenGL path serves; timer-polling for position where an observed `PropertyChanged` carries it; a raw `ObserveProperty` registration plus a property-name literal where the wrapper's own `Changed` event registers and unregisters itself; a synchronous re-read of every tracked property on each raw event, which is a poll wearing an event's name.
+
+[MEDIA_BOUNDARY]:
+- Neither assembly exposes a decoded-audio (PCM) tap: every render entry is a video path (`StartOpenGlRendering`, `StartSoftwareRendering`, `StartNativeRendering`) and the audio surface is device output selection (`AudioOutput`, `AudioDevice`, `AudioChannels`, `AudioSpdif`). A consumer needing samples reads the source independently; the media-to-caption route back in is the SIDECAR pair `SubAdd`/`AudioAdd`, after which `SubText`/`SubStart`/`SubEnd` carry the player's own timing.

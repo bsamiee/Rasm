@@ -34,6 +34,8 @@
 |  [13]   | `MidiEventPlayedEventArgs`                     | event payload    | played event carrier       |
 |  [14]   | `NotesEventArgs`                               | event payload    | playback note carrier      |
 |  [15]   | `InputDeviceProperty` / `OutputDeviceProperty` | device property  | capability query           |
+|  [16]   | `DeviceAddedRemovedEventArgs`                  | event payload    | hot-plug device carrier    |
+|  [17]   | `MidiDevice`                                   | device base      | named-device root          |
 
 [PUBLIC_TYPE_SCOPE]: file, chunk, and lazy-token model
 
@@ -109,12 +111,20 @@
 |  [01]   | `InputDevice.GetAll()` / `.GetByName(string)` / `.GetByIndex(int)` | static   | resolve input         |
 |  [02]   | `InputDevice.StartEventsListening()` / `.StopEventsListening()`    | instance | intake lifecycle      |
 |  [03]   | `InputDevice.EventReceived` (`MidiEventReceivedEventArgs`)         | event    | received event signal |
-|  [04]   | `OutputDevice.GetAll()` / `.GetByName(string)`                     | static   | resolve output        |
+|  [04]   | `OutputDevice.GetAll()` / `.GetByName(string)` / `.GetByIndex(int)` | static   | resolve output        |
 |  [05]   | `OutputDevice.SendEvent(MidiEvent)` / `.PrepareForEventsSending()` | instance | emit/warm send        |
 |  [06]   | `OutputDevice.TurnAllNotesOff()`                                   | instance | panic note release    |
 |  [07]   | `OutputDevice.EventSent` (`MidiEventSentEventArgs`)                | event    | sent event signal     |
-|  [08]   | `DevicesWatcher.DeviceAdded` / `.DeviceRemoved`                    | event    | hot-plug signals      |
-|  [09]   | `DevicesConnector.Connect()`                                       | instance | hardware MIDI-thru    |
+|  [08]   | `DevicesWatcher.Instance`                                          | static   | process-wide watcher  |
+|  [09]   | `DevicesWatcher.DeviceAdded` / `.DeviceRemoved`                    | event    | hot-plug signals      |
+|  [10]   | `DeviceAddedRemovedEventArgs.Device` (`MidiDevice`)                | property | hot-plug device read  |
+|  [11]   | `MidiDevice.Name`                                                  | property | device name           |
+|  [12]   | `DevicesConnector.Connect()`                                       | instance | hardware MIDI-thru    |
+
+- `DevicesWatcher` is a lazy process-wide SINGLETON reached only through `Instance`; its constructor is private and touching `Instance` creates the devices session, so a per-capsule watcher is unspellable and the first read is what arms the native hooks.
+- One `DeviceAdded`/`DeviceRemoved` pair covers BOTH directions — the args carry a `MidiDevice` that is an `InputDevice` or an `OutputDevice` — so a listener narrows by type rather than by subscribing to a direction-specific event that does not exist.
+- `SendEvent` routes a `ChannelEvent`, `SystemCommonEvent`, or `SystemRealTimeEvent` through the packed short-message path and a `SysExEvent` through its own; any other event type is SILENTLY DROPPED, and a disabled device drops everything, so send-side evidence comes from `EventSent` rather than from the call returning.
+- `TurnAllNotesOff` sends one `NoteOffEvent` for every note on every channel — 2048 messages — so it is a teardown and panic verb, never a per-gesture reset.
 
 [ENTRYPOINT_SCOPE]: file read, write, and lazy tokens
 

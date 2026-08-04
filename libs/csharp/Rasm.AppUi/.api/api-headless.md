@@ -74,6 +74,7 @@
 
 - `Dispatch` resumes the awaited continuation on the dispatcher thread, so `await`-ed UI code keeps its main-thread affinity; every overload requires a `CancellationToken`.
 - `StartNew(Type)` takes the `BuildAvaloniaApp`-shaped or `Application` entry-point type matching `[AvaloniaTestApplication]`; `GetOrStartForAssembly` is the `PerAssembly` shared path, `StartNew` the `PerTest` path.
+- `StartNew` runs `AppBuilder.Configure(entryPointType)` and then DEFAULTS only what the entry point left unset — `UseHeadless(new AvaloniaHeadlessPlatformOptions())` when `WindowingSubsystemName != "Headless"`, `UseHarfBuzz` when `TextShapingSubsystemInitializer` is null — and never writes `RenderingSubsystemName`, so an entry point chaining `UseHeadless(new(){ UseHeadlessDrawing = false }).UseSkia()` keeps Skia drawing inside the shared session and a second render-proof `AppBuilder` beside it proves nothing (decompile-verified).
 
 [OPTION_ENTRYPOINTS]: drawing backend and frame control on `AvaloniaHeadlessPlatformOptions`
 

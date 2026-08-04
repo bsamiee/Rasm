@@ -111,11 +111,14 @@
 |  [04]   | `new DxfWriter(string\|Stream, CadDocument, bool)`   | ctor     | configured DXF emit               |
 |  [05]   | `new SvgWriter(string\|Stream, CadDocument)`         | ctor     | configured SVG emit               |
 |  [06]   | `LineType.AddSegment(Segment)`                       | instance | append ordered dash pattern       |
+|  [07]   | `CadDocument.LineTypes.Continuous`                   | property | the REGISTERED solid entry        |
+|  [08]   | `Table<T>[string name]`                              | indexer  | registered entry by name          |
 
 - Static `Write`: a trailing optional `<Format>WriterConfiguration?` overrides `.Configuration`, and a `NotificationEventHandler?` takes the warning/error sink.
 - `DxfWriter`: `bool binary` selects binary or ASCII DXF — the ctor fixes it, the static overload takes it per-call; `.IsBinary` reads it back.
 - `SvgWriter`: `SvgConfiguration` exposes `LineWeightRatio` and `DefaultLineWeight`, settable before `Write()`.
 - `LineType.AddSegment`: signed `Segment.Length` encodes dash (positive), space (negative), dot (zero).
+- `LineType.ByLayer`/`ByBlock`/`Continuous` and `Layer.Default`/`Defpoints` are FACTORY properties minting a fresh unregistered entry per read; a document built through `new CadDocument()` already seats those defaults, so a layer binds `doc.LineTypes.Continuous` (the table's own registered accessor) and a per-read static seats duplicate table rows the writers reject.
 
 [ENTRYPOINT_SCOPE]: DocumentFormat.OpenXml package factory operations
 

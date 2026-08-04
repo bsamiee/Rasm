@@ -140,9 +140,10 @@
 |  [20]   | `ZonedDateTime.IsDaylightSavingTime() -> bool`                                | instance | daylight state at the value    |
 |  [21]   | `ZonedDateTime.WithZone(DateTimeZone) -> ZonedDateTime`                       | instance | re-zones one instant           |
 |  [22]   | `LocalDate.With(Func<LocalDate, LocalDate>) -> LocalDate`                     | fold     | applies one adjuster           |
-|  [23]   | `CalendarSystem.ForId(string) -> CalendarSystem`                              | factory  | calendar by id                 |
-|  [24]   | `IWeekYearRule.GetLocalDate(int, int, IsoDayOfWeek, CalendarSystem)`          | instance | week-year construction         |
-|  [25]   | `WeekYearRules.ForMinDaysInFirstWeek(int) -> IWeekYearRule`                   | factory  | custom week-boundary rule      |
+|  [23]   | `LocalDate.WithCalendar(CalendarSystem) -> LocalDate`                         | instance | same day, other calendar       |
+|  [24]   | `CalendarSystem.ForId(string) -> CalendarSystem`                              | factory  | calendar by id                 |
+|  [25]   | `IWeekYearRule.GetLocalDate(int, int, IsoDayOfWeek, CalendarSystem)`          | instance | week-year construction         |
+|  [26]   | `WeekYearRules.ForMinDaysInFirstWeek(int) -> IWeekYearRule`                   | factory  | custom week-boundary rule      |
 
 [LOCAL_SIDE_MAPPING]: `LocalDateTime.InZoneStrictly(DateTimeZone)` `LocalDateTime.InZoneLeniently(DateTimeZone)` `LocalDateTime.InZone(DateTimeZone, ZoneLocalMappingResolver)` `LocalDate.AtStartOfDayInZone(DateTimeZone)`
 [AMBIGUOUS_RESOLVERS]: `Resolvers.ReturnEarlier` `Resolvers.ReturnLater` `Resolvers.ThrowWhenAmbiguous`
@@ -179,6 +180,7 @@ Pattern types mint through their own static family and reconfigure through insta
 
 - `ZonedDateTimePattern`: every mint takes an `IDateTimeZoneProvider`, and `Create` takes `(string, CultureInfo, ZoneLocalMappingResolver, IDateTimeZoneProvider, ZonedDateTime)`.
 - `PeriodPattern`: singletons only, carrying no mint or transform family.
+- `LocalDatePattern.WithCalendar(CalendarSystem)` sets the pattern's TEMPLATE calendar, which governs parsing; formatting renders the value's own calendar, so a non-ISO display converts the value through `LocalDate.WithCalendar` first and the pattern transform alone renders ISO unchanged.
 - `LocalDatePattern.CreateWithInvariantCulture(string)`: mints culture-free, so every durable segment key renders byte-identically on any host locale — `Rasm.Compute/Runtime/codecs` binds it once as `MonthSegment` for the lake partition name.
 
 [PATTERN_MINTS]: `CreateWithInvariantCulture(string)` `CreateWithCurrentCulture(string)` `Create(string, CultureInfo)` `Create(string, CultureInfo, T)`

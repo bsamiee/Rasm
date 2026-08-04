@@ -33,6 +33,9 @@
 |  [04]   | `IconSize`          | `byte` enum   | pixel-size axis                                       |
 |  [05]   | `IconSizeValues`    | static class  | `IEnumerable<IconSize>` binding source                |
 |  [06]   | `IconVariantValues` | static class  | `IEnumerable<IconVariant>` binding source             |
+|  [07]   | `IconExtensions`    | static class  | per-member glyph-availability predicates              |
+
+- `NonResizableAttribute` is `internal` to `FluentIcons.Common.Internals` and decorates `Icon` fields, so no consumer reads it; `IconExtensions.IsAvailable` is the public gate over the same fact and answers from packed bit tables, one per `IconSize`, indexed by `4 * member + variant`.
 
 [ICON_VARIANT_MEMBERS]: `Regular` `Filled` `Color` `Light`
 [ICON_SIZE_MEMBERS]: `Resizable` `Size10` `Size12` `Size16` `Size20` `Size24` `Size28` `Size32` `Size48` — `Resizable` is `0`, every `SizeNN` equals its pixel size.
@@ -70,14 +73,18 @@ Each `sealed` extension carries nullable axis properties and a `(member)` constr
 
 Enum members select identity and axis value; the `*Values.Enumerable` fields feed picker `ItemsSource`.
 
-| [INDEX] | [SURFACE]                      | [SHAPE] | [CAPABILITY]                           |
-| :-----: | :----------------------------- | :------ | :------------------------------------- |
-|  [01]   | `Symbol.<member>`              | static  | named-glyph selection                  |
-|  [02]   | `Icon.<member>`                | static  | resizable-icon selection               |
-|  [03]   | `IconVariant.<member>`         | static  | variant selection                      |
-|  [04]   | `IconSize.<member>`            | static  | pixel-size selection                   |
-|  [05]   | `IconSizeValues.Enumerable`    | static  | `IEnumerable<IconSize>` for pickers    |
-|  [06]   | `IconVariantValues.Enumerable` | static  | `IEnumerable<IconVariant>` for pickers |
+| [INDEX] | [SURFACE]                                          | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------- | :------ | :------------------------------------- |
+|  [01]   | `Symbol.<member>`                                  | static  | named-glyph selection                  |
+|  [02]   | `Icon.<member>`                                    | static  | resizable-icon selection               |
+|  [03]   | `IconVariant.<member>`                             | static  | variant selection                      |
+|  [04]   | `IconSize.<member>`                                | static  | pixel-size selection                   |
+|  [05]   | `IconSizeValues.Enumerable`                        | static  | `IEnumerable<IconSize>` for pickers    |
+|  [06]   | `IconVariantValues.Enumerable`                     | static  | `IEnumerable<IconVariant>` for pickers |
+|  [07]   | `IsAvailable(Icon, IconSize, IconVariant) -> bool` | static  | sized-glyph availability gate          |
+|  [08]   | `IsAvailable(Symbol, IconVariant) -> bool`         | static  | resizable-glyph availability gate      |
+
+- `IsAvailable(Icon, …)` selects the bit table by `IconSize` and throws `ArgumentOutOfRangeException` for a value outside the enum, so a size arrives from `IconSizeValues.Enumerable` rather than a cast integer; `IsAvailable(Symbol, …)` reads the resizable table alone because `Symbol` has no size axis.
 
 [CONTROL_ENTRYPOINTS]: icon control properties — `FluentIcons.Avalonia`
 
@@ -93,6 +100,16 @@ Enum members select identity and axis value; the `*Values.Enumerable` fields fee
 |  [06]   | `Outline.{Get,Set}Symbol`      | static   | `AttachedProperty<Symbol?>` symbol        |
 |  [07]   | `Outline.{Get,Set}Icon`        | static   | `AttachedProperty<Icon?>` icon            |
 |  [08]   | `Outline.{Get,Set}IconVariant` | static   | `AttachedProperty<IconVariant>` variant   |
+|  [09]   | `FluentImage.IconSize`         | property | `StyledProperty<IconSize>` face selector  |
+|  [10]   | `GenericImage.Foreground`      | property | `StyledProperty<IBrush?>` glyph brush     |
+|  [11]   | `GenericImage.FlowDirection`   | property | `StyledProperty<FlowDirection>` mirroring |
+|  [12]   | `GenericImage.Size`            | property | `Size(FontSize, FontSize)` layout extent  |
+|  [13]   | `GenericImage.VisualChanged`   | event    | axis-change invalidation                  |
+|  [14]   | `GenericImage.Dispose()`       | instance | releases the retained `TextLayout`        |
+
+- `GenericImage : AvaloniaObject, IImage, IDisposable` — an image source binds `Image.Source` directly, its `Size` is the square `FontSize` box, and a change to any of `IconVariant`, `FontSize`, `Foreground`, or `FlowDirection` raises `VisualChanged`. It retains a `TextLayout` that only `Dispose` releases, so a per-render construction leaks one layout per call.
+- `FlowDirection` is the WHOLE mirroring mechanism: the glyph codepoint is `0xF0000 + 4 * member + variant`, plus `0x10000` while the direction reads right-to-left, so the shipped face carries a mirrored plane and a consumer-side horizontal transform would undo the flip the face already performed.
+- The two families bind different faces — `SymbolImage`/`SymbolIcon` resolve `TypefaceManager.GetSeagull()`, one resizable face for every `Symbol`, while `FluentImage`/`FluentIcon` resolve `TypefaceManager.GetFluent(IconSize, IconVariant)`, a face per size — so the size axis exists on the `Icon` family alone and `Symbol` scales through `FontSize`.
 
 [MARKUP_ENTRYPOINTS]: inline XAML construction — `SymbolIconExtension` (representative; the other three mirror it over their identity enum)
 
