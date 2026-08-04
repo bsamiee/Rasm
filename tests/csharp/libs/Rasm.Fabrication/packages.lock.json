@@ -128,6 +128,7 @@
           "System.Numerics.Tensors": "[10.0.10, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "UnitsNet": "[5.75.1, )",
           "Wacton.Unicolour": "[8.0.0, )"
         }
       },
@@ -178,7 +179,6 @@
           "Rhino3dm": "[8.17.0, )",
           "Riok.Mapperly": "[4.3.1, )",
           "Robots": "[2.2.5, )",
-          "SharpVoronoiLib": "[1.2.0, )",
           "System.IO.Hashing": "[10.0.10, )",
           "System.Numerics.Tensors": "[10.0.10, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
@@ -461,12 +461,6 @@
           "Rhino3dm": "8.17.0",
           "SSH.NET": "2024.0.0"
         }
-      },
-      "SharpVoronoiLib": {
-        "type": "CentralTransitive",
-        "requested": "[1.2.0, )",
-        "resolved": "1.2.0",
-        "contentHash": "OQdSdzc5IlC3Sv/Wd8FEJCzm4AUxW4ivN4yze42/44I2hZVb+qHuE8cyRVrY5LIOrg1RxC2kuVJTpmWGn85y2g=="
       },
       "SkiaSharp": {
         "type": "CentralTransitive",

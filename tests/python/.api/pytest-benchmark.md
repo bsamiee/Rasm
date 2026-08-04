@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `pytest-benchmark` · version `5.2.3` · license `BSD-2-Clause`
+- package: `pytest-benchmark` · license `BSD-2-Clause`
 - namespace: `pytest_benchmark`; `pytest11` entry point `benchmark = pytest_benchmark.plugin`; console `pytest-benchmark`
 - asset: `pytest_benchmark/{fixture,session,stats,hookspec,storage}.py`; the `benchmark` fixture
 - rail: the measurement lane — `benchmark`/`benchmark.pedantic` time a subject, autosave persists the series, and the update-json hook gates regressions

@@ -1598,6 +1598,7 @@
           "System.Numerics.Tensors": "[10.0.10, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "UnitsNet": "[5.75.1, )",
           "Wacton.Unicolour": "[8.0.0, )"
         }
       },
@@ -1691,6 +1692,7 @@
           "Polly.RateLimiting": "[8.7.0, )",
           "Pyroscope": "[1.4.0, )",
           "Pyroscope.OpenTelemetry": "[0.5.1, )",
+          "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.4.0, )",
@@ -1844,6 +1846,7 @@
           "Microsoft.Extensions.Caching.Hybrid": "[10.8.0, )",
           "Microsoft.Extensions.Caching.StackExchangeRedis": "[10.0.10, )",
           "Microsoft.Extensions.Compliance.Redaction": "[10.8.0, )",
+          "Microsoft.Extensions.Telemetry.Abstractions": "[10.8.0, )",
           "MiniExcel": "[1.45.0, )",
           "Minio": "[7.0.0, )",
           "NATS.Net": "[3.0.1, )",

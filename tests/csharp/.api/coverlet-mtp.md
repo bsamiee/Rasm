@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `coverlet.MTP` `10.0.1`
+- package: `coverlet.MTP`
 - license: `MIT`
 - namespace: `Coverlet.MTP` (extension host types; no consumer-facing managed API)
 - asset: `lib/net10.0/coverlet.MTP.dll` + `coverlet.core.dll` (Mono.Cecil instrumentation stack); `buildMultiTargeting` props register the `TestingPlatformBuilderHook`

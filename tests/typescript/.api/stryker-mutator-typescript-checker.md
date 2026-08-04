@@ -1,9 +1,9 @@
 # [TS_TESTS_API_STRYKER_MUTATOR_TYPESCRIPT_CHECKER]
 
 [PACKAGE_SURFACE]:
-- package: `@stryker-mutator/typescript-checker` · version `9.6.1` · license `Apache-2.0`
+- package: `@stryker-mutator/typescript-checker` · license `Apache-2.0`
 - module: ESM (`type: module`); one `.` export → `dist/src/index.js`; no deep-import paths; `engines.node >= 20`.
-- asset: `dist/src/index.d.ts`; peer contract `@stryker-mutator/api` (`9.6.1`, the shared plugin ABI both admitted Stryker plugins bind).
+- asset: `dist/src/index.d.ts`; peer contract `@stryker-mutator/api` (the shared plugin ABI both admitted Stryker plugins bind).
 - runtime: node-only; loads the project `typescript` as an in-memory compiler (no `tsc` subprocess, no emit) — a language-service diagnostic pass over the mutated virtual file system.
 - plane: `plane:dev` — a Stryker Checker plugin loaded by `@stryker-mutator/core`; never imported by source and never bundled (the `tests/typescript/_architecture` purity audit holds trivially — it is a config row, not a value import).
 - rail: mutation pre-filter / compile-validity gate.
@@ -22,7 +22,7 @@
 |  [04]   | `TypescriptChecker`       | internal `Checker` impl | the `createTypescriptChecker` return; `init`/`check`/`group` ([02]) |
 
 ```ts signature
-// index.d.ts @9.6.1 — the public barrel is three exports; PluginKind imports from @stryker-mutator/api/plugin (core [04]).
+// index.d.ts — the public barrel is three exports; PluginKind imports from @stryker-mutator/api/plugin (core [04]).
 import { PluginKind } from '@stryker-mutator/api/plugin'
 export declare const strykerPlugins: FactoryPlugin<PluginKind.Checker, ["$injector"]>[]
 export declare const createTypescriptChecker: (injector: Injector<PluginContext>) => TypescriptChecker

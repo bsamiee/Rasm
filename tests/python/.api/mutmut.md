@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `mutmut` · version `3.6.0` · license `BSD-3-Clause`
+- package: `mutmut` · license `BSD-3-Clause`
 - namespace: `import mutmut` · CLI `mutmut` · cache reader `mutmut.mutation.data.SourceFileMutationData`
 - asset: pure-Python wheel; config parsed from `[tool.mutmut]` via `tomllib`; cache under `mutants/`
 - rail: mutation gate — the survivor census `tools/assay/rails/mutation_gate.py` grades

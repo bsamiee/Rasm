@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `Microsoft.Extensions.Diagnostics.Testing` `10.8.0`
+- package: `Microsoft.Extensions.Diagnostics.Testing`
 - license: `MIT`
 - namespaces: `Microsoft.Extensions.Logging.Testing`, `Microsoft.Extensions.Diagnostics.Metrics.Testing`
 - asset: `lib/net10.0/Microsoft.Extensions.Diagnostics.Testing.dll`

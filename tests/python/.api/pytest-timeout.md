@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `pytest-timeout` · version `2.4.0` · license `MIT`
+- package: `pytest-timeout` · license `MIT`
 - namespace: `import pytest_timeout` — a single-module plugin.
 - asset: dist `pytest-timeout`; `pytest11` entry point `timeout = pytest_timeout` (disable with `-p no:timeout`).
 - rail: per-test wall-clock enforcement — the hang and runaway-loop guard.

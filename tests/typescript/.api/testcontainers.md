@@ -1,7 +1,7 @@
 # [TS_TESTS_API_TESTCONTAINERS]
 
 [PACKAGE_SURFACE]:
-- package: `testcontainers` · version `12.0.4` · license `MIT`
+- package: `testcontainers` · license `MIT`
 - module: CommonJS (`type: commonjs`; `main: build/index.js`, `build/index.d.ts`); no ESM/subpath map — the whole surface is the one barrel.
 - asset: `build/index.d.ts`; drives the container runtime through `dockerode` + `undici` + `docker-compose` (bundled deps).
 - runtime: node-only; requires a Docker-API-compatible engine on `DOCKER_HOST` (Docker / Colima / Podman — the Forge owns the local Colima socket). NOT platform-neutral: no browser, no bun-wasm. A `Ryuk`/reaper sidecar auto-reaps leaked containers.

@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `Verify.XunitV3` `31.20.0` / `Verify.DiffPlex` `3.3.0`
+- package: `Verify.XunitV3` / `Verify.DiffPlex`
 - license: `MIT`
 - namespace: `VerifyXunit` (entry statics), `VerifyTests` (settings, scrubbers, DiffPlex extension)
 - asset: `Verify.XunitV3.dll` + transitive `Verify.dll` (`net10.0`); `Verify.DiffPlex.dll` over `DiffPlex`

@@ -7,6 +7,6 @@
         <ProjectReference Include="../../../../libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj" />
     </ItemGroup>
     <ItemGroup Label="Headless Session">
-        <PackageReference Include="Avalonia.Headless.XUnit" />
+        <PackageReference Include="Avalonia.Headless.XUnit" PrivateAssets="all" />
     </ItemGroup>
 </Project>

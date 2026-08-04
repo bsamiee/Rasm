@@ -26,6 +26,7 @@
         <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="UnitsNet" />
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 

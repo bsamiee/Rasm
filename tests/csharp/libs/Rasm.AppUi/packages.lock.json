@@ -691,15 +691,6 @@
           "System.ComponentModel.Annotations": "5.0.0"
         }
       },
-      "HarfBuzzSharp": {
-        "type": "Transitive",
-        "resolved": "14.2.1.1",
-        "contentHash": "7XDWIol7Iq0Lw2MxJLjI3ec1mGQspC5BM0Ao85TDCSMgr94mmdRReSO00ZxHiy+j8OMpOkuu8B9x2brhKSlWaw==",
-        "dependencies": {
-          "HarfBuzzSharp.NativeAssets.Win32": "14.2.1.1",
-          "HarfBuzzSharp.NativeAssets.macOS": "14.2.1.1"
-        }
-      },
       "HarfBuzzSharp.NativeAssets.WebAssembly": {
         "type": "Transitive",
         "resolved": "8.3.1.3",
@@ -971,16 +962,6 @@
           "LiveChartsCore": "2.0.5",
           "SkiaSharp": "2.88.9",
           "SkiaSharp.HarfBuzz": "2.88.9"
-        }
-      },
-      "Mapsui.Nts": {
-        "type": "Transitive",
-        "resolved": "5.1.0",
-        "contentHash": "NmiGmHGickhrAPTi7fVncP0+Cr/jISJSaKWF55QTL5OtbJuVcwQZDzWlpC6vyucEVlGCV5MM1pQYsKOLLAdjCg==",
-        "dependencies": {
-          "Mapsui": "5.1.0",
-          "NetTopologySuite": "2.6.0",
-          "NetTopologySuite.IO.GeoJSON4STJ": "[4.0.0, 5.0.0)"
         }
       },
       "MessagePack.Annotations": {
@@ -1369,6 +1350,46 @@
           "Microsoft.Extensions.AI.Abstractions": "9.8.0"
         }
       },
+      "Microsoft.NETCore.Platforms": {
+        "type": "Transitive",
+        "resolved": "1.0.1-rc2-24027",
+        "contentHash": "BIZpJMovdHgUbCrZR9suwwLpZMNehIkaFKiIb9X5+wPjXNHMSQ91ETSASAnEXERyU7+ptJAfJGqgr3Y9ly98MQ==",
+        "dependencies": {
+          "Microsoft.NETCore.Targets": "1.0.1-rc2-24027"
+        }
+      },
+      "Microsoft.NETCore.Runtime": {
+        "type": "Transitive",
+        "resolved": "1.0.2-rc2-24027",
+        "contentHash": "z/R3npq0vJi1urIComaxGXX2CCfv27N78pNa3dMG4fyCQZA6u50v8ttWFnPV1caSN1O5JvDavqpBXVT1FdHcrA==",
+        "dependencies": {
+          "Microsoft.NETCore.Runtime.CoreCLR": "1.0.2-rc2-24027",
+          "Microsoft.NETCore.Runtime.Native": "1.0.2-rc2-24027"
+        }
+      },
+      "Microsoft.NETCore.Runtime.CoreCLR": {
+        "type": "Transitive",
+        "resolved": "1.0.2-rc2-24027",
+        "contentHash": "ANtMxCAN/4krahv/EnSHzTMosrTb3lwMrxqR+NBNLGOhXPs+Vo/UiUSOppF30CHJjK0mQvRMJyQrOGTRKmv64Q==",
+        "dependencies": {
+          "Microsoft.NETCore.Windows.ApiSets": "1.0.1-rc2-24027"
+        }
+      },
+      "Microsoft.NETCore.Runtime.Native": {
+        "type": "Transitive",
+        "resolved": "1.0.2-rc2-24027",
+        "contentHash": "aUtA5PJE7rGp0v6aKdYefj8GGpbf5nsND7xlMzPf0+n00YeYuM65sQtrd3TwtQlfmN4J57d40wfzEM3suVwWlg=="
+      },
+      "Microsoft.NETCore.Targets": {
+        "type": "Transitive",
+        "resolved": "1.0.1-rc2-24027",
+        "contentHash": "pNy4HhkgeM1kE/IqtDQLfUcMpy3NB3B/p8J/71G9Wvu2p/ARRH2hjq1TkETiqQW7ER9aFUs86wmgHyk3dtDgVQ=="
+      },
+      "Microsoft.NETCore.Windows.ApiSets": {
+        "type": "Transitive",
+        "resolved": "1.0.1-rc2-24027",
+        "contentHash": "/G/btXCgCbBpwWeeOoOiCAwayjcjPPW1hYqJ4uvreFA0J0+vu6o4pKQcypEz0X4CzmmUdcYG9hO6i43nBNBumg=="
+      },
       "NATS.Extensions.Microsoft.DependencyInjection": {
         "type": "Transitive",
         "resolved": "3.0.1",
@@ -1377,6 +1398,15 @@
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.0",
           "Microsoft.Extensions.Options": "8.0.2",
           "NATS.Client.Simplified": "3.0.1"
+        }
+      },
+      "NETStandard.Library": {
+        "type": "Transitive",
+        "resolved": "1.5.0-rc2-24027",
+        "contentHash": "4f0PviqALhzt6cOGUFibsaXKN+Rh/lwF95LXH9sYURkGjrn28NvkbK18Zw5BXLIL2v2TqzPgaSKsKhUniNMtXA==",
+        "dependencies": {
+          "Microsoft.NETCore.Platforms": "1.0.1-rc2-24027",
+          "Microsoft.NETCore.Runtime": "1.0.2-rc2-24027"
         }
       },
       "NetTopologySuite.IO.PostGis": {
@@ -1980,6 +2010,14 @@
         "resolved": "10.4.0",
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
       },
+      "Triangle": {
+        "type": "Transitive",
+        "resolved": "0.0.6-Beta3",
+        "contentHash": "iaFs9/Vu25HeeETuTD99VX5C2qxcUgiH3S+zjUxI64VzOCVj9GT8/89CfE1j+euGjXPDedaS/DNq5JrKxv5LuQ==",
+        "dependencies": {
+          "NETStandard.Library": "1.5.0-rc2-24027"
+        }
+      },
       "Tuf": {
         "type": "Transitive",
         "resolved": "0.5.0",
@@ -1997,6 +2035,11 @@
         "type": "Transitive",
         "resolved": "2.32.10",
         "contentHash": "XSm79DEYh48nrkof1QbBvC5XclBZnpcaTbjbSpMBUAT2qoZ8DwftI3+YEKkmLO3pYpSuPg9yhdPt2jbxyxQdHQ=="
+      },
+      "VividOrange.Taxonomy.ISerialization": {
+        "type": "Transitive",
+        "resolved": "0.2.0",
+        "contentHash": "InpgxLSt5OY8WfgfuUg0fChCqcZ5TXMWYQ8shm7C0yUQLG7/6J7PDEEo5J8v15h8ExGGapLgB3drlL/iFLTTYw=="
       },
       "Weasel.Core": {
         "type": "Transitive",
@@ -2114,6 +2157,7 @@
           "System.Numerics.Tensors": "[10.0.10, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "UnitsNet": "[5.75.1, )",
           "Wacton.Unicolour": "[8.0.0, )"
         }
       },
@@ -2207,6 +2251,7 @@
           "Polly.RateLimiting": "[8.7.0, )",
           "Pyroscope": "[1.4.0, )",
           "Pyroscope.OpenTelemetry": "[0.5.1, )",
+          "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.4.0, )",
@@ -2252,6 +2297,7 @@
           "FluentIcons.Common": "[2.1.333, )",
           "HanumanInstitute.LibMpv": "[0.10.1, )",
           "HanumanInstitute.LibMpv.Avalonia": "[0.10.1, )",
+          "HarfBuzzSharp": "[14.2.1.1, )",
           "HarfBuzzSharp.NativeAssets.macOS": "[14.2.1.1, )",
           "HidSharp": "[2.6.4, )",
           "Irihi.Ursa": "[2.1.0, )",
@@ -2263,7 +2309,9 @@
           "LiveChartsCore.SkiaSharpView.Avalonia": "[2.0.5, )",
           "LoroCs": "[1.13.7, )",
           "Mapsui.Avalonia12": "[5.1.0, )",
+          "Mapsui.Nts": "[5.1.0, )",
           "Markdig": "[1.3.2, )",
+          "MathNet.Numerics": "[6.0.0-beta2, )",
           "Melanchall.DryWetMidi": "[8.0.3, )",
           "MessageFormat": "[8.0.0, )",
           "NodaTime": "[3.3.3, )",
@@ -2275,6 +2323,7 @@
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
           "Rasm.Compute": "[1.0.0, )",
+          "Rasm.Materials": "[1.0.0, )",
           "Rasm.Persistence": "[1.0.0, )",
           "ReactiveUI": "[23.2.28, )",
           "ReactiveUI.Avalonia": "[12.0.3, )",
@@ -2392,6 +2441,46 @@
           "UnitsNet": "[5.75.1, )"
         }
       },
+      "rasm.materials": {
+        "type": "Project",
+        "dependencies": {
+          "CommunityToolkit.HighPerformance": "[8.4.2, )",
+          "Csp.Contracts": "[1.0.0, )",
+          "JetBrains.Annotations": "[2026.2.0, )",
+          "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "MathNet.Numerics": "[6.0.0-beta2, )",
+          "MessagePack": "[3.1.8, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
+          "Microsoft.Extensions.Telemetry.Abstractions": "[10.8.0, )",
+          "NodaTime": "[3.3.3, )",
+          "QuikGraph": "[2.5.0, )",
+          "Rasm": "[1.0.0, )",
+          "Rasm.AppHost": "[1.0.0, )",
+          "Rasm.Element": "[1.0.0, )",
+          "Silk.NET.WebGPU": "[2.23.0, )",
+          "Silk.NET.WebGPU.Extensions.WGPU": "[2.23.0, )",
+          "Silk.NET.WebGPU.Native.WGPU": "[2.23.0, )",
+          "SixLabors.ImageSharp": "[3.1.12, )",
+          "TextureCompressor": "[0.1.0, 0.1.0]",
+          "TextureCompressor.FileFormats.Hdr": "[0.1.0, 0.1.0]",
+          "TextureCompressor.FileFormats.Ktx": "[0.1.0, 0.1.0]",
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
+          "Thinktecture.Runtime.Extensions.MessagePack": "[10.4.0, )",
+          "TinyEXR.NET": "[1.1.0, )",
+          "UnitsNet": "[5.75.1, )",
+          "VividOrange.InteractionDiagram": "[0.2.1, )",
+          "VividOrange.Materials": "[0.1.0, )",
+          "VividOrange.Profiles.Catalogue": "[0.1.0, )",
+          "VividOrange.Sections": "[0.1.0, )",
+          "VividOrange.Sections.SectionProperties": "[0.1.0, )",
+          "VividOrange.Standards": "[0.1.0, )",
+          "VividOrange.Uncertainties": "[0.2.0, )",
+          "VividOrange.Uncertainties.Quantities": "[0.2.0, )",
+          "Wacton.Unicolour": "[8.0.0, )",
+          "Wacton.Unicolour.Datasets": "[5.0.0, )"
+        }
+      },
       "rasm.persistence": {
         "type": "Project",
         "dependencies": {
@@ -2448,6 +2537,7 @@
           "Microsoft.Extensions.Caching.Hybrid": "[10.8.0, )",
           "Microsoft.Extensions.Caching.StackExchangeRedis": "[10.0.10, )",
           "Microsoft.Extensions.Compliance.Redaction": "[10.8.0, )",
+          "Microsoft.Extensions.Telemetry.Abstractions": "[10.8.0, )",
           "MiniExcel": "[1.45.0, )",
           "Minio": "[7.0.0, )",
           "NATS.Net": "[3.0.1, )",
@@ -3389,6 +3479,16 @@
           "ReactiveUI.Avalonia": "12.0.1"
         }
       },
+      "HarfBuzzSharp": {
+        "type": "CentralTransitive",
+        "requested": "[14.2.1.1, )",
+        "resolved": "14.2.1.1",
+        "contentHash": "7XDWIol7Iq0Lw2MxJLjI3ec1mGQspC5BM0Ao85TDCSMgr94mmdRReSO00ZxHiy+j8OMpOkuu8B9x2brhKSlWaw==",
+        "dependencies": {
+          "HarfBuzzSharp.NativeAssets.Win32": "14.2.1.1",
+          "HarfBuzzSharp.NativeAssets.macOS": "14.2.1.1"
+        }
+      },
       "HarfBuzzSharp.NativeAssets.Linux": {
         "type": "CentralTransitive",
         "requested": "[14.2.1.1, )",
@@ -3584,6 +3684,17 @@
           "SkiaSharp.NativeAssets.WebAssembly": "3.119.4-preview.1.1",
           "Svg.Skia": "3.2.1",
           "Topten.RichTextKit": "0.4.167"
+        }
+      },
+      "Mapsui.Nts": {
+        "type": "CentralTransitive",
+        "requested": "[5.1.0, )",
+        "resolved": "5.1.0",
+        "contentHash": "NmiGmHGickhrAPTi7fVncP0+Cr/jISJSaKWF55QTL5OtbJuVcwQZDzWlpC6vyucEVlGCV5MM1pQYsKOLLAdjCg==",
+        "dependencies": {
+          "Mapsui": "5.1.0",
+          "NetTopologySuite": "2.6.0",
+          "NetTopologySuite.IO.GeoJSON4STJ": "[4.0.0, 5.0.0)"
         }
       },
       "Mapsui.Rendering.Skia": {
@@ -5399,6 +5510,12 @@
         "resolved": "2.23.0",
         "contentHash": "4ykgWVboF23XndBKR92E7313BcbReOqaC80Vo201KrFReKV3CAdkskiX5m7EqYaidwN+Dnvl4ZKiGSdLzI1Ldw=="
       },
+      "SixLabors.ImageSharp": {
+        "type": "CentralTransitive",
+        "requested": "[3.1.12, )",
+        "resolved": "3.1.12",
+        "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
+      },
       "SkiaSharp": {
         "type": "CentralTransitive",
         "requested": "[4.150.1, )",
@@ -5622,6 +5739,31 @@
         "resolved": "10.0.10",
         "contentHash": "8dMjvrdTREATqUeo3UTnrD3Z+6emcMyfPL0evj0q39c773DrmPOYX3HxKFU5Qoajq/jjjaFAKMGReib5PxmtOw=="
       },
+      "TextureCompressor": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, 0.1.0]",
+        "resolved": "0.1.0",
+        "contentHash": "gLxq1s5HjuMideWpWn6XIfeByD6LDa/a8+v0x8ovuazgLlR+5drYJNIeTmQ86H7OSiyAb/NzqRS7xx3a8NsiPA=="
+      },
+      "TextureCompressor.FileFormats.Hdr": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, 0.1.0]",
+        "resolved": "0.1.0",
+        "contentHash": "ct4obMwrCcYyCDOp8/7xWkjCaLB/VBFwQowhzBtLIq2XxxaY+DgnqXzUZEdnay06YucY0G5Wa+w576xDbBWWVg==",
+        "dependencies": {
+          "TextureCompressor": "0.1.0"
+        }
+      },
+      "TextureCompressor.FileFormats.Ktx": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, 0.1.0]",
+        "resolved": "0.1.0",
+        "contentHash": "/awk5oiADFkQPhbUzWzQdDRpdt3q326oX22kkk5pF859BDj5yGRxjBQzzTBeTItz2zSjAYZWA0Uc9wQDLNGLVA==",
+        "dependencies": {
+          "TextureCompressor": "0.1.0",
+          "ZstdSharp.Port": "0.8.8"
+        }
+      },
       "Thinktecture.Runtime.Extensions.EntityFrameworkCore10": {
         "type": "CentralTransitive",
         "requested": "[10.4.0, )",
@@ -5650,6 +5792,12 @@
           "MessagePack": "2.5.302",
           "Thinktecture.Runtime.Extensions": "10.4.0"
         }
+      },
+      "TinyEXR.NET": {
+        "type": "CentralTransitive",
+        "requested": "[1.1.0, )",
+        "resolved": "1.1.0",
+        "contentHash": "Fh5LkkZS21DV2apJXDPgtDdJ8BMl4608ERoBr2zx82Nk2QHhSp+sGg+j0+ZEu/TVkYIfojzQDn280Vx8a4Iy4Q=="
       },
       "Tmds.DBus.Protocol": {
         "type": "CentralTransitive",
@@ -5692,17 +5840,270 @@
         "resolved": "5.75.1",
         "contentHash": "k03hA739n11FDke7tcVHyk1YXRoWxYlkNGpNMCTX/gfwV8fbGq1oDoYHaMg0tCxhpv9l2BS6M9EsE7FcszVtSg=="
       },
+      "UnitsNet.Serialization.JsonNet": {
+        "type": "CentralTransitive",
+        "requested": "[5.50.0, )",
+        "resolved": "5.50.0",
+        "contentHash": "OUoQAskIE10Urbh4ucoSwAAxnq2GlsNDH8Vg3FnAvf8w9bS96p3hjWkyI8leMD0v6yp6tDt8z7kh3rsBucwWDg==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.2",
+          "UnitsNet": "5.50.0"
+        }
+      },
       "Velopack": {
         "type": "CentralTransitive",
         "requested": "[1.2.0, )",
         "resolved": "1.2.0",
         "contentHash": "Rz67gJL619fSBS6omaSINUxyDuwhIxkm5mmubf7uLd5Qgi6LLKaKCha+QFP6n+Bw/UjA0vutnH4JQfYzn6ANtw=="
       },
+      "VividOrange.ForceMomentInteraction": {
+        "type": "CentralTransitive",
+        "requested": "[0.2.1, )",
+        "resolved": "0.2.1",
+        "contentHash": "jiFMfgIL98lfNILtOESxDzsqU7e+yCM8euHL1rCKgbT1ECCSyDSVYsMZhUG4TRcXLWyRHbrDTMuGMB2PyLXVyw==",
+        "dependencies": {
+          "VividOrange.Geometry": "1.8.0",
+          "VividOrange.IForceMomentInteraction": "0.2.1"
+        }
+      },
+      "VividOrange.Geometry": {
+        "type": "CentralTransitive",
+        "requested": "[1.8.0, )",
+        "resolved": "1.8.0",
+        "contentHash": "Z6ICRE7qJ3b5CDfTh1T3JYavkQT4IwrYqV4GDkdJ8CY/L6/VqiCiDxgvxU0dz3AKS92yHDcdx//shlE+XjMbPQ==",
+        "dependencies": {
+          "VividOrange.IGeometry": "1.8.0"
+        }
+      },
+      "VividOrange.ICartesianBase": {
+        "type": "CentralTransitive",
+        "requested": "[1.8.0, )",
+        "resolved": "1.8.0",
+        "contentHash": "gabEfSDpqX2/Ae5oRe69n/nBS8mas30VhI9x3SJb90TqJbHUo6MWNh85/UJLaovzOJpDq2cuw13vfyuZVGlSOQ==",
+        "dependencies": {
+          "UnitsNet": "5.75.0"
+        }
+      },
+      "VividOrange.IForceMomentInteraction": {
+        "type": "CentralTransitive",
+        "requested": "[0.2.1, )",
+        "resolved": "0.2.1",
+        "contentHash": "+qV6Fgdmcmy5h6hAPtfm0DPr6kjdEUaFblrWwQLEQEUYKno1pO1iyyoKAMuRwwQfAiaZv/YtVyCFBX4I6n9+BQ==",
+        "dependencies": {
+          "UnitsNet": "5.75.0",
+          "VividOrange.ICartesianBase": "1.8.0",
+          "VividOrange.Serialization": "0.1.0"
+        }
+      },
+      "VividOrange.IGeometry": {
+        "type": "CentralTransitive",
+        "requested": "[1.8.0, )",
+        "resolved": "1.8.0",
+        "contentHash": "ychtp6o2TERpi0eS3hmVaY0l8+7zM7/MWWJr1GMSEC/ZCGfG3HWNn1rEOYXtY6/7q7YeAkdlqxv7aUlYneyfMQ==",
+        "dependencies": {
+          "VividOrange.ICartesianBase": "1.8.0"
+        }
+      },
+      "VividOrange.IMaterials": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "tJAo9avBzUQaI9B28L7InRlPlkXUexq1fKv6GQPp/o+Zdfx2gm8Ftx6H9vvfFbwhwDcTVyTidWwIX2xNoyTivQ==",
+        "dependencies": {
+          "UnitsNet": "5.75.0",
+          "VividOrange.ISerialization": "0.1.0",
+          "VividOrange.IStandards": "0.1.0"
+        }
+      },
+      "VividOrange.InteractionDiagram": {
+        "type": "CentralTransitive",
+        "requested": "[0.2.1, )",
+        "resolved": "0.2.1",
+        "contentHash": "+elRkXBtb8ft702x6zcZBh2ommSRck7M7W3TEcCYGmi7x1LeWpEfRS0f4R5nuFnnUEcpiSkQuakIqiTsav0NrQ==",
+        "dependencies": {
+          "MIConvexHull": "1.1.19.1019",
+          "Triangle": "0.0.6-Beta3",
+          "VividOrange.ForceMomentInteraction": "0.2.1",
+          "VividOrange.Geometry": "1.8.0",
+          "VividOrange.IForceMomentInteraction": "0.2.1",
+          "VividOrange.Materials": "0.1.0",
+          "VividOrange.Profiles.Perimeter": "0.1.0",
+          "VividOrange.Sections": "0.1.0"
+        }
+      },
+      "VividOrange.IProfiles": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "jFelFWS4Wo7c+7LGxRQDHIljvegYLa49mbMqN3p5Eqx92AhH4w8OdlhMWkWFPIowOg9qkUNWwR5jRIav84slUw==",
+        "dependencies": {
+          "UnitsNet": "5.75.0",
+          "VividOrange.ISerialization": "0.1.0"
+        }
+      },
+      "VividOrange.ISections": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "DoQhSyL3c1Sbgc3v1c3BxhaCYSpVC1I9ae+6HZow3Q2KKzRdf/KnHmrRErCSEV3LAP6HZE/bjAJgNVjJYlFByQ==",
+        "dependencies": {
+          "VividOrange.IGeometry": "1.8.0",
+          "VividOrange.IMaterials": "0.1.0",
+          "VividOrange.IProfiles": "0.1.0"
+        }
+      },
+      "VividOrange.ISerialization": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "zF0yGlbs4Su3baGb6TaKnuh/b1N98J/35T6wbIVNVnnEoY3JiNJvYoK6p5x6DIezjs7L0fGefAI9vqXKfa+Vtg=="
+      },
+      "VividOrange.IStandards": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "dhp3Nhggv7lB2aCN9p5ejcd6dYe+0zNRPkHfzENjxWPyCNOd2cwBVVAAKOYQ2Pyj7zFdx/UmRG+RwrGHZqdKUg==",
+        "dependencies": {
+          "VividOrange.ISerialization": "0.1.0"
+        }
+      },
+      "VividOrange.IUncertainties": {
+        "type": "CentralTransitive",
+        "requested": "[0.2.0, )",
+        "resolved": "0.2.0",
+        "contentHash": "ABAyw/kwCSGRCktuimpTIwjzb1GCmt+Zh2NWnQreFkuRHrbcTwh8ytOKkzIVyZGbOBtMYVbJQ2lSxLwQhA+Q3A==",
+        "dependencies": {
+          "VividOrange.Taxonomy.ISerialization": "0.2.0"
+        }
+      },
+      "VividOrange.Materials": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "2nlilZj2eukAEQE905vhkS8nzscaFfij964yCTNynLDB4F9lfH/tGeUkGDZt3rAS7rWtOfUcDIe+7XgeSLkziQ==",
+        "dependencies": {
+          "UnitsNet": "5.75.0",
+          "VividOrange.IMaterials": "0.1.0",
+          "VividOrange.Standards": "0.1.0"
+        }
+      },
+      "VividOrange.Profiles": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "07XsnMiuqXFxot/2h+svPyJyzBU9Vp4e35mgrVEfwY8BvezpnBKZRzrXN+L3y+6UM6ioQn1PpicdPC3zs4f2kQ==",
+        "dependencies": {
+          "VividOrange.IProfiles": "0.1.0"
+        }
+      },
+      "VividOrange.Profiles.Catalogue": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "vcknVvZOC/UqELlrDAV8+rQ00jTErhX9Lctv9+zTqiUiAsJj4yPBSyHI4j03qtUakXuDIRJ5CPKcxXZ4A7NbmQ==",
+        "dependencies": {
+          "VividOrange.IProfiles": "0.1.0"
+        }
+      },
+      "VividOrange.Profiles.Perimeter": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "AjZix5BcVusadfjpPGDJvSN5HvJKFoREsXJ4b9cN5JAKEf15NBkQwSp3gK+9vnXJMmaJkancQWT3+RbOkWkqGA==",
+        "dependencies": {
+          "VividOrange.Geometry": "1.8.0",
+          "VividOrange.IProfiles": "0.1.0",
+          "VividOrange.Profiles": "0.1.0"
+        }
+      },
+      "VividOrange.Sections": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "V3jeyJO/mV+iMzngm6q3pTYv+w4hm9jYjXo40Saj0dUtlCos3IZP/F0DBi7y9lgi7Xy+bKXbrLxGHNLLM1xYbQ==",
+        "dependencies": {
+          "VividOrange.Geometry": "1.8.0",
+          "VividOrange.IMaterials": "0.1.0",
+          "VividOrange.IProfiles": "0.1.0",
+          "VividOrange.ISections": "0.1.0",
+          "VividOrange.Profiles.Perimeter": "0.1.0"
+        }
+      },
+      "VividOrange.Sections.ISectionProperties": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "YfZKkLqcZ9vA41K6McVPIDUIicJJ/svUIWlww+x5/0WOPLyudWvhmjftKgJXZEX6bql/X/mp+JCDyT6SXV7ybA==",
+        "dependencies": {
+          "VividOrange.IGeometry": "1.8.0",
+          "VividOrange.ISections": "0.1.0",
+          "VividOrange.ISerialization": "0.1.0"
+        }
+      },
+      "VividOrange.Sections.SectionProperties": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "zZf1S+5EDVQVudj1zRGu4YAW2L9UUFKdI4rQN8u7Br77mJ4qPDG2buCjx2gfw3bDhSashbmgdp0KoYisVVhDgg==",
+        "dependencies": {
+          "VividOrange.Geometry": "1.8.0",
+          "VividOrange.Profiles.Perimeter": "0.1.0",
+          "VividOrange.Sections.ISectionProperties": "0.1.0"
+        }
+      },
+      "VividOrange.Serialization": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "R7jZdVxwc7Gi3gc48b318d3KlMzVAAZlaWIcLpYw6QlOzh6l8sCveIcQWY49jFv8o55ufAq9uLervkZKrpDUpw==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.4",
+          "UnitsNet.Serialization.JsonNet": "5.50.0",
+          "VividOrange.ISerialization": "0.1.0"
+        }
+      },
+      "VividOrange.Standards": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "Hx2StUqIFt+0tsKQQb1e954pMu05DY8WuIIC0r5P0iUBAMA4rnb8hpVUa/Sy/P5Ydq3aK4+173b4/gVXJu02jQ==",
+        "dependencies": {
+          "VividOrange.IStandards": "0.1.0"
+        }
+      },
+      "VividOrange.Uncertainties": {
+        "type": "CentralTransitive",
+        "requested": "[0.2.0, )",
+        "resolved": "0.2.0",
+        "contentHash": "5GfbhSTKA1dbsxORqrUPcbXPXKY7A48OkJDWU776BXXS+luDMiV7q6598LZgg9fSBjdDlRe4vQ19/kxybugJFw==",
+        "dependencies": {
+          "VividOrange.IUncertainties": "0.2.0"
+        }
+      },
+      "VividOrange.Uncertainties.Quantities": {
+        "type": "CentralTransitive",
+        "requested": "[0.2.0, )",
+        "resolved": "0.2.0",
+        "contentHash": "AHqSSZlEaJckYMKzL1iC+5VinfM1fDEXgiVUKGLMGREXPl7GWhb1bh50rnuwRnKZNoZbQsotUbgkE8bv93Ywgg==",
+        "dependencies": {
+          "UnitsNet": "5.75.0",
+          "VividOrange.IUncertainties": "0.2.0"
+        }
+      },
       "Wacton.Unicolour": {
         "type": "CentralTransitive",
         "requested": "[8.0.0, )",
         "resolved": "8.0.0",
         "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
+      },
+      "Wacton.Unicolour.Datasets": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0, )",
+        "resolved": "5.0.0",
+        "contentHash": "as/MNZG8GXeU14Jbm6YQ4Z6mA0K6V6TYFJ2ZE/j7J6OqAGYdGpiQVNWyaQSRb9+vmArLtuP4Oj5ysADrVLhqvA==",
+        "dependencies": {
+          "Wacton.Unicolour": "8.0.0"
+        }
       },
       "Wasmtime": {
         "type": "CentralTransitive",

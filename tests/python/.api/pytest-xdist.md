@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `pytest-xdist` · version `3.8.0` · license `MIT`
+- package: `pytest-xdist` · license `MIT`
 - namespace: `import xdist` — public helpers on `xdist`; the plugin body is `xdist.plugin`.
 - asset: dist `pytest-xdist`; `pytest11` entry point `xdist = xdist.plugin` (disable with `-p no:xdist`).
 - rail: parallel / distributed spec execution — the opt-in multi-worker session.

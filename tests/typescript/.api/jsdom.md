@@ -1,7 +1,7 @@
 # [TS_TESTS_API_JSDOM]
 
 [PACKAGE_SURFACE]:
-- package: `jsdom` · version `29.1.1` · license `MIT`
+- package: `jsdom` · license `MIT`
 - module: CommonJS (`type: commonjs`); single entry `main: ./lib/api.js` — `require("jsdom")` / interop-default under ESM; no `exports` map; the barrel exports exactly `{ JSDOM, VirtualConsole, CookieJar, requestInterceptor, toughCookie }`.
 - types: NONE bundled and `@types/jsdom` is NOT admitted — the member surface below is SOURCE-VERIFIED against `lib/api.js` (assay resolves the package as `tsdecl` but reports zero declaration paths); the vitest `environment: 'jsdom'` string path needs no types; a directly-typed `new JSDOM(...)` spec must admit the community `@types/jsdom` first or consume it untyped.
 - asset: pure JS under `lib/`; the HTML parser is `parse5`, cookies are `tough-cookie`, subresource loading is `undici` — real standards implementations, not approximations.

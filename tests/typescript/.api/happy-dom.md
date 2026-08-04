@@ -1,7 +1,7 @@
 # [TS_TESTS_API_HAPPY_DOM]
 
 [PACKAGE_SURFACE]:
-- package: `happy-dom` · version `20.10.6` · license `MIT`
+- package: `happy-dom` · license `MIT`
 - module: ESM (`type: module`); single barrel `happy-dom` — no `exports` map, so deep paths (`happy-dom/lib/window/Window.js`) resolve but the barrel is canonical; declarations ship co-located (`lib/**/*.d.ts`, implicit `lib/index.d.ts`).
 - asset: pure JS + `.d.ts` under `lib/`; zero native, zero wasm — a hand-written WHATWG DOM in TypeScript.
 - runtime: node `>=20`; the whole DOM is a plain object graph the spec builds and discards — microsecond startup, no browser process, no layout, no pixels.

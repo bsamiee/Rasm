@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `TngTech.ArchUnitNET.xUnitV3` `0.13.3` (carries core `TngTech.ArchUnitNET` `0.13.3`)
+- package: `TngTech.ArchUnitNET.xUnitV3` (carries core `TngTech.ArchUnitNET`)
 - license: `Apache-2.0`
 - namespace: `ArchUnitNET.Loader`, `ArchUnitNET.Domain`, `ArchUnitNET.Fluent`, `ArchUnitNET.Fluent.Slices`, `ArchUnitNET.xUnitV3`
 - asset: `lib/netstandard2.0/ArchUnitNET.dll` + `ArchUnitNET.xUnitV3.dll`; Mono.Cecil and CycleDetection ride transitively

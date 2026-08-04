@@ -1,7 +1,7 @@
 # [TS_TESTS_API_FAST_CHECK]
 
 [PACKAGE_SURFACE]:
-- package: `fast-check` · version `3.23.2` · license `MIT`
+- package: `fast-check` · license `MIT`
 - arrival: transitive under `effect` — never a workspace admission; the estate reaches the engine only through the `effect/FastCheck` re-export, so the version rides `effect`'s own manifest and moves with the substrate wave.
 - module: dual CJS/ESM barrel `fast-check` — one `.` export, no deep-import paths; default export `fc` mirrors the named surface.
 - asset: `lib/types/fast-check-default.d.ts` (barrel declarations); runtime `lib/fast-check.js` + `lib/esm/`.
@@ -9,7 +9,7 @@
 - plane: `plane:dev` — the `tests/typescript/_architecture` suite refuses a direct `fast-check` manifest admission outright, so no runtime graph can ever import it.
 - rail: property / generative law.
 
-`fast-check` is the sole generator engine behind the `_testkit` law/arbitrary source (`tests/typescript/_testkit`), which derives every kernel-brand and decoded-wire `Arbitrary<T>` from an `effect/Schema` via `Arbitrary.make` (never hand-rolls one) and folds those arbitraries into the reusable law combinators — each a `property`/`asyncProperty` closed by `assert` and bound to specs through `@effect/vitest` `it.effect.prop` / `it.effect`. String variation rides the one `string(constraints)` with its `unit` axis (shipped since `3.22.0`) and weighting rides `oneof` rows; the deprecated char-family (`char`, `ascii`, `hexaString`, `fullUnicodeString`, `stringOf`) still ships on this line and is rejected wholesale.
+`fast-check` is the sole generator engine behind the `_testkit` law/arbitrary source (`tests/typescript/_testkit`), which derives every kernel-brand and decoded-wire `Arbitrary<T>` from an `effect/Schema` via `Arbitrary.make` (never hand-rolls one) and folds those arbitraries into the reusable law combinators — each a `property`/`asyncProperty` closed by `assert` and bound to specs through `@effect/vitest` `it.effect.prop` / `it.effect`. String variation rides the one `string(constraints)` with its `unit` axis and weighting rides `oneof` rows; the deprecated char-family (`char`, `ascii`, `hexaString`, `fullUnicodeString`, `stringOf`) still ships on this line and is rejected wholesale.
 
 ## [01]-[CORE_TYPES]
 
@@ -68,7 +68,7 @@ declare function clone<T>(arb: Arbitrary<T>, numValues: number): Arbitrary<T[]> 
 |  [10]   | `hash` / `stringify` / `asyncStringify` / `defaultReportMessage`   | reporting utils     | stable hashing + counterexample rendering     |
 
 ```ts signature
-// Signatures verified against lib/types/fast-check-default.d.ts @3.23.2 (variadic-tuple arbitraries → typed predicate).
+// Signatures verified against lib/types/fast-check-default.d.ts (variadic-tuple arbitraries → typed predicate).
 declare function property<Ts extends [unknown, ...unknown[]]>(
   ...args: [...arbitraries: { [K in keyof Ts]: Arbitrary<Ts[K]> }, predicate: (...args: Ts) => boolean | void]
 ): IPropertyWithHooks<Ts>

@@ -1,7 +1,7 @@
 # [TS_TESTS_API_SWC_CORE]
 
 [PACKAGE_SURFACE]:
-- package: `@swc/core` · version `1.15.43` · license `Apache-2.0`
+- package: `@swc/core` · license `Apache-2.0`
 - module: CJS with typed ESM surface; `export type * from '@swc/types'` re-exports the whole AST vocabulary, so `import { parseSync, type Module } from '@swc/core'` is the one binding.
 - asset: the native (Rust) parser/transformer binding (`@swc/core-darwin-arm64` on this host) with the `@swc/types` span-tagged AST declarations.
 - runtime: node; `parseSync` is pure, synchronous, program-free — text in, `Module` out, throw on syntax error.

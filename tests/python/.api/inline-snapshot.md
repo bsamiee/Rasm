@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `inline-snapshot` · version `0.34.2` · license `MIT`
+- package: `inline-snapshot` · license `MIT`
 - namespace: `inline_snapshot`; extra assertion helpers `inline_snapshot.extra`
 - asset: pure-Python wheel; a pytest plugin binding the `--inline-snapshot=` run-flag vocabulary
 - rail: wire-golden equality — the Python round-trip rail for `tests/contracts/` assets

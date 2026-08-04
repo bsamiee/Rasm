@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `pytest-randomly` · version `4.1.0` · license `MIT`
+- package: `pytest-randomly` · license `MIT`
 - namespace: `import pytest_randomly` — the plugin module is the barrel.
 - asset: dist `pytest-randomly`; `pytest11` entry point `randomly = pytest_randomly` (disable with `-p no:randomly`).
 - rail: test-order shuffling and per-test RNG reseeding — the default anti-flake lane.

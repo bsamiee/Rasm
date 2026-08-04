@@ -1,7 +1,7 @@
 # [TS_TESTS_API_TYPESCRIPT]
 
 [PACKAGE_SURFACE]:
-- package: `typescript` · version `7.0.2` · license `Apache-2.0`
+- package: `typescript` · license `Apache-2.0`
 - module: ESM exports map — `.` resolves `lib/version.cjs` (version identity only); the API lives behind `typescript/unstable/{sync,async,fs,proto,ast,ast/*}` subpaths; `lib/tsc.js` behind the `tsc`/`tsserver` bins wraps the bundled native executable.
 - asset: the native (Go) compiler binary with a thin JS client — AST type declarations, `is*` guards, scanner, node factory, and an IPC `API`/`Snapshot`/`Project` client that spawns the native server.
 - runtime: node; every parse and semantic question rides the native server over IPC — the package ships no in-process text-to-AST parser.

@@ -1,7 +1,7 @@
 # [TS_TESTS_API_VITEST_BROWSER_PLAYWRIGHT]
 
 [PACKAGE_SURFACE]:
-- package: `@vitest/browser-playwright` · version `4.1.10` · license `MIT`
+- package: `@vitest/browser-playwright` · license `MIT`
 - module: ESM (`type: module`); subpaths `.` (the `playwright()` provider + `PlaywrightBrowserProvider`) and `./context`. Peers: `playwright *` (required — the real browser driver), `vitest 4.1.9`.
 - asset: `dist/index.d.ts`; the test-side browser context (`page`/`userEvent`/locators) is `@vitest/browser` (reached via `vitest/browser`), which THIS provider augments with Playwright's real option and `_BrowserNames` shapes.
 - runtime: drives a real Chromium/Firefox/WebKit through Playwright's `Browser`/`BrowserContext`/`Page`/`CDPSession`; specs execute IN the browser page, not in Node.
@@ -81,7 +81,7 @@ interface BrowserInstanceOption {   // Omit<ProjectConfig, unsupported> + per-in
 |  [09]   | `server` · `utils`                     | context + debug   | `server` (platform/version/provider/…); `utils.debug`/`prettyDOM`           |
 
 - [02]-[SELECTORS]: `getByRole`/`getByText`/`getByTestId`/`getByLabelText`/`getByPlaceholder`/`getByAltText`/`getByTitle`.
-- [04]-[USER_EVENT]: `click`/`dblClick`/`tripleClick`/`wheel` (4.1)/`fill`/`keyboard`/`selectOptions`/`hover`/`dragAndDrop`/`upload`; `setup`/`cleanup`.
+- [04]-[USER_EVENT]: `click`/`dblClick`/`tripleClick`/`wheel`/`fill`/`keyboard`/`selectOptions`/`hover`/`dragAndDrop`/`upload`; `setup`/`cleanup`.
 
 ```ts signature
 import { page, userEvent, commands, cdp, server } from 'vitest/browser'

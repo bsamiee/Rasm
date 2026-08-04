@@ -1,8 +1,8 @@
 # [TS_TESTS_API_STRYKER_MUTATOR_VITEST_RUNNER]
 
 [PACKAGE_SURFACE]:
-- package: `@stryker-mutator/vitest-runner` · version `9.6.1` · license `Apache-2.0`
-- module: ESM (`type: module`); one `.` export → `dist/src/index.js`; peer contract `@stryker-mutator/api` (`9.6.1`) + a `vitest` peer it augments.
+- package: `@stryker-mutator/vitest-runner` · license `Apache-2.0`
+- module: ESM (`type: module`); one `.` export → `dist/src/index.js`; peer contract `@stryker-mutator/api` + a `vitest` peer it augments.
 - asset: `dist/src/index.d.ts`; augments `declare module 'vitest'` (adds `ProvidedContext` + `TaskMeta` fields) — the in-worker instrumentation channel.
 - runtime: node-only; boots `vitest`'s programmatic API in-process, reuses one vitest worker across mutants (no per-mutant process spawn).
 - plane: `plane:dev` — a Stryker TestRunner plugin loaded by `@stryker-mutator/core`; a config row, never a value import; the `tests/typescript/_architecture` purity audit holds trivially.
@@ -22,7 +22,7 @@
 |  [04]   | `VitestTestRunner`                        | internal `TestRunner` impl | the `FactoryPlugin` factory yield; implements [02]         |
 
 ```ts signature
-// index.d.ts @9.6.1 — the ENTIRE public barrel is two exports; PluginKind/FactoryPlugin import from @stryker-mutator/api/plugin (core [04]).
+// index.d.ts — the ENTIRE public barrel is two exports; PluginKind/FactoryPlugin import from @stryker-mutator/api/plugin (core [04]).
 import { PluginKind, FactoryPlugin } from '@stryker-mutator/api/plugin'
 export declare const strykerPlugins: FactoryPlugin<PluginKind.TestRunner, ["$injector"]>[]
 export declare const strykerValidationSchema: typeof import('../schema/vitest-runner-options.json')

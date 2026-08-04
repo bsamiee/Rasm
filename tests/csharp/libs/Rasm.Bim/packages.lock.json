@@ -360,6 +360,7 @@
           "System.Numerics.Tensors": "[10.0.10, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "UnitsNet": "[5.75.1, )",
           "Wacton.Unicolour": "[8.0.0, )"
         }
       },

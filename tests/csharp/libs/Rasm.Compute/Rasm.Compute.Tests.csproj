@@ -7,6 +7,6 @@
         <ProjectReference Include="../../../../libs/csharp/Rasm.Compute/Rasm.Compute.csproj" />
     </ItemGroup>
     <ItemGroup Label="In-Process Wire Harness">
-        <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+        <PackageReference Include="Microsoft.AspNetCore.TestHost" PrivateAssets="all" />
     </ItemGroup>
 </Project>

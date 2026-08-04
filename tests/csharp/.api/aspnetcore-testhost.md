@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `Microsoft.AspNetCore.TestHost` `10.0.10`
+- package: `Microsoft.AspNetCore.TestHost`
 - license: `MIT`
 - namespace: `Microsoft.AspNetCore.TestHost`
 - asset: `lib/net10.0/Microsoft.AspNetCore.TestHost.dll`

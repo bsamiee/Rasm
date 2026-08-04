@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `pytest-cov` · version `7.1.0` · license `MIT`
+- package: `pytest-cov` · license `MIT`
 - namespace: `pytest_cov`; `pytest11` entry point `pytest_cov = pytest_cov.plugin`
 - asset: `pytest_cov/{plugin,engine}.py`; the `cov` fixture and the `--cov*` option group
 - rail: the coverage-session lane — starts `coverage.Coverage` under pytest, drives xdist/subprocess combination, and applies `--cov-fail-under`

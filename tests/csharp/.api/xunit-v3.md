@@ -4,7 +4,7 @@ xunit.v3 packages carry the whole C# proof estate: `xunit.v3.assert` is the asse
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `xunit.v3.assert` `3.2.2` / `xunit.v3.common` `3.2.2` / `xunit.v3.extensibility.core` `3.2.2` / `xunit.v3.mtp-v2` `3.2.2`
+- package: `xunit.v3.assert` / `xunit.v3.common` / `xunit.v3.extensibility.core` / `xunit.v3.mtp-v2`
 - license: `Apache-2.0`
 - namespace: `Xunit` (assertions + attributes), `Xunit.Sdk` (exception and formatting internals), `Xunit.v3` (output plumbing)
 - asset: `xunit.v3.assert.dll` (`netstandard2.0` + `net8.0`), `xunit.v3.common.dll`, `xunit.v3.core.dll` (both `netstandard2.0`); `mtp-v2` ships no assembly — it aggregates `xunit.v3.core.mtp-v2` (MSBuild entry-point generation + in-proc console runner), `xunit.v3.assert`, and `xunit.analyzers`

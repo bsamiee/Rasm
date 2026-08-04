@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `Microsoft.Testing.Platform` `2.2.3` / `Microsoft.Testing.Platform.MSBuild` `2.2.3` / `Microsoft.Testing.Extensions.CrashDump` `2.2.3` / `Microsoft.Testing.Extensions.HangDump` `2.2.3` / `Microsoft.Testing.Extensions.Retry` `2.2.3` / `Microsoft.Testing.Extensions.TrxReport` `2.2.3`; transitive floor `Microsoft.Testing.Extensions.Telemetry` `2.2.3`
+- package: `Microsoft.Testing.Platform` / `Microsoft.Testing.Platform.MSBuild` / `Microsoft.Testing.Extensions.CrashDump` / `Microsoft.Testing.Extensions.HangDump` / `Microsoft.Testing.Extensions.Retry` / `Microsoft.Testing.Extensions.TrxReport`; transitive floor `Microsoft.Testing.Extensions.Telemetry`
 - license: `MIT` (Retry carries a license file)
 - namespace: `Microsoft.Testing.Platform.Builder` (builder API); extensions register through generated code, not consumer calls
 - asset: `lib/net8.0|net9.0|netstandard2.0` per package; MSBuild package ships the task under `_MSBuildTasks/netstandard2.0/`

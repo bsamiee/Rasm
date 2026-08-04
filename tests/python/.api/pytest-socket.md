@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `pytest-socket` · version `0.8.0` · license `MIT`
+- package: `pytest-socket` · license `MIT`
 - namespace: `import pytest_socket`; `pytest11` entry point `socket = pytest_socket`
 - asset: `pytest_socket/__init__.py` (single-module plugin, `py.typed`)
 - rail: the INET-block lane — the default session disables `socket.socket`, and only `socket_enabled`/`network` capsules lift it

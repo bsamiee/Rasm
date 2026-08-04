@@ -1,7 +1,7 @@
 # [TS_TESTS_API_PLAYWRIGHT_TEST]
 
 [PACKAGE_SURFACE]:
-- package: `@playwright/test` · version `1.61.1` · license `Apache-2.0`
+- package: `@playwright/test` · license `Apache-2.0`
 - module: dual CJS/ESM (`.js` + `.mjs`) with `exports` map `.` / `./cli` / `./reporter` / `./package.json`; the root is a thin re-export of `playwright/test` → `playwright/types/test` (types resolve through it); the custom-reporter SPI is the separate `@playwright/test/reporter` subpath.
 - asset: bundled `playwright` + `playwright-core` engines; the actual browser binaries (chromium / firefox / webkit) install out-of-band via `playwright install` — a runner fact, never a JS dependency on any bundle.
 - runtime: node `>=18`; each spec runs in a worker process driving a real browser over CDP/the Playwright protocol.

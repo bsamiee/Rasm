@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `BenchmarkDotNet` `0.15.8` (+ `BenchmarkDotNet.Annotations`)
+- package: `BenchmarkDotNet` (+ `BenchmarkDotNet.Annotations`)
 - license: `MIT`
 - namespace: `BenchmarkDotNet.Running`, `BenchmarkDotNet.Attributes`, `BenchmarkDotNet.Configs`, `BenchmarkDotNet.Jobs`, `BenchmarkDotNet.Reports`, `BenchmarkDotNet.Mathematics`
 - asset: `lib/net8.0/BenchmarkDotNet.dll` (net10 consumers bind via compat) + `netstandard2.0/BenchmarkDotNet.Annotations.dll`

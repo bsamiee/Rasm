@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `coverage` · version `7.15.0` · license `Apache-2.0`
+- package: `coverage` · license `Apache-2.0`
 - namespace: `import coverage`; console `coverage`; `coverage.Coverage` is the API root
 - asset: `coverage/{control,sqldata,sysmon,patch,jsonreport,lcovreport,xmlreport}.py`; shipped `a1_coverage.pth`
 - rail: the measurement substrate — `Coverage` collects and reports; `CoverageData` is the combinable SQLite store both the coverage session and mutmut read

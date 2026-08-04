@@ -77,7 +77,7 @@
 - `Microsoft.Extensions.Compliance.Redaction`(`api-redaction.md`): properties the generated method expands reach `Redactor` selection by classification before any provider observes the tag.
 - `OpenTelemetry`(`api-opentelemetry.md`): `AddOpenTelemetry(ILoggingBuilder)` seats the OTel logger provider on this contract, and `OpenTelemetryLoggerOptions.IncludeScopes` reads `BeginScope` state as record attributes.
 - `Microsoft.Extensions.Hosting`(`Rasm.AppHost/.api/api-hosting.md`): `ConfigureLogging` admits `ILoggingBuilder`, and the built `IHost` resolves `ILoggerFactory` and `ILogger<T>` into hosted services and runtime ports.
-- `Microsoft.Extensions.Diagnostics.Testing`(`Rasm.AppHost/.api/api-testing-seams.md`): `FakeLogger` implements `ILogger` and `IBufferedLogger`, folding every emission into `FakeLogCollector` records without a provider.
+- `Microsoft.Extensions.Diagnostics.Testing`(`tests/csharp/.api/diagnostics-testing.md`): `FakeLogger` implements `ILogger` and `IBufferedLogger`, folding every emission into `FakeLogCollector` records without a provider.
 - `Rasm.AppHost` observability: `TelemetryIdentity` stamps scope identity, and the one `ILogger` pipeline fans to the Serilog and OTLP providers at composition.
 - `Rasm.Rhino` `ObjectsTelemetry`: `Configure` admits one `(PluginKey, ILogger)` row per plugin and `Publish` fans generated events across the live rows, an empty roster composing `NullLogger`.
 

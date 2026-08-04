@@ -1,7 +1,7 @@
 # [TS_TESTS_API_AXE_CORE_PLAYWRIGHT]
 
 [PACKAGE_SURFACE]:
-- package: `@axe-core/playwright` · version `4.12.1` · license `MPL-2.0` · depends on `axe-core@4.12.1`, peer `playwright-core >= 1.0.0`
+- package: `@axe-core/playwright` · license `MPL-2.0` · depends on `axe-core`, peer `playwright-core >= 1.0.0`
 - module: dual CJS/ESM (`dist/index.js` + `dist/index.mjs`) with one `.` export; `AxeBuilder` ships named AND as default — the named import is the house spelling.
 - asset: bundles the `axe-core` rules engine source and injects it into the page (and every child frame) at `analyze()`; no browser binary, no server, no network.
 - runtime: node `>=18` driving a live `playwright-core` `Page` — the audit executes inside the page, the receipt returns to node.

@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `hypothesis` · version `6.155.7` · license `MPL-2.0`
+- package: `hypothesis` · license `MPL-2.0`
 - namespace: `hypothesis`; strategies `hypothesis.strategies as st`; stateful `hypothesis.stateful`; database `hypothesis.database`
 - asset: pure-Python wheel; profile registration and example storage live under `.cache/hypothesis` via `HYPOTHESIS_STORAGE_DIRECTORY`
 - rail: property / generative law — every `@spec(given=True)` law terminates here through `hyp_given(resolve(subject))`

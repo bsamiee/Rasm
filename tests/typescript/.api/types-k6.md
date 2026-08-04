@@ -1,7 +1,7 @@
 # [TS_TESTS_API_TYPES_K6]
 
 [PACKAGE_SURFACE]:
-- package: `@types/k6` · version `2.0.0` · license `MIT` (DefinitelyTyped)
+- package: `@types/k6` · license `MIT` (DefinitelyTyped)
 - module: type-only — ships ZERO `.js` (0 runtime files); `index.d.ts` + `global.d.ts` + ambient `declare module 'k6/*'` submodule declarations only.
 - asset: ambient module declarations for `k6`, `k6/http`, `k6/metrics`, `k6/execution`, `k6/options`, `k6/ws`, `k6/websockets`, `k6/net/grpc`, `k6/html`, `k6/crypto`, `k6/encoding`, `k6/data`, `k6/timers`, `k6/browser`, `k6/secrets`, `k6/experimental/*`; `global.d.ts` adds `__ENV`/`__VU`/`__ITER`/`open`.
 - runtime: NONE in node; the k6 binary is a Go program embedding the `goja`/`sobek` JS runtime; it — not node — executes the load script. Node never imports `k6`; this package types the SCRIPT the binary runs.

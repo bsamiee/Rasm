@@ -6,13 +6,11 @@
     <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj" />
     </ItemGroup>
-    <ItemGroup Label="Telemetry Observation Rail">
-        <!-- Suite-owned doubles: the observation rail asserts instrument writes on one injected clock. -->
-        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
-        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
-    </ItemGroup>
-    <ItemGroup Label="Temporal Doubles">
-        <!-- ClockPolicy proofs pair FakeTimeProvider with the NodaTime FakeClock per api-testing-seams.md. -->
-        <PackageReference Include="NodaTime.Testing" />
+    <ItemGroup Label="Test Doubles">
+        <!-- Shell classification strips the central Test Packages rows, so this suite carries its own doubles:
+             the observation rail asserts instrument writes and ClockPolicy pairs both time planes on one advance. -->
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" PrivateAssets="all" />
+        <PackageReference Include="NodaTime.Testing" PrivateAssets="all" />
     </ItemGroup>
 </Project>

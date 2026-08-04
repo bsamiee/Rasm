@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `pytest` · version `9.1.1` · license `MIT`
+- package: `pytest` · license `MIT`
 - namespace: `import pytest` — one flat barrel; internals live under `_pytest.*` but the public surface is re-exported on `pytest`.
 - asset: dist `pytest`; console scripts `pytest` and `py.test` (`_pytest.config:_console_main`); the plugin protocol group is `pytest11`.
 - rail: spec execution — the session every folder's specs and every gauge terminate in.

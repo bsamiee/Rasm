@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `dirty-equals` · version `0.11` · license `MIT`
+- package: `dirty-equals` · license `MIT`
 - namespace: `dirty_equals`
 - asset: pure-Python wheel; no runtime dependency beyond the standard library
 - rail: partial equality — a matcher embeds in an `==` fact or an `inline_snapshot` literal

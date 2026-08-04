@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `CsCheck` `4.7.0`
+- package: `CsCheck`
 - license: `Apache-2.0`
 - namespace: `CsCheck`
 - asset: `lib/net8.0/CsCheck.dll` (net10 consumers bind via compat); zero dependencies

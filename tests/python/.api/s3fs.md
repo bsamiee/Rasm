@@ -4,9 +4,9 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `s3fs` · version `2026.4.0` · license `BSD`
+- package: `s3fs` · license `BSD`
 - namespace: `import s3fs` · `from s3fs import S3FileSystem, S3File`
-- asset: pure-Python wheel; drives `aiobotocore` `3.7.0` over `botocore` `1.43.0`; fsspec base `2026.4.0` (versions lockstep)
+- asset: pure-Python wheel; drives `aiobotocore` over `botocore`; the `fsspec` base moves in lockstep
 - rail: object-store egress — the S3-native view every `ObjectStore` provision yields
 
 ## [02]-[PUBLIC_TYPES]

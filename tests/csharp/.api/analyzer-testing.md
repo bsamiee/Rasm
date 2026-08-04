@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `Microsoft.CodeAnalysis.CSharp.Analyzer.Testing` `1.1.4` (carries `Microsoft.CodeAnalysis.Analyzer.Testing` at the exact same version)
+- package: `Microsoft.CodeAnalysis.CSharp.Analyzer.Testing` (carries `Microsoft.CodeAnalysis.Analyzer.Testing` in lockstep)
 - license: `MIT`
 - namespace: `Microsoft.CodeAnalysis.CSharp.Testing` (the two C# types), `Microsoft.CodeAnalysis.Testing` (everything shared)
 - asset: `lib/net8.0`; Roslyn contract floor rides `Microsoft.CodeAnalysis.CSharp.Workspaces` and lifts to the estate's direct Roslyn pins

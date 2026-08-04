@@ -4,9 +4,9 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `moto` · version `5.2.2` · license `Apache-2.0` · extra `moto[server]`
+- package: `moto` · license `Apache-2.0` · extra `moto[server]`
 - namespace: `import moto` (decorator `moto.mock_aws`) · `from moto.server import ThreadedMotoServer`
-- asset: pure-Python wheel; `server` extra pulls `flask`/`flask-cors`; SDK boundary rides `boto3` `1.43.0`
+- asset: pure-Python wheel; `server` extra pulls `flask`/`flask-cors`; SDK boundary rides `boto3`
 - rail: object-store double — the loopback S3 endpoint every `ObjectStore` provision terminates in
 
 ## [02]-[PUBLIC_TYPES]

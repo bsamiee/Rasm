@@ -847,6 +847,7 @@
           "Polly.RateLimiting": "[8.7.0, )",
           "Pyroscope": "[1.4.0, )",
           "Pyroscope.OpenTelemetry": "[0.5.1, )",
+          "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.4.0, )",
