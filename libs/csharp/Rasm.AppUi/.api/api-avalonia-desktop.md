@@ -34,16 +34,16 @@
 
 [EMBED_RUNTIME_TYPES]: `Avalonia.Native` — the implementation identities an embedded mount resolves at runtime; none is a compile-time surface, each is what the corresponding public member answers on the embed path.
 
-| [INDEX] | [SYMBOL]                 | [RESOLVED_BY]                        | [IDENTITY]                                           |
-| :-----: | :----------------------- | :----------------------------------- | :--------------------------------------------------- |
-|  [01]   | `EmbeddableTopLevelImpl` | `EmbeddableControlRoot.PlatformImpl` | the embedded root's platform implementation          |
-|  [02]   | `MacOSTopLevelHandle`    | `TopLevel.TryGetPlatformHandle()`    | `IMacOSTopLevelPlatformHandle`, descriptor `NSView`  |
-|  [03]   | `StorageProviderImpl`    | `TopLevel.StorageProvider`           | native provider, all three capabilities true         |
-|  [04]   | `MetalPlatformGraphics`  | default `[Metal, OpenGl, Software]`  | `IPlatformGraphics` beside the Skia render interface |
-|  [05]   | `AvaloniaNativePlatform` | `UseAvaloniaNative()`                | one windowing platform per process                   |
+| [INDEX] | [SYMBOL]                 | [RESOLVED_BY]                        | [IDENTITY]                                                   |
+| :-----: | :----------------------- | :----------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `EmbeddableTopLevelImpl` | `EmbeddableControlRoot.PlatformImpl` | `TopLevelImpl` subclass, every native member inherited whole |
+|  [02]   | `MacOSTopLevelHandle`    | `TopLevel.TryGetPlatformHandle()`    | `IMacOSTopLevelPlatformHandle`, descriptor `NSView`          |
+|  [03]   | `StorageProviderImpl`    | `TopLevel.StorageProvider`           | native provider, all three capabilities true                 |
+|  [04]   | `MetalPlatformGraphics`  | default `[Metal, OpenGl, Software]`  | `IPlatformGraphics` beside the Skia render interface         |
+|  [05]   | `AvaloniaNativePlatform` | `UseAvaloniaNative()`                | one windowing platform per process                           |
 
 - One `AppBuilder` serves the whole process: a second `Setup*` call throws `InvalidOperationException` — `Setup was already called on one of AppBuilder instances` — so every embedded root in a process shares that platform, its graphics, and its dispatcher, while additional roots construct freely once it is up.
-- An embedded root's `RenderScaling` is `1` regardless of the host's backing scale, so a DPI-aware mount reads scale from the host, never from the root.
+- `RenderScaling` answers `1` on an embedded root regardless of the host's backing scale, so a DPI-aware mount reads scale from the host, never from the root.
 - `StorageProviderImpl` answers `CanOpen`, `CanSave`, and `CanPickFolder` all true on an embedded root, yet a picker launched while the root's native view has no window returns a task that stays `WaitingForActivation` — no exception, no sheet, no completion — so a caller gates on a shown host window beside the capability read.
 
 ## [03]-[ENTRYPOINTS]
@@ -80,6 +80,17 @@
 - `RenderingMode` defaults to `[Metal, OpenGl, Software]` — first element wins, and an empty or fully unmatched list throws `InvalidOperationException` at boot rather than degrading.
 - `DisableAvaloniaAppDelegate` together with `DisableSetProcessName` and `DisableNativeMenus` is the plugin-host posture: the foreign application keeps its delegate, process name, and menu bar while the embedded root renders inside its view.
 
+[EMBED_TRANSPARENCY]: `EmbeddableControlRoot : TopLevel` seats rows [01]-[02] on the embedded root; `EmbeddableTopLevelImpl : TopLevelImpl` inherits row [03], folding the hint list onto the macOS native mode.
+
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :----------------------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `TransparencyLevelHint`                                            | property | `IReadOnlyList<WindowTransparencyLevel>` preference |
+|  [02]   | `ActualTransparencyLevel`                                          | property | backend-applied level, raised back through the impl |
+|  [03]   | `SetTransparencyLevelHint(IReadOnlyList<WindowTransparencyLevel>)` | instance | drives `IAvnTopLevel.SetTransparencyMode`           |
+
+- `TopLevelImpl.SetTransparencyLevelHint`: maps `None -> Opaque`, `Transparent -> Transparent`, `AcrylicBlur -> Blur`; `Blur` and `Mica` map to nothing and the walk skips to the next hint, and a list mapping nothing at all resets the root to `Opaque`.
+- `IAvnTopLevel.SetTransparencyMode`: UNPROVEN on a host-owned `NSView` — the managed call lands and `ActualTransparencyLevel` updates, while no run confirms the foreign view composites the requested mode.
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
@@ -95,7 +106,7 @@
 
 [LOCAL_ADMISSION]:
 - One package reference transitively admits the backend graph; the desktop shell composes only `UsePlatformDetect`, never a backend `Use*` at a call site.
-- The in-host embed is the one carve: a mount under a foreign macOS run loop names `UseAvaloniaNative` beside `UseSkia` because it must seat `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values `UsePlatformDetect` never exposes, and it does so from one admission fold (`Shell/hosts#EMBED_CAPSULE` `EmbedOptions.Admit`), never from a boot-code knob.
+- In-host embedding takes the one carve: a mount under a foreign macOS run loop names `UseAvaloniaNative` beside `UseSkia` because it must seat `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values `UsePlatformDetect` never exposes, and it does so from one admission fold (`Shell/hosts#EMBED_CAPSULE` `EmbedOptions.Admit`), never from a boot-code knob.
 
 [RAIL_LAW]:
 - Package: `Avalonia.Desktop`

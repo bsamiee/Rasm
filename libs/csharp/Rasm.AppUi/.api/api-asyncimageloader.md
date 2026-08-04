@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_ASYNCIMAGELOADER]
 
-`AsyncImageLoader.Avalonia` sources bitmaps asynchronously off the UI thread, carrying load state, fallbacks, and loader-typed cache policy. `AdvancedImage` and the attached `ImageLoader`/`ImageBrushLoader` statics bind a URL or URI `Source` to a cached bitmap through an `IAsyncImageLoader`, and the web-image-loader hierarchy owns HTTP fetch with RAM and disk caching. Each loader takes an injected `HttpClient`, composing with the AppHost networking stack rather than owning a private one.
+`AsyncImageLoader.Avalonia` sources bitmaps asynchronously off the UI thread, carrying load state, fallbacks, and loader-typed cache policy. `AdvancedImage` and the attached `ImageLoader`/`ImageBrushLoader` statics bind a URL or URI `Source` to a cached bitmap through an `IAsyncImageLoader`, and the web-image-loader hierarchy owns HTTP fetch with RAM and disk caching. `AdvancedImage` draws and corner-clips the resolved bitmap in its own `Render`; placeholder, spinner, and transition presentation stay consumer-owned.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -72,12 +72,19 @@
 |  [37]   | `BaseWebImageLoader.Dispose()`                                          | instance | HTTP and cache teardown            |
 
 - `AdvancedImage`: no parameterless ctor; `Uri? baseUri` roots relative `avares:` and `Source` references, `.ctor(IServiceProvider)` pulls `IUriContext.BaseUri`.
+- `AdvancedImage.IsLoading` / `CurrentImage` / `ShouldLoaderChangeTriggerUpdate`: `DirectProperty`, so a style selector and a one-way binding both reach them; `IsLoading` registers with no setter and writes only from the load pipeline.
+- `AdvancedImage.CurrentImage`: assigning any `IImage` that is not an `AdvancedImage.ImageWrapper` clears `Source`, so a hand-set image and a URL source never both hold.
+- `AdvancedImage.Render(DrawingContext)`: draws `CurrentImage` itself and wraps `DrawImage` in `PushClip(RoundedRect)` whenever `CornerRadius` is non-default, re-deriving that rect on every `CornerRadius` and `Bounds` change — rounded corners need no `Border` host and no `OpacityMask`.
+- `AdvancedImage.ArrangeOverride`: honors `StretchDirection` on measure and arranges on `Both` unconditionally, so `UpOnly`/`DownOnly` bounds the measured size alone.
 - `DiskCachedWebImageLoader`: overrides `LoadFromGlobalCache`/`SaveToGlobalCache` against the disk cache folder while inheriting the RAM cache.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every image resolves off the UI thread through the active `IAsyncImageLoader`, which owns cache policy, load state, and fallback; the concrete loaders form the linear `BaseWebImageLoader -> RamCachedWebImageLoader -> DiskCachedWebImageLoader` chain where each level composes the level below.
+- `AdvancedImage` splits pixels from chrome: the bitmap rides the `Render` override outside the template entirely, and the template owns everything else. `MeasureOverride`/`ArrangeOverride` fall through to the `ContentControl` base while `CurrentImage` is null, so `Content` both sizes and fills the control until the bitmap lands — the placeholder slot.
+- `avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml` is the one visual the package ships: a `Styles` holding a single `Style` on `AdvancedImage` whose `Template` setter builds a `Grid` around an indeterminate `ProgressBar` (`MaxWidth=100`, centered) template-bound `IsVisible` to `IsLoading`. It carries no `ControlTheme` and no `ContentPresenter`, and applies only under an explicit `StyleInclude`.
+- Consumer templates present `Content` and own every fade, skeleton, and cross-dissolve — the type declares no transition or opacity surface.
 
 [STACKING]:
 - `api-avalonia`(`.api/api-avalonia.md`): a loader implementing `IAdvancedAsyncImageLoader` resolves `avares:` and storage URIs through the control's `TopLevel.StorageProvider` (`IStorageProvider`), so one `Source` string addresses both remote HTTP and app-scoped resources.
@@ -86,9 +93,10 @@
 
 [LOCAL_ADMISSION]:
 - Remote or async image intent binds `AdvancedImage.Loader` or an attached `ImageLoader`/`ImageBrushLoader.AsyncImageLoader`; the loader instance selects RAM-only or RAM-plus-disk caching by type.
+- Rounded image corners set `AdvancedImage.CornerRadius` directly; placeholder, skeleton, and fade presentation land in the AppUi `ControlTheme` for `AdvancedImage`, keying off the `IsLoading`/`CurrentImage` `DirectProperty` selectors and presenting `Content` as the pre-resolution slot.
 
 [RAIL_LAW]:
 - Package: `AsyncImageLoader.Avalonia`
 - Owns: off-UI-thread bitmap sourcing with load state, fallback, and loader-typed cache policy across the `Base -> RamCached -> DiskCached` hierarchy
-- Accept: async image intent bound to `AdvancedImage` or an attached loader; cache behavior selected by loader type; an injected `HttpClient`; disk cache rooted at an explicit `cacheFolder`
-- Reject: blocking bitmap loads on the UI thread; a private `HttpClient` beside the AppHost networking stack; a bespoke image-cache layer beside the loader hierarchy
+- Accept: async image intent bound to `AdvancedImage` or an attached loader; cache behavior selected by loader type; an injected `HttpClient`; disk cache rooted at an explicit `cacheFolder`; corner rounding on `CornerRadius`, and placeholder plus transition presentation in a consumer `ControlTheme`
+- Reject: blocking bitmap loads on the UI thread; a private `HttpClient` beside the AppHost networking stack; a bespoke image-cache layer beside the loader hierarchy; a `Border`, clip geometry, or `OpacityMask` wrapper reproducing the native `CornerRadius` clip; a fade or skeleton expected from the package

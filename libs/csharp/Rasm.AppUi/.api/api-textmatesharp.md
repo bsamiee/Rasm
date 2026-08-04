@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_TEXTMATESHARP]
 
-`TextMateSharp` ports the VS Code TextMate tokenizer to .NET: a `Registry` drives an `IGrammar` over a line into scope-tagged `IToken` runs (or a binary-packed `int[]`), a `Theme` resolves each scope stack to a color and `FontStyle`, and `TMModel` re-tokenizes a line-list off the UI thread. `TextMateSharp.Grammars` ships the bundled grammar and theme corpus behind `RegistryOptions`, the reference `IRegistryOptions` locator, and the VS Code grammar-extension model. Native regex binds `Onigwrap` (Oniguruma); no managed path exists. Every tokenization flows from one `IRegistryOptions` locator.
+`TextMateSharp` ports the VS Code TextMate tokenizer to .NET: a `Registry` drives an `IGrammar` over a line into scope-tagged `IToken` runs or a binary-packed `int[]`, a `Theme` resolves each scope stack to token paint and exposes its VS Code chrome key map, and `TMModel` re-tokenizes a line-list off the UI thread. `TextMateSharp.Grammars` ships the bundled grammar and theme corpus behind `RegistryOptions`, the reference `IRegistryOptions` locator, and the VS Code grammar-extension model.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -50,16 +50,19 @@
 
 [THEME_TYPE_SCOPE]: scope-to-color resolution (`TextMateSharp.Themes`)
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CAPABILITY]              |
-| :-----: | :----------------- | :------------- | :------------------------ |
-|  [01]   | `IRawTheme`        | interface      | parsed theme document     |
-|  [02]   | `Theme`            | class          | compiled scope-trie theme |
-|  [03]   | `IRawThemeSetting` | interface      | raw theme rule            |
-|  [04]   | `IThemeSetting`    | interface      | compiled theme rule       |
-|  [05]   | `FontStyle`        | `[Flags]` enum | font style mask           |
-|  [06]   | `IThemeProvider`   | interface      | theme match port          |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]  | [CAPABILITY]              |
+| :-----: | :--------------------- | :------------- | :------------------------ |
+|  [01]   | `IRawTheme`            | interface      | parsed theme document     |
+|  [02]   | `Theme`                | class          | compiled scope-trie theme |
+|  [03]   | `IRawThemeSetting`     | interface      | raw theme rule            |
+|  [04]   | `IThemeSetting`        | interface      | compiled theme rule       |
+|  [05]   | `ThemeTrieElementRule` | class          | one matched rule          |
+|  [06]   | `FontStyle`            | `[Flags]` enum | font style mask           |
+|  [07]   | `IThemeProvider`       | interface      | theme match port          |
 
-`RegistryOptions.LoadTheme(ThemeName)` returns the uncompiled `IRawTheme`; `Theme.CreateFromRawTheme` compiles it against the locator into a scope-trie, `Theme.Match(scopeStack)` returns the winning rule (color id and `FontStyle`), and `GetColor(id)` resolves the id to a hex string. `FontStyle` masks `NotSet` (-1), `None` (0), `Italic`, `Bold`, `Underline`, `Strikethrough`. `GetGuiColorDictionary` exposes editor-chrome colors (`"editor.background"`) so a host paints surrounding UI to match the grammar theme.
+`RegistryOptions.LoadTheme(ThemeName)` returns the uncompiled `IRawTheme`; `Theme.CreateFromRawTheme` compiles it into a scope-trie, `Theme.Match(scopeStack)` returns matching `ThemeTrieElementRule` rows — this theme's ahead of the included theme's, each block walking the scope stack most-specific first — and `GetColor(id)` resolves a color id to a hex string. Each row exposes `foreground`, `background`, `fontStyle`, `scopeDepth`, and `parentScopes`, folding to the first nonzero value per axis. `FontStyle` masks `NotSet` (-1), `None` (0), `Italic`, `Bold`, `Underline`, `Strikethrough`.
+
+`Theme.GetGuiColorDictionary() -> ReadOnlyDictionary<string, string>` carries the whole VS Code chrome map, key to hex string, merging the theme's own `colors` block over that of the theme it includes. Coverage is theme-authored and diverges across the bundled corpus: `DarkPlus` inherits `dark_vs` and declares `"editor.background"` with no selection or line-number key, while `Monokai` spells the gutter `"editorLineNumber.foreground"` where `OneDark` spells the same pixel `"editor.lineNumber.foreground"`. Every read branches on the miss, and the consumer's fallback owns that pixel.
 
 [CORPUS_MODEL_TYPE_SCOPE]: the VS Code grammar-extension model `RegistryOptions` decodes
 
@@ -92,7 +95,7 @@
 |  [04]   | `IModelTokensChangedListener` | interface     | delta listener       |
 |  [05]   | `ITokenizationSupport`        | interface     | tokenize port        |
 
-`TMModel` runs a background `TokenizerThread` that revalidates invalidated lines and emits `ModelTokensChangedEvent` ranges to listeners; `GetLineTokens(lineIndex)` reads cached tokens, `InvalidateLineRange` re-queues a span after an edit. A host wanting incremental tokenization without an editor drives `TMModel` directly over its own `IModelLines`.
+`TMModel` runs a background `TokenizerThread` that revalidates invalidated lines and emits `ModelTokensChangedEvent` ranges to listeners; `GetLineTokens(lineIndex)` reads cached tokens, `InvalidateLineRange` re-queues a span after an edit. Incremental tokenization without an editor drives `TMModel` directly over the host's own `IModelLines`.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -130,7 +133,7 @@
 |  [08]   | `GetColorMap() -> ICollection<string>`                         | instance | theme state                  |
 |  [09]   | `GetLocator() -> IRegistryOptions`                             | instance | locator state                |
 
-`new Registry(registryOptions).LoadGrammar("source.cs").TokenizeLine(line)` is the complete non-editor tokenization rail — scope-tagged `IToken` runs over a string with no editor control. `GrammarForScopeName` carries an overload taking `initialLanguage` and an embedded-language map for grammar embedding. A virtualized log or inspector surface maps `IToken.Scopes` through `GetTheme().Match(scopes)` → `GetColor(id)` to reuse the editor palette.
+`new Registry(registryOptions).LoadGrammar("source.cs").TokenizeLine(line)` is the complete non-editor tokenization rail — scope-tagged `IToken` runs over a string with no editor control. `GrammarForScopeName` carries an overload taking `initialLanguage` and an embedded-language map for grammar embedding. Virtualized log and inspector surfaces resolve `IToken.Scopes` through `GetTheme().Match(scopes)` against one id-keyed brush cache seeded from `GetColorMap`, reusing the editor palette.
 
 [GRAMMAR_TOKENIZE_ENTRY_SCOPE]: `IGrammar` line tokenization and state carry-forward
 
@@ -145,6 +148,27 @@
 
 Feeding line N's `result.RuleStack` as line N+1's `prevState` continues multi-line constructs; `TimeSpan timeLimit` bounds a pathological line, and `TokenizeLine2` carries the same state overload. `TokenizeLine2` packs color metadata per the VS Code binary scheme for hosts resolving color from the packed `int` rather than re-matching `Scopes`.
 
+[THEME_ENTRY_SCOPE]: compiled-theme resolution and the chrome key map (`TextMateSharp.Themes`)
+
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]     |
+| :-----: | :---------------------------------------------------------------------- | :------- | :--------------- |
+|  [01]   | `Theme.CreateFromRawTheme(IRawTheme, IRegistryOptions) -> Theme`        | static   | theme compile    |
+|  [02]   | `Theme.Match(IList<string>) -> List<ThemeTrieElementRule>`              | instance | scope resolution |
+|  [03]   | `Theme.GetColor(int) -> string`                                         | instance | id to hex        |
+|  [04]   | `Theme.GetColorId(string) -> int`                                       | instance | hex to id        |
+|  [05]   | `Theme.GetColorMap() -> ICollection<string>`                            | instance | full palette     |
+|  [06]   | `Theme.GetGuiColorDictionary() -> ReadOnlyDictionary<string, string>`   | instance | chrome key map   |
+|  [07]   | `IRawTheme.GetGuiColors() -> ICollection<KeyValuePair<string, object>>` | instance | raw chrome block |
+|  [08]   | `IRawTheme.GetTokenColors() -> ICollection<IRawThemeSetting>`           | instance | raw token rules  |
+|  [09]   | `IRawTheme.GetSettings() -> ICollection<IRawThemeSetting>`              | instance | raw legacy rules |
+|  [10]   | `IRawTheme.GetInclude() -> string`                                      | instance | base-theme path  |
+|  [11]   | `IRawTheme.GetName() -> string`                                         | instance | theme metadata   |
+
+- `GetGuiColorDictionary` is the chrome entrypoint every non-token pixel resolves through: `CreateFromRawTheme` merges the included theme's `colors` block first and the source theme's over it, so one lookup answers for the whole include chain. Each call wraps the same backing map in a fresh `ReadOnlyDictionary`, so a host hoists one reference per applied theme.
+- `Theme.Match` returns rules, not colors: fold to the first nonzero `foreground`, `background`, and `fontStyle`, then push each color id through `GetColor` — a zero id means the rule set left that axis to the editor default.
+- `GetColor` linear-scans the color table per call and `GetColorId` registers an unseen color as a new id, so a per-token call both costs O(colors) and grows the table; build one id-keyed brush cache per applied theme and read the cache thereafter.
+- `GetColorMap` returns the distinct uppercase hex strings the theme registered — ids run 1-based in registration order with 0 reserved for unset — so one enumeration seeds that cache whole.
+
 [THEME_NAMES]: the bundled `ThemeName` cases in declaration order (`TextMateSharp.Grammars`)
 
 `Abbys` `Dark` `DarkPlus` `DimmedMonokai` `KimbieDark` `Light` `LightPlus` `OneDark` `Monokai` `QuietLight` `Red` `SolarizedDark` `SolarizedLight` `TomorrowNightBlue` `HighContrastLight` `HighContrastDark` `Dracula` `AtomOneLight` `AtomOneDark` `VisualStudioLight` `VisualStudioDark`
@@ -155,7 +179,7 @@ Feeding line N's `result.RuleStack` as line N+1's `prevState` continues multi-li
 
 `Asciidoc` `Bat` `Clojure` `CoffeeScript` `Cpp` `CSharp` `CSS` `Dart` `Diff` `Docker` `FSharp` `Git` `Go` `Groovy` `HandleBars` `HLSL` `HTML` `Ini` `Java` `Javascript` `Json` `Julia` `Latex` `Less` `Log` `Lua` `Make` `MarkdownBasics` `MarkdownMath` `ObjectiveC` `Pascal` `Perl` `PHP` `PowerShell` `Pug` `Python` `R` `Razor` `Ruby` `Rust` `SCSS` `ShaderLab` `ShellScript` `SQL` `Swift` `TypescriptBasics` `Typst` `VB` `XML` `YAML`
 
-Workspace-relevant scopes cover `CSharp` (`source.cs`), `Cpp`/`HLSL`/`ShaderLab` (shader-adjacent), `Json`, `Python`/`Rust`/`FSharp`, `Log` (host/build-output coloring in livedata), and `MarkdownBasics`/`MarkdownMath`. A scope absent from this list — the Rasm-DSL `source.rasm`/`source.rasm-expression` — registers through a custom `IRegistryOptions.GetGrammar` or `LoadFromLocalFile`.
+Workspace-relevant scopes cover `CSharp` (`source.cs`), `Cpp`/`HLSL`/`ShaderLab` (shader-adjacent), `Json`, `Python`/`Rust`/`FSharp`, `Log` (host/build-output coloring in livedata), and `MarkdownBasics`/`MarkdownMath`. Scopes absent from this list — the Rasm-DSL `source.rasm`/`source.rasm-expression` — register through a custom `IRegistryOptions.GetGrammar` or `LoadFromLocalFile`.
 
 [MODEL_ENTRY_SCOPE]: standalone `TMModel` incremental tokenization (`TextMateSharp.Model`)
 
@@ -177,17 +201,19 @@ Registering a listener, `SetGrammar`, then reading `GetLineTokens` as `ModelToke
 
 [TOPOLOGY]:
 - One `IRegistryOptions` owns every scope the app tokenizes; each grammar and theme handle flows from that single locator, scope strings are corpus scopes (`"source.cs"`) or registered custom scopes (`"source.rasm"`), and themes are `ThemeName` cases resolved through `LoadTheme`.
+- One compiled `Theme` answers two independent planes: `Match`/`GetColor` resolve a scope stack to token paint, and `GetGuiColorDictionary` resolves a VS Code chrome key to a hex string. Themes author the chrome plane partially, so every consumer pairs each key read with its own fallback.
 
 [STACKING]:
 - `api-avaloniaedit`(`.api/api-avaloniaedit.md`): `AvaloniaEdit.TextMate.InstallTextMate(IRegistryOptions)` consumes this catalog's `IRegistryOptions`, scope strings, and `IRawTheme` handles unchanged; `RegistryOptions`/`GetScopeByExtension`/`LoadTheme`/`ThemeName` are `TextMateSharp` types the adapter only forwards, and its `TextEditorModel`/`DocumentSnapshot` adapt `TMModel` over the editor `TextDocument`.
-- editor rail: an editable pane feeds one locator to `editor.InstallTextMate(registryOptions)` → `SetGrammar(GetScopeByExtension(ext))` → `SetTheme(LoadTheme(ThemeName.DarkPlus))`; the installation owns its `TMModel`, so the host supplies only the `IRegistryOptions` and reacts to the `AppliedTheme` event for chrome alignment through `GetGuiColorDictionary`.
-- standalone rail: a read-only surface (virtualized log, inspector preview) drives `new Registry(registryOptions).LoadGrammar(scope).TokenizeLine(line)` per line carrying `RuleStack` forward, or a `TMModel` over its own `IModelLines` for an incremental large source, mapping `IToken.Scopes` through `GetTheme().Match(scopes)` → `GetColor(id)` and the `FontStyle` flags onto the shared palette.
+- `api-avaloniaedit`(`.api/api-avaloniaedit.md`): `TextMate.Installation.TryGetThemeColor(key, out hex)` is the adapter's whole view of `Theme.GetGuiColorDictionary()`, refreshed on each `SetTheme`; a `true` return parses to a brush the consumer writes onto `TextView.CurrentLineBackground`, `TextArea.SelectionBrush`, `TextEditor.LineNumbersForeground`, and the rest of that styled-property set, because `TextMateColoringTransformer` paints token spans alone.
+- editor rail: an editable pane feeds one locator to `editor.InstallTextMate(registryOptions)` → `SetGrammar(GetScopeByExtension(ext))` → `SetTheme(LoadTheme(ThemeName.DarkPlus))`; the installation owns its `TMModel`, so the host supplies only the `IRegistryOptions` and answers `AppliedTheme` by rewriting the chrome property set from `TryGetThemeColor`.
+- standalone rail: a read-only surface (virtualized log, inspector preview) drives `new Registry(registryOptions).LoadGrammar(scope).TokenizeLine(line)` per line carrying `RuleStack` forward, or a `TMModel` over its own `IModelLines` for an incremental large source, resolving `IToken.Scopes` through `GetTheme().Match(scopes)` against one id-keyed brush cache and folding the `FontStyle` flags onto the same palette.
 
 [LOCAL_ADMISSION]:
-- A custom scope (`source.rasm`, `source.rasm-expression`) registers on the same locator the app installs: implement the four `IRegistryOptions` members, or `LoadFromLocalFile` a file-backed grammar extension.
+- Custom scopes (`source.rasm`, `source.rasm-expression`) register on the same locator the app installs: implement the four `IRegistryOptions` members, or `LoadFromLocalFile` a file-backed grammar extension.
 
 [RAIL_LAW]:
 - Package: `TextMateSharp`, `TextMateSharp.Grammars`
-- Owns: TextMate tokenization — grammar resolution, scope-tagged token runs, scope-to-color theming, and off-thread incremental re-tokenization.
-- Accept: every grammar and theme handle from one `IRegistryOptions`; multi-line state via `IStateStack`; the native `Onigwrap` binary shipped with the app.
-- Reject: a second locator per scope; a hand-rolled regex tokenizer where a bundled or custom TextMate grammar exists; hardcoded color literals where `Theme.Match`/`GetColor` resolves the scope; a separate `Registry`/`TMModel` alongside an `InstallTextMate` editor, which already owns one.
+- Owns: TextMate tokenization — grammar resolution, scope-tagged token runs, scope-to-color theming, the theme's VS Code chrome key map, and off-thread incremental re-tokenization.
+- Accept: every grammar and theme handle from one `IRegistryOptions`; multi-line state via `IStateStack`; one id-keyed brush cache per applied theme; every chrome key read as an optional lookup behind a consumer fallback; the native `Onigwrap` binary shipped with the app.
+- Reject: a second locator per scope; a hand-rolled regex tokenizer where a bundled or custom TextMate grammar exists; hardcoded color literals where `Theme.Match`/`GetColor` resolves the scope; a `GetColor` call per token where the brush cache answers; a chrome key treated as guaranteed across themes; a separate `Registry`/`TMModel` alongside an `InstallTextMate` editor, which already owns one.

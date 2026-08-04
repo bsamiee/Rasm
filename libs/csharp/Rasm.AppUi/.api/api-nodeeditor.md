@@ -1,240 +1,328 @@
 # [RASM_APPUI_API_NODEEDITOR]
 
-`NodeEditorAvalonia` owns node/pin/connector graph editing across two assemblies. `NodeEditorAvalonia.Model` mints the framework-agnostic graph core — contracts, the headless `DrawingNodeEditor` engine, connection policy, serialization, and the typed event family — and `NodeEditorAvalonia` binds it to the Avalonia controls, `Xaml.Behaviors` interaction, the `NodeZoomBorder` viewport, the `OrthogonalRouter`+`RTree` spatial index, the ink layer, and the `ExportRenderer`.
+`NodeEditorAvalonia` owns node/pin/connector graph editing across two assemblies: `NodeEditorAvalonia.Model` mints the framework-agnostic graph contracts, the headless `DrawingNodeEditor` engine, connection policy, and ink; `NodeEditorAvalonia` binds them to Avalonia controls, `Xaml.Behaviors` interaction, adorners, and Skia export.
 
-Every mutation folds through the `IDrawingNode` command surface and the `DrawingNodeEditor` engine, never a repositioned control.
+Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visual folds through the compiled `Themes/` control themes and their variant resource keys.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodeEditorAvalonia.Model`
 - package: `NodeEditorAvalonia.Model` (MIT)
 - assembly: `NodeEditorAvalonia.Model`
-- namespace: `NodeEditor.Model` — framework-agnostic graph contracts, the `DrawingNodeEditor` engine, and the typed `{Node,Pin,Connector}*EventArgs` family
-- asset: managed runtime library (`lib/net10.0` binds the `net10.0` consumer; `lib/net8.0` fallback)
+- namespace: `NodeEditor.Model`
+- asset: managed library carrying no dependency; `lib/net10.0` binds the `net10.0` consumer, `lib/net6.0` and `lib/netstandard2.0` fall back
 - rail: graph-editing
 
 [PACKAGE_SURFACE]: `NodeEditorAvalonia`
 - package: `NodeEditorAvalonia` (MIT)
 - assembly: `NodeEditorAvalonia`
-- namespace: `NodeEditor.Controls` (`Editor`, `DrawingNode`, `Node`, `Pin`, `Connector`, `NodeZoomBorder`, `Toolbox`, ink + adorner controls), `NodeEditor.Behaviors` (drag/connect/select/resize/rotate over `Xaml.Behaviors`), `NodeEditor.Converters`, `NodeEditor.Services` (`StorageService`, `ExportRenderer`), with `OrthogonalRouter`/`RTree`/`HitTestIndex`/`SnapHelper`/`ConnectorPathHelper` utilities
-- asset: managed runtime library (`lib/net10.0` binds the `net10.0` consumer; `lib/net8.0` fallback)
-- depends: `NodeEditorAvalonia.Model`, `Avalonia`, `Avalonia.Controls.PanAndZoom`, `Avalonia.Xaml.Behaviors`
+- namespace: `NodeEditor.Controls`, `NodeEditor.Behaviors`, `NodeEditor.Converters`, `NodeEditor.Services`
+- asset: managed library with compiled AXAML under `avares://NodeEditorAvalonia/Themes/`; `lib/net10.0` binds the consumer, `lib/net8.0` falls back
+- depends: `NodeEditorAvalonia.Model`, `Avalonia`, `Avalonia.Skia`, `Avalonia.Controls.PanAndZoom`, `Avalonia.Xaml.Behaviors`
 - rail: graph-editing
 
 ## [02]-[PUBLIC_TYPES]
 
-[GRAPH_CONTRACTS]: framework-agnostic model graph — `NodeEditor.Model`
+[GRAPH_CONTRACTS]: `NodeEditor.Model` graph algebra, editing engine, and validation rail
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                            |
-| :-----: | :--------------------- | :------------ | :-------------------------------------- |
-|  [01]   | `INode`                | interface     | graph node                              |
-|  [02]   | `IDrawingNode : INode` | interface     | root canvas node + editing command host |
-|  [03]   | `IConnector`           | interface     | graph edge                              |
-|  [04]   | `IPin`                 | interface     | node port                               |
-|  [05]   | `IConnectablePin`      | interface     | typed node port, direction + bus width  |
-|  [06]   | `IDrawingNodeSettings` | interface     | connection, ink, snap, grid policy      |
-|  [07]   | `IDrawingNodeFactory`  | interface     | pin/connector/list factory              |
-|  [08]   | `INodeSerializer`      | interface     | round-trip serializer                   |
-|  [09]   | `IUndoRedoHost`        | interface     | coalesced undo history                  |
-|  [10]   | `INodeTemplate`        | interface     | palette template                        |
-|  [11]   | `INodeTemplatesHost`   | interface     | template host                           |
-|  [12]   | `INodeFactory`         | interface     | node factory                            |
-|  [13]   | `IEditor`              | interface     | editor binding                          |
-|  [14]   | `DrawingNodeEditor`    | class         | headless editing + validation engine    |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                             |
+| :-----: | :----------------------------- | :------------ | :------------------------------------------------------- |
+|  [01]   | `INode`                        | interface     | graph node: geometry, rotation, content, pins, lifecycle |
+|  [02]   | `IDrawingNode : INode`         | interface     | root canvas node, command host, editing operations       |
+|  [03]   | `IConnector`                   | interface     | graph edge: endpoints, routing, arrows, waypoints        |
+|  [04]   | `IPin`                         | interface     | node port: geometry, alignment, connection lifecycle     |
+|  [05]   | `IConnectablePin`              | interface     | read-only direction and bus-width typing                 |
+|  [06]   | `IDrawingNodeSettings`         | interface     | connection, ink, snap, grid, guide, and routing policy   |
+|  [07]   | `IDrawingNodeFactory`          | interface     | pin, connector, and list factory                         |
+|  [08]   | `INodeFactory`                 | interface     | template roster and drawing factory                      |
+|  [09]   | `INodeSerializer`              | interface     | generic round-trip serializer                            |
+|  [10]   | `INodeTemplate`                | interface     | palette template: title, template, preview               |
+|  [11]   | `INodeTemplatesHost`           | interface     | template-collection host                                 |
+|  [12]   | `IUndoRedoHost`                | interface     | coalesced undo history                                   |
+|  [13]   | `IEditor`                      | interface     | drawing and template binding pair                        |
+|  [14]   | `DrawingNodeEditor`            | class         | headless editing and validation engine                   |
+|  [15]   | `ConnectionValidationContext`  | struct        | drawing, start, and end validation payload               |
+|  [16]   | `ConnectionValidationHandler`  | delegate      | `bool` gate over the validation context                  |
+|  [17]   | `SelectionChangedEventHandler` | delegate      | selection-change signal                                  |
 
-[INode]: `CanSelect` `CanRemove` `CanMove` `CanResize` `Move` `Resize(dx,dy,dir)` `On{Created,Removed,Moved,Selected,Deselected,Resized}`
-[IDrawingNode]: `Nodes` `Connectors` + selection and connector-drag state
-[IConnector]: `CanSelect` `CanRemove` `On{Created,Removed,Selected,Deselected,StartChanged,EndChanged}`
-[IPin]: `CanConnect` `CanDisconnect` `On{Created,Removed,Moved,Selected,Deselected,Resized,Connected,Disconnected}`
-[IConnectablePin]: `Direction : PinDirection` `BusWidth : int`
-[IDrawingNodeSettings]: `EnableConnections` `RequireDirectionalConnections` `RequireMatchingBusWidth` `EnableMultiplePinConnections` `AllowSelfConnections` `AllowDuplicateConnections` `ConnectionValidator : ConnectionValidationHandler?` `EnableInk` `IsInkMode` `InkPens : IList<InkPen>?` `ActivePen : InkPen?` `EnableSnap` `SnapX` `SnapY` `NudgeStep` `NudgeMultiplier` `EnableGrid` `GridCellWidth` `GridCellHeight` `EnableGuides` `GuideSnapTolerance` `EnableConnectorRouting` `RoutingGridSize` `RoutingObstaclePadding` — every toggle `bool`, every measure `double` (settable throughout)
-[IDrawingNodeFactory]: `CreatePin()` `CreateConnector()` `CreateList<T>()`
+[INode]: `Name` `Parent : INode?` `X` `Y` `Width` `Height` `Rotation` `Content : object?` `Pins : IList<IPin>?` `IsVisible` `IsLocked`
+[INode.ops]: `CanSelect()` `CanRemove()` `CanMove()` `CanResize()` `Move(dx, dy)` `Resize(dx, dy, NodeResizeDirection)` `On{Created,Removed,Moved,Selected,Deselected,Resized}()`
+[IDrawingNode]: `Nodes : IList<INode>?` `Connectors : IList<IConnector>?` `InkStrokes : IList<InkStroke>?` `Settings : IDrawingNodeSettings` + events `SelectionChanged` `ConnectionRejected`
+[IConnector]: `Name` `Parent : IDrawingNode?` `Orientation : ConnectorOrientation` `Style : ConnectorStyle` `RoutingMode : ConnectorRoutingMode` `StartArrow`/`EndArrow : ConnectorArrowStyle`
+[IConnector.geometry]: `Start`/`End : IPin?` `Offset : double` `Waypoints : IList<ConnectorPoint>` `IsVisible` `IsLocked` `CanSelect()` `CanRemove()` `On{Created,Removed,Selected,Deselected,StartChanged,EndChanged}()`
+[IPin]: `Name` `Parent : INode?` `X` `Y` `Width` `Height` `Alignment : PinAlignment` `CanConnect()` `CanDisconnect()` `On{Created,Removed,Moved,Selected,Deselected,Resized,Connected,Disconnected}()`
+[IConnectablePin]: `Direction : PinDirection { get; }` `BusWidth : int { get; }` — a product pin implements this beside `IPin` to admit directional and bus-width policy
+[IDrawingNodeSettings.connection]: `EnableConnections` `RequireDirectionalConnections` `RequireMatchingBusWidth` `EnableMultiplePinConnections` `AllowSelfConnections` `AllowDuplicateConnections` `ConnectionValidator : ConnectionValidationHandler?`
+[IDrawingNodeSettings.ink]: `EnableInk` `IsInkMode` `InkPens : IList<InkPen>?` `ActivePen : InkPen?`
+[IDrawingNodeSettings.lattice]: `EnableSnap` `SnapX` `SnapY` `NudgeStep` `NudgeMultiplier` `EnableGrid` `GridCellWidth` `GridCellHeight` `EnableGuides` `GuideSnapTolerance`
+[IDrawingNodeSettings.routing]: `EnableConnectorRouting` `RoutingGridSize` `RoutingObstaclePadding` `RoutingAlgorithm : ConnectorRoutingAlgorithm` `RoutingBendPenalty` `RoutingDiagonalCost` `RoutingCornerRadius` `RoutingMaxCells : int` `DefaultConnectorStyle : ConnectorStyle`
+[IDrawingNodeFactory]: `CreatePin() : IPin` `CreateConnector() : IConnector` `CreateList<T>() : IList<T>`
+[INodeFactory]: `CreateTemplates() : IList<INodeTemplate>` `CreateDrawing(string?) : IDrawingNode`
+[INodeTemplate]: `Title : string?` `Template : INode?` `Preview : INode?`
 [IUndoRedoHost]: `CanUndo` `CanRedo` `Undo()` `Redo()` `BeginUndoBatch()` `EndUndoBatch()`
 [IEditor]: `Drawing : IDrawingNode?` `Templates : IList<INodeTemplate>?`
+[ConnectionValidationContext]: `Drawing : IDrawingNode` `Start : IPin` `End : IPin` — `ConnectionValidationHandler` returns `bool` over this struct
 
-[GRAPH_ENUMS]: `NodeEditor.Model` graph vocabulary (enums)
+[GRAPH_VOCABULARY]: `NodeEditor.Model` bounded case sets (enums)
 
-| [INDEX] | [SYMBOL]                    | [CAPABILITY]         |
-| :-----: | :-------------------------- | :------------------- |
-|  [01]   | `ConnectorRoutingMode`      | routing mode         |
-|  [02]   | `ConnectorRoutingAlgorithm` | routing algorithm    |
-|  [03]   | `ConnectorStyle`            | connector style      |
-|  [04]   | `ConnectorOrientation`      | endpoint orientation |
-|  [05]   | `ConnectorArrowStyle`       | arrowhead            |
-|  [06]   | `ConnectorPoint`            | anchor point         |
-|  [07]   | `PinAlignment`              | pin-edge alignment   |
-|  [08]   | `PinDirection`              | IO direction         |
-|  [09]   | `NodeAlignment`             | alignment            |
-|  [10]   | `NodeDistribution`          | distribution         |
-|  [11]   | `NodeOrder`                 | z-order              |
-|  [12]   | `NodeResizeDirection`       | resize handle        |
-|  [13]   | `InkShape`                  | ink shape            |
-|  [14]   | `InkPen`                    | ink pen              |
-|  [15]   | `InkPoint`                  | ink point            |
-|  [16]   | `InkStroke`                 | ink stroke           |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                            |
+| :-----: | :-------------------------- | :------------ | :-------------------------------------- |
+|  [01]   | `ConnectorRoutingMode`      | enum          | per-connector manual or automatic route |
+|  [02]   | `ConnectorRoutingAlgorithm` | enum          | routing lattice selection               |
+|  [03]   | `ConnectorStyle`            | enum          | connector path shape                    |
+|  [04]   | `ConnectorOrientation`      | enum          | control-point projection axis           |
+|  [05]   | `ConnectorArrowStyle`       | enum          | endpoint arrowhead                      |
+|  [06]   | `PinAlignment`              | enum          | pin-edge attachment                     |
+|  [07]   | `PinDirection`              | enum          | IO direction                            |
+|  [08]   | `NodeAlignment`             | enum          | selection alignment axis                |
+|  [09]   | `NodeDistribution`          | enum          | selection distribution axis             |
+|  [10]   | `NodeOrder`                 | enum          | z-order move                            |
+|  [11]   | `NodeResizeDirection`       | enum          | resize handle                           |
 
 [ConnectorRoutingMode]: `Manual` `Auto`
 [ConnectorRoutingAlgorithm]: `Auto` `Orthogonal` `Octilinear`
 [ConnectorStyle]: `Bezier` `Straight` `Orthogonal`
+[ConnectorOrientation]: `Auto` `Horizontal` `Vertical`
+[ConnectorArrowStyle]: `None` `Arrow` `Circle` `Diamond`
 [PinAlignment]: `None` `Left` `Right` `Top` `Bottom`
-[SnapHelper]: `Snap(double value, double snap) : double` / `Snap(Point point, double snapX, double snapY, bool enabled) : Point` — the package's own lattice; a hand-spelled `Round(x / snap) * snap` beside it is the deleted form
+[PinDirection]: `Input` `Output` `Bidirectional`
+[NodeAlignment]: `Left` `Center` `Right` `Top` `Middle` `Bottom`
+[NodeDistribution]: `Horizontal` `Vertical`
+[NodeOrder]: `BringToFront` `SendToBack` `BringForward` `SendBackward`
+[NodeResizeDirection]: `Top` `Bottom` `Left` `Right` `TopLeft` `TopRight` `BottomLeft` `BottomRight`
 
-[GRAPH_EVENTS]: `NodeEditor.Model` typed event-args family (classes)
+[GRAPH_CARRIERS]: `NodeEditor.Model` data carriers and the typed event-args family
 
-| [INDEX] | [SYMBOL]                                                           | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------------------------- | :---------------------------------------- |
-|  [01]   | `Node{Created,Removed,Moved,Resized,Selected,Deselected}EventArgs` | node lifecycle                            |
-|  [02]   | `Pin{Created,Removed,Moved,Resized,Selected,Deselected}EventArgs`  | pin lifecycle                             |
-|  [03]   | `Pin{Connected,Disconnected}EventArgs`                             | pin connection lifecycle                  |
-|  [04]   | `Connector{Created,Removed,Selected,Deselected}EventArgs`          | connector lifecycle                       |
-|  [05]   | `Connector{Start,End}ChangedEventArgs`                             | endpoint rebind                           |
-|  [06]   | `ConnectionRejectedEventArgs`                                      | rejection raised by settings or validator |
-|  [07]   | `ConnectorExtensions`                                              | connector geometry + orientation helpers  |
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY] | [CAPABILITY]                               |
+| :-----: | :----------------------------------------------------------------- | :------------ | :----------------------------------------- |
+|  [01]   | `ConnectorPoint`                                                   | class         | observable connector waypoint              |
+|  [02]   | `InkPen`                                                           | class         | ink pen preset                             |
+|  [03]   | `InkPoint`                                                         | class         | pressure- and time-stamped ink sample      |
+|  [04]   | `InkStroke`                                                        | class         | sampled stroke with its paint              |
+|  [05]   | `InkShape`                                                         | class         | single-stroke shape carrier                |
+|  [06]   | `ConnectorExtensions`                                              | static class  | control-point projection over `IConnector` |
+|  [07]   | `Node{Created,Removed,Moved,Resized,Selected,Deselected}EventArgs` | class         | node lifecycle payloads                    |
+|  [08]   | `Pin{Created,Removed,Moved,Resized,Selected,Deselected}EventArgs`  | class         | pin lifecycle payloads                     |
+|  [09]   | `Pin{Connected,Disconnected}EventArgs`                             | class         | pin connection payloads                    |
+|  [10]   | `Connector{Created,Removed,Selected,Deselected}EventArgs`          | class         | connector lifecycle payloads               |
+|  [11]   | `Connector{Start,End}ChangedEventArgs`                             | class         | endpoint rebind payloads                   |
+|  [12]   | `ConnectionRejectedEventArgs`                                      | class         | rejection carrying `Start` and `End` pins  |
 
-[CANVAS_CONTROLS]: `NodeEditor.Controls` Avalonia layer (controls)
+[ConnectorPoint]: `X : double` `Y : double` + `INotifyPropertyChanged`; `ConnectorPoint()` / `ConnectorPoint(x, y)`
+[InkPen]: `Id : string` `Name : string` `Color : uint` `Thickness : double` `Opacity : double` — `Color` is packed ARGB, never an Avalonia `Color`
+[InkPoint]: `X` `Y` `Pressure` `Timestamp : long`; `InkPoint(x, y, pressure = 1.0, timestamp = 0)`
+[InkStroke]: `Points : IList<InkPoint>` `Color : uint` `Thickness : double` `Opacity : double` `Name : string?`
+[InkShape]: `Stroke : InkStroke`
+[ConnectorExtensions]: `GetControlPoints(this IConnector, ConnectorOrientation, offset, PinAlignment, PinAlignment, ref p1X, ref p1Y, ref p2X, ref p2Y)`
+[EVENT_PAYLOAD]: every `Node*`/`Pin*`/`Connector*EventArgs` carries its subject alone; `*Moved` adds `X`/`Y` and `*Resized` adds `X`/`Y`/`Width`/`Height`
 
-| [INDEX] | [SYMBOL]                    | [CAPABILITY]                |
-| :-----: | :-------------------------- | :-------------------------- |
-|  [01]   | `Editor`                    | top-level control           |
-|  [02]   | `DrawingNode`               | canvas control              |
-|  [03]   | `DrawingNodeProperties`     | canvas properties           |
-|  [04]   | `Node`                      | node host control           |
-|  [05]   | `Nodes`                     | nodes panel                 |
-|  [06]   | `Pin`                       | pin control                 |
-|  [07]   | `Pins`                      | pins panel                  |
-|  [08]   | `Connector`                 | connector control           |
-|  [09]   | `Connectors`                | connectors panel            |
-|  [10]   | `NodeZoomBorder`            | pan-and-zoom viewport       |
-|  [11]   | `Toolbox`                   | node-template palette       |
-|  [12]   | `InkLayer`                  | ink overlay                 |
-|  [13]   | `InkStrokePresenter`        | stroke presenter            |
-|  [14]   | `InkGeometryBuilder`        | ink geometry builder        |
-|  [15]   | `InkColorHelper`            | ink color helper            |
-|  [16]   | `GridDecorator`             | grid overlay                |
-|  [17]   | `GuidesAdorner`             | guides overlay              |
-|  [18]   | `SelectionAdorner`          | selection overlay           |
-|  [19]   | `SelectedAdorner`           | selected-item overlay       |
-|  [20]   | `ConnectorSelectedAdorner`  | connector-selection overlay |
-|  [21]   | `ConnectorCrossingsAdorner` | connector-crossing overlay  |
-|  [22]   | `EditableTextBlock`         | inline rename label         |
-|  [23]   | `ExportRoot`                | export render root          |
+[CANVAS_CONTROLS]: `NodeEditor.Controls` Avalonia layer — every graph binding rides a `*Source` styled property
 
-`Editor` binds `Drawing`/`Templates`/`InputSource`/`ZoomControl`/`AdornerCanvas` as `StyledProperty` values; `NodeZoomBorder` subclasses the package's own `PanAndZoom` `ZoomBorder`.
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :-------------------------- | :------------ | :-------------------------------------------------- |
+|  [01]   | `Editor`                    | class         | top-level templated host                            |
+|  [02]   | `DrawingNode`               | class         | canvas host                                         |
+|  [03]   | `DrawingNodeProperties`     | class         | two-way settings editor over `IDrawingNodeSettings` |
+|  [04]   | `Node`                      | class         | node content host, `:selected` pseudo-class         |
+|  [05]   | `Nodes`                     | class         | nodes panel                                         |
+|  [06]   | `Pin`                       | class         | pin control, initiates connector drag               |
+|  [07]   | `Pins`                      | class         | pins panel                                          |
+|  [08]   | `Connector`                 | class         | connector `Shape`                                   |
+|  [09]   | `Connectors`                | class         | connectors panel                                    |
+|  [10]   | `NodeZoomBorder`            | class         | pan-and-zoom viewport with command methods          |
+|  [11]   | `Toolbox`                   | class         | node-template palette                               |
+|  [12]   | `InkLayer`                  | class         | ink capture and render overlay                      |
+|  [13]   | `InkStrokePresenter`        | class         | single-stroke presenter                             |
+|  [14]   | `GridDecorator`             | class         | grid overlay                                        |
+|  [15]   | `GuideLine`                 | struct        | alignment-guide segment                             |
+|  [16]   | `GuidesAdorner`             | class         | alignment-guide overlay                             |
+|  [17]   | `SelectionAdorner`          | class         | rubber-band overlay                                 |
+|  [18]   | `SelectedAdorner`           | class         | selected-bounds overlay                             |
+|  [19]   | `ConnectorSelectedAdorner`  | class         | selected-connector overlay                          |
+|  [20]   | `ConnectorCrossingsAdorner` | class         | connector-crossing hop overlay                      |
+|  [21]   | `EditableTextBlock`         | class         | inline rename label                                 |
+|  [22]   | `ExportRoot`                | class         | export render root                                  |
 
-[CANVAS_UTILITIES]: `NodeEditor.*` graph algorithms + behaviors
+[Editor]: `DrawingSource : IDrawingNode?` `InputSource : Control?` `AdornerCanvas : Canvas?` `ZoomControl : NodeZoomBorder?` — `OnApplyTemplate` fills `ZoomControl` from `PART_ZoomBorder` and `AdornerCanvas` from `PART_AdornerCanvas`
+[DrawingNode]: `DrawingSource : IDrawingNode?` `InputSource : Control?` `AdornerCanvas : Canvas?`
+[Nodes]: `DrawingSource : IDrawingNode?` `InputSource : Control?` `AdornerCanvas : Canvas?`
+[Node]: `NodeSource : INode?`
+[Pin]: `PinSource : IPin?` `Alignment : PinAlignment` `Direction : PinDirection` (default `Bidirectional`) `BusWidth : int` (default `1`) `Id : string?`
+[Pins]: `NodeSource : INode?`
+[Connector]: `ConnectorSource : IConnector?` `StartPoint : Point` `EndPoint : Point` `Offset : double` `ConnectorStyle : ConnectorStyle` `Orientation : ConnectorOrientation` `LabelPoint : Point` `SwapDirectionCommand : ICommand`
+[Connectors]: `DrawingSource : IDrawingNode?`
+[Toolbox]: `TemplatesSource : IEnumerable<INodeTemplate>?` `DrawingSource : IDrawingNode?`
+[InkLayer]: `DrawingSource : IDrawingNode?` — captures pointer strokes into `IDrawingNode.InkStrokes` when `Settings.IsInkMode`
+[InkStrokePresenter]: `Stroke : InkStroke?`
+[GridDecorator]: `EnableGrid : bool` `GridCellWidth : double` `GridCellHeight : double` — both cells default `0.0`, so a grid renders only under explicit sizing
+[GuideLine]: `Start : Point` `End : Point`
+[GuidesAdorner]: `Guides : IReadOnlyList<GuideLine>?` `Stroke : IBrush?` `StrokeThickness : double` (default `1.0`)
+[SelectionAdorner]: `TopLeft : Point` `BottomRight : Point` `GetRect() : Rect`
+[SelectedAdorner]: `Rect : Rect`
+[ConnectorSelectedAdorner]: `Connectors : IReadOnlyList<IConnector>?` `Stroke : IBrush?` `StrokeThickness : double` (default `2.0`)
+[ConnectorCrossingsAdorner]: `Connectors : IReadOnlyList<IConnector>?` `Stroke : IBrush?` `Background : IBrush?` `StrokeThickness : double` (default `2.0`) `ArcRadius : double` (default `6.0`)
+[EditableTextBlock]: `Text : string?` (two-way) `Placeholder : string?` `IsEditing : bool` `AcceptsReturn : bool` `TextWrapping : TextWrapping` `TextAlignment : TextAlignment`
+[DrawingNodeProperties]: two-way styled properties mirror `IsInkMode`, the connection flags, the whole lattice and routing set, `DrawingWidth`, and `DrawingHeight`
+[DrawingNodeProperties.gap]: `ConnectionValidator` `EnableInk` `InkPens` `ActivePen` `DefaultConnectorStyle` carry no control property, so a view-model binds them on `IDrawingNode.Settings` directly
 
-| [INDEX] | [SYMBOL]                  | [CAPABILITY]                              |
-| :-----: | :------------------------ | :---------------------------------------- |
-|  [01]   | `OrthogonalRouter`        | A\*-style orthogonal routing over a field |
-|  [02]   | `RTree`                   | spatial index                             |
-|  [03]   | `HitTestIndex`            | indexed hit testing + crossing detection  |
-|  [04]   | `HitTestHelper`           | hit-test operations                       |
-|  [05]   | `SnapHelper`              | grid snapping                             |
-|  [06]   | `ConnectorPathHelper`     | connector path geometry                   |
-|  [07]   | `NodeEditor.Behaviors.*`  | interaction namespace                     |
-|  [08]   | `NodeEditor.Converters.*` | converter namespace                       |
+[CANVAS_INTERACTION]: `NodeEditor.Behaviors` gestures and drop rails over `Avalonia.Xaml.Behaviors`, and `NodeEditor.Converters` binding adapters
 
-[NodeEditor.Behaviors]: `Drawing{Pressed,Moved,Released,Selection}Behavior` `ConnectorInteractionBehavior` `PinPressedBehavior` `Node{Resize,Rotate}Behavior` `*SelectedBehavior` `DrawingDropHandler` `IDrawingDropTarget` `InsertTemplateOnDoubleTappedBehavior` `ToolboxDragBehavior`
-[NodeEditor.Converters]: `PinToPointConverter` `PinMarginConverter` `EnumToCheckedConverter` `EnumEqualsConverter` `NullToBoolConverter` `BoolInvertConverter`
+| [INDEX] | [SYMBOL]                                                                  | [TYPE_FAMILY]  | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------------------ | :------------- | :-------------------------------------- |
+|  [01]   | `Drawing{Pressed,Moved,Released,Selection}Behavior`                       | class          | canvas pointer state machine            |
+|  [02]   | `ConnectorInteractionBehavior`                                            | class          | connector pick, drag, and waypoints     |
+|  [03]   | `ConnectionFeedbackBehavior`                                              | class          | rejection stroke and label overlay      |
+|  [04]   | `PinPressedBehavior`                                                      | class          | pin-initiated connector drag            |
+|  [05]   | `Node{Resize,Rotate}Behavior`                                             | class          | thumb-driven resize and rotate          |
+|  [06]   | `{Nodes,Connectors}SelectedBehavior`                                      | class          | selection adorner projection            |
+|  [07]   | `InsertTemplateOnDoubleTappedBehavior`                                    | class          | palette double-tap insert               |
+|  [08]   | `ToolboxDragBehavior`                                                     | class          | palette drag initiation                 |
+|  [09]   | `IDrawingDropTarget`                                                      | interface      | text and file drop contract             |
+|  [10]   | `DefaultDropHandler`                                                      | abstract class | `IDropHandler` base                     |
+|  [11]   | `DrawingDropHandler`                                                      | class          | canvas drop onto a drawing              |
+|  [12]   | `TemplatesListBoxDropHandler`                                             | class          | template-list reorder drop              |
+|  [13]   | `PinToPointConverter` / `PinMarginConverter` / `ColumnWidthConverter`     | class          | geometry binding adapters               |
+|  [14]   | `EnumToCheckedConverter` / `EnumEqualsConverter`                          | class          | enum binding adapters                   |
+|  [15]   | `NullToBoolConverter` / `BoolInvertConverter` / `StringNotEmptyConverter` | class          | predicate binding adapters              |
+|  [16]   | `PlaceholderVisibilityConverter`                                          | class          | `IMultiValueConverter` placeholder gate |
 
-[CANVAS_SERVICES]: `NodeEditor.Services` IO + export
+[Drawing{Pressed,Moved}Behavior]: `DrawingSource : IDrawingNode?` `InputSource : Control?`
+[DrawingReleasedBehavior]: `DrawingSource : IDrawingNode?` `InputSource : Control?` `PinHitTolerance : double`
+[DrawingSelectionBehavior]: `DrawingSource : IDrawingNode?` `InputSource : Control?` `AdornerCanvas : Canvas?`
+[ConnectionFeedbackBehavior]: `DrawingSource` `AdornerCanvas` `RejectionStroke : IBrush?` `LabelBackground` `LabelBorderBrush` `LabelForeground` `LabelText : string?`
+[NodeResizeBehavior]: `NodeSource : INode?` `Direction : NodeResizeDirection`
+[NodeRotateBehavior]: `NodeSource : INode?` `AngleReadoutBackground` `AngleReadoutBorderBrush` `AngleReadoutForeground`
+[ToolboxDragBehavior]: `DragThreshold : double`
+[IDrawingDropTarget]: `CanDropText(string, Point)` `DropText(string, Point)` `CanDropFiles(IReadOnlyList<IStorageItem>, Point)` `DropFiles(IReadOnlyList<IStorageItem>, Point)`
+[DrawingDropHandler]: `DrawingSource : IDrawingNode?` `RelativeTo : Control?`
 
-| [INDEX] | [SYMBOL]         | [CAPABILITY]                       |
-| :-----: | :--------------- | :--------------------------------- |
-|  [01]   | `StorageService` | `FilePickerFileType` presets       |
-|  [02]   | `ExportRenderer` | static raster/vector canvas export |
+[CANVAS_SERVICES]: `NodeEditor.Services` IO and export
+
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                  |
+| :-----: | :--------------- | :------------ | :-------------------------------------------- |
+|  [01]   | `StorageService` | static class  | `FilePickerFileType` presets, provider lookup |
+|  [02]   | `ExportRenderer` | static class  | Skia raster and vector control export         |
 
 ## [03]-[ENTRYPOINTS]
 
-[DRAWING_COMMANDS]: `IDrawingNode` editing operations
+[DRAWING_OPERATIONS]: `IDrawingNode` editing surface — the model implements each against `DrawingNodeEditor`
 
-| [INDEX] | [SURFACE]                                         | [CAPABILITY]                |
-| :-----: | :------------------------------------------------ | :-------------------------- |
-|  [01]   | `CutNodes()`                                      | clipboard cut               |
-|  [02]   | `CopyNodes()`                                     | clipboard copy              |
-|  [03]   | `PasteNodes()`                                    | clipboard paste             |
-|  [04]   | `DuplicateNodes()`                                | selection duplication       |
-|  [05]   | `DeleteNodes()`                                   | selection deletion          |
-|  [06]   | `AlignSelectedNodes(NodeAlignment)`               | selection alignment         |
-|  [07]   | `DistributeSelectedNodes(NodeDistribution)`       | selection distribution      |
-|  [08]   | `OrderSelectedNodes(NodeOrder)`                   | selection z-order           |
-|  [09]   | `LockSelection()`                                 | selection lock              |
-|  [10]   | `SetSelectedNodes(ISet<INode>?)`                  | node selection setter       |
-|  [11]   | `GetSelectedNodes()`                              | node selection getter       |
-|  [12]   | `SetSelectedConnectors(...)`                      | connector selection setter  |
-|  [13]   | `GetSelectedConnectors()`                         | connector selection getter  |
-|  [14]   | `DrawingLeftPressed(x,y)`                         | left-press transition       |
-|  [15]   | `DrawingRightPressed(x,y)`                        | right-press transition      |
-|  [16]   | `ConnectorLeftPressed(IPin, bool showWhenMoving)` | connector-drag start        |
-|  [17]   | `ConnectorMove(x,y)`                              | connector-drag move         |
-|  [18]   | `CancelConnector()`                               | connector-drag cancel       |
-|  [19]   | `CanConnectPin(IPin)`                             | connection gate             |
-|  [20]   | `IsPinConnected(IPin)`                            | connection state            |
-|  [21]   | `IsConnectorMoving()`                             | drag state                  |
-|  [22]   | `CanSelectNodes()`                                | node selection gate         |
-|  [23]   | `CanSelectConnectors()`                           | connector selection gate    |
-|  [24]   | `NotifyConnectionRejected(IPin, IPin)`            | rejection event             |
-|  [25]   | `NotifySelectionChanged()`                        | selection event             |
-|  [26]   | `NotifyDeselectedNodes()`                         | node deselection event      |
-|  [27]   | `NotifyDeselectedConnectors()`                    | connector deselection event |
-|  [28]   | `GetSerializer()`                                 | serializer getter           |
-|  [29]   | `SetSerializer(INodeSerializer?)`                 | serializer setter           |
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :---------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `CutNodes()`                                          | instance | clipboard cut                |
+|  [02]   | `CopyNodes()`                                         | instance | clipboard copy               |
+|  [03]   | `PasteNodes()`                                        | instance | clipboard paste              |
+|  [04]   | `DuplicateNodes()`                                    | instance | selection duplication        |
+|  [05]   | `DeleteNodes()`                                       | instance | selection deletion           |
+|  [06]   | `AlignSelectedNodes(NodeAlignment)`                   | instance | selection alignment          |
+|  [07]   | `DistributeSelectedNodes(NodeDistribution)`           | instance | selection distribution       |
+|  [08]   | `OrderSelectedNodes(NodeOrder)`                       | instance | selection z-order            |
+|  [09]   | `LockSelection()` / `UnlockSelection()`               | instance | selection lock toggle        |
+|  [10]   | `HideSelection()` / `ShowSelection()`                 | instance | selection visibility toggle  |
+|  [11]   | `ShowAll()`                                           | instance | reveal every hidden item     |
+|  [12]   | `SelectAllNodes()` / `DeselectAllNodes()`             | instance | selection sweep              |
+|  [13]   | `SetSelectedNodes(ISet<INode>?)`                      | instance | node selection setter        |
+|  [14]   | `GetSelectedNodes()`                                  | instance | node selection getter        |
+|  [15]   | `SetSelectedConnectors(ISet<IConnector>?)`            | instance | connector selection setter   |
+|  [16]   | `GetSelectedConnectors()`                             | instance | connector selection getter   |
+|  [17]   | `DrawingLeftPressed(x, y)`                            | instance | left-press transition        |
+|  [18]   | `DrawingRightPressed(x, y)`                           | instance | right-press transition       |
+|  [19]   | `ConnectorLeftPressed(IPin, bool showWhenMoving)`     | instance | connector-drag start         |
+|  [20]   | `ConnectorMove(x, y)`                                 | instance | connector-drag move          |
+|  [21]   | `CancelConnector()`                                   | instance | connector-drag cancel        |
+|  [22]   | `CanConnectPin(IPin)`                                 | instance | connection gate              |
+|  [23]   | `IsPinConnected(IPin)`                                | instance | connection state             |
+|  [24]   | `IsConnectorMoving()`                                 | instance | drag state                   |
+|  [25]   | `CanSelectNodes()` / `CanSelectConnectors()`          | instance | selection gates              |
+|  [26]   | `Clone<T>(T source)`                                  | instance | serializer-backed deep clone |
+|  [27]   | `NotifyConnectionRejected(IPin, IPin)`                | instance | rejection event              |
+|  [28]   | `NotifySelectionChanged()`                            | instance | selection event              |
+|  [29]   | `NotifyDeselectedNodes()`                             | instance | node deselection event       |
+|  [30]   | `NotifyDeselectedConnectors()`                        | instance | connector deselection event  |
+|  [31]   | `GetSerializer()` / `SetSerializer(INodeSerializer?)` | instance | serializer accessors         |
 
-Press and move operations drive the pointer connector-drag state machine; the serializer accessors bind graph persistence and clipboard round trips.
+[BOUND_COMMANDS]: every operation above also rides a get-only `ICommand` for XAML binding — `{Cut,Copy,Paste,Duplicate,Delete}NodesCommand` `{Align,Distribute,Order}NodesCommand` `{SelectAll,DeselectAll}NodesCommand` `{Lock,Unlock,Hide,Show}SelectionCommand` `ShowAllCommand` `UndoCommand` `RedoCommand` `DrawInkCommand` `ConvertInkCommand` `AddPenCommand` `ClearInkCommand`
 
-[ENGINE_OPERATIONS]: `DrawingNodeEditor` headless engine — host-free editing + validation
+[ENGINE_OPERATIONS]: `DrawingNodeEditor` headless engine — host-free editing, selection, and validation
 
-| [INDEX] | [SURFACE]                                                               | [CAPABILITY]          |
-| :-----: | :---------------------------------------------------------------------- | :-------------------- |
-|  [01]   | `new DrawingNodeEditor(IDrawingNode node, IDrawingNodeFactory factory)` | engine binding        |
-|  [02]   | `Clone<T>(T source) : T?`                                               | deep clone            |
-|  [03]   | `IsPinConnected(IPin)`                                                  | connection state      |
-|  [04]   | `IsConnectorMoving()`                                                   | connector-drag state  |
-|  [05]   | `CancelConnector()`                                                     | connector-drag cancel |
-|  [06]   | `CanConnectPin(IPin)`                                                   | connection gate       |
-|  [07]   | `ConnectionValidationContext(node, start, end)`                         | validation context    |
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :---------------------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `new DrawingNodeEditor(IDrawingNode node, IDrawingNodeFactory factory)` | ctor     | engine binding                   |
+|  [02]   | `Clone<T>(T source) : T?`                                               | instance | serializer round-trip deep clone |
+|  [03]   | `CanConnectPin(IPin)` / `IsPinConnected(IPin)`                          | instance | connection gate and state        |
+|  [04]   | `IsConnectorMoving()` / `CancelConnector()`                             | instance | connector-drag state and cancel  |
+|  [05]   | `CanSelectNodes()` / `CanSelectConnectors()`                            | instance | selection gates                  |
+|  [06]   | `DrawingLeftPressed(x, y)` / `DrawingRightPressed(x, y)`                | instance | canvas press transitions         |
+|  [07]   | `ConnectorLeftPressed(IPin, bool)` / `ConnectorMove(x, y)`              | instance | connector-drag drive             |
+|  [08]   | `{Cut,Copy,Paste,Duplicate,Delete}Nodes()`                              | instance | clipboard and deletion           |
+|  [09]   | `AlignSelectedNodes` / `DistributeSelectedNodes` / `OrderSelectedNodes` | instance | selection layout                 |
+|  [10]   | `{Lock,Unlock,Hide,Show}Selection()` / `ShowAll()`                      | instance | selection lock and visibility    |
+|  [11]   | `SelectAllNodes()` / `DeselectAllNodes()`                               | instance | selection sweep                  |
 
-`Clone<T>` runs through `INodeSerializer` for paste and duplication; the connection-state operations honor `IDrawingNodeSettings`, and the validation context admits directional, bus-width, self-connection, and duplicate-connection validators before commit.
+- `DrawingNodeEditor.Clone<T>`: routes through the drawing's `INodeSerializer`, so paste and duplication return `null` while no serializer is set.
+- `DrawingNodeEditor.CanConnectPin`: folds `IDrawingNodeSettings` policy with the `ConnectionValidator` delegate; a refusal raises `ConnectionRejected` carrying both pins.
 
-[EXPORT_PERSIST]: `ExportRenderer` + `StorageService` + `INodeSerializer`
+[EXPORT_PERSIST]: `ExportRenderer`, `StorageService`, and `INodeSerializer`
 
-| [INDEX] | [SURFACE]                                  | [SURFACE_ROOT]    | [CAPABILITY]       |
-| :-----: | :----------------------------------------- | :---------------- | :----------------- |
-|  [01]   | `RenderPng(Control, Size, Stream, dpi=96)` | `ExportRenderer`  | PNG export         |
-|  [02]   | `RenderSvg(...)`                           | `ExportRenderer`  | SVG export         |
-|  [03]   | `RenderPdf(..., dpi=72)`                   | `ExportRenderer`  | PDF export         |
-|  [04]   | `RenderSkp(...)`                           | `ExportRenderer`  | SKP export         |
-|  [05]   | `RenderXps(...)`                           | `ExportRenderer`  | XPS export         |
-|  [06]   | `Json`                                     | `StorageService`  | JSON picker        |
-|  [07]   | `ImageSvg`                                 | `StorageService`  | SVG picker         |
-|  [08]   | `ImagePng`                                 | `StorageService`  | PNG picker         |
-|  [09]   | `ImageSkp`                                 | `StorageService`  | SKP picker         |
-|  [10]   | `Pdf`                                      | `StorageService`  | PDF picker         |
-|  [11]   | `Xps`                                      | `StorageService`  | XPS picker         |
-|  [12]   | `All`                                      | `StorageService`  | all-file picker    |
-|  [13]   | `Serialize<T>(T) : string`                 | `INodeSerializer` | graph serializer   |
-|  [14]   | `Deserialize<T>(string) : T?`              | `INodeSerializer` | graph deserializer |
+| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `ExportRenderer.RenderPng(Control, Size, Stream, dpi = 96)`    | static   | PNG export                           |
+|  [02]   | `ExportRenderer.RenderSvg(Control, Size, Stream, dpi = 96)`    | static   | SVG export                           |
+|  [03]   | `ExportRenderer.RenderSkp(Control, Size, Stream, dpi = 96)`    | static   | SKP export                           |
+|  [04]   | `ExportRenderer.RenderPdf(Control, Size, Stream, dpi = 72)`    | static   | PDF export                           |
+|  [05]   | `ExportRenderer.RenderXps(Control, Size, Stream, dpi = 72)`    | static   | XPS export                           |
+|  [06]   | `StorageService.GetStorageProvider()`                          | static   | lifetime-agnostic `IStorageProvider` |
+|  [07]   | `StorageService.{All,Json,ImageSvg,ImagePng,ImageSkp,Pdf,Xps}` | static   | `FilePickerFileType` presets         |
+|  [08]   | `INodeSerializer.Serialize<T>(T) : string`                     | instance | graph serializer                     |
+|  [09]   | `INodeSerializer.Deserialize<T>(string) : T?`                  | instance | graph deserializer                   |
+
+- `ExportRenderer.Render*`: measures and arranges the target itself, so an unrealized control exports at its measured size; `RenderXps` rides `SKDocument.CreateXps`, a Windows-only backend.
+- `StorageService.GetStorageProvider`: resolves the desktop main window first, then the single-view top level, and yields `null` outside both.
+
+[THEMING]: `avares://NodeEditorAvalonia/Themes/` compiled AXAML — the only visual surface
+
+| [INDEX] | [SURFACE]                                                     | [SHAPE] | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------ | :------ | :---------------------------------------------------- |
+|  [01]   | `avares://NodeEditorAvalonia/Themes/NodeEditorTheme.axaml`    | static  | the `Styles` root a host adds to `Application.Styles` |
+|  [02]   | `avares://NodeEditorAvalonia/Themes/Controls/<Control>.axaml` | static  | one `ResourceDictionary` per control theme            |
+
+- `NodeEditorTheme.axaml`: carries a `ResourceDictionary` whose `ThemeDictionaries` maps `ThemeVariant.Default` and `ThemeVariant.Dark` onto sibling `IThemeVariantProvider` dictionaries, merges the eleven control dictionaries, and adds the `Style` rows binding adorner properties to the keys below.
+- `Themes/Controls/`: `Connector` `Connectors` `DrawingNode` `DrawingNodeProperties` `EditableTextBlock` `Editor` `Node` `Nodes` `Pin` `Pins` `Toolbox` — each dictionary keys one `ControlTheme` on `typeof(<Control>)`, so the theme applies implicitly and a host override supplies its own `ControlTheme` under the same type key.
+- Overriding a visual replaces the `ControlTheme` keyed on that control type or redefines the resource key in a dictionary composed after this theme; no code-level node, pin, or connector colour property exists, and `Connector` derives `Shape`, so `Stroke` and `StrokeThickness` reach it only through a style or theme setter.
+
+[VARIANT_KEYS]: each key below resolves per `ThemeVariant.Default` and `ThemeVariant.Dark`; brushes unless noted
+[PIN_KEYS]: `PinBackgroundBrush` `PinPointerOverBackgroundBrush` `PinForegroundBrush` `PinPointerOverForegroundBrush`
+[CONNECTOR_KEYS]: `ConnectorBackgroundBrush` `ConnectorLabelBackgroundBrush` `ConnectorLabelBorderBrush`
+[CROSSING_KEYS]: `ConnectorCrossingStrokeBrush` `ConnectorCrossingBackgroundBrush` `ConnectorCrossingStrokeThickness` (`double`) `ConnectorCrossingArcRadius` (`double`)
+[REJECTION_KEYS]: `ConnectionRejectedBrush` `ConnectionRejectedLabelBackgroundBrush` `ConnectionRejectedLabelBorderBrush` `ConnectionRejectedLabelForegroundBrush` `ConnectionRejectedLabelText` (`string`)
+[NODE_KEYS]: `NodeResizeHandleFillBrush` `NodeResizeHandleBorderBrush` `RotationSnapReadoutBackgroundBrush` `RotationSnapReadoutBorderBrush` `RotationSnapReadoutForegroundBrush`
+[GUIDE_KEYS]: `GuideLineBrush` — the theme binds it to both `GuidesAdorner.Stroke` and `ConnectorSelectedAdorner.Stroke`, so a selected-connector recolour splits the key first
+[HOST_KEYS]: consumed by the templates yet defined nowhere in the package, so the host supplies each — `EditorBackground` `DrawingBackground` `EditorCutIcon` `EditorCopyIcon` `EditorPasteIcon` `DeleteIcon`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `NodeEditorAvalonia.Model` owns the graph algebra host-free; `NodeEditorAvalonia` binds it to Avalonia controls. Every mutation folds through the `IDrawingNode` command surface and the `DrawingNodeEditor` engine, never a repositioned control; connection policy rides `IDrawingNodeSettings` and `IConnectablePin.Direction`/`BusWidth`.
+- `NodeEditorAvalonia.Model` owns the graph algebra host-free and `NodeEditorAvalonia` binds it to Avalonia. Every mutation folds through the `IDrawingNode` command surface and the `DrawingNodeEditor` engine, never a repositioned control; connection policy rides `IDrawingNodeSettings` with `IConnectablePin.Direction`/`BusWidth` typing the ports, and every visual rides a `ControlTheme` or a variant resource key.
+- Routing, hit-testing, spatial indexing, snapping, and connector-path geometry are internal to `NodeEditorAvalonia`; a consumer steers them through `IDrawingNodeSettings.Routing*` and the lattice knobs, never by calling the algorithms.
 
 [STACKING]:
-- `ReactiveUI.Avalonia`(`api-reactiveui-avalonia.md`): product view-models implement `IDrawingNode`/`INode`/`IConnector`/`IPin` as `ReactiveObject`-backed models; the `CommunityToolkit.Mvvm` model variant is unadmitted.
+- `ReactiveUI.Avalonia`(`api-reactiveui-avalonia.md`): product view-models implement `IDrawingNode`/`INode`/`IConnector`/`IPin` as `ReactiveObject`-backed models, and each `On*` notifier raises from the reactive setter so `Connector.ConnectorSource` and `Node.NodeSource` bindings track state.
+- `Avalonia.Skia`(`api-avalonia-skia.md`) and `SkiaSharp`(`api-skiasharp.md`): `ExportRenderer` renders through `Avalonia.Skia.Helpers.DrawingContextHelper.RenderAsync` onto an `SKCanvas`, `RenderPdf`/`RenderXps` wrapping it in `SKDocument.CreatePdf`/`CreateXps` pages.
+- `Avalonia.Xaml.Behaviors`(`api-behaviors.md`): every interaction rides `Behavior<T>`, and `DrawingDropHandler` extends the `IDropHandler` rail `ContextDropBehavior.Handler` consumes.
 - `Loro`(`api-loro.md`): the `LoroTree` co-edit bridge projects graph mutation bidirectionally under one echo-suppressed handshake — `EventTriggerKind.Local` commits a local UI mutation as tree ops without re-applying its own echo, `Import` applies a remote merge to the model without re-emitting.
-- `PanAndZoom`(`api-panandzoom.md`): `NodeZoomBorder` subclasses this package's own `Avalonia.Controls.PanAndZoom` `ZoomBorder`, a distinct asset from the separately admitted `PanAndZoom.dll` `ZoomBorder` — the two viewport surfaces carry no collision.
 - `ACadSharp`/`PDFsharp`(`api-drafting-export.md`, `api-pdfsharp.md`): `ExportRenderer.RenderPdf`/`RenderSvg` canvas output converges with the drafting and PDF export set on the shared vector-export rail.
-- within-lib: the parametric and dependency-graph editing surfaces drive every mutation through the `IDrawingNode` commands and the `DrawingNodeEditor` engine; `StorageService` supplies the matching `FilePickerFileType` presets.
+- within-lib: the parametric and dependency-graph editing surfaces drive every mutation through the `IDrawingNode` commands and the `DrawingNodeEditor` engine; `StorageService` supplies the matching `FilePickerFileType` presets, and `INodeSerializer` binds one serializer for clipboard, duplication, and persistence alike.
 
-[MODEL_LAW]:
+[LOCAL_ADMISSION]:
+- `Avalonia.Controls.PanAndZoom.ZoomBorder` ships in both this package's transitive `Avalonia.Controls.PanAndZoom.dll` and the admitted `PanAndZoom`(`api-panandzoom.md`) `PanAndZoom.dll` under one namespace, so naming `ZoomBorder` in AppUi is ambiguous — reach the viewport as `NodeEditor.Controls.NodeZoomBorder`, and gate any direct `ZoomBorder` use behind an `extern alias` on one reference.
+- Host resources resolve `EditorBackground`, `DrawingBackground`, and the four icon keys before `NodeEditorTheme.axaml` composes; an unresolved `DynamicResource` renders that chrome blank rather than faulting.
+
+[RAIL_LAW]:
 - Package: `NodeEditorAvalonia.Model`
-- Owns: the framework-agnostic graph core — `IDrawingNode`/`INode`/`IConnector`/`IPin`/`IConnectablePin` contracts, the `DrawingNodeEditor` headless engine, `IDrawingNodeSettings` connection policy, `INodeSerializer` round-trip, `IUndoRedoHost`, the `INodeTemplate`/`INodeFactory` palette contracts, and the typed `{Node,Pin,Connector}*EventArgs` family + enums.
-- Accept: product models implement the contracts on the ReactiveUI rail; editing drives through the `IDrawingNode` commands and `DrawingNodeEditor`; connection rules ride `IDrawingNodeSettings` with `IConnectablePin` typing the ports.
-- Reject: implementing the model on `CommunityToolkit.Mvvm`; hand-rolling a node/connector graph type the model owns; mutating the graph by repositioning controls instead of the `IDrawingNode`/`DrawingNodeEditor` operations; a bespoke undo stack where `IUndoRedoHost` owns coalesced history.
-
-[CANVAS_LAW]:
+- Owns: the framework-agnostic graph core — `IDrawingNode`/`INode`/`IConnector`/`IPin`/`IConnectablePin`, the `DrawingNodeEditor` engine, `IDrawingNodeSettings` policy, `INodeSerializer` round-trip, `IUndoRedoHost`, the `INodeTemplate`/`INodeFactory` palette contracts, the ink carriers, the enums, and the typed event-args family
+- Accept: product models implement the contracts on the ReactiveUI rail; editing drives through the `IDrawingNode` operations and their bound `ICommand` twins; connection rules ride `IDrawingNodeSettings` with `IConnectablePin` typing the ports and `ConnectionValidator` carrying domain refusals
+- Reject: hand-rolling a node, pin, or connector graph type the model owns; mutating the graph by repositioning controls instead of the `IDrawingNode` operations; a bespoke undo stack where `IUndoRedoHost` owns coalesced history; a second clone path beside `Clone<T>` over `INodeSerializer`
 - Package: `NodeEditorAvalonia`
-- Owns: the Avalonia layer — the `Editor`/`DrawingNode`/`Node`/`Pin`/`Connector` controls bound to the model graph, the `Xaml.Behaviors` interaction behaviors, `NodeZoomBorder`, the `OrthogonalRouter`+`RTree` routing and hit-test, the ink layer + adorners, and `ExportRenderer`/`StorageService` IO.
-- Accept: `Editor.Drawing` binds an `IDrawingNode` and `Editor.Templates` a palette; connector routing is `ConnectorRoutingAlgorithm`/`ConnectorStyle` over `OrthogonalRouter`; pan/zoom is `NodeZoomBorder`.
-- Reject: hosting the canvas in a second pan/zoom border; re-implementing connector routing or hit-testing where `OrthogonalRouter`/`RTree`/`HitTestIndex` exist; a parallel export path beside `ExportRenderer`.
+- Owns: the Avalonia layer — the `*Source`-bound controls, the `Xaml.Behaviors` interaction set, `NodeZoomBorder`, the ink layer and adorners, `ExportRenderer`/`StorageService` IO, and the compiled `Themes/` control themes with their variant resource keys
+- Accept: `Editor.DrawingSource` binds an `IDrawingNode` and `Toolbox.TemplatesSource` a palette; connector shape is `ConnectorStyle` with `IDrawingNodeSettings.RoutingAlgorithm` selecting the lattice; pan and zoom is `NodeZoomBorder`; restyling is a `ControlTheme` keyed on the control type or a redefined resource key
+- Reject: hosting the canvas in a second pan-and-zoom border; re-implementing connector routing or hit-testing the package already runs internally; a parallel export path beside `ExportRenderer`; a code-side colour or brush property where the theme owns the visual

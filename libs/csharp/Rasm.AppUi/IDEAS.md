@@ -19,7 +19,95 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-(none)
+[DARK_IDENTITY_RAMP]-[QUEUED]: One professional dark identity every host inherits — two disciplined surface ramps replace the lone anchor pair.
+- Capability: A perceptually generated two-ramp surface system — a host-matched panel ramp beside a near-black overlay ramp — carrying a twelve-step role ladder (canvas, panel, control rest/hover/active, subtle/interactive/strong border, solid, low/high text), borders as text-color alpha rungs, input wells recessed darker than their parent, a text-emphasis alpha ladder with a hard disabled floor, and a two-token accent law: the fill accent and the text/ring accent are distinct rungs, accent coverage stays marginal, and hue holds in the cool 210-235 band.
+- Shape: `libs/csharp/Rasm.AppUi/.planning/Theme/tokens.md` `tokens#TOKEN_CATALOG` paint rows, `tokens#VARIANT_AXIS`, the `SemiSlot` correspondence, and the `ThemeRail` contrast/CVD candidate rosters.
+- Unlocks: every control theme, chart paint, chrome surface, and dialog reads one settled dark ladder; the garish-accent failure mode becomes structurally unspellable, and the access sweep gates every new pair because candidates land with the rows.
+- Anchors: kernel `PerceptualColor` ramp/tone owners with the dark-surround viewing condition and chroma-reduction gamut mapping; Semi `SemiColorBackground0..4`/`SemiColorFill0..2`/`SemiColorText0..3` numbered ramps; Radix step-role semantics; measured Jifto/Arcol calibration — a docked body host-matches mid-grey while owned overlays go near-black.
+- Tension: near-black everywhere reads as a foreign object inside a mid-grey host — two ramps in one system, never a per-host fork; the ramp is data, so a host adapter selects a ramp row and no host name enters the catalog.
+- Ripple: precedes [ELEVATION_MATERIAL_SYSTEM], [CONTROL_VARIANT_ALGEBRA], [DARK_CHART_GRAMMAR], [CONTENT_SURFACE_DARKENING].
+
+[ELEVATION_MATERIAL_SYSTEM]-[QUEUED]: Elevation and material become real algebra — layered shadow stacks, tier vocabulary, honest translucency.
+- Capability: An elevation-tier vocabulary whose rows carry multi-layer shadow stacks (hairline ring first, ambient beside key layers, dark alphas doubled), the in-window law that elevation is one surface step plus a border while true shadows are reserved for surfaces leaving the window, inset top-highlight rims, scrim rows, and a material axis whose embedded truth is composited tint-plus-noise — real OS translucency exists only on owned windows and the fallback is a first-class row, never a degraded afterthought.
+- Shape: `tokens#TOKEN_CATALOG` `Depth` rebuild plus material/scrim rows fused with the `Rank` z-order axis; `Vfx/material` counterpart page.
+- Unlocks: dialogs, flyouts, toasts, palettes, rails, and cards each bind one tier row; the current dead-end depth tuple that reaches no control is deleted whole.
+- Anchors: `BoxShadow`/`BoxShadows` (offset/blur/spread/inset, comma stacks) on `Border.BoxShadow` with `BoxShadowsTransition`; `SemiShadowElevated` beside the per-control Semi shadow keys; the Fluent dark shadow ramp and Primer negative-spread stack archetypes; `ExperimentalAcrylicMaterial` tint/noise truth and the `Digger` erase hazard; Unicolour `Blend` compositing as the scrim math.
+- Tension: `Visual.Effect` rasterizes its subtree per push while `Border.BoxShadow` draws per shadow — elevation rides `BoxShadows` by default and `Effect` only on deliberate one-off surfaces.
+- Ripple: follows [DARK_IDENTITY_RAMP]; precedes [VFX_PLANE]; mirrors [OVERLAY_MODALITY_CHROME].
+
+[VFX_PLANE]-[QUEUED]: A rendering-effects plane — backdrop, shader, and composition owners as a new sub-domain.
+- Capability: One effects plane owning in-tree backdrop sampling (blur of sibling content already painted), runtime SkSL shader surfaces (glow, grain, gradient wash), and the composition-visual animation adapter — so glow, acrylic-like panels, the ambient module wash, and pulsing emphasis are owned operations any surface composes, never per-control drawing code, and every effect degrades under reduced-motion and reduce-transparency by construction.
+- Shape: new sub-domain `libs/csharp/Rasm.AppUi/.planning/Vfx/` — `material.md`, `shader.md`, `compose.md` — with router and codemap rows landing at the folder `README.md`/`ARCHITECTURE.md` in the same pass.
+- Unlocks: the signature ambient wash and restrained CTA glow become one-row policies for any surface on any host; motion plan rows gain a composition execution lane.
+- Anchors: `ICustomDrawOperation` with the `ISkiaSharpApiLeaseFeature` lease; `SKCanvasSaveLayerRec.Backdrop` under `InitializeWithPrevious`; `SKRuntimeEffect`/`SKRuntimeShaderBuilder` per-frame uniforms; `SKMaskFilter` outer-blur halo; `SKShader` perlin noise; additive `SKBlendMode` compositors; `ElementComposition.GetElementVisual`, `Compositor` keyframe/implicit factories, `CompositionCustomVisualHandler`; the host reduce-transparency preference gate.
+- Tension: backdrop sampling reads siblings painted before the layer and never host pixels — the plane states that boundary as law instead of promising OS acrylic it cannot deliver embedded.
+- Route: the backdrop layer's interaction with partial-repaint dirty rects proves on a live render-hash probe before `material.md` finalizes; the deterministic floor is the opaque tinted-noise fill.
+- Ripple: follows [ELEVATION_MATERIAL_SYSTEM]; mirrors [MOTION_MICRO_INTERACTION].
+
+[CONTROL_VARIANT_ALGEBRA]-[QUEUED]: The closed control union gains its missing axes — variant, icon, pending, and the absent cases — without a parallel name.
+- Capability: Variant/emphasis, icon, and pending axes on the existing intent family plus the genuinely absent shapes — static label, segmented mode-switch, empty-state — so every professional control (quiet CTA, icon rail button, toggle-pair, labeled row, zero-data panel) is a shape on one vocabulary; materialization keeps riding the one fold and its composition-bound context columns, so hosts stay adapter rows.
+- Shape: `Shell/controls#CONTROL_INTENT` case/column widening, `Shell/controls#MATERIALIZE_FOLD` arms and context columns, `Shell/controls#TS_PROJECTION` wire literals; `tokens#CONTROL_THEMES` table counterpart rows.
+- Unlocks: an icon can finally reach a materialized control (the asset rail currently terminates unreachable); forms, chrome, palette, and dialogs compose variants instead of hand-rolling.
+- Anchors: the `ControlIntent` growth law and the `MaterializeContext` delegate-column precedent; `StyledElement.Theme` `ControlTheme` resolution; FluentIcons `SymbolIcon`/`IconVariant`/`IconSize`; Ursa `IconButton` attached icon properties; `IconSurface.Resolve` as the one icon materializer.
+- Tension: the fold is Avalonia-core-only by settled law — a third-party control enters only through a context column, and each new case answers that admission explicitly rather than eroding the wall.
+- Ripple: follows [DARK_IDENTITY_RAMP]; precedes [CHROME_RAIL_FAMILY], [FORM_SECTION_GRAMMAR].
+
+[CHROME_RAIL_FAMILY]-[QUEUED]: Floating chrome as one parameterized overlay family — rail, mode toolbar, HUD chips, status footer, collapse tab.
+- Capability: One overlay contract (layout orientation, dock zone, collapse, overflow policy, translucency, elevation tier, pointer pass-through) behind the floating action rail, the segmented icon mode toolbar, quiet in-viewport HUD chips, the status footer pane vocabulary, and the panel collapse tab — pure-2D overlays are host-agnostic by construction and camera-fact consumers take injected observables through a declared seam.
+- Shape: `Shell/navigation#SHELL_CHROME` slot/row growth, `Shell/controls` materialization arms, `Shell/solver#LAYOUT_PRESETS` rail programs, `tokens#CONTROL_THEMES` chrome rows.
+- Unlocks: any host mounts the same rail and footer; a mode is a catalog route, never a mode enum; breakpoint collapse rides the adaptive rows already settled.
+- Anchors: `ChromeSlot`/`ChromeRow` with the per-mount visibility matrix; `ShellRoot` route projection over `ScreenCatalog`; `LayoutPrograms.Rail`; `BreakpointRow` with `AdaptiveBehavior`; Ursa `NavMenu` collapse geometry, `ButtonGroup`, `ToolBar` overflow; the overlay parameter spine (layout, dock zone, min/max, priority) proven across canvas tools; elevation-integer layering with wrappers hit-test-invisible and leaves interactive.
+- Ripple: follows [CONTROL_VARIANT_ALGEBRA]; mirrors [COMMAND_PALETTE_SURFACE].
+
+[COMMAND_PALETTE_SURFACE]-[QUEUED]: The settled palette engine earns a world-class presentation surface.
+- Capability: An overlay command surface over the settled federation — ranked rows carrying icon, secondary text, shortcut chips, and kind badges; a per-hit action sub-panel; honest empty and loading states — presentation only, because search, ranking, scoping, and invocation are settled law that no palette-local registry may re-mint.
+- Shape: `Shell/commands#PALETTE_AND_REMOTE` hit-column widening plus a presentation cluster; `Shell/dialogs#SESSION_ALGEBRA` overlay seating; `tokens#CONTROL_THEMES` palette rows.
+- Unlocks: one keystroke reaches every command, route, element, and issue on every host, with the deck's gesture column rendering as keycap chrome.
+- Anchors: `CommandProjections.Federate`/`Search`/`Score` and `PaletteHit`; `ScreenCatalog` palette listings; Ursa `OverlayDialogHost` scrim slot; `GesturePolicy.Bindings` scope narrowing; the top-anchored palette geometry archetype (fixed-width surface, keycap rows, selection never wraps).
+- Tension: two overlay stacks are admitted — DialogHost sessions and the Ursa overlay canvas — the palette seats on the Ursa stack and that seam becomes stated law instead of parallel ownership.
+- Ripple: follows [CHROME_RAIL_FAMILY]; mirrors [OVERLAY_MODALITY_CHROME].
+
+[OVERLAY_MODALITY_CHROME]-[QUEUED]: Dialogs, drawers, and peeks under one dark chrome and one modality law.
+- Capability: Dialog chrome bound to elevation/material rows (scrim, ring, radius, blur as token-key columns), a typed destructive-confirmation shape whose verification phrase is the target identifier, and two additional modalities beside the six intents — a non-modal side-peek that keeps the underlying surface interactive and a modal drawer for forms — with dismissal-as-value preserved everywhere.
+- Shape: `Shell/dialogs#SESSION_ALGEBRA` styling columns and `Shell/dialogs#DIALOG_INTENTS` Confirm widening; `Shell/navigation#ROUTING_SPINE` peek verb.
+- Unlocks: destructive flows earn friction by tier — undo-toast, confirm, typed-confirm — and inspection stops stealing modality.
+- Anchors: `DialogTopology` token-key columns with `DialogHostStyle` attached BoxShadow/CornerRadius; `AlignmentDialogPopupPositioner`; Ursa `Drawer`/`OverlayDialogHost` mask brush; `NavRequest` verb growth; dark scrim/elevation calibration — scrim alpha rises on dark, the surface lightens one step, the hairline ring swaps to white-alpha.
+- Ripple: follows [ELEVATION_MATERIAL_SYSTEM]; mirrors [NOTIFICATION_SYSTEM].
+
+[NOTIFICATION_SYSTEM]-[QUEUED]: Toasts and banners become one severity system with modern mechanics.
+- Capability: A pending/promise toast row that morphs in place under one correlation, stack presentation policy (visible ceiling with collapse, hover pause), a position policy column, and an inline banner owner genuinely distinct from toasts — persistent, placed, never auto-expiring — under one decision rule: transient outcomes toast, unresolved conditions banner, decisions dialog.
+- Shape: `Shell/dialogs#NOTIFICATIONS` row/policy growth plus a banner family; `Shell/controls` banner materialization; `tokens#CONTROL_THEMES` toast/banner rows.
+- Unlocks: long operations report honestly from pending to sealed outcome on one receipt correlation; degraded states persist visibly instead of expiring silently.
+- Anchors: `ToastRow`/`ToastGate` admission fold with the `Held` register and cause-bearing seal; Ursa `WindowToastManager` message contract and `Banner` severity; `MotionPlan.Toast`; the sticky-derives-from-zero-linger law extending to a pending row that carries no expiry until it morphs.
+- Ripple: follows [OVERLAY_MODALITY_CHROME]; mirrors [DARK_CHART_GRAMMAR].
+
+[FORM_SECTION_GRAMMAR]-[QUEUED]: Forms read as professionally sectioned surfaces on every host.
+- Capability: Section grouping with materialized labels — label/value rows at a settled ratio with uniform row height — plus unit-aware numeric fields, an overridden/default/invalid field-state vocabulary, the fill-slider interaction archetype (value-in-fill, steppers on hover, range form), and wizard step chrome; all schema-driven, so one form definition renders sectioned identically on desktop, embedded panel, and the wire head.
+- Shape: `Editing/forms#FORM_SCHEMA` layout rebuild and `Editing/forms#WIZARD_FLOW` section shape; `Shell/controls` label case and slider variant counterparts; `tokens#CONTROL_THEMES` form rows.
+- Unlocks: the flat one-panel form emission and the carried-but-never-materialized label column are deleted; every schema field renders labeled, sectioned, unit-correct, and state-bearing.
+- Anchors: `FormField`/`FormSchema`/`FormSurface.Layout` with the wizard step grouping shape; `ControlIntent` container cases; Ursa `Form`/`FormItem`/`FormGroup` label geometry; UnitsNet `QuantityFormatter`/`UnitMath` with the base-units partiality trap; the measured label-quarter row geometry calibration.
+- Ripple: follows [CONTROL_VARIANT_ALGEBRA]; mirrors [CONTENT_SURFACE_DARKENING].
+
+[DARK_CHART_GRAMMAR]-[QUEUED]: The chart plane joins the token system and reaches dashboard grade.
+- Capability: A chart-paint resolver making every chart chrome key a token fold — axis, crosshair, tooltip, legend, series palette — plus a threshold step-list family rendered identically by sections, gauges, cells, and state regions, a per-tile state union where reload holds the prior frame, stat-tile anatomy with sparklines, and the two missing visual primitives (lane/region series, polar stacked sectors) that unlock status timelines, wind and radiation roses, and schedule lanes.
+- Shape: `Charts/dashboards`, `Charts/custom`, `Charts/telemetry`, `Charts/basemap` owners with `tokens#TOKEN_CATALOG` counterpart rows.
+- Unlocks: dashboards, telemetry boards, and basemaps read one dark grammar; the light-mode package defaults and the ownerless resolved-at-mount prose die.
+- Anchors: `ChartPolicy`/`ChartSection`/`DashboardTile`/`StatFold`; the LiveCharts theming rail (settings-level dark theme, per-family builder lists, crosshair and tooltip chrome paints, per-control theme override); `XamlRectangularSection`; Mapsui gradient thematics and widget colour members; the `CustomVisual` layout algebra; the dark chart grammar calibration — hairline grids one step off surface, muted non-flipping axis ink, surface-gap mark separation, focus-dim.
+- Ripple: follows [DARK_IDENTITY_RAMP]; mirrors [NOTIFICATION_SYSTEM].
+
+[MOTION_MICRO_INTERACTION]-[QUEUED]: Motion tokens gain their binding rail and the micro-interaction tier.
+- Capability: A declared transition-binding law — which retained transition carries each animated axis — plus micro-interaction plan rows (hover, press, indicator slide, disclosure), the floating-chrome motion law (fade only, position never animated, exits shorter than entrances), and the composition-animation execution seam; everything still resolves through the one easing adapter and the one reduced-motion switch.
+- Shape: `Theme/motion#MOTION_AXIS`/`motion#MOTION_APPLICATION` rows and a binding table; `Vfx/compose` counterpart.
+- Unlocks: disclosure, segmented-indicator slide, hover/press deltas, elevation changes, and glow pulses all read plan rows; unowned animation dies corpus-wide, including the currently unanimated Editing and Document disclosure surfaces.
+- Anchors: `Animatable.Transitions` with `BoxShadowsTransition`/`TransformOperationsTransition`/`EffectTransition`/`BrushTransition`; `TransformOperations.Parse` as the interpolable transform authoring form; `MotionEasing` feeding composition keyframes through the shared easing interface; the keyframe duration-poison trap (a zero duration corrupts the animation object — instant tokens set terminal values instead); reduced pairs render opacity-only.
+- Ripple: follows [VFX_PLANE]; mirrors [CHROME_RAIL_FAMILY].
+
+[CONTENT_SURFACE_DARKENING]-[QUEUED]: Editors, inspectors, markdown, and icons land on the one token rail.
+- Capability: The code-editor chrome bridge — the grammar-theme gui-color map projected from the one resolve with dark current-line, selection, link, and ruler overrides and indent guides as an owned background renderer — plus inspector section chrome (category cards, the label-cell replacement seam, per-row class tags, token-aligned color palettes), markdown callout/fence/quote/list arms over a widened styling record, and the shipped Semi icon-geometry family joining the asset vocabulary.
+- Shape: `Editing/inspector#INSPECTOR_SURFACE`/`inspector#EDITOR_FACTORIES`/`inspector#CODE_EDITING`; `Document/media#MARKDOWN_INLINES`; `Theme/assets#ICON_AXIS` rows.
+- Unlocks: every content surface follows a theme swap with zero per-editor literals; markdown renders documentation-grade dark; a second shipped icon source becomes reachable.
+- Anchors: the grammar-registry gui-color dictionary and per-key chrome read; editor styling properties with the custom-layer insertion rail; the property-grid label-cell event seam, class-tag attribute, and the local-value pinning fact that forces a control-theme route; `MarkdownStyling` widening; the SVG CSS cascade; the Semi icon path-geometry dictionary.
+- Ripple: follows [DARK_IDENTITY_RAMP]; mirrors [FORM_SECTION_GRAMMAR].
 
 ## [02]-[CLOSED]
 

@@ -13,7 +13,7 @@
 
 [PACKAGE_SURFACE]: `Svg.Skia`
 - package: `Svg.Skia` (MIT)
-- assembly: `Svg.Skia` (`SKSvg` engine, `SvgParameters`, scene, selection, and interaction model); `Svg.SceneGraph`, `Svg.Animation`, `Svg.Model`/`Svg.Custom`, Fizzler-CSS, and `ShimSkiaSharp` restore transitively
+- assembly: `Svg.Skia` (`SKSvg` engine, scene, selection, and interaction model); `Svg.SceneGraph`, `Svg.Animation`, `Svg.Model`/`Svg.Custom`, Fizzler-CSS, and `ShimSkiaSharp` restore transitively
 - namespace: `Svg.Skia`, `Svg.Skia.TypefaceProviders`
 - asset: managed runtime library
 - rail: assets
@@ -34,12 +34,12 @@
 |  [08]   | `SvgSourceTypeConverter`       | type converter         | string or URI to `SvgSource`             |
 |  [09]   | `ServiceProviderExtensions`    | static                 | base-URI and asset-loader resolution     |
 
-[PUBLIC_TYPE_SCOPE]: `Svg.Skia` engine, parameters, scene, selection, and interaction model
+[PUBLIC_TYPE_SCOPE]: `Svg.Skia` engine, scene, selection, and interaction model with the `Svg.Model` load-parameter carrier
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]     | [CAPABILITY]                   |
 | :-----: | :------------------------------------- | :---------------- | :----------------------------- |
 |  [01]   | `SKSvg`                                | disposable class  | SVG document engine and viewer |
-|  [02]   | `SvgParameters`                        | parameter bag     | per-load overrides             |
+|  [02]   | `SvgParameters`                        | record struct     | per-load overrides             |
 |  [03]   | `SvgSceneDocument`                     | retained document | source and scene graph         |
 |  [04]   | `SvgSceneNode`                         | retained node     | element mutation target        |
 |  [05]   | `SvgSceneResource`                     | retained resource | addressable definition         |
@@ -58,24 +58,29 @@
 |  [18]   | `SvgInteractionDispatchResult`         | result carrier    | pointer dispatch outcome       |
 
 - `SvgTextSelectionDirection`: `None` `Forward` `Backward`.
+- `SvgParameters` homes in `Svg.Model`, never `Svg.Skia` or `Avalonia.Svg.Skia`: `readonly record struct SvgParameters(Dictionary<string, string>? Entities, string? Css, Color? CurrentColor = null, SvgDocumentLoadOptions? LoadOptions = null)`, its `Color` the `System.Drawing.Color` the parser reads — the `Avalonia.Media.Color` a control or `SvgImage` carries converts at the boundary.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Svg` control properties and operations
 
-| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                           |
-| :-----: | :---------------------------------------------------------------------- | :------- | :------------------------------------- |
-|  [01]   | `Path` / `Source` / `SvgSource`                                         | property | string, object, or typed source        |
-|  [02]   | `Stretch` / `StretchDirection`                                          | property | layout fit and upscale policy          |
-|  [03]   | `EnableCache` / `Wireframe` / `DisableFilters`                          | property | cache, overlay, and filter policy      |
-|  [04]   | `Zoom` / `PanX` / `PanY`                                                | property | viewer-transform                       |
-|  [05]   | `ZoomToPoint(double, Point)`                                            | instance | point-anchored zoom                    |
-|  [06]   | `AnimationBackend` / `AnimationFrameInterval` / `AnimationPlaybackRate` | property | animation host, cadence, rate          |
-|  [07]   | `ActualAnimationBackend` / `AnimationBackendFallbackReason`             | property | resolved backend and fallback          |
-|  [08]   | `SkSvg : SKSvg?`                                                        | property | interactive engine handle              |
-|  [09]   | `TryGetPicturePoint(Point, out SKPoint)`                                | instance | control-to-picture mapping             |
-|  [10]   | `LoadFromSvgDocument(SvgDocument?, SvgParameters?)`                     | instance | pre-parsed document load               |
-|  [11]   | `GetCss/SetCss` / `GetCurrentCss/SetCurrentCss` / `SetCurrentColor`     | attached | element CSS and current-color override |
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :---------------------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `Path` / `Source` / `SvgSource`                                         | property | string, object, or typed source   |
+|  [02]   | `Stretch` / `StretchDirection`                                          | property | layout fit and upscale policy     |
+|  [03]   | `EnableCache` / `Wireframe` / `DisableFilters`                          | property | cache, overlay, and filter policy |
+|  [04]   | `Zoom` / `PanX` / `PanY`                                                | property | viewer-transform                  |
+|  [05]   | `ZoomToPoint(double, Point)`                                            | instance | point-anchored zoom               |
+|  [06]   | `AnimationBackend` / `AnimationFrameInterval` / `AnimationPlaybackRate` | property | animation host, cadence, rate     |
+|  [07]   | `ActualAnimationBackend` / `AnimationBackendFallbackReason`             | property | resolved backend and fallback     |
+|  [08]   | `SkSvg : SKSvg?`                                                        | property | interactive engine handle         |
+|  [09]   | `TryGetPicturePoint(Point, out SKPoint)`                                | instance | control-to-picture mapping        |
+|  [10]   | `LoadFromSvgDocument(SvgDocument?, SvgParameters?)`                     | instance | pre-parsed document load          |
+|  [11]   | `Svg.GetCss` / `SetCss` / `GetCurrentCss` / `SetCurrentCss`             | static   | attached CSS override             |
+|  [12]   | `Svg.GetCurrentColor` / `SetCurrentColor`                               | static   | attached current-color override   |
+|  [13]   | `CurrentColor` (`Color?`)                                               | property | instance accessor over row [12]   |
+
+- `Svg.CssProperty` / `CurrentCssProperty` / `CurrentColorProperty` register as `AttachedProperty<T>` on `AvaloniaObject` with inheritance on, so a `Setter` in any `Style` or `ControlTheme` sets them and an ancestor value flows to every descendant `Svg` — one theme-variant `Style` recolors a whole icon tree.
 
 [ENTRYPOINT_SCOPE]: `SKSvg` document loading and output
 
@@ -145,26 +150,41 @@
 |  [03]   | `FocusElement(SKSvg?, SvgElement?, SvgPointerInput)`                                         | instance | element focus           |
 |  [04]   | `BlurFocusedElement(SKSvg?, SvgPointerInput)`                                                | instance | element blur            |
 
-[ENTRYPOINT_SCOPE]: `SvgSource` load factories and document state; `SvgImage` image-source properties
+[ENTRYPOINT_SCOPE]: `SvgSource` load factories and document state
 
-| [INDEX] | [SURFACE]                                                                 | [OWNER]     | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :------------------------------------------------------------------------ | :---------- | :------- | :------------------------------ |
-|  [01]   | `Load(string, Uri?, SvgParameters?)`                                      | `SvgSource` | static   | path or URI load                |
-|  [02]   | `LoadFromStream(Stream, SvgParameters?)`                                  | `SvgSource` | static   | stream load                     |
-|  [03]   | `LoadFromSvg(string, SvgParameters?)`                                     | `SvgSource` | static   | in-memory SVG string load       |
-|  [04]   | `LoadFromSvgDocument(SvgDocument, SvgParameters?)`                        | `SvgSource` | static   | pre-parsed document load        |
-|  [05]   | `Path`(init) / `Entities` / `Css` / `CurrentColor`                        | `SvgSource` | property | CSS, entity, and recolor inputs |
-|  [06]   | `Svg : SKSvg?` / `Picture : SKPicture?` / `Parameters`                    | `SvgSource` | property | engine, picture, parameters     |
-|  [07]   | `Clone()` / `ReLoad(SvgParameters?)` / `RebuildFromModel()` / `Dispose()` | `SvgSource` | instance | re-parameterize and teardown    |
-|  [08]   | `Source`(`[Content]`) / `Css` / `CurrentCss` / `CurrentColor` / `Size`    | `SvgImage`  | property | image-source props and size     |
-|  [09]   | `Invalidated` (`EventHandler`)                                            | `SvgImage`  | event    | image-invalidation signal       |
+| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------------------------------------ | :------- | :------------------------------- |
+|  [01]   | `Load(string, Uri?, SvgParameters?)`                                            | static   | path or URI load                 |
+|  [02]   | `LoadAsync(string, Uri?, SvgParameters?, CancellationToken) -> Task<SvgSource>` | static   | off-thread path or URI load      |
+|  [03]   | `LoadFromStream(Stream, SvgParameters?)`                                        | static   | stream load                      |
+|  [04]   | `LoadFromSvg(string, SvgParameters?)`                                           | static   | in-memory SVG string load        |
+|  [05]   | `LoadFromSvgDocument(SvgDocument, SvgParameters?)`                              | static   | pre-parsed document load         |
+|  [06]   | `Path`(`[Content]`) / `Entities` / `Css` / `CurrentColor`                       | property | init-only CSS and recolor inputs |
+|  [07]   | `Svg : SKSvg?` / `Picture : SKPicture?` / `Parameters`                          | property | engine, picture, parameters      |
+|  [08]   | `Clone()` / `ReLoad(SvgParameters?)` / `RebuildFromModel()` / `Dispose()`       | instance | re-parameterize and teardown     |
+|  [09]   | `ReLoadAsync(SvgParameters?, CancellationToken) -> Task`                        | instance | off-thread re-parameterize       |
+
+- `SvgSource.Path`/`Entities`/`Css`/`CurrentColor` are `init`-only: a post-construction restyle rides `ReLoad`/`ReLoadAsync` with a fresh `SvgParameters`, never a property write.
+
+[ENTRYPOINT_SCOPE]: `SvgImage` image-source properties and invalidation
+
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]               |
+| :-----: | :------------------------------------------------------------ | :------- | :------------------------- |
+|  [01]   | `Source`(`[Content]`) / `Css` / `CurrentCss` / `CurrentColor` | property | source and style overrides |
+|  [02]   | `Size` (from `SKPicture.CullRect`)                            | property | layout extent              |
+|  [03]   | `Clone() -> SvgImage`                                         | instance | source and override copy   |
+|  [04]   | `Invalidated` (`EventHandler`)                                | event    | image-invalidation signal  |
+
+- `SvgImage.SourceProperty`/`CssProperty`/`CurrentCssProperty`/`CurrentColorProperty` are `StyledProperty<T>` on an `AvaloniaObject`, so each takes a `DynamicResource` and a theme-variant swap; a change to any of the three overrides calls `SvgSource.ReLoad` on the bound source in place and raises `Invalidated`, re-rendering every `Image`/`ImageBrush` holding it.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `SKSvg` owns incremental render through the retained scene graph: `TryEnsureRetainedSceneGraph` builds the `SvgSceneDocument` (source document, asset loader, element-addressable `SvgSceneNode` graph), and `TryApplyRetainedSceneMutationAndRender(element|addressKey, changedAttributes, out SvgSceneMutationResult)` re-records only the affected subtree and returns the dirty-region receipt a viewport invalidation keys on. A single-element or attribute edit routes through the mutation API, never a full `Load` that drops and rebuilds the graph.
+- `SKSvg` owns incremental render through the retained scene graph: `TryEnsureRetainedSceneGraph` builds the `SvgSceneDocument` (source document, asset loader, element-addressable `SvgSceneNode` graph), and `TryApplyRetainedSceneMutationAndRender(element|addressKey, changedAttributes, out SvgSceneMutationResult)` re-records only the affected subtree and returns the dirty-region receipt a viewport invalidation keys on. Every single-element and attribute edit routes through the mutation API, never a full `Load` that drops and rebuilds the graph.
 - `Sync` is the engine render-lock: a producer mutating the scene off the render thread takes `lock (skSvg.Sync)`, so a concurrent `Draw` never observes a half-applied mutation.
 - `SourceDocument` is the parsed `SvgDocument` the engine retains beside the recorded `SKPicture?` `Model`: a re-parameterized or recolored `SvgSource.LoadFromSvgDocument(SvgDocument, SvgParameters?)` binds `SourceDocument`, and `RefreshFromSourceDocument()` re-records the picture from it in place — the picture-typed `Model` binds neither.
+- `Svg` and `SvgImage` each fold their style overrides into one `SvgParameters.Css` string, space-joining the non-blank layers in `source-css -> Css -> CurrentCss` order and resolving `CurrentColor` as host value, then `SvgParameters.CurrentColor`, then `SvgSource.CurrentColor`.
+- `Svg` appends all three CSS layers; `SvgImage` drops the source layer whenever either of its own two is non-blank, so `SvgImage.Css` REPLACES the source stylesheet where the same string on `Svg` extends it — a shared `SvgSource` restyled through `SvgImage` states its rules whole.
 
 [STACKING]:
 - `api-avalonia-skia`(`.api/api-avalonia-skia.md`) / `api-skiasharp`(`.api/api-skiasharp.md`): `SvgCustomDrawOperation`/`SvgSourceCustomDrawOperation` implement `ICustomDrawOperation`; `Render(ImmediateDrawingContext)` resolves `ISkiaSharpApiLeaseFeature.Lease()`, reads `lease.SkCanvas`, and calls `SKSvg.Draw(canvas)`, compositing the SVG into Avalonia's Skia surface with no side bitmap; the internal `SvgCompositionVisualScene` acquires the same lease through `CompositionCustomVisualHandler.OnRender` when `AnimationBackend` selects the native composition layer.
@@ -175,10 +195,12 @@
 - Consume the scene, animation, and interaction types as `Svg.Skia.*`: `SvgSceneDocument`/`SvgSceneNode`/`SvgSceneResource` ship in `Svg.SceneGraph`, `SvgAnimationController` in `Svg.Animation`, and `SvgInteractionDispatcher`/`SkiaSvgAssetLoader` in `Svg.Skia` itself.
 - Asset loading flows through `Svg.Model.ISvgAssetLoader` (referenced by `SvgSource` and `SKSvg` statics); no `ISvgAssetLoader` type exists under `Avalonia.Svg.Skia`.
 - `SvgCompositionVisualScene` (`CompositionCustomVisualHandler`) is the internal native composition layer, reached through `AnimationBackend`, never a public scene type.
-- A vector asset enters the shared asset rail retaining `SvgSource` (`Svg`/`Picture`/`Parameters`) and a live `SKSvg` engine, never an opaque blob.
+- Vector assets enter the shared asset rail retaining `SvgSource` (`Svg`/`Picture`/`Parameters`) and a live `SKSvg` engine, never an opaque blob.
+- Theme-driven recolor rides the declared surfaces: an `Svg` subtree takes one inherited `Svg.CurrentColor`/`Svg.Css` `Setter` at its highest common ancestor, and an `SvgImage` takes a `DynamicResource` on `Css`/`CurrentCss`/`CurrentColor`.
+- UI-thread path and URI loads take `SvgSource.LoadAsync` and live restyles take `ReLoadAsync`; the synchronous twins parse and record on the calling thread.
 
 [RAIL_LAW]:
 - Package: `Svg.Controls.Skia.Avalonia` over `Svg.Skia`
 - Owns: SVG and Android-VectorDrawable asset controls — source loading (path, stream, string, URI, pre-parsed document, `IServiceProvider` base-URI), retained-scene incremental render, SMIL animation, pointer/access-key interaction, built-in viewer pan/zoom, text selection, and `SKPicture` output for panels, companion windows, sidecars, diagnostics, and downstream shells
-- Accept: vector assets retain document, scene, animation, interaction, viewer-transform, selection, and picture state; the control's `Zoom`/`PanX`/`PanY` + `ZoomToPoint` drive the built-in `SKSvg` viewer model, and `AnimationBackend` selects the animation host with `ActualAnimationBackend`/`AnimationBackendFallbackReason` reporting the resolved tier
-- Reject: a bitmap-only or opaque-blob SVG policy without `SvgSource`/`SKSvg` state; a full-picture re-render on a single-element change that `TryApplyRetainedSceneMutationAndRender` renders dirty-region-only; a hand-rolled pan/zoom or animation loop over the owned viewer-transform and SMIL surfaces; drawing through a private bitmap instead of the `ISkiaSharpApiLease` canvas
+- Accept: vector assets retain document, scene, animation, interaction, viewer-transform, selection, and picture state; the control's `Zoom`/`PanX`/`PanY` + `ZoomToPoint` drive the built-in `SKSvg` viewer model, `AnimationBackend` selects the animation host with `ActualAnimationBackend`/`AnimationBackendFallbackReason` reporting the resolved tier, and recolor rides the inherited `Svg` attached properties or the `SvgImage` styled properties
+- Reject: a bitmap-only or opaque-blob SVG policy without `SvgSource`/`SKSvg` state; a full-picture re-render on a single-element change that `TryApplyRetainedSceneMutationAndRender` renders dirty-region-only; a hand-rolled pan/zoom or animation loop over the owned viewer-transform and SMIL surfaces; drawing through a private bitmap instead of the `ISkiaSharpApiLease` canvas; a per-variant duplicate asset or a string-rewritten stylesheet where one CSS override recolors in place

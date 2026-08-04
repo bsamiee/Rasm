@@ -128,27 +128,35 @@
 
 [FACTORY_AND_SERVICE_TYPES]: editor-factory contract + service registries — `Avalonia.PropertyGrid.Controls.Factories` / `.Services`
 
-| [INDEX] | [SYMBOL]                     | [CAPABILITY]                                                                     |
-| :-----: | :--------------------------- | :------------------------------------------------------------------------------- |
-|  [01]   | `ICellEditFactory`           | editor-factory contract                                                          |
-|  [02]   | `ICellEditFactoryCollection` | factory-set contract — `Factories`/`AddFactory`/`RemoveFactory`/`CloneFactories` |
-|  [03]   | `AbstractCellEditFactory`    | editor-factory base; subclass per custom editor                                  |
-|  [04]   | `CellEditFactoryService`     | static registry exposing `Default : ICellEditFactoryCollection`                  |
-|  [05]   | `LocalizationService`        | static localization registry                                                     |
+| [INDEX] | [SYMBOL]                               | [CAPABILITY]                                                           |
+| :-----: | :------------------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | `ICellEditFactory`                     | editor-factory contract                                                |
+|  [02]   | `ICellEditFactoryCollection`           | factory-set and per-cell build contract                                |
+|  [03]   | `AbstractCellEditFactory`              | editor-factory base; subclass per custom editor                        |
+|  [04]   | `CellEditFactoryService`               | static registry exposing `Default : ICellEditFactoryCollection`        |
+|  [05]   | `LocalizationService`                  | static localization registry exposing `Default : ILocalizationService` |
+|  [06]   | `AssemblyJsonAssetLocalizationService` | JSON-asset `ILocalizationService` over an `Assembly` or asset `Uri`    |
 
-A custom editor extends the public `AbstractCellEditFactory` registered through `CellEditFactoryService`; the built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`/`String`/`Path`/`Expandable`), `CellEditFactoryCollection`, `PropertyGridViewModel`, and `AssemblyJsonAssetLocalizationService` are assembly-internal and never referenced.
+- Built-in factories are public and subclassable, each an `AbstractCellEditFactory` unless noted: `Common`, `Boolean`, `Color`, `Collection`, `CheckedList`, `SelectableList`, `Enum`, `Expandable`, `Numeric`, `String`, `Path`, `DateTime`, `Time`, `FontFamily`, `Image`, `Progress` (extends `Numeric`), `Trackable` (extends `Numeric`) — a narrowed editor derives the nearest built-in and raises `ImportPriority`, never re-implements the base.
+- `CellEditFactoryCollection` and `PropertyGridViewModel` are the assembly-internal pair: the collection reaches consumers only as `ICellEditFactoryCollection`, and the view-model only as `IPropertyGridFilterContext` through `PropertyCellContext`.
 
 [EVENT_TYPES]: routed inspector event args — `Avalonia.PropertyGrid.Controls`
 
-| [INDEX] | [SYMBOL]                                                   | [CAPABILITY]                          |
-| :-----: | :--------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `CustomPropertyDescriptorFilterEventArgs`                  | descriptor filter (`RoutedEventArgs`) |
-|  [02]   | `PropertyGotFocusEventArgs` / `PropertyLostFocusEventArgs` | focus events (`RoutedEventArgs`)      |
-|  [03]   | `CellPropertyChangedEventArgs`                             | cell-value change (`EventArgs`)       |
-|  [04]   | `RoutedCommandExecutedEventArgs`                           | command receipt (`RoutedEventArgs`)   |
-|  [05]   | `RoutedCommandExecutingEventArgs`                          | command veto (row [04] subtype)       |
+| [INDEX] | [SYMBOL]                                                   | [CAPABILITY]                              |
+| :-----: | :--------------------------------------------------------- | :---------------------------------------- |
+|  [01]   | `CustomPropertyDescriptorFilterEventArgs`                  | descriptor filter (`RoutedEventArgs`)     |
+|  [02]   | `CustomNameBlockEventArgs`                                 | name-column replacement                   |
+|  [03]   | `CustomPropertyOperationControlEventArgs`                  | operation-column replacement              |
+|  [04]   | `CustomPropertyDefaultOperationEventArgs`                  | default operation button and menu         |
+|  [05]   | `PropertyDefaultOperationStageType`                        | `Init` / `MenuOpening` stage discriminant |
+|  [06]   | `PropertyGotFocusEventArgs` / `PropertyLostFocusEventArgs` | focus events (`RoutedEventArgs`)          |
+|  [07]   | `CellPropertyChangedEventArgs`                             | cell-value change (`EventArgs`)           |
+|  [08]   | `RoutedCommandExecutedEventArgs`                           | command receipt (`RoutedEventArgs`)       |
+|  [09]   | `RoutedCommandExecutingEventArgs`                          | command veto (row [08] subtype)           |
 
 - `PropertyGotFocusEventArgs` / `PropertyLostFocusEventArgs` carry one readonly `Context : PropertyCellContext`; `CustomPropertyDescriptorFilterEventArgs` carries readonly `TargetObject : object` and `PropertyDescriptor : PropertyDescriptor` beside a settable `IsVisible : bool`.
+- `CustomNameBlockEventArgs` carries readonly `Context`, the get-only `DefaultNameBlock : Control`, and a settable `CustomNameBlock : Control?` pre-seeded to that default, so a handler substitutes a whole name cell by assignment and a handler that reads without writing keeps the stock block.
+- `CustomPropertyOperationControlEventArgs` carries readonly `Context` and a settable `CustomControl : Control?` defaulting to null: assigning replaces the operation column outright, leaving it null keeps the built-in button, which then raises `CustomPropertyDefaultOperationEventArgs` (readonly `Context` + `StageType`, get-only `DefaultButton : Button` and `Menu : ContextMenu`) twice — once at `Init` and once per `MenuOpening` — for in-place button and menu-item edits.
 - `RoutedCommandExecutedEventArgs` carries readonly `Command : ICancelableCommand`, `Target : object`, `Property : PropertyDescriptor`, and `OldValue`/`NewValue`/`Context : object?`; `RoutedCommandExecutingEventArgs` EXTENDS it and adds the settable `Canceled : bool`, so a handler narrowing to the base type accepts the veto edge and never reaches `Canceled`.
 
 [MODEL_SYNTHESIS_TYPES]: descriptor synthesis over a bound instance — `PropertyModels.Utils` / `.ComponentModel` / `.ComponentModel.DataAnnotations`
@@ -238,6 +246,11 @@ A custom editor extends the public `AbstractCellEditFactory` registered through 
 |  [16]   | `MiddleContent`                                      | middle chrome content |
 |  [17]   | `BottomContent`                                      | bottom chrome content |
 
+- `PropertyGrid` derives `UserControl` and loads `avares://Avalonia.PropertyGrid/Controls/PropertyGrid.axaml`, keeping its named parts as internal fields: `TopHeaderArea`, `InternalHeaderGrid`, `SearchTextBox`, `OptionsButton`, `FastFilterBox`, `MiddleArea`, `SplitterGrid`, `ColumnName`, `ColumnProperties`, `PropertiesGrid`, `BottomArea`, `OptionsContextMenu`.
+- Descendant-plus-name selectors reach every one of those parts (`PropertyGrid TextBox#SearchTextBox`), matching the selectors the package's own styles use; code and a `ControlTheme` on `PropertyGrid` reach none of them.
+- `PropertyGrid.axaml` injects `/Themes/Fluent/Fluent.xaml` and `/Themes/Simple/Simple.xaml` into `PropertyGrid.Styles` unconditionally and declares two resource keys, `ExpanderContentPadding` and `EnumToBooleanConverter` — zero brushes.
+- Color resolves at runtime from the ambient app theme with hardcoded fallbacks: `SystemAccentColor` and `SystemControlPageTextBaseMediumBrush` off `Application.Current.ActualThemeVariant`, `ColorControlDarkSelectorBrush` off the app resource tree. `PropertyGrid` tracks a theme swap unaided and exposes no brush key to recolor it, while the row-label foreground resolves once in a static ctor and holds through a runtime variant change.
+
 [FACTORY_ENTRYPOINTS]: `ICellEditFactory` contract — match, create, refresh, and read/write one cell editor.
 
 | [INDEX] | [SURFACE]                                                                                                   | [CAPABILITY]             |
@@ -251,31 +264,36 @@ A custom editor extends the public `AbstractCellEditFactory` registered through 
 |  [07]   | `SetPropertyValue(PropertyCellContext, object?)`                                                            | command-routed write     |
 |  [08]   | `GetPropertyValue(PropertyCellContext) : object?`                                                           | value read               |
 |  [09]   | `Clone() : ICellEditFactory?`                                                                               | per-cell factory clone   |
+|  [10]   | `Collection : ICellEditFactoryCollection?`                                                                  | owning set, read-only    |
 
 [CELL_CONTEXT]: `PropertyCellContext` — the one argument every factory member above receives.
 
-| [INDEX] | [SURFACE]                                     | [CAPABILITY]                                          |
-| :-----: | :-------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `Property : PropertyDescriptor`               | descriptor channel; `PropertyType` selects the editor |
-|  [02]   | `Target : object`                             | the bound instance every write lands on               |
-|  [03]   | `GetValue() : object?`                        | value channel, reading `Property.GetValue(Target)`    |
-|  [04]   | `CellEdit : Control?`                         | the materialized editor, settable                     |
-|  [05]   | `Factory : ICellEditFactory?`                 | the factory that materialized it, settable            |
-|  [06]   | `IsReadOnly : bool`                           | per-cell write admission                              |
-|  [07]   | `Root` / `Owner : IPropertyGrid`              | routed-event raiser and root grid                     |
-|  [08]   | `ParentContext : PropertyCellContext?`        | enclosing cell for nested descriptors                 |
-|  [09]   | `GetCellEditFactoryCollection()`              | the resolving factory set                             |
+| [INDEX] | [SURFACE]                              | [CAPABILITY]                                          |
+| :-----: | :------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `Property : PropertyDescriptor`        | descriptor channel; `PropertyType` selects the editor |
+|  [02]   | `Target : object`                      | the bound instance every write lands on               |
+|  [03]   | `GetValue() : object?`                 | value channel, reading `Property.GetValue(Target)`    |
+|  [04]   | `CellEdit : Control?`                  | the materialized editor, settable                     |
+|  [05]   | `Factory : ICellEditFactory?`          | the factory that materialized it, settable            |
+|  [06]   | `IsReadOnly : bool`                    | per-cell write admission                              |
+|  [07]   | `Root` / `Owner : IPropertyGrid`       | routed-event raiser and root grid                     |
+|  [08]   | `ParentContext : PropertyCellContext?` | enclosing cell for nested descriptors                 |
+|  [09]   | `GetCellEditFactoryCollection()`       | the resolving factory set                             |
 
 - `SetPropertyValue` is the ONE write path a presented editor commits through: it mints a `GenericCancelableCommand` per changed cell, raises `PropertyGrid.CommandExecuting` (cancellable), executes, then raises `PropertyGrid.CommandExecuted` — all inside one synchronous frame — so a control writing `context.Property.SetValue(context.Target, value)` directly bypasses the veto edge, the receipt edge, and the undo recorder at once. `GetPropertyValue` is `context.GetValue()`.
 
 [FACTORY_REGISTRY]: `ICellEditFactoryCollection` operations, resolved through `CellEditFactoryService.Default`.
 
-| [INDEX] | [SURFACE]                         | [CAPABILITY]         |
-| :-----: | :-------------------------------- | :------------------- |
-|  [01]   | `Factories`                       | registered factories |
-|  [02]   | `AddFactory(ICellEditFactory)`    | factory registration |
-|  [03]   | `RemoveFactory(ICellEditFactory)` | factory removal      |
-|  [04]   | `CloneFactories(object)`          | factory snapshot     |
+| [INDEX] | [SURFACE]                                              | [CAPABILITY]         |
+| :-----: | :----------------------------------------------------- | :------------------- |
+|  [01]   | `Factories`                                            | registered factories |
+|  [02]   | `AddFactory(ICellEditFactory)`                         | factory registration |
+|  [03]   | `RemoveFactory(ICellEditFactory)`                      | factory removal      |
+|  [04]   | `CloneFactories(object)`                               | factory snapshot     |
+|  [05]   | `BuildPropertyControl(PropertyCellContext) : Control?` | one cell's editor    |
+
+- `CellEditFactoryService.Default` self-populates in its static ctor, reflecting every non-abstract `ICellEditFactory` in the assembly, and `AddFactory` re-sorts the set by descending `ImportPriority` and back-links `ICellEditFactory.Collection` — an added factory needs no ordering call and reads its owning set off `Collection`.
+- `BuildPropertyControl` walks that priority order to the first factory returning a control, then reads every `[ControlClasses(params string[])]` on the cell's `PropertyDescriptor`, distincts the union, and `Classes.AddRange`s it onto the returned editor before binding `CellEdit`/`Factory` — the one per-row style hook, so a per-property editor restyle carries one attribute with a `Style` on `.<class>`, never a factory subclass.
 
 [EVENT_ENTRYPOINTS]: routed inspector event surfaces — `PropertyGrid`
 
@@ -303,6 +321,9 @@ A custom editor extends the public `AbstractCellEditFactory` registered through 
 [TOPOLOGY]:
 - `PropertyModels` is the host-neutral model substrate; `Avalonia.PropertyGrid` projects the object bound through `DataContext` as typed editor rows, selecting each editor by `ICellEditFactory.Accept(object accessToken)` match ranked by `ImportPriority` (higher first) through `CellEditFactoryService.Default : ICellEditFactoryCollection`.
 - Visibility, ordering, and editor presentation drive off data-annotation attributes on the model, never reflection-UI-as-model: `[ConditionTarget]` + `[PropertyVisibilityCondition]` + `[DependsOnProperty]` gate visibility and dependency without code-behind, `ReactiveObject` propagating `[DependsOnProperty]` automatically; `Accept` takes the `object` access token, `PropertyCellContext` arriving on `HandleNewProperty`/`HandlePropertyChanged`.
+- `PropertyGrid` builds one category `Expander` in code per category and pins `Background` (null), `Margin`, `Padding`, and `HeaderTemplate` (a `FuncDataTemplate` minting a `TextBlock` at `FontWeight` 700) through CLR setters at `BindingPriority.LocalValue`, outranking every `Style`, `ControlTheme`, and theme-variant setter aimed at those four.
+- `Template` stays unpinned, so a category restyle rides a `ControlTheme` or `Template` setter on `Expander`: the replacement template binds `Header` directly to escape the pinned header template and paints its own chrome to escape the null background, while `Margin` sits outside the template and holds.
+- Each Expander subscribes `TemplateApplied` at construction and force-writes the left `Margin` of its `PART_ContentPresenter` to `8.0` on every application, so a replacement template naming its presenter `PART_ContentPresenter` re-inherits that indent and one under any other name escapes it.
 
 [STACKING]:
 - `ReactiveUI`(`.api/api-reactiveui.md`): `PropertyModels.ReactiveObject`/`MiniReactiveObject` is the inspected-model base, distinct from ReactiveUI's `ReactiveObject` screen base — an inspected view-model derives from the PropertyModels base for `[DependsOnProperty]`/`SetProperty`, its hosting screen from the ReactiveUI base; `CancelableCommandRecorder` records undo/redo beside ReactiveUI `ReactiveCommand` execution, never replacing it.
@@ -310,8 +331,10 @@ A custom editor extends the public `AbstractCellEditFactory` registered through 
 - within-lib: application view-models inherit `ReactiveObject`/`MiniReactiveObject`; command pipelines compose `CancelableCommandRecorder` + `CommandHistoryViewModel`; multi-select editors back onto `CheckedList`/`CheckedMaskModel`.
 
 [LOCAL_ADMISSION]:
-- A custom editor is a public `AbstractCellEditFactory` subclass registered through `CellEditFactoryService.Default.AddFactory(factory)` with an `ImportPriority` above the built-in it overrides.
+- Custom editors subclass the public `AbstractCellEditFactory`, register through `CellEditFactoryService.Default.AddFactory(factory)`, and carry an `ImportPriority` above the built-in each one overrides.
 - Editor-hint attributes live in `PropertyModels.ComponentModel`, validation/condition/enum-filter attributes in `PropertyModels.ComponentModel.DataAnnotations`; each attribute routes to its real namespace and is never re-declared locally.
+- Chrome restyling routes by target: grid parts take a descendant-plus-name `Style`, a per-row editor takes `[ControlClasses]` with a class `Style`, a category header or body takes an `Expander` `ControlTheme`, and a whole name or operation cell takes the `CustomNameBlock`/`CustomPropertyOperationControl` handler returning a replacement `Control`.
+- Recoloring the grid sets the ambient theme keys the host already owns — `SystemAccentColor`, `SystemControlPageTextBaseMediumBrush`, `ColorControlDarkSelectorBrush` — never a package-local brush override.
 
 [RAIL_LAW]:
 - Package: `bodong.PropertyModels`
@@ -321,4 +344,4 @@ A custom editor extends the public `AbstractCellEditFactory` registered through 
 - Package: `bodong.Avalonia.PropertyGrid`
 - Owns: typed property inspection, the editor-factory registry, property operations, list editing, localization services, and routed inspector events.
 - Accept: every inspecting surface binds its object through the control's `DataContext` and projects state through typed rows, factories, filters, commands, and routed events; layout, order, and visibility drive off the `PropertyGridLayoutStyle`/`PropertyGridOrderStyle`/`PropertyVisibility`/`CellEditAlignmentType` enums.
-- Reject: reflection UI as public model; referencing the internal `PropertyGridViewModel` or the built-in concrete factories instead of subclassing `AbstractCellEditFactory`; assuming a public `ViewModel` property where the binding is `DataContext`.
+- Reject: reflection UI as public model; referencing the internal `PropertyGridViewModel` or `CellEditFactoryCollection` instead of `IPropertyGridFilterContext` and `ICellEditFactoryCollection`; assuming a public `ViewModel` property where the binding is `DataContext`; a `Style` or `ControlTheme` setter aimed at the category `Expander`'s pinned `Background`/`Margin`/`Padding`/`HeaderTemplate`; a package-local brush key where the grid reads ambient theme resources.
