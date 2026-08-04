@@ -106,7 +106,7 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 |  [12]   | `OpenTelemetryChatClient.EnableSensitiveData`                   | property        | includes prompt/response content in spans       |
 |  [13]   | `OpenTelemetryChatClient.JsonSerializerOptions`                 | property        | serializer for telemetry payloads               |
 
-- `FunctionInvokingChatClient.InvokeFunctionAsync(FunctionInvocationContext, ct)`/`CreateResponseMessages(ReadOnlySpan<FunctionInvocationResult>)`: `protected virtual` loop overrides; `FunctionInvoker` overrides dispatch without subclassing.
+- `FunctionInvokingChatClient.InvokeFunctionAsync(FunctionInvocationContext, ct)`/`CreateResponseMessages(ReadOnlySpan<FunctionInvocationResult>)`: `protected virtual` loop overrides; `FunctionInvoker` overrides dispatch without subclassing — it is `public Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>>? { get; set; }` and a non-null value REPLACES invocation outright, since `InvokeFunctionAsync` reads `FunctionInvoker?.Invoke(context, ct) ?? context.Function.InvokeAsync(context.Arguments, ct)`.
 - `FunctionInvocationContext`: carries the mutable `Function`, `Arguments`, `CallContent`, and `Messages` for the in-flight call, exposed ambiently through `CurrentContext`.
 - `FunctionInvocationResult`: `Status` (`FunctionInvocationStatus.RanToCompletion`/`NotFound`/`Exception`), `CallContent`, `Result`, `Exception`, `Terminate`.
 

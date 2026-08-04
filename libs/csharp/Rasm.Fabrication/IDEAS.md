@@ -112,6 +112,24 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: Shared unit policy and additional quantity families without wrapper multiplication.
 - Anchors: `Process/owner.md`, `Toolpath/wire.md`, `Toolpath/link.md`, and `Toolpath/bevel.md`.
 
+[SPINDLE_SPEED_OWNER]-[QUEUED]: One owner spells the surface-speed-to-spindle law the package currently states five times.
+- Capability: the cutting-speed/rpm correspondence lives on one cutting-physics owner as a forward/inverse pair over the canonical mm and m-per-minute carriers, so a diameter convention or unit change lands once.
+- Shape: the pair seats on `Process/physics.md`'s cutting-physics owner; `Process/physics.md` (three sites), `Kinematics/fleet.md`, and the inverse at `Tooling/cuttingdata.md` compose it, each losing its own `Math.PI`/`1000.0` transcription.
+- Unlocks: the five-copy duplication and its five conversion literals delete as a consequence; the R2 unit rule closes on the last rpm sites.
+- Anchors: the five censused sites (`physics.md` three, `fleet.md:1200`, `cuttingdata.md:464`); the landed UnitsNet typed-product precedent at `Fixturing/workholding.md`.
+
+[UNMEASURED_SUPPORT_LAYER]-[QUEUED]: The audit's unsupported-mass reading distinguishes a measured zero from a measurement never taken.
+- Capability: a support-free modality reports ABSENCE on the unsupported-mass axis instead of a fabricated zero, so the recoater-strike score stops silently understating by the whole trend term on runs that never measured support.
+- Shape: `Verify/audit.md` splits the collapsed guard — `layer == 0` stays a measured structural zero with its reason stated; the risk-off case carries absent measures on `LayerMetric.UnsupportedAreaMm2`/`UnsupportedMassKg`/`UnsupportedMassTrendKg` with the recoater composition reading the absence arm.
+- Unlocks: honest recoater-strike likelihood on support-free modalities; the `[FORGED_ZERO]` scar closes at its one proven live leak.
+- Anchors: `LayerMetric` is confined to `audit.md` (single-file consumer census, eight sites), so the receipt reshape has no cross-page ripple; `AuditDefect.RecoaterStrike` emits independently of the Support risk.
+
+[NEST_COST_REFERENCE]-[QUEUED]: The nest objective's cost term ranks scale-free across price bases.
+- Capability: every `NestObjective` term weighs a pure number, so `Balanced`'s equal weights compare honestly whatever the caller's currency basis — the cost term normalizes against a declared cost reference instead of tracking the raw price density.
+- Shape: a cost-reference column on the scoring input beside the frozen `NestEvidence` record — never on the CanonicalWriter-digested carrier itself; `Nesting/nfp.md` `NestObjective.Score` divides through it.
+- Unlocks: cross-run and cross-supplier nest ranking; the stated structural divergence at `NestEvidence` retires.
+- Anchors: the digest-freeze ruling at `[04]-[STRUCTURE]` (the reference rides scoring input, not the frozen record); the `Yield`/`Cut`/`Remnant` terms already pure.
+
 [LINK_TOUR_REFINEMENT]-[QUEUED]: Refine linked tours against realized obstacle-aware transition cost.
 - Capability: one bounded precedence-safe two-opt or Or-opt stage reorders only swaps whose graph in-degrees remain satisfied.
 - Shape: `LinkReceipt` carries improvement delta after re-entering transition routing for swapped pairs.

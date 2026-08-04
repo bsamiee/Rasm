@@ -40,20 +40,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: the frozen class-membership law (reclassification is export-then-readmit, so a class segment is stable for an object's whole life and the last-separator inverse still parses); the retention schedule's age bound IS a lifecycle rule's expiry; the storage-tier row already carries its transition target.
 - Tension: the name renders a CONTENT address, so a second discriminant inside it makes two classes of one byte-identical blob two objects — acceptable only because class membership is immutable and dedup is already per-tenant.
 
-[UNPARTITIONED_USAGE_SERIES]-[BLOCKED]: Unpartitioned usage census reports its own series — the per-tenant usage levels project untagged when no tenant partitions.
-- Capability: usage attribution answers under both tenancy modes from one instrument roster — a partitioned store reads per-tenant keyed levels and an unpartitioned store reads the same three measures untagged, with no sentinel dimension and no second instrument name.
-- Shape: the three usage rows beside the census arm on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md` `#STORE_INSTRUMENTS`.
-- Unlocks: an unpartitioned deployment's storage-bytes, object-count, and delivery tiles render off the same census the multi-tenant board reads.
-- Anchors: the kernel `TenantContext.Partitions`/`Tags` absent-tenant arm; the `Levels` kind beside its keyed `LevelCells` reader; the `StoreUsage.Tenancy` lift every raw partition key already crosses.
-- Arms: the kernel keyed cell entry admits an absent key and the `Levels` bind arm projects an untagged `Measurement<T>` for it; until then the census arm mounts entries for a partitioning tenant alone.
-- Ripple: follows `Rasm` `[OPTIONAL_KEY_LEVEL_FAMILY]`.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[UNPARTITIONED_USAGE_SERIES]-[COMPLETE]: the kernel `[OPTIONAL_KEY_LEVEL_FAMILY]` landing discharged the arming condition and the census arm realized the untagged series at `.planning/Store/observability#STORE_INSTRUMENTS` — the partition filter deleted, grouping keys on `Tenant.Key`, the three-measure traverse writes the root group untagged on the same instruments, and the `#STORE_BOARD` tenant panels render one unbroken series on an unpartitioned deployment.
 [MQTT_DEVICE_EGRESS]-[COMPLETE]: refuted on disk — the `EgressSink.Mqtt` case, its structured-mode encode, its `V500` `UserProperties` trace stamp, and its reason-code fold are all realized at `.planning/Version/egress#EGRESS_SINK` and both MQTT catalogs are landed, so device-grade egress already rides the one sink rail.
 [FLIGHT_SQL_SERVING]-[DROPPED]: Flight SQL SERVING is refuted at `.planning/Query/federation#FLIGHT_RESULT_PLANE` — `FlightSqlServer` dispatches SQL-catalog commands alone and matches `CommandStatementSubstraitPlan` nowhere, so `FederationFlight : FlightServer` carries the plan wire on the same Flight transport at a fraction of the surface; the Flight SQL CLIENT stays composable over any served node, and lake LANDING is `Query/columnar#FLAT_TABLE_EGRESS` `Land`, never a serving door.
 [STORE_OBSERVABILITY]-[COMPLETE]: Engine-stat observability and the receipt-slot registry — landed as `.planning/Store/observability.md` with the `store.<domain>.<verb>` slot grammar, the composition-time registry, and the pg/DuckDB/SQLite harvest receipts.

@@ -56,10 +56,11 @@
 |  [03]   | `Subscription`                       | class         | one subscription; publishing interval, keep-alive, items    |
 |  [04]   | `MonitoredItem`                      | class         | one monitored node; start node, attribute, sampling, mode   |
 |  [05]   | `MonitoredItemNotificationEventArgs` | event args    | per-item notification carrying `NotificationValue`          |
-|  [06]   | `MonitoredItemNotification`          | class         | notification body; `DataValue Value`                        |
+|  [06]   | `MonitoredItemNotification`          | class         | notification body; `DataValue Value`, `uint ClientHandle`   |
 |  [07]   | `ReverseConnectManager`              | class         | reverse-connect endpoint manager passed to `CreateAsync`    |
 |  [08]   | `ITelemetryContext`                  | interface     | telemetry context threaded into managed client constructors |
 |  [09]   | `MonitoringMode`                     | enum          | `Disabled` / `Sampling` / `Reporting`                       |
+|  [10]   | `NotificationMessage`                | class         | publish batch; `uint SequenceNumber` orders redeliveries    |
 
 [PUBLIC_TYPE_SCOPE]: address-space and value primitives — `Opc.Ua`
 

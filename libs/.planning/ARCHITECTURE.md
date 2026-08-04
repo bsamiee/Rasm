@@ -111,7 +111,7 @@ Transcription SPELLS the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 - Carve: transport coordinates beside residence relation and session-setting names share the prefix and answer to their own owners.
 - Gate: every signal name a branch mints — instrument, dimension, resource, span, log, and event alike — carries a segment the roster resolves.
 - Unresolved segments refuse at their declaration owner rather than reaching an exporter.
-- A grammar-derived routing fact states its derivation beside every emission owner, never only at the census owner — a producer emitting under a foreign domain prefix forks the record call knowingly, never silently.
+- Grammar-derived routing facts state their derivation at each emission owner, never the census owner alone; a foreign prefix forks knowingly.
 - Metrics-store OTLP receiver pins `NoUTF8EscapingWithSuffixes`, so dotted names survive byte-identical from every runtime.
 - Scope: the emitting package id, version-stamped, one semconv coordinate on tracer, meter, and logger; a branch spells it once, all bump together.
 - Egress: OTLP over HTTP+protobuf, one collector base endpoint fanned per signal on `/v1/<signal>`.
@@ -131,7 +131,9 @@ Transcription SPELLS the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 - Producer-collected distributions fix their boundary ladders at the mint row — finished buckets reach the exporter and no view recomputes them.
 - Counters: DELTA temporality is the wire default in every branch; cumulative is the monotonic-totals alternative a policy row selects.
 - Tenant: `rasm.tenant` is the one dimension — baggage promoted onto spans and logs by allowlisted processors, folded onto metrics under view caps.
-- Absent tenant entries read as single-tenant, never as a sentinel value.
+- Absent entries on any sometimes-absent dimension — tenant, level-family, or substrate key — read as the untagged whole, never as a sentinel value.
+- Sometimes-absent keys stay rostered on every branch allow-list and census; an unrostered key strips from the entries that do carry it.
+- Keyed families whose key is the cell's own identity never construct the absent-key state; an unmeasured cell publishes nothing, spelling absence.
 - Receipts stay the truth: signals project from typed receipts through the per-branch owners `InstrumentFan`, `Metrics.record`, and `Pulse`.
 - Metrics minted beside a receipt fan are a second truth.
 

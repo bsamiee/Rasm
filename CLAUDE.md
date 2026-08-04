@@ -61,13 +61,8 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
 [CRITICAL]:
-- [NEVER]: preserve code; no wrappers, aliases, obsolete markers, shims, or migrations or old-baseline caveats - full removal and refactor all ripples.
 - [NEVER]: use weak, unbounded, or erased types where the language can express the domain precisely.
 - [NEVER]: use exception-style control flow in domain logic; use typed error rails and the required route's recovery patterns.
-- [NEVER]: use imperative branching when a bounded vocabulary, dispatch table, generated switch, match, fold, or monadic rail can own the variation.
-- [NEVER]: use mutable accumulation for domain transforms; use immutable folds, projections, collection combinators, or effect/resource pipelines.
-- [NEVER]: extract code to new files to reduce LOC. Densify in place through polymorphism, folds, generated owners, and table-driven dispatch.
-- [NEVER]: delete functionality to satisfy a density or LOC signal. Preserve capability through denser owners.
 
 [IMPORTANT]:
 - [ALWAYS]: ASSUME 10X THE COMPLEXITY AND DEMANDS ON EVERY SURFACE — a naive, simple, or surface-level solution is rejected, removed, and rebuilt on sight.
@@ -75,12 +70,8 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 - [ALWAYS]: land new functionality as if designed in from the start, never as tacked-on flat-code spam.
 - [ALWAYS]: extend a class to the full concept it admits NOW — a 4-field shape for a 12+ concept widens in place, never proliferates objects.
 - [ALWAYS]: treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar.
-- [ALWAYS]: extend the canonical owner before adding rails, public surfaces, wrappers, commands, flags, provider selectors, schemas, models, helpers, or files.
 - [ALWAYS]: co-locate domain logic with its owner instead of scattering it into generic support files.
-- [ALWAYS]: create code as polymorphic, agnostic, and universal by default, ALWAYS PARAMETERIZE INPUTS/OUTPUTS + INGRESS/EGRESS.
-- [ALWAYS]: collapse related variants into one polymorphic surface before adding entrypoints.
 - [ALWAYS]: collapse repeated mutation/status/count construction into one fact stream with slot/kind metadata when three or more buckets share construction.
-- [ALWAYS]: drive logic with data, bounded vocabularies, discriminants, table rows, and reusable projections.
 - [ALWAYS]: keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
 - [ALWAYS]: keep boundary mapping at the edge; internal code uses canonical names and shapes.
 - [ALWAYS]: treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and never use suppressions.
@@ -90,11 +81,9 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 ## [03]-[DEPENDENCY_POLICY]
 
 [IMPORTANT] - External libraries, manifests, and host APIs are implementation surfaces:
-- [ALWAYS]: treat admitted packages and ecosystem libraries as first class; mine their full capability before any local kernel or hand-roll.
 - [ALWAYS]: keep C# MSBuild/NuGet manifests label-grouped by owner, cluster-sorted, with one-line maintenance comments at most.
 - [ALWAYS]: align the package touch-point set both ways: central manager row, project manifest, branch/folder README registries, owning `.api` tier.
 - [ALWAYS]: repair an orphaned touch-point member at its owner, never by removal.
-- [ALWAYS]: centralize package, version, and tool ownership in one owning manifest — no per-package `pyproject.toml`, `package.json`, or `*.props`.
 - [ALWAYS]: assume the newest stable release; pin only while incompatible and drop the pin when compatibility lands (verify with tools, pnpm, nuget, etc).
 - [ALWAYS]: keep root `pyproject.toml` dependencies as lean unpinned names; remove bounds/`python_version` markers if proven stale/unnecessary.
 - [NEVER]: mint a folder-tier `.api` file duplicating or redirecting to a substrate catalogue; a folder composing a substrate package REGISTERS it.

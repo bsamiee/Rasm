@@ -153,7 +153,7 @@ config:
 ---
 flowchart LR
     accTitle: Materials platform, compute, and cross-runtime seams
-    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, and analytics wires plus artifact content keys with compute, the app host spine, the persistence store plane, the render host, the Python data peer, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
+    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, and analytics wires plus artifact content keys with the kernel almanac, compute, the app host spine, the persistence store plane, the render host, the Python data peer, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
     subgraph materials[RASM.MATERIALS]
         Component[Component families]
         Properties[Property source]
@@ -171,6 +171,9 @@ flowchart LR
     Core([typescript:core])
     Ui([typescript:ui])
     Host([Host boundary])
+    Rasm([Rasm])
+    Rasm e18@-->|"[SHAPE]: SunPosition"| Appearance
+    Rasm e19@-->|"[SHAPE]: SpectralArena"| Raster
     Component e1@-->|"[WIRE]: SectionCapacity"| Compute
     Properties e2@-->|"[WIRE]: MaterialPropertySet"| Compute
     DataPeer e3@-->|"[WIRE]: Assessment"| Properties

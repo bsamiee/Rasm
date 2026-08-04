@@ -28,14 +28,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Tension: every provider import stays lazy behind its gated arm; `RetryClass.SECRET` is the one transient policy for all rows.
 
 [ACQUISITION_CUSTODY_ROWS]-[QUEUED]: land proxy, custody, and batch rows on roots.
-- Capability: one `httpx` `Proxy` policy row on the HTTP legs, `anyio` `ResourceGuard` custody on mutable root handles, and `fsspec.open_files` batch acquisition.
+- Capability: root acquisition carries egress policy, race-free custody, and batched open as one transport contract rather than three call-site conventions.
 - Shape: one `httpx` `Proxy` policy row on the HTTP legs, `anyio` `ResourceGuard` custody on the mutable root handles, and `fsspec.open_files` batch acquisition, all on `libs/python/runtime/.planning/transport/roots.md`.
 - Unlocks: IDEAS.md [ACQUISITION_POLICY_SURFACE] — enterprise-network egress and race-free root mutation for every sibling consumer, with batched acquisition on one call.
 - Anchors: `libs/python/runtime/.planning/transport/roots.md`; `libs/python/runtime/.api/httpx.md`; `libs/python/.api/anyio.md`; `libs/python/.api/fsspec.md`.
 - Atomic: three member rows on one page.
 
 [PROBE_MEMBER_PINS]-[QUEUED]: pin the crossing admission gate and channel-evidence members.
-- Capability: `wasmtime` `Module.validate` before instantiation on the WASM arm as a typed `config` refusal; `psutil` `Process.net_connections` evidence columns on REMOTE/DAEMON supervision verdicts.
+- Capability: guest admission refuses a malformed module before instantiation, and supervision verdicts read channel evidence rather than inferring liveness from process state.
 - Shape: `wasmtime` `Module.validate` as the guest-admission gate before instantiation on the WASM arm, and `psutil` `Process.net_connections` evidence columns on REMOTE/DAEMON supervision verdicts, both on `libs/python/runtime/.planning/execution/workers.md`.
 - Unlocks: IDEAS.md [CROSSING_ADMISSION_PROBES] — a malformed guest refuses at admission with a typed `config` fault instead of an instantiation trap, and supervision verdicts distinguish a dead channel from a saturated one.
 - Anchors: the guest arm and `Supervisor` on `libs/python/runtime/.planning/execution/workers.md`; `libs/python/runtime/.api/wasmtime.md`; `libs/python/.api/psutil.md`.
@@ -70,13 +70,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Arms: a loky release whose vendored `backend/resource_tracker.main` reads the JSON record format; verified on disk — the interpreter rewrote `multiprocessing.resource_tracker` onto `json.dumps`/`json.loads`, the admitted loky subclasses that writer while its own tracker process still colon-splits the line, so every register and unregister raises `ValueError: unknown resource type` in the tracker. Executor semantics stand unaffected: a live `get_reusable_executor` submit, result, and shutdown all return clean.
 - Tension: pinning loky buys nothing — the skew rides the interpreter's own format change, so only an upstream reader adopting JSON closes it.
 
-[HLC_HEADER_DRIFT_GATE]-[BLOCKED]: the HLC carrier headers join the boot-proved wire vocabulary.
-- Capability: the four `SLOTS` keys prove against the shared header contract at boot, so schema drift fails before causal admission.
-- Shape: one boot-time assertion beside `aligned` in the serve boot fold proving the `SLOTS` keys of `libs/python/runtime/.planning/clock/clock.md` against the host header contract; `CausalFrame.decode`'s absent-slot defaults stay, guarded upstream by the gate.
-- Unlocks: the HLC header family stops being an unguarded hand mirror — a causal-order fork dies at boot, never in silently-zeroed stamps.
-- Anchors: `SLOTS` and `CausalFrame.decode` on `libs/python/runtime/.planning/clock/clock.md`; the `aligned` descriptor gate on `libs/python/runtime/.planning/transport/shapes.md`; `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md` `[CORRELATION_SPINE]`.
-- Arms: the C# correlation spine spells the four `SLOTS` carrier header keys as its minted contract; verified absent — `csharp:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE` carries the two-half stamp as `HlcStampWire` on the RECEIPT ENVELOPE and names no carrier header, so `rasm-hlc-physical`, `rasm-hlc-logical`, `rasm-tenant`, and `rasm-hlc` have no counterpart to gate against and the blocker stands.
-- Ripple: `csharp Rasm.AppHost` `[HLC_HEADER_KEY_MINT]` — follows.
+[HLC_HEADER_DRIFT_GATE]-[QUEUED]: the HLC gate proves the shared causal layout at boot, never a peer's carrier dialect.
+- Capability: the boot gate proves the SHARED half of the causal contract — the packed layout and the composed attribute slots — so a cross-branch layout fork dies at boot while each branch's carrier spellings stay its own transport dialect.
+- Shape: one boot-time assertion beside `aligned` in the serve boot fold proving the `SLOTS` binding of `libs/python/runtime/.planning/clock/clock.md` against the shared layout and composed slots; `CausalFrame.decode`'s absent-slot defaults stay, guarded upstream by the gate.
+- Unlocks: a causal-order fork dies at boot, never in silently-zeroed stamps.
+- Anchors: `SLOTS` and `CausalFrame.decode` on `libs/python/runtime/.planning/clock/clock.md`; the `aligned` descriptor gate on `libs/python/runtime/.planning/transport/shapes.md`; the `[CAUSAL_CARRIAGE]` table at `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md` `[03]-[CORRELATION_SPINE]`.
+- Arms: the gate proves the SHARED half alone — the packed two-half layout (`physical_ticks << 64 | logical` as one UInt128, bit-identical) and the kernel-owned attribute slots each branch composes rather than mints (`rasm.tenant` is `TenantContext.TenantSlot`) — against the `[CAUSAL_CARRIAGE]` shared-law column at `csharp:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE`. Carrier header spellings are per-branch dialect and the gate reads none: this branch's hyphenated `SLOTS` keys, the C# stamp on its receipt envelope, and the typescript `-bin` typed metadata are three transport dialects over one layout, so a gate blocked on a peer minting these four header keys is mis-aimed and never re-arms. Settled at `libs/.planning/RULINGS.md` `[02]`.
+- Ripple: `csharp Rasm.AppHost` `[HLC_HEADER_KEY_MINT]` — follows (closed: realized as the `[CAUSAL_CARRIAGE]` contract table).
 - Atomic: one gate row on one boot fold.
 
 ## [02]-[CLOSED]

@@ -280,6 +280,7 @@ Every `FabricationFault` case declares its owning `FabConcern` and stratum, so r
 ## [05]-[BOUNDARIES]
 
 Seam edges carry which package exchanges which shape; the load-bearing cross-package invariants are:
+- The four `Analyze.Run` bindings (`Verify/probing`, `Kinematics/fleet`, `Spec/manufacturability` twice) freeze the kernel entry's two-type-parameter arity with query-first, subject-second ordering; `Analyze.Query` and `Analyze.In` are absent from the package, so a kernel `In`-to-`Scope` rename costs this boundary nothing.
 - Every machine-consumable egress mints its content key through the kernel `ContentHash.Of` seed-zero entry, with no second mint.
 - `EgressKind`, the local discriminant, federates to the Persistence `ArtifactKind` rows at the content-key boundary, never a type reference.
 - `Fabrication` realizes the one `FabricationProjector` registration; every quantity lowered back to the seam rides that projector.

@@ -224,6 +224,14 @@
 |  [01]   | `Vertices` / `Faces` / `Ngons` / `Normals` / `FaceNormals` / `VertexColors` / `TextureCoordinates` | property | in-place geometry lists |
 |  [02]   | `TopologyVertices` / `TopologyEdges`                                                               | property | welded connectivity     |
 
+[VERTEX_COLOR_WRITES]: `MeshVertexColorList` false-colour writers; every setter returns `bool` and answers `false` on an out-of-range index rather than raising.
+
+- `Rhino.Geometry.Collections.MeshVertexColorList.CreateMonotoneMesh(Color baseColor) : bool` — sizes the list to the vertex count and fills it with one colour; the sizing step every per-component write depends on, since the indexer raises `IndexOutOfRangeException` past `Count`.
+- `Rhino.Geometry.Collections.MeshVertexColorList.SetColor(MeshFace face, Color color) : bool` — writes all corners of one face; the per-face grain a `ComponentIndexType.MeshFace` sample addresses.
+- `Rhino.Geometry.Collections.MeshVertexColorList.SetColor(int index, Color color) : bool` / `SetColor(int index, int red, int green, int blue) : bool` — the per-vertex grain an ngon boundary ring writes through.
+- `Rhino.Geometry.Collections.MeshVertexColorList.SetColors(Color[] colors) : bool` / `AppendColors(Color[] colors) : bool` / `Clear() : void` / `Count : int` (settable) — whole-array replace, append, drop, and explicit resize.
+- `Rhino.Geometry.MeshNgon.BoundaryVertexIndexList() : uint[]` / `BoundaryVertexCount : int` — the ngon's own boundary ring; the indices are `uint` and narrow at the call site.
+
 [MESH_CONFIG]: `MeshingParameters` carriers feeding the mesh ops.
 
 | [INDEX] | [SURFACE]                                                                        | [SHAPE]         | [CAPABILITY]                   |

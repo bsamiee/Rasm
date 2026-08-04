@@ -70,7 +70,8 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 Five strata order the seven sub-domains; `Runtime` seats lowest as the vocabulary mint while its dispatch table routes to the lane owners and its `ComputeReceipt` union gains cases as partials declared by the owning stratum — co-ownership, never an upward import — so every consumption edge points down.
 
-- S0 `Runtime` — mints the admit-to-receipt substrate once: `ComputeIntent`, `ComputeReceipt`, `ComputeFault`, `WorkLane`, the `Substrate` axis.
+- S0 `Runtime` — mints the admit-to-receipt substrate once: `ComputeIntent`, `ComputeReceipt`, `ComputeFault`, the `Substrate` axis.
+- S0 `Runtime` — `LaneProfiles` keys on the spine `WorkLane` roster.
 - S1 `Tensor` — `TensorOps`, `OrtResidency`, and the `LowDiscrepancy` sampler, peers over the substrate.
 - S1 `Symbolic` — `QuantityFamily`, `DimensionMonomial`, and the `CompiledExpr` cache.
 - S2 `Model` — `ModelIdentity`, `ModelSessions`, and the `GraduationEnvelope` admission gate.
@@ -113,7 +114,7 @@ flowchart TB
     end
     subgraph S0["S0 RUNTIME"]
         Receipt[ComputeReceipt]
-        Lane[WorkLane]
+        Lane[LaneProfiles]
     end
     Assessment e1@-->|"[IMPORT]: ComputeReceipt"| Receipt
     Daylight e2@-->|"[IMPORT]: ClashScale"| Clash
@@ -123,7 +124,7 @@ flowchart TB
     Estimator e6@-->|"[IMPORT]: TensorOps"| Ops
     Identity e7@-->|"[IMPORT]: ComputeReceipt"| Receipt
     Mesh e8@--> Ops
-    Sweep e9@-->|"[IMPORT]: WorkLane"| Lane
+    Sweep e9@-->|"[IMPORT]: LaneProfiles"| Lane
     Receipt f1@-->|"forbidden: substrate upward"| S4
 ```
 
@@ -163,9 +164,9 @@ flowchart LR
     Rasm e4@-->|"[WIRE]: SliceStack"| Analysis
     Rasm e18@-->|"[SHAPE]: MeshAdjointSnapshot"| Tensor
     Rasm e19@-->|"[WIRE]: SpatialIndex"| Solver
-    Rasm e20@-->|"[SHAPE]: RemeshOp"| Solver
     Rasm e21@-->|"[WIRE]: EncodedGeometry"| Tensor
     Rasm e34@-->|"[SHAPE]: FieldIntegrator + IntegrationDomain"| Tensor
+    Rasm e36@-->|"[SHAPE]: SunPosition"| Analysis
     Model e15@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Persistence
     Model e35@-->|"[CONTENT_KEY]: ParityVerdict"| Persistence
     Model e27@<-->|"[CONTENT_KEY]: VectorCodebook"| Persistence
@@ -219,11 +220,11 @@ flowchart LR
     PyRuntime{{python:runtime}}
     Compute{{python:compute}}
     Core{{typescript:core}}
-    Runtime e1@<-->|"[PORT]: WorkLane"| AppHost
+    AppHost e1@-->|"[PORT]: WorkLane"| Runtime
     AppHost e2@-->|"[PORT]: IChatClient"| Model
     AppHost e17@-->|"[PORT]: ShedVerdict"| Runtime
     Solver e3@-->|"[RECEIPT]: DigitalTwin"| AppHost
-    Tensor e4@<-->|"[SHAPE]: EncodingKind"| AppHost
+    Tensor e4@<-->|"[SHAPE]: PackKind"| AppHost
     Runtime e15@-->|"[PORT]: ComputeHookRail"| AppHost
     Runtime e5@-->|"[PROJECTION]: ResidencyPayload"| AppUi
     Tensor e6@<-->|"[SHAPE]: WgpuDevice"| AppUi
@@ -281,7 +282,7 @@ Spine admits once, selects substrate over row data, enqueues on bounded lanes, d
 | :-----: | :--------------------------------- | :----------------------- | :------------------------------------------------------------- |
 |  [01]   | a new execution device or backend  | `Tensor/residency.md`    | one `Substrate` row                                            |
 |  [02]   | a new sparse tensor operation      | `Tensor/factor.md`       | one `SparseTensorOpFamily` row                                 |
-|  [03]   | a new differentiable primitive     | `Tensor/autodiff.md`     | one `DifferentiableOp` case beside its `Forward` arm           |
+|  [03]   | a new differentiable primitive     | `Tensor/dispatch.md`     | one `DifferentiableOp` case at `[03]-[EQUIVALENCE_INTEROP]`    |
 |  [04]   | a new estimator, optimizer, or UQ  | `Solver/optimizer.md`    | one `EstimatorKind`/`OptimizerKind`/`UncertaintyMethod` row    |
 |  [05]   | a new material stress-update law   | `Solver/constitutive.md` | one `ConstitutiveModel` case                                   |
 |  [06]   | a new discipline assessment        | `Analysis/assessment.md` | one `AssessmentResult` runner over the shared fact stream      |

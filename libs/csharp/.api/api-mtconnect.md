@@ -32,17 +32,36 @@ Every observation input carries `DeviceKey`, `DataItemKey`, `Timestamp`, and `Va
 
 [PUBLIC_TYPE_SCOPE]: streams model, client-state, and asset surfaces
 
-`MTConnectClientInformation` carries `DeviceKey`, `InstanceId`, `LastSequence`, and `ChangeToken` as durable incremental-poll cursor state.
+`MTConnectClientInformation` carries `DeviceKey`, `ChangeToken`, and the `long` `InstanceId`/`LastSequence` pair as durable incremental-poll cursor state. Cursor and observation do NOT share a numeric type; the table below spells both sides, so a consumer writes its narrowing rather than inferring one.
 
-| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]     | [CAPABILITY]            |
-| :-----: | :----------------------------------------------- | :---------------- | :---------------------- |
-|  [01]   | `MTConnect.Streams.StreamsResponseDocument`      | response document | agent response          |
-|  [02]   | `MTConnect.Streams.DeviceStream`                 | stream node       | device grouping         |
-|  [03]   | `MTConnect.Streams.ComponentStream`              | stream node       | component grouping      |
-|  [04]   | `MTConnect.Observations.Observation`             | observation       | decoded data-item value |
-|  [05]   | `MTConnect.Formatters.ResponseDocumentFormatter` | formatter         | XML/JSON parser         |
-|  [06]   | `MTConnect.Clients.MTConnectClientInformation`   | poll cursor       | incremental state       |
-|  [07]   | `MTConnect.Assets.CuttingTools.CuttingToolAsset` | asset             | cutting-tool model      |
+| [INDEX] | [SLOT]                                    | [OWNER]                        | [TYPE]  |
+| :-----: | :---------------------------------------- | :----------------------------- | :------ |
+|  [01]   | `MTConnectClientInformation.InstanceId`   | poll cursor (durable, on disk) | `long`  |
+|  [02]   | `MTConnectClientInformation.LastSequence` | poll cursor (durable, on disk) | `long`  |
+|  [03]   | `IObservation.InstanceId`                 | observation (agent response)   | `ulong` |
+|  [04]   | `IObservation.Sequence`                   | observation (agent response)   | `ulong` |
+
+| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]     | [CAPABILITY]              |
+| :-----: | :----------------------------------------------- | :---------------- | :------------------------ |
+|  [01]   | `MTConnect.Streams.IStreamsResponseDocument`     | response document | parsed agent response     |
+|  [02]   | `MTConnect.Streams.StreamsResponseDocument`      | response document | agent response            |
+|  [03]   | `MTConnect.Streams.DeviceStream`                 | stream node       | device grouping           |
+|  [04]   | `MTConnect.Streams.ComponentStream`              | stream node       | component grouping        |
+|  [05]   | `MTConnect.Observations.IObservation`            | interface         | read-side observation     |
+|  [06]   | `MTConnect.Observations.Observation`             | observation       | decoded data-item value   |
+|  [07]   | `MTConnect.Observations.ObservationValue`        | struct            | one keyed value slot      |
+|  [08]   | `MTConnect.Observations.ValueKeys`               | constants         | named value-slot keys     |
+|  [09]   | `MTConnect.Observations.Quality`                 | enum              | three-state value quality |
+|  [10]   | `MTConnect.Formatters.ResponseDocumentFormatter` | formatter         | XML/JSON parser           |
+|  [11]   | `MTConnect.Clients.MTConnectClientInformation`   | poll cursor       | incremental state         |
+|  [12]   | `MTConnect.Assets.CuttingTools.CuttingToolAsset` | asset             | cutting-tool model        |
+
+[IStreamsResponseDocument]: `Header : IMTConnectStreamsHeader` `Streams : IEnumerable<IDeviceStream>` `Version` `GetObservations() -> IEnumerable<IObservation>`
+[IObservation]: `DeviceUuid` `DataItem : IDataItem` `Category` `Type` `SubType` `DataItemId` `Name` `InstanceId : ulong` `Sequence : ulong` `Timestamp : DateTime` `CompositionId` `Representation` `Quality` `Deprecated` `Extended` `IsUnavailable : bool` `Values : IEnumerable<ObservationValue>` `GetValue(string) -> string` `Validate() -> ValidationResult`
+[ObservationValue]: `Key : string` `Value : string` `HasValue()`
+[ValueKeys]: `Result` `Level` `ConditionId` `NativeCode` `NativeSeverity` `Qualifier` `Message` `Statistic` `SampleRate` `SampleCount` `Count` `Duration` `AssetType` `DeviceType` `Hash` `ResetTriggered` `TimeSeriesPrefix` `DataSetPrefix` `TablePrefix`
+[Quality]: `INVALID` `UNVERIFIABLE` `VALID` — three states, so a good flag is a real three-way read beside `IsUnavailable`, never a bool alias
+[IDataItem]: `Id` `Type` `Units` `NativeUnits` `NativeScale : int` `SignificantDigits : int?`
 
 [PUBLIC_TYPE_SCOPE]: cutting-tool asset graph (`MTConnect.Assets.CuttingTools`)
 
@@ -151,14 +170,27 @@ Every observation input carries `DeviceKey`, `DataItemKey`, `Timestamp`, and `Va
 
 Decode traverses `StreamsResponseDocument` through `DeviceStream` and `ComponentStream` to each `Observation`.
 
-| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :------------------------------------------------------------------------------ | :------- | :------------------------------ |
-|  [01]   | `ResponseDocumentFormatter.CreateStreamsResponseDocument(string, Stream)`       | static   | parse an agent document         |
-|  [02]   | `MTConnectClientInformation.Read(string, string) -> MTConnectClientInformation` | static   | restore the poll cursor         |
-|  [03]   | `MTConnectClientInformation.Save(string)`                                       | instance | persist `LastSequence` on drain |
-|  [04]   | `IObservationInput.GetValue(string) -> string`                                  | instance | extract one named value         |
+| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------------------------------------ | :------- | :------------------------------- |
+|  [01]   | `ResponseDocumentFormatter.CreateStreamsResponseDocument(string, Stream)`       | static   | parse an agent document          |
+|  [02]   | `IStreamsResponseDocument.GetObservations() -> IEnumerable<IObservation>`       | instance | flatten every device stream      |
+|  [03]   | `IObservation.GetValue(string) -> string`                                       | instance | read one named value slot        |
+|  [04]   | `IObservation.Values -> IEnumerable<ObservationValue>`                          | property | every keyed slot on the point    |
+|  [05]   | `IObservation.Quality` / `.IsUnavailable`                                       | property | value trust, three-state plus up |
+|  [06]   | `IObservation.Timestamp -> DateTime`                                            | property | source instant                   |
+|  [07]   | `IObservation.Sequence` / `.InstanceId` (`ulong`)                               | property | poll ordering, agent generation  |
+|  [08]   | `IObservation.DeviceUuid` / `.DataItemId`                                       | property | machine and point identity       |
+|  [09]   | `IObservation.DataItem.Units`                                                   | property | the point's declared unit        |
+|  [10]   | `IObservation.Validate() -> ValidationResult`                                   | instance | refuse a malformed observation   |
+|  [11]   | `MTConnectClientInformation.Read(string, string) -> MTConnectClientInformation` | static   | restore the poll cursor          |
+|  [12]   | `MTConnectClientInformation.Save(string)`                                       | instance | persist `LastSequence` on drain  |
+|  [13]   | `IObservationInput.GetValue(string) -> string`                                  | instance | extract one named value, WRITE   |
+|  [14]   | `DocumentFormat.XML` / `.JSON`                                                  | constant | the formatter-id argument        |
 
-- `ResponseDocumentFormatter.CreateStreamsResponseDocument`: returns `FormatReadResult<IStreamsResponseDocument>`, the result-wrapped streams graph.
+- `ResponseDocumentFormatter.CreateStreamsResponseDocument`: returns `FormatReadResult<IStreamsResponseDocument>` (`Content` `Success` `Messages` `Warnings` `Errors` `ResponseDuration`), the result-wrapped streams graph; the formatter id is a `DocumentFormat` constant.
+- `GetObservations()` returns null, never an empty sequence, when the document carries no device stream — the ordinary steady-state `/sample` response once the cursor has caught up. Consumers fold that null through an empty arm; an unguarded traversal null-refs on the common path.
+- Every observation value crosses as TEXT: `ObservationValue.Value`, `IObservation.GetValue(string)`, and `ISampleValueObservation.Result` are all `string` and no numeric accessor exists anywhere on the graph, so a numeric consumer parses under invariant culture into an optional value rather than assuming a number.
+- `MTConnectClientInformation.Read` returns null on any read or deserialize failure and `Save` swallows every IO failure while minting a fresh `ChangeToken`; the default path is `<BaseDirectory>/clients/client.information.<deviceKey>.json`.
 
 [ENTRYPOINT_SCOPE]: cutting-tool authoring and read
 - model types are mutable POCOs behind `I…` contracts: author by setting the lifecycle, items, and measurements; `Process()` normalizes a partial lifecycle or item.
@@ -195,7 +227,8 @@ Decode traverses `StreamsResponseDocument` through `DeviceStream` and `Component
 [TOPOLOGY]:
 - `-Common` owns the observation/device/asset/streams object graph and the `ResponseDocumentFormatter` parse; it decodes the agent document AppHost fetches over the `OutboundHop`, never opening an HTTP or MQTT socket.
 - `MTConnectClientInformation` drives the incremental consume path: `InstanceId` and `LastSequence` cursor state, a poll requesting `from=LastSequence+1`, decode advancing and `Save`ing the cursor, so a restart resumes from the committed sequence and an agent `InstanceId` change forces a full re-current — the outbox-watermark durable-cursor discipline.
-- One `Observation` decodes to one `ExternalValue` (data-item value, declared unit/type from the device model, good flag from observation quality, source instant from the observation timestamp) at the boundary; the boxed MTConnect model type never enters the interior.
+- Cursor state is `long` and observation state `ulong`, so every cursor advance and every re-`current` instance comparison crosses an explicit `(long)` narrowing; a fence omitting it does not compile, and the two owners drift by design rather than by defect.
+- One `IObservation` decodes to one `ExternalValue` at the boundary: the value parses invariant-culture out of `GetValue(ValueKeys.Result)` into an optional double because the graph publishes no numeric accessor, the unit reads `DataItem?.Units` with the binding family the fallback, the good flag is `!IsUnavailable && Quality == Quality.VALID` (two of the three quality states stamp not-good), and the source instant is `Timestamp`; the boxed MTConnect model type never enters the interior.
 - `MTConnectAdapter` is the SHDR relay case: AppHost re-publishes observations to a downstream agent, `AddObservation`/`SendChanged` buffering and flushing on the SHDR line, a distinct row shape from the consume path sharing the one transport row's binding spec.
 
 - `CuttingToolAsset : Asset` is the physical tool: `ToolId` (program tool-number space), `SerialNumber` (instance), one `CuttingToolLifeCycle`, optionally a `CuttingToolDefinition` (ISO-13399 definition body) and a `CuttingToolArchetypeReference` (shared template)

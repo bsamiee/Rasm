@@ -301,20 +301,23 @@
 
 `WindowToastManager` implements `IToastManager`, `WindowNotificationManager` implements `INotificationManager`, and `IMessage` is the base of `IToast` and `INotification`.
 
-| [INDEX] | [SURFACE]                                      | [CAPABILITY]         |
-| :-----: | :--------------------------------------------- | :------------------- |
-|  [01]   | `IToastManager.Show(IToast)`                   | enqueue toast        |
-|  [02]   | `IToastManager.Close(IToast)`                  | dismiss toast        |
-|  [03]   | `IToastManager.CloseAll()`                     | drain toast queue    |
-|  [04]   | `INotificationManager.Show(INotification)`     | enqueue notification |
-|  [05]   | `INotificationManager.Close(...)`              | dismiss notification |
-|  [06]   | `INotificationManager.CloseAll()`              | drain notification   |
-|  [07]   | `IMessage.Type : NotificationType`             | message severity     |
-|  [08]   | `IMessage.Expiration`                          | message lifetime     |
-|  [09]   | `IMessage.ShowIcon`                            | icon visibility      |
-|  [10]   | `IMessage.ShowClose`                           | close visibility     |
-|  [11]   | `IMessage.OnClick`                             | click callback       |
-|  [12]   | `IMessage.OnClose(Action<MessageCloseReason>)` | close callback       |
+| [INDEX] | [SURFACE]                                        | [CAPABILITY]         |
+| :-----: | :----------------------------------------------- | :------------------- |
+|  [01]   | `IToastManager.Show(IToast)`                     | enqueue toast        |
+|  [02]   | `IToastManager.Close(IToast)`                    | dismiss toast        |
+|  [03]   | `IToastManager.CloseAll()`                       | drain toast queue    |
+|  [04]   | `INotificationManager.Show(INotification)`       | enqueue notification |
+|  [05]   | `INotificationManager.Close(...)`                | dismiss notification |
+|  [06]   | `INotificationManager.CloseAll()`                | drain notification   |
+|  [07]   | `IMessage.Type : NotificationType`               | message severity     |
+|  [08]   | `IMessage.Expiration`                            | message lifetime     |
+|  [09]   | `IMessage.ShowIcon`                              | icon visibility      |
+|  [10]   | `IMessage.ShowClose`                             | close visibility     |
+|  [11]   | `IMessage.OnClick : Action?`                     | click callback       |
+|  [12]   | `IMessage.OnClose : Action<MessageCloseReason>?` | close callback       |
+
+- `IMessage.Type` is the Avalonia `NotificationType` (`Information`/`Success`/`Warning`/`Error`) and `Expiration` a `TimeSpan`; `OnClick` and `OnClose` are get-only delegate PROPERTIES the message carries, never manager methods.
+- `MessageCloseReason` is `Timeout` / `UserAction` / `Displaced` — the dismissal-cause vocabulary a receipt seals; `INotificationManager` reports none of it.
 
 [THEME_INSTALL]: `UrsaSemiTheme` install and locale surface — `Ursa.Themes.Semi` (the only code surface; the rest is XAML resource lookup)
 

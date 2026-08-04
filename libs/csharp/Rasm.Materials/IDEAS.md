@@ -111,11 +111,18 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `UdimTile` already carries the Mari grammar and derives its grid coordinate; the plane arena declares its tiled window growth leg; the set content key already folds channel-ordered digests, so a per-tile digest is a preimage widening rather than a key redesign.
 - Tension: per-tile residency makes the set key a function of what is RESIDENT unless the key stays over the full declared grid — the key must remain whole-set or two views of one asset address different blobs.
 
+[MICROFACET_GENERIC_MATH]-[QUEUED]: The microfacet kernel generalizes over the numeric scalar, so exact dual-number Jacobians flow through the one forward model.
+- Capability: `bsdf#MICROFACET_KERNEL` computes over any `T : INumber<T>, IRootFunctions<T>, IPowerFunctions<T>, IExponentialFunctions<T>, ILogarithmicFunctions<T>, ITrigonometricFunctions<T>` — the exact `Dual<T>` constraint set — with `double` the instantiation every existing lobe keeps, so the BRDF acquisition fit takes the kernel `Lm.Minimize`/`DualModel` exact-Jacobian lane instead of its hand-rolled central-difference Gauss-Newton loop.
+- Shape: `LocalVector` becomes `LocalVector<T>` and `Ndf`/`Lambda`/`MaskingShadowing`/`Masking`/`FresnelSchlick`/`FresnelDielectric`/`FresnelConductor` become generic bodies at `Appearance/bsdf.md`; then `acquisition#ACQUISITION` lands `BrdfResidual : IDualResidual` over `Lm.Minimize(new DualModel(residual), SolvePolicy.Canonical, key)`, the `(Lo, Hi)` bounds riding a differentiable box reparameterization.
+- Unlocks: the 12-iteration hand loop, its `0.5 * delta` damping, the QR/SVD fallback step, and the explicit central-difference `Jacobian` all delete; the `acquisition.md` `[EXPRESSION_SPINE]` exemption retires with the loop.
+- Anchors: the kernel dual floor at `Rasm` `Solving/solver` (`IDualResidual.Row`, the exact-Jacobian-only boundary law); measured blast radius — 80 `LocalVector` sites in `bsdf.md`, 14 in `environment.md`, 7 in `acquisition.md`, 2 in `surface.md`, 28 `Microfacet.` call sites — so the rebuild lands whole, never half.
+- Tension: the half-landed-vocabulary law — a partial generic rebuild leaves two scalar dialects in one kernel, so the pass is all-or-nothing across the four pages.
+
 [ATLAS_PACKER]-[QUEUED]: `Raster/set` packs its own atlases, so N materials sharing one sheet is a produced artefact rather than an ingested convention.
 - Capability: an atlas becomes a first-class product — a packing over N sets producing one plane per channel and the per-set UV transforms — while remaining a PLANE-level sharing fact, so each participating set keeps its own key and its own appearance identity and a texture edit re-keys exactly the sets that read it.
 - Shape: a packing fold producing the shared planes and the per-set transform rows, beside the set owner; lands in `libs/csharp/Rasm.Materials/.planning/Raster/set.md`.
 - Unlocks: draw-call reduction for the generated assemblies; the atlas half of the sharing law the set owner already states as a boundary.
-- Anchors: the atlas boundary is already ruled — N sets referencing one blob by content address, never a set-level merge behind one appearance key — so the packer produces exactly that shape; the kernel `Processing/flatten` chart packing is the same bin-packing problem already solved once in the estate; `filter#PLANE_OP` `Dilate` closes the inter-chart gutter bleed a packed sheet's mip chain otherwise carries.
+- Anchors: the atlas boundary is already ruled — N sets referencing one blob by content address, never a set-level merge behind one appearance key — so the packer produces exactly that shape; the kernel `Processing/flatten` rules packing downstream of the chart atlas, so the packer is this folder's own fold over the kernel `ChartAtlas` operand; `filter#PLANE_OP` `Dilate` closes the inter-chart gutter bleed a packed sheet's mip chain otherwise carries.
 - Ripple: precedes `[MESH_SPACE_BAKE]` — a mesh-space bake over an atlased target needs the transform rows this card produces.
 
 [COAT_ANISOTROPY]-[QUEUED]: Coat layers carry their own grain, so a brushed-metal topcoat and an anisotropic clear lacquer shade their real highlight.
@@ -152,19 +159,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: the `MtlxParameters` projection already routes per-node ports; the `[MTLX_UNIFIED_NOISE_INGRESS]` research row on the same page asks the ingress-direction question these nodes inherit.
 - Tension: a multi-output node breaks the one-sample-one-`ShadeVec4` shape of the source union — the flake family may demand an output-selector column rather than a case per output, and that decision precedes any row.
 
-[OPENPBR_GROUPS_MAP_COLUMNS]-[QUEUED]: `OpenPbrGroupsWire` grows its map half, so a TS consumer reads which plane refines each group instead of scalars alone.
-- Capability: `OpenPbrGroupsWire` carries per-group map columns — map presence, blob digest, colour space, and leaf name — so the group document names the plane that refines each scalar group and the TS `PbrGroups` decoder stops being scalar-only.
-- Shape: the map/digest/colorSpace/leaf column widening at `libs/csharp/Rasm.Materials/.planning/Appearance/interchange.md` `[MATERIAL_WIRE]`, wire-key growth per the frozen-key law.
-- Unlocks: `typescript:ui` `[PBR_GROUPS_MAP_FIELDS]` — the TS block downgrades from blocker to ordering constraint once the producer columns exist.
-- Anchors: `TextureSetWire` already addresses blobs by content digest and `TextureChannel` already carries the leaf grammar, so the columns project landed facts; the generated Mapperly wire map forces the mirror at compile.
-- Ripple: `typescript:ui` `[PBR_GROUPS_MAP_FIELDS]` consumes; the producer end is this card.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[OPENPBR_GROUPS_MAP_COLUMNS]-[DROPPED]: plane storage remains on `TextureSetWire` and sampling policy on the per-bind `UvFrame`; adding either to scalar `OpenPbrGroupsWire` would duplicate owner truth and lose pack, level, layer, UDIM, transfer, and coordinate-set semantics.
 [TYPE_QUANTITY_RECEIPT]-[COMPLETE]: the seam co-sign was never a foreign ask — `Rasm.Element` gained three owner-declared `DetailSchema` takeoff statics under a `Takeoff` bag at `InheritanceMode.TypeDrivenOverride`, driving every occurrence off one Type-bound bag with no `Bake` edit, and a `Density` accessor total over both stiffness carriers; `TypeTakeoff` mints the set at `Projection/component#COMPONENT_PROJECTOR`, and `LinearDensity`/`VolumePerLength` being real UnitsNet registry quantities is what clears the dimension check a consumer mint answers `None` on.
 [CATALOGUE_ANALYTICS_EGRESS]-[COMPLETE]: `Projection/analytics.md` rebuilt onto the custodian seam — the folder-local `ColumnType`/`ColumnRow`/`AnalyticsSchema` twin died, `ColumnToken`/`DatasetColumn`/`DatasetWire` declare the producer half of `[WIRE]: AnalyticsSchema` with `Admission` the crossing, and each of `MaterialsDatasets`' five rows declares `observed` as its spine beside the `gwp` and `elapsed_s` measures, so Series, Fleet, and Lake provision one declaration; the folds thread `ProjectionContext` and `PropertyColumn` carries its unit column with four dimensioned UnitsNet selectors.
 [KERNEL_BENCH_PROFILE_CORPUS]-[COMPLETE]: landed as `Projection/benchmarks.md` `[03]-[GATE_COMPOSITION]` — `MaterialsBench.Fresh` projects each content-bound workload through `BenchmarkReceipt.Of` and `MaterialsBench.Gate` traverses the corpus through `BenchmarkGate.Gate`, with harness and claim residence injected; the `BenchWorkload` row joined `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP`.

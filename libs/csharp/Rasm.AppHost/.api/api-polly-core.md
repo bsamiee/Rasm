@@ -101,7 +101,7 @@
 |  [05]   | `PredicateBuilder<T>.HandleResult`                      | fold     | result arm         |
 |  [06]   | `Outcome.FromResult<TResult>`                           | factory  | result outcome     |
 
-- `ResiliencePipelineProvider<TKey>.TryGetPipeline`: out-parameter probe returning a non-throwing `bool`.
+- `ResiliencePipelineProvider<TKey>.TryGetPipeline` carries an untyped and a `<TResult>` overload mirroring `GetPipeline`, each `abstract bool TryGetPipeline(TKey key, [NotNullWhen(true)] out ResiliencePipeline? pipeline)`: the whole family is SYNC — no async probe exists — and the `[NotNullWhen(true)]` annotation is what lets a `true` branch read the out value without a null check.
 - `PredicateBuilder<T>.HandleResult`: accepts a `Func<T, bool>` predicate or a result value.
 
 ## [04]-[IMPLEMENTATION_LAW]

@@ -20,6 +20,27 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
+[WELD_DWELL_MS_EGRESS]-[QUEUED]: The weave dwell's second-to-millisecond crossing carries an adjudicated unit posture at its controller-word egress.
+- Capability: the controller-bound dwell word converts through a declared route — typed `UnitsNet.Duration` egress, or a stated frozen-wire bare multiply — instead of an unadjudicated `* 1000.0`.
+- Shape: one verdict at `Joining/weld.md:1503` (`(int)Math.Round(band.Weave.EdgeDwellS * 1000.0)`); the page already imports UnitsNet, so the typed form costs one expression if the integer-millisecond field is not a frozen controller wire.
+- Unlocks: the last undispositioned F2/F3 boundary site in the Joining family closes.
+- Anchors: the digest/wire freeze ruling at `[04]-[STRUCTURE]`; the controller word's own field declaration decides frozen-versus-typed.
+- Atomic: one site, one verdict.
+
+[CUTTING_DEPTH_RATIO_UNITS]-[QUEUED]: The cutting-data depth ratio proves its numerator unit before any typed conversion lands.
+- Capability: `depth * 1000.0 / TargetDepth.Millimeters` at `Tooling/cuttingdata.md:895`/`:905` either becomes a typed `Length` ratio or records the structural negative — the numerator's unit is proven at `Depth(...)`'s own definition, never assumed from the call sites.
+- Shape: prove the producer's output unit, then land the typed egress or the recorded negative at both sites.
+- Unlocks: the two remaining unproven scale literals in Tooling close under the R2 rule.
+- Anchors: the `Mass.FromGrams` precedent at `Tooling/magazine.md:762`; the proven-reading requirement (`ToolMeasure.Weight` grams proof pattern).
+- Atomic: one proof, two sites.
+
+[IMPLICIT_PROGRESS_THREAD]-[QUEUED]: The run fold's progress sink reaches the PicoGK egress legs through the slicing chain.
+- Capability: a fabrication run's `FabricationRuntime.Progress` sink reports the additive stack's longest legs — vectorize, CLI write, VDB convert — instead of going dark between the `Dispatched` and `Sealed` stage boundaries.
+- Shape: `Additive/slicing.md` `Layers` gains a defaulted `Option<IProgress<double>>` threaded through the `@implicit` arm's `Voxel` into the landed `Implicit.Cli(op, progress)` parameter; the dispatch chain from `Process/owner.md` passes `runtime.Progress` at its slicing call.
+- Unlocks: the three PicoGK `IProgress?` provider parameters already composed at `Additive/implicit.md` receive a live sink end to end.
+- Anchors: `FabricationRuntime.Progress` (`Process/owner.md:1508`); `Implicit.Cli(ImplicitOp, Option<IProgress<double>>)` (`Additive/implicit.md:784`); the `RunStage` band whose Dispatched-to-Sealed gap this fills.
+- Atomic: one defaulted parameter threaded through one chain.
+
 [PLINESEG_INTERSECTION_ADOPT]-[QUEUED]: Compose the newly catalogued arc-aware segment-intersection family where the toolpath pages hand-classify crossings.
 - Capability: segment crossings classify through the provider's own verdict vocabulary — overlapping arcs included — instead of a page-local classification.
 - Shape: the `Rasm.Fabrication/.planning/Toolpath` pages whose folds test segment crossings compose the `PlineSegIntersection.Intersect` family and its `PlineSegIntrKind` verdicts per the widened `api-cavaliercontours.md` rows.

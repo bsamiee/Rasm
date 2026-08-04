@@ -62,6 +62,27 @@ Every constructor takes a leading `void* mem` sized by its `manifold_*_size()` t
 |  [14]   | `manifold_slice(mem, m, height)`       | planar section         |
 |  [15]   | `manifold_project(mem, m)`             | silhouette projection  |
 
+[MANIFOLD_VECTOR]:
+
+`ManifoldManifoldVec` is the only N-ary shape across the boundary — the operand carrier `manifold_batch_boolean` folds and the result carrier `manifold_decompose` and `manifold_compose` exchange. It obeys `[02]-[MEMORY_LAW]` whole, and element reads MINT: `manifold_manifold_vec_get` takes its own leading `void* mem`, so every read handle carries its own release independent of the vector's.
+
+| [INDEX] | [SURFACE]                                 | [CAPABILITY]         |
+| :-----: | :---------------------------------------- | :------------------- |
+|  [01]   | `manifold_manifold_empty_vec(mem)`        | empty vector         |
+|  [02]   | `manifold_manifold_vec(mem, sz)`          | sized vector         |
+|  [03]   | `manifold_manifold_vec_reserve(ms, sz)`   | capacity reserve     |
+|  [04]   | `manifold_manifold_vec_length(ms)`        | element census       |
+|  [05]   | `manifold_manifold_vec_get(mem, ms, idx)` | element read, minted |
+|  [06]   | `manifold_manifold_vec_set(ms, idx, m)`   | indexed fill         |
+|  [07]   | `manifold_manifold_vec_push_back(ms, m)`  | growth fill          |
+|  [08]   | `manifold_manifold_vec_size()`            | sizing               |
+|  [09]   | `manifold_alloc_manifold_vec()`           | allocation           |
+|  [10]   | `manifold_destruct_manifold_vec(ms)`      | destructor only      |
+|  [11]   | `manifold_delete_manifold_vec(ms)`        | destructor plus free |
+
+- A `manifold_manifold_vec` sized at construction fills by `set` at a known arity; `manifold_manifold_vec_reserve` plus `push_back` is the streaming form for an unknown one, and mixing the two over one vector appends past the sized prefix rather than overwriting it.
+- `manifold_decompose` returns the vector, never an array — the shell census is `manifold_manifold_vec_length` and each shell is one `get`, so a connected input yields a one-element vector rather than a null or a bare handle.
+
 [EXTRACTION]:
 
 Extraction lowers a manifold into the float or double `MeshGL`; array reads copy into caller-sized buffers, and merge reads expose the topological re-weld map for an open `MeshGL`. EVERY entry point is LANE-SUFFIXED: the `64` infix binds `ManifoldMeshGL64` and its absence binds `ManifoldMeshGL`, so a row copied across lanes without the infix names a symbol the shared object does not export and fails at first call rather than at compile. Kernel bindings take the double lane alone.
@@ -112,26 +133,35 @@ MeshGL carries its output triangles as RUNS — maximal contiguous index ranges 
 - `face_id` is `num_tri` long and survives simplification as the edge-preserving boundary; absent input face ids fill from Manifold's own coplanar-face pass against the mesh tolerance.
 - `run_transform` is `12 × num_run` components — a column-major 3×4 affine per run — and `manifold_get_meshgl_w_normals`/`manifold_get_meshgl64_w_normals` are the extraction forms populating the normal property channel that `has_normals` then reports per run.
 - Provenance is EARNED on the input side: `manifold_reserve_ids(uint32_t n)` mints a unique original-id block, `manifold_as_original(mem, m)` re-seats a manifold as its own original, and `manifold_original_id(m)` reads the seated id back, so a boolean's `run_original_id` attributes to operands the caller can name. Without that seating, the output ids are Manifold's own and attribute to nothing the kernel declared.
+- The reserved block reaches an ingested mesh through no path this ABI exposes: `manifold_meshgl` and `manifold_meshgl64` take vertex properties and triangle indices ALONE, and every run accessor is a read. A `manifold_reserve_ids` block therefore serves a caller that authors `runOriginalID` through the C++ surface, while a C-FFI ingest earns attribution from `manifold_as_original` and reads it back through `manifold_original_id` — that read-back is the only attribution key this boundary yields.
+- `manifold_original_id` returns `int` and reports `-1` for a manifold that is not an original, while every `run_original_id` buffer is `uint32_t`, so the seated read and the run buffer meet across an explicit width crossing and a blind reinterpretation turns the not-an-original sentinel into the largest valid id.
 
 [STATUS]:
 
-`ManifoldError` is the native error vocabulary the binding folds into `GeometryFault`; `manifold_status` is the first eager read after each boolean. Execution contexts thread cooperative cancellation and progress through the same rail, cancellation recording `MANIFOLD_CANCELLED`.
+`ManifoldError` is the native error vocabulary the binding folds into `GeometryFault`; `manifold_status` is the first eager read after each boolean. An execution context reaches an evaluation ONLY through the eager op that consumes its attachment: `manifold_with_context` returns a COPY carrying the context, and `manifold_status` or a `manifold_refine*` call consumes it. DEFERRED ops — boolean operators, transforms, and the batch fold — IGNORE an attached context and return a result carrying none, so a context bound to the operands governs nothing and its progress read reports an evaluation that never ran under it. The attachment belongs on the RESULT, immediately before the terminal force, and cancellation there records `MANIFOLD_CANCELLED`.
 
-| [INDEX] | [SURFACE]                                       | [CAPABILITY]            |
-| :-----: | :---------------------------------------------- | :---------------------- |
-|  [01]   | `ManifoldError`                                 | error vocabulary        |
-|  [02]   | `MANIFOLD_NO_ERROR`                             | successful status       |
-|  [03]   | `MANIFOLD_NOT_MANIFOLD`                         | manifoldness fault      |
-|  [04]   | `MANIFOLD_NON_FINITE_VERTEX`                    | finite-coordinate fault |
-|  [05]   | `MANIFOLD_INVALID_CONSTRUCTION`                 | construction fault      |
-|  [06]   | `MANIFOLD_RESULT_TOO_LARGE`                     | result-size fault       |
-|  [07]   | `MANIFOLD_CANCELLED`                            | cancellation fault      |
-|  [08]   | `manifold_status(manifold)`                     | eager status read       |
-|  [09]   | `manifold_execution_context(mem)`               | execution context       |
-|  [10]   | `manifold_execution_context_cancel(context)`    | cancellation request    |
-|  [11]   | `manifold_execution_context_cancelled(context)` | cancellation read       |
-|  [12]   | `manifold_execution_context_progress(context)`  | progress read           |
-|  [13]   | `manifold_with_context(mem, manifold, context)` | context binding         |
+| [INDEX] | [SURFACE]                                        | [CAPABILITY]            |
+| :-----: | :----------------------------------------------- | :---------------------- |
+|  [01]   | `ManifoldError`                                  | error vocabulary        |
+|  [02]   | `MANIFOLD_NO_ERROR`                              | successful status       |
+|  [03]   | `MANIFOLD_NOT_MANIFOLD`                          | manifoldness fault      |
+|  [04]   | `MANIFOLD_NON_FINITE_VERTEX`                     | finite-coordinate fault |
+|  [05]   | `MANIFOLD_INVALID_CONSTRUCTION`                  | construction fault      |
+|  [06]   | `MANIFOLD_RESULT_TOO_LARGE`                      | result-size fault       |
+|  [07]   | `MANIFOLD_CANCELLED`                             | cancellation fault      |
+|  [08]   | `manifold_status(manifold)`                      | eager status read       |
+|  [09]   | `manifold_execution_context(mem)`                | execution context       |
+|  [10]   | `manifold_execution_context_cancel(context)`     | cancellation request    |
+|  [11]   | `manifold_execution_context_cancelled(context)`  | cancellation read       |
+|  [12]   | `manifold_execution_context_progress(context)`   | progress read           |
+|  [13]   | `manifold_with_context(mem, manifold, context)`  | result-side attachment  |
+|  [14]   | `manifold_execution_context_size()`              | sizing                  |
+|  [15]   | `manifold_alloc_execution_context()`             | allocation              |
+|  [16]   | `manifold_destruct_execution_context(context)`   | destructor only         |
+|  [17]   | `manifold_delete_execution_context(context)`     | destructor plus free    |
+
+- Cancellation is sticky and granular per boolean, and the context is safe to read and write from any thread, so the cancel request may cross from a caller thread while the evaluation runs.
+- The ctx-aware static factories — `manifold_execution_context_level_set`, `_level_set_seq`, `_of_meshgl`, `_of_meshgl64`, `_smooth`, `_smooth64` — take the context as an argument because they have no source manifold to attach one to; every other op reaches a context only through `manifold_with_context`, so a construction that must report progress spells the ctx-aware form rather than binding after the fact.
 
 [GUARANTEE_EVIDENCE]:
 
@@ -154,7 +184,7 @@ Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without a second 
 
 [TOPOLOGY]:
 - Every op folds through the `void* mem` sizing ABI with deterministic release; Manifold guarantees manifold output at float precision, the managed exact arrangement retaining exact signs, implicit-point crossings, and cell classification.
-- `manifold_status` forces eagerly onto the single `BooleanReceipt`/`ManifoldStatus` evidence rail.
+- `manifold_status` forces eagerly onto the single `BooleanReceipt`/`ManifoldStatus` evidence rail, and it is also the op that consumes a context attachment — so the binding attaches at the result immediately before that read, never at the operands a deferred fold discards the context from.
 - Lane infix rides the SYMBOL, never the handle type the C# side declares: `nint` erases `ManifoldMeshGL` and `ManifoldMeshGL64` to one shape, so nothing but the entry-point spelling keeps the two lanes apart and a mis-suffixed `LibraryImport` fails at first call rather than at compile. Kernel bindings declare the `meshgl64` lane only.
 
 [STACKING]:
@@ -169,6 +199,6 @@ Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without a second 
 
 [RAIL_LAW]:
 - Package: `manifoldc`
-- Owns: guaranteed-manifold boolean throughput above `ArrangementPolicy.ScaleCeiling`, its lazy CSG evaluation, float and double `MeshGL` ingest and extraction, the run-and-face-id source-attribution channel with its `manifold_reserve_ids`/`manifold_as_original` seating, the native `manifold_hull`/`manifold_slice`/`manifold_project` surfaces, the genus/area/volume/bounds guarantee reads, and the deterministic-release `void* mem` ABI with `ManifoldExecutionContext` cancellation and progress.
+- Owns: guaranteed-manifold boolean throughput above `ArrangementPolicy.ScaleCeiling`, its lazy CSG evaluation, float and double `MeshGL` ingest and extraction, the `ManifoldManifoldVec` N-ary operand and shell carrier, the run-and-face-id source-attribution channel with its `manifold_reserve_ids`/`manifold_as_original` seating, the native `manifold_hull`/`manifold_slice`/`manifold_project` surfaces, the genus/area/volume/bounds guarantee reads, and the deterministic-release `void* mem` ABI with `ManifoldExecutionContext` cancellation, progress, and its consumed-by-the-next-eager-op attachment law.
 - Accept: high-scale booleans routed above `ArrangementPolicy.ScaleCeiling`, the kernel SoA `double` lane lowered through `meshgl64`, `ManifoldError` folded into `GeometryFault`, cancellation through the execution-context rail, and every entry point spelled at the lane its handle carries.
-- Reject: a NuGet reference, the in-repo binding owning no package and the `Manifold`/`ManifoldNET` NuGet IDs naming unrelated projects; an unsuffixed accessor over a `meshgl64` handle, or the two lanes' entry points mixed in one binding; the unrouted `manifold_union`/`manifold_difference`/`manifold_intersection` twins in place of `manifold_boolean`; a second correctness rail beside the managed exact arrangement; an exception in place of the `Fin` boundary fold.
+- Reject: a NuGet reference, the in-repo binding owning no package and the `Manifold`/`ManifoldNET` NuGet IDs naming unrelated projects; an unsuffixed accessor over a `meshgl64` handle, or the two lanes' entry points mixed in one binding; the unrouted `manifold_union`/`manifold_difference`/`manifold_intersection` twins in place of `manifold_boolean`; a context attached to boolean operands, whose deferred fold discards it and leaves the terminal force ungoverned; a `manifold_alloc_*` handle released through `manifold_destruct_*`, which runs the destructor and leaks the allocation; a second correctness rail beside the managed exact arrangement; an exception in place of the `Fin` boundary fold.

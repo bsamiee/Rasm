@@ -41,6 +41,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `Planning/schedule` `ScheduleNetwork`; the AppUi `[V9]` growth register carries the reciprocal record.
 - Tension: no AppUi consuming fence exists today — same re-entry law as `[ELEMENT_SET_VIEWPORT_SEAM]`.
 
+[MOISTURE_DIFFUSIVITY_BASE]-[QUEUED]: The moisture-diffusivity measure signs the base IFC declares, proven at the schema.
+- Capability: `IfcMoistureDiffusivityMeasure` coerces on the base the schema declares rather than the diffusivity-convention assumption — IFC declares `m3/s` while the row signs the conventional `m2/s`, a three-order coercion difference on a mm model.
+- Shape: read the schema declaration, then land the corrected `MeasureDimensions` signature or the recorded convention-divergence negative; the research row on `Projection/semantic.md` `[04]-[RESEARCH]` carries the route.
+- Unlocks: the last unproven dimension signature in the measure table closes.
+- Anchors: the `IfcPlanarForceMeasure` mis-signature precedent this wave fixed; the `MeasureDimensions` row column.
+- Atomic: one schema read, one row verdict.
+
 [PROGRESS_COMPARISON_FOLD]-[QUEUED]: Author the progress comparison fold and evidence receipt on the new progress page.
 - Capability: capture-epoch occurrences joined to `TaskAssignment` element sets, minting per-task observed completion, variance band, and the unmatched-occurrence residue.
 - Shape: `libs/csharp/Rasm.Bim/.planning/Planning/progress.md` gains the comparison fold over `Exchange/reconstruct#RECONSTRUCTION` occurrences, `ConstructionState.At` expectations, and the `Model/query#ELEMENT_SET` join, and the typed evidence receipt.

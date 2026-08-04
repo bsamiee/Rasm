@@ -87,4 +87,4 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
 - `differential dataflow`: recomputes a dataflow incrementally from input deltas, and each operator emits only its own output deltas.
 - `incremental view maintenance`: updates a materialized view from the change set alone rather than re-running its query.
 - `as-of query`: reads state as it stood at one declared time rather than at the newest commit.
-    - [NOT]: time travel, naming the same capability in a spelling this corpus never uses.
+    - [NOT]: time travel, which refuses bare use — two qualified senses share the spelling (collab time travel, store time travel) under the estate glossary's qualified-only law.

@@ -29,6 +29,7 @@
 |  [10]   | `NotificationType`         | enum          | `NotImplemented`/`None`/`NotSupported`/`Warning`/`Error` severity            |
 |  [11]   | `ProgressEventHandler`     | delegate      | `(object sender, ProgressEventArgs e)` read-progress stream                  |
 |  [12]   | `ProgressEventArgs`        | class         | `Stage` (`ReadStage`) + `Current` (`CadObjectData`) per progress event       |
+|  [13]   | `ReadStage`                | enum          | TWO members — `Read` then `Build`; no count or total accompanies either      |
 
 [PUBLIC_TYPE_SCOPE]: the `CadDocument` model root and tables
 

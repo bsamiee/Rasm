@@ -45,7 +45,7 @@
 |  [06]   | `VersionRange.TryParse(string, bool, out VersionRange) -> bool`                | static   | floating-aware parse            |
 |  [07]   | `VersionRangeBase.Satisfies(NuGetVersion) -> bool`                             | instance | admission predicate             |
 |  [08]   | `VersionRangeBase.Satisfies(NuGetVersion, VersionComparison) -> bool`          | instance | mode-scoped predicate           |
-|  [09]   | `VersionRange.FindBestMatch(IEnumerable<NuGetVersion>) -> NuGetVersion`        | instance | newest in-range candidate       |
+|  [09]   | `VersionRange.FindBestMatch(IEnumerable<NuGetVersion>?) -> NuGetVersion?`      | instance | newest in-range candidate       |
 |  [10]   | `VersionRange.IsBetter(NuGetVersion, NuGetVersion) -> bool`                    | instance | pairwise candidate preference   |
 |  [11]   | `VersionRangeBase.IsSubSetOrEqualTo(VersionRangeBase) -> bool`                 | instance | policy containment              |
 |  [12]   | `VersionComparer.Compare(SemanticVersion, SemanticVersion, VersionComparison)` | instance | explicit-mode comparison        |
@@ -68,7 +68,7 @@
 [STACKING]:
 - `Sandbox/admission`(`.planning/Sandbox/admission.md`): the `SupplyChainGate.Admit` version leg parses the subject's declared range through `VersionRange.TryParse` and decides membership with `VersionRange.Satisfies(NuGetVersion)`, accumulating applicatively beside the signature leg so a forged and out-of-contract subject reports both faults; a parse failure on either boundary fails closed as `SupplyChainFault.VersionIncompatible`.
 - `api-sigstore`(`.api/api-sigstore.md`): owns the signature and provenance half of that same `Admit` row, this catalog owns the version half `System.Version` cannot express, and the two legs compose one admit verdict.
-- within-lib: `FindBestMatch` resolves the newest in-range candidate across several registry versions, and `PrettyPrint`/`ToNormalizedString` render the range and version into the `VersionIncompatible` fault payload.
+- within-lib: `FindBestMatch` resolves the newest in-range candidate across several registry versions — its return is `NuGetVersion?` and an empty or all-out-of-range candidate set yields `null`, so the caller folds that absence onto `VersionIncompatible` rather than dereferencing — and `PrettyPrint`/`ToNormalizedString` render the range and version into the fault payload.
 
 [LOCAL_ADMISSION]:
 - Admission enters through `VersionRange.TryParse` and `NuGetVersion.TryParse` (never `Parse`) at the artifact/host boundary, decided by `Satisfies`; the total fold lowers the `bool` onto the `Validation`/`Fin` rail, so a malformed contract range is a typed denial rather than a throw.

@@ -43,6 +43,15 @@
         "resolved": "18.7.23",
         "contentHash": "dyj6z8m+LFjpeH69hdnciCcRCmD0YgMlvuQEywiEshjqj/blgQ+PuWX8Vd5gkWQFoBN4e+TFxx6DvGNSv/gIKg=="
       },
+      "NodaTime.Testing": {
+        "type": "Direct",
+        "requested": "[3.3.3, )",
+        "resolved": "3.3.3",
+        "contentHash": "HXxij1x6brpOtTnWvauL2Ir9ydyObPGERyOHelHtnACbl/ctJXsRMqvF09ajJTa588pfuVhEvjo5/WzkCh8vlQ==",
+        "dependencies": {
+          "NodaTime": "3.3.3"
+        }
+      },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
         "requested": "[10.4.0, )",
@@ -744,6 +753,7 @@
           "System.Numerics.Tensors": "[10.0.10, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "UnitsNet": "[5.75.1, )",
           "Wacton.Unicolour": "[8.0.0, )"
         }
       },
@@ -2116,6 +2126,12 @@
         "requested": "[5.0.8, )",
         "resolved": "5.0.8",
         "contentHash": "uv/osrv2ZwBdgij6HvOBmojPnnuZ0nNwGPZVFOO9aKlV6/IHl3TOsP4a7XRlS8SUIPUUKqhynG5HQTeaNh8WVA=="
+      },
+      "UnitsNet": {
+        "type": "CentralTransitive",
+        "requested": "[5.75.1, )",
+        "resolved": "5.75.1",
+        "contentHash": "k03hA739n11FDke7tcVHyk1YXRoWxYlkNGpNMCTX/gfwV8fbGq1oDoYHaMg0tCxhpv9l2BS6M9EsE7FcszVtSg=="
       },
       "Velopack": {
         "type": "CentralTransitive",

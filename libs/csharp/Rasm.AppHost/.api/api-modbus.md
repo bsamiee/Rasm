@@ -91,7 +91,8 @@ Each async op mirrors its sync member with a trailing `CancellationToken = defau
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `ModbusEndianness` fixes at `Connect` and governs the byte order of every multi-byte register `T`; the AppHost binding carries it as a `TransportRow` policy column, never a per-read flag.
+- `ModbusEndianness` fixes at `Connect` — the overload sets the client's byte-swap state for the whole connection — and governs the byte order of every multi-byte register `T`; the AppHost binding carries it on the held-client composition seat that dialed the connection, never a window column or a per-read flag.
+- Modbus publishes NO per-write echo token: every write member returns a bare `Task` and every read a raw register or bit window carrying no id, stamp, or sequence, so a written value is provable only by reading it back — `ReadWriteMultipleRegisters` (function 23) is the one atomic write-then-read-back in a single transaction, a correlation by construction rather than a token. AppHost's echo axis takes its `Absent` arm on this row for that reason.
 - `ReadHoldingRegisters<T>` reinterprets each `T : unmanaged` register window as a `Span<T>` over `short`, `ushort`, `int`, `float`, or `double`, decoded to one `ExternalValue`; the async mirror returns `Task<Memory<T>>` for storage that outlives `await`.
 - `unitIdentifier` is the slave address and the address window (`startingAddress`, `count`) is binding-spec policy data, never a parallel poller.
 - one `ModbusClient` register and coil surface serves the TCP, RTU, and RTU-over-TCP transports alike.
@@ -99,7 +100,7 @@ Each async op mirrors its sync member with a trailing `CancellationToken = defau
 
 [STACKING]:
 - `System.IO.Ports`(`.api/api-serialport.md`): `ModbusRtuClient` binds a `SerialPort` line for RTU/ASCII fieldbus, its `Parity`/`StopBits`/`Handshake` line policy carried by that owner.
-- within-lib: the live-wire `modbus` transport row binds `ModbusTcpClient`/`ModbusRtuClient` behind one `TransportRow.Read`/`Write` adapter, a typed `Span<T>` read projecting one `ExternalValue` (raw value, declared unit, good flag, source instant) onto the row's `OutboundHop`, the boxed register never entering the interior.
+- within-lib: the live-wire `modbus` transport row composes the base `ModbusClient` surface deliberately — the TCP/RTU clients inherit the function-code operations, so one adapter binds both — behind one `TransportRow.Read`/`Write` adapter, a typed `Span<T>` read projecting one `ExternalValue` (raw value, declared unit, good flag, source instant) onto the row's `OutboundHop`, the boxed register never entering the interior.
 
 [LOCAL_ADMISSION]:
 - `ModbusTcpClient` binds an `OutboundHop.ServerStream` direct-TCP hop and `ModbusRtuClient` an `OutboundHop.CompanionSpawn` over the serial owner; the `modbus` transport row is one `ExternalTransport` `[SmartEnum<string>]` case with `ReadShape.Poll` and `Writable: true`, its register map binding-spec policy carried on the row.

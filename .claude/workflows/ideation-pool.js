@@ -1,8 +1,6 @@
 export const meta = {
     name: 'ideation-pool',
-    description:
-        'Build the four-altitude IDEAS/TASKLOG card estate to the depth slice-implement.js ingests: a disk-derived folder roster plus a git-history admitted-package roster, one codex sol dossier per folder/branch/cross tier, one fable card writer per folder streaming off its own dossier (typed per-axis verdicts make thin output a visible delegate failure), a per-language fable landing same-branch ripple counterparts, dedup, and the language-root pair, one cross-libs fable landing cross-language ripples both ends plus the coherence pass, streaming single-writer package admissions per central manifest, and a terminal audit proving no-silent-drops, decomposition, per-folder verdicts, and docgen-zero. args = {camp: absolute campaign home (required), scope?: folder subset, base?: pre-campaign commit-ish}; products land under camp/ideation/.',
-    whenToUse: 'After an implementation campaign empties the OPEN pools, to rebuild card depth before the next slice-implement run',
+    description: 'Build four-altitude card estate',
     phases: [
         {
             title: 'Roster',

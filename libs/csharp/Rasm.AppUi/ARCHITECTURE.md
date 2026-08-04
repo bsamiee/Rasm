@@ -42,11 +42,13 @@ Rasm.AppUi/
 ├── Document/             # Reproducible document plane
 │   ├── Notebook.cs       # Capability-pinned cells composing the recompute graph; co-editing; replay
 │   ├── Media.cs          # Markdown inlines and codec rows materialized for the one Surfaces.Mount crossing
-│   └── Export.cs         # Paginated flow reports, PDF security and forms, Office and print arms, support-bundle rows
+│   ├── Export.cs         # Paginated flow reports, PDF security and forms, Office and print arms, support-bundle rows
+│   └── Search.cs         # Typed search plane with ranked source-attributed results through the virtual window
 ├── Collab/               # Live-collaboration plane over the durable Persistence spine
 │   ├── Sync.cs           # Live-merge authority and the typed edit-intent stream onto the durable ledger
 │   ├── Issues.cs         # openBIM issue board projection over the Bim BCF contract
-│   └── Tour.cs           # Review tour as a camera-track projection with presenter-follow presence
+│   ├── Tour.cs           # Review tour as a camera-track projection with presenter-follow presence
+│   └── Session.cs        # Typed session governance gating edit-intent admission by role and membership
 ├── Diagnostics/          # Evidence, proof, dev loop, and quality governance
 │   ├── Evidence.cs       # Evidence-receipt union, telemetry spine and fan, correlation join, 6xxx fault registry
 │   ├── Proof.cs          # Capture lanes, headless proof matrix, frame-bench lanes, goldens, and a typed proof fault
@@ -137,6 +139,7 @@ flowchart LR
         Render[Render plane]
         Charts[Chart planes]
         Collab[Collab plane]
+        Document[Document plane]
         Diagnostics[Diagnostics]
     end
     Compute{{Rasm.Compute}}
@@ -150,7 +153,7 @@ flowchart LR
     Fabrication -->|"[RECEIPT]: HiddenLineResult"| Render
     Materials -->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| Render
     Rasm -->|"[CONTENT_KEY]: ContentHash"| Render
-    Rasm -->|"[SHAPE]: SolarPosition"| Render
+    Rasm -->|"[SHAPE]: SunPosition"| Render
     Bim -->|"[SHAPE]: GeoTiles"| Charts
     Bim -->|"[RECEIPT]: CostSchedule"| Charts
     Persistence -->|"[PROJECTION]: telemetry measure series"| Charts
@@ -158,6 +161,7 @@ flowchart LR
     Bim -->|"[PORT]: IssueBoard"| Collab
     Collab -->|"[PROJECTION]: ReplayWindow"| Persistence
     Collab -->|"[CONTENT_KEY]: SnapshotAccelerator"| Persistence
+    Document -->|"[WIRE]: DocumentQuery/DocumentHit"| Persistence
     Bim -->|"[RECEIPT]: ConstructionState"| Render
     Bim -->|"[BOUNDARY]: BcfViewpoint"| Render
     Bim -->|"[SHAPE]: GeoReference"| Render
@@ -219,8 +223,8 @@ flowchart LR
 - Correlation join and billing accrual stay one fold over two sources.
 - Profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
 - `[TRANSPORT]: CollabWireContext` — `Collab/sync` frames each delta as a `CollabFrame`, W3C carrier and Loro bytes.
-- Merge extracts the originating correlation; AppUi holds only the composition-bound `Inject`/`Extract` delegates of AppHost `TraceContext`.
-- `Rasm.AppHost [COLLAB_WIRE_CONTEXT]` owns the reciprocal — the `TraceContext` collab-frame adapter and the `COLLAB_DELTA_FEED` frame schema.
+- Merge extracts the originating correlation; `CollabCarrier` binds the frame's getter/setter pair onto the generic AppHost `TraceContext` `Inject`/`Extract`/`Continue` spine, the concrete carrier bodies seated beside this consumer per that spine's own boundary law.
+- The AppHost reciprocal is landed data, not an adapter row — the durable deltas ride `Wire/topics` `Topic.Collab` on the outbox leg and the awareness frames ride the ephemeral `Topic.Presence` row.
 - `[PORT]: ProfileSampleSource` lands at `Diagnostics/devloop`, each sample keyed by correlation.
 - Capture stays AppHost-side — Pyroscope span profiles, EventPipe CPU stacks; `FlameNode.Of` folds the samples into the frame tree.
 - Feed rides an existing AppHost port row, never a new `PortCardinality` port.

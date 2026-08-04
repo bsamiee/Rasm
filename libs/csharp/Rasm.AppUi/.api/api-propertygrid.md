@@ -145,6 +145,20 @@ A custom editor extends the public `AbstractCellEditFactory` registered through 
 |  [01]   | `CustomPropertyDescriptorFilterEventArgs`                  | descriptor filter (`RoutedEventArgs`) |
 |  [02]   | `PropertyGotFocusEventArgs` / `PropertyLostFocusEventArgs` | focus events (`RoutedEventArgs`)      |
 |  [03]   | `CellPropertyChangedEventArgs`                             | cell-value change (`EventArgs`)       |
+|  [04]   | `RoutedCommandExecutedEventArgs`                           | command receipt (`RoutedEventArgs`)   |
+|  [05]   | `RoutedCommandExecutingEventArgs`                          | command veto (row [04] subtype)       |
+
+- `PropertyGotFocusEventArgs` / `PropertyLostFocusEventArgs` carry one readonly `Context : PropertyCellContext`; `CustomPropertyDescriptorFilterEventArgs` carries readonly `TargetObject : object` and `PropertyDescriptor : PropertyDescriptor` beside a settable `IsVisible : bool`.
+- `RoutedCommandExecutedEventArgs` carries readonly `Command : ICancelableCommand`, `Target : object`, `Property : PropertyDescriptor`, and `OldValue`/`NewValue`/`Context : object?`; `RoutedCommandExecutingEventArgs` EXTENDS it and adds the settable `Canceled : bool`, so a handler narrowing to the base type accepts the veto edge and never reaches `Canceled`.
+
+[MODEL_SYNTHESIS_TYPES]: descriptor synthesis over a bound instance — `PropertyModels.Utils` / `.ComponentModel` / `.ComponentModel.DataAnnotations`
+
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :------------------------------ | :------------ | :------------------------------------------------------ |
+|  [01]   | `PropertyDescriptorBuilder`     | class         | descriptor set over one target or an `IEnumerable` set  |
+|  [02]   | `MultiObjectPropertyDescriptor` | class         | one descriptor fanning writes across a merged selection |
+|  [03]   | `ListElementPropertyDescriptor` | class         | per-element descriptor inside a collection editor       |
+|  [04]   | `DependsOnPropertyAttribute`    | attribute     | derived-member dependency, `AllowMultiple`              |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -168,8 +182,15 @@ A custom editor extends the public `AbstractCellEditFactory` registered through 
 |  [14]   | `CancelableCommandRecorder.OnCommandCanceled`                          | cancellation event              |
 |  [15]   | `CancelableCommandRecorder.OnCommandCleared`                           | clear event                     |
 |  [16]   | `CommandHistoryViewModel.UndoCommand` / `RedoCommand` / `ClearCommand` | bindable undo/redo/clear        |
+|  [17]   | `PropertyDescriptorBuilder(object target)`                             | synthesis over one bound target |
+|  [18]   | `PropertyDescriptorBuilder.GetProperties()`                            | `PropertyDescriptorCollection`  |
+|  [19]   | `PropertyDescriptorBuilder.IsMultipleObjects` / `Target`               | selection arity + bound target  |
+|  [20]   | `PropertyDescriptorBuilder.AllowMerge(PropertyDescriptor) : bool`      | merge admission per descriptor  |
 
 `GenericCancelableCommand(name, executeFunc, cancelFunc, canExecuteFunc?, canCancelFunc?)` binds forward and inverse as `Func<bool>?`.
+
+- `PropertyDescriptorBuilder` synthesizes over ONE live instance: an `IEnumerable` target sets `IsMultipleObjects` and merges only the descriptors `AllowMerge` admits (the BCL `MergablePropertyAttribute`, default allowing) into `MultiObjectPropertyDescriptor` rows, dropping the rest. There is NO immutable-value facility anywhere in the package — every write is `PropertyDescriptor.SetValue(component, value)` in place, so an inspected record edits through a mutable draft over `MiniReactiveObject`/`ReactiveObject` and the record rebuilds from that draft at commit.
+- `ReactiveObject` reads `[DependsOnProperty(nameof(...))]` at construction and raises each dependent member off its dependency's change, so a derived property notifies with nothing hand-raised; `MiniReactiveObject` carries no dependency propagation.
 
 [COLLECTION_ENTRYPOINTS]: `ICheckedList` operations — `PropertyModels.Collections`
 
@@ -230,6 +251,22 @@ A custom editor extends the public `AbstractCellEditFactory` registered through 
 |  [07]   | `SetPropertyValue(PropertyCellContext, object?)`                                                            | command-routed write     |
 |  [08]   | `GetPropertyValue(PropertyCellContext) : object?`                                                           | value read               |
 |  [09]   | `Clone() : ICellEditFactory?`                                                                               | per-cell factory clone   |
+
+[CELL_CONTEXT]: `PropertyCellContext` — the one argument every factory member above receives.
+
+| [INDEX] | [SURFACE]                                     | [CAPABILITY]                                          |
+| :-----: | :-------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `Property : PropertyDescriptor`               | descriptor channel; `PropertyType` selects the editor |
+|  [02]   | `Target : object`                             | the bound instance every write lands on               |
+|  [03]   | `GetValue() : object?`                        | value channel, reading `Property.GetValue(Target)`    |
+|  [04]   | `CellEdit : Control?`                         | the materialized editor, settable                     |
+|  [05]   | `Factory : ICellEditFactory?`                 | the factory that materialized it, settable            |
+|  [06]   | `IsReadOnly : bool`                           | per-cell write admission                              |
+|  [07]   | `Root` / `Owner : IPropertyGrid`              | routed-event raiser and root grid                     |
+|  [08]   | `ParentContext : PropertyCellContext?`        | enclosing cell for nested descriptors                 |
+|  [09]   | `GetCellEditFactoryCollection()`              | the resolving factory set                             |
+
+- `SetPropertyValue` is the ONE write path a presented editor commits through: it mints a `GenericCancelableCommand` per changed cell, raises `PropertyGrid.CommandExecuting` (cancellable), executes, then raises `PropertyGrid.CommandExecuted` — all inside one synchronous frame — so a control writing `context.Property.SetValue(context.Target, value)` directly bypasses the veto edge, the receipt edge, and the undo recorder at once. `GetPropertyValue` is `context.GetValue()`.
 
 [FACTORY_REGISTRY]: `ICellEditFactoryCollection` operations, resolved through `CellEditFactoryService.Default`.
 

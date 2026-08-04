@@ -67,6 +67,7 @@
 - `DataReceived` fires on a `ThreadPool` thread; the handler decodes the frame and `TryWrite`s one `ExternalValue` into the bounded lane at the boundary, never running the interior on the event thread.
 - `NewLine`/`Encoding` frame a line protocol read through `ReadLine`, while a binary protocol reads `BaseStream` directly; the choice is a binding-spec column.
 - `ErrorReceived` projects a frame, overrun, or parity fault to `WireFault.ReadFailed` at the boundary, never propagating into the interior.
+- The port is an untyped byte stream and publishes no per-write echo token; the read instant is the host clock, so a serial binding's echo axis takes `EchoClass.Absent` and write proof is a value read-back.
 
 [STACKING]:
 - `FluentModbus`(`.api/api-modbus.md`): `ModbusRtuClient` rides this serial line for Modbus-RTU, so the serial owner carries both the raw-line and RTU-carrier roles with no second serial surface.

@@ -1,9 +1,6 @@
 export const meta = {
     name: 'estate',
-    description:
-        'Per-language estate tracks - two dispatched recon delegates per track (split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then initial/critique/redteam passes - closing with a monorepo final track. The T-passes are write delegates; their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install). Every pass nominates generalizable findings and reports deliberately-left residuals; a terminal doctrine lander pools both across all tracks and adjudicates the nominations into docs/laws, the constitution, the test/tool READMEs, and the reviewer rules, while the pooled residuals ride the run return untouched - estate residuals are deliberate deferrals, not a drain backlog.',
-    whenToUse:
-        'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; a terminal doctrine lander lands generalizable findings.',
+    description: 'Per-language estate improvement pass',
     phases: [
         {
             title: 'Recon',

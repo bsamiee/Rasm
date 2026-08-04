@@ -8,7 +8,7 @@
 
 ## [02]-[SHAPE]
 
-- (none)
+- `HostUi/shell` `ProgressLease` is the package's ONE host governance-band producer — its `Fraction`/`Ticks` reporters and escape-armed `Cancel` feed every pacing carrier (`MeshRuntime`, `ProjectionPacing`, the kernel `ArrangementPolicy.Governed`), a refused advance parks on the lease fault cell, and a folder minting its own `IProgress` shim or `CancellationTokenSource` beside a lease is the forked form.
 
 ## [03]-[COLLAPSE]
 

@@ -20,60 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[BOOLEAN_RECEIPT_PROVENANCE]-[QUEUED]: The arrangement boolean receipt carries the source-attribution channel the native ABI already hands over.
-- Capability: every boolean product attributes its faces to their originating operand through the run/original-id/face-id provenance family, so a downstream consumer joins products back to sources without geometric matching.
-- Shape: provenance columns on `Rasm/.planning/Meshing/arrangement.md` `BooleanReceipt`, filled from the `api-manifold.md` `[RUN_PROVENANCE]` members (landed this pass), sized through the `merge_length` read.
-- Unlocks: source-keyed material and semantic carry-through across booleans — the only attribution channel the boundary offers, currently dropped at the receipt.
-- Anchors: `libs/csharp/Rasm/.api/api-manifold.md` `[RUN_PROVENANCE]` block; `Meshing/arrangement.md` the receipt owner and its `meshgl64` extraction fold.
-
-[ARRANGEMENT_CANCEL_THREAD]-[QUEUED]: Governance for the arrangement fold and the native scale lane.
-- Capability: cancellation and progress govern the whole arrangement fold under the synchronous-rail law, and the native tier answers that same governance with its abandonment lowering onto the typed fault rail beside its asset-absence sibling.
-- Shape: an execution-governance band on `libs/csharp/Rasm/.planning/Meshing/arrangement.md` extending `ArrangementPolicy` across subdivision, classification, and weld; the tier-3 lane binds `manifold_execution_context`, `manifold_execution_context_cancel`, `manifold_execution_context_progress`, and `manifold_with_context`, lowering `MANIFOLD_CANCELLED` beside `NativeAssetMissing`.
-- Unlocks: `[NATIVE_LANE_GOVERNANCE]` — governable million-face booleans.
-- Anchors: `libs/csharp/Rasm/.api/api-manifold.md` context rows 09-13, `Meshing/arrangement.md` `ScaleCeiling` gate and fault taxonomy.
-
-[VORONOI_COMPLEX_BAND]-[QUEUED]: Voronoi cell decomposition over cluster clouds.
-- Capability: cells, adjacency edges, and per-cell measures computed from the admitted dual constructors over `VectorCloud` clusters, with a typed receipt (cell/edge counts, unbounded-cell handling, tolerance evidence).
-- Shape: a Voronoi-complex band on `libs/csharp/Rasm/.planning/Spatial/cloud.md` beside the hull rail's Delaunay fold.
-- Unlocks: `[CLOUD_VORONOI_FIELD]` — density and territory evidence per point.
-- Anchors: `libs/csharp/Rasm/.api/api-miconvexhull.md` `VoronoiMesh.Create` overload family with `PlaneDistanceTolerance`.
-
-[SIBSON_FIELD_ROW]-[QUEUED]: Natural-neighbor fitted-field row.
-- Capability: Sibson natural-neighbor interpolation fitted from scattered samples via the Voronoi complex, minted as a reconstruction payload and carried as one fitted `ScalarField` case with its receipt.
-- Shape: a fitting row on `libs/csharp/Rasm/.planning/Meshing/reconstruct.md`; one fitted case on `libs/csharp/Rasm/.planning/Spatial/fields.md` per the fitted-payload law.
-- Unlocks: `[CLOUD_VORONOI_FIELD]` — exact-support scattered interpolation beside the RBF/MLS family.
-- Anchors: `Spatial/fields.md` reconstruction case family, `Meshing/reconstruct.md` policy-dispatched entry.
-
-[FLOW_MORSE_DECOMPOSITION]-[QUEUED]: Morse graph and separatrix band on the flow owner.
-- Capability: facet-transition digraph over the traced field, recurrent sets as strongly connected components, condensation into a Morse graph, fixed-point classification by local linearization, and separatrices traced from saddle eigendirections through the settled dense-output event localization.
-- Shape: a topology band on `libs/csharp/Rasm/.planning/Processing/flow.md` composing `StronglyConnectedComponents` and `CondensateStronglyConnected`.
-- Unlocks: `[FLOW_TOPOLOGY_ATLAS]` — qualitative field skeletons for panelize and patternmap guidance.
-- Anchors: `libs/csharp/.api/api-quikgraph.md` SCC/condensation rows, `Processing/flow.md` tracer.
-
-[ARRANGEMENT_PROGRESS_TAP]-[QUEUED]: Overlay execution governance surfaces through the operation runtime.
-- Capability: a long-running exact overlay reports progress and honors cancellation through the same `Env` capsule every other kernel operation charges, so an interactive consumer reads one governance surface.
-- Shape: an `IProgress<double>`/`CancellationToken` passthrough from the `Analysis/query.md` `Env` cost capsule onto the `Meshing/arrangement.md` `ArrangementPolicy` `Cancel`/`Progress` columns.
-- Unlocks: viewport and Fabrication overlay consumers gain live progress without a second governance channel.
-- Anchors: `Meshing/arrangement.md` execution-governance band; `Analysis/query.md` `[03]-[OPERATION_RUNTIME]` `OpCost` capsule.
-- Atomic: one passthrough wiring on two settled pages.
-
-[QUANTITY_MEASURE_BAND]-[QUEUED]: Quantity-typed projections on the metrology owner.
-- Capability: mass-property, bounds, and conformance results project as unit-carrying quantities derived from the executing `Context`'s `ModelUnit` — length/area/volume/mass identities, comparison and rescale unit-safe by construction.
-- Shape: a quantity-projection band on `libs/csharp/Rasm/.planning/Analysis/measure.md` over the context bridge.
-- Unlocks: `[UNIT_CARRIED_MEASURES]` — typed takeoff and display quantities at the app strata.
-- Anchors: `Analysis/measure.md` metrology owner, `Domain/context.md` bridge band.
-
-[DUAL_JACOBIAN_FLOOR]-[QUEUED]: Dual-number forward mode and the auto-Jacobian adapter.
-- Capability: a dual scalar with the generic-math operator surface residual kernels need, and an `ILmModel` adapter deriving exact Jacobians from residual code — hand-coded Jacobian drift retired where models opt in.
-- Shape: the forward-mode floor on new page `libs/csharp/Rasm/.planning/Solving/sensitivity.md` (`Solving/Sensitivity.cs`); an auto-Jacobian admission row on `libs/csharp/Rasm/.planning/Solving/solver.md`.
-- Unlocks: `[SENSITIVITY_RAIL]` — gradient-native solving.
-- Anchors: `Solving/solver.md` `ILmModel` residual+Jacobian floor, `Numerics/matrix.md` solve family.
-
-[ADJOINT_SENSITIVITY]-[QUEUED]: Adjoint sensitivity maps with typed receipts.
-- Capability: adjoint accumulation over the converged system returning d(solution)/d(parameter) maps, island-aware, with a sensitivity receipt (parameter set, conditioning evidence, residual norms).
-- Shape: the adjoint band on `libs/csharp/Rasm/.planning/Solving/sensitivity.md` over the forward-mode floor and the island decomposition.
-- Unlocks: `[SENSITIVITY_RAIL]` — parametric design optimization loops.
-- Anchors: `Solving/solver.md` island fold, `Numerics/matrix.md` factorization reuse.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -81,6 +28,15 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[VORONOI_COMPLEX_BAND]-[COMPLETE]: landed as `Spatial/cloud.md` `[05]-[VORONOI_COMPLEX]` — `ComputeVoronoiDetailed` over the dual family with the `key.Catch` funnel narrowed to `ConvexHullGenerationException` (its `.Error` carries the same typed outcome the hull family returns), Option-carried cell measures (unbounded cells publish no volume — FORGED_ZERO foreclosed), the whole census riding `Option<CloudVoronoiCensus>` so a rejected fold publishes no tallies, and the `VectorIntent.Voronoi` case/factory/arm as the user-facing entry.
+[SIBSON_FIELD_ROW]-[COMPLETE]: landed at both ends — `Meshing/reconstruct.md` `SibsonCase`/`NaturalNeighbor`/`BuildSibson` (admission only)/`EvaluateSibson` over `CloudKernel.NaturalNeighborWeights` with the `SqrtEpsilon` partition gate and typed outside-hull refusal; `Spatial/fields.md` `ScalarField.SibsonCase(Samples, Tolerance, Receipt)` carried per the fitted-payload law, never a coefficient array.
+[FLOW_MORSE_DECOMPOSITION]-[COMPLETE]: realized inside `[FLOW_TOPOLOGY_ATLAS]`'s landing — one transition-digraph container, transient SCC/condensation, frozen SoA `MorseGraph`, `CriticalCaptureCase` termination arm, multi-seed separatrix traces over the one tracer.
+[DUAL_JACOBIAN_FLOOR]-[COMPLETE]: landed at `Solving/solver.md` `[02]-[LM_FUNCTOR]` — `Dual<T>` + `IDualResidual` + `DualModel : ILmModel` scattering packed-upper through `Lm.PackedIndex` delegation (never a fourth index formula), no dense `J`, the `:226` page law widened to name forward mode the second exact source; the new-page Shape was superseded by the extend-the-owner law, and `Solving/fit.md` names the `Distance`-only opt-in as the first adapter consumer.
+[BOOLEAN_RECEIPT_PROVENANCE]-[COMPLETE]: landed at `Meshing/arrangement.md` — `ManifoldProvenance(OperandIds, RunIds, RunFaces, FaceIds)` seated as `Option<ManifoldProvenance> Source` beside `Native`, extracted per-width on the `meshgl64` lane with the `/3` flat-to-triangle derivation at the read; operand seating rides `manifold_as_original` + the `manifold_original_id` read-back — TWO refutations recorded at the catalog: `manifold_reserve_ids` is unreachable through this ABI (the C meshgl ingest has no run-id setter), and the run-transform pose column is identity for this gate's non-instanced ingest.
+[ARRANGEMENT_CANCEL_THREAD]-[COMPLETE]: realized inside `[NATIVE_LANE_GOVERNANCE]`'s landing — the `ArrangeStage` governance seam threads the token per stage (per-face inside the subdivision walk), the context attaches to the RESULT before the terminal force, and `RunAbandoned` 2403 is the one abandonment case both routes lower onto (the Arrangement stride 2420-2423 is spent; cross-cutting cases home in the base stride).
+[ARRANGEMENT_PROGRESS_TAP]-[COMPLETE]: landed as `ArrangementPolicy.Governed(Option<IProgress<double>>, CancellationToken)` — the policy is the sink and the ambient `Env` the source read at the S3-to-S1 descent; `Analysis/query.md` needed zero edits (`Env` already publishes both governance columns).
+[QUANTITY_MEASURE_BAND]-[DROPPED]: refuted by page law — `Analysis/measure.md` `[02]` Boundary rules "Measures leave as bare `double` — `MeasureValue` is Bim's dimensioned carrier, wrapped downstream through `MeasureValue.OfSi`, and the `Domain/context` unit bridge stays orthogonal"; the quantity carrier homes at `Rasm.Bim` (`Projection/semantic.md` `MeasureValue.OfSi` rows on disk), unit identity federates at the `BaseDimensions` 7-vector, and a kernel band would fork the `QuantityFamily` wire's SI-scalar payload law at both cross-runtime ends.
+[ADJOINT_SENSITIVITY]-[DROPPED]: second owner of a landed contract — `Rasm.Compute` owns the strictly stronger rail (`Tensor/blas` HyperJet order-2 hyper-dual LM arm; `Tensor/dispatch` `SensitivityLaw` dual-mode adjoint with forward and reverse tape sweeps, Gauss-Newton `JᵀJ·v`, and `JacobianColoring`) already riding the declared kernel `Meshing -> Compute: MeshAdjointSnapshot [SHAPE]` seam; the kernel composes that contract by continuing to emit `MeshAdjointSnapshot`, and no adjoint consumer exists outside Compute estate-wide.
 [BLEND_PATH_AXIS_SPLIT]-[COMPLETE]: `Numerics/atoms.md` `[02]-[SCALAR_FLOOR]` carries `BlendPath` as a two-case `[Union]` — a rectangular row takes no traversal and a polar row carries `HueSpan` in its own payload, so the illegal pairing is unspellable — over eight space rows each naming the `RgbProfile` row whose `DynamicRange` its interpolation runs under (`Jzazbz`/`Jzczhz`/`Ictcp` at the PQ reference white); `PerceptualColor.Mix`/`Ramp` dispatch through one seam, and `Theme/tokens.md` with `Appearance/texture.md` moved to the new shape in the same pass.
 [ENV_TELEMETRY_FIELD]-[COMPLETE]: `Env.EnvAsks`/`Asks`/`Taps` ride settled fences at `Analysis/query.md` `[03]-[OPERATION_RUNTIME]`, each composing the catalogued `Eff.runtime<Env>()`; the card's `[03]-[OPERATION_RUNTIME_RESEARCH]` section name never existed on the page.
 [OP_COST_CAPSULE]-[COMPLETE]: `Operation.Apply` at `Analysis/query.md` `[03]-[OPERATION_RUNTIME]` opens `CostMark.Start()` ahead of the fold and charges the `OpCost` capsule through the `Env` tap on both exits, the fail exit publishing the fault beside the cost.

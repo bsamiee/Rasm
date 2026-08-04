@@ -1,9 +1,6 @@
 export const meta = {
     name: 'docgen-pass',
-    whenToUse:
-        'Docgen conformance sweep for durable Markdown. Finder groups locate ownership, prose, comment, and structure defects. File workers rebuild each page in place, extract misplaced planning rulings, and preserve code-fence bodies. Adversarial writing passes reconcile the cumulative diff for prose-dense pages. API catalogs close after their grounded structural pass. Owner collectors adjudicate extracted rulings, and the terminal formatter restores canonical tables and gate-clean structure.',
-    description:
-        'Accepts a folder path, path array, or targets object; empty input is a no-op. Routing deduplicates Markdown files and records structural measures. Analysis compares each page with its live instruction, template, registry, and sibling ownership surfaces. Fix workers remove regenerable framing, repair retained prose and tables, prove demotions, ground API members through the project assay rail, and emit typed receipts. Planning pages write only genuine extracted rulings to scratch dossiers. Adversarial passes restore lost law and remove residual duplication or narration. Collection lands surviving rulings in their owning registries. Formatting closes every touched page under repository law.',
+    description: 'Markdown docgen conformance sweep',
     phases: [
         {
             title: 'Route',

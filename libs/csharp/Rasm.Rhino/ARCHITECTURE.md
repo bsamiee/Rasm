@@ -195,13 +195,14 @@ flowchart LR
     Rasm e7@-->|"[BOUNDARY]: Context"| Modeling
     Rasm e8@-->|"[BOUNDARY]: ContentHash"| Blocks
     Rasm e9@-->|"[BOUNDARY]: PerceptualColor"| Display
+    Rasm e14@-->|"[BOUNDARY]: AnalysisQuery"| Display
     Rasm e10@-->|"[BOUNDARY]: PerceptualColor"| Render
     Rasm e11@-->|"[BOUNDARY]: PerceptualColor"| Viewport
     Rasm e12@-->|"[BOUNDARY]: Context"| Annotation
     Rasm e13@-->|"[BOUNDARY]: Context"| Blocks
 ```
 
-Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per consuming sub-domain, each carrying the exact member set its owner consumes. The Document rail's set in full: `ModelUnit`, `Context`, `AnalysisQuery`/`Analyze`, `TransformSpec`/`Placement.Build`, `Requirement.ForKind`/`KindOf`, `Lease<T>`/`GeometryForm`, `HookModality`/`HookId`/`HookPoint`, `InstrumentSpec`/`TelemetryContributorPort`/`MeasureForm`, and `Dimension` with `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` — `AnalysisQuery` rides both the Document and Commands rails, each end consuming it live. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction; the kernel seam registry mirrors each edge from its producing side.
+Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per consuming sub-domain, each carrying the exact member set its owner consumes. The Document rail's set in full: `ModelUnit`, `Context`, `AnalysisQuery`/`Analyze`, `TransformSpec`/`Placement.Build`, `Requirement.ForKind`/`KindOf`, `Lease<T>`/`GeometryForm`, `HookModality`/`HookId`/`HookPoint`, `InstrumentSpec`/`TelemetryContributorPort`/`MeasureForm`, and `Dimension` with `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` — `AnalysisQuery` rides the Document, Commands, and Display rails, each end consuming it live — Display's `AnalysisOverlay` drives the registered false-colour mode off `Analyze.In(...).Run` at `Display/conduit#OVERLAYS`. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction; the kernel seam registry mirrors each edge from its producing side.
 
 ## [04]-[INTERNAL]
 

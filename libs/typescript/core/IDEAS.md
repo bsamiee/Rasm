@@ -33,21 +33,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `Parity.cells` with its accumulating `Array.partitionMap` roster walk and `_addressed` field-mask spelling; the byte-key columns the landings already carry through `Digest.FromBytes` (`ElementGraph`/`Node`/`Relation`, `BimModel`/`BimDiff`, `RenderReceipt`, `SnapshotHeader`); `@bufbuild/protobuf`'s reflect surface.
 - Tension: the walk reads proto `bytes` cells alone, so a landing whose identity columns are hex strings is outside its reach and the first consumer must be a genuinely byte-carried family rather than the widest roster.
 
-[PBR_GROUPS_MAP_FIELDS]-[BLOCKED]: Decoded parameter-group landings bind their baked planes — `PbrGroups` gains the map-address block.
-- Capability: the OpenPBR parameter-group landing carries per-map texture addresses — digest, egress leaf, color space, uv transform — beside its scalar blocks, so a viewer material binds baked planes off the one decoded truth instead of scalars alone.
-- Shape: map-address fields on `PbrGroups` in `libs/typescript/core/.planning/interchange/codec.md` `[06]-[LANDING_WIRE]`, mirroring the C# projection field-for-field.
-- Unlocks: the ui viewer's PBR bind reaches baked planes through the census landing, and the served-asset directory join gains its material-bind consumer.
-- Anchors: the `TextureSetWire`/`AssetSetManifest` census landings already carrying `maps[{role, digest, file, colorSpace}]` rows; `libs/.planning/ARCHITECTURE.md` `[07]-[CROSS_LANGUAGE_WIRE]` domain single-producer law and the `csharp:Rasm.Materials/Appearance/interchange` C#-sole-producer law — the TS landing mirrors the projection and never widens it ahead of its producer.
-- Arms: the C# producer card `csharp:Rasm.Materials` `[OPENPBR_GROUPS_MAP_COLUMNS]` lands its map columns on `OpenPbrGroupsWire` at `csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE`; the TS landing then mirrors them on the `PbrGroups` msgpack roster (the appearance families carry no proto schema — the census's `Pack` arm is the wire) — an ordering constraint behind an owned card, never an unowned widening.
-- Tension: the ui set-bind reaches baked planes through the `TextureSetWire` census landing today and never waits on this card — this card adds only the scalar-group-to-plane join on `PbrGroups` itself.
-- Ripple: mirrors `csharp:Rasm.Materials` `[OPENPBR_GROUPS_MAP_COLUMNS]`; `ui` viewer material-bind counterpart follows.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+- [PBR_GROUPS_MAP_FIELDS]-[DROPPED]: `PbrGroups` remains the scalar OpenPBR mirror; the viewer already joins `TextureSet` by appearance key, while UV and coordinate-set policy remain binding facts.
 - [CONVENTION_METER_FACTORY]-[COMPLETE]: instrument rows gained their materialization half — `bounds` rides the distribution rows as a generated ladder, `Convention.mount` derives the live handle from kind, unit, width, and ladder, and `Mounted<N>` types each carrier off the row's own columns, so declaration-to-materialization drift is unrepresentable and the branch's boundary vectors and constructor picks collapsed into the owner.
 - [WIRE_TRANSLATION_SELECTOR_AGREEMENT]-[COMPLETE]: resolution landed as a render property rather than a name property — `Convention.translated` projects the store series name from the mint name through the `_translation` strategy roster, `_promUnit` and `_tail` carry the unit word and type tail per code and kind, and `board#QUERY`'s PromQL fold renders every selector through it, so the Tier-0 pin stands unnarrowed and a store row translating differently renders its own names off one query value.
 - [OBJECT_PLANE_ROWS]-[COMPLETE]: object-plane rows landed in `observe/convention.md` (`objectWritten`/`objectSize`/`objectReclaimed`/`streamSize` with the `objectOutcome` axis) with the `object` pack as their `observe/board.md` consumer; the data-side `[OBJECT_PLANE_INSTRUMENT_PROJECTION]` counterpart was already closed against these rows.

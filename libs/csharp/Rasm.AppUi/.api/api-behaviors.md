@@ -103,6 +103,41 @@ Assembly and namespace cells drop the shared `Xaml.Behaviors.` and `Avalonia.Xam
 |  [03]   | `MouseDragElementBehavior` / `MultiMouseDragElementBehavior` | behavior      | free drag        |
 |  [04]   | `AutoScrollDuringDragBehavior`                               | behavior      | drag auto-scroll |
 
+[CUSTOM_TYPES]: `Avalonia.Xaml.Interactions.Custom` — routed-event, gesture, focus, cursor, animation, and control-lifecycle library; the `[EVENT_TYPES]` generative pair covers a NAMED event, while these rows carry the routing strategy, handled-marking, and source overrides that pair cannot express.
+
+| [INDEX] | [SYMBOL]                                                                      | [TYPE_FAMILY] | [CAPABILITY]                       |
+| :-----: | :---------------------------------------------------------------------------- | :------------ | :--------------------------------- |
+|  [01]   | `RoutedEventTriggerBehavior`                                                  | trigger       | routed event + strategy + source   |
+|  [02]   | `RoutedEventTrigger` / `RoutedEventTriggerBase` / `RoutedEventTriggerBase<T>` | trigger base  | typed routed-event trigger bases   |
+|  [03]   | `AttachedToVisualTreeTriggerBase<T>` / `AttachedToLogicalTreeTriggerBase<T>`  | trigger base  | disposing tree-attachment bases    |
+|  [04]   | `BindingTriggerBehavior` / `ValueChangedTriggerBehavior`                      | trigger       | binding and value gates            |
+|  [05]   | `IfElseTrigger` / `PropertyChangedTrigger` / `SizeChangedTrigger`             | trigger       | branch, property, and bounds gates |
+|  [06]   | `ExecuteCommandBehaviorBase` / `ExecuteCommandOn<Gesture>Behavior`            | behavior      | per-gesture command execution      |
+|  [07]   | `FocusBehaviorBase` / `FocusTrapBehavior` / `FocusControlBehavior`            | behavior      | focus capture and trapping         |
+|  [08]   | `SetCursorBehavior` / `PointerOverCursorBehavior`                             | behavior      | pointer cursor policy              |
+|  [09]   | `ShowFlyoutAction` / `ShowContextMenuAction` / `ShowPopupAction`              | action        | transient-surface presentation     |
+|  [10]   | `SetAutomationIdAction` / `AutomationNameBehavior`                            | behavior      | automation identity writes         |
+|  [11]   | `ScreenReaderAnnounceAction`                                                  | action        | live-region announcement           |
+
+[CUSTOM_GESTURE_TYPES]: `Avalonia.Xaml.Interactions.Custom` gesture family — one `RoutedEventTriggerBase<TArgs>` subclass per gesture event, each overriding the protected `RoutedEvent` with its own event and overriding `EventRoutingStrategyProperty` metadata to `Bubble`. Event cells drop the shared `InputElement.` root and the `…GestureTrigger` suffix is uniform.
+
+| [INDEX] | [SYMBOL]                                      | [ROUTED_EVENT]                       | [EVENT_ARGS]                            |
+| :-----: | :-------------------------------------------- | :----------------------------------- | :-------------------------------------- |
+|  [01]   | `TappedGestureTrigger`                        | `TappedEvent`                        | `TappedEventArgs`                       |
+|  [02]   | `DoubleTappedGestureTrigger`                  | `DoubleTappedEvent`                  | `TappedEventArgs`                       |
+|  [03]   | `RightTappedGestureTrigger`                   | `RightTappedEvent`                   | `TappedEventArgs`                       |
+|  [04]   | `HoldingGestureTrigger`                       | `HoldingEvent`                       | `HoldingRoutedEventArgs`                |
+|  [05]   | `PinchGestureTrigger`                         | `PinchEvent`                         | `PinchEventArgs`                        |
+|  [06]   | `PinchEndedGestureTrigger`                    | `PinchEndedEvent`                    | `PinchEndedEventArgs`                   |
+|  [07]   | `PointerTouchPadGestureRotateGestureTrigger`  | `PointerTouchPadGestureRotateEvent`  | `PointerDeltaEventArgs`                 |
+|  [08]   | `PointerTouchPadGestureMagnifyGestureTrigger` | `PointerTouchPadGestureMagnifyEvent` | `PointerDeltaEventArgs`                 |
+|  [09]   | `PointerTouchPadGestureSwipeGestureTrigger`   | `PointerTouchPadGestureSwipeEvent`   | `PointerDeltaEventArgs`                 |
+|  [10]   | `PullGestureGestureTrigger`                   | `PullGestureEvent`                   | `PullGestureEventArgs`                  |
+|  [11]   | `PullGestureEndedGestureTrigger`              | `PullGestureEndedEvent`              | `PullGestureEndedEventArgs`             |
+|  [12]   | `ScrollGestureGestureTrigger`                 | `ScrollGestureEvent`                 | `ScrollGestureEventArgs`                |
+|  [13]   | `ScrollGestureEndedGestureTrigger`            | `ScrollGestureEndedEvent`            | `ScrollGestureEndedEventArgs`           |
+|  [14]   | `ScrollGestureInertiaStartingGestureTrigger`  | `ScrollGestureInertiaStartingEvent`  | `ScrollGestureInertiaStartingEventArgs` |
+
 [EVENT_TYPES]: `Avalonia.Xaml.Interactions.Events` — `<Event>EventTrigger` / `<Event>EventBehavior` mint one typed routed-event trigger and behavior pair per Avalonia control event.
 
 [RESPONSIVE_TYPES]: `Avalonia.Xaml.Interactions.Responsive`
@@ -151,6 +186,16 @@ Assembly and namespace cells drop the shared `Xaml.Behaviors.` and `Avalonia.Xam
 |  [14]   | `ObservableStreamBehavior.Source` (`IObservable<>`)           | stream source      |
 |  [15]   | `ObservableStreamBehavior.Actions`                            | emitted action fan |
 
+[CUSTOM_ROUTE_ENTRYPOINTS]: routed-event and gesture knobs on the `Interactions.Custom` bases — the whole family's routing surface is these five members, so a gesture row states its event through its own subclass and its routing through the two inherited properties.
+
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :------------------------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `RoutedEventTriggerBehavior.RoutedEvent` (`RoutedEvent?`)            | property | listened routed event                       |
+|  [02]   | `RoutedEventTriggerBehavior.RoutingStrategies` (`RoutingStrategies`) | property | strategy filter, default `Direct \          |
+|  [03]   | `RoutedEventTriggerBehavior.SourceInteractive` (`Interactive?`)      | property | listen target override                      |
+|  [04]   | `RoutedEventTriggerBase.EventRoutingStrategy` (`RoutingStrategies`)  | property | per-gesture strategy, base default `Direct` |
+|  [05]   | `RoutedEventTriggerBase.MarkAsHandled` (`bool`)                      | property | mark the routed event handled               |
+
 [SYSTEM_ENTRYPOINTS]: picker, clipboard, file, network, drag, and responsive properties, all `AvaloniaProperty` — `FileTypeFilter` strings parse through `FileFilterParser`.
 
 | [INDEX] | [SURFACE]                                                            | [CAPABILITY]       |
@@ -185,6 +230,7 @@ Assembly and namespace cells drop the shared `Xaml.Behaviors.` and `Avalonia.Xam
 - Derive a Rasm behavior from `StyledElementBehavior`/`StyledElementTrigger`/`StyledElementAction` when it participates in styling, resource inheritance, or `{Binding}` on its own properties; from `Behavior`/`Trigger` otherwise.
 - Base a behavior owning Rx subscriptions on `DisposingBehavior`/`DisposingTrigger`, so attach and detach drive subscription lifecycle deterministically.
 - Gate data with `DataTriggerBehavior` (single `ComparisonConditionType` predicate) or `MultiDataTriggerBehavior` (AND of `Condition` rows); `ComparisonConditionType` is the canonical comparator.
+- Route a gesture through its `Interactions.Custom` `<Gesture>GestureTrigger` row: the subclass names the `InputElement` event, so a hand-wired `Tapped`/`Pinch`/`Holding`/touchpad handler and a `GestureRecognizers` fork are both deleted. `RoutedEventTriggerBehavior` is the escape hatch a named-event trigger cannot cover — a tunnelling strategy, a non-self source, or a handled-marking requirement — never a second spelling of an already-minted `<Event>EventTrigger`.
 - Picker, file-system, and network actions stay behind the command and permission boundary, mapping the selected token to a domain path at the command edge rather than mutating the file system in place.
 
 [RAIL_LAW]:

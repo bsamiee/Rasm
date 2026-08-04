@@ -58,6 +58,7 @@
 |  [17]   | `Range<A>`              | record          | generated bounded sequence, `Range.fromMinMax` mints it |
 |  [18]   | `AtomChangedEvent<A>`   | delegate        | `Atom.Change` handler over the new value                |
 |  [19]   | `Change<A>`             | abstract class  | `TrackingHashMap` change-log entry, cases below         |
+|  [20]   | `IOptional`             | interface       | presence surface every `Option<A>` implements           |
 
 - `Change<A>` cases: `NoChange<A>` (`NoChange<A>.Default`, also `Change<A>.None`), `EntryAdded<A>.Value`, `EntryRemoved<A>.OldValue`, and `EntryMapped<A, B>` carrying `.From`/`.To` through the `EntryMappedFrom<A>`/`EntryMappedTo<B>` interfaces — the pair a mapped entry is matched on when the from-type is open. `Change<A> : Monoid<Change<A>>`, so consecutive entries for one key `Combine` into the net change.
 
@@ -134,24 +135,26 @@
 
 [ENTRYPOINT_SCOPE]: `Option<A>` presence and `Guard` admission
 
-| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :------------------------------------------------- | :------- | :------------------------------ |
-|  [01]   | `Prelude.Some(A)`                                  | static   | present-value construction      |
-|  [02]   | `Prelude.Optional(A?)`                             | static   | nullable-aware admission        |
-|  [03]   | `Option<A>.None`                                   | property | absent literal                  |
-|  [04]   | `Option.Match(Func<A,B>, Func<B>)`                 | instance | total presence fold             |
-|  [05]   | `Option.IfNone(A)`                                 | instance | default escape                  |
-|  [06]   | `Option.Filter(Func<A,bool>)`                      | instance | predicate narrowing             |
-|  [07]   | `Option.Bind(Func<A,Option<B>>)`                   | instance | monadic chain                   |
-|  [08]   | `Option.ToFin(Error)`                              | instance | rail ingress                    |
-|  [09]   | `Option.ToValidation(L)`                           | instance | accumulation ingress            |
-|  [10]   | `Option.ToSeq()`                                   | instance | collection egress               |
-|  [11]   | `Option.ToEither(L)`                               | instance | disjoint-union egress           |
-|  [12]   | `Option.TraverseM(Func<A,K<M,B>>)`                 | instance | absence-total effect inversion  |
-|  [13]   | `OptionExtensions.Somes(Seq<Option<A>>)`           | static   | drop absent members in one pass |
-|  [14]   | `Prelude.guard(bool, Error)`                       | static   | predicate refusal literal       |
-|  [15]   | `FinGuardExtensions.ToFin(Guard<Error,Unit>)`      | static   | standalone gate to the rail     |
-|  [16]   | `FinGuardExtensions.SelectMany(Func<Unit,Fin<B>>)` | static   | gate as a LINQ `from` clause    |
+| [INDEX] | [SURFACE]                                          | [SHAPE]   | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------- | :-------- | :------------------------------- |
+|  [01]   | `Prelude.Some(A)`                                  | static    | present-value construction       |
+|  [02]   | `Prelude.Optional(A?)`                             | static    | nullable-aware admission         |
+|  [03]   | `Option<A>.None`                                   | property  | absent literal                   |
+|  [04]   | `Option.Match(Func<A,B>, Func<B>)`                 | instance  | total presence fold              |
+|  [05]   | `Option.IfNone(A)`                                 | instance  | default escape                   |
+|  [06]   | `Option.Filter(Func<A,bool>)`                      | instance  | predicate narrowing              |
+|  [07]   | `Option.Bind(Func<A,Option<B>>)`                   | instance  | monadic chain                    |
+|  [08]   | `Option.ToFin(Error)`                              | instance  | rail ingress                     |
+|  [09]   | `Option.ToValidation(L)`                           | instance  | accumulation ingress             |
+|  [10]   | `Option.ToSeq()`                                   | instance  | collection egress                |
+|  [11]   | `Option.ToEither(L)`                               | instance  | disjoint-union egress            |
+|  [12]   | `Option.TraverseM(Func<A,K<M,B>>)`                 | instance  | absence-total effect inversion   |
+|  [13]   | `OptionExtensions.Somes(Seq<Option<A>>)`           | static    | drop absent members in one pass  |
+|  [14]   | `Prelude.guard(bool, Error)`                       | static    | predicate refusal literal        |
+|  [15]   | `FinGuardExtensions.ToFin(Guard<Error,Unit>)`      | static    | standalone gate to the rail      |
+|  [16]   | `FinGuardExtensions.SelectMany(Func<Unit,Fin<B>>)` | static    | gate as a LINQ `from` clause     |
+|  [17]   | `IOptional`                                        | interface | non-generic presence read        |
+|  [18]   | `IOptional.IsSome` / `IsNone`                      | property  | presence off a BOXED `Option<A>` |
 
 [ENTRYPOINT_SCOPE]: `Validation<F, A>` accumulation and the `Error` vocabulary
 
@@ -313,6 +316,10 @@
 |  [52]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`             | static   | lazy async lift                     |
 |  [53]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                          | static   | `params` span into the carrier rail |
 |  [54]   | `List.unfold(S, Func<S,Option<(A,S)>>)`                          | static   | state-seeded lazy generation        |
+|  [55]   | `Prelude.toSet(IEnumerable<A>)`                                  | static   | ordered-set enumerable admission    |
+|  [56]   | `Set(IEnumerable<A>)`                                            | ctor     | ordered-set construction            |
+|  [57]   | `Prelude.toHashMap(IEnumerable<(K,V)>)`                          | static   | hashed-map pair admission           |
+|  [58]   | `Seq.Iter(Action<A>)`                                            | instance | side-effecting element walk         |
 
 - `LanguageExt.List.unfold` runs the state seed until the unfolder answers `None`, returning `IEnumerable<A>`; five overloads cover `Func<S,Option<S>>` (state-only) and one-to-four state slots as a tuple seed. A host walk over a linked native cursor (`node.Next`) is the generation this replaces, so no `while` loop accumulates into a mutable list before `toSeq`.
 

@@ -1,9 +1,6 @@
 export const meta = {
     name: 'density',
-    whenToUse:
-        'Per-file density pass over any landed libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix). Runs on demand over a corpus that is already correct — it collapses shape and entry count, inlines single-caller helpers, demotes rosters to generators, rebuilds flat bodies expression-shaped, and replaces hand-rolled capability with strata composition, losing zero functionality. Roster: one plan delegate, one law-pack delegate per language, LOC-bounded mappers, one fixer per file, one closer.',
-    description:
-        'Language-agnostic per-file density engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, and its member-verification rail from its owning package. Plan enumerates every design page under the targets with its real line count. Map fans LOC-bounded mappers per package, each writing one map per page — logic threads, shape census with collapse discriminants, entry/knob/helper sprawl, strata leverage, flat code, unexploited api depth, 10x growth stress, exact doctrine shards — grounded in the branch and package ARCHITECTURE.md ledgers, beside one audit-law-pack delegate per landed language extracting the doctrine checklist verbatim. Pass runs ONE fixer per file (law pack + its map + its file, nothing more) executing a single ground-up density pass in place, single-file write territory, every cross-file need routed as a typed row. Close runs one drainer over the pooled rows — cross-file seam counterparts, catalog appends, index and IDEAS rows. Capability conservation is absolute: LOC and shape count fall only through stronger owners, never through deletion or extraction. Stage law lives in the prompt blocks.',
+    description: 'Per-file density collapse pass',
     phases: [
         {
             title: 'Plan',

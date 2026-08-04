@@ -11,4 +11,8 @@
         <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
         <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     </ItemGroup>
+    <ItemGroup Label="Temporal Doubles">
+        <!-- ClockPolicy proofs pair FakeTimeProvider with the NodaTime FakeClock per api-testing-seams.md. -->
+        <PackageReference Include="NodaTime.Testing" />
+    </ItemGroup>
 </Project>

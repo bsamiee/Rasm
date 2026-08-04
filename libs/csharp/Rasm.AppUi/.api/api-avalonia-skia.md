@@ -26,7 +26,7 @@
 | :-----: | :----------------------------------- | :------------ | :-------------------------------------------------- |
 |  [01]   | `ISkiaSharpApiLeaseFeature`          | interface     | `Lease()` over a draw context                       |
 |  [02]   | `ISkiaSharpApiLease`                 | interface     | `SkCanvas`/`GrContext`/`SkSurface`/`CurrentOpacity` |
-|  [03]   | `ISkiaSharpPlatformGraphicsApiLease` | interface     | host GPU `Context` handle                           |
+|  [03]   | `ISkiaSharpPlatformGraphicsApiLease` | interface     | platform GPU `Context` handle                       |
 |  [04]   | `ISkiaSurface`                       | interface     | `Surface`/`CanBlit`/`Blit(SKCanvas)`                |
 |  [05]   | `SkiaSharpExtensions`                | static class  | Avalonia<->SkiaSharp value conversions              |
 
@@ -63,7 +63,7 @@
 |  [04]   | `ISkiaSharpApiLease.SkSurface` (`SKSurface?`)      | property | raw backing surface, null when none                    |
 |  [05]   | `ISkiaSharpApiLease.CurrentOpacity` (`double`)     | property | composited opacity for leased paints                   |
 |  [06]   | `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi()` | instance | GPU sub-lease -> `ISkiaSharpPlatformGraphicsApiLease?` |
-|  [07]   | `ISkiaSharpPlatformGraphicsApiLease.Context`       | property | host GPU handle -> `IPlatformGraphicsContext`          |
+|  [07]   | `ISkiaSharpPlatformGraphicsApiLease.Context`       | property | platform GPU context -> `IPlatformGraphicsContext`     |
 
 [CONVERSION_ENTRYPOINTS]: static `SkiaSharpExtensions` value bridges — Avalonia primitive <-> SkiaSharp
 
@@ -100,7 +100,7 @@
 - Every render impl below the lease is internal, reached only through Avalonia composition; the public surface is `UseSkia` + `SkiaOptions` + `SkiaPlatform` + the lease/conversion/helper trio.
 
 [STACKING]:
-- `SkiaSharp`(`api-skiasharp.md`): `ISkiaSharpApiLease.Lease()` yields the live `SKCanvas`/`GRContext`/`SKSurface` a custom control draws through, sharing Avalonia's GPU context; `TryLeasePlatformGraphicsApi()` borrows the host `GRContext` rather than constructing `GRContext.CreateMetal`/`CreateVulkan`, and interior geometry math stays `SKMatrix`/`SKPath`/`SKRect`.
+- `SkiaSharp`(`api-skiasharp.md`): `ISkiaSharpApiLease.Lease()` yields the live `SKCanvas`/`GRContext`/`SKSurface` a custom control draws through, sharing Avalonia's GPU context; `TryLeasePlatformGraphicsApi()` borrows the compositor's own `GRContext` rather than constructing `GRContext.CreateMetal`/`CreateVulkan` — on macOS its `Context` downcasts to the `IMetalDevice` device-plus-command-queue pair, Avalonia's own Metal state and never an embedding host's — and interior geometry math stays `SKMatrix`/`SKPath`/`SKRect`.
 - `Avalonia.Headless`(`api-headless.md`): the headless backend selects Skia so render-hash proof lanes hash real Skia pixels rather than a stub surface.
 - within-lib: a leased-canvas draw composes `SkiaSharpExtensions.ToSKRect`/`ToSKMatrix`/`ToSKColor`/`ToSKSamplingOptions` to translate Avalonia geometry and paint into Skia calls at the boundary; `ToSkColorType`/`ToAvalonia(SKColorType)` and `PixelFormatHelper.ResolveColorType` own the pixel-format round-trip the offscreen color-managed encode keys on, and capture rides `DrawingContextHelper.RenderAsync` into `ImageSavingHelper.SaveImage`.
 

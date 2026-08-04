@@ -22,20 +22,23 @@
 |  [04]   | `SkiaPath`    | sealed class  | glyph-outline translator into `SKPath`             |
 |  [05]   | `Extensions`  | static class  | `SKColor`↔`Color` bridge and image-stream encode   |
 
-[FRONTEND_BASE_TYPES]: Backend-agnostic painter base, editing keyboard, canvas/path contracts, and layout enums — `CSharpMath.Rendering.FrontEnd`.
+[FRONTEND_BASE_TYPES]: Backend-agnostic painter base, editing keyboard, canvas/path contracts, layout enums, and the vendored glyph engine — `CSharpMath.Rendering.FrontEnd` plus the `Typography.OpenFont` types shipped public inside `CSharpMath.Rendering`.
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [CAPABILITY]                                        |
-| :-----: | :--------------------------------- | :------------ | :-------------------------------------------------- |
-|  [01]   | `Painter<TCanvas,TContent,TColor>` | abstract      | knob, measure, and draw contract (`ICSharpMathAPI`) |
-|  [02]   | `MathPainter<TCanvas,TColor>`      | abstract      | math-list painter base (`TContent`=`MathList`)      |
-|  [03]   | `TextPainter<TCanvas,TColor>`      | abstract      | text-atom painter base (`TContent`=`TextAtom`)      |
-|  [04]   | `MathKeyboard`                     | class         | interactive edit keyboard with caret draw           |
-|  [05]   | `ICanvas`                          | interface     | backend draw contract painters render through       |
-|  [06]   | `Path`                             | abstract      | glyph-outline sink (`IGlyphTranslator`)             |
-|  [07]   | `PainterConstants`                 | static class  | `DefaultFontSize` 14, `LargerFontSize` 50           |
-|  [08]   | `PaintStyle`                       | enum          | `Fill`, `Stroke`                                    |
-|  [09]   | `TextAlignment`                    | flags enum    | nine-way box alignment                              |
-|  [10]   | `CaretShape`                       | enum          | `IBeam`, `UpArrow`                                  |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :----------------------------------- | :------------ | :-------------------------------------------------- |
+|  [01]   | `Painter<TCanvas,TContent,TColor>`   | abstract      | knob, measure, and draw contract (`ICSharpMathAPI`) |
+|  [02]   | `MathPainter<TCanvas,TColor>`        | abstract      | math-list painter base (`TContent`=`MathList`)      |
+|  [03]   | `TextPainter<TCanvas,TColor>`        | abstract      | text-atom painter base (`TContent`=`TextAtom`)      |
+|  [04]   | `MathKeyboard`                       | class         | interactive edit keyboard with caret draw           |
+|  [05]   | `ICanvas`                            | interface     | backend draw contract painters render through       |
+|  [06]   | `Path`                               | abstract      | glyph-outline sink (`IGlyphTranslator`)             |
+|  [07]   | `Thickness`                          | readonly      | draw padding; uniform, axis, and per-edge ctors     |
+|  [08]   | `PainterConstants`                   | static class  | `DefaultFontSize` 14, `LargerFontSize` 50           |
+|  [09]   | `PaintStyle`                         | enum          | `Fill`, `Stroke`                                    |
+|  [10]   | `TextAlignment`                      | flags enum    | nine-way box alignment                              |
+|  [11]   | `CaretShape`                         | enum          | `IBeam`, `UpArrow`                                  |
+|  [12]   | `Typography.OpenFont.Typeface`       | class         | vendored parsed face the painter chain holds        |
+|  [13]   | `Typography.OpenFont.OpenFontReader` | class         | vendored face loader over a managed stream          |
 
 [CORE_PARSE_TYPES]: LaTeX parse, layout style, and the typed result rail — `CSharpMath.Atom` and `CSharpMath.Structures`.
 
@@ -63,21 +66,34 @@
 |  [05]   | `PaintStyle : PaintStyle` / `LineStyle : LineStyle`    | property | fill/stroke and display/script style              |
 |  [06]   | `ErrorFontSize : float?` / `DisplayErrorInline : bool` | property | error size and inline policy, inline default true |
 |  [07]   | `ErrorMessage : string?` (get)                         | property | parse-failure message, null on success            |
-|  [08]   | `LocalTypefaces : IEnumerable<Typeface>`               | property | fallback font chain                               |
+|  [08]   | `LocalTypefaces : IEnumerable<Typeface>` (get/set)     | property | vendored-face chain, default empty                |
 |  [09]   | `Measure(float) : RectangleF`                          | instance | measured bounds at a canvas width                 |
 |  [10]   | `WrapColor` / `UnwrapColor` / `WrapCanvas`             | instance | backend color and canvas adapters                 |
 |  [11]   | `ShallowClone() : Painter`                             | instance | memberwise painter copy                           |
 
+- `LocalTypefaces` is `IEnumerable<Typography.OpenFont.Typeface>` over the VENDORED glyph engine, not a Skia face list; its setter rebuilds `Fonts` from the current `FontSize` and redisplays, while the `FontSize` setter carries the existing faces forward, so either assignment order holds. The default is empty, and an empty set silently renders on the engine's own font rather than failing — a chain that never bridged is invisible at runtime.
+
+[GLYPH_ADMISSION]: `Typography.OpenFont` ships public inside `CSharpMath.Rendering` — no separate package exists, and this reader is the only shipped face loader.
+
+| [INDEX] | [SURFACE]                                            | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :--------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `OpenFontReader()`                                   | ctor     | stateless face reader        |
+|  [02]   | `Read(Stream, int = 0, ReadFlags = Full) : Typeface` | instance | parse one face from a stream |
+
+- `Read` takes a MANAGED `System.IO.Stream`, so a Skia-resolved family crosses through `SKTypeface.OpenStream()` then `SKData.Create(SKStream)` then `SKData.AsStream()`; the reader never consumes an `SKStreamAsset` directly.
+
 [SKIA_DRAW_ENTRYPOINTS]: `MathPainter` and `TextPainter` own the `SKCanvas` draw surface, `AntiAlias` default true on both.
 
-| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                                       |
-| :-----: | :--------------------------------------------------------------------- | :------- | :------------------------------------------------- |
-|  [01]   | `AntiAlias : bool`                                                     | property | `SKPaint.IsAntialias` toggle, both painters        |
-|  [02]   | `MathPainter.Draw(SKCanvas, TextAlignment, Thickness, float, float)`   | instance | aligned box draw, alignment default `Center`       |
-|  [03]   | `MathPainter.Draw(SKCanvas, float, float)` / `Draw(SKCanvas, SKPoint)` | instance | absolute-origin draw                               |
-|  [04]   | `MathPainter.DrawDisplay(IDisplay?, SKCanvas, …)`                      | instance | pre-measured display draw                          |
-|  [05]   | `MathPainter.Display : IDisplay?`                                      | property | typeset display tree                               |
-|  [06]   | `TextPainter.Draw(SKCanvas, TextAlignment, Thickness, float, float)`   | instance | text-run aligned draw, alignment default `TopLeft` |
+| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :--------------------------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `AntiAlias : bool`                                                     | property | `SKPaint.IsAntialias` toggle, both painters |
+|  [02]   | `MathPainter.Draw(SKCanvas, TextAlignment, Thickness, float, float)`   | instance | aligned box draw, both floats offsets       |
+|  [03]   | `MathPainter.Draw(SKCanvas, float, float)` / `Draw(SKCanvas, SKPoint)` | instance | absolute-origin draw                        |
+|  [04]   | `MathPainter.DrawDisplay(IDisplay?, SKCanvas, …)`                      | instance | pre-measured display draw                   |
+|  [05]   | `MathPainter.Display : IDisplay?`                                      | property | typeset display tree                        |
+|  [06]   | `TextPainter.Draw(SKCanvas, TextAlignment, Thickness, float, float)`   | instance | text-run aligned draw, default `TopLeft`    |
+
+- The aligned `Draw` signature is `(TCanvas, TextAlignment alignment, Thickness padding = default, float offsetX = 0, float offsetY = 0)`: BOTH trailing floats are offsets and no extent argument exists — centring is the `TextAlignment` argument, which places the measured box inside the wrapped canvas's own width and height before padding and offsets apply. Both it and the absolute-origin overload typeset UNBOUNDED (`UpdateDisplay(float.NaN)`), so a caller that measured at a bounded width owns any wrap discrepancy.
 
 [COLOR_AND_ENCODE]: `Extensions` bridges Skia color and encodes a painter headless; `DrawAsStream` defaults width 2000, `SKEncodedImageFormat.Png`, quality 100, `TextAlignment.TopLeft`.
 
@@ -107,7 +123,7 @@
 [STACKING]:
 - `api-skiasharp`(`.api/api-skiasharp.md`): painters draw through `SKCanvas`/`SKPaint`/`SKPath`/`SKPoint`/`SKColor` and `Extensions.ToNative`/`FromNative` bridge `SKColor`↔`Color`; `DrawAsStream(width, SKEncodedImageFormat.Png, quality)` encodes a painter headless on the same `SKEncodedImageFormat` surface the raster-capture owner shares, so a math golden renders without a live host.
 - `api-avalonia-skia`(`.api/api-avalonia-skia.md`): `SkiaCanvas(SKCanvas, antiAlias)` binds over the `SKCanvas` an `ISkiaSharpApiLease.SkCanvas` exposes, so math composites into the leased surface without a side bitmap.
-- Within-lib typography: `LocalTypefaces` accepts the `Typography.OpenFont.Typeface` chain the theme's embedded-font admission resolves, so math glyphs share the app's registered font set rather than a private math font.
+- Within-lib typography: `LocalTypefaces` accepts the `Typography.OpenFont.Typeface` chain the theme's embedded-font admission resolves through `OpenFontReader.Read`, so math glyphs share the app's registered font set rather than a private math font; `SKTypeface`/`SKFontManager` stay on the raster side of that bridge and never reach the painter.
 
 [LOCAL_ADMISSION]:
 - `CSharpMath.SkiaSharp` is the branch's sole math typesetter; a Math typography arm holds one painter, sets `LaTeX`, reads `Measure`, and draws into the leased `SKCanvas`, `LineStyle` selecting display vs inline sizing and `PainterConstants.DefaultFontSize`/`LargerFontSize` anchoring the size ramp.

@@ -10,7 +10,7 @@
 - assembly: `Avalonia.Controls` (controls, notifications, name scope)
 - assembly: `Avalonia.Markup.Xaml` (XAML loader, markup extensions)
 - assembly: `Avalonia.Dialogs` (managed file dialogs)
-- namespace: `Avalonia`, `Avalonia.Controls`, `Avalonia.Controls.Notifications`, `Avalonia.Data`, `Avalonia.Input`, `Avalonia.Input.Platform`, `Avalonia.Interactivity`, `Avalonia.Threading`, `Avalonia.Markup.Xaml`, `Avalonia.Styling`, `Avalonia.Platform`
+- namespace: `Avalonia`, `Avalonia.Automation`, `Avalonia.Automation.Peers`, `Avalonia.Controls`, `Avalonia.Controls.Embedding`, `Avalonia.Controls.Notifications`, `Avalonia.Controls.Primitives`, `Avalonia.Data`, `Avalonia.Input`, `Avalonia.Input.Platform`, `Avalonia.Interactivity`, `Avalonia.Layout`, `Avalonia.Threading`, `Avalonia.Markup.Xaml`, `Avalonia.Styling`, `Avalonia.Platform`
 - target: `net10.0` reference assemblies
 - rail: retained-ui
 
@@ -39,24 +39,35 @@
 |  [03]   | `Interactive`   | class         | routed-event node        |
 |  [04]   | `InputElement`  | class         | focus + key-binding node |
 |  [05]   | `Layoutable`    | class         | measure/arrange node     |
-|  [06]   | `ILogical`      | interface     | logical tree node        |
-|  [07]   | `IResourceHost` | interface     | resource owner           |
+|  [06]   | `Orientation`   | enum          | layout axis vocabulary   |
+|  [07]   | `ILogical`      | interface     | logical tree node        |
+|  [08]   | `IResourceHost` | interface     | resource owner           |
 
 [CONTROL_SURFACES]: product surface and shell controls
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]        |
-| :-----: | :--------------- | :------------ | :------------------ |
-|  [01]   | `Application`    | class         | application root    |
-|  [02]   | `AppBuilder`     | class         | application builder |
-|  [03]   | `TopLevel`       | class         | host root           |
-|  [04]   | `Window`         | class         | window shell        |
-|  [05]   | `UserControl`    | class         | screen surface      |
-|  [06]   | `Panel`          | class         | layout surface      |
-|  [07]   | `ContentControl` | class         | content host        |
-|  [08]   | `ItemsControl`   | class         | item host           |
-|  [09]   | `Button`         | class         | command surface     |
-|  [10]   | `TextBox`        | class         | text entry surface  |
-|  [11]   | `TreeView`       | class         | hierarchy surface   |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [CAPABILITY]                   |
+| :-----: | :--------------------------------------------- | :------------ | :----------------------------- |
+|  [01]   | `Application`                                  | class         | application root               |
+|  [02]   | `AppBuilder`                                   | class         | application builder            |
+|  [03]   | `TopLevel`                                     | class         | host root                      |
+|  [04]   | `Window`                                       | class         | window shell                   |
+|  [05]   | `UserControl`                                  | class         | screen surface                 |
+|  [06]   | `Panel`                                        | class         | layout surface                 |
+|  [07]   | `ContentControl`                               | class         | content host                   |
+|  [08]   | `ItemsControl`                                 | class         | item host                      |
+|  [09]   | `SelectingItemsControl`                        | class         | selection-carrying item host   |
+|  [10]   | `Button`                                       | class         | command surface                |
+|  [11]   | `TextBox`                                      | class         | text entry surface             |
+|  [12]   | `NumericUpDown`                                | class         | bounded numeric entry          |
+|  [13]   | `CalendarDatePicker`                           | class         | date entry surface             |
+|  [14]   | `ComboBox` / `ComboBoxItem`                    | class         | bounded-choice surface         |
+|  [15]   | `RadioButton` / `ToggleSwitch`                 | class         | exclusive and binary toggles   |
+|  [16]   | `Slider`                                       | class         | ranged scalar surface          |
+|  [17]   | `TreeView`                                     | class         | hierarchy surface              |
+|  [18]   | `StackPanel` / `DockPanel` / `Grid`            | class         | layout panels                  |
+|  [19]   | `ColumnDefinitions` / `RowDefinitions`         | class         | grid track collections         |
+|  [20]   | `GridSplitter` / `GridResizeDirection`         | class, enum   | split track resize surface     |
+|  [21]   | `Menu` / `TabControl` / `TabItem` / `Expander` | class         | container and disclosure hosts |
 
 [STATE_AND_STYLE]: binding, resources, styles, and templates
 
@@ -74,6 +85,8 @@
 |  [10]   | `Setter`                   | class         | styled assignment  |
 |  [11]   | `ControlTheme`             | class         | theme record       |
 |  [12]   | `DataTemplate`             | class         | data presentation  |
+|  [13]   | `IBrush`                   | interface     | paint contract     |
+|  [14]   | `SolidColorBrush`          | class         | mutable color fill |
 
 [THEME_VARIANT_TYPES]: the variant key that scopes resource resolution
 
@@ -96,6 +109,38 @@
 |  [07]   | `KeyEventArgs` / `PointerPressedEventArgs` | class         | input event payloads  |
 |  [08]   | `Dispatcher`                               | class         | render-thread marshal |
 
+[AUTOMATION_TYPES]: `Avalonia.Automation` — the accessibility surface every shell announcement and audit reads
+
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [CAPABILITY]                                                   |
+| :-----: | :------------------------------------------ | :------------ | :------------------------------------------------------------- |
+|  [01]   | `AutomationProperties`                      | static        | attached automation-property owner                             |
+|  [02]   | `AutomationLiveSetting`                     | enum          | `Off` / `Polite` / `Assertive`                                 |
+|  [03]   | `AutomationControlType`                     | enum          | control-type override vocabulary                               |
+|  [04]   | `AutomationLandmarkType`                    | enum          | landmark override vocabulary                                   |
+|  [05]   | `AccessibilityView` / `IsOffscreenBehavior` | enum          | tree-visibility and offscreen policy                           |
+|  [06]   | `AutomationPeer` / `ControlAutomationPeer`  | class         | peer bases a synthesized region derives                        |
+|  [07]   | `KeyboardNavigation`                        | static        | attached tab-navigation owner                                  |
+|  [08]   | `KeyboardNavigationMode`                    | enum          | `Continue` / `Cycle` / `Contained` / `Once` / `None` / `Local` |
+
+[EMBED_TYPES]: `Avalonia.Controls.Embedding` + `Avalonia.Platform` — the foreign-view boundary an in-host mount crosses
+
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                               |
+| :-----: | :----------------------------- | :------------ | :----------------------------------------- |
+|  [01]   | `EmbeddableControlRoot`        | class         | `TopLevel` root hosted by a foreign view   |
+|  [02]   | `IPlatformHandle`              | interface     | `nint Handle` + `string? HandleDescriptor` |
+|  [03]   | `PlatformHandle`               | class         | concrete handle carrier                    |
+|  [04]   | `IMacOSTopLevelPlatformHandle` | interface     | macOS `NSView`/`NSWindow` handle access    |
+
+[SHELL_CHROME_TYPES]: `Avalonia.Controls` — OS-owned menu and tray chrome
+
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]                      |
+| :-----: | :------------------------------ | :------------ | :-------------------------------- |
+|  [01]   | `NativeMenu` / `NativeMenuItem` | class         | OS menu model and item            |
+|  [02]   | `NativeMenuItemSeparator`       | class         | menu separator item               |
+|  [03]   | `NativeMenuBar`                 | class         | in-window managed menu control    |
+|  [04]   | `TrayIcon` / `TrayIcons`        | class         | tray indicator and its collection |
+|  [05]   | `MenuItemToggleType`            | enum          | menu-item toggle vocabulary       |
+
 [METADATA_ATTRIBUTES]: XAML and template metadata
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]      |
@@ -115,6 +160,18 @@
 |  [03]   | `IManagedNotificationManager` | interface     | content manager      |
 |  [04]   | `NotificationType`            | enum          | severity vocabulary  |
 |  [05]   | `NotificationPosition`        | enum          | placement vocabulary |
+
+[STORAGE_TYPES]: per-surface file and folder picker surfaces
+
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]          |
+| :-----: | :------------------------ | :------------ | :-------------------- |
+|  [01]   | `IStorageProvider`        | interface     | picker contract       |
+|  [02]   | `IStorageFile`            | interface     | selected file token   |
+|  [03]   | `IStorageFolder`          | interface     | selected folder token |
+|  [04]   | `FilePickerFileType`      | class         | one named filter      |
+|  [05]   | `FilePickerOpenOptions`   | class         | open-picker options   |
+|  [06]   | `FilePickerSaveOptions`   | class         | save-picker options   |
+|  [07]   | `FolderPickerOpenOptions` | class         | folder-picker options |
 
 [DATA_TRANSFER_TYPES]: clipboard and drag data-transfer surfaces
 
@@ -177,13 +234,16 @@
 
 [XAML_AND_RENDER_OPERATIONS]: XAML load and visual invalidation
 
-| [INDEX] | [SURFACE]                                  | [SHAPE]  | [CAPABILITY]     |
-| :-----: | :----------------------------------------- | :------- | :--------------- |
-|  [01]   | `AppBuilder.Configure<TApp>() / Configure` | static   | application root |
-|  [02]   | `AvaloniaXamlLoader.Load / Parse`          | static   | XAML materialize |
-|  [03]   | `Visual.InvalidateVisual`                  | instance | render refresh   |
-|  [04]   | `Layoutable.InvalidateMeasure`             | instance | layout refresh   |
-|  [05]   | `Layoutable.InvalidateArrange`             | instance | arrange refresh  |
+| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]            |
+| :-----: | :------------------------------------------------- | :------- | :---------------------- |
+|  [01]   | `AppBuilder.Configure<TApp>() / Configure`         | static   | application root        |
+|  [02]   | `AvaloniaXamlLoader.Load / Parse`                  | static   | XAML materialize        |
+|  [03]   | `Visual.InvalidateVisual`                          | instance | render refresh          |
+|  [04]   | `Layoutable.InvalidateMeasure`                     | instance | layout refresh          |
+|  [05]   | `Layoutable.InvalidateArrange`                     | instance | arrange refresh         |
+|  [06]   | `TopLevel.RequestAnimationFrame(Action<TimeSpan>)` | instance | one frame-tick callback |
+
+- `TopLevel.RequestAnimationFrame` delivers a single tick carrying the frame timestamp; re-requesting from inside the callback is the frame loop, and on an embedded root the host's own run loop is what advances it — `StartRendering()` beside that self-rescheduling callback needs no clock of the caller's own.
 
 [HOST_BUILD_OPERATIONS]: application-builder option admission and native host handle
 
@@ -195,6 +255,76 @@
 
 - `AppBuilder.SetupWithoutStarting`: builds and configures without entering the run loop.
 - `TopLevel.TryGetPlatformHandle`: returns `IPlatformHandle?` whose `Handle` is `nint`.
+
+[LAYOUT_PASS_OPERATIONS]: the measure/arrange pass a custom `Panel` overrides
+
+| [INDEX] | [SURFACE]                                                    | [SHAPE]   | [CAPABILITY]                  |
+| :-----: | :----------------------------------------------------------- | :-------- | :---------------------------- |
+|  [01]   | `Layoutable.Measure(Size)` / `Arrange(Rect)`                 | instance  | drive a child's pass          |
+|  [02]   | `Layoutable.MeasureOverride(Size)` / `ArrangeOverride(Size)` | protected | own the pass body             |
+|  [03]   | `Layoutable.MeasureCore(Size)` / `ArrangeCore(Rect)`         | protected | pre-override pass scaffolding |
+|  [04]   | `Layoutable.DesiredSize` (`Size`, private set)               | property  | last measured extent          |
+|  [05]   | `Layoutable.IsMeasureValid` / `IsArrangeValid`               | property  | pass validity flags           |
+|  [06]   | `Layoutable.AffectsMeasure<T>` / `AffectsArrange<T>`         | static    | property-to-invalidation bind |
+|  [07]   | `Layoutable.UpdateLayout()`                                  | instance  | synchronous pass drive        |
+|  [08]   | `Layoutable.LayoutUpdated` / `EffectiveViewportChanged`      | event     | post-pass and viewport edges  |
+
+- `Measure` short-circuits when `IsMeasureValid` holds against the same `availableSize`, and it notifies the VISUAL parent only when the newly measured `DesiredSize` differs from the previous one; that notification is `internal` and invalidates the parent's measure only while the parent is not itself mid-measure, so a child measured inside the parent's own `MeasureOverride` never re-enters the pass, while an out-of-band child re-measure that moves its desired size does. `InvalidateMeasure` walks no ancestor — it flags the element and queues it on the layout manager — so parent re-entry rides the desired-size edge alone and never a subscription.
+
+[AUTOMATION_OPERATIONS]: attached automation identity, live regions, peers, and keyboard navigation
+
+| [INDEX] | [SURFACE]                                                               | [SHAPE]   | [CAPABILITY]                |
+| :-----: | :---------------------------------------------------------------------- | :-------- | :-------------------------- |
+|  [01]   | `AutomationProperties.SetAutomationId / GetAutomationId(StyledElement)` | static    | stable automation identity  |
+|  [02]   | `AutomationProperties.SetName / GetName(StyledElement)`                 | static    | announced name              |
+|  [03]   | `AutomationProperties.SetHelpText / GetHelpText(StyledElement)`         | static    | announced description       |
+|  [04]   | `AutomationProperties.SetLiveSetting / GetLiveSetting(StyledElement)`   | static    | live-region posture         |
+|  [05]   | `AutomationProperties.SetAccessKey / GetAccessKey(StyledElement)`       | static    | announced accelerator text  |
+|  [06]   | `AutomationProperties.SetLabeledBy / GetLabeledBy(StyledElement)`       | static    | external label association  |
+|  [07]   | `Control.OnCreateAutomationPeer() -> AutomationPeer`                    | protected | per-control peer mint       |
+|  [08]   | `KeyboardNavigation.SetTabIndex / GetTabIndex(IInputElement)`           | static    | tab rank                    |
+|  [09]   | `KeyboardNavigation.SetTabNavigation / GetTabNavigation(InputElement)`  | static    | region navigation mode      |
+|  [10]   | `KeyboardNavigation.SetIsTabStop / GetIsTabStop(InputElement)`          | static    | tab-stop admission          |
+|  [11]   | `KeyboardNavigation.SetTabOnceActiveElement / GetTabOnceActiveElement`  | static    | `Once` region re-entry seat |
+|  [12]   | `InputElement.IsHitTestVisible` (`bool`)                                | property  | pointer transparency        |
+
+- `TabIndexProperty` defaults to `int.MaxValue` and `TabNavigationProperty` to `KeyboardNavigationMode.Continue`, so an unranked stop sorts last and an unset region continues outward; `LiveSettingProperty` defaults to `Off`, which is why a silent row states `Off` rather than omitting the write.
+
+[EMBED_OPERATIONS]: foreign-view root lifecycle and native handle access
+
+| [INDEX] | [SURFACE]                                                                  | [SHAPE]   | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------------- | :-------- | :-------------------------------- |
+|  [01]   | `new EmbeddableControlRoot()` / `(ITopLevelImpl)`                          | ctor      | embedded root construction        |
+|  [02]   | `EmbeddableControlRoot.Prepare()`                                          | instance  | initialize and apply template     |
+|  [03]   | `EmbeddableControlRoot.StartRendering() / StopRendering()`                 | instance  | render loop start and stop        |
+|  [04]   | `EmbeddableControlRoot.EnforceClientSize` (`bool`)                         | protected | track the host view's client size |
+|  [05]   | `EmbeddableControlRoot.Dispose()`                                          | instance  | root teardown                     |
+|  [06]   | `IMacOSTopLevelPlatformHandle.NSView / NSWindow` (`nint`)                  | property  | unretained native handles         |
+|  [07]   | `IMacOSTopLevelPlatformHandle.GetNSViewRetained() / GetNSWindowRetained()` | instance  | retained native handles           |
+
+- `EmbeddableControlRoot` derives `TopLevel` and implements `IFocusScope` and `IDisposable`; `StartRendering`/`StopRendering` are `new` members shadowing the `TopLevel` pair, and `EnforceClientSize` is a protected setter reachable only from a derived capsule.
+- `TopLevel.GetTopLevel(Visual)` is the ONLY public root query — `Avalonia.VisualTree.VisualExtensions` declares no `GetVisualRoot` and `Visual.VisualRoot` is `protected internal` — and it keeps answering the root after `EmbeddableControlRoot.Dispose()`, so it proves attachment and never liveness.
+- `Dispose()` on an embedded root raises no `Closed`, `DetachedFromVisualTree`, or `DetachedFromLogicalTree` edge, and a second `Dispose()` or a post-dispose `StartRendering()` is inert, so teardown ordering is the caller's disposable and never a lifecycle subscription.
+- `IMacOSTopLevelPlatformHandle` carries Avalonia's `[Unstable]` marker, and the two `…Retained` accessors hand back a retained pointer whose release the caller owns; the unretained `NSView`/`NSWindow` properties do not.
+
+[SHELL_CHROME_OPERATIONS]: OS menu export and tray indicator composition
+
+| [INDEX] | [SURFACE]                                                           | [SHAPE]         | [CAPABILITY]                 |
+| :-----: | :------------------------------------------------------------------ | :-------------- | :--------------------------- |
+|  [01]   | `NativeMenu.MenuProperty` (`AttachedProperty<NativeMenu?>`)         | attached        | menu attach point            |
+|  [02]   | `NativeMenu.SetMenu / GetMenu(AvaloniaObject)`                      | static          | menu assignment and lookup   |
+|  [03]   | `NativeMenu.GetIsNativeMenuExported(TopLevel) -> bool`              | static          | OS-export probe              |
+|  [04]   | `NativeMenu.Items` / `Add(NativeMenuItemBase)`                      | instance        | menu composition             |
+|  [05]   | `NativeMenu.NeedsUpdate / Opening / Closed`                         | event           | menu lifecycle edges         |
+|  [06]   | `NativeMenuItem.Header / Icon / ToolTip / Gesture`                  | property        | item presentation            |
+|  [07]   | `NativeMenuItem.Command / CommandParameter / IsEnabled / IsVisible` | property        | item command and gating      |
+|  [08]   | `NativeMenuItem.IsChecked / ToggleType` (`MenuItemToggleType`)      | property        | item toggle state            |
+|  [09]   | `TrayIcon.IconsProperty` (`AttachedProperty<TrayIcons?>`)           | attached        | tray collection attach point |
+|  [10]   | `TrayIcon.SetIcons / GetIcons(Application)`                         | static          | tray collection assignment   |
+|  [11]   | `TrayIcon.Icon / ToolTipText / Menu / IsVisible`                    | property        | indicator presentation       |
+|  [12]   | `TrayIcon.Command / CommandParameter` and `Clicked`                 | property, event | indicator activation         |
+
+- `NativeMenu.IsNativeMenuExportedProperty` is the attached flag the platform sets; `GetIsNativeMenuExported` takes a `TopLevel` because the export is per-window, and `TrayIcon.SetIcons` takes the `Application` because the tray is per-process.
 
 [THEME_VARIANT_OPERATIONS]: variant request, resolution, and OS-probe read
 
@@ -217,6 +347,26 @@
 |  [03]   | `StyledElement.Theme -> ControlTheme?`           | property | per-element control-theme bind |
 |  [04]   | `StyledElement.ThemeProperty`                    | static   | styled slot the theme binds    |
 
+[CONTROL_PROPERTY_OPERATIONS]: the styled slots a materialize fold writes by property rather than by member
+
+| [INDEX] | [SURFACE]                                                           | [SHAPE]          | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------------------------ | :--------------- | :------------------------------ |
+|  [01]   | `AvaloniaObject.SetValue / GetValue / ClearValue(AvaloniaProperty)` | instance         | untyped slot write, read, reset |
+|  [02]   | `ItemsControl.ItemsSourceProperty` (`IEnumerable?`)                 | static           | item source slot                |
+|  [03]   | `SelectingItemsControl.SelectedValueProperty` (`object?`)           | static           | selected VALUE slot             |
+|  [04]   | `SelectingItemsControl.SelectedValueBinding` (`BindingBase?`)       | property         | value projection off the item   |
+|  [05]   | `TextBox.TextProperty` / `Watermark` / `AcceptsReturn`              | static, property | text entry slots                |
+|  [06]   | `NumericUpDown.ValueProperty` / `Minimum` / `Maximum` / `Increment` | static, property | `decimal` numeric slots         |
+|  [07]   | `RangeBase.ValueProperty` / `Minimum` / `Maximum`                   | static, property | ranged scalar slots             |
+|  [08]   | `ToggleButton.IsCheckedProperty` (`bool?`)                          | static           | tri-state toggle slot           |
+|  [09]   | `ContentControl.ContentProperty` (`object?`)                        | static           | content slot                    |
+|  [10]   | `TemplatedControl.ForegroundProperty` / `FontSizeProperty`          | static           | paint and metric slots          |
+|  [11]   | `Layoutable.MinHeightProperty` / `MinWidthProperty`                 | static           | minimum-extent slots            |
+|  [12]   | `GridSplitter.ResizeDirection` (`GridResizeDirection`)              | property         | split axis selection            |
+
+- `NumericUpDown` slots are `decimal` while `RangeBase` slots are `double`, so a `double`-typed domain value casts at the `NumericUpDown` bind edge and nowhere else; `SelectedValueBinding` is what makes `SelectedValue` the option's own value rather than the container item, so a value-round-tripping bounded choice binds the pair, never `SelectedItem`.
+- `ClearValue(AvaloniaProperty)` resets a slot to its default across every priority; the typed `ClearValue<T>` overloads exist for `AvaloniaProperty<T>`, `StyledProperty<T>`, and `DirectPropertyBase<T>`.
+
 [NOTIFICATION_OPERATIONS]: toast presentation surfaces
 
 | [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]          |
@@ -225,6 +375,22 @@
 |  [02]   | `WindowNotificationManager.Close / CloseAll` | instance | toast close and clear |
 |  [03]   | `WindowNotificationManager.Position`         | property | placement knob        |
 |  [04]   | `WindowNotificationManager.MaxItems`         | property | queue cap             |
+
+[STORAGE_OPERATIONS]: per-surface capsule resolution and picker dispatch
+
+| [INDEX] | [SURFACE]                                                         | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :---------------------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `TopLevel.GetTopLevel(Visual?) -> TopLevel?`                      | static   | per-surface capsule resolve  |
+|  [02]   | `TopLevel.StorageProvider -> IStorageProvider`                    | property | picker capsule               |
+|  [03]   | `IStorageProvider.CanOpen / CanSave / CanPickFolder`              | property | per-kind platform capability |
+|  [04]   | `IStorageProvider.OpenFilePickerAsync(FilePickerOpenOptions)`     | instance | open picker                  |
+|  [05]   | `IStorageProvider.SaveFilePickerAsync(FilePickerSaveOptions)`     | instance | save picker                  |
+|  [06]   | `IStorageProvider.OpenFolderPickerAsync(FolderPickerOpenOptions)` | instance | folder picker                |
+|  [07]   | `FilePickerFileType(string?)` with `Patterns` / `MimeTypes`       | ctor     | one filter row               |
+|  [08]   | `FilePickerOpenOptions.AllowMultiple / FileTypeFilter`            | property | open cardinality and filter  |
+|  [09]   | `FilePickerSaveOptions.FileTypeChoices / DefaultExtension`        | property | save filter and extension    |
+
+- `TopLevel.GetTopLevel` returns null for a visual attached to no root; `TopLevel.StorageProvider` NEVER returns null — an unserved platform yields an `internal` no-op provider whose three capability properties all answer false, so availability reads the capability the operation needs and a provider type test is unspellable outside the assembly.
 
 [DATA_TRANSFER_OPERATIONS]: clipboard and drag data-transfer composition
 

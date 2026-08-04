@@ -196,6 +196,7 @@
 |  [15]   | `NonlinearMinimizationResult.StandardErrors -> V`                                  | property | per-parameter standard error         |
 |  [16]   | `NonlinearMinimizationResult.ReasonForExit -> ExitCondition`                       | property | stop condition the run hit           |
 |  [17]   | `CreateVector.DenseOfArray<double>(double[]) -> V`                                 | static   | admit a `double[]` as the carrier    |
+|  [18]   | `CreateMatrix.Dense<double>(int, int) -> M`                                        | static   | mint a zeroed dense carrier          |
 
 - `V` and `M` abbreviate `Vector<double>` and `Matrix<double>`; `LevenbergMarquardtMinimizer.FindMinimum` mirrors its `V` arguments with a `double[]`/`bool[]` overload.
 
@@ -288,6 +289,7 @@
 [PAIRED_TAPER]: `Hann` `Hamming` `Cosine` `Lanczos`
 [SINGLE_TAPER]: `Blackman` `BlackmanHarris` `BlackmanNuttall` `Nuttall` `FlatTop` `Bartlett` `BartlettHann` `Triangular` `Dirichlet`
 [SHAPED_TAPER]: `Gauss(width, sigma)` `Tukey(width, r)`
+- The 19 members above (15 tapers plus the four `*Periodic` twins) are the DECOMPILE-VERIFIED complete `Window` surface — no `Kaiser` and no `Bohman` member ships, so a Kaiser response is an owned Bessel-`I0` fold (`Rasm.Materials` `Raster/plane#TEXTURE_PYRAMID` holds the estate's one) and never a phantom `Window.Kaiser` spelling.
 
 [ENTRYPOINT_SCOPE]: provider selection — `Control` sets every provider class at once, `LinearAlgebraControl` the linear-algebra class alone; each `Use*` throws on a missing native asset where its `Try*` twin returns `false`
 
@@ -417,7 +419,7 @@
 - Krylov solves write into their caller-owned result vector and return `void`, so `Iterator<T>.Status` carries the convergence verdict; solver, preconditioner, and stop criteria bind at one precision plane, and a plane switch re-spells all three.
 
 [STACKING]:
-- `Rasm.Materials` `Raster/tile#TILE_GATE` reads `ComplexExtensions.MagnitudeSquared` over the shared `HeightField.Fourier2` row-column fold for the periodicity spectrum, `Raster/filter#HEIGHT_FIELD` owns that fold — 1D `Fourier.Forward`/`Inverse` per axis, the managed-total 2D form the multidim provider gap forces — for the Frankot-Chellappa integration, and `Raster/tile#TILE_SYNTH` reads `Distributions.Normal.InvCDF`/`CDF` for the variance-preserving rank blend; every `Forward*` carries an on-disk `Inverse*` mirror, so the round trip is the catalogued pair, never a hand-built adjoint.
+- The row-column 2D fold — 1D `Fourier.Forward`/`Inverse` per axis, the managed-total form the multidim provider gap forces — is OWNED at `Rasm/Numerics/matrix#TRANSFORM_BAND` (`SpectralArena` + `MatrixKernel.Transform`); `Rasm.Materials` `Raster/filter#HEIGHT_FIELD` composes that kernel band for the Frankot-Chellappa integration and `Raster/tile#TILE_GATE` reads the power spectrum off the same owner, while `Raster/tile#TILE_SYNTH` reads `Distributions.Normal.InvCDF`/`CDF` for the variance-preserving rank blend; every `Forward*` carries an on-disk `Inverse*` mirror, so the round trip is the catalogued pair, never a hand-built adjoint.
 - `LanguageExt.Core`(`.api/api-languageext.md`): `Brent.TryFindRoot`'s `bool`/`out` pair and `NonlinearMinimizationResult.ReasonForExit` lift to `Fin<double>` and `Fin<Vector<double>>` at the seam, so non-convergence lands as a typed failure row instead of an exception crossing the receipt path.
 - `CSparse`(`.api/api-csparse.md`): a residual Jacobian assembled as `CompressedColumnStorage<double>` factors on the direct sparse lane and steps through `ISolver<double>.Solve`, while this package keeps the model, the tolerances, and the exit condition; matrix density and factor reuse select between that direct lane and the Krylov solvers under an `Iterator<T>` stop-criteria control. The split is STRUCTURAL for SPD grids: MathNet ships NO sparse Cholesky (a `SparseMatrix.Cholesky()` densifies), so the direct SPD route is always the CSparse `CholeskySparse` peer, and this package's contribution above the direct ceiling is the PRECONDITIONED KRYLOV lane — `MILU0Preconditioner` under `BiCgStab.Solve` over the same CSR assembly, the composition the `Rasm.Materials` `Raster/filter#HEIGHT_FIELD` bounded Poisson arm rides at large extents.
 - `MathNet.Numerics.Providers.MKL` and `.Providers.OpenBLAS`(`Rasm.Compute/.api/api-mathnet-providers.md`): the two native adapter packages this assembly probes by type name, each carrying its own control class and native asset matrix and no algebra of its own; that catalogue also owns how `Rasm.Compute` folds this plane onto its solve receipt.

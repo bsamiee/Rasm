@@ -7,7 +7,7 @@
 ## [01]-[ROUTER]
 
 [DOMAIN]:
-- [01]-[RAILS](.planning/Domain/rails.md): Kernel ROP substrate — result union, boundary-exception and resource rails, and the `Op`-threading law.
+- [01]-[RAILS](.planning/Domain/rails.md): Kernel ROP substrate — result union, boundary-exception and resource rails, and `Op`-threading law.
 - [02]-[CONTEXT](.planning/Domain/context.md): Tolerance/units substrate — value objects and immutable context bundle with its doc-coupled adapter.
 - [03]-[IDENTITY](.planning/Domain/identity.md): Determinism owner — seed-zero `ContentHash.Of` federation content key and deterministic derivation.
 - [04]-[VALIDATION](.planning/Domain/validation.md): Acceptance/readiness oracle — the readiness algebra and the canonical admission vocabulary.
@@ -20,7 +20,7 @@
 - [09]-[PREDICATES](.planning/Numerics/predicates.md): Exact-predicate floor — orientation, in-circle, and constructed-point tests up the ladder.
 - [10]-[FAULTS](.planning/Numerics/faults.md): Consolidated `GeometryFault` union every geometry rail routes through and lowers onto the error rail.
 - [11]-[ATOMS](.planning/Numerics/atoms.md): Typed vector-algebra floor and the raw-to-typed projection dispatch every projection routes through.
-- [12]-[MATRIX](.planning/Numerics/matrix.md): Dense/sparse/complex linear-algebra owner and the `MatrixKernel` solve and eigen family.
+- [12]-[MATRIX](.planning/Numerics/matrix.md): Dense/sparse/complex matrix owner — `MatrixKernel` routes every solve, eigen, and spectral transform.
 - [13]-[INTEGRATE](.planning/Numerics/integrate.md): ODE integration floor — data-driven tableau vocabulary and `FieldIntegrator` adaptive stepper.
 - [14]-[SPECTRAL](.planning/Numerics/spectral.md): Mesh-free spectral algebra — `DiscreteCalculus` with transfer-function and descriptor algebra.
 - [15]-[CALCULUS](.planning/Numerics/calculus.md): Sample-anywhere math floor — stencils, noise lattices, falloff profiles, solar almanac.
@@ -30,7 +30,7 @@
 - [17]-[NAMING](.planning/Spatial/naming.md): Persistent topological naming — lineage algebra, name registry, and the re-anchor-by-signature fold.
 - [18]-[RECONCILIATION](.planning/Spatial/reconciliation.md): Naming-to-hash fence — canonical byte streams onto `NamingHash` Persistence consumes.
 - [19]-[SUPPORT](.planning/Spatial/support.md): Proximity boundary adapter — capability-gated `SupportProjection` behind its projection gate.
-- [20]-[CLOUD](.planning/Spatial/cloud.md): Point-cloud owner — `VectorCloud` union with lazy indexed admission, metric surface, and hull rail.
+- [20]-[CLOUD](.planning/Spatial/cloud.md): `VectorCloud` folds every cloud case under one dedup admission — metric, hull, and 3D Voronoi cell rails.
 - [21]-[NEIGHBORS](.planning/Spatial/neighbors.md): Neighborhood substrate — proximity queries, orientation, curvature, rotation-minimizing frames.
 - [22]-[TRANSPORT](.planning/Spatial/transport.md): Optimal-transport owner — log-domain Sinkhorn with plan projections and cloud correspondences.
 - [23]-[FIELDS](.planning/Spatial/fields.md): Implicit-field algebra — scalar/vector/tensor unions, the SDF family, and status-tagged sampling seam.
@@ -56,7 +56,7 @@
 - [39]-[MESH](.planning/Meshing/mesh.md): Mesh substrate owner — the `MeshSpace` snapshot, Laplacian memoization, and intrinsic triangulation.
 - [40]-[EDIT](.planning/Meshing/edit.md): Mutable-arena owner — the single-writer `MeshEdit` SoA build arena and the publish-by-freeze seam.
 - [41]-[DEC](.planning/Meshing/dec.md): Mesh-bound DEC assembly owner — connection heat, holonomy, and the Hodge decomposition family.
-- [42]-[RECONSTRUCT](.planning/Meshing/reconstruct.md): Implicit-reconstruction owner — signed-heat spine, mesh-SDF methods, and iso-extraction.
+- [42]-[RECONSTRUCT](.planning/Meshing/reconstruct.md): Implicit-reconstruction owner — `Reconstruct` over signed-heat, mesh-SDF, and iso rails.
 
 [PROCESSING]:
 - [43]-[REPAIR](.planning/Processing/repair.md): Repair rail — closed `HealOp` algebra over the mesh arena with the typed rebuild-receipt chain.
@@ -67,13 +67,13 @@
 - [48]-[INTENT](.planning/Processing/intent.md): Kernel consumer rail — `VectorIntent` union with admission dispatching the owning pages.
 - [49]-[SAMPLE](.planning/Processing/sample.md): Point-sampling owner — `SampleKind` union with grouped preset policies over the sampling domains.
 - [50]-[EXTRACT](.planning/Processing/extract.md): Extraction/projection rail — ingress, native-first sectioning, and typed projection rows.
-- [51]-[FLOW](.planning/Processing/flow.md): Streamline/trace owner — dense-output event localization over any vector field.
+- [51]-[FLOW](.planning/Processing/flow.md): Streamline owner on any vector field — dense-output event localization, `MorseAtlas` topology fold.
 - [52]-[REGISTER](.planning/Processing/register.md): Registration owner — the `AlignKind` ICP dispatcher behind one alignment policy record.
 - [53]-[GEODESICS](.planning/Processing/geodesics.md): On-mesh distance suite — heat-method and geodesics, log/exp maps, and parallel transport.
 - [54]-[SEGMENT](.planning/Processing/segment.md): Spectral shape-analysis owner — descriptors, segmentation, cross-fields, and host capture.
 
 [SOLVING]:
-- [55]-[SOLVER](.planning/Solving/solver.md): Nonlinear least-squares owner — `Lm.Minimize` and the island-decomposed geometric constraint solver.
+- [55]-[SOLVER](.planning/Solving/solver.md): Nonlinear least-squares owner — `Lm.Minimize`, `Dual<T>` auto-Jacobians, island-decomposed constraints.
 - [56]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — the MLESAC sampler and orthogonal-distance refine returning the typed `FitReceipt`.
 
 [DRAWING]:
@@ -117,6 +117,9 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [TIME_IDENTITY]:
 - `System.IO.Hashing` — reached only through the seed-zero content-hash mint.
 - `NodaTime` — semantic instants and spans on the causal frame, receipt envelope, and objective windows.
+
+[UNIT_IDENTITY]:
+- `UnitsNet` — dynamic unit conversion behind the `ModelUnit` unit-bridge seam; measures still leave the kernel as bare `double`.
 
 [NUMERIC_SUBSTRATE]:
 - `MathNet.Numerics` — dense linear-algebra and distribution substrate under the matrix owner.

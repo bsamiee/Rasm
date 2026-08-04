@@ -170,7 +170,9 @@
 
 [MATERIAL_OFFSET_MEMBERS]: `IfcMaterialProfileWithOffsets.OffsetValues` is a `public double[]` of arity one or two behind public constructors; `IfcMaterialLayerWithOffsets` keeps `mOffsetValues` internal behind internal constructors and publishes no accessor.
 
-[SIMPLE_QUANTITY_TYPES]: `IfcPhysicalSimpleQuantity` covers `IfcQuantityLength` `IfcQuantityArea` `IfcQuantityVolume` `IfcQuantityWeight` `IfcQuantityCount` `IfcQuantityTime`.
+[SIMPLE_QUANTITY_TYPES]: `IfcPhysicalSimpleQuantity` covers `IfcQuantityLength` `IfcQuantityArea` `IfcQuantityVolume` `IfcQuantityWeight` `IfcQuantityCount` `IfcQuantityTime` `IfcQuantityNumber` — SEVEN concretes, the IFC4.3 `IfcQuantityNumber` (`NumberValue` a `double`) included.
+
+[SIMPLE_QUANTITY_POLYMORPHIC_READ]: `IfcPhysicalSimpleQuantity.MeasureValue` is a `public abstract IfcMeasureValue` each concrete answers with its own measure type (`IfcQuantityCount` yields `IfcCountMeasure`, `IfcQuantityNumber` an `IfcNumericMeasure`), so ONE read answers both magnitude and measure-type identity and the seven per-subtype value accessors (`LengthValue`/`AreaValue`/`VolumeValue`/`WeightValue`/`CountValue`/`TimeValue`/`NumberValue`) are not the dispatch axis. The property allocates a fresh measure per read.
 
 [CONSTITUENT_SET_MEMBERS]: `IfcMaterialConstituentSet.MaterialConstituents` is a `Dictionary<string, IfcMaterialConstituent>` traversed through `.Values`.
 
@@ -510,10 +512,19 @@
 |  [09]   | `VersionAddedAttribute`      | reflection attribute marking schema-version availability     |
 |  [10]   | `IfcMeasureValue`            | abstract numeric measure-value base                          |
 |  [11]   | `IfcMonetaryMeasure`         | monetary amount measure                                      |
+|  [12]   | `IfcNamedUnit`               | abstract base of SI/conversion/context units                 |
+|  [13]   | `IfcConversionBasedUnitWithOffset` | conversion unit carrying an affine offset              |
+|  [14]   | `IfcUnit`                    | unit SELECT over named, derived, and monetary units          |
 
 [MONETARY_UNIT_MEMBERS]: `IfcMonetaryUnit.Currency` is an ISO 4217 string and supplies the `IfcMeasureWithUnit.UnitComponent` of a priced `IfcCostValue`.
 
 [MEASURE_WITH_UNIT_MEMBERS]: `IfcMeasureWithUnit` carries `ValueComponent` as `IfcValue` and `UnitComponent` as `IfcUnit`, and it supplies `IfcCostValue.UnitBasis`.
+
+[SI_FACTOR_MEMBERS]: `IfcNamedUnit.SIFactor()` is `public abstract double` and `IfcDerivedUnit.SIFactor()` its `public` peer, so BOTH branches of the `IfcUnit` select answer a scale — a per-value unit override resolves without reaching the context assignment. `IfcNamedUnit` also publishes `Dimensions` (`IfcDimensionalExponents`) and `UnitType` (`IfcUnitEnum`).
+
+[UNIT_OFFSET_MEMBERS]: `IfcConversionBasedUnitWithOffset.ConversionOffset` is a `public double` and is the ONLY non-multiplicative unit carrier the surface publishes, so an affine conversion (a Celsius-declared temperature) is `(value + ConversionOffset) * SIFactor()` and never a factor alone.
+
+[PER_VALUE_UNIT_CARRIERS]: every value carrier publishes its own optional unit as a PUBLIC read — `IfcPropertySingleValue.Unit` (`IfcUnit`), `IfcPropertyBoundedValue.Unit`, `IfcPropertyListValue.Unit`, `IfcPropertyTableValue.DefiningUnit` and `DefinedUnit` (SEPARATE per column), and `IfcPhysicalSimpleQuantity.Unit` (`IfcNamedUnit`) — so a measure overrides the project regime at its own site. `IfcPropertyEnumeratedValue` publishes none.
 
 [CLASSIFICATION_REFERENCE_MEMBERS]: `IfcClassificationReference` carries `ReferencedSource` (`IfcClassificationReferenceSelect`) and inherits `Identification`, `Location`, and `Name` from `IfcExternalReference`.
 

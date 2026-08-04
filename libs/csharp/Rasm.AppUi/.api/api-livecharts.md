@@ -95,13 +95,19 @@
 |  [12]   | `ColorArrayExtension`          | class         | `LvcColor` array                    |
 |  [13]   | `ValuesExtension`              | class         | inline series-values literal        |
 
-[GEO_TYPES]: map binding surfaces in transitive `LiveChartsCore.Geo`, bound through `GeoMap`/`SourceGenMapChart`.
+[GEO_TYPES]: map binding surfaces in transitive `LiveChartsCore.Geo` (the heat series concretes in `LiveChartsCore.SkiaSharpView`), bound through `GeoMap`/`SourceGenMapChart`.
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [CAPABILITY]                    |
-| :-----: | :-------------- | :------------ | :------------------------------ |
-|  [01]   | `IGeoMapView`   | interface     | map view contract               |
-|  [02]   | `DrawnMap`      | class         | active map record (`ActiveMap`) |
-|  [03]   | `MapProjection` | enum          | projection mode                 |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :------------------------------------------ | :------------ | :-------------------------------------------------- |
+|  [01]   | `IGeoMapView`                               | interface     | map view contract                                   |
+|  [02]   | `DrawnMap : IDisposable`                    | class         | active map record (`ActiveMap`)                     |
+|  [03]   | `MapProjection`                             | enum          | projection mode                                     |
+|  [04]   | `IWeigthedMapLand : INotifyPropertyChanged` | interface     | settable `Name`/`Value` land model                  |
+|  [05]   | `CoreHeatLandSeries<TModel> : IGeoSeries`   | class         | heat-series base, `TModel : IWeigthedMapLand`       |
+|  [06]   | `HeatLandSeries<TModel>` / `HeatLandSeries` | class         | Skia heat series; non-generic binds `HeatLand`      |
+|  [07]   | `HeatLand`                                  | class         | shipped `IWeigthedMapLand`; `()`/`(string, double)` |
+|  [08]   | `LandDefinition`                            | class         | resolved land record — the `FindLand` result        |
+|  [09]   | `MapLayer`                                  | class         | loaded layer record — every `AddLayerFrom*` result  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -155,6 +161,24 @@
 |  [03]   | `Series`        | property | geo series        |
 |  [04]   | `Stroke`        | property | land stroke paint |
 |  [05]   | `Fill`          | property | land fill paint   |
+
+[GEO_HEAT]: heat-land series columns and `DrawnMap` layer load; every `layerName` is a trailing `string layerName = "default"`, each `AddLayerFrom*` carries a `(source, Paint stroke, Paint fill, …)` overload and an `…Async` peer returning `Task<MapLayer>`, and each `GetMapFrom*` an `…Async` peer
+
+| [INDEX] | [SURFACE]                                              | [OWNER]                      | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :----------------------------------------------------- | :--------------------------- | :------- | :------------------------------- |
+|  [01]   | `Lands` (`ICollection<TModel>?`)                       | `CoreHeatLandSeries<TModel>` | property | live land set, deep-observed     |
+|  [02]   | `HeatMap` (`LvcColor[]`) / `ColorStops` (`double[]?`)  | `CoreHeatLandSeries<TModel>` | property | ramp colours and stops           |
+|  [03]   | `Name` / `IsVisible` / `PropertyChanged`               | `CoreHeatLandSeries<TModel>` | member   | identity, visibility, and change |
+|  [04]   | `Measure(MapContext)` / `Delete(MapContext)`           | `CoreHeatLandSeries<TModel>` | instance | map-pass measure and teardown    |
+|  [05]   | `()` / `(ICollection<TModel>?)` / `(params TModel[]?)` | `HeatLandSeries<TModel>`     | ctor     | land-set ctor arities            |
+|  [06]   | `(ICollection<TModel>?, LvcColor[] heatMap)`           | `HeatLandSeries<TModel>`     | ctor     | land-set and ramp ctor           |
+|  [07]   | `FindLand(shortName, layerName)` -> `LandDefinition?`  | `DrawnMap`                   | instance | land lookup, null when absent    |
+|  [08]   | `AddLayerFromStreamReader(StreamReader, …)`            | `DrawnMap`                   | instance | layer load from a reader         |
+|  [09]   | `AddLayerFromDirectory(string path, …)`                | `DrawnMap`                   | instance | layer load from a directory      |
+|  [10]   | `GetWorldMap()` / `GetMapFrom{Directory,StreamReader}` | `DrawnMap`                   | static   | map mint from world, path, read  |
+|  [11]   | `Layers` (`Dictionary<string, MapLayer>`)              | `DrawnMap`                   | property | loaded layers by name            |
+
+- `CoreHeatLandSeries<TModel>` declares one ctor, `(ICollection<TModel>? lands)`; the four arities are `HeatLandSeries<TModel>`'s own, and `HeatLandSeries : HeatLandSeries<HeatLand>` fixes the model to the shipped `HeatLand`. A domain land type implementing `IWeigthedMapLand` binds as `HeatLandSeries<TLand>` directly, so an in-place `Value` write on a member of `Lands` IS the invalidation the deep observer redraws on — a projected parallel collection is never watched.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

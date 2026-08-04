@@ -84,6 +84,9 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `frame budget`: refuses bare use, and every site spells one qualified sense below.
 - `viewport frame budget`: bounds one rendered frame's spend — time, draws, residency — so a breach names its axis and degrades the frame alone.
 - `solver frame budget`: stops a coarse iterative solve inside one frame deadline between iteration floor and ceiling, forking refinement onto a background lane.
+- `time travel`: refuses bare use, every site spells one qualified sense below; two packages legitimately declare `TimeTravel` owner.
+- `collab time travel`: reverts a live collaborative document onto a prior intent-ledger frontier by appending inverse intents, never rewriting history.
+- `store time travel`: reads the system of record as it stood at one commit or instant through the store's as-of session, never mutating it.
 - `landing`: refuses bare use, and every site spells one qualified sense below.
 - `wire landing`: declares a decoded wire family's one branch-side shape at the codec owner, so a consumer imports it and re-derives no field.
 - `landing grain`: states a fact at task resolution — the exact file or sub-domain a card's work lands in.

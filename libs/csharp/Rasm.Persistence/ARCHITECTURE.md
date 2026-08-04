@@ -192,6 +192,7 @@ flowchart LR
     AppUi e15@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store
     Query e24@-->|"[PROJECTION]: telemetry measure series"| AppUi
     Query e25@-->|"[RECEIPT]: resident ReceiptEnvelope"| AppUi
+    Query e26@-->|"[WIRE]: DocumentQuery/DocumentHit"| AppUi
 ```
 
 ## [04]-[INTERNAL]

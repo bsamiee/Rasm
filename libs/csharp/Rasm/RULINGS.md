@@ -17,26 +17,35 @@ Every reopen predicate rides the license gate.
 ## [02]-[SHAPE]
 
 - `Domain/telemetry` mints the ONE hook capsule type — an effect-rail caller lifts `Fire` at its own seam, never a second effect-threaded capsule.
-- `SignalRail` governs EMISSION alone — `SignalFact` holds evidence over live resources, so a kernel gate guarding an action declares its own `HookPoint<TFact>` on a fact carrying that value.
-- `SpanEdge` is the ONE bracket carriage — kind, adopted parent, and fan-in links ride one value, so a bracket gains a coordinate without a second trailing knob per rail shape.
-- `Buckets` rows carry real boundary values alone and `Advised<T>` saturates them into the instrument's measurement type — a per-type bound array re-mints one policy twice and strands whichever copy a retune misses.
+- `SignalRail` governs EMISSION alone — `SignalFact` holds evidence, so a gate guarding an action declares its own `HookPoint<TFact>`.
+- `SpanEdge` is the ONE bracket carriage — kind, adopted parent, and fan-in links ride one value, so a new coordinate is one column, never a knob.
+- `Buckets` rows carry real boundary values — `Advised<T>` saturates each into the measured type, so a per-type bound array forks the policy.
 - Packed-upper layout is one untyped contract — `CovarianceOf` feeds `SymmetricMatrix.Of` repack-free; a repack corrupts type-invisibly.
 - Packed-upper index arithmetic mirrors across `SymmetricMatrix`, `SampleMoment`, and `Lm` — the formula moves only as one all-owner edit.
 - `Analysis/relations` owns host-native intersection, `Meshing/intersect` the predicate-exact tier — the consumer's tolerance source decides.
-- Every kernel draw threads `Deterministic` — `Solving/fit`'s MLESAC sampler included, so no kernel page mints a `System.Random` its own ruling forbids.
+- Every kernel draw threads `Deterministic` — `Solving/fit`'s MLESAC sampler included, so no kernel page mints a `System.Random`.
 - `Domain/stats` is the kernel's one covariance and extremum mint — a re-mint beside a consumer forks the algebra into drifting copies.
 - Every mutable geometry store composes the `Meshing/edit` arena law — a `with`-record store re-pays full copies and forks hash-eligibility.
 - `IntersectOp` is the ONE crossing kernel — a page-local straddle test forks the `CrossKey` merge; a new modality is one case folded by `Apply`.
 - `ClearanceNode` spans 2D medial and 3D skeleton — `Meshing/offset` mints, `Meshing/skeleton` composes verbatim; growth is one column.
-- `MatrixKernel` funnels factorization, solve, and eigen — a raw reach skips typed receipt and residual witness; MathNet utilities stay page-local.
+- `MatrixKernel` funnels factorization, solve, eigen, transform — a raw reach skips receipt and residual witness; MathNet utilities stay page-local.
 - Fabrication tolerance tiers flattening — `Processing/flatten` variational, `Processing/segment` host LSCM, `Parametric/develop` exact isometry.
 - `Parametric/curve` and `/locate` split by RUNTIME, never capability — vendored host-neutral against live Rhino, meeting at the wire.
 - `SimplifyKind.VoxelRemesh` stays a `decimate` modality, never a `RemeshOp` arm — its genus follows the level set; the rewrite preserves topology.
 - `RemeshOp` stays beside `segment`'s host capture — first-principles rewrite against parameter echo; reopens on RhinoCommon structural predicates.
-- Every `ILmModel` Jacobian arm is closed-form — FD halves the 106-bit precision and survives as test oracle; a derivative-less residual reopens.
+- Every `ILmModel` Jacobian arm is EXACT — closed form or forward-mode duals alone; FD halves the 106-bit objective and stays a test oracle.
 - `Lm.Minimize` is the ONE damped iterate — a private loop forks the singular guard, accept order, and budget accounting; refine rides an `ILmModel`.
 - Hulls split by robustness tier — `Spatial/cloud` composes admitted natives and concave kinds, `Meshing/delaunay` `LowerHull` the exact envelope.
 - `SpatialIndex` owns primitive-AABB broad phase, `NeighborIndex` bare-point neighborhoods — the query subject decides, never one shared owner.
+- `ArrangementResult.Boolean` carries TRUE shells on BOTH routes — one `MeshSpace` lies about a severed result; intermediate legs stay undecomposed.
+- `Heal.Merge` FAILS TYPED on a severed boolean — heal admits one arena, so severance lowers `UnrepairableMesh` carrying the shell count.
+- Geometry-fold abandonment lowers ONE case on both arrangement routes — `RunAbandoned` 2403; `Fault.Cancelled` stays the `Eff`-floor spelling.
+- `FaultCluster` never widens its 4-wide stride — `OfCode` is that arithmetic, so a case whose cluster stride is spent homes in the base stride.
+- Adjoint sensitivity is `Rasm.Compute`'s — the kernel emits `MeshAdjointSnapshot`, its own differentiation staying `Lm`'s forward-mode dual floor.
+- `PerceptualColor` egress splits on TRANSFER, never on member — the byte leg is the one content-key quantizer and the profile leg names an `RgbTransfer` row; a sibling egress member forks the quantizer.
+- A kernel law binds only where its compliant construction is public — `RgbProfile.Viewed` and `DeltaMetric.Measure` publish because the stated-condition law legislates every direct-`Unicolour` composer.
+- `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its place only by adding admission, never by restating the mechanism.
+- `TenantContext.Key` is the one tenancy-discriminant read — every store, GUC, and series key folds that `Option`; a re-derived `Partitions ? Entry : absent` ternary is the deleted form.
 
 ## [03]-[COLLAPSE]
 

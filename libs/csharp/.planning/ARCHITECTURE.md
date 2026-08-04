@@ -138,7 +138,7 @@ flowchart LR
     Element <-->|"[CONTENT_KEY]: ContentAddress"| PyRuntime
     Bim <-->|"[WIRE]: IfcWire"| PyGeometry
     Bim -->|"[WIRE]: GeoFeatureWire"| PyData
-    PyData -->|"[WIRE]: Environmental"| Materials
+    PyData -->|"[WIRE]: Assessment"| Materials
     Materials -->|"[WIRE]: MaterialWire + TextureSetWire"| PyRuntime
     PyArtifacts -->|"[WIRE]: AssetSetManifest"| Materials
     Fabrication -->|"[SHAPE]: Tolerance"| PyArtifacts

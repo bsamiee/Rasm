@@ -37,43 +37,49 @@
 |  [10]   | `TextSegment` / `TextSegmentCollection<T>` | class          | red-black segment tree          |
 |  [11]   | `UndoStack`                                | class          | undo history                    |
 |  [12]   | `TextViewPosition`                         | struct         | visual position                 |
+|  [13]   | `StringTextSource`                         | class          | in-memory `ITextSource`         |
 
 - `Caret`: `Offset` `Line` `Column` `Location`
 - `TextDocument`: `BeginUpdate` `Replace`
+- `StringTextSource`: `StringTextSource(string)` `StringTextSource(string, ITextSourceVersion)` `Empty` `Text` `TextLength` `CreateSnapshot` `CreateReader` `GetText(ISegment)` (`: ITextSource`) — the one concrete plain-text source, so a headless scan runs the same `ISearchStrategy` over raw text that the pane runs over its document
 - `DocumentLine`: `Offset` `Length` `LineNumber`
 - `UndoStack`: `Undo` `Redo` `StartUndoGroup` `SizeLimit`
 - `TextViewPosition`: `Line` `Column` `VisualColumn`
+- `TextSegment`: `StartOffset` `EndOffset` `Length` (settable; `: ISegment`)
+- `TextSegmentCollection<T> where T : TextSegment`: `Add` `Remove` `Clear` `Count` `FirstSegment` `LastSegment` `GetNextSegment` `GetPreviousSegment` `FindFirstSegmentWithStartAfter(int)` `FindSegmentsContaining(int)` `FindOverlappingSegments(ISegment)`; `TextSegmentCollection(TextDocument)` and `UpdateOffsets(DocumentChangeEventArgs)` keep every held span live across edits, `Disconnect` releasing that binding
 
 [FEATURE_TYPES]: folding, highlighting, completion, search, snippets, and indentation
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [CAPABILITY]         |
-| :-----: | :------------------------------ | :------------- | :------------------- |
-|  [01]   | `FoldingManager`                | class          | folding owner        |
-|  [02]   | `FoldingSection`                | class          | folded region        |
-|  [03]   | `NewFolding`                    | class          | folding input        |
-|  [04]   | `XmlFoldingStrategy`            | class          | XML folding          |
-|  [05]   | `HighlightingManager`           | class          | definition registry  |
-|  [06]   | `IHighlightingDefinition`       | interface      | definition contract  |
-|  [07]   | `HighlightingLoader`            | static class   | xshd loader          |
-|  [08]   | `DocumentHighlighter`           | class          | highlight engine     |
-|  [09]   | `IHighlighter`                  | interface      | highlight contract   |
-|  [10]   | `DocumentColorizingTransformer` | abstract class | line colorizer       |
-|  [11]   | `IBackgroundRenderer`           | interface      | layer renderer       |
-|  [12]   | `CompletionWindow`              | class          | completion popup     |
-|  [13]   | `ICompletionData`               | interface      | completion item      |
-|  [14]   | `OverloadInsightWindow`         | class          | overload popup       |
-|  [15]   | `IOverloadProvider`             | interface      | overload contract    |
-|  [16]   | `SearchPanel`                   | class          | search overlay       |
-|  [17]   | `ISearchStrategy`               | interface      | search contract      |
-|  [18]   | `RegexSearchStrategy`           | class          | regex search engine  |
-|  [19]   | `Snippet`                       | class          | snippet root         |
-|  [20]   | `SnippetTextElement`            | class          | snippet literal      |
-|  [21]   | `SnippetReplaceableTextElement` | class          | snippet tab-stop     |
-|  [22]   | `SnippetBoundElement`           | class          | snippet bound field  |
-|  [23]   | `SnippetCaretElement`           | class          | snippet caret target |
-|  [24]   | `SnippetSelectionElement`       | class          | snippet selection    |
-|  [25]   | `IIndentationStrategy`          | interface      | indentation contract |
-|  [26]   | `CSharpIndentationStrategy`     | class          | C# indenter          |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [CAPABILITY]           |
+| :-----: | :------------------------------ | :------------- | :--------------------- |
+|  [01]   | `FoldingManager`                | class          | folding owner          |
+|  [02]   | `FoldingSection`                | class          | folded region          |
+|  [03]   | `NewFolding`                    | class          | folding input          |
+|  [04]   | `XmlFoldingStrategy`            | class          | XML folding            |
+|  [05]   | `HighlightingManager`           | class          | definition registry    |
+|  [06]   | `IHighlightingDefinition`       | interface      | definition contract    |
+|  [07]   | `HighlightingLoader`            | static class   | xshd loader            |
+|  [08]   | `DocumentHighlighter`           | class          | highlight engine       |
+|  [09]   | `IHighlighter`                  | interface      | highlight contract     |
+|  [10]   | `DocumentColorizingTransformer` | abstract class | line colorizer         |
+|  [11]   | `IBackgroundRenderer`           | interface      | layer renderer         |
+|  [12]   | `CompletionWindow`              | class          | completion popup       |
+|  [13]   | `ICompletionData`               | interface      | completion item        |
+|  [14]   | `OverloadInsightWindow`         | class          | overload popup         |
+|  [15]   | `IOverloadProvider`             | interface      | overload contract      |
+|  [16]   | `SearchPanel`                   | class          | search overlay         |
+|  [17]   | `ISearchStrategy`               | interface      | search contract        |
+|  [18]   | `ISearchResult`                 | interface      | one hit (`: ISegment`) |
+|  [19]   | `SearchStrategyFactory`         | static class   | the strategy mint      |
+|  [20]   | `SearchMode`                    | enum           | pattern grammar        |
+|  [21]   | `Snippet`                       | class          | snippet root           |
+|  [22]   | `SnippetTextElement`            | class          | snippet literal        |
+|  [23]   | `SnippetReplaceableTextElement` | class          | snippet tab-stop       |
+|  [24]   | `SnippetBoundElement`           | class          | snippet bound field    |
+|  [25]   | `SnippetCaretElement`           | class          | snippet caret target   |
+|  [26]   | `SnippetSelectionElement`       | class          | snippet selection      |
+|  [27]   | `IIndentationStrategy`          | interface      | indentation contract   |
+|  [28]   | `CSharpIndentationStrategy`     | class          | C# indenter            |
 
 - `FoldingSection`: `IsFolded` `Title`
 - `NewFolding`: `StartOffset` `EndOffset` `Name` `DefaultClosed` `IsDefinition` (settable; `: ISegment`; `NewFolding(int start, int end)` throws on `start > end`)
@@ -83,7 +89,12 @@
 - `DocumentColorizingTransformer`: `ColorizeLine`
 - `IBackgroundRenderer`: `Layer` `Draw(TextView, DrawingContext)`
 - `ICompletionData`: `Image` `Text` `Content` `Description` `Priority` `Complete` (every member get-only; `Priority` is `double`, so rank is a float and an `int` tier scale cannot express a tie-break)
-- `IOverloadProvider`: `SelectedIndex` `Count` `CurrentHeader` `CurrentContent`
+- `IOverloadProvider` (over `INotifyPropertyChanged`): settable `SelectedIndex` `int`, get-only `Count` `int`, `CurrentIndexText` `string`, `CurrentHeader` `object`, `CurrentContent` `object` — five members and no caret hook, so re-selection as arguments land is the consumer writing `SelectedIndex`
+- `ISearchStrategy`: `FindAll(ITextSource, int, int) : IEnumerable<ISearchResult>` `FindNext(ITextSource, int, int) : ISearchResult` (`: IEquatable<ISearchStrategy>`)
+- `ISearchResult`: `ReplaceWith(string) : string` (`: ISegment`, so `StartOffset`/`Length`/`EndOffset` carry the hit span)
+- `SearchMode`: `Normal` `RegEx` `Wildcard` — `Normal` regex-escapes the pattern, `Wildcard` lowers `?` to `.` and `*` to `.*` while escaping every other character, and the strategy is a `Regex` engine in every mode
+- `SearchPanel`: settable `SearchPattern` `string`, `MatchCase` `bool`, `WholeWords` `bool`, `UseRegex` `bool`, `IsReplaceMode` `bool`, `ReplacePattern` `string`; get-only `TextEditor` `IsOpened` `IsClosed`; `SetSearchResultsBrush(IBrush)`, `RegisterCommands(ICollection<RoutedCommandBinding>)`, and the `SearchOptionsChanged` event — the knob set carries NO `SearchMode` column, so a consumer wanting `Wildcard` on the panel lowers the pattern itself and sets `UseRegex`; each knob write re-runs the panel's own search, so the pattern write lands last
+- The concrete regex strategy is `internal`: `SearchStrategyFactory.Create` is the ONLY mint, so a `new RegexSearchStrategy(...)` at a call site does not compile
 
 [RENDERING_TYPES]: the `TextView` extension surface for custom visuals (`AvaloniaEdit.Rendering`)
 
@@ -218,23 +229,27 @@
 - `StartOffset` IS the insertion contract: the window synthesizes the segment itself, calling `CompletionList.SelectedItem?.Complete(TextArea, new AnchorSegment(TextArea.Document, StartOffset, EndOffset - StartOffset), e)` on an insertion request, after `Hide()`. `CompletionWindowBase`'s ctor seeds both offsets from `TextArea.Caret.Offset`, so a popup mounted after the trigger prefix is typed replaces nothing unless the mount assigns `StartOffset` back to the trigger start; document edits then move `StartOffset` `BeforeInsertion` and `EndOffset` `AfterInsertion`, and `ExpectInsertionBeforeStart` flips one pending caret-position insert to `AfterInsertion` so a committed prefix keystroke widens the span instead of preceding it.
 - `IsFiltering` defaults `true` and is the built-in prefix narrowing over the mounted rows — a camel-case and substring match quality fold that re-selects the best row per keystroke — so per-keystroke re-population of `CompletionData` is the deleted form; `false` degrades it to starts-with selection.
 - `ICompletionData.Complete(TextArea, ISegment, EventArgs)`: mutates the `TextArea` over the synthesized trigger `ISegment` — insertion runs here, never direct document mutation. Implement one per suggestion, add rows to `CompletionList.CompletionData` (a mutable `IList<ICompletionData>`), then `Show()`; the shell command rail feeds the rows.
-- `OverloadInsightWindow`: construct over `TextArea`, set `Provider`, then `Show()` for multi-signature insight.
+- `OverloadInsightWindow`: construct over `TextArea`, set `Provider`, then `Show()` for multi-signature insight. Its own `OnKeyDown` handles Up and Down through an internal `ChangeIndex(±1)` and only while `Provider != null && Provider.Count > 1`; every other index move is the consumer assigning `Provider.SelectedIndex`, because no member tracks the caret.
 
 [SEARCH_ENTRYPOINTS]: regex search/replace panel and strategy
 
-| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]     |
-| :-----: | :----------------------------------------------- | :------- | :--------------- |
-|  [01]   | `Install(TextEditor) -> SearchPanel`             | static   | panel install    |
-|  [02]   | `Open()`                                         | instance | overlay toggle   |
-|  [03]   | `Close()`                                        | instance | overlay toggle   |
-|  [04]   | `Reactivate()`                                   | instance | overlay toggle   |
-|  [05]   | `FindNext(int)`                                  | instance | match navigation |
-|  [06]   | `FindPrevious()`                                 | instance | match navigation |
-|  [07]   | `ReplaceNext()`                                  | instance | replace          |
-|  [08]   | `ReplaceAll()`                                   | instance | replace          |
-|  [09]   | `ISearchStrategy.FindAll(ITextSource, int, int)` | instance | bulk search      |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]          |
+| :-----: | :-------------------------------------------------------------------------------- | :------- | :-------------------- |
+|  [01]   | `SearchPanel.Install(TextEditor) -> SearchPanel`                                  | static   | panel install         |
+|  [02]   | `SearchPanel.Uninstall()`                                                         | instance | panel teardown        |
+|  [03]   | `Open()` / `Close()` / `Reactivate()`                                             | instance | overlay toggle        |
+|  [04]   | `FindNext(int startOffset = -1)` / `FindPrevious()`                               | instance | match navigation      |
+|  [05]   | `ReplaceNext()` / `ReplaceAll()`                                                  | instance | replace               |
+|  [06]   | `SearchPattern` / `MatchCase` / `WholeWords` / `UseRegex`                         | property | styled search knob    |
+|  [07]   | `IsReplaceMode` / `ReplacePattern` / `IsOpened` / `IsClosed` / `TextEditor`       | property | panel state           |
+|  [08]   | `SetSearchResultsBrush(IBrush)` / `RegisterCommands(ICollection<…>)`              | instance | marker and keys       |
+|  [09]   | `SearchOptionsChanged`                                                            | event    | knob-change feed      |
+|  [10]   | `SearchStrategyFactory.Create(string, bool, bool, SearchMode) -> ISearchStrategy` | static   | strategy mint         |
+|  [11]   | `ISearchStrategy.FindAll(ITextSource, int, int)`                                  | instance | bulk search           |
+|  [12]   | `ISearchStrategy.FindNext(ITextSource, int, int)`                                 | instance | first hit at or after |
 
 - `SearchCommands.*`: `RoutedCommand` statics carry default `KeyGesture`s (`Ctrl+F`/`F3`/`Ctrl+H`) the shell command page binds; a programmatic count drives `ISearchStrategy.FindAll` directly.
+- `SearchStrategyFactory.Create(searchPattern, ignoreCase, matchWholeWords, mode)` is the strategy seam a programmatic search takes: the panel builds the identical value from its own knobs (`Create(SearchPattern, !MatchCase, WholeWords, UseRegex ? SearchMode.RegEx : SearchMode.Normal)`), so panel-driven and headless search share one engine and an invalid pattern throws `SearchPatternException` at the mint rather than at the scan.
 
 [SNIPPET_AND_INDENT_ENTRYPOINTS]: template insertion and auto-indent
 

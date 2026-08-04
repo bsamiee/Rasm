@@ -56,7 +56,8 @@
 
 [STACKING]:
 - `Dock.Avalonia` / `Dock.Model.ReactiveUI`(`.api/api-dock.md`): `DockSerializer.Save<IRootDock>(Stream)`/`Load<IRootDock>` round-trips the `IFactory`-built `IDock` graph over the `IDockState.Save(IDock)`/`Restore(IDock)` snapshot, discriminating the `IDockable`/`IDock`/`IRootDock` tree by `$type` and rehydrating each dockable through `DockableLocator` and `RestoreDockable(string)`.
-- AppUi Shell (`.planning/Shell/`): the Shell carries `IRootDock` across the Persistence port as one opaque UTF-8 blob through `Save<T>(Stream)`/`Load<T>(Stream)`, and one serializer instance round-trips an independent board-arrangement blob on the same rail and configuration.
+- AppUi Shell (`.planning/Shell/`): the Shell carries `IRootDock` across the Persistence port as one opaque UTF-8 blob through `Save<T>(Stream)`/`Load<T>(Stream)`.
+- Scope of the owned option set: `DockSerializerOptionsFactory` is internal and admits no caller converter, so only a payload whose members `System.Text.Json` already round-trips belongs on this serializer — a value payload carrying semantic-time, LanguageExt-collection, or `[Union]` members reads as sharing the rail while every such member silently round-trips as a default, and rides its own composition-bound options instead (`.planning/Charts/dashboards#STREAM_BINDING` `BoardState`). The `IJsonTypeInfoResolver` ctor swaps metadata sources, never the converter set.
 
 [LOCAL_ADMISSION]:
 - `DockSerializer` is the one admitted `IDockSerializer` binding; an AOT build passes a source-generated `IJsonTypeInfoResolver`, and reflection over `DockModelPolymorphicTypeResolver` is the default otherwise.

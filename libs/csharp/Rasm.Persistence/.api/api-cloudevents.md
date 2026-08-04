@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_CLOUDEVENTS]
 
-CloudEvents projects the Persistence redacted op-log changefeed onto one CNCF-standard wire: `CloudNative.CloudEvents` owns the `CloudEventsSpecVersion.V1_0` envelope and typed attribute algebra, `CloudNative.CloudEvents.Kafka` binds it to a `Confluent.Kafka` `Message<string?, byte[]>`, and `CloudNative.CloudEvents.SystemTextJson` supplies the `System.Text.Json` codec. Every `CdcEnvelope` becomes one `CloudEvent` encoded binary-mode, decoded by external brokers and the Python `runtime/transport` leg. Native Kafka transport rides `Confluent.Kafka`/`librdkafka.redist` under `api-kafka`.
+CloudEvents projects the Persistence redacted op-log changefeed onto one CNCF-standard wire: `CloudNative.CloudEvents` owns the `CloudEventsSpecVersion.V1_0` envelope and typed attribute algebra, `CloudNative.CloudEvents.Kafka` binds it to a `Confluent.Kafka` `Message<string?, byte[]>`, and `CloudNative.CloudEvents.SystemTextJson` supplies the `System.Text.Json` codec. `Version/egress` `Egress.Envelope` is the one projection minting a `CloudEvent` per `OpLogEntry`, encoded binary-mode and decoded by external brokers and the Python `runtime/transport` leg. Native Kafka transport rides `Confluent.Kafka`/`librdkafka.redist` under `api-kafka`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -135,7 +135,7 @@ CloudEvents projects the Persistence redacted op-log changefeed onto one CNCF-st
 - trace continuity rides a CloudEvents extension attribute: egress sets `traceparent` and `redacted` on the event, and the Python `runtime/transport` `ToCloudEvent` decode recovers the W3C context and continues the originating span. One `CloudEvent` is the single cross-consumer, cross-language vocabulary every `OutboundHop` consumer of the outbox spine drains, so a per-consumer re-pack is the drift defect and an out-of-authority payload crosses masked and traced.
 
 [LOCAL_ADMISSION]:
-- Changefeed rows enter as a `CloudEvent` with required `Id` (the content key), `Source` (`rasm:persistence/oplog`), `Type` (`rasm.oplog.{entityKind}.{kind}`), and `Time`, the redacted `CdcEnvelope.Payload` in `Data` under `application/octet-stream`.
+- Changefeed rows enter as a `CloudEvent` with required `Id` (the content key), `Source` (`rasm:persistence/oplog`), `Type` (`rasm.oplog.{entityKind}.{kind}`), and `Time`, the redacted `OpLogEntry` payload bytes in `Data` under `application/octet-stream`.
 - one shared `JsonEventFormatter` (or `JsonEventFormatter<T>` for a typed change record) encodes the egress; serializer options are fixed at formatter construction, never per event.
 - egress composes `cloudEvent.ToKafkaMessage(ContentMode.Binary, formatter)` with the partition key via `Partitioning.SetPartitionKey(ce, entityKey)`; `traceparent`/`redacted`/`sequence` are declared once via `CloudEventAttribute.CreateExtension` and set through the typed indexer; ingress and replay decode via `message.ToCloudEvent(formatter, extensions)` with the same pre-declared attribute set.
 

@@ -70,8 +70,8 @@
 |  [09]   | `IAggregateChangeSet<T>`    | interface     | `IEnumerable<AggregateItem<T>>` over one change-set |
 |  [10]   | `AggregateItem<T>`          | struct        | one aggregate delta — `Type`/`Item`                 |
 |  [11]   | `AggregateType`             | enum          | delta direction — `Add`/`Remove`                    |
-|  [12]   | `ChangeStatistics`          | class         | change diagnostics                                  |
-|  [13]   | `ChangeSummary`             | class         | change diagnostics summary                          |
+|  [12]   | `ChangeStatistics`          | class         | one change-set tally over six axes plus its index   |
+|  [13]   | `ChangeSummary`             | class         | latest-versus-overall tally pair                    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -148,6 +148,14 @@
 
 - `AggregationEx.ForAggregation<TObject,TKey>`/`ForAggregation<TObject>`: the keyed and list overloads both project onto `IObservable<IAggregateChangeSet<TObject>>`, whose enumeration yields `AggregateItem<TObject>` deltas — the custom fold discriminates on `AggregateType.Add`/`Remove` and accumulates each `Item` itself, so one scan reduces any number of accumulators.
 - `Accumulate` is `internal` at the admitted pin: a custom fold composes `ForAggregation` with a `Scan`, never that member.
+
+[DIAGNOSTIC_ENTRYPOINTS]: `DynamicData.Diagnostics.DiagnosticOperators` — change-volume accounting off any change-set
+
+| [INDEX] | [SURFACE]            | [SHAPE] | [CAPABILITY]                                     |
+| :-----: | :------------------- | :------ | :----------------------------------------------- |
+|  [01]   | `CollectUpdateStats` | fold    | change-set to `IObservable<ChangeSummary>` scan  |
+
+- `CollectUpdateStats<TObject,TKey>()`/`CollectUpdateStats<TObject>()` scan from `ChangeSummary.Empty`, emitting one summary per change-set: `Latest` is THAT change-set's tally and `Overall` the cumulative run, so a per-delta consumer reads `Latest` and re-publishing `Overall` re-counts every earlier delta. The keyed overload maps `Refreshes` from the change-set's own refresh count; the list overload has no refresh reason and pins that axis to `0` while reading `Replaced` as `Updates`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

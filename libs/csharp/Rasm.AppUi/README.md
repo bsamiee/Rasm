@@ -49,24 +49,26 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 - [30]-[NOTEBOOK](.planning/Document/notebook.md): Capability-pinned cells composing the recompute graph with co-edited replay.
 - [31]-[MEDIA](.planning/Document/media.md): Markdown inlines and codec rows materialized for the one `Surfaces.Mount` crossing.
 - [32]-[EXPORT](.planning/Document/export.md): Paginated flow reports with PDF security, Office and print arms, and the support-bundle rows.
+- [33]-[SEARCH](.planning/Document/search.md): Typed search plane with ranked source-attributed results through the virtual window.
 
 [COLLAB]:
-- [33]-[SYNC](.planning/Collab/sync.md): Live-merge authority and the typed edit-intent stream onto the durable ledger.
-- [34]-[ISSUES](.planning/Collab/issues.md): openBIM issue board projection over the Bim BCF contract.
-- [35]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence.
+- [34]-[SYNC](.planning/Collab/sync.md): Live-merge authority and the typed edit-intent stream onto the durable ledger.
+- [35]-[ISSUES](.planning/Collab/issues.md): openBIM issue board projection over the Bim BCF contract.
+- [36]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence.
+- [37]-[SESSION](.planning/Collab/session.md): Typed session governance gating edit-intent admission by role and membership.
 
 [DIAGNOSTICS]:
-- [36]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence union, telemetry spine with viewport objectives, correlation join, 6xxx faults.
-- [37]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, the headless proof matrix, frame-bench lanes, goldens, and a typed proof fault.
-- [38]-[DEVLOOP](.planning/Diagnostics/devloop.md): Hot-reload knobs, inspector HUD, flamegraph, solve scrub, and a REPL.
-- [39]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution.
+- [38]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence union, telemetry spine with viewport objectives, correlation join, 6xxx faults.
+- [39]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, the headless proof matrix, frame-bench lanes, goldens, and a typed proof fault.
+- [40]-[DEVLOOP](.planning/Diagnostics/devloop.md): Hot-reload knobs, inspector HUD, flamegraph, solve scrub, and a REPL.
+- [41]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution.
 
 [THEME]:
-- [40]-[TOKENS](.planning/Theme/tokens.md): Design-token engine with an OKLab ramp mix and atomic theme swap.
-- [41]-[TYPOGRAPHY](.planning/Theme/typography.md): Type roles, embedded-font admission, and one live-front-matter shaping rail.
-- [42]-[MOTION](.planning/Theme/motion.md): Motion tokens with spring algebra and a progress-to-token map.
-- [43]-[ASSETS](.planning/Theme/assets.md): Nameof-derived asset-key vocabulary with rank-fallback sourcing.
-- [44]-[LOCALE](.planning/Theme/locale.md): Locale rows over Resx, ICU, and time with a typed locale fault and live captioning.
+- [42]-[TOKENS](.planning/Theme/tokens.md): Design-token engine with an OKLab ramp mix and atomic theme swap.
+- [43]-[TYPOGRAPHY](.planning/Theme/typography.md): Type roles, embedded-font admission, and one live-front-matter shaping rail.
+- [44]-[MOTION](.planning/Theme/motion.md): Motion tokens with spring algebra and a progress-to-token map.
+- [45]-[ASSETS](.planning/Theme/assets.md): Nameof-derived asset-key vocabulary with rank-fallback sourcing.
+- [46]-[LOCALE](.planning/Theme/locale.md): Locale rows over Resx, ICU, and time with a typed locale fault and live captioning.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -117,6 +119,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `CSharpMath.SkiaSharp` — TeX-subset math typesetting painted onto the Skia surface for the typography Math arms.
 - `SkiaSharp`
 - `SkiaSharp.HarfBuzz`
+- `HarfBuzzSharp` — managed shaping surface (`Feature`/`Tag`) the typography tag-mint composes directly.
 - `SkiaSharp.NativeAssets.macOS`
 - `SkiaSharp.NativeAssets.Linux` — transitive distribution-closure floor, central pin only.
 - `SkiaSharp.NativeAssets.Linux.NoDependencies` — glibc-only Linux natives for the headless proof lane.
@@ -146,6 +149,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `PDFsharp-MigraDoc`
 - `NodeEditorAvalonia`
 - `Mapsui.Avalonia12`
+- `Mapsui.Nts` — `EditManager`/`EditMode` redline editing surface the basemap `Apply` verbs bind.
 - `LoroCs`
 - `MessageFormat`
 - `Whisper.net`

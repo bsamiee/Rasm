@@ -112,7 +112,7 @@ flowchart LR
     Bim([Rasm.Bim])
     Core e1@-->|"[SHAPE]: Feed.Document"| View
     Core e12@-->|"[SHAPE]: Residency.Ledger"| Viewer
-    Core e16@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/GeoFeature/PbrGroups"| Viewer
+    Core e16@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/CommandGate/EvidenceTimeline/RenderReceipt/GeoFeature/PbrGroups"| Viewer
     Runtime e2@-->|"[PORT]: Atom.subscribable"| System
     Runtime e3@-->|"[PORT]: GlbViewport"| Viewer
     Runtime e17@-->|"[PORT]: Vital.Report"| System
@@ -121,7 +121,6 @@ flowchart LR
     AppHost e6@-->|"[WIRE]: BindingStatusWire/CoercedValueWire/WriteReceiptWire"| Viewer
     AppHost e13@-->|"[WIRE]: BenchmarkClaimWire/HostFingerprintWire"| Viewer
     AppUi e7@-->|"[WIRE]: ControlIntentWire/LayoutConstraintWire/CommandGateWire"| Viewer
-    AppUi e8@-->|"[RECEIPT]: RenderReceipt"| Viewer
     Bim e9@-->|"[WIRE]: BcfTopicWire"| Viewer
     Bim e10@-->|"[WIRE]: BcfViewpointWire"| Viewer
     Bim e11@-->|"[WIRE]: ModelDiff"| Viewer

@@ -15,6 +15,9 @@
         ]
     },
     "effortLevel": "high",
+    "env": {
+        "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION": "1000"
+    },
     "claudeMdExcludes": [
         "**/.cache/**/CLAUDE.md",
         "**/node_modules/**/CLAUDE.md",

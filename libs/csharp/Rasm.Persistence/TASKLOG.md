@@ -48,20 +48,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: the retrieval predicate family and `LexicalRank` arms, the fusion lineage receipt, the `key_field` anchor law.
 - Ripple: `Rasm.AppUi` `[DOCUMENT_SEARCH]`.
 
-[CDC_ENVELOPE_SPELLING]-[QUEUED]: Egress envelope vocabulary aligns to the one realized owner spelling.
-- Capability: every catalog and comment names the realized CloudEvents projection owner, so the seam vocabulary carries one spelling and a phantom type never anchors a consumer.
-- Shape: `libs/csharp/Rasm.Persistence/.api/api-cloudevents.md` (`CdcEnvelope` charter and boundary rows, `CdcEnvelopeWire` at the three-consumer row), the `libs/csharp/Rasm.Persistence/.api/api-nats.md` snapshot-codec row, and the `libs/csharp/Rasm.Persistence/.planning/Query/columnar.md` projection comment — each re-spells to the `Version/egress.md` `Egress.Envelope` projection.
-- Unlocks: the three-consumer drain law reads against a spelling the owning page carries.
-- Anchors: `Version/egress.md` `Egress.Envelope` fence; the decoded-never-re-minted boundary law both ends carry.
-- Ripple: mirrors `Rasm.AppHost` `[OUTBOX_ENVELOPE_SPELLING]`.
-- Atomic: spelling alignment, no shape change.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[CDC_ENVELOPE_SPELLING]-[COMPLETE]: `CdcEnvelope` returns zero hits across every design page and catalog — the `api-cloudevents.md` charter and field-map rows and the `Query/columnar.md` projection comment re-spelled to the realized `Egress.Envelope` projection (the `api-nats.md` site the card named carried no occurrence on re-probe), landed in the same pass as the AppHost `[OUTBOX_ENVELOPE_SPELLING]` mirror.
 [POINTCLOUD_CODEC_SURVEY]-[COMPLETE]: the survey ran and the family EXISTS — `Aardvark.Data.E57` carries the E57 reader and `Unofficial.laszip.netstandard` the LAS/LAZ codec, both resolving on nuget.org at the same current platform version, both already transitively resident in the branch's restore graph, and neither superseded; the discarded candidates (`laszip.net`, `LASzip.Net`, `Aardvark.Data.Points.Import.Laszip`) resolve on no configured source, so the roster is the two admitted rows and the hand-rolled E57 XML-plus-binary layout the card named as the forbidden alternative is foreclosed by an existing managed reader rather than by preference.
 [MQTT_SINK_MEMBERS]-[COMPLETE]: refuted on disk — `Version/egress#EGRESS_SINK` already carries the realized `Mqtt(SinkBinding, string Topic)` case, its `Binding` arm, the structured-mode `ToMqttApplicationMessage` encode, the `V500` `UserProperties` trace stamp through the `ValueBuffer` overload, and the `MqttClientPublishResult` reason-code fold, with both `libs/csharp/.api/api-mqtt.md` and `.api/api-cloudevents-mqtt.md` landed; the arming condition had long since resolved.
 [ARROW_PARTITIONS_RESTORE]-[COMPLETE]: `PartitionedResult.PartitionDescriptors` is `IReadOnlyList<PartitionDescriptor>` beside `Schema`/`AffectedRows`, so `Query/columnar#COLUMNAR_LANE` lands `ColumnarLane.ArrowPartitions` with the `ArrowPartitions` redemption record over `AdbcConnection.ReadPartition`; the catalog gained the descriptor rows and the trap that `ExecutePartitioned`/`ReadPartition` are `virtual` bodies throwing `AdbcException.NotImplemented`, so member presence proves no driver support.

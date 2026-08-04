@@ -33,6 +33,9 @@
 
 `KDTree.Create(IList<IReadOnlyList<TDimension>>, IList<TNode>, DistanceMetrics) -> KDTree<TDimension,TDimension,TNode>` wires a built-in metric and infers `TPriority = TDimension`. Two raw constructors own a custom `Func` metric and optional `searchWindow` min/max clamps — one over an `ICollection` point set, one over a lazy `IEnumerable` with an explicit `pointsCount`.
 
+- `Create` reads `points[0].Count` for the dimensionality, so an EMPTY point set throws a raw `ArgumentOutOfRangeException` before any metric runs; a count floor is the caller's admission gate.
+- `DistanceMetrics` is the FACTORY's argument and nothing else — `Create` switches it into a lambda once and stores the result. The `Metric` property is a `Func<IReadOnlyList<TDimension>, IReadOnlyList<TDimension>, TPriority>`, so a metric VALUE is one of the `KDTree` statics as a method group; assigning the enum member there is a type error, and the two spellings are not interchangeable.
+
 | [INDEX] | [SURFACE]                   | [SHAPE]  | [CAPABILITY]             |
 | :-----: | :-------------------------- | :------- | :----------------------- |
 |  [01]   | `KDTree.Create`             | factory  | built-in metric          |
@@ -48,7 +51,7 @@
 
 [QUERY_SCOPE]: exact k-nearest, radius search, and the static distance functions
 
-`NearestNeighbors(point, k)` and `RadialSearch(center, radius, k=-1)` return `IEnumerable<(IReadOnlyList<TDimension>, TNode)>`, each hit carrying its coordinate and payload. `RadialSearch` returns every hit inside `radius` at `k=-1` and otherwise caps at `k`.
+`NearestNeighbors(point, numNeighbors)` and `RadialSearch(center, radius, numNeighbors = -1)` return `IEnumerable<(IReadOnlyList<TDimension>, TNode)>`, each hit carrying its coordinate and payload. `RadialSearch` returns every hit inside `radius` at `numNeighbors = -1` and otherwise caps at that count. The cap parameter is spelled `numNeighbors` on both, so a named argument spelling it `k` does not compile.
 
 | [INDEX] | [SURFACE]                  | [SHAPE]  | [CAPABILITY]                                           |
 | :-----: | :------------------------- | :------- | :----------------------------------------------------- |
@@ -59,6 +62,7 @@
 |  [05]   | `KDTree.ChebyshevDistance` | static   | L∞ distance                                            |
 |  [06]   | `KDTree.CosineDistance`    | static   | cosine — prune-unsound, `double`-narrowed, sentinelled |
 
+- The three Lp statics bound `TDimension : INumber<TDimension>` alone and stay in `TDimension` end to end; `CosineDistance` additionally demands `IMinMaxValue<TDimension>` for the sentinel it returns, so the narrower bound is itself the tell.
 - `CosineDistance` breaks the generic contract twice over. Its tail reads `TDimension.CreateChecked(double.Sqrt(double.CreateChecked(zero2 * zero3)))`, so the norm product round-trips through `double` whatever `TDimension` is and a `ddouble` cosine tree silently answers at 53 bits; and it returns `TDimension.One` on a zero dot product and `TDimension.One + TDimension.One` on a zero-norm operand — sentinel verdicts, not distances, so the priority ordering a search folds over is not a metric ordering. Neither defect touches the three Lp statics.
 
 ## [05]-[IMPLEMENTATION_LAW]
@@ -72,7 +76,7 @@
 
 [STACKING]:
 - `MIConvexHull`(`.api/api-miconvexhull.md`): `Triangulation.CreateDelaunay` yields a cell complex (connectivity) over the same cloud, this tree yields nearest-neighbour queries (no connectivity) — a fixed-cloud k-NN routes here, a triangulation there.
-- `DoubleDouble`(`.api/api-doubledouble.md`): `ddouble` coordinates bind straight through the `INumber<TDimension>` constraint, so a near-coincident precision-critical cloud indexes at 106-bit through the same generic metric — the three Lp statics ALONE, each of which stays in `TDimension` end to end. `CosineDistance` narrows through `double` regardless of the coordinate type, so it reads 53 bits off a 106-bit cloud and this seam does not survive that row.
+- `DoubleDouble`(`.api/api-doubledouble.md`): `ddouble` coordinates bind straight through the `INumber<TDimension>` constraint, so a near-coincident precision-critical cloud indexes at 106-bit through the same generic metric — the three Lp statics ALONE, each of which stays in `TDimension` end to end. `CosineDistance` narrows through `double` regardless of the coordinate type, so it reads 53 bits off a 106-bit cloud and this seam does not survive that row. The seam's precondition is a 106-bit coordinate SOURCE: widening `TDimension` over a cloud whose coordinates arrived as `double` recovers no precision the input never carried and moves no prune verdict, because the hyperrect bounds derive from those same coordinates. A `Point3d`-carried cloud is therefore outside this seam by ABI, and degeneracy on such a cloud escalates to the exact-predicate ladder, never to a wider tree.
 - within-lib: the kernel BVH/octree (`Spatial/index`) and the NURBS `ClosestParameter` (`Parametric/nurbs`) are disjoint acceleration owners by query shape — this tree owns discrete point k-NN and radius, the BVH/octree primitive overlap and ray, the engine continuous single-carrier parametric projection.
 
 [LOCAL_ADMISSION]:

@@ -7,7 +7,7 @@
 ```text codemap
 Rasm/
 ├── Domain/                  # Kernel substrate floor every sibling composes
-│   ├── Rails.cs             # Op-key, result union, and rail algebra
+│   ├── Rails.cs             # Op-key, result union, rail algebra, and the carrier-space wire codec
 │   ├── Context.cs           # Tolerance/units value objects and immutable context bundle
 │   ├── Identity.cs          # One seed-zero XxHash128 content-key federation owner
 │   ├── Validation.cs        # Readiness algebra and the one validity oracle
@@ -62,7 +62,7 @@ Rasm/
 │   ├── Intent.cs            # Vector-intent consumer projection rail
 │   ├── Sample.cs            # Sampling-kind domain dispatch
 │   ├── Extract.cs           # Contour and iso-surface extraction ingress
-│   ├── Flow.cs              # Dense-output flow tracing
+│   ├── Flow.cs              # Dense-output flow tracing and Morse topology atlas
 │   ├── Register.cs          # ICP alignment dispatcher
 │   ├── Geodesics.cs         # Heat-method and MMP geodesics
 │   └── Segment.cs           # Descriptor-based mesh segmentation
@@ -188,7 +188,6 @@ flowchart LR
     Meshing e10@-->|"[SHAPE]: MeshAdjointSnapshot"| Compute
     Meshing e11@-->|"[WIRE]: SliceStack"| Compute
     Spatial e12@-->|"[WIRE]: SpatialIndex"| Compute
-    Processing e13@-->|"[SHAPE]: RemeshOp"| Compute
     Drawing e14@-->|"[WIRE]: EncodedGeometry"| Compute
     Drawing e15@-->|"[WIRE]: EncodedGeometry"| AppHost
     Drawing e24@-->|"[CONTRACT]: PackWireContext"| AppHost
@@ -202,6 +201,8 @@ flowchart LR
     Numerics e25@-->|"[SHAPE]: SunPosition"| Compute
     Numerics e26@-->|"[SHAPE]: SunPosition"| AppUi
     Numerics e27@-->|"[SHAPE]: SunPosition"| Materials
+    Numerics e28@-->|"[SHAPE]: SpectralArena"| Materials
+    Numerics e29@-->|"[SHAPE]: FieldIntegrator + IntegrationDomain"| Compute
 ```
 
 ```mermaid
@@ -293,6 +294,6 @@ Each partner edge carries its load-bearing shape on the graph; the owning sub-do
 
 Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm/<Folder>/` declares `namespace Rasm.<Folder>;`, one root namespace per sub-domain folder.
 
-Kernel compiles as ONE assembly — the single `Rasm.csproj` — so internal members cross the sub-domain namespaces with no build edge; two recorded exceptions to strata direction ride that one-assembly law: the root-homed `GeometryFault` union composing upper-stratum discriminants (`Numerics/Faults.cs`), and `TensorField.Curvature` (`Spatial/Fields.cs`) carrying the `Parametric` `SurfaceSpace` capsule so the one shape-operator owner stays `Parametric/Projections.cs`.
+Kernel compiles as ONE assembly — the single `Rasm.csproj` — so internal members cross the sub-domain namespaces with no build edge; three recorded exceptions to strata direction ride that one-assembly law: the root-homed `GeometryFault` union composing upper-stratum discriminants (`Numerics/Faults.cs`), `TensorField.Curvature` (`Spatial/Fields.cs`) carrying the `Parametric` `SurfaceSpace` capsule so the one shape-operator owner stays `Parametric/Projections.cs`, and the `Meshing/Mesh.cs` common-subdivision overlay seating `Processing/Geodesics.cs` `WalkChart` in `EdgeOverlay` mode so the one chart-unfold kernel serves distance, log, exp, AND overlay rather than forking a second unfold at S1.
 
 `Rasm.Domain.Fault` and the band-2400 `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision — kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.

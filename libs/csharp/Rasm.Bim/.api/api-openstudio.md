@@ -31,7 +31,7 @@
 
 - `Optional<T>`: `is_initialized()` `isNull()` `get()` `value_or(T)` `set(T)` `reset()`.
 - `OpenStudioUtilitiesCore`: `toPath(string)` `toString(Path)` `createUUID()` `toUUID(string)`.
-- `ProgressBar`: `protected ProgressBar()` ctor, `virtual onPercentageUpdated(double)` override sink.
+- `ProgressBar`: `protected ProgressBar()` ctor, `virtual onPercentageUpdated(double)` override sink. Its whole virtual surface is `minimum`/`setMinimum`/`maximum`/`setMaximum`/`value`/`setValue`/`setRange`/`windowTitle`/`setWindowTitle`/`text`/`isVisible`/`setVisible` beside the percentage sink — NO abort, cancel, or interrupt member exists, so a running translator cannot be stopped and the director callback is the finest point a managed token can be READ while native code runs.
 
 [PUBLIC_TYPE_SCOPE]: model and IDF/IDD object store
 

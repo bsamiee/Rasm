@@ -43,7 +43,9 @@ core/
 - S1 `state` — pure algebra over the value floor; the merge↔fold cycle never forms: `Fold.run` arrives as a caller parameter, never an import.
 - S1 `commit` rides beside `causal` on `ContentKey`, `presence` beside `merge`; `machine` composes no interior sibling.
 - S1 `observe` — vocabulary and derivation over the value floor alone; peer to `state` with no edge between them.
-- S2 `interchange` — the decode boundary composing all three ranks; `contract` and `invoke` consume `codec`'s `Wire` beside `frame`, `carrier` takes the same census union type-only so its typed-metadata roster closes against the wire families with no value edge, and `format` reads the `Ingress` ceiling its framed lane bounds every admitted message against.
+- S2 `interchange` — the decode boundary composing all three ranks; `contract` and `invoke` consume `codec`'s `Wire` beside `frame`.
+- S2 `carrier` takes the same census union type-only, so its typed-metadata roster closes against the wire families with no value edge.
+- S2 `format` reads the `Ingress` ceiling its framed lane bounds every admitted message against.
 
 ```mermaid
 ---
@@ -161,7 +163,7 @@ flowchart LR
     AppUi e13@-->|"[WIRE]: EvidenceTimelineWire"| Feed
     AppHost e14@-->|"[CONTENT_KEY]: CapabilityDescriptor"| Invoke
     AppHost e15@-->|"[WIRE]: ReceiptEnvelopeWire"| Codec
-    AppHost e16@-->|"[WIRE]: DegradationLevel"| Codec
+    AppHost e16@-->|"[WIRE]: CommandAvailabilityWire"| Codec
     AppHost e17@-->|"[WIRE]: BindingStatusWire"| Codec
 ```
 
@@ -211,7 +213,7 @@ flowchart LR
     Board e11@-->|"[PROJECTION]: DashboardModel"| Iac
     Slo e14@-->|"[PROJECTION]: Alert.Spec"| Iac
     Frame e15@-->|"[SHAPE]: Residency.Ledger"| Ui
-    Codec e21@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/GeoFeature/PbrGroups/TextureSet/AssetSetManifest"| Ui
+    Codec e21@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/CommandGate/EvidenceTimeline/RenderReceipt/GeoFeature/PbrGroups/TextureSet/AssetSetManifest"| Ui
     Slo e16@-->|"[PROJECTION]: Slo.Objective"| Iac
     Tap e17@-->|"[SHAPE]: Tap.Registry"| Runtime
     Carrier e18@-->|"[SHAPE]: Carrier.Context"| Runtime

@@ -37,18 +37,20 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 
 [PUBLIC_TYPE_SCOPE]: curve, mesh, brep reference geometry and topology accessors
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]         | [CAPABILITY]      |
-| :-----: | :-------------- | :-------------------- | :---------------- |
-|  [01]   | `Curve`         | abstract reference    | curve geometry    |
-|  [02]   | `NurbsCurve`    | reference             | NURBS curve       |
-|  [03]   | `PolylineCurve` | reference             | polyline curve    |
-|  [04]   | `Polyline`      | `List<Point3d>` value | polyline geometry |
-|  [05]   | `Mesh`          | reference             | mesh geometry     |
-|  [06]   | `Brep`          | reference             | boundary geometry |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]         | [CAPABILITY]           |
+| :-----: | :-------------------- | :-------------------- | :--------------------- |
+|  [01]   | `Curve`               | abstract reference    | curve geometry         |
+|  [02]   | `NurbsCurve`          | reference             | NURBS curve            |
+|  [03]   | `PolylineCurve`       | reference             | polyline curve         |
+|  [04]   | `Polyline`            | `List<Point3d>` value | polyline geometry      |
+|  [05]   | `Mesh`                | reference             | mesh geometry          |
+|  [06]   | `Brep`                | reference             | boundary geometry      |
+|  [07]   | `CurveEvaluationSide` | enum                  | kink evaluation branch |
 
 - Reference geometry descends from the substrate's `GeometryBase`, so identity, duplication, `ObjectType`, disposal, and the bounds triple read there; this partition owns what each concrete type adds.
 - `NurbsCurve` exposes control-point and knot access, the densest `Curve` realization; `PolylineCurve` lowers a polyline to `Curve`, bridging `Curve.TryGetPolyline`.
 - `Brep`: `Faces` `Edges` — the parametric solid the `Analysis` layer intersects.
+- `CurveEvaluationSide`: `Default = 0` `Below = -1` `Above = 1` — the closed three-arm branch selector a derivative read takes where a kink leaves the derivative two-valued.
 
 [PUBLIC_TYPE_SCOPE]: mesh restructure and unwrap types (the `Processing/segment` host-restructure seam)
 
@@ -102,7 +104,9 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 
 [ENTRYPOINT_SCOPE]: curve evaluation, projection, division, classification, and transformation, and the polyline chain surface; instance members
 
-[CURVE_EVALUATION]: `Curve.PointAt(t)` `TangentAt` `CurvatureAt` `FrameAt` `PerpendicularFrameAt` — evaluate the curve and the moving frame `Drawing` and sweep paths read.
+[CURVE_EVALUATION]: `Curve.PointAt(t)` `TangentAt` `CurvatureAt` `FrameAt` `PerpendicularFrameAt` `DerivativeAt(t, derivativeCount)` `DerivativeAt(t, derivativeCount, CurveEvaluationSide)` — evaluate the curve and the moving frame `Drawing` and sweep paths read.
+
+- `Curve.DerivativeAt` returns `Vector3d[]` of length `derivativeCount + 1` where index `0` is the POINT and index `k` the `k`-th derivative, so a third-order read passes `3` and takes indices `1`, `2`, `3`; the two-arg form forwards `CurveEvaluationSide.Default`, and the three-arg form is the kink-aware primitive.
 [CURVE_PROJECTION]: `Curve.ClosestPoint(pt,out t)` `LocalClosestPoint` — nearest parameter under a max-distance gate, `LocalClosestPoint` seeding from a guess.
 [CURVE_DIVISION]: `Curve.DivideByCount` `DivideByLength` `DivideEquidistant` `GetLength` — arc-length sampling for contour and toolpath resamplers.
 [CURVE_CLASSIFICATION]: `Curve.TryGetPolyline(out)` `TryGetPlane(out)` `IsClosed` `IsPlanar` — exact lowering to `Polyline` or a supporting `Plane`, the kernel routing the non-exact `bool` through `Fin`.
@@ -119,7 +123,9 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 [NGON_STORAGE]: `Mesh.Ngons` (`MeshNgonList`) `GetNgonAndFacesEnumerable`.
 [MESH_REPAIR]: `Mesh.RebuildNormals` `UnifyNormals` `Weld` `Unweld` `Compact` `FillHoles` `HealNakedEdges` `MergeAllCoplanarFaces` — the kernel `Processing/repair` composes only `RebuildNormals` at the boundary and authors welding and hole filling itself.
 [MESH_RESTRUCTURING]: `Mesh.Reduce` `Offset` `Split` `SelfSplit` `CollapseFacesByArea` `CollapseFacesByEdgeLength` — `Reduce`/`Split`/`SelfSplit` overloads thread `CancellationToken` and `IProgress<double>`.
-[MESH_QUERY]: `Mesh.ClosestPoint` `ClosestMeshPoint` `Volume` `GetNakedEdges` `GetSelfIntersections`.
+[MESH_QUERY]: `Mesh.ClosestPoint` `ClosestMeshPoint(Point3d, double)` (`0.0` = unbounded) `Volume` `GetNakedEdges` `GetSelfIntersections` `SolidOrientation()` `IsClosed` `IsSolid`. `MeshPoint` publishes `FaceIndex`, `Triangle` (`A = 0,1,2` / `B = 0,2,3` on a quad — the split `Kernels.QuadDiagonal` must agree with), `ComponentIndex`, `EdgeParameter`, and the four barycentric weights `T`.
+
+[MESH_ISOSURFACE]: `Mesh.CreateFromIsosurface(Func<Point3d, double> scalarFieldEvaluator, BoundingBox box, int resolution, int RootFindingMaxSteps)` — the ONE overload, decompile-verified: single non-null exit (an empty extraction is a 0-vertex invalid mesh, never null); cell size derives from the box's MINIMUM axis (`MinimumCoordinate / resolution`); iso-level hardcoded `0.0`, so an isovalue means the evaluator returns `value - γ`; fixed internals `sampleDistance 1E-05`, `rootFindTol 0.001`; the evaluator runs inside three `Parallel.For` loops; `fieldNormal` WRAPS sampled values to `[-π, π]`, so native normals are wrong for any SDF with `|φ| > π` and a consumer rebuilds them.
 [MESH_FACTORY]: `Mesh.CreateFromBox` `CreateFromSphere` `CreateFromCone` `CreateFromClosedPolyline` `CreateFromTessellation` — the primitive-to-mesh family meshing pages seed from.
 [MESH_BOOLEANS]: `Mesh.CreateBooleanUnion` `CreateBooleanDifference` `CreateBooleanIntersection` → `Mesh[]` with an `out Result`; the kernel predicate-exact arrangement does not use this host CSG path.
 
@@ -184,4 +190,4 @@ Instance forms return a new `Mesh`, null on failure — the kernel `Fin`-routes 
 - Partition: RhinoCommon kernel crossing (`Rhino.Geometry`, `Rhino.Geometry.Intersect`, `Rhino.Geometry.Collections`)
 - Owns: the single-precision mesh carriers and analytic primitive solids, the curve, polyline, mesh, and brep reference geometry with its typed topology, the native remesh/reduce/unwrap seam, the host parametric intersection (`Intersection.Curve*`/`Brep*`/`Ray*`) the `Analysis` layer composes, and the host `RTree` point-neighborhood tier the `Spatial/neighbors` `NeighborIndex` composes.
 - Accept: reference geometry read through its full member surface over the registered substrate carriers; the `Analysis/Intersect` parametric lattice disposing each `CurveIntersections` under a lease; the geometry-only surface below the document, view, command, and display strata.
-- Reject: a kernel-local re-mint of a Rhino value type (a domain `Aabb`/`Ray`/`Vec3` duplicating `BoundingBox`/`Ray3d`/`Vector3d`); a re-tabling of the substrate carrier algebra; an epsilon-snapped coordinate where the robust core owns an exact construction; a kernel discrete crossing or primitive broad-phase routed through host `Intersection.Mesh*` or `RTree` where the predicate-exact straddle is required; a `RhinoDoc`/`RhinoApp`/`RhinoView`/`DisplayConduit`/`ObjectTable` reach from the kernel.
+- Reject: a kernel-local re-mint of a Rhino value type (a domain `Aabb`/`Ray`/`Vec3` duplicating `BoundingBox`/`Ray3d`/`Vector3d`); a re-tabling of the substrate carrier algebra; an epsilon-snapped coordinate where the robust core owns an exact construction; a kernel discrete crossing or primitive broad-phase routed through host `Intersection.Mesh*` or `RTree` where the predicate-exact straddle is required; `Mesh.IsPointInside(Point3d, double, bool)` — the tolerance-bearing approximate inside predicate the kernel's generalized winding test replaces; a `RhinoDoc`/`RhinoApp`/`RhinoView`/`DisplayConduit`/`ObjectTable` reach from the kernel.

@@ -41,6 +41,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `panel#PANEL_FAMILY` printed-data precedent.
 - Arms: arm when the AWC SDPWS 4.2A-4.3D unit-shear cells stand as published data this corpus may transcribe under `SEED_ROW_LAW`.
 
+[PRESS_HEIGHT_SCALE_QUANTITY]-[QUEUED]: Decide the `HeightScaleMm` carrier — declared-mm bare double, or a typed lift at the interchange boundary alone.
+- Capability: the press height scale carries one settled unit posture across its three surfaces — the `PlanKey` content preimage, the plan record, and the wire payload — instead of a suffix convention nothing adjudicated.
+- Shape: a decision row over `Raster/press.md` `PressPlan.HeightScaleMm`, `Raster/set.md` `TextureSet.HeightScaleMm`, and `Appearance/interchange.md` `HeightScale:`; retyping moves BOTH the content-key preimage format and the wire payload, so the verdict lands all three at once or keeps the bare-double convention with the mm basis stated at each site.
+- Unlocks: the last unadjudicated `*Mm` carrier under `Raster/` closes; the interchange payload posture aligns with the `QuantityFamily` SI-scalar wire law.
+- Anchors: the settled wire law — host-free peers decode an SI scalar, never a UnitsNet type; the `press.md:254` `{HeightScaleMm:R}` preimage fold; the digest-freeze precedent at `Rasm.Fabrication` `[04]-[STRUCTURE]`.
+- Atomic: one decision, three stated sites.
+
 [REALIZATION_SCALAR_AUDIT]-[QUEUED]: Audit the realized realization scalars complete against the schedule-derivation demand.
 - Capability: `RebarSchedule`/`RebarBend`/`ShapeCodes` cover the BS 8666 shape-code set and `WeldProfile`/`GroovePrep`/`StudRow` cover weld-map and stud-layout derivation, gaps recorded as rows.
 - Shape: audit deltas in `libs/csharp/Rasm.Materials/.planning/Component/reinforcement.md` and `libs/csharp/Rasm.Materials/.planning/Component/joint.md`.

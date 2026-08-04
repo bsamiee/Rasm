@@ -28,6 +28,7 @@ Content-addressed identity binds every branch that hashes, keys, or wires a valu
 - Binds: All branches.
 - Law: Multi-field hash preimages length-frame every variable-width field and count-frame every adjacent collection.
 - Law: Preimages reject separator-joined concatenation — a separator inside one value shifts two field splits onto one digest.
+- Law: Digest seeds folded from two or more fields are preimages and frame like any other — grammar exclusions never substitute for framing.
 - Law: Fixed-width digest spines concatenate injectively and need no framing, while fixed-width elements never mark a collection boundary.
 - Law: Composite identities ride a canonical codec — framed canonical bytes or canonical JSON — never a hand-rolled join or quote scheme.
 - Law: Array-bearing keys frame shape beside canonicalized dtype and layout bytes.

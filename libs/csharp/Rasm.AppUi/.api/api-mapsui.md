@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_MAPSUI]
 
-`Mapsui.Avalonia12` binds the Mapsui slippy-map engine to Avalonia (assembly `Mapsui.UI.Avalonia`): one `MapControl` over a `Map` renders a tiled basemap with NTS vector overlays on the shared Skia surface. `Mapsui.UI.Avalonia` ships only `MapControl` and `RenderController`; this catalog documents the whole transitive stack it composes. A `Map` holds an ordered `LayerCollection` and a `Navigator` camera — a `TileLayer` paints the basemap, a `MemoryLayer` over `GeometryFeature` sets draws overlays, and `SphericalMercator` reprojects WGS-84 into EPSG:3857.
+`Mapsui.Avalonia12` binds the Mapsui slippy-map engine to Avalonia (assembly `Mapsui.UI.Avalonia`): one `MapControl` over a `Map` renders a tiled basemap with vector overlays on the shared Skia surface. `Mapsui.UI.Avalonia` ships only `MapControl` and `RenderController`; this catalog documents the control binding and the `Mapsui` core model, camera, layer, style, widget, and projection stack it composes. A `Map` holds an ordered `LayerCollection` and a `Navigator` camera — a `TileLayer` paints the basemap, a `MemoryLayer` or `WritableLayer` holds features directly, and `SphericalMercator` reprojects WGS-84 into EPSG:3857. NTS geometry, the provider decorator chain, and the editing session are `Mapsui.Nts`'s — `.api/api-mapsui-nts.md` owns those members.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,7 +8,8 @@
 - package: `Mapsui.Avalonia12` (MIT)
 - assembly: `Mapsui.UI.Avalonia` (`MapControl`, `RenderController` only; the shipped assembly id differs from the package id)
 - namespace: `Mapsui.UI.Avalonia`
-- transitive: `Mapsui` (model, layers, styles, widgets, navigator, projection), `Mapsui.Tiling` (`TileLayer` + BruTile sources), `Mapsui.Rendering.Skia` (Skia renderer), `Mapsui.Nts` (NTS `Geometry` bridge + providers) — all MIT, pure-managed
+- transitive: `Mapsui` (model, layers, styles, widgets, navigator, projection), `Mapsui.Tiling` (`TileLayer` + BruTile sources), `Mapsui.Rendering.Skia` (Skia renderer) — all MIT, pure-managed
+- composes: `Mapsui.Nts`, admitted directly for the NTS geometry bridge and editing session
 - depends: `Avalonia`, `Avalonia.Skia`, `SkiaSharp`
 - rail: map
 
@@ -45,33 +46,28 @@
 |  [01]   | `ILayer`             | layer contract  | draw-stack member    |
 |  [02]   | `BaseLayer`          | abstract base   | layer foundation     |
 |  [03]   | `MemoryLayer`        | in-memory layer | direct features      |
-|  [04]   | `Layer`              | provider layer  | asynchronous source  |
-|  [05]   | `TileLayer`          | tile layer      | BruTile basemap      |
-|  [06]   | `ImageLayer`         | specialized     | asynchronous imagery |
-|  [07]   | `RasterizingLayer`   | specialized     | rasterized vectors   |
-|  [08]   | `AnimatedPointLayer` | specialized     | animated points      |
+|  [04]   | `WritableLayer`      | mutable layer   | in-place feature set |
+|  [05]   | `Layer`              | provider layer  | asynchronous source  |
+|  [06]   | `TileLayer`          | tile layer      | BruTile basemap      |
+|  [07]   | `ImageLayer`         | specialized     | asynchronous imagery |
+|  [08]   | `RasterizingLayer`   | specialized     | rasterized vectors   |
+|  [09]   | `AnimatedPointLayer` | specialized     | animated points      |
 
-- `MemoryLayer` and `Layer` derive from `BaseLayer`; `MemoryLayer.Features` holds a direct `IFeature` set, `Layer.DataSource` an async `IProvider?`.
+- `MemoryLayer`, `WritableLayer`, and `Layer` derive from `BaseLayer`; `MemoryLayer.Features` holds a direct `IFeature` set, `Layer.DataSource` an async `IProvider?`.
+- `WritableLayer` carries `Add(IFeature)`, `AddRange(IEnumerable<IFeature>)`, `Find(IFeature) -> IFeature?`, `TryRemove(IFeature, Func<IFeature,IFeature,bool>?)`, `Clear()`, and `GetFeatures()`, so a caller mutates the set in place — the shape `Mapsui.Nts` `EditManager` authors onto.
 - `TileLayer` (`Mapsui.Tiling`) admits XYZ, WMTS, and MBTiles BruTile sources.
 
-[FEATURE_TYPES]: the feature model and the NTS bridge — `Mapsui` + `Mapsui.Nts`
+[FEATURE_TYPES]: the feature model — `Mapsui` core
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [CAPABILITY]        |
-| :-----: | :----------------------------- | :--------------- | :------------------ |
-|  [01]   | `IFeature`                     | feature contract | feature contract    |
-|  [02]   | `BaseFeature`                  | feature base     | feature base        |
-|  [03]   | `PointFeature`                 | feature          | located feature     |
-|  [04]   | `GeometryFeature`              | NTS feature      | NTS bridge          |
-|  [05]   | `GeoJsonProvider`              | provider         | GeoJSON provider    |
-|  [06]   | `GeometrySimplifyProvider`     | provider         | viewport simplify   |
-|  [07]   | `GeometryIntersectionProvider` | provider         | viewport clip       |
-|  [08]   | `IndexedMemoryProvider`        | provider         | envelope-indexed    |
-|  [09]   | `EditManager`                  | service          | geometry editing    |
-|  [10]   | `EditingWidget`                | widget           | editing interaction |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]    | [CAPABILITY]       |
+| :-----: | :------------- | :--------------- | :----------------- |
+|  [01]   | `IFeature`     | feature contract | feature contract   |
+|  [02]   | `BaseFeature`  | feature base     | feature base       |
+|  [03]   | `PointFeature` | feature          | located feature    |
+|  [04]   | `IProvider`    | source contract  | asynchronous fetch |
 
 - `IFeature` : `ICloneable`; `BaseFeature` owns geometry, `Styles`, and per-feature fields; `PointFeature` locates markers or labels at an `MPoint`.
-- `GeometryFeature` (`Mapsui.Nts`) wraps a NetTopologySuite `Geometry?` as a drawable feature — the NTS bridge for GDAL/OGR and Bim overlays.
-- `GeoJsonProvider` materializes NTS geometry from a GeoJSON string; `EditManager`/`EditingWidget` add, drag, and rotate vertices over NTS geometry.
+- `IProvider` carries `CRS`, `GetExtent() -> MRect?`, and `GetFeaturesAsync(FetchInfo)`; every concrete provider, the geometry-backed feature, and the editing session are `Mapsui.Nts`'s (`.api/api-mapsui-nts.md`).
 
 [STYLE_AND_WIDGET_TYPES]: presentation — `Mapsui.Styles` / `Mapsui.Widgets`
 
@@ -154,21 +150,20 @@
 
 - `map.Layers.Add(layer)` pushes a layer onto the ordered draw stack; `CenterOn` also accepts `(double x, double y, ...)`.
 
-[BASEMAP_AND_OVERLAY]: the tile + NTS-feature layer construction
+[BASEMAP_AND_OVERLAY]: the tile and feature layer construction
 
-| [INDEX] | [SURFACE]                                                                | [SHAPE] | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------------------------------- | :------ | :---------------------------------------- |
-|  [01]   | `OpenStreetMap.CreateTileLayer(string?) -> TileLayer`                    | static  | OSM XYZ basemap (`Mapsui.Tiling`)         |
-|  [02]   | `new MemoryLayer { Features, Style }`                                    | ctor    | in-memory feature overlay                 |
-|  [03]   | `new GeometryFeature(Geometry?)`                                         | ctor    | NTS geometry as a drawable feature        |
-|  [04]   | `SphericalMercator.FromLonLat(double, double)`                           | static  | WGS-84 to EPSG:3857 (`.ToLonLat` inverse) |
-|  [05]   | `new Layer { DataSource, Style }`                                        | ctor    | async provider-fed vector overlay         |
-|  [06]   | `new IndexedMemoryProvider(IEnumerable<IFeature>)`                       | ctor    | envelope-indexed feature source           |
-|  [07]   | `new GeometryIntersectionProvider(IProvider)`                            | ctor    | clips each fetch to the viewport `MRect`  |
-|  [08]   | `new GeometrySimplifyProvider(IProvider, simplify?, distanceTolerance?)` | ctor    | resolution-driven decimation              |
-|  [09]   | `new ThemeStyle(Func<IFeature, Viewport, IStyle?>)`                      | ctor    | per-feature style from attribute + zoom   |
+| [INDEX] | [SURFACE]                                             | [SHAPE] | [CAPABILITY]                              |
+| :-----: | :---------------------------------------------------- | :------ | :---------------------------------------- |
+|  [01]   | `OpenStreetMap.CreateTileLayer(string?) -> TileLayer` | static  | OSM XYZ basemap (`Mapsui.Tiling`)         |
+|  [02]   | `new MemoryLayer { Features, Style }`                 | ctor    | in-memory feature overlay                 |
+|  [03]   | `new WritableLayer { Style }`                         | ctor    | mutable feature set for authoring         |
+|  [04]   | `SphericalMercator.FromLonLat(double, double)`        | static  | WGS-84 to EPSG:3857 (`.ToLonLat` inverse) |
+|  [05]   | `new Layer([string layerName]) { DataSource, Style }` | ctor    | async provider-fed vector overlay         |
+|  [06]   | `new ThemeStyle(Func<IFeature, Viewport, IStyle?>)`   | ctor    | per-feature style from attribute + zoom   |
 
-[PROVIDER_DECORATION]: the three provider rows compose as a chain on one `Layer.DataSource` — `IndexedMemoryProvider` is the envelope-indexed source replacing a linear `MemoryLayer.Features` array, `GeometryIntersectionProvider` clips each fetch to the viewport rectangle, and `GeometrySimplifyProvider` decimates the clipped result; its `simplify` argument defaults to `TopologyPreservingSimplifier.Simplify` and a null `distanceTolerance` drives the tolerance from `fetchInfo.Resolution`, so decimation tracks the live zoom without a caller-side band. `ThemeStyle` also ships the `Func<IFeature, IStyle?>` arity where viewport-relative styling is not needed.
+- `ThemeStyle` also ships the `Func<IFeature, IStyle?>` arity where viewport-relative styling is not needed.
+- `Layer(string layerName)` is the primary ctor forwarding to `BaseLayer(layerName)`, so a named overlay carries its key at construction; the parameterless `Layer()` chains it with the literal `"Layer"`, leaving the settable `BaseLayer.Name` as the only other naming path.
+- `Layer.DataSource` takes the `Mapsui.Nts` provider decorator chain; the residency law over that chain is `.api/api-mapsui-nts.md`'s.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -179,16 +174,17 @@
 [STACKING]:
 - `api-avalonia-skia.md`/`api-skiasharp.md`: `Mapsui.Rendering.Skia` draws the map on the shared `SkiaSharp` `SKCanvas` `Avalonia.Skia` owns; theme colour tokens flow into `Mapsui.Styles.Color`/`Pen`/`Brush`, the same paints `api-svg-skia.md`/`api-livecharts.md` consume, never a hand-built second `SKPaint` path.
 - `api-silk-webgpu-wgpu`(`libs/csharp/.api/api-silk-webgpu-wgpu.md`): `Mapsui` renders the 2D georeferenced overlay on the same Avalonia compositor beside the `Silk.NET.WebGPU` 3D viewport, owning the 2D geo plane only.
+- `Mapsui.Nts`(`.api/api-mapsui-nts.md`): the NTS half of one map — `GeometryFeature` sets mount on this catalog's `Layer.DataSource` or `WritableLayer`, `GetMapInfo` supplies the `MapInfo` every `EditManager` hit test takes, and `SphericalMercator` reprojects the coordinates those geometries carry; geometry, providers, and the editing session are documented there and never restated here.
 - Bim geodesy seam: features arrive carrying the Bim-owned `GeoReference` from `GeoReferenceProjector` lowering `IfcMapConversion` and `IfcProjectedCRS`; `GeoFeature.Reproject` owns geodesy at that Bim seam, and AppUi reprojects only presentation WGS-84 input through `SphericalMercator.FromLonLat` (or `ProjectionDefaults.Projection` for non-mercator) into the EPSG:3857 `Map.CRS` at the layer-build edge — the internal model carries one CRS, the boundary owns the transform.
 - capture rail: `MapControl.GetSnapshot(layers, RenderFormat.Png, quality)` yields the `byte[]` image the export owner (PDF/OOXML embed) consumes, the geo analogue of the 3D viewport capture.
-- command rail: `MapControl.Info`/`MapTapped` + `GetMapInfo(screenPos, layers)` hit-test a click to the feature the Shell/Editing inspector binds; `Mapsui.Nts.EditManager`/`EditingWidget` author overlay geometry.
-- within-lib: a Bim-owned or GDAL/OGR-decoded `Geometry` becomes a `Mapsui.Nts.GeometryFeature` in a `MemoryLayer.Features`, drawn above an OSM `TileLayer`; screen-anchored widgets (`ScaleBarWidget`/`ZoomInOutWidget`/`MapInfoWidget`) live on `Map.Widgets`, never entering the world-space feature/CRS pipeline.
+- command rail: `MapControl.Info`/`MapTapped` + `GetMapInfo(screenPos, layers)` hit-test a click to the feature the Shell/Editing inspector binds.
+- within-lib: a Bim-owned or GDAL/OGR-decoded geometry becomes a `Mapsui.Nts` feature on a `Layer` or `WritableLayer`, drawn above an OSM `TileLayer`; screen-anchored widgets (`ScaleBarWidget`/`ZoomInOutWidget`/`MapInfoWidget`) live on `Map.Widgets`, never entering the world-space feature/CRS pipeline.
 
 [LOCAL_ADMISSION]:
 - One `MapControl` over a `Map` is the Shell 2D geo viewport; the model builds from `Mapsui` core, and every camera move routes through `Navigator` under animation.
 
 [RAIL_LAW]:
-- Package: `Mapsui.Avalonia12` composing the transitive `Mapsui`/`Mapsui.Tiling`/`Mapsui.Rendering.Skia`/`Mapsui.Nts`
-- Owns: the Shell 2D slippy-map, basemap, and vector-overlay viewport — one `MapControl` over a `Map` with a tile basemap and NTS-feature overlays on the shared Skia surface
-- Accept: `MapControl` bound to a `Map` via `MapProperty`; an OSM `TileLayer` basemap; a `MemoryLayer` over `GeometryFeature` for GDAL/OGR overlays; `Navigator` for every camera move; `SphericalMercator`/`ProjectionDefaults` for CRS at the boundary; `Mapsui.Styles` colours from theme tokens; `GetSnapshot` for capture; `Info`/`GetMapInfo` for feature pick
-- Reject: a second graphics backend beside the shared `SkiaSharp` family; a hand-built `SKPaint` for map styling; domain coordinates entering the model un-reprojected; a widget modeled as a world-space feature; reimplementing the `Mapsui` core model behind `Mapsui.UI.Avalonia`
+- Package: `Mapsui.Avalonia12` composing the transitive `Mapsui`/`Mapsui.Tiling`/`Mapsui.Rendering.Skia` and the directly admitted `Mapsui.Nts`
+- Owns: the Shell 2D slippy-map, basemap, and vector-overlay viewport — one `MapControl` over a `Map` with a tile basemap and feature overlays on the shared Skia surface
+- Accept: `MapControl` bound to a `Map` via `MapProperty`; an OSM `TileLayer` basemap; a `MemoryLayer`, `WritableLayer`, or provider-fed `Layer` for overlays; `Navigator` for every camera move; `SphericalMercator`/`ProjectionDefaults` for CRS at the boundary; `Mapsui.Styles` colours from theme tokens; `GetSnapshot` for capture; `Info`/`GetMapInfo` for feature pick
+- Reject: a second graphics backend beside the shared `SkiaSharp` family; a hand-built `SKPaint` for map styling; domain coordinates entering the model un-reprojected; a widget modeled as a world-space feature; reimplementing the `Mapsui` core model behind `Mapsui.UI.Avalonia`; re-declaring the `Mapsui.Nts` geometry, provider, or editing members here

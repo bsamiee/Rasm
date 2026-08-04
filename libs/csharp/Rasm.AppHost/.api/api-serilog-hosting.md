@@ -52,9 +52,10 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `CreateBootstrapLogger` mints a `ReloadableLogger` before `Host.CreateApplicationBuilder`; the service-aware `UseSerilog` overload detects a `ReloadableLogger` at `Log.Logger` and reconfigures then freezes it in place rather than replacing it.
+- `CreateBootstrapLogger` mints a `ReloadableLogger` before `Host.CreateApplicationBuilder`; both service-aware overloads — `UseSerilog` and `AddSerilog` alike — read `Log.Logger as ReloadableLogger` and, unless `preserveStaticLogger` is set, `Reload` then `Freeze` that instance in place rather than replacing it. The detection reads the STATIC slot, so a bootstrap logger the caller never assigned to `Log.Logger` takes the replace branch and its boot-window records land on an abandoned logger.
 - `preserveStaticLogger` leaves `Log.Logger` untouched; the default replaces it with the constructed logger.
 - `writeToProviders` wraps every `ILoggerProvider` registration as a Serilog sink through `LoggerProviderCollection`.
+- `AddSerilog` owns that reload-and-freeze body outright — `UseSerilog`'s service-aware overload is an `IHostBuilder` shim whose `ConfigureServices` calls it — so the two spellings share one implementation and never diverge.
 - `AddSerilog` registers the concrete instance as both the `DiagnosticContext` and `IDiagnosticContext` singleton.
 - `dispose` disposes the logger, or calls `Log.CloseAndFlush` for the static logger, when the host disposes the provider.
 
@@ -62,15 +63,15 @@
 - `api-serilog`(`.api/api-serilog.md`): `UseSerilog`/`AddSerilog` build their logger from a `LoggerConfiguration`, and `CreateBootstrapLogger` wraps a `Serilog` `Logger` as the reloadable bootstrap instance, binding the core pipeline into the host.
 - `api-hosting`(`.api/api-hosting.md`): `UseSerilog` extends `IHostBuilder` and its `ConfigureServices` folds `AddSerilog` onto the host `IServiceCollection`, replacing the default `ILoggerFactory`.
 - `api-di`(`.api/api-di.md`): `AddSerilog` mints the `ILoggerFactory` and the `DiagnosticContext`/`IDiagnosticContext` singletons as `ServiceDescriptor` rows, and `ReadFrom.Services` pulls `ILogEventEnricher`, `ILogEventSink`, and `LoggingLevelSwitch` from the resolved `IServiceProvider`.
-- within-lib: AppHost's bootstrap root calls `CreateBootstrapLogger` before the host builder, then the service-aware `UseSerilog` reconfigures it with DI-resolved sinks and freezes it once the provider is built.
+- within-lib: `Observability/telemetry#LOG_PROJECTION` `SerilogHost.Boot` calls `CreateBootstrapLogger` before the host builder and seats the result at `Log.Logger` — the one sanctioned write to that slot, since the bridge's reconfigure-in-place path reads it — then `SerilogHost.Compose` runs the service-aware `AddSerilog(IServiceCollection, Action<IServiceProvider, LoggerConfiguration>)` bridge, which reloads that logger with the DI-resolved sink set and freezes it once the provider is built; `UseSerilog` is the `IHostBuilder`-era spelling no AppHost fence composes.
 
 [LOCAL_ADMISSION]:
 - `CreateBootstrapLogger` roots two-stage host init: a lightweight logger runs during host build, replaced by the fully configured logger after services resolve.
 - Inject `IDiagnosticContext` to accumulate request-scoped properties for wide events such as request-completion logs.
-- `UseSerilog`/`AddSerilog`'s service-aware overload owns any configuration needing resolved services, such as metrics sinks or sampler config.
+- `AddSerilog`'s service-aware overload owns any configuration needing resolved services, such as metrics sinks or sampler config.
 
 [RAIL_LAW]:
 - Package: `Serilog.Extensions.Hosting`
 - Owns: Serilog integration into `IHostBuilder` and `IServiceCollection`
-- Accept: `UseSerilog`/`AddSerilog` at composition; `CreateBootstrapLogger` for two-stage init
-- Reject: manual `ILoggerFactory` replacement or static `Log.Logger` assignment outside bootstrap
+- Accept: `AddSerilog` at composition; `CreateBootstrapLogger` for two-stage init
+- Reject: manual `ILoggerFactory` replacement, static `Log.Logger` assignment outside bootstrap, and the `IHostBuilder`-era `UseSerilog` shim beside the `IServiceCollection` bridge

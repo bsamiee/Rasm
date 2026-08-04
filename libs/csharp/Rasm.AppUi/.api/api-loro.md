@@ -246,8 +246,8 @@
 
 [EPHEMERAL_STORE]:
 - State: `EphemeralStore(long).Set(key, value)`, `Get(key)`, `Encode(key)`, `EncodeAll()`, and `Apply(byte[])` own cursor and selection presence.
-- Expiry: `RemoveOutdated()` evicts expired state.
-- Feed: `Subscribe(EphemeralSubscriber)` and `SubscribeLocalUpdate(...)` emit presence changes whose encoded bytes broadcast to peers.
+- Expiry: `RemoveOutdated()` evicts expired state; `Awareness` carries the same explicit sweep — `Awareness.RemoveOutdated() : ulong[]` returns the evicted peer ids, and `Awareness.GetAllStates() : Dictionary<ulong, PeerInfo>` KEEPS a lapsed peer until that sweep runs, so a roster read sweeps first.
+- Feed: `Subscribe(EphemeralSubscriber)` and `SubscribeLocalUpdate(...)` emit presence changes whose encoded bytes broadcast to peers; `EphemeralSubscriber` is `void OnEphemeralEvent(EphemeralStoreEvent)` and the payload is `EphemeralStoreEvent(EphemeralEventTrigger By, string[] Added, string[] Removed, string[] Updated)` — the trigger case rides beside the changed keys.
 
 [AWARENESS]:
 - State: `Awareness(ulong peer, long).SetLocalState(value)` owns per-peer user and color state on a separate channel.

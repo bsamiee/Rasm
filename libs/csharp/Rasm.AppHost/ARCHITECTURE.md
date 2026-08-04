@@ -138,11 +138,10 @@ flowchart LR
     PyRuntime{{python:runtime}}
     Agent -->|"[CONTENT_KEY]: CapabilityDescriptor"| Core
     Runtime -->|"[WIRE]: ReceiptEnvelopeWire"| Core
-    Observability -->|"[WIRE]: DegradationLevel"| Core
+    Observability -->|"[WIRE]: CommandAvailabilityWire"| Core
     Wire -->|"[WIRE]: BindingStatusWire"| Core
     Wire -->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Ui
     Runtime -->|"[WIRE]: HostFingerprintWire"| Ui
-    Observability e10@-->|"[WIRE]: BenchmarkClaimWire"| Ui
     Observability -->|"[TRANSPORT]: OtelExport"| TsRuntime
     Agent <-->|"[WIRE]: DiscoveryResult"| PyRuntime
     Observability <-->|"[TRANSPORT]: TraceContext"| PyRuntime
@@ -159,7 +158,7 @@ config:
 ---
 flowchart LR
     accTitle: AppHost C# platform seams
-    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, receipts, content keys, projections, transports, and faults with every C# peer, one edge per kind.
+    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, contracts, receipts, content keys, projections, transports, and faults with every C# peer, one edge per kind.
     subgraph apphost[RASM.APPHOST]
         Runtime[Runtime spine]
         Agent[Agent surface]
@@ -206,12 +205,13 @@ flowchart LR
     Observability e22@-->|"[PORT]: TelemetryContributorPort"| Fabrication
     Wire e28@-->|"[RECEIPT]: MachineObservationWire"| Fabrication
     Runtime -->|"[PORT]: ShedVerdict"| Compute
-    Runtime e36@<-->|"[PORT]: WorkLane"| Compute
+    Runtime e36@-->|"[PORT]: WorkLane"| Compute
     Agent -->|"[PORT]: IChatClient"| Compute
+    Agent -->|"[PORT]: Spec"| Compute
     Compute e37@-->|"[PORT]: ComputeHookRail"| Observability
     Compute e38@-->|"[RECEIPT]: DigitalTwin"| Wire
     Wire e29@<-->|"[TRANSPORT]: CollabWireContext"| AppUi
-    Sandbox <-->|"[SHAPE]: EncodingKind"| Compute
+    Sandbox <-->|"[SHAPE]: PackKind"| Compute
 ```
 
 Two AppUi edges carry reciprocals the counterpart page names: `[TRANSPORT]: CollabWireContext` is the collab-delta feed whose `TraceContext` adapter and `CollabFrame` schema this package owns, `Collab/sync` framing each delta AppUi-side; `[PORT]: ProfileSampleSource` delivers correlation-keyed Pyroscope and EventPipe samples over an existing port row, `Diagnostics/devloop` folding them into its frame tree.

@@ -19,6 +19,18 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
+[STAGE_ROSTER_COLLAPSE]-[QUEUED]: The folder's native-lane stage ladders share one declared owner or a stated plurality ruling.
+- Capability: `Energy/derive#TRANSLATE_MATRIX` `TranslateStage` and any next native lane's stage roster resolve one seat decision — a `Model/observability`-seated owner beside `BimFact.Progress`, or a recorded plural-per-lane posture under the branch benchmark-roster precedent — before a third lane mints a third ladder.
+- Shape: one adjudication over the `(Done, Witness)` column shape `TranslateStage` and the kernel `ArrangeStage` both carry; lands as a ruling row plus the elected seat.
+- Unlocks: the tessellation and any future companion lane land their stage evidence on a settled shape.
+- Anchors: `TranslateStage` at `Energy/derive.md`; the kernel `ArrangeStage` band; the branch per-folder benchmark-roster plurality ruling as the counter-precedent.
+
+[PER_ENTITY_UNITSCALE]-[QUEUED]: The structural fold reads one project unit regime instead of rebuilding it per entity.
+- Capability: `Model/structural.md`'s fold threads a single `UnitScale.Of(database)` read the way the cost lane now does, so a per-entity regime rebuild — and the drift window it opens against a mixed-database read — deletes.
+- Shape: one threaded regime at `Model/structural.md:222`'s fold head; the eleven-site `Coerce` collapse precedent applies.
+- Unlocks: the last per-entity regime rebuild in the folder closes.
+- Anchors: the cost lane's landed one-regime thread at `Planning/cost.md`; `UnitScale.Of(DatabaseIfc)`.
+
 [QUERY_PREDICATE_SEAM]-[QUEUED]: Set-algebraic model query reaches the web tier as a decoded predicate, not a re-implemented filter language.
 - Capability: a browser client composes the same closed predicate algebra the model owner evaluates, so selection semantics carry one definition across runtimes instead of forking into a per-tier filter dialect.
 - Shape: `libs/csharp/Rasm.Bim/.planning/Model/query.md` `[02]-[PREDICATE_WIRE]` gains its cross-runtime consumer, and the seam edge re-enters `ARCHITECTURE.md` `[03]-[SEAMS]` only once the counterpart lands.
@@ -68,6 +80,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Shape: `libs/csharp/Rasm.Bim/.planning/Planning/progress.md` (new page) owns the comparison fold joining `Exchange/reconstruct#RECONSTRUCTION` occurrences to `Planning/schedule#SCHEDULE` `TaskAssignment` element sets through the `Model/query#ELEMENT_SET` predicate algebra; observed completion feeds the `Planning/cost#EARNED_VALUE` fold as the actuals source beside authored `IfcTaskTime.Completion`.
 - Unlocks: reality-capture progress dashboards, evidence-backed earned value, dispute-grade progress records keyed by the capture content key.
 - Anchors: `ConstructionState.At` phase reads (`Completed` the finished-by read); `ConstructionTask.PercentComplete` fallback law; scan-to-BIM occurrences carrying per-occurrence fit receipts.
+
+[COLOUR_EGRESS_THROUGH_KERNEL_BYTE_LEG]-[QUEUED]: Display-byte egress rides the kernel federation quantizer, so a Bim palette byte and a kernel content-key byte agree by construction.
+- Capability: one byte-quantization owner serves every display egress — `IndexedColour.Author` and the export material finish stop encoding then quantizing by hand, and the bytes they emit match the estate's content-key quantizer bit for bit.
+- Shape: the byte leg lives on an ADMITTING owner, so composing it rails, and the rail cascades through the `Binders` delegate table, `Bind`, `Exchange/tessellation` `Decode`, and the dotbim writer's packed `Rgba` read; lands across `libs/csharp/Rasm.Bim/.planning/Semantics/appearance.md` and `libs/csharp/Rasm.Bim/.planning/Exchange/export.md`.
+- Unlocks: cross-runtime colour identity — a palette byte, an export byte, and a coverage content-key byte are one value, so no consumer reconciles two quantizers.
+- Anchors: `libs/csharp/Rasm.Bim/.planning/Semantics/appearance.md` palette author and memo; `libs/csharp/Rasm.Bim/.planning/Exchange/export.md` `MaterialFinish.Rgba`; `libs/csharp/Rasm/.planning/Numerics/atoms.md` byte leg and its content-key pin.
+- Tension: the scalar transfer pair is TOTAL today while the byte leg admits, so the collapse trades a hand-rolled quantizer for a `Fin` rail across four files — the cost is the decision, not the mechanics.
 
 [ENERGY_RESULTS_ANNOTATION]-[QUEUED]: Land simulation results back on the model — Compute-read EnergyPlus outputs annotate zones and spaces as typed result quantities.
 - Capability: Compute's typed energy-results receipt (keyed by the `EnergyArtifact` content key) admits onto `Model/zones` and spatial nodes as result quantities — annual and peak loads, comfort hours, EUI — re-emittable as Psets through the standing properties authority, so results survive re-export instead of dying in a run directory.

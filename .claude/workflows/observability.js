@@ -1,8 +1,6 @@
 export const meta = {
     name: 'observability',
-    description:
-        'Close the observability + analytics campaign against .claude/scratch/observability/CAMPAIGN.md. args = {phase: 6}, bare number accepted, empty = no-op. Eight deep-read recon delegates write dossiers to run scratch, then eight lenses run with full writer authority — conformance, cross-branch parity, backend-family integration, strata leverage, evidence and execution pdelegates, fence seams, escalation arms, and .api ultra-stack truth. The four capability lenses each carry a critique and red-team pair; the four proof lenses run light. One serial custody closer follows, settling governance truth, the scars, the proof estate, and the two escalated adjudications. A residual drain fixpoint closes the run.',
-    whenToUse: 'Closing out the observability + analytics campaign in the Rasm planning corpus.',
+    description: 'Close the observability campaign',
     phases: [
         { title: 'Recon', detail: 'deep-read mapping delegates; dossier to disk, thin receipt on the wire' },
         { title: 'Kernel', detail: 'serial barrier writer for owners the territory fan composes' },

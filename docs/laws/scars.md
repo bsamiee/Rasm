@@ -29,6 +29,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Law: Tallies, levels, and receipt fields publish measured values alone, and a construction reading zero for absent measurement spells absence.
 - Law: Measures an arm may not take ride an optional slot; a required slot with a zero, `inf`, or `nan` default is a type defect spelling no absence.
 - Law: Multiplicative scores fan each measured component onto its own dimension and COUNT refusals on their own series, never into the distribution.
+- Law: A policy or preset row never carries a slot only a mount can measure; the measured slot is a required argument on a mount-time factory.
 - Trigger: Zero-fallback reads, retired-owner slots republishing a last value, and zero-filled receipts each read as a measurement no producer took.
 - Boundary: `libs/.planning/RULINGS.md` `[02]-[SHAPE]` owns the diagnostic-plane UNMEASURED shape, and this scar binds every other construction.
 - Boundary: Cross-language wires convict the producer — a zero-filled required slot strands the peer's absence arm while both ends read correct.

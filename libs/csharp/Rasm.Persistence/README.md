@@ -25,7 +25,7 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 
 [QUERY]:
 - [14]-[LANE](.planning/Query/lane.md): Read router discriminating authoritative from analytical over the selection algebra.
-- [15]-[RETRIEVAL](.planning/Query/retrieval.md): ANN retrieval subsystem fusing the vector and text branches.
+- [15]-[RETRIEVAL](.planning/Query/retrieval.md): ANN retrieval subsystem fusing the vector and text branches, with the document full-text corpus lane serving the AppUi search wire.
 - [16]-[TOPOLOGY](.planning/Query/topology.md): In-process QuikGraph view owning default synchronous traversal.
 - [17]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane, flat-table projection, and the analytics residence family.
 - [18]-[CYPHER](.planning/Query/cypher.md): Optional self-hosted openCypher and pgrouting lane.

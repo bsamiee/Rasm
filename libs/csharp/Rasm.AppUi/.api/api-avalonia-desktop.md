@@ -22,6 +22,30 @@
 |  [03]   | `AvaloniaX11PlatformExtensions`    | `UseX11` — Linux X11 backend            |
 |  [04]   | `SkiaApplicationExtensions`        | `UseSkia` — raster renderer             |
 
+[NATIVE_PLATFORM_TYPES]: `Avalonia.Native` (transitive, `Avalonia` namespace) — the macOS backend's own option records, the one surface an in-host embed configures directly because `UsePlatformDetect` never runs under a foreign run loop.
+
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]                              |
+| :-----: | :------------------------------ | :------------ | :---------------------------------------- |
+|  [01]   | `MacOSPlatformOptions`          | class         | app-identity and menu policy              |
+|  [02]   | `AvaloniaNativePlatformOptions` | class         | backend, sandbox, and popup policy        |
+|  [03]   | `AvaloniaNativeRenderingMode`   | enum          | `OpenGl = 1`, `Software = 2`, `Metal = 3` |
+
+- Every one of the three declares into the `Avalonia` namespace despite shipping in `Avalonia.Native.dll`, so an `Avalonia.Native` import resolves none of them.
+
+[EMBED_RUNTIME_TYPES]: `Avalonia.Native` — the implementation identities an embedded mount resolves at runtime; none is a compile-time surface, each is what the corresponding public member answers on the embed path.
+
+| [INDEX] | [SYMBOL]                 | [RESOLVED_BY]                        | [IDENTITY]                                           |
+| :-----: | :----------------------- | :----------------------------------- | :--------------------------------------------------- |
+|  [01]   | `EmbeddableTopLevelImpl` | `EmbeddableControlRoot.PlatformImpl` | the embedded root's platform implementation          |
+|  [02]   | `MacOSTopLevelHandle`    | `TopLevel.TryGetPlatformHandle()`    | `IMacOSTopLevelPlatformHandle`, descriptor `NSView`  |
+|  [03]   | `StorageProviderImpl`    | `TopLevel.StorageProvider`           | native provider, all three capabilities true         |
+|  [04]   | `MetalPlatformGraphics`  | default `[Metal, OpenGl, Software]`  | `IPlatformGraphics` beside the Skia render interface |
+|  [05]   | `AvaloniaNativePlatform` | `UseAvaloniaNative()`                | one windowing platform per process                   |
+
+- One `AppBuilder` serves the whole process: a second `Setup*` call throws `InvalidOperationException` — `Setup was already called on one of AppBuilder instances` — so every embedded root in a process shares that platform, its graphics, and its dispatcher, while additional roots construct freely once it is up.
+- An embedded root's `RenderScaling` is `1` regardless of the host's backing scale, so a DPI-aware mount reads scale from the host, never from the root.
+- `StorageProviderImpl` answers `CanOpen`, `CanSave`, and `CanPickFolder` all true on an embedded root, yet a picker launched while the root's native view has no window returns a task that stays `WaitingForActivation` — no exception, no sheet, no completion — so a caller gates on a shown host window beside the capability read.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one boot entry mounts any admitted desktop substrate
@@ -29,6 +53,32 @@
 [UsePlatformDetect]:
 - Shape: `(this AppBuilder) -> AppBuilder` factory extension, fluent-chained from the `Avalonia` core configuration
 - Dispatch: loads HarfBuzz, then wires the running-OS backend and `UseSkia` — `UseWin32` on Windows, `UseAvaloniaNative` on macOS, `UseX11` on Linux
+
+[NATIVE_PLATFORM_OPERATIONS]: the option knobs an embedded macOS mount admits through `AppBuilder.With<T>`, all instance properties; surface cells drop the owning type root named in each table's lead.
+
+`AvaloniaNativePlatformExtensions.UseAvaloniaNative(this AppBuilder) -> AppBuilder` wires the macOS backend the two option records configure.
+
+`MacOSPlatformOptions` — app identity and menu policy:
+
+| [INDEX] | [SURFACE]                            | [TYPE] | [CAPABILITY]                             |
+| :-----: | :----------------------------------- | :----- | :--------------------------------------- |
+|  [01]   | `ShowInDock` (default true)          | `bool` | Dock presence                            |
+|  [02]   | `DisableDefaultApplicationMenuItems` | `bool` | strip Avalonia's app-menu items          |
+|  [03]   | `DisableNativeMenus`                 | `bool` | disable the native menu bar              |
+|  [04]   | `DisableSetProcessName`              | `bool` | leave `NSProcessInfo` name alone         |
+|  [05]   | `DisableAvaloniaAppDelegate`         | `bool` | leave the host's `AppDelegate` installed |
+
+`AvaloniaNativePlatformOptions` — backend, sandbox, and popup policy:
+
+| [INDEX] | [SURFACE]                          | [TYPE]                                       | [CAPABILITY]                     |
+| :-----: | :--------------------------------- | :------------------------------------------- | :------------------------------- |
+|  [01]   | `RenderingMode`                    | `IReadOnlyList<AvaloniaNativeRenderingMode>` | ordered backend preference       |
+|  [02]   | `OverlayPopups`                    | `bool`                                       | embed popups into the window     |
+|  [03]   | `AppSandboxEnabled` (default true) | `bool`                                       | sandbox-scoped storage bookmarks |
+|  [04]   | `AvaloniaNativeLibraryPath`        | `string?`                                    | native-binary override           |
+
+- `RenderingMode` defaults to `[Metal, OpenGl, Software]` — first element wins, and an empty or fully unmatched list throws `InvalidOperationException` at boot rather than degrading.
+- `DisableAvaloniaAppDelegate` together with `DisableSetProcessName` and `DisableNativeMenus` is the plugin-host posture: the foreign application keeps its delegate, process name, and menu bar while the embedded root renders inside its view.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -45,9 +95,10 @@
 
 [LOCAL_ADMISSION]:
 - One package reference transitively admits the backend graph; the desktop shell composes only `UsePlatformDetect`, never a backend `Use*` at a call site.
+- The in-host embed is the one carve: a mount under a foreign macOS run loop names `UseAvaloniaNative` beside `UseSkia` because it must seat `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values `UsePlatformDetect` never exposes, and it does so from one admission fold (`Shell/hosts#EMBED_CAPSULE` `EmbedOptions.Admit`), never from a boot-code knob.
 
 [RAIL_LAW]:
 - Package: `Avalonia.Desktop`
 - Owns: the one umbrella boot entry that detects the OS and wires the matching windowing backend and the Skia renderer
 - Accept: standalone, sidecar, and companion desktop hosts enter the AppUi shell rail through `UsePlatformDetect`, backend selection staying internal to it
-- Reject: a host-specific boot fork, or AppUi calling `UseWin32`/`UseX11`/`UseAvaloniaNative`/`UseSkia` directly
+- Reject: a host-specific boot fork, or a standalone shell calling `UseWin32`/`UseX11`/`UseAvaloniaNative`/`UseSkia` directly — the embed admission fold is the one seat that names a backend, because the options it must seat have no `UsePlatformDetect` route

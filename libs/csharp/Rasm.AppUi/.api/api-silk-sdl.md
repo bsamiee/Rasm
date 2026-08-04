@@ -122,9 +122,21 @@ Every surface is an unsafe instance method on the `Sdl.GetApi()` root; only the 
 |  [04]   | `GUIDToString(GUID, byte*, int)` / `JoystickGetGUIDString`                          | instance | GUID to text                  |
 |  [05]   | `GUIDFromString(byte*)` / `JoystickGetGUIDFromString`                               | instance | text to GUID                  |
 |  [06]   | `GetJoystickGUIDInfo(GUID, ushort*, ushort*, ushort*, ushort*)`                     | instance | decompose GUID fields         |
-|  [07]   | `JoystickOpen(int)` / `GameControllerOpen(int)`                                     | instance | device open                   |
+|  [07]   | `JoystickOpen(int)` / `GameControllerOpen(int)` / `JoystickClose(Joystick*)`        | instance | device open and close         |
 |  [08]   | `GameControllerMappingForGUID(GUID)` / `GameControllerMappingForGUIDS(GUID)`        | instance | resolve mapping (raw/managed) |
 |  [09]   | `GameControllerAddMapping(string)` / `GameControllerAddMappingsFromRW(RWops*, int)` | instance | register mapping(s)           |
+
+[ENTRYPOINT_SCOPE]: joystick axis read — the source leg a haptic device's own controller carries
+
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                  |
+| :-----: | :------------------------------------------------------- | :------- | :---------------------------- |
+|  [01]   | `JoystickNumAxes(Joystick*) -> int`                      | instance | axis count on an open device  |
+|  [02]   | `JoystickGetAxis(Joystick*, int) -> short`               | instance | one axis deflection           |
+|  [03]   | `JoystickGetAxisInitialState(Joystick*, int, ref short)` | instance | initial-state probe           |
+|  [04]   | `JoystickIsHaptic(Joystick*) -> int`                     | instance | actuator capability           |
+
+- `JoystickGetAxis` spans `-32768..32767`; the negative extreme exceeds the positive by one step, so a `[-1,1]` projection divides by `32767` and clamps.
+- `Sdl.InitJoystick` is `512u` and `Sdl.InitHaptic` is `4096u`; a device serving both legs arms both flags.
 
 [ENTRYPOINT_SCOPE]: native-status error lift
 

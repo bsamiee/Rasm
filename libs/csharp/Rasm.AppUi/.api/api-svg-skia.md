@@ -85,7 +85,7 @@
 |  [02]   | `FromSvg(string)` / `FromSvgDocument(SvgDocument?) -> SKPicture?`               | instance | string or parsed-document load        |
 |  [03]   | `FromVectorDrawable(string)` / `LoadVectorDrawable(stream\|path\|reader)`       | instance | Android VectorDrawable load           |
 |  [04]   | `ReLoad(SvgParameters?)` / `RefreshFromSourceDocument()` / `RebuildFromModel()` | instance | parameter reapply and model re-record |
-|  [05]   | `Model` / `WireframePicture` (`SKPicture?`)                                     | property | source model and wireframe picture    |
+|  [05]   | `Model` / `WireframePicture` (`SKPicture?`) / `SourceDocument` (`SvgDocument?`) | property | model, wireframe, and parsed document |
 |  [06]   | `Draw(SKCanvas)` / `Save(Stream\|string, SKColor, …)`                           | instance | canvas draw and raster export         |
 |  [07]   | `Clone()` / `Sync` / `Dispose()`                                                | instance | clone, render lock, and teardown      |
 |  [08]   | `static CreateFromFile/Stream/Svg/SvgDocument/VectorDrawable/XmlReader(…)`      | factory  | one-call load factories               |
@@ -164,6 +164,7 @@
 [TOPOLOGY]:
 - `SKSvg` owns incremental render through the retained scene graph: `TryEnsureRetainedSceneGraph` builds the `SvgSceneDocument` (source document, asset loader, element-addressable `SvgSceneNode` graph), and `TryApplyRetainedSceneMutationAndRender(element|addressKey, changedAttributes, out SvgSceneMutationResult)` re-records only the affected subtree and returns the dirty-region receipt a viewport invalidation keys on. A single-element or attribute edit routes through the mutation API, never a full `Load` that drops and rebuilds the graph.
 - `Sync` is the engine render-lock: a producer mutating the scene off the render thread takes `lock (skSvg.Sync)`, so a concurrent `Draw` never observes a half-applied mutation.
+- `SourceDocument` is the parsed `SvgDocument` the engine retains beside the recorded `SKPicture?` `Model`: a re-parameterized or recolored `SvgSource.LoadFromSvgDocument(SvgDocument, SvgParameters?)` binds `SourceDocument`, and `RefreshFromSourceDocument()` re-records the picture from it in place — the picture-typed `Model` binds neither.
 
 [STACKING]:
 - `api-avalonia-skia`(`.api/api-avalonia-skia.md`) / `api-skiasharp`(`.api/api-skiasharp.md`): `SvgCustomDrawOperation`/`SvgSourceCustomDrawOperation` implement `ICustomDrawOperation`; `Render(ImmediateDrawingContext)` resolves `ISkiaSharpApiLeaseFeature.Lease()`, reads `lease.SkCanvas`, and calls `SKSvg.Draw(canvas)`, compositing the SVG into Avalonia's Skia surface with no side bitmap; the internal `SvgCompositionVisualScene` acquires the same lease through `CompositionCustomVisualHandler.OnRender` when `AnimationBackend` selects the native composition layer.

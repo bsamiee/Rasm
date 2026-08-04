@@ -94,6 +94,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.RhinoApp.InvokeAndWait(Action action) : void` — blocking UI-thread marshalling.
 - `Rhino.RhinoApp.Idle : EventHandler` — application-idle signal.
 - `Rhino.RhinoApp.MainLoop : EventHandler` — per-main-loop-tick signal.
+- `Rhino.RhinoApp.EscapeKeyPressed : EventHandler` — user abort edge; the accessor arms `RHC_SetEscapeKeyCallback` on first subscription and clears it when the list empties. TRAP: the add accessor DEDUPS through `HostUtils.ContainsDelegate`, so a static method group subscribed by two owners arms ONE handler and the second owner's abort never fires — each owner subscribes a distinct closure instance.
 - `Rhino.RhinoApp.CommandPrompt : string` — current command-prompt text.
 - `Rhino.RhinoApp.CommandPromptChanged : EventHandler<Rhino.UI.CommandPromptChangedEventArgs>` — prompt-change signal; `Prompt`, `PromptDefault`, and the `CommandLineOption[] Options` roster are callback-scoped snapshots that never survive the event callback.
 - `Rhino.RhinoApp.RunScript(string script, bool echo) : bool` — active-document script execution.

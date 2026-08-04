@@ -311,7 +311,8 @@ EM_DASH_ASCII = re.compile(r"(?<=\s)-{2,3}(?=\s)")
 STRATA_ROW_KEY = re.compile(r"^- S\d+(?:\u2013S?\d+)?\s")
 POINTER = re.compile(r"[\w./-]*\w\.md#[\w.-]+|\b[\w./-]+/[\w.-]+#(?![A-Z][A-Z0-9_]*(?![\w-]))[\w.-]+\b")
 # Deictic freshness and permission verbs warn: both admit context-legal uses review adjudicates.
-FRESHNESS_DEICTIC = re.compile(r"\b(?:currently|recently|nowadays|at\s+present|these\s+days|going\s+forward|modern)\b", re.IGNORECASE)
+# Hyphen lookarounds spare compound terms — `least-recently-touched` names an eviction policy, not freshness.
+FRESHNESS_DEICTIC = re.compile(r"(?<!-)\b(?:currently|recently|nowadays|at\s+present|these\s+days|going\s+forward|modern)\b(?!-)", re.IGNORECASE)
 WEAK_VERB = re.compile(r"\b(?:supports|provides|offers|allows|enables)\b", re.IGNORECASE)
 # Soft-preference and discourse hedges warn: `prefer` names a legitimate default across the estate, so review adjudicates each.
 SOFT_HEDGE = re.compile(r"\b(?:however|prefer(?:s|red|ably)?|etc)\b", re.IGNORECASE)

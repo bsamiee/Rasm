@@ -87,7 +87,7 @@
 
 [STACKING]:
 - `api-di`(`.api/api-di.md`): `Scan` emits `ServiceDescriptor` rows onto the `IServiceCollection` under a `RegistrationStrategy`, and `Decorate`/`TryDecorate` rewrite an existing descriptor — every scan result is a descriptor this rail resolves.
-- within-lib: AppHost's composition root runs one `Scan` chain per assembly, narrowing `FromApplicationDependencies` through `AddClasses`, a filter, `AsImplementedInterfaces`, and `WithScopedLifetime` before `RegistrationStrategy` resolves conflicts against the hand-registered ports.
+- within-lib: AppHost's composition root runs one `Scan` chain over `FromAssemblies` with each module's explicit `Assembly` — `Runtime/modules.md` rules `FromApplicationDependencies` and `FromDependencyContext` the deleted sources, since plugin-ALC assemblies never appear in the default dependency closure and a closure-walking scan silently misses them — narrowing through `AddClasses`, a filter, `AsImplementedInterfaces`, and `WithScopedLifetime` before `RegistrationStrategy` resolves conflicts against the hand-registered ports.
 
 [LOCAL_ADMISSION]:
 - Scanning runs only at composition bootstrap.

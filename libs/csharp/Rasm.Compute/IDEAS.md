@@ -43,18 +43,17 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: sequence-shaped design search the CP-SAT row prices poorly; the admitted routing surface stops being dead catalog weight.
 - Anchors: folder `.api` `api-ortools#ENTRYPOINTS` routing rail (`RoutingModel`, `RoutingIndexManager`, `RoutingSearchParameters`, `RoutingDimension`, `RoutingSearchStatus.Types.Value`), `OptimizerKind` row law, `Analysis/circulation` OR-Tools graph natives as the disposal-pattern precedent.
 
+[SWEEP_UNRANKED_SURFACE]-[QUEUED]: A sweep campaign's unranked axes surface on its receipt, so a fully-unranked campaign never reads as a fully-ranked one.
+- Capability: the sweep receipt distinguishes axes the sensitivity fold ranked from axes it could not measure — a campaign whose every axis went unranked is legible at the receipt instead of identical to one fully ranked.
+- Shape: the `Sweep` receipt gains the unranked projection off the landed `SensitivityTornado.Unranked` column beside `GridPoints`/`Completed`/`OnFront`/`Dominated`; lands at `Solver/sweep.md`.
+- Unlocks: a design decision reads measured insensitivity apart from missing measurement — the receipt-side close of the sweep lane's forged-zero repair.
+- Anchors: `SensitivityTornado.Bars`/`Unranked` landed at `Solver/sweep.md` `[02]`; the receipt-union pricing law at `Runtime/receipts.md` `[02]`.
+
 [MESHLET_CUT_EVIDENCE]-[QUEUED]: Publish the duplicated-vertex cut a cluster build paid, so a build-strategy choice is measured rather than assumed.
 - Capability: the encode receipt carries the realized boundary-vertex count per level, so the greedy native builds and the cut-minimizing bisection are comparable on the one figure that decides stream cost, and a policy row is chosen from evidence instead of taste.
 - Shape: one measured column on the payload receipt projection beside the cluster count, filled in the meshlet-cluster encode arm; lands in `libs/csharp/Rasm.Compute/.planning/Runtime/payload.md` `[RESIDENCY]`.
 - Unlocks: the `ClusterBuild` axis becomes selectable by measurement — a corpus-level answer to which build a given geometry class wants.
 - Anchors: `ClusterBuild.Bisect` and its `FaceAdjacency` cut weight already compute the shared-vertex count this receipt publishes; the `StreamSegment` slot already carries the cluster count beside the blob length.
-
-[MESHLET_CURVATURE_COLUMN]-[QUEUED]: Each meshlet cluster carries its own curvature bound, so a ray-cone consumer widens its footprint by measured shape instead of guessing planar.
-- Capability: the per-cluster descriptor grows a curvature evidence column measured at encode from the cluster's own triangles, so every downstream footprint, LOD, and filtering decision reads geometry truth the payload already visited once.
-- Shape: one curvature column on `ResidencyMeshlet` beside the cluster-LOD chain columns, filled in the meshlet-cluster encode arm and decoded through `Runs`; lands in `libs/csharp/Rasm.Compute/.planning/Runtime/payload.md` `[RESIDENCY]`.
-- Unlocks: `csharp:Rasm.AppUi` `[RAY_CONE_CURVATURE]` — the declared ray-cone growth leg arms the moment this column ships.
-- Anchors: `ResidencyMeshlet` already carries `Level`/`Parent`/`Shell`/`Error`/`ParentError` as per-cluster evidence, so a further measured column is a widening, not a shape change; the encode arm already walks every cluster triangle for cone and sphere bounds, so the curvature estimate reads visited data.
-- Ripple: `csharp:Rasm.AppUi` `[RAY_CONE_CURVATURE]` consumes; this card is the producer end.
 
 [SOLVER_DIRECTIONAL_PARTICIPATION]-[QUEUED]: Modal participation becomes directional, so a seismic mass floor is checked per excitation axis the way every code writes it.
 - Capability: the modal result carries one participation factor per excitation direction rather than one over an all-ones influence vector, so the effective-mass floor gates per axis, a torsional mode stops contributing to a translational demand, and the spectral demand scales by the direction the spectrum row was written for.
@@ -70,12 +69,22 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: the elastic cases carry density off the seam `Mechanical` case, so the seam precedent and the accessor shape both exist; the seam `Thermal` case carries specific heat, so the read has a source; the energy-network payload supplies a measured capacity vector the fold reads where present.
 - Arms: the scalar assignment cases serve conductance-only physics whose consumers read no capacity, so the widening arms when a transient thermal or network route lands a consumer reading the column.
 
+[BOOLEAN_FACE_ATTRIBUTION_REACH]-[BLOCKED]: Product-face attribution reaches a viewer pick through the requester's lineage carrier, never a residency column.
+- Capability: a picked product face resolves to the source operand's content identity across the render seam with the managed-route absence arm intact, so attribution is a read of the boolean requester's own evidence rather than a second lineage channel minted at the streaming lane.
+- Shape: the crossing seam between the boolean requester's attribution carrier and the render consumer; `libs/csharp/Rasm.Compute/.planning/Runtime/payload.md` gains NO provenance column — the card holds the honest route and forecloses that landing.
+- Unlocks: AppUi pick-resolution answers "which operand produced this face" on evidence, instead of the render seam carrying no answer at all.
+- Anchors: `libs/csharp/Rasm.Fabrication/.planning/Documentation/projection.md` `BooleanComposition.Attribute` over the requester-held operand-order map; `libs/csharp/Rasm/.planning/Meshing/arrangement.md` `ManifoldProvenance.OperandOf` (the kernel ordinal answer, native route only — `Receipt.Source` is `None` on every managed fold); `libs/csharp/Rasm.AppUi/.planning/Render/meshlets.md` `ResidencyPayload`-only consumption boundary.
+- Arms: a Compute lane ingesting a boolean product, OR a declared render path carrying the Fabrication attribution carrier to AppUi; today neither exists and the strata graph forbids the Compute-side one.
+- Tension: the identity the join yields is a `ContentKey`, while the render override channel keys on `VisibilityOverride.ElementId`, so the `ContentKey -> ElementId` resolution is a separate owner decision this card does not pre-empt.
+- Ripple: mirrors `csharp:Rasm.Fabrication` documentation-projection attribution.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[MESHLET_CURVATURE_COLUMN]-[COMPLETE]: realized in `.planning/Runtime/payload.md` `[RESIDENCY]` — `ResidencyMeshlet.Curvature` (float, radians per object-space unit, the cluster's measured normal-variation bound; a planar cluster measures 0) lands beside the cluster-LOD chain columns, filled in the meshlet-cluster encode arm off the cluster's own triangles and traveling on `ResidencyPayload.Clusters` so a footprint consumer widens by the producer's column and re-derives no curvature off the decoded runs; `csharp:Rasm.AppUi` `[RAY_CONE_CURVATURE]` consumes it.
 [TWIN_SENSOR_INGEST]-[COMPLETE]: realized in `.planning/Runtime/transport#BROKER_INGEST` — `BrokerChannels.Mqtt` bridges `IMqttClient.ApplicationMessageReceivedAsync` through one bounded channel onto the identical `IAsyncEnumerable<Fin<SensorEnvelope<T>>>` the NATS pump yields, so `Capture` consumes either dialect with no arm; `AutoAcknowledge` stays false with the ack riding the successful enqueue so a shed QoS 1/2 delivery redelivers, and the W3C pair extracts from `MqttApplicationMessage.UserProperties` through `ReadValueAsString` rather than the `[Obsolete]` `Value`. Parent adoption needed no row: the kernel `TraceCarrier.Parent` and `SpanEdge.Under` already own the ingress bracket, so the leg hands the carrier outward rather than re-minting it.
 [GEOMETRY_LAKE_EGRESS]-[COMPLETE]: realized in `.planning/Runtime/codecs#ARROW_BATCH` — `GeometryDataset` carries one `PackKind` corpus, `ArrowBatch.Geometry` wraps each kernel channel arena as a `FixedSizeList` column with zero gather, and `ArrowBatch.Landing` fills the custodian's `LandingArm.Geometry` row keying its tree on the kernel `PackSchema.SchemaId`; the arm arrived here because S0 reaches neither the landing coordinate nor `Apache.Arrow` and holds no geometry corpus. Category is LANDING-TIME: a content-addressed encode carries no observation clock, so the dataset declares no time column and no wall-clock metadata, which keeps a retry byte-identical.
 [DOE_LAKE_EGRESS]-[COMPLETE]: realized in `.planning/Runtime/codecs#ARROW_BATCH` — `ArrowBatch.Doe`/`Chargeback` seal the batches and `ArrowBatch.Landing` projects each onto the `LakeGeneration` coordinate `Rasm.Persistence` `Query/columnar#FLAT_TABLE_EGRESS` `Land` writes; the card's Flight push is refuted — the branch's one columnar custodian owns the landing door and Flight serves reads alone, so byte framing arises only where the `topology` axis splits the processes and the composition root frames it.

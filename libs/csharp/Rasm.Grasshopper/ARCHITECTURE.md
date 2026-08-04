@@ -117,15 +117,17 @@ config:
 ---
 flowchart LR
     accTitle: Grasshopper host-boundary kernel seams
-    accDescr: Grasshopper host-boundary sub-domain owners admitting the Rasm kernel's monotonic timing and perceptual-colour authorities as boundary contracts, one edge per contract family labeled by kind.
+    accDescr: Grasshopper host-boundary sub-domain owners admitting the Rasm kernel's monotonic timing, perceptual-colour, and model-context authorities as boundary contracts, one edge per contract family labeled by kind.
     subgraph grasshopper[RASM.GRASSHOPPER]
         Canvas[Canvas boundary]
         Document[Document gates]
         Eto[Eto runtime]
         Shell[Shell session]
         Platform[Platform native]
+        Components[Component authoring]
     end
     Rasm([Rasm])
+    Rasm -->|"[BOUNDARY]: Context"| Components
     Rasm -->|"[BOUNDARY]: MonotonicTimeline"| Canvas
     Rasm -->|"[BOUNDARY]: PerceptualColor"| Canvas
     Rasm -->|"[BOUNDARY]: MonotonicTimeline"| Document
