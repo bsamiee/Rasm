@@ -161,7 +161,7 @@ public sealed class ReferenceEmissionLaws {
         _ = ctx.Certify(key: new EvidenceName(Key: "span"), actual: JsonSerializer.SerializeToElement(value: 2.5), tolerance: default);
         Assert.Equal(expected: 2, actual: ctx.ReferenceCount);
         Assert.Equal(expected: 2, actual: ctx.FactCount);
-        Assert.Equal(expected: ["reference.axis", "reference.span"], actual: log.Select(selector: static row => row.Key));
+        Assert.Equal(expected: ["reference.axis", "reference.span"], actual: log.Select(selector: static row => row.Key), comparer: StringComparer.Ordinal);
     }
 
     [Theory]
@@ -187,7 +187,7 @@ public sealed class ManifestAndArtifactLaws {
         ctx.Manifest(role: EvidenceRole.GeometryManifest, key: new EvidenceName(Key: "k"), value: 2);
         ctx.Manifest(role: EvidenceRole.ViewportManifest, key: new EvidenceName(Key: "k"), value: 3);
         ctx.Manifest(role: EvidenceRole.Gh2CanvasManifest, key: new EvidenceName(Key: "k"), value: 4);
-        Assert.Equal(expected: ["manifest.object.k", "manifest.geometry.k", "manifest.viewport.k", "manifest.gh2.k"], actual: log.Select(selector: static row => row.Key));
+        Assert.Equal(expected: ["manifest.object.k", "manifest.geometry.k", "manifest.viewport.k", "manifest.gh2.k"], actual: log.Select(selector: static row => row.Key), comparer: StringComparer.Ordinal);
         Assert.Equal(expected: 4, actual: ctx.FactCount);
         _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: () => ctx.Manifest(role: EvidenceRole.Reference, key: new EvidenceName(Key: "k"), value: 5));
         Assert.Equal(expected: 4, actual: ctx.FactCount);
@@ -265,7 +265,7 @@ public sealed class FactKeyGrammarLaws {
         List<(string Key, object? Value)> log = [];
         ScenarioContext ctx = EvidenceGens.Context(log: log);
         _ = ctx.Case(name: "probe", action: static () => Fin.Succ(value: unit));
-        Assert.Equal(expected: ["case.probe.start", "case.probe.status"], actual: log.Select(selector: static row => row.Key));
+        Assert.Equal(expected: ["case.probe.start", "case.probe.status"], actual: log.Select(selector: static row => row.Key), comparer: StringComparer.Ordinal);
         Assert.Equal(expected: "ok", actual: log[1].Value);
     }
 
@@ -278,7 +278,7 @@ public sealed class FactKeyGrammarLaws {
         string stamp = ctx.Stamp(stem: "probe");
         Assert.EndsWith(expectedEndString: "probe.bin", actualString: path, comparisonType: StringComparison.Ordinal);
         Assert.StartsWith(expectedStartString: "probe-", actualString: stamp, comparisonType: StringComparison.Ordinal);
-        Assert.Equal(expected: ["scratch.path", "stamp"], actual: log.Select(selector: static row => row.Key));
+        Assert.Equal(expected: ["scratch.path", "stamp"], actual: log.Select(selector: static row => row.Key), comparer: StringComparer.Ordinal);
         Assert.Equal(expected: 2, actual: ctx.FactCount);
         // A stem that escapes the scratch root is an input guard that facts nothing: upward
         // traversal and rooted stems both refuse before any evidence lands.
@@ -295,7 +295,7 @@ public sealed class FactKeyGrammarLaws {
         ScenarioContext ctx = EvidenceGens.Context(log: log);
         Spec.Fail(result: ctx.Case(name: "boom", action: static () => throw new InvalidOperationException(message: "kaput")), then: static error =>
             Assert.Contains(expectedSubstring: "kaput", actualString: error.Message, comparisonType: StringComparison.Ordinal));
-        Assert.Equal(expected: ["case.boom.start", "case.boom.status"], actual: log.Select(selector: static row => row.Key));
+        Assert.Equal(expected: ["case.boom.start", "case.boom.status"], actual: log.Select(selector: static row => row.Key), comparer: StringComparer.Ordinal);
         Assert.StartsWith(expectedStartString: "failed:", actualString: (string)log[1].Value!, comparisonType: StringComparison.Ordinal);
         _ = ctx.Case(name: "after", action: static () => Fin.Succ(value: unit));
         Assert.Equal(expected: "ok", actual: log[3].Value);

@@ -88,10 +88,10 @@ public sealed class TestInfrastructurePrimitiveLaws {
         // Typed derivation: [CspExempt] and [CspScope(Tooling)] sites exempt themselves; any other
         // scope carries the full obligation — the matching runs on the real attribute types.
         SutTarget self = Laws.Sut(sutAssembly: typeof(TestInfrastructurePrimitiveLaws).Assembly);
-        Assert.Contains(expected: nameof(ExemptSite), collection: self.ExemptNames);
-        Assert.Contains(expected: nameof(ExemptSite.Reached), collection: self.ExemptNames);
-        Assert.Contains(expected: nameof(ToolingSite), collection: self.ExemptNames);
-        Assert.DoesNotContain(expected: nameof(DomainSite), collection: self.ExemptNames);
+        Assert.Contains(expected: nameof(ExemptSite), collection: self.ExemptNames, comparer: StringComparer.Ordinal);
+        Assert.Contains(expected: nameof(ExemptSite.Reached), collection: self.ExemptNames, comparer: StringComparer.Ordinal);
+        Assert.Contains(expected: nameof(ToolingSite), collection: self.ExemptNames, comparer: StringComparer.Ordinal);
+        Assert.DoesNotContain(expected: nameof(DomainSite), collection: self.ExemptNames, comparer: StringComparer.Ordinal);
         Assert.Equal(expected: 3, actual: DomainSite.Reached());
     }
 
@@ -320,7 +320,7 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Spec), nameof(Spec.Catalog), Member = nameof(Spec.Catalog))]
     public void CatalogGatesKeyUniquenessAndExactMembership() {
-        Spec.Catalog(items: (string[])["alpha", "beta"], expectedKeys: ["alpha", "beta"], key: static item => item, law: static item => Assert.NotEqual(expected: "", actual: item));
+        Spec.Catalog(items: (string[])["alpha", "beta"], expectedKeys: ["alpha", "beta"], key: static item => item, law: static item => Assert.NotEqual(expected: "", actual: item, comparer: StringComparer.Ordinal));
         _ = Assert.ThrowsAny<XunitException>(testCode: static () => Spec.Catalog(items: (string[])["alpha", "alpha"], expectedKeys: ["alpha", "alpha"], key: static item => item));
         _ = Assert.ThrowsAny<XunitException>(testCode: static () => Spec.Catalog(items: (string[])["alpha", "beta"], expectedKeys: ["alpha", "gamma"], key: static item => item));
     }

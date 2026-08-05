@@ -260,13 +260,12 @@
         <Using Include="Thinktecture" />
     </ItemGroup>
 
-    <!-- Colliding global namespaces demote to aliases; host namespaces stay on host-aware strata. -->
+    <!-- Colliding global namespaces demote to aliases; host namespaces stay on host-aware strata.
+         Kernel namespaces are per-project rows on the boundary manifests that consume them, never a central injection. -->
     <ItemGroup Label="Grasshopper-Aware Usings" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Using Include="Eto.Drawing" />
         <Using Include="Grasshopper2.Types.Numeric" />
         <Using Include="Grasshopper2.UI" />
-        <Using Include="Rasm.Analysis" />
-        <Using Include="Rasm.Domain" />
         <Using Include="Rhino.Geometry" />
         <Using Include="System.Runtime.InteropServices" />
     </ItemGroup>

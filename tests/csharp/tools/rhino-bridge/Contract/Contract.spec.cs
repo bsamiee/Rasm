@@ -310,7 +310,7 @@ public sealed class WireVocabularyLaws {
 
     [Fact]
     public void EvidenceModeKeysAreTheFrozenTokens() {
-        Assert.Equal(expected: ["verify", "author"], actual: EvidenceMode.Items.Select(selector: static mode => mode.Key));
+        Assert.Equal(expected: ["verify", "author"], actual: EvidenceMode.Items.Select(selector: static mode => mode.Key), comparer: StringComparer.Ordinal);
         Assert.Same(expected: EvidenceMode.Author, actual: EvidenceMode.Get(key: "author"));
         Assert.False(condition: EvidenceMode.TryGet(key: "chaos", item: out _));
     }
@@ -319,7 +319,8 @@ public sealed class WireVocabularyLaws {
     public void ReferenceAdmissionKeysStayAdditive() =>
         Assert.Equal(
             expected: ["reviewed", "candidate", "unpromoted", "missing", "mismatch", "matched"],
-            actual: ReferenceAdmission.Items.Select(selector: static admission => admission.Key));
+            actual: ReferenceAdmission.Items.Select(selector: static admission => admission.Key),
+            comparer: StringComparer.Ordinal);
 
     [Theory]
     [InlineData("case.volume.status", "assertion")]
@@ -366,10 +367,10 @@ public sealed class SelectionFilterLaws {
 
     [Fact]
     public void NamesMatchExactGlobAndBareMethod() {
-        Assert.Equal(expected: ["blocks.Baseline"], actual: new ScenarioSelection.NamesCase(Names: ["blocks.Baseline"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name));
-        Assert.Equal(expected: ["blocks.Baseline", "blocks.Insert"], actual: new ScenarioSelection.NamesCase(Names: ["blocks.*"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name));
-        Assert.Equal(expected: ["vectors.CoreRail"], actual: new ScenarioSelection.NamesCase(Names: ["CoreRail"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name));
-        Assert.Equal(expected: ["blocks.Baseline"], actual: new ScenarioSelection.NamesCase(Names: ["Base*"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name));
+        Assert.Equal(expected: ["blocks.Baseline"], actual: new ScenarioSelection.NamesCase(Names: ["blocks.Baseline"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name), comparer: StringComparer.Ordinal);
+        Assert.Equal(expected: ["blocks.Baseline", "blocks.Insert"], actual: new ScenarioSelection.NamesCase(Names: ["blocks.*"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name), comparer: StringComparer.Ordinal);
+        Assert.Equal(expected: ["vectors.CoreRail"], actual: new ScenarioSelection.NamesCase(Names: ["CoreRail"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name), comparer: StringComparer.Ordinal);
+        Assert.Equal(expected: ["blocks.Baseline"], actual: new ScenarioSelection.NamesCase(Names: ["Base*"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name), comparer: StringComparer.Ordinal);
     }
 
     [Fact]
@@ -397,11 +398,11 @@ public sealed class EnvelopeWireLaws {
                 "host", "capabilities", "scenarios", "evidence", "firstFailure", "firstScenarioFailure",
                 "firstSessionFault", "firstFaultPhase", "fault", "phaseReceipts", "certificatePath",
                 "artifactRefs", "evidenceCounts", "scenarioCounts", "spool"],
-            action: field => Assert.Contains(expected: field, collection: fields));
+            action: field => Assert.Contains(expected: field, collection: fields, comparer: StringComparer.Ordinal));
         string[] scenarioFields = [.. document.RootElement.GetProperty(propertyName: "scenarios")[0].EnumerateObject().Select(selector: static property => property.Name)];
         Assert.All(
             collection: (string[])["scenario", "status", "scenarioStatus", "durationMs", "fault", "referenceResults", "firstScenarioFailure"],
-            action: field => Assert.Contains(expected: field, collection: scenarioFields));
+            action: field => Assert.Contains(expected: field, collection: scenarioFields, comparer: StringComparer.Ordinal));
     }
 
     [Fact]

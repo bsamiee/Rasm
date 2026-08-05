@@ -69,8 +69,8 @@ public sealed class AssemblyBoundaryLaws {
         Assert.Equal(
             expected: Sorted(rows: disk.Except(second: HostBoundaryRows, comparer: StringComparer.Ordinal)),
             actual: Sorted(rows: solution));
-        Assert.All(collection: HostBoundaryRows, action: row => Assert.Contains(expected: row, collection: disk));
-        Assert.Contains(expected: "tests/csharp/scenarios/Rasm.Scenarios.csproj", collection: solution);
+        Assert.All(collection: HostBoundaryRows, action: row => Assert.Contains(expected: row, collection: disk, comparer: StringComparer.Ordinal));
+        Assert.Contains(expected: "tests/csharp/scenarios/Rasm.Scenarios.csproj", collection: solution, comparer: StringComparer.Ordinal);
     }
 
     [Fact]

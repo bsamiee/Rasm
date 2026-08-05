@@ -10,9 +10,4 @@
         <ProjectReference Include="../_benchmarks/Rasm.Benchmarks.csproj" />
         <ProjectReference Include="../_scenariokit/Rasm.ScenarioKit.csproj" />
     </ItemGroup>
-    <!-- Host-free: the retired-kernel namespaces the Grasshopper-aware classification injects are dropped; rules load only host-free assemblies. -->
-    <ItemGroup Label="Kernel-Free Usings">
-        <Using Remove="Rasm.Analysis" />
-        <Using Remove="Rasm.Domain" />
-    </ItemGroup>
 </Project>

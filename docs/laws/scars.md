@@ -95,3 +95,8 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 [REFUTED_MECHANISM_RECORD]:
 - Law: A mechanism disproved on its owning rail lands the refutation at the generating catalog clause, never in the receipt alone.
 - Trigger: An untouched generating clause re-derives the refuted prescription on the next pass.
+
+[MANIFEST_NAMES_UNREALIZED_SURFACE]:
+- Law: A build manifest names only what its own compiled closure provides; a namespace the source estate has yet to realize belongs to the fence that consumes it.
+- Trigger: The row hard-fails the one consumer that cannot drop it while every sibling carries a removal row that reads as deliberate configuration.
+- Boundary: The law spans every injection kind — a project `Using`, a `Using Alias`, and the central row a classifier fans out across a lane.
