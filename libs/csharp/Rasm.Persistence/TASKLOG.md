@@ -41,6 +41,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: the `#BENCHMARK_INDEX` content-address and recency precedent, the Fabrication memo-key origin.
 - Ripple: `Rasm.Fabrication` `[SOLVER_MEMO_CACHE]`.
 
+[ROLLING_WINDOW_PARTITIONS]-[QUEUED]: Rolling range partitions retire aged time-series rows by dropping a partition rather than sweeping them.
+- Capability: a date-keyed document family declares its own retention window on its mapping, so the trailing edge retires as a partition drop the database performs in constant time and the leading edge provisions ahead of the clock — a whole retention class stops paying per-row sweep cost.
+- Shape: a `ByRollingRange` declaration on the observability usage-series and evidence-bundle mappings at `Store/provisioning`, plus the maintenance verbs seated on the existing startup migration leg beside `ApplyAllDatabaseChangesOnStartup`.
+- Unlocks: `Version/retention#SWEEP_AND_GC` stops enumerating aged rows for the declared-expiry classes, keeping the receipted sweep for the content-keyed classes that genuinely need reachability.
+- Anchors: `.api/api-marten.md` rolling-partition rows — the declaration asserts its duplicated date key at configuration time, one shared manager rolls several tables in one pass, a `DEFAULT` overflow partition means an out-of-window row stores rather than failing, and the three `store.Advanced` verbs split roll-forward from drop-aged so the destructive half is opt-in.
+- Tension: the trailing drop is a real deletion the retention receipt rail must still account for, so the conservation identity has to admit a partition-drop verdict rather than counting per-row evictions.
+
 [SEARCH_WIRE_PROJECTION]-[QUEUED]: Search wire projection — the retrieval lane exposes one typed query/result wire with corpus-coverage rows for the document-search plane.
 - Capability: the landed BM25/tsquery retrieval owner projects a typed query/result wire — query union in, ranked hits with branch lineage out — and coverage rows admit the notebook-cell, issue-text, and evidence-payload corpora onto the indexed set.
 - Shape: wire members on `libs/csharp/Rasm.Persistence/.planning/Query/retrieval.md` beside the fusion fold; one coverage row per corpus naming its indexed columns.

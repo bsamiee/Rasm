@@ -70,6 +70,9 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 - [ALWAYS]: land new functionality as if designed in from the start, never as tacked-on flat-code spam.
 - [ALWAYS]: extend a class to the full concept it admits NOW — a 4-field shape for a 12+ concept widens in place, never proliferates objects.
 - [ALWAYS]: treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar.
+- [ALWAYS]: compose existing logic before minting parallel forms; wire new logic into consumers same-pass — a file no owner reaches is a dead end.
+- [ALWAYS]: route a wanted capability DOWN-STRATA to the lowest folder that nearly holds it; surgical substrate work powers every consumer above.
+- [ALWAYS]: land a consumer need at its owning libs/ folder as the GENERAL capability — the higher-order axis it instantiates, never its literal.
 - [ALWAYS]: co-locate domain logic with its owner instead of scattering it into generic support files.
 - [ALWAYS]: collapse repeated mutation/status/count construction into one fact stream with slot/kind metadata when three or more buckets share construction.
 - [ALWAYS]: keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.

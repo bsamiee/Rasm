@@ -44,6 +44,7 @@ Every reopen predicate rides the license gate.
 - Adjoint sensitivity is `Rasm.Compute`'s — the kernel emits `MeshAdjointSnapshot`, its own differentiation staying `Lm`'s forward-mode dual floor.
 - `PerceptualColor` egress splits on TRANSFER, never on member — the byte leg is the one content-key quantizer and the profile leg names an `RgbTransfer` row; a sibling egress member forks the quantizer.
 - A kernel law binds only where its compliant construction is public — `RgbProfile.Viewed` and `DeltaMetric.Measure` publish because the stated-condition law legislates every direct-`Unicolour` composer.
+- Deriving a colour that must MEET a stated contrast ratio is kernel work, never call-site work — `PerceptualColor.ToneFor` walks the tonal axis in a `ToneSweep` direction to the least extreme rung clearing the ratio and REFUSES where no tone clears it, so a consumer cannot ship the nearest miss as a readable pigment; the recurring move bisects `Tone` against `Contrast` beside a token generator, and re-litigation opens only if a caller needs a non-monotone ordering, which is the same evidence that would earn a comparator argument.
 - `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its place only by adding admission, never by restating the mechanism.
 - `TenantContext.Key` is the one tenancy-discriminant read — every store, GUC, and series key folds that `Option`; a re-derived `Partitions ? Entry : absent` ternary is the deleted form.
 

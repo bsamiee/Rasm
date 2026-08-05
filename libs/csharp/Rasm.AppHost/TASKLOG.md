@@ -20,7 +20,29 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-(none)
+[MCP_PROTOCOL_REVISION_ELECTION]-[ACTIVE]: Elect the MCP protocol revision the agent endpoint serves, and rebuild the transport composition onto the elected rail.
+- Capability: the endpoint states ONE served revision as a settled decision with its cost named, so the resumability, sampling, and session architecture all derive from that election rather than each pinning a knob the others contradict.
+- Shape: `Agent/mcp#APP_ROOT` transport composition and `#STREAM_PROGRESS` whole, with the `McpRuntime.Events` field and the `OutboxEventStreamStore` adapter standing or falling on the outcome; `#TOOL_DISPATCH` `ServerInitiated` follows the same election.
+- Unlocks: every downstream MCP fence composes members the elected revision actually serves, and the SSE-resumption architecture either earns its outbox seat or is deleted whole.
+- Anchors: `.api/api-mcp.md` — the transport now serves stateless by default and REFUSES the current revision when statefulness is forced on, so the two rails are mutually exclusive rather than layered; the whole SSE event-store family (`ISseEventStreamStore`/`Reader`/`Writer`, `SseEventStreamOptions`, `SseEventStreamMode`, `EventStreamStore`, `SessionMigrationHandler`, `PerSessionExecutionContext`, `IdleTimeout`, `MaxIdleSessionCount`) and the sampling family (`AsSamplingChatClient`, `SampleAsync`, `RequestRootsAsync`, the logging leg) are back-compat escape hatches the SDK marks obsolete; MRTR (`InputRequiredException`, `InputRequest`, `InputResponse`, `RequestState`) is the stateless replacement for every server-to-client round trip.
+- Tension: the down-level rail keeps `AsSamplingChatClient` — the one bridge `Agent/reasoning#MODEL_GOVERNANCE` wraps into the governed pipeline — and keeps `Last-Event-ID` frame replay, while the current rail trades both for a stateless endpoint whose long calls resume by client retry; the elicitation leg survives either way because the SDK bridges it.
+- Ripple: precedes `[MCP_RETRY_IDEMPOTENT_DISPATCH]`.
+
+[MCP_RETRY_IDEMPOTENT_DISPATCH]-[BLOCKED]: Make the brokered dispatch idempotent across a multi-round-trip retry, so a suspended tool call charges its grant and mints its receipt exactly once.
+- Capability: a tool body reached repeatedly for one logical call carries a stable identity across the rounds, so the cost preview, the grant charge, the elicited consent, and the receipt mint each happen once no matter how many times the client re-sends.
+- Shape: `Agent/mcp#TOOL_DISPATCH` — `McpDispatch.Call`'s pre-flight ask keyed off the retry state rather than re-run per round, `ServerInitiated.Confirm` re-cut onto the input-required rail, and `CommandArguments` carrying the round identity.
+- Unlocks: long agent calls survive a disconnect with no host-held task cell and no double-charged grant.
+- Anchors: `.api/api-mcp.md` MRTR rows — a handler throws to suspend and the client RETRIES the same call with the answers plus an echoed opaque state, so the handler runs once per round and its side effects repeat unless keyed; `McpServer.IsMrtrSupported` is the availability guard; the existing `GrantBroker.Admit(dryRun: true)` fold is the pricing seat that must not re-charge.
+- Arms: `[MCP_PROTOCOL_REVISION_ELECTION]` settling which rail the endpoint serves — the retry shape is the current rail's, and the down-level rail keeps the single-pass session round trip instead.
+- Ripple: follows `[MCP_PROTOCOL_REVISION_ELECTION]`.
+
+[BACNET_SERIAL_LINE_ADAPTER]-[QUEUED]: Bind the BACnet MS/TP row to the already-admitted serial line through the package's own transport abstraction.
+- Capability: the MS/TP transport reaches a real RS-485 bus over the one serial owner the branch already admits, so a building controller on a bus binds through the same line policy the `serial` transport row configures and no second serial package enters the folder.
+- Shape: one adapter on `Wire/livewire#TRANSPORT_BINDING` implementing the package's serial-transport interface over the held `SerialPort`, seated beside `SerialLane`, with the MS/TP construction taking it.
+- Unlocks: the `bacnet` transport row serves bus-attached controllers, not BACnet/IP alone.
+- Anchors: `.api/api-bacnet.md` — the MS/TP and PTP transports take a host-implemented `IBacnetSerialTransport` and the package ships no concrete serial line of its own; `.api/api-serialport.md` carries the `SerialPort` open/read/write/`RtsEnable` surface the adapter folds onto, and the RS-485 half-duplex transceiver line is already the serial row's declared policy.
+- Tension: the vendored companion package carrying the ready-made implementation would admit a fourth package for five members against one adapter over a line the branch already opens.
+- Atomic: one adapter record over an existing line owner.
 
 ## [02]-[CLOSED]
 
