@@ -53,6 +53,7 @@ Each table routes a concept to the C# 14 form that owns it; the most specific ro
 |  [03]   | call-site arity                  | one `params ReadOnlySpan<T>` parameter             | per-arity overload family              |
 |  [04]   | array-to-span at the call site   | C# 14 first-class `Span`/`ReadOnlySpan` conversion | a manual `.AsSpan()` adapter overload  |
 |  [05]   | residual span-overload ambiguity | `[OverloadResolutionPriority]` during a collapse   | a breaking rename or a dummy parameter |
+|  [06]   | leftover-slot tuple element name | a non-reserved name (`Remainder`, `Tail`)          | `Rest`/`ItemN` — reserved, CS8126      |
 
 [KERNEL_AND_LITERAL_FORMS]: stack-only layout in a measured kernel, and structured text stated as a literal.
 
