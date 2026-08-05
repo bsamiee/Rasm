@@ -58,6 +58,8 @@
         <BaseOutputPath Condition="'$(ArtifactsPath)' != '' and '$(ArtifactsProjectName)' != ''">$(ArtifactsPath)/bin/$(ArtifactsProjectName)/</BaseOutputPath>
         <BaseOutputPath Condition="'$(BaseOutputPath)' == '' and '$(IsCentralizedOutputProject)' == 'true'">$(MSBuildThisFileDirectory).artifacts/build/bin/$(CentralOutputToken)/</BaseOutputPath>
         <BaseIntermediateOutputPath Condition="'$(BaseIntermediateOutputPath)' == '' and '$(IsCentralizedOutputProject)' == 'true'">$(MSBuildThisFileDirectory).artifacts/build/obj/$(CentralOutputToken)/</BaseIntermediateOutputPath>
+        <!-- IKVM caches the MPXJ Java closure in the machine temp dir; repo-local it survives temp eviction, so the minutes-long recompile and its vendor-closure warning wall stop recurring. -->
+        <IkvmCacheDir>$(MSBuildThisFileDirectory).cache/ikvm/</IkvmCacheDir>
     </PropertyGroup>
 
     <PropertyGroup Label="Bridge Scenario Runtime" Condition="'$(IsTestProject)' == 'true'">
