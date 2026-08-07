@@ -1,6 +1,6 @@
-# [RASM_PERSISTENCE_API_NATS]
+# [RASM_API_NATS]
 
-`NATS.Net` owns the NATS protocol for this branch: Core pub/sub and request-reply, JetStream durable streams under an awaited broker publish-ack, and the JetStream KeyValue and Object Store backends. An awaited `PubAckResponse` is the only durable delivery evidence the protocol produces, so a Core publish never backs a durable row. Payload shape belongs to the serializer registry — NATS frames opaque bytes and never inspects them. Core and JetStream feed the changefeed egress rail; KV and Object Store feed the distributed store-backend rail.
+`NATS.Net` owns the NATS protocol for this branch: Core pub/sub and request-reply, JetStream durable streams under an awaited broker publish-ack, and the JetStream KeyValue and Object Store backends. An awaited `PubAckResponse` is the only durable delivery evidence the protocol produces, so a Core publish never backs a durable row. Payload shape belongs to the serializer registry — NATS frames opaque bytes and never inspects them. Two folders bind disjoint legs of one meta-package: `Rasm.Persistence` owns the JetStream durable-stream, publish-ack, KV, and Object-Store rails feeding the changefeed egress and distributed store-backend rows, and `Rasm.Compute` binds the `NATS.Client.Core` subscription ingest seam — one `NatsMsg<byte[]>` per sensor sample onto `WorkLane.CaptureIngest` — beside its `RequestAsync`/`ReplyAsync` remote-compute RPC leg.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - namespace: `NATS.Net`, `NATS.Client.Core`, `NATS.Client.JetStream`(`.Models`), `NATS.Client.KeyValueStore`, `NATS.Client.ObjectStore`, `NATS.Client.Services`, `NATS.Client.Hosting`, `NATS.Client.Serializers.Json`
 - target: `net10.0`
 - asset: pure-managed AnyCPU over the TCP and WebSocket NATS transports
-- rail: messaging-protocol for the changefeed egress leg, jetstream-store-backend for the KV and Object tiers
+- rail: messaging-protocol for the changefeed egress leg, jetstream-store-backend for the KV and Object tiers, capture-ingest for the Compute sensor seam
 
 [SUB_CLIENT_MAP]: assembly to owned concern; `NATS.Client.Abstractions` carries the serializer contracts and the socket-connection interfaces (`INatsSocketConnection`/`INatsTlsUpgradeableSocketConnection`, namespace `NATS.Client.Core`), and `NATS.NKeys` the credential primitives.
 
@@ -44,17 +44,19 @@
 |  [11]   | `NatsMsg<T>`                 | struct        | `Subject`/`Data`/`Headers`/`ReplyTo`/`Flags`; `ReplyAsync` |
 |  [12]   | `NatsMsgBuilder<T>`          | class         | mutable message build with its own serializer slot         |
 |  [13]   | `NatsHeaders`                | class         | the `IDictionary<string, StringValues>` header carrier     |
-|  [14]   | `NatsResult`                 | struct        | the non-throwing `Success`/`Error` rail                    |
-|  [15]   | `NatsResult<T>`              | struct        | the same rail carrying `Value`                             |
-|  [16]   | `NatsAuthOpts`               | class         | creds, NKey, JWT, token; `AuthCredCallback` rotation hook  |
-|  [17]   | `NatsAuthCred`               | struct        | one resolved credential                                    |
-|  [18]   | `NatsTlsOpts`                | class         | TLS mode, client certificate, CA bundle                    |
-|  [19]   | `NatsWebSocketOpts`          | class         | WebSocket transport options                                |
-|  [20]   | `NatsStats`                  | struct        | sent and received bytes and messages, pending, subs        |
-|  [21]   | `NatsInstrumentationOptions` | class         | `Filter` and `Enrich` on the `Default` static              |
-|  [22]   | `NatsInstrumentationContext` | struct        | subject, headers, connection, `ParentContext`              |
-|  [23]   | `NatsServerErrorEventArgs`   | class         | `Error` text with the parsed `NatsServerErrorKind`         |
-|  [24]   | `Nuid`                       | class         | the id generator behind inbox and object keys              |
+|  [14]   | `INatsSub<T> : INatsSub`     | interface     | manual-drain handle; `Msgs` channel, `DrainAsync` fences   |
+|  [15]   | `NatsMsgFlags` (byte enum)   | enum          | `None`/`Empty`/`NoResponders` — `IsEmpty`/`HasNoResponders`|
+|  [16]   | `NatsResult`                 | struct        | the non-throwing `Success`/`Error` rail                    |
+|  [17]   | `NatsResult<T>`              | struct        | the same rail carrying `Value`                             |
+|  [18]   | `NatsAuthOpts`               | class         | creds, NKey, JWT, token; `AuthCredCallback` rotation hook  |
+|  [19]   | `NatsAuthCred`               | struct        | one resolved credential                                    |
+|  [20]   | `NatsTlsOpts`                | class         | TLS mode, client certificate, CA bundle                    |
+|  [21]   | `NatsWebSocketOpts`          | class         | WebSocket transport options                                |
+|  [22]   | `NatsStats`                  | struct        | sent and received bytes and messages, pending, subs        |
+|  [23]   | `NatsInstrumentationOptions` | class         | `Filter` and `Enrich` on the `Default` static              |
+|  [24]   | `NatsInstrumentationContext` | struct        | subject, headers, connection, `ParentContext`              |
+|  [25]   | `NatsServerErrorEventArgs`   | class         | `Error` text with the parsed `NatsServerErrorKind`         |
+|  [26]   | `Nuid`                       | class         | the id generator behind inbox and object keys              |
 
 - `NatsConnection.GetStats()`: internal, so `NatsStats` reads only through a wrapper the assembly itself composes; process telemetry comes off the `NATS.Net` `ActivitySource`.
 - `NatsOpts.SocketConnectionFactory` (`INatsSocketConnectionFactory`) swaps the transport for a custom `INatsSocketConnection`/`INatsTlsUpgradeableSocketConnection`; the default socket stands unless one is supplied.
@@ -133,6 +135,8 @@ Every op is async under a trailing `CancellationToken`, and `-> T` names the awa
 |  [06]   | `INatsConnection.RequestManyAsync<TReq, TRep>(string, TReq)`          | instance | scatter-gather, replies streamed         |
 |  [07]   | `INatsConnection.NewInbox() -> string`                                | instance | mint a reply-inbox subject               |
 |  [08]   | `INatsSub<T>.DrainAsync()`                                            | instance | drain one sub, connection stays open     |
+|  [09]   | `msg.Headers?.TryGetValue(name, out StringValues v)`                  | instance | non-throwing W3C trace-pair extract      |
+|  [10]   | `msg.ReplyAsync<TReply>(data, headers?, …)`                           | instance | reply to a request-subject message       |
 
 [JETSTREAM_PUBLISH]: `INatsJSContext` publish and admin — the durable leg.
 
@@ -215,35 +219,34 @@ Every op is async under a trailing `CancellationToken`, and `-> T` names the awa
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `NatsConnection` is the long-lived thread-safe root multiplexing every subject over one socket and disposed as `IAsyncDisposable`; `CreateJetStreamContext`, `CreateKeyValueStoreContext`, and `CreateObjectStoreContext` mint lightweight views over it, and `NatsConnectionPool` fans publishes across N connections only where raw throughput demands it.
+- `NatsConnection` is the long-lived thread-safe root multiplexing every subject over one socket and disposed as `IAsyncDisposable`; `CreateJetStreamContext`, `CreateKeyValueStoreContext`, and `CreateObjectStoreContext` mint lightweight views over it, and `NatsConnectionPool` fans publishes across N connections only where raw throughput demands it. Compute owns its capture subscriber independent of the Persistence egress connection — constructed once and shared across the capture lane, never per-subscription and never a process-global static.
 - Every entry point (`NatsConnection`, `NatsClient`, the `AddNats` DI builder) shares one `NatsOpts` subscription default — a 16384-slot pending channel with `BoundedChannelFullMode.DropNewest` surfacing overflow through `MessageDropped` rather than stalling the socket read loop into a slow-consumer disconnect.
 - `NatsOpts.RequestReplyMode` defaults to `NatsRequestReplyMode.Direct`: a `RequestAsync` reply correlates on the connection's existing inbox subscription with the per-reply muxer skipped, `NatsNoRespondersException` still thrown at the no-responder reply; `SharedInbox` restores the per-request subscription-and-channel mechanism.
 - Core `PublishAsync` returns once the frame is written, so the awaited `INatsJSContext.PublishAsync` and its `PubAckResponse` are the protocol's only durable delivery evidence; `TryPublishAsync` carries the same ack on the `NatsResult<T>` rail instead of throwing.
 - `PubAckResponse.Duplicate` reports the broker recognizing a prior `Nats-Msg-Id` inside the stream's `StreamConfig.DuplicateWindow`, which makes idempotent publish the exactly-once-effective primitive; `NatsJSDuplicateMessageException` is the distinct duplicate-sequence rejection, never the benign window hit.
-- `ConsumerConfig` owns redelivery through `AckPolicy`, `AckWait`, `MaxDeliver`, and `Backoff`, and `INatsJSMsg<T>` closes each message with `AckAsync`, `NakAsync`, `AckProgressAsync`, or `AckTerminateAsync`; each consumer group tracks its own cursor independent of any store cursor a reader keeps; `NatsJSConsumeOpts.DrainOnCancel` opts a consume loop into delivering buffered messages after cancellation so handlers still ack, the default stopping immediately, and `INatsSub<T>.DrainAsync` is the Core-subscription counterpart fencing in-flight deliveries without tearing the connection.
+- `ConsumerConfig` owns redelivery through `AckPolicy`, `AckWait`, `MaxDeliver`, and `Backoff`, and `INatsJSMsg<T>` closes each message with `AckAsync`, `NakAsync`, `AckProgressAsync`, or `AckTerminateAsync`; each consumer group tracks its own cursor independent of any store cursor a reader keeps; `NatsJSConsumeOpts.DrainOnCancel` opts a consume loop into delivering buffered messages after cancellation so handlers still ack, the default stopping immediately, and `INatsSub<T>.DrainAsync` is the Core-subscription counterpart fencing in-flight deliveries without tearing the connection — the graceful stop for one capture subscriber.
+- `SubscribeAsync<byte[]>(subject, queueGroup, ct)` drains through `await foreach` until `ct` trips or the connection drops, one `NatsMsg<byte[]>` per iteration; `queueGroup` load-balances the sensor subject across N capture subscribers, null for one.
 - `NatsOpts.SerializerRegistry` fixes the per-type codec at construction, so `NatsRawSerializer<T>` carries already-encoded bytes and `NatsJsonContextSerializer<T>` the AOT-safe source-generated JSON form.
 - `INatsKVStore.CreateAsync` and `UpdateAsync(key, value, revision)` are the create-if-absent and revision-CAS pair, refusing through `NatsKVCreateException` and `NatsKVWrongLastRevisionException`; `WatchAsync` is the changefeed and `HistoryAsync` the revision replay.
 - `NatsInstrumentationOptions.Default` is process-static, so `Filter` and `Enrich` bind once for the whole process; spans emit on the `NATS.Net` `ActivitySource` under `messaging.system = nats`.
 
 [STACKING]:
-- `CloudNative.CloudEvents`(`.api/api-cloudevents.md`): no NATS protocol binding ships, so the egress leg maps the envelope onto `NatsHeaders` itself — `Nats-Msg-Id` from the content key beside the `traceparent` rows — and hands `NatsRawSerializer<T>` the formatter's bytes.
-- `Confluent.Kafka`(`.api/api-kafka.md`), `RabbitMQ.Client`(`.api/api-rabbitmq.md`), `DotPulsar`(`.api/api-dotpulsar.md`): peer `EgressSink` rows over one op-log envelope, each folding its provider outcome to `DeliveryAck` at its own leg boundary.
-- `StackExchange.Redis`(`.api/api-redis.md`): the same multiplexer-singleton topology and the same codec-owns-the-shape boundary; a Redis stream and a JetStream stream are peer sink rows whose group cursors never merge.
-- `LightningDB`(`.api/api-lightningdb.md`), `ObjectStore`(`.api/api-objectstore.md`): embedded and cloud counterparts to the JetStream KV and Object tiers, all selected as `Store/provisioning` backend rows.
-- `api-nats`(`libs/csharp/Rasm.Compute/.api/api-nats.md`): the Compute partition of the one `NATS.Net` meta-package owns the `NATS.Client.Core` subscription ingest seam and its `RequestAsync`/`ReplyAsync` remote-compute RPC leg alone, while this partition owns the JetStream durable-stream, publish-ack, KeyValue, and Object-Store rails; a Compute-side JetStream or KV member is the fork this split forecloses.
-- `AspNetCore.HealthChecks.Nats`(`libs/csharp/Rasm.AppHost/.api/api-healthchecks-nats.md`): probes the pooled `INatsConnection` as the `DriverProbe.Nats` contributor row, and the connection events feed that same health fold.
+- `CloudNative.CloudEvents`(`api-cloudevents.md`): no NATS protocol binding ships, so the egress leg maps the envelope onto `NatsHeaders` itself — `Nats-Msg-Id` from the content key beside the `traceparent` rows — and hands `NatsRawSerializer<T>` the formatter's bytes; on the ingest side `NatsMsg<byte[]>.Data` (the structured-mode `application/cloudevents+json` body) decodes through the once-constructed shared `JsonEventFormatter<T>` with the pre-declared extension attributes into the typed `SensorEnvelope<T>`, the W3C pair over `NatsMsg.Headers` symmetric to the MQTT `UserProperties` carrier.
+- `Confluent.Kafka`(`Rasm.Persistence/.api/api-kafka.md`), `RabbitMQ.Client`(`Rasm.Persistence/.api/api-rabbitmq.md`), `DotPulsar`(`Rasm.Persistence/.api/api-dotpulsar.md`): peer `EgressSink` rows over one op-log envelope, each folding its provider outcome to `DeliveryAck` at its own leg boundary.
+- `StackExchange.Redis`(`Rasm.Persistence/.api/api-redis.md`): the same multiplexer-singleton topology and the same codec-owns-the-shape boundary; a Redis stream and a JetStream stream are peer sink rows whose group cursors never merge.
+- `LightningDB`(`Rasm.Persistence/.api/api-lightningdb.md`), `ObjectStore`(`Rasm.Persistence/.api/api-objectstore.md`): embedded and cloud counterparts to the JetStream KV and Object tiers, all selected as `Store/provisioning` backend rows.
+- `AspNetCore.HealthChecks.Nats`(`Rasm.AppHost/.api/api-healthchecks-nats.md`): probes the pooled `INatsConnection` as the `DriverProbe.Nats` contributor row, and the connection events feed that same health fold.
+- Compute consumer anchor: a `NatsClient` subscription surfaces one `NatsMsg<byte[]>` per sample → `msg.Data` decodes through the shared formatter → `SensorEnvelope<T>` admits onto `WorkLane.CaptureIngest` DropOldest (shedding oldest geometry state at the lane rather than blocking the drain) → `Stats/signal` folds the measured end (`Transform.Modal`) → `TwinLoop.Ingest`/`Update` closes into anomaly verdicts — the identical pipeline the MQTT adapter drives from `MqttApplicationMessage`; `BrokerChannels.Nats<T>` and `BrokerChannels.Mqtt<T>` are two carriers of one `SensorEnvelope<T>`. `INatsConnection.RequestAsync<TReq, TReply>` dispatches a compute call awaiting `NatsMsg<TReply>` and `msg.ReplyAsync<TReply>` answers a request-subject message — the request/reply half beside the gRPC `CallSpine`, distinct from the fire-and-forget sensor subscription.
 - Within the package one connection carries every leg: `TryPublishAsync` publishes on the ROP rail, `PublishConcurrentAsync` defers its ack through `NatsJSPublishConcurrentFuture.GetResponseAsync` for pipelined batches, `NatsMsg<T>.StartActivity` continues the consume-side trace, `NatsAuthOpts.AuthCredCallback` rotates credentials per connect, and `NatsKVEntry<T>.Delta` bounds a watch catch-up.
 
 [LOCAL_ADMISSION]:
-- Changefeed egress dials `INatsJSContext.TryPublishAsync` on its `Nats` sink row with `NatsHeaders["Nats-Msg-Id"]` set to the entity content key in lower-hex, folding a null `Error` to `Persisted`, `Duplicate` to `Persisted(Duplicate: true)`, a server `-ERR` or timeout to `Indeterminate`, and a fatal protocol fault to `Refused`; only the contiguous `Persisted` prefix advances the outbox cursor.
-- Each publish builds a fresh `NatsHeaders`: publish leaves an instance mutable, so one instance never serves concurrent publishes.
+- Persistence changefeed egress dials `INatsJSContext.TryPublishAsync` on its `Nats` sink row with `NatsHeaders["Nats-Msg-Id"]` set to the entity content key in lower-hex, folding a null `Error` to `Persisted`, `Duplicate` to `Persisted(Duplicate: true)`, a server `-ERR` or timeout to `Indeterminate`, and a fatal protocol fault to `Refused`; only the contiguous `Persisted` prefix advances the outbox cursor. Each publish builds a fresh `NatsHeaders`: publish leaves an instance mutable, so one instance never serves concurrent publishes.
 - A durable stream provisions through `CreateOrUpdateStreamAsync(StreamConfig)` on file storage with a `DuplicateWindow` wide enough to absorb a held-cursor re-drive, and a downstream reader consumes it on its own `ConsumerConfig` cursor.
-- PostgreSQL owns coordination: the `Store/coordination` fenced compare-and-swap under `LeaseToken` is the one lease and CAS vocabulary, and the JetStream KV enters as a distributed store-backend row on `Store/provisioning`.
-- An Object Store bucket carries chunked blobs through `PutAsync(string, Stream, bool)` and closes with `SealAsync`, a distributed tier beside the embedded and cloud blob rows.
-- Domain code binds the `Try*` form and lifts `NatsResult.Error` onto the store fault rail at one site.
+- PostgreSQL owns coordination: the `Store/coordination` fenced compare-and-swap under `LeaseToken` is the one lease and CAS vocabulary, and the JetStream KV enters as a distributed store-backend row on `Store/provisioning`; an Object Store bucket carries chunked blobs through `PutAsync(string, Stream, bool)` and closes with `SealAsync`, a distributed tier beside the embedded and cloud blob rows; domain code binds the `Try*` form and lifts `NatsResult.Error` onto the store fault rail at one site.
+- Compute ingest decodes `NatsMsg<byte[]>` through the once-constructed shared `JsonEventFormatter<T>` with the pre-declared extension attributes, `NatsRawSerializer<byte[]>` framing the encoded bytes untouched while the formatter owns the shape; `msg.IsEmpty`/`msg.HasNoResponders` (the `NatsMsgFlags` bits) skip an empty control frame before the formatter runs. W3C trace continuity is a manual composite carrier read from `NatsMsg.Headers` via `msg.Headers?.TryGetValue("traceparent", out var tp)` beside the `Data` decode — a missing key yields a new root span through the non-throwing indexer, and estate transport law owns this read with no OTel broker instrumentation.
 
 [RAIL_LAW]:
 - Package: `NATS.Net`
-- Owns: the NATS protocol — Core pub/sub and request-reply, JetStream durable streams with publish-ack and drain, JetStream KV revisioned CAS, and JetStream Object Store chunked blobs.
-- Accept: one long-lived connection with context views over it, an awaited `PubAckResponse` as the durable ack, `Nats-Msg-Id` from the content key, `NatsRawSerializer<T>` carrying settled snapshot bytes, and the `NatsResult` rail in domain logic.
-- Reject: per-publish connection construction, hand-rolled NATS framing, a Core publish backing a durable row, a JSON shape spelled at the subject boundary, a lease or CAS vocabulary beside the PostgreSQL fenced store, and a retry owner beside `AckWait` and `MaxDeliver`.
+- Owns: the NATS protocol — Core pub/sub and request-reply, JetStream durable streams with publish-ack and drain, JetStream KV revisioned CAS, JetStream Object Store chunked blobs, and the Core subscription ingest seam for the twin sensor wire
+- Accept: one long-lived connection with context views over it, an awaited `PubAckResponse` as the durable ack, `Nats-Msg-Id` from the content key, `NatsRawSerializer<T>` carrying settled snapshot bytes, the `NatsResult` rail in domain logic, and `SubscribeAsync<byte[]>` drained under a `CancellationToken` onto `WorkLane.CaptureIngest`
+- Reject: per-publish or per-subscription connection construction, hand-rolled NATS framing, a Core publish backing a durable row, a JSON shape spelled at the subject boundary, a per-message formatter instance, a trace read anywhere but `NatsMsg.Headers`, a per-transport envelope shape parallel to `SensorEnvelope<T>`, a lease or CAS vocabulary beside the PostgreSQL fenced store, a retry owner beside `AckWait` and `MaxDeliver`, and a Compute-side JetStream or KV member — the folder split forecloses that fork

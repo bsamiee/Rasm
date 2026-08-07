@@ -1,6 +1,6 @@
-# [RASM_PERSISTENCE_API_MESSAGEPACK_ANALYZER]
+# [RASM_API_MESSAGEPACK_ANALYZER]
 
-`MessagePackAnalyzer` ships the MessagePack source generator and the Roslyn analyzer/code-fix assets gating the snapshot codec. Its generator emits the AOT formatters and resolvers the `PersistenceResolver`/`GeneratedMessagePackResolver` landmark binds; its analyzer raises the `MsgPack###` contract diagnostics rejecting an unattributed, unkeyed, colliding, inaccessible, or AOT-incompatible `[MessagePackObject]` before serialize.
+`MessagePackAnalyzer` ships the MessagePack source generator and the Roslyn analyzer/code-fix assets gating every `[MessagePackObject]` contract in the branch. Its generator emits the AOT formatters and resolvers each folder's `[GeneratedMessagePackResolver]` landmark binds; its analyzer raises the `MsgPack###` contract diagnostics rejecting an unattributed, unkeyed, colliding, inaccessible, or AOT-incompatible contract before serialize. Both consumers — the `Rasm.Persistence` snapshot codec and the `Rasm.Materials` appearance wire — pair it build-only beside `MessagePack` (`api-messagepack.md`).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - namespace: `MessagePack.SourceGenerator`, `MessagePack.SourceGenerator.Analyzers`, `MessagePack.SourceGenerator.Transforms`, `MessagePack.Analyzers.CodeFixes`
 - abi: Roslyn 4.3 analyzer generation, selected by the `analyzers/roslyn4.3/cs/` asset path
 - role: analyzer-only development dependency (`<developmentDependency>true</developmentDependency>`, `PrivateAssets="all"`)
-- rail: snapshot-codec
+- rail: snapshot-codec and appearance-wire build gate
 
 ## [02]-[GENERATOR_ANALYZER_ASSETS]
 
@@ -35,7 +35,7 @@
 |  [05]   | `ResolverTemplate`           | generated shape | per-assembly `IFormatterResolver` body              |
 |  [06]   | `CompositeResolverTemplate`  | generated shape | `[CompositeResolver]` aggregate resolver body       |
 
-Generator and analyzer both read the `[MessagePackObject]` contract attributes `api-messagepack` owns: a snapshot type declares them, this package validates and emits from them.
+Generator and analyzer both read the `[MessagePackObject]` contract attributes `api-messagepack.md` owns: a wire type declares them, this package validates and emits from them.
 
 ## [03]-[DIAGNOSTICS]
 
@@ -90,17 +90,18 @@ Generator and analyzer both read the `[MessagePackObject]` contract attributes `
 - Every `[MessagePackObject]` contract folds through one compile-time gate: the generators emit its formatter and resolver as `Transforms.*Template` bodies and `MsgPack00xMessagePackAnalyzer` refuses any contract the AOT resolver cannot construct, so a build that compiles carries a constructible resolver and no reflection fallback.
 
 [STACKING]:
-- `api-messagepack`(`.api/api-messagepack.md`): the generated formatters and the `GeneratedMessagePackResolver` partial back the `PersistenceResolver` chain (`InstantFormatter.Instance` → `ThinktectureMessageFormatterResolver.Instance` → `SourceGeneratedFormatterResolver.Instance` → `StandardResolver.Instance`) that `Element/codec` binds, so every serialize-time contract fault surfaces at compile instead.
-- codec floor: `MsgPack008`/`011`/`012`/`016` prove the AOT-generated resolver constructs every formatter, so the codec bytes the `Version/timetravel` fold and the `api-redis`/`api-nats` snapshot wire replay read are constructible under published AOT before any store profile writes them.
+- `MessagePack`(`api-messagepack.md`): the generated formatters and the `GeneratedMessagePackResolver` partial back each folder's composed resolver chain, so every serialize-time contract fault surfaces at compile instead.
+- Persistence consumer anchor: the `PersistenceResolver` chain (`InstantFormatter.Instance` → `ThinktectureMessageFormatterResolver.Instance` → `SourceGeneratedFormatterResolver.Instance` → `StandardResolver.Instance`) that `Element/codec` binds rides these generated assets; `MsgPack008`/`011`/`012`/`016` prove the AOT-generated resolver constructs every formatter, so the codec bytes the `Version/timetravel` fold and the Redis/NATS snapshot wire replay read are constructible under published AOT before any store profile writes them.
+- Materials consumer anchor: the analyzer is the build-only proof of `[Key]` coverage and union completeness on every appearance wire record, gating the `[GeneratedMessagePackResolver]` chain the `interchange` `WireCodec` composes.
 
 [LOCAL_ADMISSION]:
-- `Element/codec` declares `[MessagePackObject]` records over `[Key(int)]` array keys, so `MsgPack003`/`004`/`005` reject an unattributed or unkeyed snapshot type at build before the resolver chain binds it.
+- Wire owners declare `[MessagePackObject]` records over `[Key(int)]` array keys, so `MsgPack003`/`004`/`005` reject an unattributed or unkeyed type at build before a resolver chain binds it.
 - Published AOT is the load-bearing path: `CompositeResolverGenerator` fills the `GeneratedMessagePackResolver` partial carrying `[CompositeResolverAttribute]` over `[GeneratedMessagePackResolverAttribute]`, and a private serialised member takes `partial` (`MsgPack011`) with `AllowPrivate = true` (`MsgPack015`).
-- `MsgPack001`/`MsgPack002` stay opt-in: one frozen `MessagePackSerializerOptions` per snapshot context is held by review and an `.editorconfig` escalation to error at any call site passing ad-hoc options, never by their default state.
-- `ThinktectureMessageFormatterResolver` formats the value-objects, smart-enums, and keyed unions, so the generator sees only this package's own `[MessagePackObject]` wire records; a hand-written formatter beside a generated one is the `MsgPack009` collision.
+- `MsgPack001`/`MsgPack002` stay opt-in: one frozen `MessagePackSerializerOptions` per profile is held by review and an `.editorconfig` escalation to error at any call site passing ad-hoc options, never by their default state.
+- `ThinktectureMessageFormatterResolver` formats the value-objects, smart-enums, and keyed unions, so the generator sees only each folder's own `[MessagePackObject]` wire records; a hand-written formatter beside a generated one is the `MsgPack009` collision.
 
 [RAIL_LAW]:
 - Package: `MessagePackAnalyzer`
 - Owns: the MessagePack source generator, contract analyzers, and code-fix providers
 - Accept: generated formatter/resolver assets proving the AOT codec, `MsgPack003`–`018` enforced at build
-- Reject: a runtime dependency on the analyzer assets, a hand-written formatter colliding with a generated one, an unattributed/unkeyed/non-`partial` snapshot contract
+- Reject: a runtime dependency on the analyzer assets, a hand-written formatter colliding with a generated one, an unattributed/unkeyed/non-`partial` wire contract

@@ -129,7 +129,7 @@
 
 [STACKING]:
 - `ParquetSharp`(`.api/api-parquetsharp.md`): a partition file written out-of-band computes its `AddAction` (`Path`/`Size`/`PartitionValues`/`NumRecords`), and `CreateWriteTransactionAsync` registers it in the Delta log — the Parquet codec and the Delta catalog meet at the `AddAction`, never a re-serialization.
-- `Apache.Arrow`(`.api/api-arrow.md`): an analytical extract from DuckDB or ClickHouse (`.api/api-duckdb.md`, `.api/api-clickhouse.md`) lands as a `RecordBatch` and `InsertAsync` appends it — one Arrow model spans read backend and Delta sink.
+- `Apache.Arrow`(`libs/csharp/.api/api-arrow.md`): an analytical extract from DuckDB or ClickHouse (`.api/api-duckdb.md`, `.api/api-clickhouse.md`) lands as a `RecordBatch` and `InsertAsync` appends it — one Arrow model spans read backend and Delta sink.
 - `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): a `[ValueObject]`/`[SmartEnum]` owner projects through its generated `IConvertible<TKey>.ToValue()` into the Arrow `RecordBatch` field `InsertAsync` commits, and the read column decodes back through the generated static `Validate` — no hand-rolled mapping and no codec between.
 - object store(`.api/api-objectstore.md`): delta-rs reaches the AWS/Azure/GCS/Minio residence natively, the same object-store the managed SDK rows serve.
 - within-lib: `HistoryAsync`/`LoadVersionAsync`/`LoadDateTimeAsync` back the `Version/timetravel` rail for an external Delta table, and `DeltaRuntimeException`/`DeltaConfigurationException` lift at the table edge discriminated on the native `ErrorCode` onto the store-profile failure rail.

@@ -2375,7 +2375,12 @@ def ineffective_of(registry: Registry, recurred_ids: frozenset[str], /) -> tuple
 
 
 def feed_rendered(
-    run: Run, recurred: tuple[tuple[str, tuple[str, ...]], ...], fresh: tuple[Refutation, ...], reports: tuple[ShardReport, ...], registry: Registry, /
+    run: Run,
+    recurred: tuple[tuple[str, tuple[str, ...]], ...],
+    fresh: tuple[Refutation, ...],
+    reports: tuple[ShardReport, ...],
+    registry: Registry,
+    /,
 ) -> str:
     citations = {row.class_id: row.refuting_citation for row in registry.classes}
     recurred_ids = frozenset(class_id for class_id, _ in recurred)

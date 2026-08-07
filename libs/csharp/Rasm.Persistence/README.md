@@ -62,11 +62,8 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.EntityFrameworkCore.Design`
 - `Pgvector`
 - `Pgvector.EntityFrameworkCore`
-- `NetTopologySuite.IO.GeoJSON4STJ`
-- `NetTopologySuite.IO.GeoPackage`
 - `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - `Microsoft.EntityFrameworkCore.Sqlite`
-- `Microsoft.Data.Sqlite`
 - `SQLitePCLRaw.bundle_e_sqlite3`
 - `SQLitePCLRaw.bundle_e_sqlite3mc` — Multiple Ciphers bundle; encrypted embedded floor under a KMS-custodied key.
 
@@ -101,7 +98,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [COLUMNAR_AND_CODECS]: In-process columnar analytics stack and the serialization, interchange, and compression codec belt.
 - `DuckDB.NET.Data.Full` — drives the in-process DuckDB columnar lane, distinct from the `pg_duckdb` server bridge.
-- `Apache.Arrow`
 - `Apache.Arrow.Flight`
 - `Apache.Arrow.Flight.Sql` — Flight SQL dialect over the Flight transport; `FlightSqlClient` verbs and the `FlightSqlServer` served-node base.
 - `Apache.Arrow.Adbc`
@@ -121,8 +117,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `System.Formats.Cbor` — BCL CBOR / RFC 8949 self-describing snapshot codec.
 - `MiniExcel` — streaming `.xlsx`/`.csv` codec; the spreadsheet lane `Sep` cannot reach.
 - `ZstdSharp.Port` — standalone Zstandard snapshot and blob compression.
-- `MessagePack`
-- `MessagePackAnalyzer`
 - `JsonSchema.Net` — JSON Schema 2020-12 evaluator; the in-process `pg_jsonschema` fallback.
 - `K4os.Compression.LZ4`
 - `MPXJ.Net` — MS-Project, P6, and Asta schedule-file codec the `Sep`/`MiniExcel` lanes lack.
@@ -130,21 +124,14 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [APPEND_AND_EGRESS]: Marten append substrate, the out-of-Rhino sync transports, and the CDC change-egress pipeline.
 - `Marten` — PostgreSQL event store; `GraphDelta` bodies fold `ElementGraph` via `AggregateStreamAsync` AS-OF.
-- `Speckle.Sdk`
-- `Speckle.Objects`
-- `PollinationSDK` — cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half.
 - `Confluent.Kafka`
 - `OpenTelemetry.Instrumentation.ConfluentKafka` — instrumented producer/consumer builders carrying messaging spans and meters.
 - `Confluent.SchemaRegistry` — Schema Registry REST client, subject compatibility and evolution.
 - `Confluent.SchemaRegistry.Serdes.Avro`
 - `Confluent.SchemaRegistry.Serdes.Protobuf` — registry-governed Protobuf serde over `Google.Protobuf`.
 - `Confluent.SchemaRegistry.Serdes.Json`
-- `CloudNative.CloudEvents`
 - `CloudNative.CloudEvents.Amqp` — CloudEvents AMQP 1.0 binding; the AMQP-native egress path distinct from the `RabbitMQ.Client` 0-9-1 leg.
-- `CloudNative.CloudEvents.Kafka`
-- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT v5 binding; backs `EgressSink.Mqtt`, payload-body-only with no binary mode.
-- `CloudNative.CloudEvents.SystemTextJson`
-- `NATS.Net` — Core pub/sub and JetStream durable streams; backs `EgressSink.Nats`.
+- `CloudNative.CloudEvents.Kafka` — binary-mode `ce_` header binding onto `Confluent.Kafka`; backs `EgressSink.Kafka`.
 - `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs `EgressSink.RabbitMq`.
 - `DotPulsar` — Apache Pulsar binary-protocol client; backs `EgressSink.Pulsar`.
 
@@ -184,6 +171,23 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `CommunityToolkit.HighPerformance` — spans, memory pools, and bit primitives on the cache and object-store path.
 - `System.Numerics.Tensors` — SIMD `TensorPrimitives` backing the `VECTOR_CODEBOOK` PQ k-means and ADC scan.
 
+[GEOMETRY_INTERCHANGE]:
+- `Speckle.Sdk` — the send half: serialiser, transports, and client behind `SyncTransport.SpeckleLikeDiff`.
+- `Speckle.Objects` — the `Base`-derived geometry and `DataObject` shapes a sync marshal targets.
+
+[ENERGY_SIMULATION]:
+- `PollinationSDK` — cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half.
+
+[DATA_SUBSTRATE]:
+- `Apache.Arrow` — columnar format and Arrow IPC wire; the ADBC/Flight/compression egress train rides folder-side (`api-arrow-egress.md`).
+- `Microsoft.Data.Sqlite` — embedded ADO.NET transport and the `Handle` raw bridge beneath the store-profile rail.
+
+[EVENT_TRANSPORT]:
+- `CloudNative.CloudEvents` — the `Egress.Envelope` projection: one `CloudEvent` per `OpLogEntry` on the changefeed wire.
+- `CloudNative.CloudEvents.SystemTextJson` — the one shared `JsonEventFormatter` codec identity across every sink.
+- `CloudNative.CloudEvents.Mqtt` — structured-mode MQTT v5 binding; backs `EgressSink.Mqtt`, payload-body-only with no binary mode.
+- `NATS.Net` — JetStream publish-ack egress backing `EgressSink.Nats`; KV and Object Store as distributed store-backend rows.
+
 [GEOSPATIAL_INDEX]:
 - `pocketken.H3` — managed Uber-H3 v4 hex indexing; the same cell id at ingest and in PostgreSQL as `h3-pg`.
 
@@ -192,6 +196,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [PLANAR_GEOMETRY]:
 - `NetTopologySuite` — `Geometry` currency and WKB/WKT core codecs behind every spatial column, satellite codec, and geometry content key.
+- `NetTopologySuite.IO.GeoJSON4STJ` — GeoJSON text on the `Ingest/geospatial#FEATURE_ROWS` seam and the web egress projection.
+- `NetTopologySuite.IO.GeoPackage` — GeoPackage geometry-BLOB coding on the same feature-rows seam.
 
 [RECENCY_CACHE]:
 - `Microsoft.Extensions.Caching.Hybrid` — L2-store and serializer half of the AppHost-owned two-tier cache.
@@ -205,6 +211,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — generated seam-to-wire and columnar marshal.
 - `Generator.Equals` — generated structural equality and content-key preimage.
+- `MessagePack` — the snapshot-axis codec profile: framed ingest, content-identity encoding, LZ4 posture.
+- `MessagePackAnalyzer` — build-only generator and `MsgPack###` gate behind the AOT resolver chain.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
 
 [RUNTIME_INBOX]:

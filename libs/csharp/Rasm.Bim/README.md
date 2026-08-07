@@ -69,12 +69,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Ply.Net` — dedicated PLY decode.
 - `dotbim` — lightweight `.bim` mesh-and-metadata interchange.
 - `Openize.Drako` — Draco mesh compression.
-- `Alimer.Bindings.MeshOptimizer` — meshopt compression; process-global version state admits no folder catalogue tier.
 - `Themis.Las` — uncompressed LAS point-cloud decode.
 - `Unofficial.laszip.netstandard` — compressed LAZ point-cloud decode.
 - `StructuralAnalysisFormat` — SAF/XLSX exchange over seam structural payloads.
-- `Speckle.Sdk` — Speckle object-graph sync seam.
-- `Speckle.Objects`
 - `Xbim.CobieExpress` — COBie FM-handover emit.
 - `Xbim.IO.CobieExpress`
 - `Xbim.CobieExpress.Exchanger`
@@ -99,16 +96,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [ENERGY_EXCHANGE]:
 - `HoneybeeSchema` — HBJSON object graph composed to operator depth.
 - `DragonflySchema` — DFJSON massing composing honeybee by identifier.
-- `NREL.OpenStudio.macOS-arm64` — OSM/IDF store and translators; simulation is Compute's half.
-
-[EVENT_ENVELOPE]:
-- `CloudNative.CloudEvents` — CloudEvents 1.0 envelope and typed attribute model.
-- `CloudNative.CloudEvents.SystemTextJson` — structured-mode JSON event formatter; transport bindings stay app-tier.
 
 [GEOSPATIAL]:
 - `NetTopologySuite.IO.Esri.Shapefile`
-- `NetTopologySuite.IO.GeoPackage`
-- `NetTopologySuite.IO.GeoJSON4STJ`
 - `NetTopologySuite.IO.VectorTiles`
 - `NetTopologySuite.IO.VectorTiles.Mapbox`
 - `GISBlox.IO.GeoParquet`
@@ -143,18 +133,30 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `SharpGLTF.Toolkit` — builds the vertex-fragment, mesh, scene, and material heads feeding `ToGltf2`.
 - `SharpGLTF.Runtime` — scene templatization and per-instance decode over an imported `ModelRoot`.
 - `SharpGLTF.Ext.3DTiles` — authors the 3D Tiles overlay at `Exchange/export#TILE_METADATA`.
+- `Speckle.Sdk` — receive-side `Base` graph: `Flatten` traversal, display values, metre conversion.
+- `Speckle.Objects` — display-mesh geometry and the `DataObject` host-object family the import seam folds.
 
 [MESH_PROCESSING]:
+- `Alimer.Bindings.MeshOptimizer` — meshopt compression behind the mesh encoders.
 - `geometry3Sharp` — OBJ/STL/OFF text-mesh decode arm of the `MeshText` interchange codec.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — CPM sort, system-trace reachability, commit-DAG ancestor, and coordination closure walks.
 
 [PLANAR_GEOMETRY]:
-- `NetTopologySuite` — OGC Simple-Features planar algebra behind the geospatial seam; IO codecs stay folder additions.
+- `NetTopologySuite` — OGC Simple-Features planar algebra behind the geospatial seam.
+- `NetTopologySuite.IO.GeoJSON4STJ` — the STJ GeoJSON codec leg of the geospatial seam; site context and web projection.
+- `NetTopologySuite.IO.GeoPackage` — the GeoPackage geometry-BLOB leg; site and context ingest.
 
 [GEOSPATIAL_INDEX]:
 - `pocketken.H3` — keys the `Semantics/geospatial#GEOSPATIAL_SEAM` DGGS arm, the coarse `ulong` bucket beside the `STRtree`.
+
+[ENERGY_SIMULATION]:
+- `NREL.OpenStudio.macOS-arm64` — the OSM/IDF exchange leg: robust load, save, version upgrade, and the gbXML/SDD semantic bridges.
+
+[EVENT_TRANSPORT]:
+- `CloudNative.CloudEvents` — `BimEvent` emits lacing under a declared attribute roster; transport bindings stay app-tier.
+- `CloudNative.CloudEvents.SystemTextJson` — the shared `JsonEventFormatter` codec identity.
 
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — compile-time boundary transcription over the seam unions.

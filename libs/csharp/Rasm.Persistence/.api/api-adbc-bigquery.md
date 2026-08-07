@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_ADBC_BIGQUERY]
 
-`Apache.Arrow.Adbc.Drivers.BigQuery` mints the concrete Google BigQuery ADBC driver — `BigQueryDriver`, `BigQueryDatabase`, and `BigQueryConnection` — opening a warehouse from an `IReadOnlyDictionary<string,string>` parameter map and returning Arrow `RecordBatch` streams over the BigQuery Storage Read API. This driver owns the `adbc.bigquery.*` connection vocabulary, the OAuth / service-account / Entra-ID auth discriminant, and the `UpdateToken` callback that heals token expiry without re-opening; the base query, metadata, and result-stream contract rides `api-arrow.md`.
+`Apache.Arrow.Adbc.Drivers.BigQuery` mints the concrete Google BigQuery ADBC driver — `BigQueryDriver`, `BigQueryDatabase`, and `BigQueryConnection` — opening a warehouse from an `IReadOnlyDictionary<string,string>` parameter map and returning Arrow `RecordBatch` streams over the BigQuery Storage Read API. This driver owns the `adbc.bigquery.*` connection vocabulary, the OAuth / service-account / Entra-ID auth discriminant, and the `UpdateToken` callback that heals token expiry without re-opening; the base query, metadata, and result-stream contract rides `api-arrow-egress.md`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -77,8 +77,8 @@
 - tracing: `BigQueryConnection : TracingConnection`, an `ActivitySource` integration
 
 [STACKING]:
-- `api-arrow.md`: `BigQueryDriver` IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction — the federation rail selects it by backend, opens it with a parameter map, and reads results through the base `QueryResult.Stream` `IArrowArrayStream`, the same egress shape as the Spark/Hive/Impala drivers (`api-adbc-apache.md`) and distinct from in-process DuckDB (`api-duckdb.md`)
-- `api-arrow.md`: BigQuery results arrive as Arrow `RecordBatch` over the Storage Read API, so a warehouse result and an in-process batch are one `Apache.Arrow` type — directly writable to Parquet (`api-parquetsharp.md`) or a Delta table (`api-deltalake.md`) with zero re-materialization
+- `api-arrow-egress.md`: `BigQueryDriver` IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction — the federation rail selects it by backend, opens it with a parameter map, and reads results through the base `QueryResult.Stream` `IArrowArrayStream`, the same egress shape as the Spark/Hive/Impala drivers (`api-adbc-apache.md`) and distinct from in-process DuckDB (`api-duckdb.md`)
+- `libs/csharp/.api/api-arrow.md`: BigQuery results arrive as Arrow `RecordBatch` over the Storage Read API, so a warehouse result and an in-process batch are one `Apache.Arrow` type — directly writable to Parquet (`api-parquetsharp.md`) or a Delta table (`api-deltalake.md`) with zero re-materialization
 - `api-aws-kms.md`/`api-azure-keyvault.md`/`api-google-kms.md` + `api-redaction.md`: the auth parameter set (`JsonCredential`, `ClientSecret`, `RefreshToken`) and the `UpdateToken` refresh callback draw credentials from the secret store into the parameter map and refresh hook, never inline literals and never a log sink
 - `api-npgsql-opentelemetry.md`: `BigQueryConnection : TracingConnection` emits `ActivitySource` spans, so a federated BigQuery query nests under the same OpenTelemetry trace the in-PG path opens
 

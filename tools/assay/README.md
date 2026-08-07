@@ -6,7 +6,7 @@
 
 Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr. Its programmatic arm is `automation.engine.drive(trigger, action, settings, executor=...)`, which hosts `Watch`/`Schedule`/`Manual` fires under one AnyIO loop, writes NDJSON output, and spawns every check through the `Executor` port (the engine-bound port when absent).
 
-- Invoke as `uv run python -m tools.assay <claim> [verb] ...`; bare `assay ...` is valid only when `command -v assay` proves a local wrapper exists. Language selection is the mutually-exclusive `--csharp`/`--python`/`--typescript` flags; an unset selection routes every eligible language.
+- Invoke as `uv run python -m tools.assay <claim> [verb] ...`; bare `assay ...` is valid only when `command -v assay` proves a local wrapper exists. Language selection rides the mutually-exclusive `--csharp`/`--python`/`--typescript` flags on the verbs that carry them, an unset selection routing every eligible language; a verb without them rejects the flag as an unknown option, so each claim's own `--help` is the target vocabulary.
 - `static` diagnoses by default and mutates only under `--fix`; even then it never rewrites a C# target that does not compile, and its reported diagnostics match `dotnet build`.
 - `api query` reports provable absence: a no-match reflects the current artifact, never a stale cache.
 - Python's mutation lane is a staged gate scored against a kill-floor by `rails/mutation_gate.py`, which also emits a `mutation-testing-report-schema` JSON under `.artifacts/python/mutmut/`; mutmut runs copy-staged with `cwd=.artifacts/python/mutmut/work`, so a root `mutants/` directory is forbidden litter.
@@ -70,7 +70,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 - Schema route: the field-by-field `Envelope` schema and the status algebra live in `core/model.py`.
 
 [STATUS_MODEL]:
-- Tokens and exit codes (`core/model.py`): `skip`/`empty`/`ok` -> 0, `failed` -> 1, `faulted` -> 2, `unsupported` -> 3, `busy`/`timeout` -> 5. Severity-ranked fold via `RailStatus.dominant`/`RailStatus.fold`.
+- Tokens and exit codes (`core/model.py`): `skip`/`empty`/`ok` -> 0, `failed` -> 1, `degraded`/`candidate`/`faulted` -> 2, `unsupported` -> 3, `busy`/`timeout` -> 5. Severity-ranked fold via `RailStatus.dominant`/`RailStatus.fold`.
 - Completed channel: process success, skip, empty, unsupported, or tool-found defects. Fault channel: operational failure under `Envelope.error` with `Envelope.error_context` diagnostic.
 - `--strict` promotes otherwise non-error states into a fault for that invocation.
 
@@ -90,8 +90,8 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 ## [06]-[ENVIRONMENT_AND_OFFLOAD]
 
 [ENVIRONMENT]:
-- Vars (`ASSAY_` prefix, `__` nested delimiter): `ASSAY_RUN_ID`, `ASSAY_AGENT_TASK_ID`, `ASSAY_ARTIFACT_RETENTION`, `ASSAY_ARTIFACT_BACKEND__PROTOCOL`, `ASSAY_ARTIFACT_BACKEND__ROOT`, `ASSAY_EXEC_TARGET`, `ASSAY_EXEC_KNOWN_HOSTS`, `ASSAY_SFTP_PUSH_CONCURRENCY`, `ASSAY_SFTP_MAX_REQUESTS`.
-- They control correlation, retention, backend selection, execution target, and SFTP push throttle. `composition/settings.py` owns the `AssaySettings` + `Local`/`Ssh`/`Offload` value objects.
+- Every var derives from an `AssaySettings` field name under the `ASSAY_` prefix, `__` nesting a sub-model field (`ASSAY_ARTIFACT_BACKEND__ROOT` reaches the backend's `root`); an empty value reads as unset, so the field default stands.
+- They control correlation, retention, backend selection, execution target, and SFTP push throttle. `composition/settings.py` owns the `AssaySettings` + `Local`/`Ssh`/`Offload` value objects, its field set the var roster.
 
 [REMOTE_EXECUTION]:
 - Target switch: the `--exec` global flag selects offload; `--exec local` (default) keeps execution local, `--exec ssh://[user@]host[:port]` offloads process execution over SSH. That flag wins over its `ASSAY_EXEC_TARGET` env fallback. Scheme, host, and port validate at settings load, so a malformed target fails before any spawn; a missing port defaults to 22 at connect.

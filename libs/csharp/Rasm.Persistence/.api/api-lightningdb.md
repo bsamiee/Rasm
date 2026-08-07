@@ -137,7 +137,7 @@
 
 [STACKING]:
 - `api-rocksdb`(`.api/api-rocksdb.md`): peer engine rows on the `Store/provisioning` backend axis — a read-heavy index or lookup lane selects LMDB, a write-amplified ingest or changefeed lane RocksDB, and a public `StoreOp` names neither.
-- `api-messagepack`(`.api/api-messagepack.md`), `api-cbor`(`.api/api-cbor.md`), `api-thinktecture-messagepack`(`libs/csharp/.api/api-thinktecture-messagepack.md`): the codec owns payload shape, LMDB the bytes — a read decodes off `MDBValue.AsSpan()` with no managed copy, and `TryGet(db, key, IBufferWriter<byte>)` feeds a pooled sink when the value outlives the transaction.
+- `api-messagepack`(`libs/csharp/.api/api-messagepack.md`), `api-cbor`(`.api/api-cbor.md`), `api-thinktecture-messagepack`(`libs/csharp/.api/api-thinktecture-messagepack.md`): the codec owns payload shape, LMDB the bytes — a read decodes off `MDBValue.AsSpan()` with no managed copy, and `TryGet(db, key, IBufferWriter<byte>)` feeds a pooled sink when the value outlives the transaction.
 - `api-hashing`(`../../.api/api-hashing.md`): `XxHash128.HashToUInt128` mints the content key an `Element/codec` payload writes under, so the LMDB key is the content address and no second key vocabulary exists.
 - `api-objectstore`(`.api/api-objectstore.md`): `CopyTo(path, compact: true)` yields the compacted point-in-time copy the `Version/recovery` leg ships to the object store, taken with writers running and folded into the `RecoveryFact` stream.
 - within-lib: a `Query/columnar` keyset page lowers to `SetRange(afterKey)` then `Next()` over the order its comparer singleton fixed, never an offset skip; a dupsort walk serves the embedded secondary-index lookup and `GetMultiple`/`NextMultiple` drains fixed-width dup pages per read.

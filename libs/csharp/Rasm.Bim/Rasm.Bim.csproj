@@ -15,20 +15,11 @@
     </ItemGroup>
 
     <ItemGroup Label="Model Interchange">
-        <PackageReference Include="ACadSharp" />
-        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
         <PackageReference Include="AssimpNetter" />
         <PackageReference Include="dotbim" />
-        <PackageReference Include="geometry3Sharp" />
         <PackageReference Include="GeometryGymIFC_Core" />
         <PackageReference Include="Openize.Drako" />
         <PackageReference Include="Ply.Net" />
-        <PackageReference Include="SharpGLTF.Core" />
-        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
-        <PackageReference Include="SharpGLTF.Runtime" />
-        <PackageReference Include="SharpGLTF.Toolkit" />
-        <PackageReference Include="Speckle.Objects" />
-        <PackageReference Include="Speckle.Sdk" />
         <PackageReference Include="StructuralAnalysisFormat" />
         <PackageReference Include="subtree" />
         <PackageReference Include="Themis.Las" />
@@ -37,6 +28,21 @@
         <PackageReference Include="Xbim.CobieExpress" />
         <PackageReference Include="Xbim.CobieExpress.Exchanger" />
         <PackageReference Include="Xbim.IO.CobieExpress" />
+    </ItemGroup>
+
+    <ItemGroup Label="Geometry Interchange">
+        <PackageReference Include="ACadSharp" />
+        <PackageReference Include="SharpGLTF.Core" />
+        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
+        <PackageReference Include="SharpGLTF.Runtime" />
+        <PackageReference Include="SharpGLTF.Toolkit" />
+        <PackageReference Include="Speckle.Objects" />
+        <PackageReference Include="Speckle.Sdk" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mesh Processing">
+        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+        <PackageReference Include="geometry3Sharp" />
     </ItemGroup>
 
     <ItemGroup Label="Review">
@@ -59,10 +65,13 @@
     <ItemGroup Label="Energy Exchange">
         <PackageReference Include="DragonflySchema" />
         <PackageReference Include="HoneybeeSchema" />
+    </ItemGroup>
+
+    <ItemGroup Label="Energy Simulation">
         <PackageReference Include="NREL.OpenStudio.macOS-arm64" ExcludeAssets="build" GeneratePathProperty="true" />
     </ItemGroup>
 
-    <ItemGroup Label="Event Envelope">
+    <ItemGroup Label="Event Transport">
         <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
     </ItemGroup>

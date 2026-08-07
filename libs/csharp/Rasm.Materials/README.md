@@ -77,8 +77,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [APPEARANCE]:
 - `Wacton.Unicolour.Datasets` — reference observers, illuminants, and named datasets over the `Wacton.Unicolour` owner.
-- `MessagePack` — binary appearance-interchange wire with source-generated resolver and untrusted-data hardening.
-- `MessagePackAnalyzer` — build-only proof of `[Key]` coverage on every wire record.
 
 [RASTER_IMAGING]:
 - `Magick.NET-Q16-HDRI-AnyCPU` — ingest-only breadth tier: AVIF, HEIF, JXL, DPX, and Cineon decode where no managed engine reaches; never an egress.
@@ -124,6 +122,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — source-generated boundary transcription under the completeness gate.
+- `MessagePack` — binary appearance-interchange wire with source-generated resolver and untrusted-data hardening.
+- `MessagePackAnalyzer` — build-only proof of `[Key]` coverage on every wire record.
 
 [RUNTIME_INBOX]:
 - `System.Text.Json` — options identity behind the MaterialX and appearance interchange payloads.

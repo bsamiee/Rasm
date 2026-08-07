@@ -195,7 +195,7 @@ Raw-command rows carry no typed member and ride `Execute`.
 
 [STACKING]:
 - `api-hybrid-cache`(`libs/csharp/.api/api-hybrid-cache.md`): `RedisCache : IBufferDistributedCache` is the zero-copy L2 that `DefaultHybridCache` layers an in-process L1 over — register `AddStackExchangeRedisCache`+`AddHybridCache`, and a `HybridCache.GetOrCreateAsync` read serves L1, falls to the L2 over `ReadOnlySequence<byte>`, mints once, and drops the L1 entry on the `__redis__:invalidate` RESP3 push so the tiers stay coherent without per-read TTL races.
-- `api-thinktecture-messagepack`(`libs/csharp/.api/api-thinktecture-messagepack.md`) and `api-messagepack`(`.api/api-messagepack.md`): the L2 byte payload is the snapshot of a `[ValueObject]`/`[SmartEnum]` owner via `IHybridCacheSerializer<T>` — Redis stores the bytes, the codec owns the shape.
+- `api-thinktecture-messagepack`(`libs/csharp/.api/api-thinktecture-messagepack.md`) and `api-messagepack`(`libs/csharp/.api/api-messagepack.md`): the L2 byte payload is the snapshot of a `[ValueObject]`/`[SmartEnum]` owner via `IHybridCacheSerializer<T>` — Redis stores the bytes, the codec owns the shape.
 - within-lib: `ConfigurationOptions.LoggerFactory` and `RedisCacheOptions.ProfilingSession` route multiplexer and cache traffic onto the AppHost `telemetry` spine, so connection faults and cache latency ride the store-profile span.
 
 [LOCAL_ADMISSION]:

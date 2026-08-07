@@ -235,12 +235,12 @@
 - Every `Relation` and `Expression` folds through `Accept`; a transform overrides only the arms it handles.
 
 [STACKING]:
-- `Apache.Arrow.Adbc`(`.api/api-arrow.md`): retained inbound bytes bind `AdbcStatement.SubstraitPlan`, mutually exclusive with `SqlQuery`, and the driver answers with one `IArrowArrayStream`.
+- `Apache.Arrow.Adbc`(`.api/api-arrow-egress.md`): retained inbound bytes bind `AdbcStatement.SubstraitPlan`, mutually exclusive with `SqlQuery`, and the driver answers with one `IArrowArrayStream`.
 - `Apache.Arrow.Adbc.Drivers.Apache`(`.api/api-adbc-apache.md`): the Thrift warehouse drivers take that same `SubstraitPlan` payload wherever the backend implements it.
 - `DuckDB.NET.Data.Full`(`.api/api-duckdb.md`): the `substrait` extension closes the loop both ways — `from_substrait(⟨blob⟩)` executes retained bytes, and `get_substrait(⟨sql⟩)` yields a plan `SubstraitDeserializer.Deserialize` lifts into this IR.
 - `ClickHouse.Driver`(`.api/api-clickhouse.md`): a `RelationVisitor` subclass lowers each `ReadRelation` subtree to SQL for `ClickHouseClient.ExecuteReaderAsync`, `ReadRelation.Filter` and `Relation.Emit` becoming the pushed predicate and projection.
 - `DeltaLake.Net`(`.api/api-deltalake.md`): the same visitor lowers a subtree to DataFusion SQL for `DeltaTable.QueryAsync(SelectQuery)`, which streams `RecordBatch`.
-- `Apache.Arrow`(`.api/api-arrow.md`): a backend `Schema` maps to `NamedStruct` for `SqlPlanBuilder.AddTableDefinition`, so one lattice types every registered table.
+- `Apache.Arrow`(`libs/csharp/.api/api-arrow.md`): a backend `Schema` maps to `NamedStruct` for `SqlPlanBuilder.AddTableDefinition`, so one lattice types every registered table.
 - `Google.Protobuf`(`.api/api-protobuf.md`): `Substrait.Protobuf.Plan` is a generated `IMessage` — `MessageParser<Plan>.ParseFrom` decodes the wire form and `MessageExtensions.ToByteArray`/`WriteTo` re-emits the retained payload.
 - `libs/python/data/.api/substrait.md`: this consumer parses the URN-era schema, where the extension space moved to `extension_urns` at field 8 and each declaration's back-reference to `extension_urn_reference` at field 4. Neither retired field exists there, so proto3 files every field-1 row this producer writes into the unknown set: a plan minted here parses clean on the python end, reports an EMPTY extension-space list, and reads every declaration's reference as the 0 default. That consumer's gate refuses the signature on its own `RETIRED_EXTENSION_SCHEMA` row, so the skew fails loudly at one named seam instead of admitting vacuously and dropping every function-vocabulary lineage edge.
 - within-lib: the federation rail folds text ingress and foreign ingress into one `Plan`, fans each `ReadRelation` to its lane through a single `RelationVisitor` subclass, and hands that same plan to `SubstraitToDifferentialCompute.Convert` — one IR serving the one-shot query and the maintained view alike.

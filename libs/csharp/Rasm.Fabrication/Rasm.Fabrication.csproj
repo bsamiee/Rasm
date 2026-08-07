@@ -12,13 +12,19 @@
     <ItemGroup Label="Geometry Engines">
         <PackageReference Include="CavalierContours" />
         <PackageReference Include="Clipper2" />
-        <PackageReference Include="geometry3Sharp" />
     </ItemGroup>
 
     <ItemGroup Label="Exchange Ingress">
-        <PackageReference Include="ACadSharp" />
         <PackageReference Include="DSTV.Net" />
         <PackageReference Include="OcctNet.Wrapper" />
+    </ItemGroup>
+
+    <ItemGroup Label="Geometry Interchange">
+        <PackageReference Include="ACadSharp" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mesh Processing">
+        <PackageReference Include="geometry3Sharp" />
     </ItemGroup>
 
     <ItemGroup Label="Kinematics">

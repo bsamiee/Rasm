@@ -65,9 +65,9 @@ Every `*Driver.Open(IReadOnlyDictionary<string,string>)` mints the protocol `Adb
 |  [06]   | `ApacheParameters`      | `IsMetadataCommand`/`CatalogName`/`SchemaName`/`TableName`/`TableTypes`/`ColumnName`      |
 |  [07]   | `ApacheParameters`      | `ForeignCatalogName`/`ForeignSchemaName`/`ForeignTableName`/`EscapePatternWildcards` (FK) |
 
-[ENTRYPOINT_SCOPE]: inherited base surface (`api-arrow.md`)
+[ENTRYPOINT_SCOPE]: inherited base surface (`api-arrow-egress.md`)
 
-`api-arrow.md` owns the base `Apache.Arrow.Adbc` result-execution contract this driver overrides — the `AdbcConnection`/`AdbcStatement` query, bind, and metadata members.
+`api-arrow-egress.md` owns the base `Apache.Arrow.Adbc` result-execution contract this driver overrides — the `AdbcConnection`/`AdbcStatement` query, bind, and metadata members.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -77,8 +77,8 @@ Every `*Driver.Open(IReadOnlyDictionary<string,string>)` mints the protocol `Adb
 - result root: Arrow `RecordBatch` over `IArrowArrayStream` (the base `Apache.Arrow.Adbc` contract), faults raised as `HiveServer2Exception : AdbcException` carrying `SqlState` + `NativeError`
 
 [STACKING]:
-- base-abstraction seam: the driver IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction (`api-arrow.md`); the Persistence Query-federation rail selects it by protocol, opens it with a parameter map, and reads the base `QueryResult.Stream` `IArrowArrayStream` — one egress shape across every warehouse backend, distinct from the in-process DuckDB path (`api-duckdb.md`)
-- arrow-result seam: every statement returns Arrow `RecordBatch`, so a Spark/Hive/Impala result and an in-process batch are the SAME `Apache.Arrow` type (`api-arrow.md`), folding directly to Parquet (`api-parquetsharp.md`) or a Delta table (`api-deltalake.md`) with zero re-materialization
+- base-abstraction seam: the driver IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction (`api-arrow-egress.md`); the Persistence Query-federation rail selects it by protocol, opens it with a parameter map, and reads the base `QueryResult.Stream` `IArrowArrayStream` — one egress shape across every warehouse backend, distinct from the in-process DuckDB path (`api-duckdb.md`)
+- arrow-result seam: every statement returns Arrow `RecordBatch`, so a Spark/Hive/Impala result and an in-process batch are the SAME `Apache.Arrow` type (`libs/csharp/.api/api-arrow.md`), folding directly to Parquet (`api-parquetsharp.md`) or a Delta table (`api-deltalake.md`) with zero re-materialization
 - substrait seam: the base `AdbcStatement.SubstraitPlan` executes a `FlowtideDotNet.Substrait` plan (`api-flowtide-substrait.md`) against the Thrift warehouse where the backend implements it, so one portable relational-algebra IR drives both the federation pipeline and the remote SQL endpoint
 - transport-security seam: the `HttpTlsOptions`/`StandardTlsOptions`/`HttpProxyOptions` key sets compose with the deployment mTLS/proxy posture, populated from the same redacted-credential source the KMS/KeyVault owners (`api-aws-kms.md`, `api-azure-keyvault.md`) feed — a private-VPC self-signed cert sets `HttpTlsOptions.AllowSelfSigned`, never `DisableServerCertificateValidation`
 

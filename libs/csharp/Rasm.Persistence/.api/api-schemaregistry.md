@@ -184,7 +184,7 @@
 [STACKING]:
 - `Confluent.SchemaRegistry.Serdes.Avro`/`.Json`/`.Protobuf`(`.api/api-schemaregistry-serdes-avro.md`, `api-schemaregistry-serdes-json.md`, `api-schemaregistry-serdes-protobuf.md`): each serde binds one shared `ISchemaRegistryClient`, frames every payload with `SchemaId`, and reads `RuleRegistry` for CSFLE and migration.
 - `Confluent.Kafka`(`.api/api-kafka.md`): `SchemaIdSerializerStrategy.Header` moves the id into `Message<TKey,TValue>.Headers`, freeing the value payload for a non-Confluent downstream consumer.
-- `CloudNative.CloudEvents.Kafka`(`.api/api-cloudevents.md`): the header-framed schema id rides the same `Headers` as CloudEvents attributes and trace context on one message.
+- `CloudNative.CloudEvents.Kafka`(`.api/api-cloudevents-kafka.md`): the header-framed schema id rides the same `Headers` as CloudEvents attributes and trace context on one message.
 - `AWSSDK.KeyManagementService`/`Azure.Security.KeyVault.Keys`/`Google.Cloud.Kms.V1`(`.api/api-aws-kms.md`, `api-azure-keyvault.md`, `api-google-kms.md`): a field-encryption `IRuleExecutor` wraps per-field DEKs against these KMS clients through the shared `RuleRegistry`.
 - `Version/egress`: builds one `CachedSchemaRegistryClient` per registry endpoint from one `SchemaRegistryConfig`, shared by every serde on the cluster and disposed once at rail teardown.
 

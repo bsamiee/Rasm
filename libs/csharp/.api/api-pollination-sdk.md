@@ -1,6 +1,6 @@
-# [RASM_PERSISTENCE_API_POLLINATION_SDK]
+# [RASM_API_POLLINATION_SDK]
 
-`PollinationSDK` owns the Pollination cloud compute transport: the OpenAPI `*Api` REST clients, the `Client.Configuration` token-auth surface, and the `Wrapper` job/run/asset orchestration. Its durable result half lands across three Persistence owners — artifact bytes at `Store/blobstore`, lineage at `Version/provenance`, the run index at `Query/cache#ARTIFACT_BLOB_INDEX` — while submission and watch route to `Rasm.Compute`. Sidecar isolation binds it outside-Rhino behind the vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` fork closure and a local `Microsoft.Data.Sqlite` cache, never loaded by the plugin assembly.
+`PollinationSDK` owns the Pollination cloud compute transport: the OpenAPI `*Api` REST clients, the `Client.Configuration` token-auth surface, and the `Wrapper` job/run/asset orchestration. Two folders split one run: `Rasm.Compute` holds the `EnergyRoute.Cloud` dispatch policy — which recipe, which `ElementGraph`-derived inputs, and whether the cloud arm or the local `EnergyToolchain` subprocess runs — while the durable result half lands across three `Rasm.Persistence` owners — artifact bytes at `Store/blobstore`, lineage at `Version/provenance`, the run index at `Query/cache#ARTIFACT_BLOB_INDEX`. Sidecar isolation binds it outside-Rhino behind the vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` fork closure and a local `Microsoft.Data.Sqlite` cache, never loaded by the plugin assembly.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -136,29 +136,32 @@ No shared async tail exists — the progress delegate is named per member and a 
 |  [20]   | `ArtifactsApi.CreateArtifactAsync(KeyRequest) -> Task<S3UploadRequest>`                  | instance | presigned S3 upload request        |
 |  [21]   | `ArtifactsApi.DownloadArtifactAsync(path) -> Task<object>`                               | instance | fetch an artifact by path          |
 |  [22]   | `ArtifactsApi.ListArtifactsAsync(path, page, perPage) -> Task<FileMetaList>`             | instance | list artifacts                     |
+|  [23]   | `ArtifactsApi.DeleteArtifactAsync(owner, name, path, page, perPage) -> Task`             | instance | delete by path — returns bare `Task` |
 
 - `ProjectsApi.CreateProjectAsync`: takes `owner` alone — no `name` argument.
-|  [23]   | `ArtifactsApi.DeleteArtifactAsync(owner, name, path, page, perPage) -> Task`                          | instance | delete by path — returns bare `Task`     |
 
 Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHttpInfoAsync` returning `ApiResponse<T>`. Every op leads `(string owner, string name, …)` and closes on `CancellationToken cancellationToken = default` — `ProjectsApi.CreateProjectAsync` leads on `owner` ALONE and `ProjectsApi.ListProjectsAsync` leads on neither, so a positional call written against the two-leader shape binds the wrong argument. `JobsApi.CreateJobAsync` is the sole op carrying `string authorization = null, string xPollinationToken = null` before the token; reading that pair as the shared skeleton mis-positions the token on every other op. `ListJobsAsync` filters are `List<string> ids`, `JobStatusEnum? status`, `DateTime? createdAfter`, `DateTime? createdBefore`, `int? page`, `int? perPage`; the delete legs (`DeleteArtifactAsync`, `DeleteProjectAsync`) return bare `Task` and carry no body to inspect.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `LBT.RestSharp` (HTTP) and `LBT.Newtonsoft.Json` (JSON) carry distinct package ids from the folder's `Newtonsoft.Json` and its System.Text.Json rails, so the vendored RestSharp-106 + Newtonsoft-fork closure never collides.
+- `LBT.RestSharp` (HTTP) and `LBT.Newtonsoft.Json` (JSON) carry distinct package ids from the Persistence folder's `Newtonsoft.Json` and its System.Text.Json rails, so the vendored RestSharp-106 + Newtonsoft-fork closure never collides.
 - `Microsoft.Data.Sqlite` is touched only by the `Wrapper.LocalDatabase` cache through the ADO.NET `SqliteConnection`/`SqliteCommand` surface; the `*Api` REST layer never references it.
 - Token auth is connection input the app root hands over (`Configuration.AddDefaultHeader`/`TokenRepo`), never a fence member.
+- Every cloud-route failure surfaces as the typed `ComputeFault.AnalysisFailed` row (`(Solve, Foreign)` / `(Admission, Timeout)`) with the HTTP status on `Diagnostic.Code`, never a stringly interpolated arm.
 
 [STACKING]:
-- `api-objectstore.md`(`Store/blobstore`): `ArtifactsApi.CreateArtifactAsync` returns an `S3UploadRequest` presigned PUT and the `*Download*` ops resolve S3-backed assets, so the byte transfer rides the folder's object-store owner (`AWSSDK.S3`/`Minio`) on the same S3 plane; a downloaded `RunAsset` lands content-keyed (`XxHash128`) through that same body bridge, never a second HTTP uploader.
-- `api-pollination-sdk`(`libs/csharp/Rasm.Compute/.api/api-pollination-sdk.md`): the Compute partition registers this catalogue as the SDK owner and holds the `EnergyRoute.Cloud` dispatch POLICY alone — which recipe, which `ElementGraph`-derived inputs, and cloud arm versus local `EnergyToolchain` subprocess; it tables no member, so every submit, watch, and download spelling resolves here.
-- within-lib: a `Run` result and its `RunOutputAsset`s land at `Version/provenance` (lineage) and `Query/cache#ARTIFACT_BLOB_INDEX` (result index), so a completed cloud run becomes a content-addressed, lineage-tracked artifact set.
+- `api-objectstore.md`(`Rasm.Persistence/.api/api-objectstore.md`): `ArtifactsApi.CreateArtifactAsync` returns an `S3UploadRequest` presigned PUT and the `*Download*` ops resolve S3-backed assets, so the byte transfer rides the folder's object-store owner (`AWSSDK.S3`/`Minio`) on the same S3 plane; a downloaded `RunAsset` lands content-keyed (`XxHash128`) through that same body bridge, never a second HTTP uploader.
+- `Microsoft.Data.Sqlite`(`api-sqlite.md`): the pulled `SqlFile` folds through the same read-only extraction over the bracketed scratch artifact the local subprocess route drives — one tabular reader serves both routes.
+- Compute consumer anchor: `Analysis/energy` owns the recipe-run dispatch policy — `EnergyRoute.Cloud` builds `JobInfo` from recipe plus `ElementGraph`-derived OSM/IDF inputs behind the runner entry point, threading `JobInfo` → `RunJobAsync` → `WatchJobStatusAsync` → `RunInfo.GetOutputAssets(platform)` → `DownloadRunAssetsAsync(assets, saveAsDir:)`, so a cloud simulation and a local one share one result-extraction seam.
+- Persistence consumer anchor: a `Run` result and its `RunOutputAsset`s land at `Version/provenance` (lineage) and `Query/cache#ARTIFACT_BLOB_INDEX` (result index), so a completed cloud run becomes a content-addressed, lineage-tracked artifact set.
 
 [LOCAL_ADMISSION]:
 - No in-Rhino plugin assembly admits `PollinationSDK` or its RestSharp-106/Newtonsoft-fork closure; the SDK and its SQLite cache load only on the cloud-run sidecar.
+- `EnergyRoute.Cloud` is one dispatch arm of `Analysis/energy`, selected against the local `EnergyToolchain` subprocess arm; token auth is app-root connection input handed to `Configuration`/`TokenRepo`, never a Compute fence member.
 
 [RAIL_LAW]:
 - Package: `PollinationSDK` (MIT)
 - Owns: the Pollination cloud compute transport — the `*Api` REST clients, `Configuration`/`TokenRepo` auth, `Wrapper` job/run/asset orchestration, and the model DTOs
-- Accept: a recipe-run job submitted to a Pollination project, watched to completion, and its result assets pulled back — the durable half projected to `Store/blobstore`, `Version/provenance`, and `Query/cache#ARTIFACT_BLOB_INDEX` while the dispatch half routes to `Rasm.Compute`, artifact bytes transferred via the object-store owner
-- Reject: loading the SDK or its forks in the in-Rhino assembly; a second S3 uploader where `api-objectstore.md` owns the object plane; a hand-rolled token store where `Configuration`/`TokenRepo` carry auth; treating the netstandard2.0 floor as a net8+ surface
+- Accept: a recipe-run job submitted to a Pollination project, watched to completion, and its result assets pulled back — the dispatch half at `Rasm.Compute`, the durable half projected to `Store/blobstore`, `Version/provenance`, and `Query/cache#ARTIFACT_BLOB_INDEX`, artifact bytes transferred via the object-store owner
+- Reject: loading the SDK or its forks in the in-Rhino assembly; a second S3 uploader where the object-store owner holds the plane; a hand-rolled token store where `Configuration`/`TokenRepo` carry auth; a stringly cloud-arm fault where the typed `AnalysisFailed` row belongs; treating the netstandard2.0 floor as a net8+ surface

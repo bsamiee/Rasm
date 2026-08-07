@@ -49,6 +49,8 @@
         <PackageVersion Include="Grpc.Net.Client.Web"                                     Version="2.83.0" />
         <PackageVersion Include="Grpc.Net.Common"                                         Version="2.83.0" />
         <PackageVersion Include="Grpc.Tools"                                              Version="2.83.0" />
+        <PackageVersion Include="MessagePack"                                             Version="3.1.8" />
+        <PackageVersion Include="MessagePackAnalyzer"                                     Version="3.1.8" />
         <PackageVersion Include="NodaTime.Serialization.Protobuf"                         Version="2.0.2" />
     </ItemGroup>
 
@@ -72,8 +74,6 @@
         <PackageVersion Include="CavalierContours"                                        Version="1.0.0" />
         <PackageVersion Include="Clipper2"                                                Version="2.0.0" />
         <PackageVersion Include="DSTV.Net"                                                Version="1.3.0" />
-        <!-- geometry3Sharp: Bim co-consumes; disposition rides the Bim/Fabrication campaigns. -->
-        <PackageVersion Include="geometry3Sharp"                                          Version="1.0.324" />
         <PackageVersion Include="MTConnect.NET-Common"                                    Version="6.9.0.2" />
         <PackageVersion Include="OcctNet.Wrapper"                                         Version="0.1.1" />
         <PackageVersion Include="PicoGK"                                                  Version="2.2.0" />
@@ -82,14 +82,54 @@
         <PackageVersion Include="Robots"                                                  Version="2.2.5" />
     </ItemGroup>
 
-    <ItemGroup Label="Compute/BIM Interchange">
-        <PackageVersion Include="Alimer.Bindings.MeshOptimizer"                           Version="1.2.1" />
-        <PackageVersion Include="NREL.OpenStudio.macOS-arm64"                             Version="3.11.0" />
-        <PackageVersion Include="Openize.Drako"                                           Version="26.2.0" />
+    <ItemGroup Label="Geometry Interchange">
+        <PackageVersion Include="ACadSharp"                                               Version="3.6.51" />
         <PackageVersion Include="SharpGLTF.Core"                                          Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Ext.3DTiles"                                   Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Runtime"                                       Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Toolkit"                                       Version="1.0.6" />
+        <PackageVersion Include="Speckle.Objects"                                         Version="2026.6.0" />
+        <PackageVersion Include="Speckle.Sdk"                                             Version="2026.6.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mesh Processing">
+        <PackageVersion Include="Alimer.Bindings.MeshOptimizer"                           Version="1.2.1" />
+        <PackageVersion Include="geometry3Sharp"                                          Version="1.0.324" />
+    </ItemGroup>
+
+    <ItemGroup Label="Energy Simulation">
+        <PackageVersion Include="NREL.OpenStudio.macOS-arm64"                             Version="3.11.0" />
+        <PackageVersion Include="PollinationSDK"                                          Version="1.10.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="Geospatial Substrate">
+        <PackageVersion Include="NetTopologySuite"                                        Version="2.6.0" />
+        <PackageVersion Include="NetTopologySuite.IO.Esri.Shapefile"                      Version="1.2.0" />
+        <PackageVersion Include="NetTopologySuite.IO.GeoJSON4STJ"                         Version="4.0.0" />
+        <PackageVersion Include="NetTopologySuite.IO.GeoPackage"                          Version="2.0.0" />
+        <PackageVersion Include="NetTopologySuite.IO.VectorTiles"                         Version="1.1.0" />
+        <PackageVersion Include="NetTopologySuite.IO.VectorTiles.Mapbox"                  Version="1.1.0" />
+        <PackageVersion Include="pocketken.H3"                                            Version="4.5.0.1" />
+    </ItemGroup>
+
+    <ItemGroup Label="Event Transport">
+        <PackageVersion Include="CloudNative.CloudEvents"                                 Version="2.9.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.Amqp"                            Version="2.9.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.Kafka"                           Version="3.9.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.Mqtt"                            Version="3.9.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson"                  Version="2.9.0" />
+        <PackageVersion Include="NATS.Net"                                                Version="3.1.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="Data Substrate">
+        <PackageVersion Include="Apache.Arrow"                                            Version="23.0.0" />
+        <PackageVersion Include="Apache.Arrow.Adbc"                                       Version="0.24.0" />
+        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.Apache"                        Version="0.23.0" />
+        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.BigQuery"                      Version="0.23.0" />
+        <PackageVersion Include="Apache.Arrow.Compression"                                Version="23.0.0" />
+        <PackageVersion Include="Apache.Arrow.Flight"                                     Version="23.0.0" />
+        <PackageVersion Include="Apache.Arrow.Flight.Sql"                                 Version="23.0.0" />
+        <PackageVersion Include="Microsoft.Data.Sqlite"                                   Version="10.0.10" />
     </ItemGroup>
 
     <ItemGroup Label="Compute">
@@ -119,7 +159,6 @@
 
     <ItemGroup Label="BIM">
         <PackageVersion Include="Aardvark.Data.E57"                                       Version="5.6.2" />
-        <PackageVersion Include="ACadSharp"                                               Version="3.6.51" />
         <PackageVersion Include="AssimpNetter"                                            Version="6.0.5" />
         <PackageVersion Include="bertt.CityJSON"                                          Version="2.5.0" />
         <PackageVersion Include="BrickSchema.Net"                                         Version="1.3.30" />
@@ -132,20 +171,12 @@
         <PackageVersion Include="ids-lib"                                                 Version="1.0.121" />
         <PackageVersion Include="MaxRev.Gdal.Core"                                        Version="3.13.1.534" />
         <PackageVersion Include="MaxRev.Gdal.MacosRuntime.Minimal.arm64"                  Version="3.13.1.534" />
-        <PackageVersion Include="NetTopologySuite"                                        Version="2.6.0" />
-        <PackageVersion Include="NetTopologySuite.IO.Esri.Shapefile"                      Version="1.2.0" />
-        <PackageVersion Include="NetTopologySuite.IO.GeoJSON4STJ"                         Version="4.0.0" />
-        <PackageVersion Include="NetTopologySuite.IO.GeoPackage"                          Version="2.0.0" />
-        <PackageVersion Include="NetTopologySuite.IO.VectorTiles"                         Version="1.1.0" />
-        <PackageVersion Include="NetTopologySuite.IO.VectorTiles.Mapbox"                  Version="1.1.0" />
         <PackageVersion Include="NodaMoney"                                               Version="2.7.0" />
+        <PackageVersion Include="Openize.Drako"                                           Version="26.2.0" />
         <PackageVersion Include="Ply.Net"                                                 Version="5.6.2" />
-        <PackageVersion Include="pocketken.H3"                                            Version="4.5.0.1" />
         <PackageVersion Include="ProjNET"                                                 Version="2.1.0" />
         <PackageVersion Include="SharpKml.Core"                                           Version="6.1.0" />
         <PackageVersion Include="Smino.Bcf.Toolkit"                                       Version="3.2.0" />
-        <PackageVersion Include="Speckle.Objects"                                         Version="2026.6.0" />
-        <PackageVersion Include="Speckle.Sdk"                                             Version="2026.6.0" />
         <PackageVersion Include="StructuralAnalysisFormat"                                Version="1.7.3" />
         <PackageVersion Include="subtree"                                                 Version="1.7.0" />
         <PackageVersion Include="SwiftCollections.Lean"                                   Version="6.0.0" />
@@ -277,13 +308,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Persistence">
-        <PackageVersion Include="Apache.Arrow"                                            Version="23.0.0" />
-        <PackageVersion Include="Apache.Arrow.Adbc"                                       Version="0.24.0" />
-        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.Apache"                        Version="0.23.0" />
-        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.BigQuery"                      Version="0.23.0" />
-        <PackageVersion Include="Apache.Arrow.Compression"                                Version="23.0.0" />
-        <PackageVersion Include="Apache.Arrow.Flight"                                     Version="23.0.0" />
-        <PackageVersion Include="Apache.Arrow.Flight.Sql"                                 Version="23.0.0" />
         <!-- Held at 1.0.1: BimOpenSchema.IO 1.6.1 regressed its TFM to net8.0-windows7.0, incompatible with the net10.0 targets. -->
         <PackageVersion Include="Ara3D.BimOpenSchema"                                     Version="1.0.1" />
         <PackageVersion Include="Ara3D.BimOpenSchema.IO"                                  Version="1.0.1" />
@@ -295,11 +319,6 @@
         <PackageVersion Include="Chr.Avro.Binary"                                         Version="10.13.1" />
         <PackageVersion Include="Chr.Avro.Confluent"                                      Version="10.13.1" />
         <PackageVersion Include="ClickHouse.Driver"                                       Version="1.3.0" />
-        <PackageVersion Include="CloudNative.CloudEvents"                                 Version="2.9.0" />
-        <PackageVersion Include="CloudNative.CloudEvents.Amqp"                            Version="2.9.0" />
-        <PackageVersion Include="CloudNative.CloudEvents.Kafka"                           Version="3.9.0" />
-        <PackageVersion Include="CloudNative.CloudEvents.Mqtt"                            Version="3.9.0" />
-        <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson"                  Version="2.9.0" />
         <!-- Confluent family held: Chr.Avro.Confluent caps Confluent.Kafka/SchemaRegistry below 2.15.0; lift on its next release. -->
         <PackageVersion Include="Confluent.Kafka"                                         Version="2.14.2" />
         <PackageVersion Include="Confluent.SchemaRegistry"                                Version="2.14.2" />
@@ -319,16 +338,12 @@
         <PackageVersion Include="LightningDB"                                             Version="0.22.0" />
         <PackageVersion Include="linq2db.EntityFrameworkCore"                             Version="10.4.0" />
         <PackageVersion Include="Marten"                                                  Version="9.22.3" />
-        <PackageVersion Include="MessagePack"                                             Version="3.1.8" />
-        <PackageVersion Include="MessagePackAnalyzer"                                     Version="3.1.8" />
-        <PackageVersion Include="Microsoft.Data.Sqlite"                                   Version="10.0.10" />
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Design"                    Version="10.0.10" />
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite"                    Version="10.0.10" />
         <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis"         Version="10.0.10" />
         <PackageVersion Include="MiniExcel"                                               Version="1.45.0" />
         <PackageVersion Include="Minio"                                                   Version="7.0.0" />
         <PackageVersion Include="MPXJ.Net"                                                Version="16.6.0" />
-        <PackageVersion Include="NATS.Net"                                                Version="3.1.0" />
         <PackageVersion Include="Npgsql"                                                  Version="10.0.3" />
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL"                   Version="10.0.3" />
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite"  Version="10.0.3" />
@@ -346,7 +361,6 @@
         <PackageVersion Include="ParquetSharp.Dataset"                                    Version="0.4.0" />
         <PackageVersion Include="Pgvector"                                                Version="0.3.2" />
         <PackageVersion Include="Pgvector.EntityFrameworkCore"                            Version="0.3.0" />
-        <PackageVersion Include="PollinationSDK"                                          Version="1.10.0" />
         <PackageVersion Include="Qdrant.Client"                                           Version="1.18.1" />
         <PackageVersion Include="RabbitMQ.Client"                                         Version="7.2.1" />
         <PackageVersion Include="rocksdb"                                                 Version="11.1.2.3412" />

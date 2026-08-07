@@ -126,7 +126,7 @@
 
 [STACKING]:
 - `api-duckdb.md` (`DuckDB.NET.Data.Full`): `data.WriteDuckDB(fp)` writes a `.duckdb` the folder's own DuckDB opens and SQL-joins in-process (`Entities_4 e JOIN DoubleParameters_6 p ON p."Entity" = …`), reusing the one pinned runtime and its osx-arm64 dylib.
-- `api-parquetsharp.md` (`ParquetSharp`) + `api-arrow.md` (`Apache.Arrow`/`Apache.Arrow.Adbc`): `data.WriteToParquetZip(fp)` writes standard `.parquet` (managed `Parquet.Net`); the folder's native ParquetSharp and Arrow read the SAME files into record batches, so BIM frames flow into the Arrow/ADBC rail without re-encoding.
+- `api-parquetsharp.md` (`ParquetSharp`) + `libs/csharp/.api/api-arrow.md` (`Apache.Arrow`) + `api-arrow-egress.md` (`Apache.Arrow.Adbc`): `data.WriteToParquetZip(fp)` writes standard `.parquet` (managed `Parquet.Net`); the folder's native ParquetSharp and Arrow read the SAME files into record batches, so BIM frames flow into the Arrow/ADBC rail without re-encoding.
 - `api-miniexcel.md` (`MiniExcel`): `data.WriteToExcel(fp)` writes an `.xlsx` (`ClosedXML`); the folder's streaming MiniExcel reads it back as `IDataReader` rows via `GetReader`.
 - within-lib: the DuckDB-table synthesis binds the consumed generic `Ara3D.DataTable` traversal surface (`Ara3D.SDK`) at operator depth — walk `Tables` by fixed ordinal, fold `Columns` into the `CREATE OR REPLACE TABLE`, bound the appender loop by `Rows.Count`, and dispatch each cell by its column `Descriptor.Type` CLR→DuckDB map below:
 

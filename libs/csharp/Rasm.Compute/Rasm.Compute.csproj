@@ -24,7 +24,6 @@
 
     <ItemGroup Label="Symbolic Cas">
         <PackageReference Include="AngouriMath" />
-        <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
     <ItemGroup Label="Optimization">
@@ -44,27 +43,39 @@
         <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />
     </ItemGroup>
 
-    <ItemGroup Label="Simulation Carbon">
-        <PackageReference Include="Microsoft.Data.Sqlite" />
+    <ItemGroup Label="Energy Simulation">
         <PackageReference Include="NREL.OpenStudio.macOS-arm64" />
         <PackageReference Include="PollinationSDK" />
     </ItemGroup>
 
-    <ItemGroup Label="Interchange Transport">
-        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+    <ItemGroup Label="Data Substrate">
         <PackageReference Include="Apache.Arrow" />
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+    </ItemGroup>
+
+    <ItemGroup Label="Event Transport">
         <PackageReference Include="CloudNative.CloudEvents.Mqtt" />
-        <PackageReference Include="Grpc.Net.Client.Web" />
-        <PackageReference Include="Grpc.Net.Common" />
         <PackageReference Include="MQTTnet" />
-        <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
         <PackageReference Include="NATS.Net" />
-        <PackageReference Include="PureHDF" />
-        <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
-        <PackageReference Include="PureHDF.Filters.Lzf" />
+    </ItemGroup>
+
+    <ItemGroup Label="Geometry Interchange">
         <PackageReference Include="SharpGLTF.Core" />
         <PackageReference Include="SharpGLTF.Ext.3DTiles" />
         <PackageReference Include="SharpGLTF.Toolkit" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mesh Processing">
+        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+    </ItemGroup>
+
+    <ItemGroup Label="Interchange Transport">
+        <PackageReference Include="Grpc.Net.Client.Web" />
+        <PackageReference Include="Grpc.Net.Common" />
+        <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
+        <PackageReference Include="PureHDF" />
+        <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
+        <PackageReference Include="PureHDF.Filters.Lzf" />
     </ItemGroup>
 
     <ItemGroup Label="Functional Core">
@@ -74,6 +85,7 @@
     <ItemGroup Label="Numeric">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="PeterO.Numbers" />
         <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>

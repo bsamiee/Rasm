@@ -109,7 +109,7 @@ Each row folds the pointer primitives into one step over a span, an array, or an
 - `EncoderAction.Copied` reports a block stored uncompressed because it did not shrink — the step result every pump loop discriminates on.
 
 [STACKING]:
-- `api-messagepack`(`.api/api-messagepack.md`): `MessagePackCompression.Lz4BlockArray` frames LZ4 inside the serializer at ext type 98, so `SnapshotFormat.Admits` binds that codec to `CompressionPolicy.None` and this package frames only what MessagePack leaves raw.
+- `api-messagepack`(`libs/csharp/.api/api-messagepack.md`): `MessagePackCompression.Lz4BlockArray` frames LZ4 inside the serializer at ext type 98, so `SnapshotFormat.Admits` binds that codec to `CompressionPolicy.None` and this package frames only what MessagePack leaves raw.
 - `api-highperformance`(`../../.api/api-highperformance.md`): `ArrayPoolBufferWriter<byte>` satisfies the `TBufferWriter` constraint on `Pickle` and `Unpickle` alike, so one pooled rental carries the frame in and the payload out.
 - `api-hashing`(`../../.api/api-hashing.md`): `XxHash128.Append(ReadOnlySpan<byte>)` folds each block as the pump emits it, so the content key over stored bytes costs no second pass.
 - `Element/codec#COMPRESSION_HASHING`: `ContentChunker.Reassemble` drives an `ArrayBufferWriter<byte>` the `Unpickle` sink overload decodes a framed chunk straight into, and a payload past one contiguous compressed buffer rides `TopupAndEncode`/`DecodeAndDrain` block-at-a-time against that same writer.

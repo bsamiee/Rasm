@@ -8,7 +8,7 @@
 - package: `CloudNative.CloudEvents.Amqp` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents.Amqp`; namespace `CloudNative.CloudEvents.Amqp`
 - asset: pure-managed, no native asset or RID burden
-- depends: `CloudNative.CloudEvents` (`api-cloudevents`) and `AMQPNetLite.Core` (`Amqp.Message` transport — assembly `Amqp.Net.dll`, namespaces `Amqp`/`Amqp.Framing`/`Amqp.Types`)
+- depends: `CloudNative.CloudEvents` (`libs/csharp/.api/api-cloudevents.md`) and `AMQPNetLite.Core` (`Amqp.Message` transport — assembly `Amqp.Net.dll`, namespaces `Amqp`/`Amqp.Framing`/`Amqp.Types`)
 - rail: sync-egress
 
 ## [02]-[PUBLIC_TYPES]

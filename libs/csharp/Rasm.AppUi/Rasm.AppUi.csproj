@@ -84,8 +84,11 @@
         <PackageReference Include="Silk.NET.SDL" />
     </ItemGroup>
 
-    <ItemGroup Label="Exchange Collab">
+    <ItemGroup Label="Geometry Interchange">
         <PackageReference Include="ACadSharp" />
+    </ItemGroup>
+
+    <ItemGroup Label="Exchange Collab">
         <!-- NodeEditorAvalonia pulls the renamed pan-zoom id; the alias keeps its duplicate ZoomBorder out of global scope so PanAndZoom wins. -->
         <PackageReference Include="Avalonia.Controls.PanAndZoom" Aliases="legacyzoom" />
         <PackageReference Include="DocumentFormat.OpenXml" />
@@ -116,6 +119,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Numeric Substrate">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
@@ -124,12 +128,8 @@
         <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
-    <ItemGroup Label="Geometry Substrate">
+    <ItemGroup Label="Planar Geometry">
         <PackageReference Include="NetTopologySuite" />
-    </ItemGroup>
-
-    <ItemGroup Label="Memory Substrate">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
     </ItemGroup>
 
     <ItemGroup Label="Color Science">

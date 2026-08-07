@@ -34,6 +34,7 @@
 
 [IMPACT]:
 - [21]-[IMPACT](.planning/impact/impact.md): Material environmental-impact owner normalizing EPD and LCA results onto one EN 15804 carrier.
+- [22]-[DECLARATION](.planning/impact/declaration.md): Declaration-registry ingest owner minting the corpus `declaration-record` contract per verified product declaration.
 
 ## [02]-[DOMAIN_PACKAGES]
 

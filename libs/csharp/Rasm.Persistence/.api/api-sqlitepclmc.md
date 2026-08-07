@@ -63,7 +63,7 @@
 - Key material crosses at the first physical open ahead of any user statement, and every later raw call rides the same keyed handle.
 
 [STACKING]:
-- `Microsoft.Data.Sqlite`(`.api/api-sqlite.md`): `SqliteConnection.Handle` (`SQLitePCL.sqlite3`) is the one bridge every keying call crosses, and its `Password=` builder key opens an inspected foreign store for a single ephemeral read.
+- `Microsoft.Data.Sqlite`(`libs/csharp/.api/api-sqlite.md`): `SqliteConnection.Handle` (`SQLitePCL.sqlite3`) is the one bridge every keying call crosses, and its `Password=` builder key opens an inspected foreign store for a single ephemeral read.
 - `SQLitePCLRaw.bundle_e_sqlite3`(`.api/api-sqlitepcl.md`): the backup, snapshot, WAL-checkpoint, db_config, and serialize raw surface carries over this provider unchanged, and its `[RAW_CONSTANTS]` codes match every keying status `int`.
 - `Store/provisioning#EMBEDDED_FLOOR`: keys the floor with `raw.sqlite3_key` over the DEK `Element/identity#KMS_CUSTODY` unwraps, rotates through `raw.sqlite3_rekey` after a fresh mint, and dials the scheme and KDF cost with the pragma rows inside the one open ritual.
 

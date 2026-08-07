@@ -1,18 +1,16 @@
-# [RASM_PERSISTENCE_API_MESSAGEPACK]
+# [RASM_API_MESSAGEPACK]
 
-`MessagePack` owns the schemaless binary wire on the snapshot axis: `ref struct` reader and writer tokens over `ReadOnlySequence<byte>`, an attribute-declared contract whose formatters and resolver a source generator emits, and one immutable `MessagePackSerializerOptions` folding the resolver chain, the security ceilings, and in-codec LZ4 framing into a single profile value.
-
-Only an attribute-carrying wire type enters this row; an attribute-free seam graph rides its own codec and a content-stable blob rides canonical CBOR. Content identity keys the uncompressed companion encoding.
+`MessagePack` owns the schemaless binary wire: `ref struct` reader and writer tokens over `ReadOnlySequence<byte>`, an attribute-declared contract whose formatters and resolver a source generator emits, and one immutable `MessagePackSerializerOptions` folding the resolver chain, the security ceilings, and in-codec LZ4 framing into a single profile value. Two folders bind disjoint PROFILES of one codec: `Rasm.Persistence` the snapshot axis — attribute-declared wire types, the framed `MessagePackStreamReader` ingest, and the content-identity encoding — and `Rasm.Materials` the appearance-interchange wire: the source-generated, IL-emit-free resolver chain the appearance and material model serializes through. The two profiles differ in resolver chain and security preset alone, never in codec spelling. Only an attribute-carrying wire type enters a row; an attribute-free seam graph rides its own codec and a content-stable blob rides canonical CBOR.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessagePack`
-- package: `MessagePack` (MIT)
-- assembly: `MessagePack`, `MessagePack.Annotations`
+- package: `MessagePack` (MIT; MessagePack-CSharp / neuecc)
+- assembly: `MessagePack` (engine), `MessagePack.Annotations` (attribute markers, pure-managed)
 - namespace: `MessagePack`, `MessagePack.Formatters`, `MessagePack.Resolvers`
-- target: the `net10.0` consumer binds `lib/net9.0`
-- depends: `MessagePack.Annotations` (contract attributes), `MessagePackAnalyzer` (source generator)
-- rail: snapshot-codec
+- target: multi-target `net9.0`/`net8.0`/`netstandard2.1`/`netstandard2.0`/`net472`; the `net10.0` consumer binds `lib/net9.0/MessagePack.dll`, `MessagePack.Annotations` binds `lib/netstandard2.0`
+- depends: `MessagePack.Annotations` (contract attributes); `MessagePackAnalyzer` (`api-messagepack-analyzer.md`) is the build-only source-generator companion every consumer pairs
+- rail: snapshot-codec and appearance-interchange binary wire
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -122,31 +120,31 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One `MessagePackSerializerOptions` value carries the resolver chain, the security ceilings, and the compression row; a profile builds it once and threads it through every op.
+- One `MessagePackSerializerOptions` value carries the resolver chain, the security ceilings, and the compression row; a profile builds it once and threads it through every op — per-call construction and a mutated `MessagePackSerializer.DefaultOptions` are both the deleted form.
 - Resolution is first-hit down the composed chain: a formatter instance seated at the head outranks every resolver behind it, and the first resolver returning non-null owns the type.
 - Compression rides inside the codec, `Lz4BlockArray` framing chunk-wise across the payload, so an outer compressor over the same bytes double-frames them.
-- `MessagePackReader` and `MessagePackWriter` are `ref struct` cursors threaded by `ref` through formatter calls, which confines them to the synchronous stack frame.
+- `MessagePackReader` and `MessagePackWriter` are `ref struct` cursors threaded by `ref` through formatter calls, which confines them to the synchronous stack frame; zero-copy is the path — deserialize off a multi-segment `ReadOnlySequence<byte>`, serialize into an `IBufferWriter<byte>`, and the `ref` overloads fold a domain `IMessagePackFormatter<T>` into the parent graph with no `byte[]` round-trip.
 - Untrusted decode composes three ceilings: `UntrustedData` collision-resistant hashing, `WithMaximumObjectGraphDepth` against a recursion bomb, and `WithMaximumDecompressedSize` against an LZ4 expansion bomb.
 - Typeless payloads carry a CLR type header, so `LoadType` and `ThrowIfDeserializingTypeIsDisallowed` override to a profile-local allowlist before an untrusted header names a type.
 
 [STACKING]:
-- `api-messagepack`(`libs/csharp/Rasm.Materials/.api/api-messagepack.md`): the Materials partition registers this catalogue as the codec owner and adds only its appearance-interchange PROFILE — the `[GeneratedMessagePackResolver]` chain over the `[Union]`-modelled `BsdfLobe`/appearance hierarchy with its UnitsNet and Unicolour member formatters; the two profiles differ in resolver chain and security preset alone, never in codec spelling.
-- `api-messagepack-analyzer`: its generator emits the `[GeneratedMessagePackResolver]` partial and its `MsgPack###` diagnostics reject an unattributed, unkeyed, or key-colliding contract at build, so `[Key]` drift breaks the compile rather than the decode.
-- `api-thinktecture-messagepack`(`libs/csharp/.api/api-thinktecture-messagepack.md`): `ThinktectureMessageFormatterResolver.Instance` sits in the composed chain and derives one formatter per generated `[ValueObject]`, `[SmartEnum]`, and `[Union]` owner, so a `NodeId` or `ContentAddress` crosses as its bare key with no hand-written codec.
-- `api-hashing`: `Version/commits#CRDT_WIRE` `CrdtWire.ContentKey` hashes the `None`-compression companion encoding through the kernel `ContentHash.Of` entry, so the at-rest `Lz4BlockArray` framing stays out of the key and the Python and TypeScript replicas reproduce it byte-for-byte.
-- `api-cbor` and `api-chr-avro`: codec-selection peers — MessagePack owns the schemaless evolving record, CBOR the content-stable self-describing blob, Avro the schema-governed leg.
-- `api-objectstore`: `MessagePackStreamReader.ReadArrayAsync` is the framed-ingest seam over a length-delimited multi-snapshot blob body, yielding one sequence per element under the codec's own `SequencePool`.
-- within-lib: `Element/codec#CODEC_AXIS` `SnapshotCodec` builds one profile from `MessagePackSerializerOptions.Standard` — `CompositeResolver.Create` seating the `InstantFormatter` head ahead of the Thinktecture, generated, and reflection resolvers, `UntrustedData` at a 256-frame depth, and `Lz4BlockArray` — and the published-AOT profile swaps that chain for the single generated resolver behind the same formatter head.
-- within-lib: `Query/cache#L2_CONTRIBUTION` reads that same profile through `Deserialize<T>(in ReadOnlySequence<byte>)` and `Serialize<T>(IBufferWriter<byte>, T)`, so durable cache bytes and snapshot bytes share one codec.
+- `MessagePackAnalyzer`(`api-messagepack-analyzer.md`): its generator emits the `[GeneratedMessagePackResolver]` partial and its `MsgPack###` diagnostics reject an unattributed, unkeyed, or key-colliding contract at build, so `[Key]` drift breaks the compile rather than the decode.
+- `Thinktecture.Runtime.Extensions.MessagePack`(`api-thinktecture-messagepack.md`): `ThinktectureMessageFormatterResolver.Instance` sits in the composed chain and derives one formatter per generated `[ValueObject]`, `[SmartEnum]`, and `[Union]` owner, so a `NodeId` or `ContentAddress` crosses as its bare key with no hand-written codec.
+- `System.IO.Hashing`(`api-hashing.md`): `Version/commits#CRDT_WIRE` `CrdtWire.ContentKey` hashes the `None`-compression companion encoding through the kernel `ContentHash.Of` entry, so the at-rest `Lz4BlockArray` framing stays out of the key and the Python and TypeScript replicas reproduce it byte-for-byte.
+- `CBOR`/`Chr.Avro`(`Rasm.Persistence/.api/api-cbor.md`, `Rasm.Persistence/.api/api-chr-avro.md`): codec-selection peers — MessagePack owns the schemaless evolving record, CBOR the content-stable self-describing blob, Avro the schema-governed leg.
+- `ObjectStore`(`Rasm.Persistence/.api/api-objectstore.md`): `MessagePackStreamReader.ReadArrayAsync` is the framed-ingest seam over a length-delimited multi-snapshot blob body, yielding one sequence per element under the codec's own `SequencePool`.
+- Persistence consumer anchor: `Element/codec#CODEC_AXIS` `SnapshotCodec` builds one profile from `MessagePackSerializerOptions.Standard` — `CompositeResolver.Create` seating the `InstantFormatter` head ahead of the Thinktecture, generated, and reflection resolvers, `UntrustedData` at a 256-frame depth, and `Lz4BlockArray` — and the published-AOT profile swaps that chain for the single generated resolver behind the same formatter head; `Query/cache#L2_CONTRIBUTION` reads that same profile through `Deserialize<T>(in ReadOnlySequence<byte>)` and `Serialize<T>(IBufferWriter<byte>, T)`, so durable cache bytes and snapshot bytes share one codec.
+- Materials consumer anchor: the `interchange` `WireCodec` composes the appearance-interchange profile — `[MessagePackObject]` + `[Key(int)]` records with `[SerializationConstructor]` immutable ctors, `[Union(int, Type)]` dispatching the polymorphic `BsdfLobe`/appearance hierarchy on stable integer keys, `[GeneratedMessagePackResolver]` source-gen (AOT-safe, IL-emit-free, exposing `UseMapMode`), `Lz4BlockArray`, and `MessagePackSecurity.UntrustedData` on external wire — with `ThinktectureMessageFormatterResolver.Instance` composed ahead of `StandardResolver.Instance`, and the typed exception rail lowered into the folder's `Fin`/`Validation` boundary at the codec edge.
 
 [LOCAL_ADMISSION]:
-- MessagePack is a codec inside snapshot profiles, never public Persistence vocabulary; contract keys, union tags, resolver composition, compression, and security are profile data.
-- Only a type carrying `[MessagePackObject]` or `[MessagePack.Union]` enters the row — negotiation tests the attribute before admission, so a seam graph without it routes to its own codec.
-- Stored binary payloads carry receipt projection for codec, schema, compression, and redaction class.
-- JSON projection is diagnostic output and never owns a snapshot payload.
+- MessagePack is a codec inside declared profiles, never public folder vocabulary; contract keys, union tags, resolver composition, compression, and security are profile data.
+- Only a type carrying `[MessagePackObject]` or `[MessagePack.Union]` enters a row — negotiation tests the attribute before admission, so a seam graph without it routes to its own codec; stored binary payloads carry receipt projection for codec, schema, compression, and redaction class.
+- JSON projection is diagnostic output and never owns a payload — the human-readable JSON peers are the folder JSON rails, and `ConvertToJson`/`SerializeToJson` stay diagnostic bridges.
+- This is the neuecc `MessagePack-CSharp` engine; the PolyType-based `Nerdbank.MessagePack` is a different package — its attributes, resolvers, and formatters never mix with this one's.
+- `UnitsNet` quantities and `Wacton.Unicolour` colors serialize as member values through the standard resolver or a small `IMessagePackFormatter<T>`, never a re-minted quantity or color codec the standard chain already covers.
 
 [RAIL_LAW]:
 - Package: `MessagePack`
-- Owns: schemaless binary snapshot, cache, and sync wire with in-codec LZ4 framing
-- Accept: profile-declared serialization of attribute-carrying wire types, bounded untrusted decode, generated-resolver AOT composition
-- Reject: hand-rolled msgpack framing, an outer compressor over an in-codec-compressed payload, a serializer-branded type on a public Persistence surface
+- Owns: the schemaless binary snapshot, cache, sync, and appearance-interchange wire with in-codec LZ4 framing
+- Accept: profile-declared serialization of attribute-carrying wire types, bounded untrusted decode, generated-resolver AOT composition, one shared immutable options value per profile
+- Reject: hand-rolled msgpack framing, an outer compressor over an in-codec-compressed payload, a serializer-branded type on a public folder surface, per-call options construction, a runtime reflection-emit resolver as the AOT path, `TrustedData` on external input, and `ConvertToJson` as a JSON system of record

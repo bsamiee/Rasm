@@ -201,7 +201,7 @@ Each builder adds these setters above its inherited tiers; `Tagging.GetObjectTag
 - `api-rocksdb`(`.api/api-rocksdb.md`): checkpoint and SST exports land as objects on this lane, and the symmetric bulk-restore reads them back through a range or full read.
 - `api-rabbitmq`(`.api/api-rabbitmq.md`): dead-lettered payloads and shovel snapshots take the same object residence as every other egress sink.
 - `api-deltalake`(`.api/api-deltalake.md`): delta-rs reaches a self-hosted S3 residence natively, so a table's files and this client's objects share one endpoint and credential.
-- `api-pollination-sdk`(`.api/api-pollination-sdk.md`): presigned upload and download requests resolve on the same S3 plane, so a fetched asset lands content-keyed through this transfer rather than a second HTTP uploader.
+- `api-pollination-sdk`(`libs/csharp/.api/api-pollination-sdk.md`): presigned upload and download requests resolve on the same S3 plane, so a fetched asset lands content-keyed through this transfer rather than a second HTTP uploader.
 - Within-lib: the builder tiers compose to full depth in one chain — SSE stance, version id, precondition ETag, and WORM retention stack onto one `PutObjectArgs`, `IProgress<ProgressReport>` streams transfer telemetry, and `IClientProvider` chains credential acquisition without a second client.
 - Within-lib: `ListenBucketNotificationsAsync` carries mutations originating outside this process, so it feeds the ledger as an external ingress rather than the op-log the event store projects from its own events.
 

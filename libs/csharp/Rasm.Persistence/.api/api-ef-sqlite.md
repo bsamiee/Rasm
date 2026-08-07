@@ -178,7 +178,7 @@
 - SQLite refuses most `ALTER TABLE` forms, so `SqliteMigrationsSqlGenerator` defers add, alter, drop, and rename column operations into one table rebuild and raises `SqliteEventId.TableRebuildPendingWarning`; migration exclusion reads from receipts rather than from `Internal`-namespace types.
 
 [STACKING]:
-- `api-sqlite`(`.api/api-sqlite.md`): `UseSqlite(DbConnection, contextOwnsConnection: false)` mounts the already-dialed `SqliteConnection`, so the ADO open ritual's pragma rows, registered UDFs and collations, and `sqlite3_db_config` hardening carry into every `DbContext` lease instead of a second connection posture.
+- `api-sqlite`(`libs/csharp/.api/api-sqlite.md`): `UseSqlite(DbConnection, contextOwnsConnection: false)` mounts the already-dialed `SqliteConnection`, so the ADO open ritual's pragma rows, registered UDFs and collations, and `sqlite3_db_config` hardening carry into every `DbContext` lease instead of a second connection posture.
 - `api-sqlitepcl`(`.api/api-sqlitepcl.md`): both providers ride the one bundled `e_sqlite3` engine, so `SpatialiteLoader.Load` arms `mod_spatialite` only where the loader-enable db_config posture that catalog governs already permits it.
 - `api-thinktecture-ef`(`.api/api-thinktecture-ef.md`) / `api-ef-naming`(`.api/api-ef-naming.md`) / `api-ef-design`(`.api/api-ef-design.md`): value-object conversion, snake_case naming, and design-time migration and compiled-model emission stack onto this provider through the one `DbContextOptionsBuilder` chain.
 - `Store/provisioning#EMBEDDED_FLOOR`: `StoreProfile.Embedded` carries `builder.UseSqlite((SqliteConnection)connection)` as its `Ef` bind delegate over the connection the open ritual dialed, so provider variance stays one row on the closed engine axis.

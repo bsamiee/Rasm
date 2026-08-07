@@ -1,14 +1,8 @@
-# [RASM_PERSISTENCE_API_ARROW]
+# [RASM_PERSISTENCE_API_ARROW_EGRESS]
 
-`Apache.Arrow` owns the in-memory columnar format and Arrow IPC file/stream serialisation, minting the `IArrowArrayStream` contract every analytical egress meets at. `Apache.Arrow.Adbc` drives driver-based query execution over Arrow streams; `Apache.Arrow.Flight` carries the Flight RPC `RecordBatch` transport over gRPC and `Apache.Arrow.Flight.Sql` folds a SQL dialect over that transport; `Apache.Arrow.Compression` binds the concrete IPC LZ4-frame and Zstandard codec factory. Persistence composes the five onto one analytical-egress rail.
+The Arrow egress train: `Apache.Arrow.Adbc` drives driver-based query execution over Arrow streams; `Apache.Arrow.Flight` carries the Flight RPC `RecordBatch` transport over gRPC and `Apache.Arrow.Flight.Sql` folds a SQL dialect over that transport; `Apache.Arrow.Compression` binds the concrete IPC LZ4-frame and Zstandard codec factory. Persistence composes the four with the core columnar substrate — `RecordBatch`, `Schema`, the IPC readers/writers, and the `IArrowArrayStream` contract every leg yields — whose member truth is the branch catalogue (`libs/csharp/.api/api-arrow.md`).
 
 ## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Apache.Arrow`
-- package: `Apache.Arrow` (Apache-2.0)
-- assembly: `Apache.Arrow`
-- namespace: `Apache.Arrow`, `Apache.Arrow.Ipc`, `Apache.Arrow.Types`, `Apache.Arrow.Memory`
-- rail: analytical-egress
 
 [PACKAGE_SURFACE]: `Apache.Arrow.Adbc`
 - package: `Apache.Arrow.Adbc` (Apache-2.0)
@@ -36,63 +30,9 @@
 - asset: pure-managed AnyCPU, no native RID; the managed `K4os`/`ZstdSharp` transitives carry the codec bodies
 - rail: analytical-egress (IPC compression)
 
+[REGISTRATION]: `Apache.Arrow` — branch substrate at `libs/csharp/.api/api-arrow.md`; the columnar format, builders, `IArrowType` system, IPC readers/writers, `IpcOptions`, and `IArrowArrayStream` resolve there, and this file adds only the four egress packages above.
+
 ## [02]-[PUBLIC_TYPES]
-
-[PUBLIC_TYPE_SCOPE]: core record and schema family
-
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]    | [CAPABILITY]                        |
-| :-----: | :-------------------- | :--------------- | :---------------------------------- |
-|  [01]   | `RecordBatch`         | record container | columnar batch with schema          |
-|  [02]   | `RecordBatch.Builder` | builder          | assembles typed arrays into a batch |
-|  [03]   | `Schema`              | schema value     | ordered field list with metadata    |
-|  [04]   | `Schema.Builder`      | builder          | assembles fields into schema        |
-|  [05]   | `Field`               | field value      | name, type, nullability, metadata   |
-|  [06]   | `Field.Builder`       | builder          | assembles field from parts          |
-|  [07]   | `ChunkedArray`        | chunked array    | list of same-type arrays            |
-|  [08]   | `Table`               | table value      | schema plus chunked column list     |
-|  [09]   | `IArrowArray`         | array contract   | columnar array capability           |
-|  [10]   | `IArrowRecord`        | record contract  | schema-plus-arrays capability       |
-
-[PUBLIC_TYPE_SCOPE]: primitive array family
-
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                   |
-| :-----: | :---------------- | :------------- | :----------------------------- |
-|  [01]   | `BooleanArray`    | bool array     | validity-bitmap boolean values |
-|  [02]   | `Int8Array`       | integer array  | signed 8-bit values            |
-|  [03]   | `Int16Array`      | integer array  | signed 16-bit values           |
-|  [04]   | `Int32Array`      | integer array  | signed 32-bit values           |
-|  [05]   | `Int64Array`      | integer array  | signed 64-bit values           |
-|  [06]   | `UInt8Array`      | integer array  | unsigned 8-bit values          |
-|  [07]   | `UInt16Array`     | integer array  | unsigned 16-bit values         |
-|  [08]   | `UInt32Array`     | integer array  | unsigned 32-bit values         |
-|  [09]   | `UInt64Array`     | integer array  | unsigned 64-bit values         |
-|  [10]   | `FloatArray`      | float array    | 32-bit float values            |
-|  [11]   | `DoubleArray`     | float array    | 64-bit double values           |
-|  [12]   | `Decimal128Array` | decimal array  | 128-bit fixed-point values     |
-|  [13]   | `Decimal256Array` | decimal array  | 256-bit fixed-point values     |
-|  [14]   | `StringArray`     | binary array   | UTF-8 string values            |
-|  [15]   | `BinaryArray`     | binary array   | opaque byte sequences          |
-|  [16]   | `TimestampArray`  | temporal array | epoch-nanosecond timestamps    |
-|  [17]   | `Date32Array`     | temporal array | days-since-epoch dates         |
-|  [18]   | `DurationArray`   | temporal array | duration values                |
-
-[PUBLIC_TYPE_SCOPE]: type system and IPC family
-
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]   | [CAPABILITY]                                                                |
-| :-----: | :------------------------- | :-------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `ArrowType`                | type base       | root type for all Arrow types                                               |
-|  [02]   | `ArrowTypeId`              | type enum       | discriminates Arrow type identities                                         |
-|  [03]   | `IArrowType`               | type contract   | minimal type contract                                                       |
-|  [04]   | `ArrowStreamReader`        | IPC reader      | reads Arrow IPC stream format                                               |
-|  [05]   | `ArrowStreamWriter`        | IPC writer      | writes Arrow IPC stream format                                              |
-|  [06]   | `ArrowFileReader`          | IPC reader      | reads Arrow IPC file format (random-access footer)                          |
-|  [07]   | `ArrowFileWriter`          | IPC writer      | writes Arrow IPC file format                                                |
-|  [08]   | `IArrowReader`             | reader contract | shared sync/async reader contract                                           |
-|  [09]   | `IpcOptions`               | IPC policy      | codec + level + legacy-format flags                                         |
-|  [10]   | `CompressionCodecType`     | codec enum      | `Lz4Frame` \| `Zstd`                                                        |
-|  [11]   | `ICompressionCodecFactory` | codec factory   | `CreateCodec(type[, level])`; concrete impl in `Apache.Arrow.Compression`   |
-|  [12]   | `ICompressionCodec`        | codec contract  | `Decompress(ReadOnlyMemory<byte>, Memory<byte>)`; `Compress` default-throws |
-|  [13]   | `IArrowArrayStream`        | stream contract | async enumerable of record batches; `Schema` + `ReadNextRecordBatchAsync`   |
 
 [PUBLIC_TYPE_SCOPE]: ADBC family
 
@@ -166,70 +106,6 @@
 |  [01]   | `CompressionCodecFactory` | codec factory | the only public type, `sealed : ICompressionCodecFactory`; `Lz4Frame`/`Zstd` codecs |
 
 ## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: RecordBatch and Schema construction
-- a null `StringArray` append lands as a validity-bitmap null.
-
-| [INDEX] | [SURFACE]                                                | [SHAPE]        | [CAPABILITY]                                 |
-| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `StringArray.Builder().Append(string)`                   | array builder  | appends one UTF-8 string                     |
-|  [02]   | `StringArray.Builder().AppendRange(IEnumerable<string>)` | array builder  | appends a UTF-8 string range                 |
-|  [03]   | `StringArray.Builder().Build()`                          | factory call   | builds the UTF-8 `StringArray` column        |
-|  [04]   | `RecordBatch.Builder(allocator?)`                        | ctor           | creates batch builder with allocator         |
-|  [05]   | `RecordBatch.Builder.Append(name, nullable, array)`      | builder        | adds typed column to batch                   |
-|  [06]   | `RecordBatch.Builder.Append(name, nullable, builder)`    | builder        | adds built column                            |
-|  [07]   | `RecordBatch.Builder.Append(batch)`                      | builder        | merges schema and arrays from a batch        |
-|  [08]   | `RecordBatch.Builder.Build()`                            | factory call   | yields immutable `RecordBatch`               |
-|  [09]   | `RecordBatch.Builder.Clear()`                            | reset          | resets schema and arrays                     |
-|  [10]   | `Schema.Builder.Field(field)`                            | builder        | adds field to schema                         |
-|  [11]   | `Schema.Builder.Build()`                                 | factory call   | yields immutable `Schema`                    |
-|  [12]   | `Field.Builder.Name(name)`                               | builder        | sets field name                              |
-|  [13]   | `Field.Builder.DataType(type)`                           | builder        | sets Arrow type                              |
-|  [14]   | `Field.Builder.Nullable(nullable)`                       | builder        | sets nullability                             |
-|  [15]   | `Field.Builder.Build()`                                  | factory call   | yields immutable `Field`                     |
-|  [16]   | `RecordBatch.Slice(offset, length)` / `SliceShared`      | zero-copy view | windows a batch without copying buffers      |
-|  [17]   | `RecordBatch.Column(name)` / `Column(int)`               | column access  | reads one `IArrowArray` column by name/index |
-|  [18]   | `new RecordBatch(Schema, IEnumerable<IArrowArray>, int)` | ctor           | binds pre-built columns to a declared schema |
-|  [19]   | `new Schema(IEnumerable<Field>, IEnumerable<KVP>)`       | ctor           | ordered field list, metadata nullable        |
-|  [20]   | `new Field(string, IArrowType, bool, metadata?)`         | ctor           | one field from name, type, nullability       |
-|  [21]   | `new Int64Array.Builder()` / `.AppendRange(long)`        | array builder  | builds the signed 64-bit column              |
-|  [22]   | `new TimestampArray.Builder(TimestampType)`              | array builder  | builds under the field's own unit and zone   |
-|  [23]   | `TimestampArray.Builder.AppendRange(DateTimeOffset)`     | array builder  | appends instants at the builder's unit       |
-
-[ENTRYPOINT_SCOPE]: type-system values (`Apache.Arrow.Types`) — a schema field takes an `IArrowType` instance, so the parameterless types expose one shared `Default` and the parameterized two take their whole shape at construction
-
-| [INDEX] | [SURFACE]                                          | [SHAPE]    | [CAPABILITY]                                    |
-| :-----: | :------------------------------------------------- | :--------- | :---------------------------------------------- |
-|  [01]   | `StringType.Default`                               | type value | UTF-8 variable-length binary                    |
-|  [02]   | `DoubleType.Default`                               | type value | IEEE 64-bit floating point                      |
-|  [03]   | `Int64Type.Default`                                | type value | signed 64-bit integer                           |
-|  [04]   | `BooleanType.Default`                              | type value | 1-bit boolean                                   |
-|  [05]   | `Date32Type.Default`                               | type value | 32-bit day-unit date                            |
-|  [06]   | `new TimestampType(TimeUnit, string)`              | ctor       | unit plus timezone; `Default` is millisecond    |
-|  [07]   | `new FixedSizeBinaryType(int byteWidth)`           | ctor       | fixed-width binary; a non-positive width throws |
-|  [08]   | `Int32Type.Default`                                | type value | signed 32-bit integer                           |
-|  [09]   | `FloatType.Default`                                | type value | IEEE 32-bit floating point                      |
-|  [10]   | `UInt8Type.Default`                                | type value | unsigned 8-bit integer                          |
-|  [11]   | `UInt32Type.Default`                               | type value | unsigned 32-bit integer                         |
-|  [12]   | `UInt64Type.Default`                               | type value | unsigned 64-bit integer                         |
-|  [13]   | `new ListType(IArrowType)`                         | ctor       | variable list; wraps an `item` field            |
-|  [14]   | `new MapType(IArrowType, IArrowType, bool, bool)`  | ctor       | key + value; builds the entries struct itself   |
-|  [15]   | `new DictionaryType(IArrowType, IArrowType, bool)` | ctor       | index must be IntegerType or the ctor throws    |
-
-[ENTRYPOINT_SCOPE]: IPC read and write
-
-| [INDEX] | [SURFACE]                                                   | [SHAPE]      | [CAPABILITY]                                         |
-| :-----: | :---------------------------------------------------------- | :----------- | :--------------------------------------------------- |
-|  [01]   | `new ArrowStreamReader(stream, leaveOpen?)`                 | ctor         | opens IPC stream reader (`IArrowReader`)             |
-|  [02]   | `new ArrowStreamWriter(stream, schema, leaveOpen, options)` | ctor         | opens IPC stream writer; `MemoryAllocator` overload  |
-|  [03]   | `new ArrowFileReader(stream, leaveOpen?)`                   | ctor         | opens IPC file reader (random-access)                |
-|  [04]   | `new ArrowFileWriter(stream, schema, leaveOpen, options)`   | ctor         | opens IPC file writer                                |
-|  [05]   | `WriteStart()` / `WriteStartAsync()`                        | schema write | emits the schema message before the first batch      |
-|  [06]   | `ReadNextRecordBatch()`                                     | sync read    | reads next `RecordBatch`                             |
-|  [07]   | `ReadNextRecordBatchAsync()`                                | async read   | async reads next `RecordBatch`                       |
-|  [08]   | `WriteRecordBatch(batch)`                                   | sync write   | writes one `RecordBatch`                             |
-|  [09]   | `WriteRecordBatchAsync(batch)`                              | async write  | async writes one `RecordBatch`                       |
-|  [10]   | `WriteEnd()` / `WriteEndAsync()`                            | finalize     | writes IPC EOS terminator (mandatory before dispose) |
 
 [ENTRYPOINT_SCOPE]: IPC compression enable
 - `CompressionLevel` (`int?`) forwards to `CreateCodec(type, level)`, called per batch.
@@ -334,34 +210,26 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `IArrowArrayStream` (`Schema` + `ReadNextRecordBatchAsync`) is the one async-enumerable egress boundary IPC, ADBC, and Flight all yield; the egress owner folds all three behind it and never forks a per-transport reader.
-- `RecordBatch` implements `IArrowRecord` and `IArrowArray` and is `IDisposable`; `Slice`/`SliceShared` window a batch with zero buffer copy.
-- `IpcOptions.CompressionCodec` (`CompressionCodecType?`, `Lz4Frame` \| `Zstd`) is inert unless `CompressionCodecFactory` is set; the concrete `ICompressionCodecFactory` is `Apache.Arrow.Compression.CompressionCodecFactory`, never core Arrow, invoked per batch for the per-codec `ICompressionCodec`.
 - `AdbcConnection.GetObjectsDepth` discriminates `All`/`Catalogs`/`DbSchemas`/`Tables`; `AdbcStatement.SqlQuery` and `SubstraitPlan` are mutually-exclusive query inputs.
 - `AdbcStatement` and `AdbcConnection` publish the WHOLE ADBC vocabulary as `virtual` bodies that throw `AdbcException.NotImplemented`, so member presence proves nothing about driver support — `ExecutePartitioned`, `ReadPartition`, `BulkIngest`, `Prepare`, `SubstraitPlan`, and `Cancel` each throw on a driver that declines them, and a composing rail lifts the call into its typed fault rather than reading the member as a capability.
 - `PartitionDescriptor` is a struct whose `Descriptor` is a `ReadOnlySpan<byte>`, so the descriptor VALUE crosses a lambda or an await and its span never does.
-- `DictionaryType(indexType, valueType, ordered)` throws `ArgumentException` unless `indexType` is an `IntegerType`, and its `Default` is `[Obsolete]`, so the index width is fixed at the composing owner.
-- `MapType(key, value, …)` builds its own `entries` struct field, so a composing schema hands two logical types and never assembles the key-value struct itself.
 - Flight SQL layers over the Flight transport, never a second listener: `FlightSqlServer` (`: FlightServer`) decodes the SQL command protobufs and reuses the `DoGet` ticket redemption. Its serve side is a SQL-catalog contract, so a plan-carrying result plane subclasses `FlightServer` directly and its client side stays fully composable — `FlightSqlClient` over a constructed `FlightClient` reaches any served node.
 
 [STACKING]:
-- `api-arrow`(`libs/csharp/Rasm.Compute/.api/api-arrow.md`): the Compute partition owns the core-only CONSTRUCTION seam — typed-array builders, `Schema.Builder`, the public `RecordBatch` ctor, `MemoryAllocator`, and the buffer-borrowing zero-copy path — and references `Apache.Arrow` alone, so every IPC/ADBC/Flight/compression member is this partition's; a sealed producer batch arrives at `Query/columnar#FLAT_TABLE_EGRESS` `Land` and lake custody never crosses back.
+- `Apache.Arrow`(`libs/csharp/.api/api-arrow.md`): the core columnar substrate every leg yields into — `QueryResult.Stream`, the Flight `RecordBatch` wire, and the compression factory all meet the branch-owned `IArrowArrayStream`/`IpcOptions` contracts.
 - `api-duckdb`(`.api/api-duckdb.md`): the DuckDB ADBC driver is the in-process analytical engine reached through this `AdbcConnection`/`AdbcStatement` surface, so a federated rail dispatches SQL or a `SubstraitPlan` and reads back one `IArrowArrayStream` — `ExecutePartitioned` + `ReadPartition` fan a large scan, `BulkIngest` lands a `RecordBatch` stream.
 - `api-parquetsharp`(`.api/api-parquetsharp.md`) + `api-ara3d-bimopenschema`(`.api/api-ara3d-bimopenschema.md`): the BIM analytics star schema (columnar tables in a `Parquet.Net` Brotli `.parquet`-zip) reads into `RecordBatch` streams through `ParquetSharp.Arrow` and queries over the same DuckDB-ADBC path, entering this egress as one `IArrowArrayStream` without re-encoding.
-- `api-nodatime`(`.api/api-nodatime.md`): an `Instant`/`ZonedDateTime` projects to `TimestampArray` (epoch-nanosecond) at the builder edge, so the Arrow wire carries the relational store's clock seam, never a bare `DateTime`.
 - `api-lz4`(`.api/api-lz4.md`): the Arrow-IPC buffer codec through `CompressionCodecFactory` is distinct from the snapshot-codec LZ4 rail driving `LZ4Pickler`/`CompressionPolicy` over `K4os.Compression.LZ4` for standalone snapshot/blob frames.
-- within-lib: the Persistence egress owner folds IPC, ADBC, and Flight behind one `IArrowArrayStream`, composes each batch through `RecordBatch.Builder` typed `.Append` columns, and reads one typed column via `RecordBatch.Column(name)` returning `IArrowArray` — one boundary materialisation, never a `PrimitiveArray<T>` batch accessor.
-- within-lib: `Query/columnar#ANALYTICS_RESIDENCE`'s `AnalyticsSchema.Fields` projects the residence column roster into `Field`/`Schema` values off each `ColumnType` row's own `IArrowType`, so a landing binds pre-built columns through the `RecordBatch(Schema, …, length)` ctor rather than re-declaring field order at a builder — the DDL, the batch, and every reader's ordinals derive from one declaration.
+- within-lib: the Persistence egress owner folds IPC, ADBC, and Flight behind one `IArrowArrayStream`; `Query/federation#FLIGHT_RESULT_PLANE` serves a plain `FlightServer` as the READ end of the lake, never a landing door.
 
 [LOCAL_ADMISSION]:
-- `WriteStart`/`WriteStartAsync` emits the schema message and `WriteEnd`/`WriteEndAsync` the mandatory EOS terminator; a writer disposed without `WriteEnd` leaves a truncated stream the reader rejects.
 - IPC compression sets `IpcOptions.CompressionCodec` (`Lz4Frame` or `Zstd`) AND `IpcOptions.CompressionCodecFactory = new Apache.Arrow.Compression.CompressionCodecFactory()`, optionally `IpcOptions.CompressionLevel`; the codec enum alone is inert and the egress owner never hand-rolls an `ICompressionCodecFactory`.
 - ADBC drivers load via `AdbcDriver.Open(parameters)` then `AdbcDatabase.Connect(options)`; direct `AdbcConnection` construction is not the public path.
 - `FlightClient` constructs from a gRPC `ChannelBase`/`CallInvoker` (no static factory), connection lifetime/TLS/credentials caller-owned; a Flight read is `GetInfo` → pick a `FlightEndpoint` → `GetStream(endpoint.Ticket)`, a write is `StartPut(descriptor, schema)` then batches on the duplex `RequestStream`.
 - Flight SQL rides that one served node over a single gRPC listener: `FlightSqlServer` reuses the `DoGet` ticket redemption, `PreparedStatement` binds a parameter `RecordBatch`, and a `Transaction` bounds a commit/rollback unit.
 
 [RAIL_LAW]:
-- Packages: `Apache.Arrow`, `Apache.Arrow.Adbc`, `Apache.Arrow.Flight`, `Apache.Arrow.Flight.Sql`, `Apache.Arrow.Compression`
-- Owns: the columnar in-memory format, Arrow IPC serialisation with LZ4-frame/Zstandard buffer compression, ADBC query execution (partitioned, transactional, Substrait), Flight `RecordBatch` transport, and the Flight SQL dialect over it
-- Accept: `RecordBatch`/`Schema` construction for egress, IPC stream/file IO with the package `CompressionCodecFactory`, ADBC driver-level queries and bulk ingest, Flight `GetStream`/`StartPut`/`DoExchange`
-- Reject: hand-rolled columnar byte layout; a custom `ICompressionCodecFactory` where `Apache.Arrow.Compression.CompressionCodecFactory` owns both codecs; `CompressionCodec` set without a factory; raw gRPC Flight Protobuf without `FlightClient`; a per-transport reader where `IArrowArrayStream` unifies IPC, ADBC, and Flight; a bare `DateTime` column where the NodaTime clock seam owns the instant
+- Packages: `Apache.Arrow.Adbc`, `Apache.Arrow.Flight`, `Apache.Arrow.Flight.Sql`, `Apache.Arrow.Compression`
+- Owns: ADBC query execution (partitioned, transactional, Substrait), Flight `RecordBatch` transport, the Flight SQL dialect over it, and the IPC LZ4-frame/Zstandard codec factory
+- Accept: ADBC driver-level queries and bulk ingest read back as `IArrowArrayStream`, Flight `GetStream`/`StartPut`/`DoExchange`, IPC compression through the package factory
+- Reject: a custom `ICompressionCodecFactory` where `Apache.Arrow.Compression.CompressionCodecFactory` owns both codecs; `CompressionCodec` set without a factory; raw gRPC Flight Protobuf without `FlightClient`; a per-transport reader where `IArrowArrayStream` unifies IPC, ADBC, and Flight; a core-Arrow member re-tabled here instead of the branch catalogue

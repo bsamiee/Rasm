@@ -95,7 +95,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [NUMERIC_FLOOR]:
 - `TYoshimura.DoubleDouble` — middle-precision tier of the predicate ladder.
 - `ExtendedNumerics.BigRational` — exact-rational oracle the predicate ladders prove against.
-- `PeterO.Numbers` — directed-rounding interval-filter tier of the predicate ladder.
 
 [COMPUTATIONAL_GEOMETRY]:
 - `Supercluster.KDTree.Net` — flat 3D kd-tree exact k-NN and radius-search leaf.
@@ -123,6 +122,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [NUMERIC_SUBSTRATE]:
 - `MathNet.Numerics` — dense linear-algebra and distribution substrate under the matrix owner.
+- `PeterO.Numbers` — directed-rounding `EFloat` interval-filter tier and `ERational` oracle of the predicate ladder.
 - `CSparse` — sparse direct-solve substrate under the matrix owner.
 - `System.Numerics.Tensors`
 - `CommunityToolkit.HighPerformance` — 2D spans and pooled owners on the SoA build arenas.

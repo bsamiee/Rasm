@@ -1,16 +1,8 @@
 # [RASM_APPUI_API_DRAFTING_EXPORT]
 
-`ACadSharp` (WRITE-scoped) and `DocumentFormat.OpenXml` supply AppUi's drafting and document-export rail. `ACadSharp` folds one `CadDocument` typed-entity graph to DWG, DXF, and SVG through `DwgWriter`/`DxfWriter`/`SvgWriter`, and AppUi holds CAD WRITE authority alone — this `ACadSharp` surface block IS the AppUi folder partition of the package, the third beside the Bim mesh-import READ partition (`libs/csharp/Rasm.Bim/.api/api-acadsharp.md`) and the Fabrication profile-import READ partition (`libs/csharp/Rasm.Fabrication/.api/api-acadsharp.md`). `DocumentFormat.OpenXml` authors OOXML docx/xlsx/pptx through the `WordprocessingDocument`/`SpreadsheetDocument`/`PresentationDocument` part graph.
+`DocumentFormat.OpenXml` supplies AppUi's document-export rail, authoring OOXML docx/xlsx/pptx through the `WordprocessingDocument`/`SpreadsheetDocument`/`PresentationDocument` part graph. The CAD drafting-write leg beside it composes `ACadSharp` — AppUi holds CAD WRITE authority alone, one authored `CadDocument` folded to DWG, DXF, and SVG — and that package's member truth is the branch substrate catalogue (`libs/csharp/.api/api-acadsharp.md`); this file registers the write leg and carries the OOXML surface.
 
 ## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ACadSharp`
-- package: `ACadSharp` (MIT)
-- assembly: `ACadSharp`
-- namespace: `ACadSharp`, `ACadSharp.Entities`, `ACadSharp.Tables`, `ACadSharp.IO`, `ACadSharp.IO.SVG`
-- asset: managed runtime library; geometry points are `CSMath.XYZ`/`XY` (depends `CSMath`, `CSUtilities`)
-- partition: AppUi WRITE — the `ACadSharp.IO` writer family and the `ACadSharp.IO.SVG` emitter alone; every reader spelling belongs to the two READ partitions
-- rail: drafting
 
 [PACKAGE_SURFACE]: `DocumentFormat.OpenXml`
 - package: `DocumentFormat.OpenXml` (MIT)
@@ -19,56 +11,9 @@
 - asset: managed runtime library (depends `DocumentFormat.OpenXml.Framework`)
 - rail: document-export
 
+[REGISTRATION]: `ACadSharp` — branch substrate at `libs/csharp/.api/api-acadsharp.md`; AppUi composes the WRITE partition alone (`DwgWriter`/`DxfWriter`/`SvgWriter`, `ACadVersion` policy, the registered-table linetype/layer discipline), and every reader spelling belongs to the Bim and Fabrication READ boundaries.
+
 ## [02]-[PUBLIC_TYPES]
-
-[PUBLIC_TYPE_SCOPE]: ACadSharp document and object model
-
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [CAPABILITY]                             |
-| :-----: | :------------------ | :----------------- | :--------------------------------------- |
-|  [01]   | `CadDocument`       | document root      | drawing container                        |
-|  [02]   | `CadObject`         | object base        | graph node                               |
-|  [03]   | `CadSummaryInfo`    | metadata record    | document metadata                        |
-|  [04]   | `CadSystemVariable` | system variable    | drawing header variable                  |
-|  [05]   | `ACadVersion`       | version enum       | DWG format selector (version-policy row) |
-|  [06]   | `Color`             | color value        | ACI and true-color                       |
-|  [07]   | `Transparency`      | transparency value | alpha channel                            |
-|  [08]   | `LineWeightType`    | lineweight enum    | pen weight vocabulary                    |
-|  [09]   | `ObjectType`        | object type enum   | entity discriminant                      |
-
-[PUBLIC_TYPE_SCOPE]: ACadSharp entity family (the write-fold content)
-
-| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]     | [CAPABILITY]          |
-| :-----: | :----------- | :---------------- | :-------------------- |
-|  [01]   | `Entity`     | entity base       | geometric entity root |
-|  [02]   | `Line`       | geometry entity   | line segment          |
-|  [03]   | `Arc`        | geometry entity   | arc segment           |
-|  [04]   | `Circle`     | geometry entity   | circle                |
-|  [05]   | `Spline`     | geometry entity   | NURBS spline          |
-|  [06]   | `Polyline`   | geometry entity   | polyline family       |
-|  [07]   | `LwPolyline` | geometry entity   | lightweight polyline  |
-|  [08]   | `Hatch`      | geometry entity   | hatch fill            |
-|  [09]   | `MText`      | text entity       | multi-line text       |
-|  [10]   | `TextEntity` | text entity base  | single-line text      |
-|  [11]   | `Dimension`  | annotation entity | dimension family root |
-|  [12]   | `Insert`     | block entity      | block reference       |
-|  [13]   | `Mesh`       | mesh entity       | 3D mesh               |
-|  [14]   | `Viewport`   | viewport entity   | paper-space viewport  |
-
-[PUBLIC_TYPE_SCOPE]: ACadSharp table and WRITE-IO family
-
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]          |
-| :-----: | :----------------------- | :------------ | :-------------------- |
-|  [01]   | `Layer`                  | table entry   | layer definition      |
-|  [02]   | `LineType`               | table entry   | linetype definition   |
-|  [03]   | `LineType.Segment`       | pattern row   | dash, gap, or dot     |
-|  [04]   | `TextStyle`              | table entry   | text style definition |
-|  [05]   | `DimensionStyle`         | table entry   | dimension style       |
-|  [06]   | `BlockRecord`            | table entry   | block registry        |
-|  [07]   | `DwgWriter`              | IO writer     | DWG emit entry        |
-|  [08]   | `DxfWriter`              | IO writer     | DXF emit entry        |
-|  [09]   | `SvgWriter`              | IO writer     | SVG emit entry        |
-|  [10]   | `DxfWriterConfiguration` | writer config | DXF write options     |
-|  [11]   | `CadFileFormat`          | format enum   | file format selector  |
 
 [PUBLIC_TYPE_SCOPE]: DocumentFormat.OpenXml document packages
 
@@ -101,25 +46,6 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: ACadSharp WRITE operations — one `CadDocument` fold, three format writers
-
-| [INDEX] | [SURFACE]                                            | [SHAPE]  | [CAPABILITY]                      |
-| :-----: | :--------------------------------------------------- | :------- | :-------------------------------- |
-|  [01]   | `DwgWriter.Write(string\|Stream, CadDocument)`       | static   | one-call DWG emit                 |
-|  [02]   | `DxfWriter.Write(string\|Stream, CadDocument, bool)` | static   | one-call DXF emit, binary or text |
-|  [03]   | `new DwgWriter(string\|Stream, CadDocument)`         | ctor     | configured DWG emit               |
-|  [04]   | `new DxfWriter(string\|Stream, CadDocument, bool)`   | ctor     | configured DXF emit               |
-|  [05]   | `new SvgWriter(string\|Stream, CadDocument)`         | ctor     | configured SVG emit               |
-|  [06]   | `LineType.AddSegment(Segment)`                       | instance | append ordered dash pattern       |
-|  [07]   | `CadDocument.LineTypes.Continuous`                   | property | the REGISTERED solid entry        |
-|  [08]   | `Table<T>[string name]`                              | indexer  | registered entry by name          |
-
-- Static `Write`: a trailing optional `<Format>WriterConfiguration?` overrides `.Configuration`, and a `NotificationEventHandler?` takes the warning/error sink.
-- `DxfWriter`: `bool binary` selects binary or ASCII DXF — the ctor fixes it, the static overload takes it per-call; `.IsBinary` reads it back.
-- `SvgWriter`: `SvgConfiguration` exposes `LineWeightRatio` and `DefaultLineWeight`, settable before `Write()`.
-- `LineType.AddSegment`: signed `Segment.Length` encodes dash (positive), space (negative), dot (zero).
-- `LineType.ByLayer`/`ByBlock`/`Continuous` and `Layer.Default`/`Defpoints` are FACTORY properties minting a fresh unregistered entry per read; a document built through `new CadDocument()` already seats those defaults, so a layer binds `doc.LineTypes.Continuous` (the table's own registered accessor) and a per-read static seats duplicate table rows the writers reject.
-
 [ENTRYPOINT_SCOPE]: DocumentFormat.OpenXml package factory operations
 
 | [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]     |
@@ -145,22 +71,17 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every emit folds one `CadDocument` graph through `CadWriterBase<T>`, the three writers differing only by target format; the output DWG/DXF version is a policy row over `ACadVersion`, and the DWG+DXF write leg is two rows on one emit axis over the single document, never a second model.
 - OOXML authoring flows root-first over one disposable package: `Create` mints it, `AddWorkbookPart`/`AddMainDocumentPart` mints the root part, `GetIdOfPart` supplies the relationship id a `Sheet` binds, content appends through `Append`/`AppendChild`, and `Save` under a `using` scope commits the byte stream.
 
 [STACKING]:
-- `ACadSharp`(`libs/csharp/Rasm.Bim/.api/api-acadsharp.md`): the Bim READ partition owns `DwgReader`/`DxfReader` over the same `CadDocument` root, folding the mesh-bearing entity families into `ImportedGeometry`.
-- `ACadSharp`(`libs/csharp/Rasm.Fabrication/.api/api-acadsharp.md`): the Fabrication READ partition projects the 2D-profile and annotation entities of that same document into `Loop` values and markings — AppUi emits, both peers admit, one document model shared across the WRITE/READ split.
-- `Render/drafting.md`: composes the DWG+DXF two-format write leg over one `CadDocument` populated from `ACadSharp.Entities` and `ACadSharp.Tables`.
+- `ACadSharp`(`libs/csharp/.api/api-acadsharp.md`): `Render/drafting.md` composes the DWG+DXF two-format write leg over one `CadDocument` populated from `ACadSharp.Entities` and `ACadSharp.Tables`; the branch catalogue owns the member truth of that surface.
 - `Document/export.md`: composes the OOXML part-graph arm through the three `DocumentFormat.OpenXml` document roots.
 
 [LOCAL_ADMISSION]:
-- `ACadSharp` owns CAD WRITE (DWG/DXF/SVG) over `CadDocument`; AppUi emits a CAD file, never opens one — READ is Bim's.
+- AppUi emits a CAD file, never opens one — READ belongs to the Bim and Fabrication boundaries.
 - OOXML packages are disposable: every create path pairs with `Save`/`Dispose` or a `using` scope, and part construction rides typed part/element APIs.
-- Entity construction flows through the typed entity constructor then collection `Add`.
 
 [RAIL_LAW]:
-- Package: `ACadSharp` — owns DWG/DXF/SVG CAD WRITE over one `CadDocument`
 - Package: `DocumentFormat.OpenXml` — owns OOXML docx/xlsx/pptx package authoring
-- Accept: export flows through typed document roots and their WRITE entry points
-- Reject: hand-rolled binary DWG/DXF writers, a second CAD document model beside `CadDocument`, raw ZIP/XML manipulation of OOXML packages, an AppUi-side CAD reader
+- Accept: export flows through typed document roots, their part-add factories, and `Append`/`AppendChild` content builds committed under `Save`/`Dispose`
+- Reject: raw ZIP/XML manipulation of OOXML packages, an AppUi-side CAD reader, and any CAD-write member truth restated here instead of the branch `ACadSharp` catalogue

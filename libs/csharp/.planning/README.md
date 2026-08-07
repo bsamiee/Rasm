@@ -41,6 +41,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `CommunityToolkit.HighPerformance` — 2D span grids and high-performance buffers.
 - `CSparse` — direct sparse Cholesky, LDL', LU, and QR factorization with pattern-reusing refactorization and rank-1 update.
 - `MathNet.Numerics` — distribution-fit, regression, and Monte-Carlo folds.
+- `PeterO.Numbers` — arbitrary-precision `EFloat`/`EDecimal`/`ERational`/`EInteger` exact-arithmetic carriers.
 - `System.Numerics.Tensors` — SIMD-lowered tensor folds.
 - `UnitsNet` — typed quantity boundary.
 
@@ -48,7 +49,6 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Silk.NET.WebGPU` — WebGPU binding behind the presented, surfaceless-bake, and GPGPU-dispatch device mints.
 - `Silk.NET.WebGPU.Extensions.WGPU` — `wgpu_native` extension surface past the standard WebGPU binding.
 - `Silk.NET.WebGPU.Native.WGPU` — P/Invoked `wgpu_native` runtime binaries; a device mint carries it, a dispatch-only lane binds the peer's.
-- `Alimer.Bindings.MeshOptimizer` — GPU-ready mesh optimization, meshlet, LOD, and `EXT_meshopt_compression` codec substrate.
 
 [GEOMETRY_INTERCHANGE]:
 - `ACadSharp` — DWG/DXF/SVG wire over one `CadDocument`: Bim mesh read, Fabrication profile read, AppUi drafting write.
@@ -56,8 +56,11 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `SharpGLTF.Toolkit` — typed vertex, mesh, scene, and material builders folding into a `ModelRoot`.
 - `SharpGLTF.Runtime` — scene templatization and per-instance animation decode.
 - `SharpGLTF.Ext.3DTiles` — `EXT_structural_metadata` and `EXT_mesh_features` overlay on the shared glTF graph.
+- `Speckle.Sdk` — the `Base` object-graph, detach/chunk serialisation, and DI-resolved send/receive transport surface.
+- `Speckle.Objects` — the geometry roster and `DataObject` host-object family over `Base`.
 
 [MESH_PROCESSING]:
+- `Alimer.Bindings.MeshOptimizer` — GPU-ready mesh optimization, meshlet, LOD, and `EXT_meshopt_compression` codec substrate.
 - `geometry3Sharp` — `DMesh3` OBJ/STL/OFF text-mesh decode and the line-sourced `BiArcFit2` biarc fitter.
 
 [GRAPH_ALGORITHM]:
@@ -66,9 +69,19 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 [PLANAR_GEOMETRY]:
 - `Clipper2` — polygon offset and boolean algebra at the planar production boundary.
 - `NetTopologySuite` — planar geometry algebra on the float production plane.
+- `NetTopologySuite.IO.GeoJSON4STJ` — STJ-native RFC 7946 GeoJSON converter factory over the NTS feature model.
+- `NetTopologySuite.IO.GeoPackage` — OGC GeoPackage geometry-BLOB codec over NTS `Geometry`.
 
 [GEOSPATIAL_INDEX]:
 - `pocketken.H3` — managed Uber-H3 cell index over the NTS coordinate bridge; one cell vocabulary in process and in PostgreSQL.
+
+[ENERGY_SIMULATION]:
+- `NREL.OpenStudio.macOS-arm64` — OSM/IDF store and translator matrix; Bim drives exchange, Compute the simulation lane.
+- `PollinationSDK` — Pollination cloud-run transport; Compute dispatches, Persistence lands the durable half.
+
+[DATA_SUBSTRATE]:
+- `Apache.Arrow` — columnar `RecordBatch` format and Arrow IPC wire; Compute constructs, Persistence serialises and egresses.
+- `Microsoft.Data.Sqlite` — embedded SQLite ADO.NET transport; the Persistence store rail and the Compute results reader.
 
 [COLOR_SCIENCE]:
 - `Wacton.Unicolour` — perceptual-color owner and color-space projection substrate; `Wacton.Unicolour.Datasets` stays a Materials addition.
@@ -93,8 +106,16 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Grpc.Core.Api` — method descriptors, marshallers, and the per-call server context every hosted service binds.
 - `Grpc.Net.Client` — outbound gRPC channels with retry and hedging.
 - `Grpc.Tools` — build-only `<Protobuf>` codegen under `PrivateAssets=all`; each consumer sets its `GrpcServices` mode, server codegen at app roots.
+- `MessagePack` — schemaless binary wire with in-codec LZ4 framing; per-folder resolver profiles over one codec.
+- `MessagePackAnalyzer` — build-only source generator and `MsgPack###` contract gate under `PrivateAssets=all`.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
 - `Riok.Mapperly` — compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`.
+
+[EVENT_TRANSPORT]:
+- `CloudNative.CloudEvents` — CloudEvents 1.0 envelope and typed attribute algebra.
+- `CloudNative.CloudEvents.SystemTextJson` — structured/binary/batch JSON event formatter over STJ.
+- `CloudNative.CloudEvents.Mqtt` — structured-mode MQTT binding; Persistence egresses, Compute ingests.
+- `NATS.Net` — NATS protocol: Core pub/sub, JetStream durable streams, KV, Object Store, and the capture-ingest seam.
 
 [MACHINE_CONNECTIVITY]:
 - `MTConnect.NET-Common` — MTConnect observation/streams/agent model and the ISO-13399 cutting-tool asset graph.

@@ -81,7 +81,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [SYMBOLIC_CAS]:
 - `AngouriMath` — managed CAS: `Entity` parse, simplify, solve, integrate, differentiate, and `Compile<>` in one owner.
-- `PeterO.Numbers` — exact-rational `ERational` carrier the ℚ⁷ dimension exponent vector stores; `EFloat` accumulates large-n criterion sums exactly.
 
 [OPTIMIZATION]:
 - `Google.OrTools` — CP-SAT and MILP exact optimization lane.
@@ -94,15 +93,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.ML.OnnxRuntimeGenAI` — token-streaming generative run.
 
 [SIMULATION_CARBON]:
-- `Microsoft.Data.Sqlite` — read-only eplusout.sql tabular reader.
-- `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK lowering `ElementGraph` to OSM and IDF and reading `SqlFile`.
-- `PollinationSDK` — `EnergyRoute.Cloud` transport onto the same `SqlFile` fold.
 - `EC3` — openEPD REST service consumed hand-thin over `HttpClient`; no manifest row.
 
 [INTERCHANGE_TRANSPORT]:
-- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes.
-- `NATS.Net` — NATS Core subscription seam for broker sensor ingest.
-- `Apache.Arrow` — columnar `RecordBatch` construction for surrogate-training and billing egress; IPC/ADBC/Flight egress stays Persistence-side.
 - `PureHDF` — managed HDF5 read and write: hyperslab field-array reads, chunked filtered writes, and the netCDF-4 corpora on the same path.
 - `PureHDF.Filters.BZip2.SharpZipLib` — managed BZip2 codec registered on the HDF5 filter pipeline.
 - `PureHDF.Filters.Lzf` — managed LZF codec on the same pipeline; the accelerated native filter packages publish no osx RID.
@@ -113,6 +106,18 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+
+[ENERGY_SIMULATION]:
+- `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK lowering `ElementGraph` to OSM and IDF and reading `SqlFile`.
+- `PollinationSDK` — `EnergyRoute.Cloud` transport onto the same `SqlFile` fold.
+
+[DATA_SUBSTRATE]:
+- `Apache.Arrow` — columnar `RecordBatch` construction for surrogate-training and billing egress; the egress train stays Persistence-side.
+- `Microsoft.Data.Sqlite` — read-only eplusout.sql tabular reader.
+
+[EVENT_TRANSPORT]:
+- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes.
+- `NATS.Net` — NATS Core subscription seam for broker sensor ingest and the request/reply compute leg.
 
 [MACHINE_CONNECTIVITY]:
 - `MQTTnet` — MQTT v5 carrier beneath the admitted CloudEvents message decoder.
@@ -132,13 +137,16 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `CommunityToolkit.HighPerformance`
 - `CSparse` — managed sparse direct-factor terminal.
 - `MathNet.Numerics` — quadrature, distributions, and the MKL/OpenBLAS provider hooks.
+- `PeterO.Numbers` — exact-rational `ERational` ℚ⁷ dimension carrier and the `EFloat` criterion-sum accumulator.
 - `System.Numerics.Tensors`
 - `UnitsNet` — `Analysis/energy` result-unit coercion; `Analysis/aggregator` ISO 6946 surface-film binding.
 
 [GPU_DEVICE]:
 - `Silk.NET.WebGPU` — GPGPU dispatch over the AppUi-minted device; this lane acquires none of its own.
 - `Silk.NET.WebGPU.Extensions.WGPU` — `QueueSubmitForIndex` and `DevicePoll` deterministic completion beside pipeline statistics.
-- `Alimer.Bindings.MeshOptimizer` — residency-pyramid simplification and cluster-LOD bindings; process-global version state admits no folder tier.
+
+[MESH_PROCESSING]:
+- `Alimer.Bindings.MeshOptimizer` — residency-pyramid simplification and cluster-LOD bindings.
 
 [GEOMETRY_INTERCHANGE]:
 - `SharpGLTF.Core` — glTF core read and write beneath the tile-content lane.

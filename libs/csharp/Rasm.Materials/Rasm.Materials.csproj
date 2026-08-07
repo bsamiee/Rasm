@@ -28,8 +28,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Appearance">
-        <PackageReference Include="MessagePack" />
-        <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
         <PackageReference Include="Wacton.Unicolour.Datasets" />
     </ItemGroup>
 
@@ -60,6 +58,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Mapping Graph">
+        <PackageReference Include="MessagePack" />
+        <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>

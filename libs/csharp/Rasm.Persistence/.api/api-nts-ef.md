@@ -77,7 +77,7 @@
 [STACKING]:
 - `Npgsql.NetTopologySuite`(`.api/api-npgsql-nts.md`): the ADO wire seam — this plugin's `UseNetTopologySuite` registers the column mapping and translators while the data-source codec moves the bytes, and `NetTopologySuiteDataSourceConfigurationPlugin` auto-applies so the provider's pooled data source carries the binary codec.
 - `NetTopologySuite`(`libs/csharp/.api/api-nettopologysuite.md`): the geometry model this plugin maps — `GeometryFactory`-constructed `Geometry` and the DE-9IM algebra the translators project to PostGIS SQL.
-- `NetTopologySuite.IO.GeoJSON4STJ`(`.api/api-nts-geojson4stj.md`): a `geometry` column persists as PostGIS binary, but the same `Geometry` serializes to GeoJSON at the web egress boundary through the GeoJSON4STJ converters on the shared `JsonSerializerOptions`.
+- `NetTopologySuite.IO.GeoJSON4STJ`(`libs/csharp/.api/api-nts-geojson4stj.md`): a `geometry` column persists as PostGIS binary, but the same `Geometry` serializes to GeoJSON at the web egress boundary through the GeoJSON4STJ converters on the shared `JsonSerializerOptions`.
 - `linq2db`(`.api/api-linq2db-ef.md`): geometry columns survive `BulkCopy` with `BulkCopyType.ProviderSpecific` because the bridge reuses this EF model's geometry mapping and the Npgsql binary COPY writer emits the codec's wire form.
 - identity spatial tier: the `Element/identity` geometry/geography column is GiST-indexed for `DistanceKnn` (`<->`) and `IsWithinDistance` (`ST_DWithin`) predicate pushdown — the index-ordered nearest-neighbour sibling of the pgvector ANN order-by.
 
